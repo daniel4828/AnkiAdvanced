@@ -1,0 +1,1231 @@
+entries:
+
+  - type: vocabulary
+    simplified: 衣满为患
+    traditional: 衣滿為患
+    pinyin: yī mǎn wéi huàn
+    english: to have too many clothes and be troubled by it; a closet crisis
+    hsk: 超纲
+    pos: idiom (成语-style phrase)
+    definition_zh: 因衣服多而造成麻烦。
+    examples:
+      - zh: 她的衣柜里衣满为患，找件衣服要半小时。
+        pinyin: Tā de yīguì lǐ yī mǎn wéi huàn, zhǎo jiàn yīfu yào bàn xiǎoshí.
+        de: Ihr Kleiderschrank ist so überfüllt, dass sie eine halbe Stunde braucht, um ein Outfit zu finden.
+      - zh: 衣满为患是很多人的烦恼，断舍离可以解决这个问题。
+        pinyin: Yī mǎn wéi huàn shì hěnduō rén de fánnǎo, duàn shě lí kěyǐ jiějué zhège wèntí.
+        de: Zu viele Kleider zu haben, ist für viele Menschen ein Problem – Danshari kann Abhilfe schaffen.
+      - zh: 搬家的时候才发现自己衣满为患。
+        pinyin: Bānjiā de shíhòu cái fāxiàn zìjǐ yī mǎn wéi huàn.
+        de: Erst beim Umzug merkte sie, dass sie zu viele Klamotten hatte.
+      - zh: 他用断舍离的方法解决了衣满为患的问题。
+        pinyin: Tā yòng duàn shě lí de fāngfǎ jiějué le yī mǎn wéi huàn de wèntí.
+        de: Er löste das Problem des überfüllten Kleiderschranks mit der Danshari-Methode.
+    characters:
+      - char: 衣
+        pinyin: yī
+        hsk: "2"
+        detailed_analysis: false
+      - char: 满
+        traditional: 滿
+        pinyin: mǎn
+        hsk: "3"
+        detailed_analysis: true
+        meaning_in_context: full, filled to capacity
+        other_meanings:
+          - satisfied, contented (满足 mǎnzú)
+          - completely, fully (满意 mǎnyì – satisfied)
+          - to fill up (装满 zhuāng mǎn – to fill)
+        compounds:
+          - simplified: 满足
+            pinyin: mǎnzú
+            meaning: satisfied, to satisfy
+          - simplified: 满意
+            pinyin: mǎnyì
+            meaning: satisfied, content
+          - simplified: 充满
+            pinyin: chōngmǎn
+            meaning: filled with, full of
+          - simplified: 丰满
+            pinyin: fēngmǎn
+            meaning: plump, full-figured
+        etymology: |
+          满 consists of the water radical 氵 (三点水) on the left and 㒼 (mǎn) as the phonetic
+          component on the right. The original meaning was water filling a vessel to the brim –
+          a container so full that water is about to overflow. The water radical suggests liquid
+          filling a space. In oracle bone and bronze inscriptions, the phonetic component depicted
+          a covered container. The simplified form 满 and traditional 滿 share the same structure,
+          with the traditional form retaining more strokes in the right component. Extended
+          meanings include "satisfied" (emotionally full) and "completely."
+        etymology_example:
+          zh: 水缸已经满了，不能再加水了。
+          pinyin: Shuǐgāng yǐjīng mǎn le, bù néng zài jiā shuǐ le.
+          de: Der Wasserbehälter ist schon voll – man kann kein Wasser mehr hinzufügen.
+      - char: 为
+        traditional: 為
+        pinyin: wéi
+        hsk: "3"
+        detailed_analysis: true
+        meaning_in_context: to become; to constitute; to result in (linking verb)
+        other_meanings:
+          - to do, to act (为所欲为 wéi suǒ yù wéi – do as one pleases)
+          - for, on behalf of (为了 wèile – in order to)
+          - to be regarded as (以…为… yǐ...wéi... – to regard X as Y)
+        compounds:
+          - simplified: 为了
+            pinyin: wèile
+            meaning: in order to, for the sake of
+          - simplified: 因为
+            pinyin: yīnwèi
+            meaning: because
+          - simplified: 成为
+            pinyin: chéngwéi
+            meaning: to become
+          - simplified: 认为
+            pinyin: rènwéi
+            meaning: to think, to consider
+        etymology: |
+          The traditional form 為 originally depicted a hand (爪) guiding an elephant – the act
+          of domesticating or training an animal, symbolizing deliberate action and doing. In
+          oracle bone script, 為 clearly showed a hand above an elephant, representing human
+          agency and purposeful activity. Over time, the meaning broadened from "to do/act" to
+          a linking verb "to be/become/constitute." The simplified form 为 greatly reduces the
+          strokes while preserving the pronunciation.
+        etymology_example:
+          zh: 他将成为一名伟大的医生。
+          pinyin: Tā jiāng chéngwéi yī míng wěidà de yīshēng.
+          de: Er wird ein großartiger Arzt werden.
+      - char: 患
+        pinyin: huàn
+        hsk: "5"
+        detailed_analysis: true
+        meaning_in_context: trouble, worry, problem; to suffer from
+        other_meanings:
+          - disease, illness (患病 huànbìng – to fall ill)
+          - disaster, calamity (忧患 yōuhuàn – hardship)
+          - to worry about (患得患失 huàn dé huàn shī – anxious about gain and loss)
+        compounds:
+          - simplified: 患者
+            pinyin: huànzhě
+            meaning: patient (medical), sufferer
+          - simplified: 忧患
+            pinyin: yōuhuàn
+            meaning: hardship, suffering
+          - simplified: 隐患
+            pinyin: yǐnhuàn
+            meaning: hidden danger, latent risk
+          - simplified: 患病
+            pinyin: huànbìng
+            meaning: to fall ill
+        etymology: |
+          患 is composed of 串 (chuàn – to string together, two mouths/circles linked) on top
+          and 心 (xīn – heart) on the bottom. The top component originally depicted something
+          threaded through or connected, suggesting ongoing concern. The heart radical below
+          indicates an emotional or mental state. Together, the character conveys worry or
+          trouble that weighs on the heart – a continuous, lingering concern. In classical
+          Chinese, 患 was commonly used for both physical illness and moral/social troubles.
+        etymology_example:
+          zh: 防患于未然，比事后补救更重要。
+          pinyin: Fáng huàn yú wèirán, bǐ shìhòu bǔjiù gèng zhòngyào.
+          de: Vorbeugen ist wichtiger als Heilen – Probleme verhindern, bevor sie entstehen.
+
+  - type: vocabulary
+    simplified: 嗬
+    traditional: 嗬
+    pinyin: hē
+    english: wow / oh / hey (exclamation of surprise)
+    hsk: 超纲
+    pos: interjection (叹词)
+    definition_zh: 表示惊讶。
+    examples:
+      - zh: 嗬，下这么大雪！
+        pinyin: Hē, xià zhème dà xuě!
+        de: Wow, es schneit so stark!
+      - zh: 嗬，你今天打扮得真漂亮！
+        pinyin: Hē, nǐ jīntiān dǎban de zhēn piàoliang!
+        de: Oh, du bist heute wirklich schön gekleidet!
+      - zh: 嗬，这个蛋糕也太大了吧！
+        pinyin: Hē, zhège dàngāo yě tài dà le ba!
+        de: Hey, dieser Kuchen ist ja riesig!
+      - zh: 嗬，没想到他已经当上总经理了！
+        pinyin: Hē, méi xiǎngdào tā yǐjīng dāng shàng zǒngjīnglǐ le!
+        de: Wow, ich hätte nicht gedacht, dass er schon Geschäftsführer ist!
+    characters:
+      - char: 嗬
+        pinyin: hē
+        hsk: 超纲
+        detailed_analysis: true
+        meaning_in_context: exclamation of surprise or admiration
+        other_meanings:
+          - sometimes used to express mild sarcasm or irony in colloquial speech
+        compounds: []
+        etymology: |
+          嗬 is a phono-semantic character. Left: 口 (kǒu – mouth radical), indicating
+          it is a sound made with the mouth – i.e., a spoken exclamation. Right: 可 (kě)
+          serves as the phonetic component, giving a rough approximation of the sound.
+          The character was created specifically to represent this interjection in written
+          form. It belongs to a class of Chinese characters called 叹词字 (exclamation
+          characters) that have no etymological depth – they simply encode a sound.
+          Similar characters: 哦 (ó/ò), 哇 (wā), 哈 (hā) — all mouth radical + phonetic.
+
+  - type: vocabulary
+    simplified: 鸡肋
+    traditional: 雞肋
+    pinyin: jī lèi
+    english: chicken ribs; something of little value but hard to discard
+    hsk: 超纲
+    pos: noun (名词) / metaphor
+    definition_zh: 鸡的肋骨，吃起来没有多少肉，扔了又可惜。比喻没有什么价值、意义的事物或事情。
+    cultural_note: |
+      This idiom originates from the Three Kingdoms period (三国时代). Cao Cao (曹操) used
+      the phrase "鸡肋" as a military password, which his advisor Yang Xiu correctly
+      interpreted as a sign that Cao Cao intended to retreat. Chicken ribs have little
+      meat but feel wasteful to throw away — the perfect metaphor for things that are
+      neither useful enough to keep nor easy to discard.
+    examples:
+      - zh: 这份工作对他来说就是鸡肋，干着没意思，辞了又可惜。
+        pinyin: Zhè fèn gōngzuò duì tā lái shuō jiùshì jī lèi, gàn zhe méi yìsi, cí le yòu kěxī.
+        de: Diese Arbeit ist für ihn wie Hühnerrippen – langweilig zu machen, aber schade, sie aufzugeben.
+      - zh: 那个功能是个鸡肋，几乎没人用，但删掉又会有人抱怨。
+        pinyin: Nàgè gōngnéng shì gè jī lèi, jīhū méi rén yòng, dàn shān diào yòu huì yǒu rén bàoyuàn.
+        de: Diese Funktion ist überflüssig – kaum jemand nutzt sie, aber sie zu entfernen würde Beschwerden auslösen.
+      - zh: 这本书写得一般，读起来像鸡肋，弃之可惜，食之无味。
+        pinyin: Zhè běn shū xiě de yìbān, dú qǐlai xiàng jī lèi, qì zhī kěxī, shí zhī wú wèi.
+        de: Das Buch ist mittelmäßig – es aufzugeben wäre schade, aber es zu lesen bringt auch nichts.
+      - zh: 这个项目已经成了鸡肋，继续做没有意义，放弃又损失太大。
+        pinyin: Zhège xiàngmù yǐjīng chéngle jī lèi, jìxù zuò méiyǒu yìyì, fàngqì yòu sǔnshī tài dà.
+        de: Dieses Projekt ist zu einem Hühnerrippen-Projekt geworden – es fortzuführen ist sinnlos, es aufzugeben zu verlustreich.
+    characters:
+      - char: 鸡
+        traditional: 雞
+        pinyin: jī
+        hsk: "2"
+        detailed_analysis: false
+      - char: 肋
+        pinyin: lèi
+        hsk: 超纲
+        detailed_analysis: true
+        meaning_in_context: rib (of an animal or person)
+        other_meanings:
+          - ribs as a body part (肋骨 lèigǔ – rib bone)
+        compounds:
+          - simplified: 肋骨
+            pinyin: lèigǔ
+            meaning: rib bone
+          - simplified: 肋条
+            pinyin: lèitiáo
+            meaning: spare ribs (cut of meat)
+        etymology: |
+          肋 is a phono-semantic compound. Left: 月/肉 (ròu – flesh/meat radical, written as 月
+          in many characters), indicating the character relates to the body. Right: 力 (lì –
+          strength, force) acts as the phonetic component. The ribs are the bones of the torso
+          that protect vital organs — the "strong" bones of the body's core. In oracle bone and
+          bronze script, the meat radical was clearly pictographic. The character has remained
+          structurally stable from ancient to modern Chinese.
+        etymology_example:
+          zh: 医生说他摔断了两根肋骨。
+          pinyin: Yīshēng shuō tā shuāi duàn le liǎng gēn lèigǔ.
+          de: Der Arzt sagte, er habe sich zwei Rippen gebrochen.
+
+  - type: vocabulary
+    simplified: 老古董
+    traditional: 老古董
+    pinyin: lǎo gǔ dǒng
+    english: old relic; something outdated; an old fogey
+    hsk: 超纲
+    pos: noun (名词)
+    definition_zh: 陈旧过时的东西（或人）。
+    examples:
+      - zh: 这台电脑是个老古董，运行特别慢。
+        pinyin: Zhè tái diànnǎo shì gè lǎo gǔ dǒng, yùnxíng tèbié màn.
+        de: Dieser Computer ist ein Museumsstück – er läuft besonders langsam.
+      - zh: 他思想保守，大家都叫他老古董。
+        pinyin: Tā sīxiǎng bǎoshǒu, dàjiā dōu jiào tā lǎo gǔ dǒng.
+        de: Er ist sehr konservativ – alle nennen ihn einen Ewiggestrigen.
+      - zh: 这些老古董放在家里占地方，不如捐出去。
+        pinyin: Zhèxiē lǎo gǔ dǒng fàng zài jiā lǐ zhàn dìfang, bùrú juān chūqù.
+        de: Diese alten Sachen nehmen zuhause Platz weg – es wäre besser, sie zu spenden.
+      - zh: 他不用智能手机，只用老古董手机打电话。
+        pinyin: Tā bù yòng zhìnéng shǒujī, zhǐ yòng lǎo gǔ dǒng shǒujī dǎ diànhuà.
+        de: Er benutzt kein Smartphone – nur ein altes Tastenhandy zum Telefonieren.
+    characters:
+      - char: 老
+        pinyin: lǎo
+        hsk: "1"
+        detailed_analysis: false
+      - char: 古
+        pinyin: gǔ
+        hsk: "3"
+        detailed_analysis: true
+        meaning_in_context: ancient, old, from the past
+        other_meanings:
+          - classical (古典 gǔdiǎn – classical)
+          - antique (古董 gǔdǒng – antique)
+        compounds:
+          - simplified: 古典
+            pinyin: gǔdiǎn
+            meaning: classical
+          - simplified: 古代
+            pinyin: gǔdài
+            meaning: ancient times
+          - simplified: 考古
+            pinyin: kǎogǔ
+            meaning: archaeology
+          - simplified: 古董
+            pinyin: gǔdǒng
+            meaning: antique, relic
+        etymology: |
+          古 is composed of 十 (shí – ten) on top and 口 (kǒu – mouth) below. The original
+          interpretation: ten mouths (generations) have passed down this knowledge – i.e.,
+          something so old it has been transmitted through many generations orally. Another
+          reading suggests 十 represents "many" and 口 represents spoken tradition. In oracle
+          bone script, 古 depicted a shield or vessel, later standardized to its current form.
+          The character captures the sense of deep time and oral heritage.
+        etymology_example:
+          zh: 这座古庙已有一千年的历史。
+          pinyin: Zhè zuò gǔ miào yǐ yǒu yīqiān nián de lìshǐ.
+          de: Dieser alte Tempel hat eine Geschichte von tausend Jahren.
+      - char: 董
+        pinyin: dǒng
+        hsk: 超纲
+        detailed_analysis: true
+        meaning_in_context: (in 古董) antique; relic
+        other_meanings:
+          - to supervise, to direct (董事 dǒngshì – board member/director)
+          - a common Chinese surname (董)
+        compounds:
+          - simplified: 古董
+            pinyin: gǔdǒng
+            meaning: antique, relic
+          - simplified: 董事
+            pinyin: dǒngshì
+            meaning: board member, director
+          - simplified: 董事会
+            pinyin: dǒngshìhuì
+            meaning: board of directors
+        etymology: |
+          董 consists of 艹 (grass/plant radical) on top and 重 (zhòng – heavy, important)
+          below. The plant radical suggests something growing from or rooted in the earth.
+          The phonetic/semantic component 重 adds the sense of weight and importance. The
+          original meaning of 董 was "to supervise crops" or "to oversee" – someone who
+          watches over and manages. In the compound 古董 (antique), 董 is used phonetically
+          and semantically – old things that carry weight and importance.
+
+  - type: vocabulary
+    simplified: 淘汰
+    traditional: 淘汰
+    pinyin: táo tài
+    english: to eliminate; to phase out; to be weeded out
+    hsk: "5"
+    pos: verb (动词)
+    definition_zh: 在选择中去掉（不好的或不适合的）。
+    examples:
+      - zh: 这家公司淘汰了所有旧设备，换上了新机器。
+        pinyin: Zhè jiā gōngsī táotài le suǒyǒu jiù shèbèi, huàn shàng le xīn jīqì.
+        de: Das Unternehmen hat alle alten Geräte ausgemustert und durch neue Maschinen ersetzt.
+      - zh: 他在第一轮比赛中就被淘汰了。
+        pinyin: Tā zài dì yī lún bǐsài zhōng jiù bèi táotài le.
+        de: Er wurde bereits in der ersten Runde des Wettbewerbs ausgeschieden.
+      - zh: 不适应时代的企业终将被市场淘汰。
+        pinyin: Bù shìyìng shídài de qǐyè zhōng jiāng bèi shìchǎng táotài.
+        de: Unternehmen, die sich nicht anpassen, werden letztendlich vom Markt verdrängt.
+      - zh: 自然界的法则就是优胜劣汰。
+        pinyin: Zìrán jiè de fǎzé jiùshì yōushèng liètài.
+        de: Das Gesetz der Natur ist das Überleben des Stärkeren.
+    characters:
+      - char: 淘
+        pinyin: táo
+        hsk: "5"
+        detailed_analysis: true
+        meaning_in_context: to wash out, to sift, to eliminate through selection
+        other_meanings:
+          - to rinse (淘米 táomǐ – to wash rice)
+          - naughty, mischievous (淘气 táoqì – naughty)
+          - to search for, to dig out (淘金 táojīn – to pan for gold)
+        compounds:
+          - simplified: 淘气
+            pinyin: táoqì
+            meaning: naughty, mischievous
+          - simplified: 淘金
+            pinyin: táojīn
+            meaning: to pan for gold
+          - simplified: 淘米
+            pinyin: táomǐ
+            meaning: to wash rice
+        etymology: |
+          淘 is a phono-semantic compound. Left: 氵 (water radical), indicating an action
+          involving water. Right: 匋 (táo – phonetic, related to pottery/kiln). The original
+          meaning was to wash or rinse with water – specifically the process of washing grain
+          or sifting sediment in water to separate useful material from waste. This washing/
+          sifting process naturally extended to mean "to eliminate the undesirable" in a
+          broader sense. The character evokes the image of a prospector washing gravel in a
+          stream to find gold – keeping what is valuable and discarding the rest.
+        etymology_example:
+          zh: 她每次做饭前都会仔细淘米。
+          pinyin: Tā měi cì zuòfàn qián dōu huì zǐxì táo mǐ.
+          de: Bevor sie kocht, wäscht sie den Reis immer sorgfältig.
+      - char: 汰
+        pinyin: tài
+        hsk: "5"
+        detailed_analysis: true
+        meaning_in_context: to eliminate, to wash away, to discard the inferior
+        other_meanings:
+          - excess, extravagance (奢汰 shētài – extravagant, archaic)
+        compounds:
+          - simplified: 淘汰
+            pinyin: táotài
+            meaning: to eliminate, phase out
+          - simplified: 优胜劣汰
+            pinyin: yōushèng liètài
+            meaning: survival of the fittest
+        etymology: |
+          汰 is a phono-semantic compound. Left: 氵 (water radical). Right: 太 (tài – great,
+          excessive; also phonetic). The original meaning related to washing or rinsing in
+          water – the act of separating, with excess material being washed away. Combined
+          with 淘, the compound 淘汰 reinforces the idea of a thorough washing process that
+          eliminates inferior elements. In classical Chinese, 汰 could also mean "excessive"
+          or "extravagant" (too much washing = waste), though this sense is now archaic.
+        etymology_example:
+          zh: 优胜劣汰是自然界的基本规律。
+          pinyin: Yōushèng liètài shì zìrán jiè de jīběn guīlǜ.
+          de: Das Überleben des Stärkeren ist ein Grundprinzip der Natur.
+
+  - type: vocabulary
+    simplified: 见证
+    traditional: 見證
+    pinyin: jiàn zhèng
+    english: witness; proof; to bear witness to
+    hsk: "5"
+    pos: noun / verb (名词/动词)
+    definition_zh: 可以做证的人或可以做证据的物品；亲眼看到（重要事件）。
+    examples:
+      - zh: 这张老照片是他们友谊的最好见证。
+        pinyin: Zhè zhāng lǎo zhàopiàn shì tāmen yǒuyì de zuì hǎo jiànzhèng.
+        de: Dieses alte Foto ist der beste Zeuge ihrer Freundschaft.
+      - zh: 我们见证了历史的重要时刻。
+        pinyin: Wǒmen jiànzhèng le lìshǐ de zhòngyào shíkè.
+        de: Wir haben einen wichtigen historischen Moment miterlebt.
+      - zh: 他是这场事故的唯一见证人。
+        pinyin: Tā shì zhè chǎng shìgù de wéiyī jiànzhèng rén.
+        de: Er ist der einzige Zeuge dieses Unfalls.
+      - zh: 这座城市的变化见证了中国经济的腾飞。
+        pinyin: Zhè zuò chéngshì de biànhuà jiànzhèng le Zhōngguó jīngjì de téngfēi.
+        de: Der Wandel dieser Stadt zeugt vom wirtschaftlichen Aufschwung Chinas.
+    characters:
+      - char: 见
+        traditional: 見
+        pinyin: jiàn
+        hsk: "1"
+        detailed_analysis: false
+      - char: 证
+        traditional: 證
+        pinyin: zhèng
+        hsk: "4"
+        detailed_analysis: true
+        meaning_in_context: proof, evidence; to prove, to certify
+        other_meanings:
+          - certificate, document (证件 zhèngjiàn – ID document)
+          - to verify (证明 zhèngmíng – to prove)
+        compounds:
+          - simplified: 证明
+            pinyin: zhèngmíng
+            meaning: to prove, certificate
+          - simplified: 证件
+            pinyin: zhèngjiàn
+            meaning: ID document, credentials
+          - simplified: 证据
+            pinyin: zhèngjù
+            meaning: evidence, proof
+          - simplified: 签证
+            pinyin: qiānzhèng
+            meaning: visa
+        etymology: |
+          The traditional form 證 is a phono-semantic compound. Left: 言 (yán – speech,
+          words), indicating it relates to spoken testimony or verbal proof. Right: 登 (dēng –
+          to climb, to register; also phonetic). The original meaning was to give testimony,
+          to speak as a witness – verbal proof before a court or authority. Over time it
+          extended to written proof and certificates. The simplified form 证 retains 言
+          (as 讠) and simplifies the right component to 正 (zhèng – correct, upright), which
+          both approximates the sound and adds semantic reinforcement: correct/upright speech.
+        etymology_example:
+          zh: 你需要证明自己的身份才能入场。
+          pinyin: Nǐ xūyào zhèngmíng zìjǐ de shēnfèn cái néng rùchǎng.
+          de: Du musst deine Identität nachweisen, um eintreten zu können.
+
+  - type: vocabulary
+    simplified: 用场
+    traditional: 用場
+    pinyin: yòng chǎng
+    english: use, purpose, utility (in the phrase 派上用场 / 派不上用场)
+    hsk: "5"
+    pos: noun (名词)
+    definition_zh: 用途。常用于"派上用场"（to be useful/put to use）或"派不上用场"（to be of no use）。
+    examples:
+      - zh: 这把旧钥匙终于派上用场了。
+        pinyin: Zhè bǎ jiù yàoshi zhōngyú pài shàng yòngchǎng le.
+        de: Dieser alte Schlüssel kam endlich zum Einsatz.
+      - zh: 学了这么多年德语，终于派上用场了。
+        pinyin: Xué le zhème duō nián Déyǔ, zhōngyú pài shàng yòngchǎng le.
+        de: So viele Jahre Deutsch gelernt – endlich zahlt es sich aus.
+      - zh: 这些旧衣服放着也派不上用场，不如捐出去。
+        pinyin: Zhèxiē jiù yīfu fàng zhe yě pài bù shàng yòngchǎng, bùrú juān chūqù.
+        de: Diese alten Kleider sind so auch nutzlos – besser, man spendet sie.
+      - zh: 她把学到的急救知识派上了用场，救了一条命。
+        pinyin: Tā bǎ xué dào de jíjiù zhīshi pài shàng le yòngchǎng, jiù le yī tiáo mìng.
+        de: Sie setzte ihr erlerntes Erste-Hilfe-Wissen ein und rettete ein Leben.
+    characters:
+      - char: 用
+        pinyin: yòng
+        hsk: "1"
+        detailed_analysis: false
+      - char: 场
+        traditional: 場
+        pinyin: chǎng
+        hsk: "3"
+        detailed_analysis: true
+        meaning_in_context: place, field; (here) purpose, application
+        other_meanings:
+          - place, venue (广场 guǎngchǎng – public square)
+          - measure word for events (一场比赛 yī chǎng bǐsài – a game/match)
+          - scene (场景 chǎngjǐng – scene, setting)
+        compounds:
+          - simplified: 广场
+            pinyin: guǎngchǎng
+            meaning: public square, plaza
+          - simplified: 市场
+            pinyin: shìchǎng
+            meaning: market
+          - simplified: 操场
+            pinyin: cāochǎng
+            meaning: sports field, playground
+          - simplified: 场景
+            pinyin: chǎngjǐng
+            meaning: scene, setting
+        etymology: |
+          The traditional form 場 consists of 土 (tǔ – earth/ground radical) on the left
+          and 昜 (yáng – phonetic component, related to the sun rising and spreading light)
+          on the right. The original meaning was a flat, open piece of ground – a threshing
+          floor or an open area where activities take place. The earth radical grounds the
+          character in physical space. Over time, 场 extended from a specific physical place
+          to a general concept of venue, event, or occasion. The simplified form 场 replaces
+          昜 with 汤's simplification, greatly reducing stroke count.
+        etymology_example:
+          zh: 农民在场院里晒粮食。
+          pinyin: Nóngmín zài chǎngyuàn lǐ shài liángshi.
+          de: Die Bauern trocknen Getreide auf dem Dreschwenn.
+
+  - type: vocabulary
+    simplified: 银子
+    traditional: 銀子
+    pinyin: yín zi
+    english: silver; money (colloquial/historical)
+    hsk: 超纲
+    pos: noun (名词)
+    definition_zh: 金属银的通称，生活中也指货币（多为口语或带文学色彩）。
+    examples:
+      - zh: 他为了买这套房子花了大把银子。
+        pinyin: Tā wèile mǎi zhè tào fángzi huā le dà bǎ yínzi.
+        de: Er hat ein Vermögen für diese Wohnung ausgegeben.
+      - zh: 古代商人用银子做交易。
+        pinyin: Gǔdài shāngrén yòng yínzi zuò jiāoyì.
+        de: In der Antike verwendeten Händler Silber als Zahlungsmittel.
+      - zh: 这条项链是纯银子做的。
+        pinyin: Zhè tiáo xiàngliàn shì chún yínzi zuò de.
+        de: Diese Halskette ist aus reinem Silber.
+      - zh: 别担心，我有的是银子！
+        pinyin: Bié dānxīn, wǒ yǒu de shì yínzi!
+        de: Keine Sorge, ich habe jede Menge Kohle!
+    characters:
+      - char: 银
+        traditional: 銀
+        pinyin: yín
+        hsk: "3"
+        detailed_analysis: true
+        meaning_in_context: silver (metal); money
+        other_meanings:
+          - silver-colored (银白 yínbái – silver-white)
+          - bank (银行 yínháng – bank)
+        compounds:
+          - simplified: 银行
+            pinyin: yínháng
+            meaning: bank
+          - simplified: 银白
+            pinyin: yínbái
+            meaning: silver-white
+          - simplified: 银牌
+            pinyin: yínpái
+            meaning: silver medal
+          - simplified: 白银
+            pinyin: báiyín
+            meaning: silver (literary/formal)
+        etymology: |
+          The traditional form 銀 is a phono-semantic compound. Left: 金 (jīn – gold/metal
+          radical), indicating a metal. Right: 艮 (gèn – phonetic component, also meaning
+          "hard, stubborn"). 艮 in ancient script depicted a person looking back over their
+          shoulder – something resistant or unyielding, which fits the hardness of metal.
+          Silver was one of the most important precious metals in ancient China and was used
+          as currency for centuries. The simplified form 银 retains the metal radical and
+          simplifies 艮. The character has always meant silver metal first, with monetary
+          connotations following naturally from silver's use as currency.
+        etymology_example:
+          zh: 古代中国用银两作为货币。
+          pinyin: Gǔdài Zhōngguó yòng yínliǎng zuòwéi huòbì.
+          de: Im alten China diente Silbergeld als Währung.
+
+  - type: vocabulary
+    simplified: 意义非凡
+    traditional: 意義非凡
+    pinyin: yì yì fēi fán
+    english: of extraordinary significance; highly meaningful
+    hsk: 超纲
+    pos: adjective phrase
+    definition_zh: 非常有意义。
+    examples:
+      - zh: 这次登山对他来说意义非凡，因为那是他父亲最喜欢的山。
+        pinyin: Zhè cì dēngshān duì tā lái shuō yìyì fēifán, yīnwèi nà shì tā fùqīn zuì xǐhuān de shān.
+        de: Diese Bergbesteigung hatte für ihn eine außergewöhnliche Bedeutung, da es der Lieblingsberg seines Vaters war.
+      - zh: 这项发现对科学界来说意义非凡。
+        pinyin: Zhè xiàng fāxiàn duì kēxuéjiè lái shuō yìyì fēifán.
+        de: Diese Entdeckung ist für die Wissenschaft von außerordentlicher Bedeutung.
+      - zh: 两国领导人的握手意义非凡，标志着新时代的开始。
+        pinyin: Liǎng guó lǐngdǎo rén de wòshǒu yìyì fēifán, biāozhì zhe xīn shídài de kāishǐ.
+        de: Der Handschlag der beiden Staatschefs war von außerordentlicher Bedeutung und markierte den Beginn einer neuen Ära.
+      - zh: 对一个孩子来说，第一次独立完成作业意义非凡。
+        pinyin: Duì yī gè háizi lái shuō, dì yī cì dúlì wánchéng zuòyè yìyì fēifán.
+        de: Für ein Kind ist es besonders bedeutsam, die Hausaufgaben zum ersten Mal selbstständig zu erledigen.
+    characters:
+      - char: 意
+        pinyin: yì
+        hsk: "3"
+        detailed_analysis: true
+        meaning_in_context: meaning, significance; intention
+        other_meanings:
+          - idea, thought (意思 yìsi – meaning / interesting)
+          - will, wish (意愿 yìyuàn – wish, desire)
+          - unexpected (意外 yìwài – accident, unexpected)
+        compounds:
+          - simplified: 意思
+            pinyin: yìsi
+            meaning: meaning; interesting (colloquial)
+          - simplified: 意见
+            pinyin: yìjiàn
+            meaning: opinion, suggestion
+          - simplified: 意外
+            pinyin: yìwài
+            meaning: accident, unexpected
+          - simplified: 注意
+            pinyin: zhùyì
+            meaning: to pay attention
+        etymology: |
+          意 is a compound of 音 (yīn – sound, music) on top and 心 (xīn – heart) below.
+          The character originally conveyed "what sounds in the heart" – inner thought or
+          intention expressed through sound/speech. In oracle bone and bronze script, 音
+          depicted a mouth with a line inside (a sound or note), while 心 was a pictograph
+          of the heart. Together, 意 captures the idea of inner feeling or thought that seeks
+          expression. This makes it the perfect character for "meaning" and "intention."
+        etymology_example:
+          zh: 他的话意义深远，值得细细品味。
+          pinyin: Tā de huà yìyì shēnyuǎn, zhíde xīxī pǐnwèi.
+          de: Seine Worte haben eine tiefe Bedeutung und sind es wert, genossen zu werden.
+      - char: 义
+        traditional: 義
+        pinyin: yì
+        hsk: "4"
+        detailed_analysis: true
+        meaning_in_context: meaning, sense; righteousness
+        other_meanings:
+          - justice, righteousness (正义 zhèngyì – justice)
+          - loyalty (义气 yìqi – sense of loyalty/brotherhood)
+          - adopted, non-biological (义父 yìfù – adoptive father)
+        compounds:
+          - simplified: 意义
+            pinyin: yìyì
+            meaning: meaning, significance
+          - simplified: 正义
+            pinyin: zhèngyì
+            meaning: justice
+          - simplified: 定义
+            pinyin: dìngyì
+            meaning: definition
+          - simplified: 主义
+            pinyin: zhǔyì
+            meaning: -ism, doctrine
+        etymology: |
+          The traditional form 義 depicts 羊 (yáng – sheep) on top and 我 (wǒ – I/me, but
+          here representing a weapon with serrated edges) below. The sheep was a symbol of
+          beauty, goodness, and sacrifice in ancient Chinese culture. The combination suggested
+          a beautiful, morally upright quality – righteousness. Over time, 义 extended from
+          moral rightness to "meaning" and "significance" (the right interpretation of
+          something). The simplified form 义 is a dramatic reduction to just three strokes,
+          derived from the cursive form of 義.
+        etymology_example:
+          zh: 这个词有两种不同的意义。
+          pinyin: Zhège cí yǒu liǎng zhǒng bùtóng de yìyì.
+          de: Dieses Wort hat zwei verschiedene Bedeutungen.
+      - char: 非
+        pinyin: fēi
+        hsk: "3"
+        detailed_analysis: true
+        meaning_in_context: not, non-; extraordinary (prefix intensifier)
+        other_meanings:
+          - wrong, incorrect (是非 shìfēi – right and wrong)
+          - Africa (非洲 Fēizhōu – Africa)
+          - must (非…不可 fēi...bùkě – must)
+        compounds:
+          - simplified: 非常
+            pinyin: fēicháng
+            meaning: very, extremely
+          - simplified: 非洲
+            pinyin: Fēizhōu
+            meaning: Africa
+          - simplified: 是非
+            pinyin: shìfēi
+            meaning: right and wrong
+        etymology: |
+          非 is a pictograph. In oracle bone script, it depicted two wings facing away from
+          each other (or two objects going in opposite directions). The original meaning was
+          "going against, opposing" – two things moving apart. This gave rise to its primary
+          modern meaning of negation (not, un-, non-). The visual symmetry of the character
+          reflects its meaning of two opposing sides. As a prefix, 非 negates whatever follows.
+        etymology_example:
+          zh: 他非去不可，任何人都拦不住他。
+          pinyin: Tā fēi qù bùkě, rènhé rén dōu lán bù zhù tā.
+          de: Er muss unbedingt gehen – niemand kann ihn aufhalten.
+      - char: 凡
+        pinyin: fán
+        hsk: "5"
+        detailed_analysis: true
+        meaning_in_context: ordinary, common; (non-凡 = extraordinary)
+        other_meanings:
+          - all, every (凡是 fánshì – all, every)
+          - the mortal world (凡间 fánjiān – the mortal realm)
+        compounds:
+          - simplified: 平凡
+            pinyin: píngfán
+            meaning: ordinary, commonplace
+          - simplified: 非凡
+            pinyin: fēifán
+            meaning: extraordinary, remarkable
+          - simplified: 凡是
+            pinyin: fánshì
+            meaning: all, every (without exception)
+        etymology: |
+          凡 in oracle bone script depicted a tray or flat dish – something common, everyday,
+          ordinary. The flat tray was a mundane household object, symbolizing the ordinary and
+          commonplace. From "a flat, common object" came the extended meaning of "ordinary,
+          average, every." The character is also used as a general quantifier meaning "all"
+          or "every" (凡是 – in every case). In 非凡, the negation of 凡 creates the sense
+          of going beyond the ordinary.
+        etymology_example:
+          zh: 他的才华非凡，令人叹服。
+          pinyin: Tā de cáihuá fēifán, lìng rén tànfú.
+          de: Sein Talent ist außergewöhnlich und macht tiefen Eindruck.
+
+  - type: vocabulary
+    simplified: 淹没
+    traditional: 淹沒
+    pinyin: yān mò
+    english: to submerge, to flood; to be drowned out / overwhelmed
+    hsk: "5"
+    pos: verb (动词)
+    definition_zh: （大水）漫过；盖过。引申为被大量事物淹盖，听不见或看不见。
+    examples:
+      - zh: 暴雨过后，村庄被洪水淹没了。
+        pinyin: Bàoyǔ guòhòu, cūnzhuāng bèi hóngshuǐ yānmò le.
+        de: Nach dem heftigen Regen wurde das Dorf vom Hochwasser überflutet.
+      - zh: 他的声音被人群的喧嚣淹没了。
+        pinyin: Tā de shēngyīn bèi rénqún de xuānxiāo yānmò le.
+        de: Seine Stimme wurde vom Lärm der Menge übertönt.
+      - zh: 小桥被水淹没，无法通行。
+        pinyin: Xiǎo qiáo bèi shuǐ yānmò, wúfǎ tōngxíng.
+        de: Die kleine Brücke wurde vom Wasser überflutet und war nicht passierbar.
+      - zh: 他的才华被平凡的工作淹没了，十分可惜。
+        pinyin: Tā de cáihuá bèi píngfán de gōngzuò yānmò le, shífēn kěxī.
+        de: Sein Talent wurde von der eintönigen Arbeit begraben – sehr schade.
+    characters:
+      - char: 淹
+        pinyin: yān
+        hsk: "5"
+        detailed_analysis: true
+        meaning_in_context: to flood, to submerge, to inundate
+        other_meanings:
+          - to stay long in one place (淹留 yānliú – to linger, archaic)
+          - well-versed (淹博 yānbó – erudite, archaic)
+        compounds:
+          - simplified: 淹没
+            pinyin: yānmò
+            meaning: to submerge, to flood
+          - simplified: 淹死
+            pinyin: yānsǐ
+            meaning: to drown
+        etymology: |
+          淹 is a phono-semantic compound. Left: 氵 (water radical), indicating relation to
+          water. Right: 奄 (yǎn – phonetic, meaning "to cover, to overwhelm suddenly"). 奄
+          in ancient script depicted a large covering object coming down over something. The
+          combination of water and "sudden covering" perfectly captures the image of floodwater
+          suddenly covering and submerging something. In classical Chinese, 淹 also had the
+          sense of "staying too long" (water that doesn't flow away), giving the archaic
+          meaning of lingering or dwelling.
+        etymology_example:
+          zh: 洪水淹没了整个村庄。
+          pinyin: Hóngshuǐ yānmò le zhěnggè cūnzhuāng.
+          de: Das Hochwasser überflutete das gesamte Dorf.
+      - char: 没
+        pinyin: mò
+        hsk: "1"
+        detailed_analysis: false
+        note: Here pronounced mò (to sink, submerge), not the common méi (not have). Different tone and meaning.
+
+  - type: vocabulary
+    simplified: 整洁
+    traditional: 整潔
+    pinyin: zhěng jié
+    english: neat and clean, tidy
+    hsk: "4"
+    pos: adjective (形容词)
+    definition_zh: 整齐清洁。
+    examples:
+      - zh: 她的房间总是整洁有序，令人赏心悦目。
+        pinyin: Tā de fángjiān zǒngshì zhěngjié yǒuxù, lìng rén shǎngxīn yuèmù.
+        de: Ihr Zimmer ist immer ordentlich und aufgeräumt – ein Genuss für die Augen.
+      - zh: 面试时，衣着整洁会给面试官留下好印象。
+        pinyin: Miànshì shí, yīzhuó zhěngjié huì gěi miànshì guān liú xià hǎo yìnxiàng.
+        de: Bei einem Vorstellungsgespräch hinterlässt ein gepflegtes Äußeres einen guten Eindruck.
+      - zh: 请保持教室整洁，不要乱扔垃圾。
+        pinyin: Qǐng bǎochí jiàoshì zhěngjié, bùyào luàn rēng lājī.
+        de: Bitte haltet das Klassenzimmer sauber und werft keinen Müll herum.
+      - zh: 断舍离之后，家里整洁多了。
+        pinyin: Duàn shě lí zhīhòu, jiā lǐ zhěngjié duō le.
+        de: Nach dem Danshari ist das Zuhause viel ordentlicher geworden.
+    characters:
+      - char: 整
+        pinyin: zhěng
+        hsk: "3"
+        detailed_analysis: true
+        meaning_in_context: neat, orderly; whole, complete
+        other_meanings:
+          - to put in order (整理 zhěnglǐ – to tidy up)
+          - entire, whole (整个 zhěnggè – the whole, entire)
+          - exactly (整整 zhěngzhěng – exactly, a full amount)
+        compounds:
+          - simplified: 整理
+            pinyin: zhěnglǐ
+            meaning: to tidy up, to organize
+          - simplified: 整个
+            pinyin: zhěnggè
+            meaning: the whole, entire
+          - simplified: 整齐
+            pinyin: zhěngqí
+            meaning: neat, orderly, uniform
+          - simplified: 调整
+            pinyin: tiáozhěng
+            meaning: to adjust, adjustment
+        etymology: |
+          整 is composed of 束 (shù – to bind, bundle) on top-left, 攵 (pū – hand with
+          stick, indicating action/correction) on the right, and 正 (zhèng – correct,
+          upright) at the bottom. The character literally depicts the act of using a stick
+          to bind and correct things into proper order. 正 at the base reinforces the idea
+          of correctness and uprightness. Together, 整 conveys bringing things into a
+          correct, orderly state through deliberate action.
+        etymology_example:
+          zh: 请把书架上的书整理一下。
+          pinyin: Qǐng bǎ shūjià shàng de shū zhěnglǐ yīxià.
+          de: Bitte räum die Bücher im Regal auf.
+      - char: 洁
+        traditional: 潔
+        pinyin: jié
+        hsk: "4"
+        detailed_analysis: true
+        meaning_in_context: clean, pure
+        other_meanings:
+          - pure, uncontaminated (纯洁 chúnjié – pure)
+          - to cleanse (洁白 jiébái – spotless white)
+        compounds:
+          - simplified: 清洁
+            pinyin: qīngjié
+            meaning: clean, to clean
+          - simplified: 纯洁
+            pinyin: chúnjié
+            meaning: pure, innocent
+          - simplified: 洁白
+            pinyin: jiébái
+            meaning: spotlessly white
+        etymology: |
+          The traditional form 潔 is a phono-semantic compound. Left: 氵 (water radical),
+          indicating cleanliness through washing with water. Right: 絜 (xié/jié – phonetic,
+          meaning to measure or to bind tightly). The idea of water washing things into a
+          pure, measured state underlies the character. The simplified form 洁 retains the
+          water radical and simplifies the right to 吉 (jí – lucky, auspicious), which
+          serves as the phonetic approximation.
+
+  - type: vocabulary
+    simplified: 畅快
+    traditional: 暢快
+    pinyin: chàng kuài
+    english: carefree and happy; refreshingly pleasant
+    hsk: "5"
+    pos: adjective (形容词)
+    definition_zh: 舒服快乐，心情舒畅。
+    examples:
+      - zh: 整理完房间后，她感到非常畅快。
+        pinyin: Zhěnglǐ wán fángjiān hòu, tā gǎndào fēicháng chàngkuài.
+        de: Nachdem sie das Zimmer aufgeräumt hatte, fühlte sie sich herrlich erleichtert.
+      - zh: 在山顶大声喊叫，感觉真畅快！
+        pinyin: Zài shāndǐng dàshēng hǎnjiào, gǎnjué zhēn chàngkuài!
+        de: Auf dem Gipfel laut zu schreien fühlt sich wirklich befreiend an!
+      - zh: 一场大雨之后，空气清新，令人心情畅快。
+        pinyin: Yī chǎng dà yǔ zhīhòu, kōngqì qīngxīn, lìng rén xīnqíng chàngkuài.
+        de: Nach einem heftigen Regen ist die Luft frisch – man fühlt sich herrlich.
+      - zh: 他把心里的话全说出来了，感到十分畅快。
+        pinyin: Tā bǎ xīn lǐ de huà quán shuō chūlái le, gǎndào shífēn chàngkuài.
+        de: Er sagte alles, was er auf dem Herzen hatte, und fühlte sich danach sehr erleichtert.
+    characters:
+      - char: 畅
+        traditional: 暢
+        pinyin: chàng
+        hsk: "5"
+        detailed_analysis: true
+        meaning_in_context: smooth, unobstructed; free and easy
+        other_meanings:
+          - to flow freely (畅通 chàngtōng – unobstructed flow)
+          - to speak freely (畅谈 chàngtán – to talk freely)
+          - popular, in great demand (畅销 chàngxiāo – bestselling)
+        compounds:
+          - simplified: 畅通
+            pinyin: chàngtōng
+            meaning: unobstructed, clear (of traffic/flow)
+          - simplified: 畅销
+            pinyin: chàngxiāo
+            meaning: bestselling, popular
+          - simplified: 畅谈
+            pinyin: chàngtán
+            meaning: to talk freely and at length
+          - simplified: 舒畅
+            pinyin: shūchàng
+            meaning: comfortable and free, relaxed
+        etymology: |
+          The traditional form 暢 consists of 申 (shēn – to extend, to express) and 昜
+          (yáng – phonetic, related to sunlight spreading). The original meaning was to
+          extend or express freely – like sunlight spreading without obstruction. The
+          simplified form 畅 pairs 申 with the field radical 田, though this is a graphic
+          simplification rather than a semantic one. The core meaning of unobstructed,
+          free-flowing movement has remained constant.
+        etymology_example:
+          zh: 高速公路今天畅通无阻，开车很顺利。
+          pinyin: Gāosùgōnglù jīntiān chàngtōng wúzǔ, kāichē hěn shùnlì.
+          de: Die Autobahn war heute völlig frei – die Fahrt verlief reibungslos.
+      - char: 快
+        pinyin: kuài
+        hsk: "1"
+        detailed_analysis: false
+
+  - type: vocabulary
+    simplified: 断舍离
+    traditional: 斷捨離
+    pinyin: duàn shě lí
+    english: Danshari; the practice of decluttering by cutting, discarding, and detaching
+    hsk: 超纲
+    pos: noun / concept (名词/理念)
+    definition_zh: 不必需、不合适、过时的东西全部扔掉，并放弃对它们的依恋。源自日语「断捨離」。
+    cultural_note: |
+      断舍离 is borrowed from the Japanese concept "Danshari" (断捨離), popularized by
+      author Hideko Yamashita. It combines three actions: 断 (cut off new clutter from
+      entering), 舍 (discard what is already there), 离 (detach emotionally from
+      possessions). The concept became hugely popular in Chinese-speaking countries
+      and is closely associated with minimalism and the KonMari method.
+    examples:
+      - zh: 她花了整个周末练习断舍离，扔掉了三大袋衣服。
+        pinyin: Tā huā le zhěnggè zhōumò liànxí duàn shě lí, rēng diào le sān dà dài yīfu.
+        de: Sie verbrachte das ganze Wochenende mit Danshari und warf drei große Säcke Kleider weg.
+      - zh: 断舍离不只是整理物品，更是整理内心。
+        pinyin: Duàn shě lí bù zhǐ shì zhěnglǐ wùpǐn, gèng shì zhěnglǐ nèixīn.
+        de: Danshari ist nicht nur das Aufräumen von Dingen, sondern auch das Aufräumen des Herzens.
+      - zh: 自从开始断舍离，她的生活变得更简单、更快乐。
+        pinyin: Zìcóng kāishǐ duàn shě lí, tā de shēnghuó biàn de gèng jiǎndān, gèng kuàilè.
+        de: Seit sie mit Danshari begann, wurde ihr Leben einfacher und glücklicher.
+      - zh: 断舍离的核心是问自己：这件东西现在还让我心动吗？
+        pinyin: "Duàn shě lí de héxīn shì wèn zìjǐ: zhè jiàn dōngxi xiànzài hái ràng wǒ xīndòng ma?"
+        de: "Der Kern von Danshari ist die Frage: Löst dieser Gegenstand in mir noch Freude aus?"
+    characters:
+      - char: 断
+        traditional: 斷
+        pinyin: duàn
+        hsk: "4"
+        detailed_analysis: true
+        meaning_in_context: to cut off, to stop, to sever (new things from entering your life)
+        other_meanings:
+          - to break (断裂 duànliè – to fracture)
+          - to judge (判断 pànduàn – to judge)
+          - absolutely (断然 duànrán – resolutely)
+        compounds:
+          - simplified: 判断
+            pinyin: pànduàn
+            meaning: to judge, judgment
+          - simplified: 中断
+            pinyin: zhōngduàn
+            meaning: to interrupt, to break off
+          - simplified: 断绝
+            pinyin: duànjué
+            meaning: to sever, to cut off completely
+          - simplified: 断言
+            pinyin: duànyán
+            meaning: to assert, to state categorically
+        etymology: |
+          The traditional form 斷 consists of 糸+糸 (two silk threads, representing
+          something continuous) on the left and 斤 (jīn – axe) on the right. The image
+          is vivid: an axe cutting through threads – severing what was connected. In oracle
+          bone script, the character showed threads being cut by a blade. The simplified
+          form 断 retains the axe radical (斤) and simplifies the left side. The core
+          meaning of cutting and severing has remained unchanged for thousands of years.
+        etymology_example:
+          zh: 他决定断绝与那些负能量朋友的联系。
+          pinyin: Tā juédìng duànjué yǔ nàxiē fù néngliàng péngyǒu de liánxì.
+          de: Er beschloss, den Kontakt zu den Freunden mit negativer Energie zu kappen.
+      - char: 舍
+        traditional: 捨
+        pinyin: shě
+        hsk: "4"
+        detailed_analysis: true
+        meaning_in_context: to give up, to discard, to let go of (possessions)
+        other_meanings:
+          - dwelling, house (宿舍 sùshě – dormitory)
+          - to give generously (施舍 shīshě – to give alms)
+        compounds:
+          - simplified: 舍不得
+            pinyin: shěbude
+            meaning: reluctant to give up, can't bear to part with
+          - simplified: 宿舍
+            pinyin: sùshě
+            meaning: dormitory
+          - simplified: 施舍
+            pinyin: shīshě
+            meaning: to give alms, to donate
+          - simplified: 取舍
+            pinyin: qǔshě
+            meaning: to choose and discard, trade-offs
+        etymology: |
+          In the context of 断舍离, the relevant character is 捨 (traditional) — a
+          phono-semantic compound with 扌 (hand radical) indicating a physical action
+          and 舍 (shě – house/shed, also phonetic) on the right. The hand releasing
+          something captures "to let go, to discard." The simplified 舍 doubles as both
+          the standalone "house/shed" character and the simplified form of 捨 (to discard).
+          This dual use reflects how simplified Chinese sometimes merges two distinct
+          traditional characters into one form.
+        etymology_example:
+          zh: 他舍不得扔掉那件旧外套，因为那是父亲送给他的。
+          pinyin: Tā shěbude rēng diào nà jiàn jiù wàitào, yīnwèi nà shì fùqīn sòng gěi tā de.
+          de: Er konnte es nicht über sich bringen, den alten Mantel wegzuwerfen, denn er war ein Geschenk seines Vaters.
+      - char: 离
+        traditional: 離
+        pinyin: lí
+        hsk: "3"
+        detailed_analysis: true
+        meaning_in_context: to detach from, to separate from (emotional attachment to things)
+        other_meanings:
+          - to leave, to depart (离开 líkāi – to leave)
+          - distance from (离家很近 lí jiā hěn jìn – close to home)
+          - divorce (离婚 líhūn – to divorce)
+        compounds:
+          - simplified: 离开
+            pinyin: líkāi
+            meaning: to leave, to depart
+          - simplified: 离婚
+            pinyin: líhūn
+            meaning: to divorce
+          - simplified: 分离
+            pinyin: fēnlí
+            meaning: to separate, separation
+          - simplified: 距离
+            pinyin: jùlí
+            meaning: distance
+        etymology: |
+          The traditional form 離 depicts a bird (隹, zhuī – short-tailed bird) combined
+          with 离 (lí – a mythical beast, also phonetic). In oracle bone and bronze script,
+          the character showed a bird caught in a net or trap, then breaking free –
+          separation through escape. The image of breaking away from a constraint became
+          the core meaning: to separate, to leave, to detach. The simplified form 离
+          reduces the complexity while preserving the phonetic shape.
+        etymology_example:
+          zh: 她终于鼓起勇气离开了那段不健康的关系。
+          pinyin: Tā zhōngyú gǔqǐ yǒngqì líkāi le nà duàn bù jiànkāng de guānxi.
+          de: Sie fasste endlich den Mut, diese ungesunde Beziehung zu verlassen.
+
+  - type: vocabulary
+    simplified: 累赘
+    traditional: 累贅
+    pinyin: léi zhui
+    english: burden, encumbrance; redundant, superfluous
+    hsk: "5-6"
+    pos: noun / adjective (名词/形容词)
+    definition_zh: 使人感到多余、麻烦的事物。
+    examples:
+      - zh: 搬家时，那些旧家具成了累赘，搬来搬去很麻烦。
+        pinyin: Bānjiā shí, nàxiē jiù jiājù chéngle léizhui, bān lái bān qù hěn máfan.
+        de: Beim Umzug wurden die alten Möbel zur Last – hin und her zu schleppen war mühsam.
+      - zh: 他觉得那些没用的东西都是累赘，应该全部扔掉。
+        pinyin: Tā juéde nàxiē méiyòng de dōngxi dōu shì léizhui, yīnggāi quánbù rēng diào.
+        de: Er fand, dass all die nutzlosen Dinge nur Ballast seien und weggeworfen werden sollten.
+      - zh: 这篇文章语言简洁，没有任何累赘的词句。
+        pinyin: Zhè piān wénzhāng yǔyán jiǎnjié, méiyǒu rènhé léizhui de cí jù.
+        de: Dieser Artikel ist sprachlich prägnant – keine überflüssigen Worte.
+      - zh: 他不想成为家人的累赘，坚持自己解决问题。
+        pinyin: Tā bù xiǎng chéngwéi jiārén de léizhui, jiānchí zìjǐ jiějué wèntí.
+        de: Er wollte seiner Familie keine Last sein und bestand darauf, Probleme selbst zu lösen.
+    characters:
+      - char: 累
+        pinyin: léi
+        hsk: "3"
+        detailed_analysis: true
+        meaning_in_context: to accumulate, to pile up; burden (here as part of compound)
+        other_meanings:
+          - tired, exhausted (lèi – different tone: 累了 lèi le – tired)
+          - to implicate, to involve (连累 liánlèi – to implicate)
+          - to accumulate (积累 jīlěi – to accumulate)
+        note: |
+          累 has three readings: léi (to pile up, entangle), lèi (tired), lěi (to
+          accumulate). In 累赘, it is read léi.
+        compounds:
+          - simplified: 积累
+            pinyin: jīlěi
+            meaning: to accumulate
+          - simplified: 连累
+            pinyin: liánlèi
+            meaning: to implicate, to drag into trouble
+          - simplified: 劳累
+            pinyin: láolèi
+            meaning: worn out, exhausted from work
+        etymology: |
+          累 originally depicted silk threads (糸/糹) being wound together – coils of
+          thread accumulating into a larger mass. In oracle bone script, the character
+          showed threads looping and piling up. The original meaning was "to wind,
+          to pile up, to accumulate." From physical accumulation came the metaphorical
+          sense of "burden" (too much piled up) and "tired" (worn down by accumulation).
+          The three modern tones reflect these three semantic branches: piling up (léi),
+          tired (lèi), accumulating/repeatedly (lěi).
+        etymology_example:
+          zh: 他积累了多年的工作经验，终于得到了提升。
+          pinyin: Tā jīlěi le duō nián de gōngzuò jīngyàn, zhōngyú dédào le tíshēng.
+          de: Er sammelte viele Jahre Berufserfahrung und wurde schließlich befördert.
+      - char: 赘
+        traditional: 贅
+        pinyin: zhuì
+        hsk: 超纲
+        detailed_analysis: true
+        meaning_in_context: superfluous, redundant; a burden, an appendage
+        other_meanings:
+          - son-in-law who lives with wife's family (赘婿 zhuìxù – live-in son-in-law)
+          - wart, growth (赘疣 zhuìyóu – wart, superfluous growth)
+        compounds:
+          - simplified: 累赘
+            pinyin: léizhui
+            meaning: burden, encumbrance
+          - simplified: 赘言
+            pinyin: zhuìyán
+            meaning: superfluous words, to ramble
+          - simplified: 赘婿
+            pinyin: zhuìxù
+            meaning: live-in son-in-law (historically considered a social burden)
+        etymology: |
+          The traditional form 贅 consists of 敖 (áo – to roam, to be excessive; phonetic)
+          on top and 贝/貝 (bèi – shell/money radical) at the bottom. The original meaning
+          involved money or valuables being used in excess or as a pledge – something extra
+          and burdensome. The 贝 radical (shell = money in ancient China) and the roaming/
+          excess component together suggest "unnecessary extras that cost you." The character
+          was used specifically for a son-in-law who moves into the wife's family home –
+          an "extra" person in the household, historically seen as a burden or social
+          irregularity.
+        etymology_example:
+          zh: 这段话太赘言了，可以删掉一半。
+          pinyin: Zhè duàn huà tài zhuìyán le, kěyǐ shān diào yī bàn.
+          de: Diese Passage ist viel zu weitschweifig – man könnte die Hälfte streichen.
+
+  - type: vocabulary
+    simplified: 彻头彻尾
+    traditional: 徹頭徹尾
+    pinyin: chè tóu chè wěi
+    english: through and through; from head to tail; completely, utterly
+    hsk: "5-6"
+    pos: idiom (成语)
+    definition_zh: 从头到尾，完完全全（含有负面或强调意味）。
+    examples:
+      - zh: 他彻头彻尾是个骗子，从来不说实话。
+        pinyin: Tā chètóu chèwěi shì gè piànzi, cónglái bù shuō shíhuà.
+        de: Er ist durch und durch ein Betrüger und sagt nie die Wahrheit.
+      - zh: 这个计划彻头彻尾是个失败。
+        pinyin: Zhège jìhuà chètóu chèwěi shì gè shībài.
+        de: Dieser Plan ist von Anfang bis Ende ein Fehlschlag.
+      - zh: 她对这段感情彻头彻尾地失望了。
+        pinyin: Tā duì zhè duàn gǎnqíng chètóu chèwěi de shīwàng le.
+        de: Sie war von dieser Beziehung von Grund auf enttäuscht.
+      - zh: 这部电影彻头彻尾都是特效，没有任何真实感。
+        pinyin: Zhè bù diànyǐng chètóu chèwěi dōu shì tèxiào, méiyǒu rènhé zhēnshí gǎn.
+        de: Dieser Film besteht von Anfang bis Ende aus Spezialeffekten – kein Realismus.
+    characters:
+      - char: 彻
+        traditional: 徹
+        pinyin: chè
+        hsk: "5"
+        detailed_analysis: true
+        meaning_in_context: thorough, penetrating; completely through
+        other_meanings:
+          - to penetrate (穿彻 chuān chè – to pierce through)
+          - thoroughly (彻底 chèdǐ – thorough, to the bottom)
+        compounds:
+          - simplified: 彻底
+            pinyin: chèdǐ
+            meaning: thorough, completely, to the bottom
+          - simplified: 透彻
+            pinyin: tòuchè
+            meaning: penetrating, thorough (of understanding)
+          - simplified: 彻夜
+            pinyin: chèyè
+            meaning: throughout the night
+        etymology: |
+          The traditional form 徹 consists of 彳 (chì – step radical, indicating movement
+          or path) on the left, 育 (yù – to raise/nourish) in the middle, and 攴/攵 (pū –
+          hand with stick, action) on the right. Together, the character depicted the act
+          of clearing a path completely – moving through something from one end to the other
+          without obstruction. The core meaning is thoroughness: going all the way through.
+          The simplified 彻 greatly reduces the complexity while keeping 彳 (movement) on
+          the left and 切 (to cut, complete) on the right as a phonetic reinforcement.
+        etymology_example:
+          zh: 我们需要彻底检查这台机器，找出故障的原因。
+          pinyin: Wǒmen xūyào chèdǐ jiǎnchá zhè tái jīqì, zhǎo chū gùzhàng de yuányīn.
+          de: Wir müssen diese Maschine gründlich untersuchen, um die Ursache des Fehlers zu finden.
+      - char: 头
+        traditional: 頭
+        pinyin: tóu
+        hsk: "1"
+        detailed_analysis: false
+      - char: 尾
+        pinyin: wěi
+        hsk: "4"
+        detailed_analysis: true
+        meaning_in_context: tail, end; the last part (of something)
+        other_meanings:
+          - end, rear (末尾 mòwěi – the very end)
+          - measure word for fish (一尾鱼 yī wěi yú – one fish)
+        compounds:
+          - simplified: 末尾
+            pinyin: mòwěi
+            meaning: the very end, the tail end
+          - simplified: 首尾
+            pinyin: shǒuwěi
+            meaning: beginning and end
+          - simplified: 尾巴
+            pinyin: wěiba
+            meaning: tail (of an animal)
+          - simplified: 收尾
+            pinyin: shōuwěi
+            meaning: to wrap up, to bring to a close
+        etymology: |
+          尾 is a pictograph. In oracle bone script, it depicted a person (人/尸 – a
+          crouching figure representing the body) with a tail hanging down behind. The
+          tail represents the hindmost or last part of something. The character has been
+          semantically stable from ancient to modern Chinese: it always refers to the tail
+          or rear end. Extended meanings include "the last part" of a text, speech, or
+          process — as in 彻头彻尾 (from head/top to tail/end = completely).
+        etymology_example:
+          zh: 这条狗一见主人就摇尾巴。
+          pinyin: Zhè tiáo gǒu yī jiàn zhǔrén jiù yáo wěiba.
+          de: Dieser Hund wedelt mit dem Schwanz, sobald er seinen Besitzer sieht.

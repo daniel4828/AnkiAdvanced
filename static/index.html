@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chinese SRS</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0f0f0f;
+    color: #e8e8e8;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  nav {
+    display: flex;
+    border-bottom: 1px solid #2a2a2a;
+    background: #161616;
+  }
+  nav button {
+    flex: 1; padding: 14px; background: none; border: none;
+    color: #666; font-size: 14px; cursor: pointer;
+    border-bottom: 2px solid transparent; transition: all .15s;
+  }
+  nav button.active { color: #e8e8e8; border-bottom-color: #4a9eff; }
+  nav button .badge {
+    display: inline-block; background: #333; color: #aaa;
+    border-radius: 10px; font-size: 11px; padding: 1px 7px; margin-left: 5px;
+  }
+  nav button.active .badge { background: #1a3a5c; color: #4a9eff; }
+
+  main {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    padding: 0 20px 60px; max-width: 640px; margin: 0 auto; width: 100%;
+  }
+
+  .progress-bar { width: 100%; height: 3px; background: #222; margin-bottom: 8px; }
+  .progress-fill { height: 100%; background: #4a9eff; transition: width .3s; }
+  .progress-text {
+    color: #555; font-size: 13px; margin-bottom: 16px;
+    align-self: flex-start; display: flex; align-items: center; gap: 10px;
+  }
+  .queue-badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 5px; font-weight: 600;
+  }
+  .qb-new      { background: #1a3a1a; color: #4aff88; }
+  .qb-review   { background: #1a2d4a; color: #4a9eff; }
+  .qb-learning { background: #3d2a08; color: #ffaa4a; }
+
+  /* Context strip */
+  .context-strip { width: 100%; display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+  .context-item {
+    background: #141414; border: 1px solid #1e1e1e; border-radius: 8px;
+    padding: 8px 12px; display: flex; align-items: baseline; gap: 10px;
+    opacity: 0.45; transition: opacity .2s;
+  }
+  .context-item:last-child { opacity: 0.75; border-color: #2a2a2a; }
+  .context-item .ctx-num { color: #333; font-size: 11px; min-width: 18px; }
+  .context-item .ctx-zh { font-size: 15px; letter-spacing: 1px; flex: 1; }
+  .context-item .ctx-zh .target { color: #4a9eff; }
+  .context-item .ctx-de { color: #444; font-size: 12px; flex: 1.2; }
+
+  /* Card */
+  .card {
+    width: 100%; background: #1a1a1a; border-radius: 16px; padding: 28px 24px;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 16px; border: 1px solid #252525; margin-bottom: 20px;
+  }
+
+  .audio-row { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .audio-indicator {
+    font-size: 48px; cursor: pointer; user-select: none; transition: transform .1s;
+  }
+  .audio-indicator:active { transform: scale(.9); }
+  .audio-indicator.playing { animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+
+  .btn-replay-front {
+    background: none; border: 1px solid #2a2a2a; color: #555;
+    font-size: 12px; padding: 6px 14px; border-radius: 6px; cursor: pointer; transition: all .15s;
+  }
+  .btn-replay-front:hover { color: #aaa; border-color: #444; }
+
+  .hint { color: #444; font-size: 14px; text-align: center; }
+
+  .sentence-zh { font-size: 26px; line-height: 1.5; text-align: center; letter-spacing: 2px; }
+  .sentence-zh .target { color: #4a9eff; border-bottom: 2px solid #4a9eff; }
+  .sentence-de { color: #aaa; font-size: 15px; text-align: center; line-height: 1.5; }
+
+  /* Word header */
+  .word-header {
+    border-top: 1px solid #252525; padding-top: 14px; width: 100%;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  .word-header .wh-main { display: flex; align-items: baseline; gap: 10px; }
+  .word-header .wh-zh { font-size: 26px; color: #4a9eff; }
+  .word-header .wh-trad { font-size: 18px; color: #2a6aaa; }
+  .word-header .wh-pinyin { color: #888; font-size: 14px; }
+  .word-header .wh-pos { color: #555; font-size: 12px; }
+  .word-header .wh-def { color: #ccc; font-size: 14px; margin-top: 2px; text-align: center; }
+  .word-header .wh-def-zh { color: #666; font-size: 13px; margin-top: 1px; text-align: center; }
+  .word-header .wh-note {
+    color: #7a6a44; font-size: 12px; background: #2a2010; border-radius: 6px;
+    padding: 5px 10px; margin-top: 4px; text-align: center; line-height: 1.5;
+  }
+
+  /* Detail sections */
+  .detail-section {
+    width: 100%; border-top: 1px solid #1e1e1e; padding-top: 14px; margin-top: 4px;
+  }
+  .detail-title {
+    color: #444; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;
+  }
+
+  /* Examples */
+  .example-list { display: flex; flex-direction: column; gap: 10px; }
+  .example-item { background: #141414; border-radius: 8px; padding: 10px 12px; }
+  .example-zh { font-size: 16px; letter-spacing: 1px; line-height: 1.5; color: #ddd; }
+  .example-pinyin { color: #555; font-size: 12px; margin-top: 2px; }
+  .example-de { color: #777; font-size: 13px; margin-top: 4px; line-height: 1.4; }
+
+  /* Characters */
+  .char-list { display: flex; flex-direction: column; gap: 12px; }
+  .char-block { background: #141414; border-radius: 10px; padding: 12px 14px; }
+  .char-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .char-zh { font-size: 28px; color: #e8e8e8; }
+  .char-trad { font-size: 18px; color: #555; }
+  .char-pinyin { color: #888; font-size: 14px; }
+  .char-hsk { color: #444; font-size: 11px; background: #222; border-radius: 4px; padding: 2px 6px; }
+  .char-meaning { color: #4a9eff; font-size: 13px; margin-bottom: 6px; }
+  .char-others { color: #666; font-size: 12px; margin-bottom: 6px; line-height: 1.6; }
+  .char-etymology { color: #7a6a44; font-size: 12px; background: #1e1a10; border-radius: 6px; padding: 7px 10px; margin-bottom: 6px; line-height: 1.5; }
+  .char-etym-ex { color: #666; font-size: 12px; margin-top: 4px; }
+  .char-note { color: #556655; font-size: 12px; font-style: italic; margin-bottom: 6px; }
+  .compounds { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .compound-pill {
+    background: #1e1e1e; border: 1px solid #2a2a2a; border-radius: 6px;
+    padding: 4px 10px; font-size: 12px; color: #999;
+  }
+  .compound-pill .cp-zh { color: #ccc; }
+  .compound-pill .cp-py { color: #555; font-size: 11px; margin: 0 3px; }
+  .compound-pill .cp-def { color: #666; }
+
+  /* Buttons */
+  .btn-reveal {
+    background: #252525; color: #e8e8e8; width: 100%; padding: 16px;
+    border-radius: 12px; border: 1px solid #333; font-size: 15px; cursor: pointer; transition: background .15s;
+  }
+  .btn-reveal:hover { background: #2d2d2d; }
+
+  .btn-replay {
+    background: none; border: 1px solid #333; color: #666;
+    font-size: 13px; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all .15s;
+  }
+  .btn-replay:hover { color: #aaa; border-color: #555; }
+
+  .ratings { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 100%; }
+  .rating-btn {
+    padding: 14px 8px; border-radius: 10px; border: none; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all .15s; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .rating-btn:active { transform: scale(.95); }
+  .rating-btn .label { font-size: 12px; opacity: .7; font-weight: 400; }
+  .btn-again { background: #3d1515; color: #ff6b6b; }
+  .btn-hard  { background: #3d2a15; color: #ffaa4a; }
+  .btn-good  { background: #153d25; color: #4aff88; }
+  .btn-easy  { background: #1a2d4a; color: #4a9eff; }
+  .btn-again:hover { background: #4d1a1a; }
+  .btn-hard:hover  { background: #4d3318; }
+  .btn-good:hover  { background: #1a4d30; }
+  .btn-easy:hover  { background: #1f3a5e; }
+
+  .screen-center {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 16px; text-align: center; color: #555; padding: 40px;
+  }
+  .screen-center h2 { color: #888; font-size: 20px; }
+  .screen-center p { font-size: 14px; line-height: 1.6; }
+  .big-emoji { font-size: 56px; }
+
+  .spinner {
+    width: 36px; height: 36px; border: 3px solid #222; border-top-color: #4a9eff;
+    border-radius: 50%; animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-msg {
+    color: #ff6b6b; font-size: 13px; background: #2a1515;
+    padding: 10px 16px; border-radius: 8px; width: 100%; text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <button id="tab-listening" class="active" onclick="switchTab('listening')">
+    Listening <span class="badge" id="badge-listening">0</span>
+  </button>
+  <button id="tab-reading" onclick="switchTab('reading')">
+    Reading <span class="badge" id="badge-reading">0</span>
+  </button>
+  <button id="tab-creating" onclick="switchTab('creating')">
+    Creating <span class="badge" id="badge-creating">0</span>
+  </button>
+</nav>
+
+<main id="main-area"></main>
+
+<script>
+let state = {
+  tab: "listening",
+  cards: { listening: [], reading: [], creating: [] },
+  allItems: [],       // full session data, keyed by word_id
+  queue: [],          // active queue: [{card, sentence_zh, sentence_en, queue_type}]
+  history: [],
+  current: 0,
+  revealed: false,
+  wordDetail: null,
+  done: false,
+  loading: false,
+  error: null,
+};
+let pollTimer = null;
+
+const today = new Date().toISOString().slice(0, 10);
+
+async function boot() {
+  render();
+  try {
+    const data = await api("GET", "/api/today");
+    state.cards = data;
+    updateBadges();
+    await loadTab(state.tab);
+  } catch (e) {
+    state.error = "Failed to load today's cards.";
+    render();
+  }
+}
+
+function updateBadges() {
+  for (const cat of ["listening", "reading", "creating"]) {
+    document.getElementById(`badge-${cat}`).textContent = state.cards[cat].length;
+  }
+}
+
+async function switchTab(tab) {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  state.tab = tab;
+  document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+  document.getElementById(`tab-${tab}`).classList.add("active");
+  await loadTab(tab);
+}
+
+async function loadTab(tab) {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  const cards = state.cards[tab];
+  state.done = false; state.error = null; state.history = []; state.wordDetail = null;
+  if (cards.length === 0) {
+    state.queue = []; state.allItems = []; state.current = 0; state.loading = false; render(); return;
+  }
+  state.loading = true; render();
+  try {
+    const content = await api("GET", `/api/content/${today}/${tab}`);
+    const wordIds = JSON.parse(content.word_ids);
+    const sentencesZh = JSON.parse(content.sentences_zh);
+    const sentencesEn = JSON.parse(content.sentences_en);
+    const cardByWordId = {};
+    for (const c of cards) cardByWordId[c.word_id] = c;
+
+    // Build full item map (all words in story, including those not due right now)
+    state.allItems = {};
+    wordIds.forEach((wid, i) => {
+      state.allItems[wid] = {
+        word_id: wid, sentence_zh: sentencesZh[i] || "", sentence_en: sentencesEn[i] || "",
+      };
+    });
+
+    // Initial queue: review cards first, then new cards (already sorted by server)
+    state.queue = cards
+      .filter(c => state.allItems[c.word_id])
+      .map(c => ({
+        card: c,
+        sentence_zh: state.allItems[c.word_id].sentence_zh,
+        sentence_en: state.allItems[c.word_id].sentence_en,
+        queue_type: c.state,
+      }));
+
+    state.current = 0; state.revealed = false; state.loading = false; render();
+    if (tab === "listening" && state.queue.length > 0) await speak(state.queue[0].sentence_zh);
+
+    // Poll for learning cards coming due
+    pollTimer = setInterval(() => pollLearningDue(tab), 15000);
+  } catch (e) {
+    state.error = "Failed to generate content. Check ANTHROPIC_API_KEY.";
+    state.loading = false; render();
+  }
+}
+
+async function pollLearningDue(tab) {
+  try {
+    const cards = await api("GET", `/api/learning_due/${tab}`);
+    if (!cards.length) return;
+    // Filter out cards already in queue
+    const inQueue = new Set(state.queue.map(i => i.card.id));
+    const newItems = cards
+      .filter(c => !inQueue.has(c.id) && state.allItems[c.word_id])
+      .map(c => ({
+        card: c,
+        sentence_zh: state.allItems[c.word_id].sentence_zh,
+        sentence_en: state.allItems[c.word_id].sentence_en,
+        queue_type: "learning",
+      }));
+    if (!newItems.length) return;
+    // Insert learning cards right after current card
+    const insertAt = state.current + 1;
+    state.queue.splice(insertAt, 0, ...newItems);
+    render();
+  } catch (e) { /* non-fatal */ }
+}
+
+async function reveal() {
+  state.revealed = true;
+  state.wordDetail = null;
+  render();
+  // Fetch rich detail in background — re-render when ready
+  const item = state.queue[state.current];
+  if (item) {
+    try {
+      state.wordDetail = await api("GET", `/api/word/${item.card.word_id}`);
+      render();
+    } catch (e) { /* no detail available */ }
+  }
+}
+
+async function rate(rating) {
+  const item = state.queue[state.current];
+  if (!item) return;
+  try { await api("POST", "/api/review", { card_id: item.card.id, rating }); } catch (e) {}
+  state.history.push(item);
+  state.current++;
+  state.revealed = false;
+  state.wordDetail = null;
+  if (state.current >= state.queue.length) {
+    state.done = true;
+    const data = await api("GET", "/api/today").catch(() => null);
+    if (data) { state.cards = data; updateBadges(); }
+    render(); return;
+  }
+  render();
+  if (state.tab === "listening") await speak(state.queue[state.current].sentence_zh);
+}
+
+async function speak(text) {
+  const el = document.getElementById("audio-indicator");
+  if (el) el.classList.add("playing");
+  try { await api("POST", "/api/speak", { text }); }
+  finally { const el = document.getElementById("audio-indicator"); if (el) el.classList.remove("playing"); }
+}
+
+async function replay() {
+  const item = state.queue[state.current];
+  if (item) await speak(item.sentence_zh);
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function esc(s) {
+  return (s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+function highlight(sentence, word) {
+  if (!word || !sentence) return esc(sentence || "");
+  const e = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return esc(sentence).replace(new RegExp(e, "g"), `<span class="target">${esc(word)}</span>`);
+}
+
+function contextHtml() {
+  if (!state.history.length) return "";
+  const last5 = state.history.slice(-5);
+  return `<div class="context-strip">${last5.map((item, i) => {
+    const n = state.history.length - last5.length + i + 1;
+    return `<div class="context-item">
+      <span class="ctx-num">${n}</span>
+      <span class="ctx-zh">${highlight(item.sentence_zh, item.card.word_zh)}</span>
+      <span class="ctx-de">${esc(item.sentence_en)}</span>
+    </div>`;
+  }).join("")}</div>`;
+}
+
+function wordDetailHtml(detail) {
+  if (!detail) return "";
+  const w = detail.word;
+  const examples = detail.examples || [];
+  const characters = detail.characters || [];
+  let html = "";
+
+  // Examples
+  if (examples.length) {
+    html += `<div class="detail-section">
+      <div class="detail-title">Examples</div>
+      <div class="example-list">${examples.map(ex => `
+        <div class="example-item">
+          <div class="example-zh">${esc(ex.zh)}</div>
+          ${ex.pinyin ? `<div class="example-pinyin">${esc(ex.pinyin)}</div>` : ""}
+          ${ex.translation ? `<div class="example-de">${esc(ex.translation)}</div>` : ""}
+        </div>`).join("")}
+      </div>
+    </div>`;
+  }
+
+  // Characters
+  if (characters.length) {
+    html += `<div class="detail-section">
+      <div class="detail-title">Character breakdown</div>
+      <div class="char-list">${characters.map(({char: ch, compounds}) => {
+        let otherMeanings = [];
+        try { otherMeanings = ch.other_meanings ? JSON.parse(ch.other_meanings) : []; } catch(e) {}
+        let etymEx = null;
+        try { etymEx = ch.etymology_example ? JSON.parse(ch.etymology_example) : null; } catch(e) {
+          etymEx = ch.etymology_example ? {zh: ch.etymology_example} : null;
+        }
+        return `<div class="char-block">
+          <div class="char-header">
+            <span class="char-zh">${esc(ch.char)}</span>
+            ${ch.traditional && ch.traditional !== ch.char ? `<span class="char-trad">${esc(ch.traditional)}</span>` : ""}
+            <span class="char-pinyin">${esc(ch.pinyin || "")}</span>
+            ${ch.hsk ? `<span class="char-hsk">HSK ${esc(ch.hsk)}</span>` : ""}
+          </div>
+          ${ch.meaning_in_context ? `<div class="char-meaning">→ ${esc(ch.meaning_in_context)}</div>` : ""}
+          ${otherMeanings.length ? `<div class="char-others">Also: ${otherMeanings.map(esc).join(" · ")}</div>` : ""}
+          ${ch.etymology ? `<div class="char-etymology">${esc(ch.etymology)}${etymEx ? `<div class="char-etym-ex">${esc(etymEx.zh || "")}${etymEx.de ? ` — ${esc(etymEx.de)}` : ""}</div>` : ""}</div>` : ""}
+          ${ch.note ? `<div class="char-note">${esc(ch.note)}</div>` : ""}
+          ${compounds && compounds.length ? `<div class="compounds">${compounds.map(c =>
+            `<span class="compound-pill"><span class="cp-zh">${esc(c.simplified)}</span><span class="cp-py">${esc(c.pinyin)}</span><span class="cp-def">${esc(c.meaning)}</span></span>`
+          ).join("")}</div>` : ""}
+        </div>`;
+      }).join("")}
+      </div>
+    </div>`;
+  }
+
+  return html;
+}
+
+function ratingButtons(card) {
+  const iv = card.intervals || {1:"1m",2:"10m",3:"1d",4:"4d"};
+  return `<div class="ratings">
+    <button class="rating-btn btn-again" onclick="rate(1)">Again<span class="label">${iv[1]}</span></button>
+    <button class="rating-btn btn-hard"  onclick="rate(2)">Hard<span class="label">${iv[2]}</span></button>
+    <button class="rating-btn btn-good"  onclick="rate(3)">Good<span class="label">${iv[3]}</span></button>
+    <button class="rating-btn btn-easy"  onclick="rate(4)">Easy<span class="label">${iv[4]}</span></button>
+  </div>`;
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────────
+function render() {
+  const el = document.getElementById("main-area");
+
+  if (state.loading) {
+    el.innerHTML = `<div class="screen-center"><div class="spinner"></div><p>Generating story with AI…</p></div>`;
+    return;
+  }
+  if (state.error) {
+    el.innerHTML = `<div class="screen-center"><div class="big-emoji">⚠️</div><h2>Error</h2><p class="error-msg">${esc(state.error)}</p></div>`;
+    return;
+  }
+  if (state.queue.length === 0) {
+    el.innerHTML = `<div class="screen-center"><div class="big-emoji">✓</div><h2>All done!</h2><p>No ${state.tab} cards due today.</p></div>`;
+    return;
+  }
+  if (state.done) {
+    el.innerHTML = `<div class="screen-center"><div class="big-emoji">🎉</div><h2>Session complete!</h2><p>${state.queue.length} ${state.tab} cards reviewed.</p></div>`;
+    return;
+  }
+
+  const item = state.queue[state.current];
+  const card = item.card;
+  const total = state.queue.length;
+  const pct = (state.current / total * 100).toFixed(1);
+  const d = state.wordDetail;
+  const qtype = item.queue_type || card.state;
+  const qBadge = qtype === "learning"
+    ? `<span class="queue-badge qb-learning">Learning</span>`
+    : qtype === "review"
+    ? `<span class="queue-badge qb-review">Review</span>`
+    : `<span class="queue-badge qb-new">New</span>`;
+
+  let cardHtml = "";
+
+  if (!state.revealed) {
+    if (state.tab === "listening") {
+      cardHtml = `
+        <div class="audio-row">
+          <div class="audio-indicator" id="audio-indicator" onclick="replay()">🔊</div>
+          <button class="btn-replay-front" onclick="replay()">▶ Play again</button>
+        </div>
+        <p class="hint">Listen and recall the word</p>`;
+    } else {
+      cardHtml = `
+        <div class="sentence-zh">${highlight(item.sentence_zh, card.word_zh)}</div>
+        <p class="hint">Read and recall the meaning</p>`;
+    }
+  } else {
+    // Word header — always shown
+    const trad = d?.word?.traditional && d.word.traditional !== card.word_zh
+      ? `<span class="wh-trad">${esc(d.word.traditional)}</span>` : "";
+    const defZh = d?.word?.definition_zh
+      ? `<div class="wh-def-zh">${esc(d.word.definition_zh)}</div>` : "";
+    const note = d?.word?.cultural_note
+      ? `<div class="wh-note">${esc(d.word.cultural_note)}</div>` : "";
+
+    cardHtml = `
+      <div class="sentence-zh">${highlight(item.sentence_zh, card.word_zh)}</div>
+      <div class="sentence-de">${esc(item.sentence_en)}</div>
+      <div class="word-header">
+        <div class="wh-main">
+          <span class="wh-zh">${esc(card.word_zh)}</span>
+          ${trad}
+          <span class="wh-pinyin">${esc(card.pinyin || "")}</span>
+        </div>
+        ${card.pos ? `<div class="wh-pos">${esc(card.pos)}</div>` : ""}
+        <div class="wh-def">${esc(card.definition || "")}</div>
+        ${defZh}
+        ${note}
+      </div>
+      ${state.tab === "listening" ? `<button class="btn-replay" onclick="replay()">▶ Play again</button>` : ""}`;
+  }
+
+  el.innerHTML = `
+    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+    <div class="progress-text">${state.current + 1} / ${total} ${qBadge}</div>
+    ${contextHtml()}
+    <div class="card">${cardHtml}</div>
+    ${!state.revealed
+      ? `<button class="btn-reveal" onclick="reveal()">Reveal</button>`
+      : `${ratingButtons(card)}
+         ${wordDetailHtml(d)}`}
+  `;
+}
+
+// ── API ────────────────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = { method, headers: { "Content-Type": "application/json" } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(path, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || res.statusText);
+  }
+  return res.json();
+}
+
+// ── Keyboard shortcuts ─────────────────────────────────────────────────────────
+document.addEventListener("keydown", e => {
+  if (state.loading || state.done || !state.queue.length) return;
+  if (!state.revealed) {
+    if (e.key === " " || e.key === "Enter") { e.preventDefault(); reveal(); }
+    if (e.key === "r") replay();
+  } else {
+    if (e.key === "1") rate(1);
+    if (e.key === "2") rate(2);
+    if (e.key === "3") rate(3);
+    if (e.key === "4") rate(4);
+    if (e.key === "r") replay();
+  }
+});
+
+boot();
+</script>
+</body>
+</html>
