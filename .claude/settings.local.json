@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(git status:*)",
-      "Bash(gh auth:*)"
+      "Bash(gh auth:*)",
+      "Bash(ls /Users/daniel/Documents/AnkiAdvanced/*.py)",
+      "Bash(ls /Users/daniel/Documents/AnkiAdvanced/*.sql)",
+      "Bash(sqlite3 /Users/daniel/Documents/AnkiAdvanced/.claude/worktrees/sleepy-elion/data/srs.db \"PRAGMA table_info\\(words\\);\")",
+      "Bash(sqlite3 /Users/daniel/Documents/AnkiAdvanced/.claude/worktrees/sleepy-elion/data/srs.db \"SELECT COUNT\\(*\\) FROM word_examples;\")"
     ]
   }
 }
