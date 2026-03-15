@@ -116,18 +116,39 @@ try:
     @app.get("/api/decks")
     def get_decks():
         tree = database.get_deck_tree()
-        for deck in _flatten(tree):
-            for cat in ("reading", "listening", "creating"):
-                deck.setdefault("counts", {})[cat] = database.count_due(deck["id"], cat)
+        # Attach counts to every deck in the tree bottom-up
+        _attach_counts(_flatten(tree))
         return tree
 
+    def _attach_counts(flat_decks: list) -> None:
+        """Compute due counts for leaf decks; aggregate upward for parents."""
+        by_id = {d["id"]: d for d in flat_decks}
+        # Process leaves first (no children)
+        for deck in flat_decks:
+            if not deck.get("children"):
+                cat = deck.get("category")
+                if cat:
+                    deck["counts"] = database.count_due(deck["id"], cat)
+                else:
+                    deck["counts"] = {"new": 0, "learning": 0, "review": 0}
+        # Aggregate parents bottom-up (tree may be multi-level)
+        for deck in reversed(flat_decks):
+            children = deck.get("children", [])
+            if children:
+                agg = {"new": 0, "learning": 0, "review": 0}
+                for child in children:
+                    for k in agg:
+                        agg[k] += child.get("counts", {}).get(k, 0)
+                deck["counts"] = agg
+
     @app.post("/api/decks")
-    def create_deck(name: str, parent_id: int | None = None):
+    def create_deck(name: str, parent_id: int | None = None,
+                    category: str | None = None):
         preset_id = database.get_preset_for_deck(
             database.get_default_deck_id()
         )["id"] if parent_id is None else \
             database.get_deck(parent_id)["preset_id"]
-        deck_id = database.insert_deck(name, parent_id, preset_id)
+        deck_id = database.insert_deck(name, parent_id, preset_id, category)
         return database.get_deck(deck_id)
 
     @app.put("/api/decks/{deck_id}")
@@ -144,6 +165,12 @@ try:
     def update_deck_preset(deck_id: int, fields: dict):
         deck = database.get_deck(deck_id)
         database.update_preset(deck["preset_id"], fields)
+        return database.get_preset(deck["preset_id"])
+
+    @app.post("/api/decks/{deck_id}/preset/set-default")
+    def set_deck_preset_as_default(deck_id: int):
+        deck = database.get_deck(deck_id)
+        database.set_default_preset(deck["preset_id"])
         return database.get_preset(deck["preset_id"])
 
     # --- Review session ---

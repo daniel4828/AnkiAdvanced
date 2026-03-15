@@ -30,6 +30,13 @@ CREATE TABLE IF NOT EXISTS deck_presets (
     -- Review scheduling
     minimum_interval        INTEGER NOT NULL DEFAULT 1,
 
+    -- New card insertion order
+    insertion_order         TEXT NOT NULL DEFAULT 'sequential'
+                                CHECK(insertion_order IN ('sequential', 'random')),
+
+    -- Mark one preset as the default for new decks
+    is_default              INTEGER NOT NULL DEFAULT 0,
+
     -- Leech settings
     leech_threshold         INTEGER NOT NULL DEFAULT 8,
     leech_action            TEXT NOT NULL DEFAULT 'suspend'
@@ -43,11 +50,13 @@ CREATE TABLE IF NOT EXISTS decks (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     name        TEXT NOT NULL UNIQUE,
     parent_id   INTEGER REFERENCES decks(id) ON DELETE CASCADE,
-    preset_id   INTEGER NOT NULL REFERENCES deck_presets(id)
+    preset_id   INTEGER NOT NULL REFERENCES deck_presets(id),
+    -- NULL for parent decks; set for category leaf decks
+    category    TEXT CHECK(category IN ('listening', 'reading', 'creating'))
 );
 
 -- ---------------------------------------------------------------------------
--- words
+-- words  (no deck_id — words are deck-agnostic)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS words (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,7 +65,6 @@ CREATE TABLE IF NOT EXISTS words (
     definition      TEXT,           -- English definition
     pos             TEXT,           -- part of speech
     hsk_level       INTEGER,        -- 1-6, NULL for 超纲
-    deck_id         INTEGER NOT NULL REFERENCES decks(id) ON DELETE CASCADE,
     traditional     TEXT,
     definition_zh   TEXT,
     date_added      TEXT NOT NULL DEFAULT (datetime('now')),
@@ -102,11 +110,12 @@ CREATE TABLE IF NOT EXISTS word_characters (
 );
 
 -- ---------------------------------------------------------------------------
--- cards
+-- cards  (owns deck_id — one card per word per category, globally unique)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS cards (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     word_id     INTEGER NOT NULL REFERENCES words(id) ON DELETE CASCADE,
+    deck_id     INTEGER NOT NULL REFERENCES decks(id) ON DELETE CASCADE,
     category    TEXT NOT NULL CHECK(category IN ('listening', 'reading', 'creating')),
     state       TEXT NOT NULL DEFAULT 'new'
                     CHECK(state IN ('new', 'learning', 'review', 'relearn', 'suspended')),

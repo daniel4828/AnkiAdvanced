@@ -38,19 +38,20 @@ def _ensure_default_preset(conn: sqlite3.Connection) -> int:
     if row:
         return row["id"]
     cur = conn.execute(
-        """INSERT INTO deck_presets (name) VALUES ('Default')"""
+        """INSERT INTO deck_presets (name, is_default) VALUES ('Default', 1)"""
     )
     return cur.lastrowid
 
 
 def _ensure_deck(conn: sqlite3.Connection, name: str,
-                 parent_id: int | None, preset_id: int) -> int:
+                 parent_id: int | None, preset_id: int,
+                 category: str | None = None) -> int:
     row = conn.execute("SELECT id FROM decks WHERE name = ?", (name,)).fetchone()
     if row:
         return row["id"]
     cur = conn.execute(
-        "INSERT INTO decks (name, parent_id, preset_id) VALUES (?, ?, ?)",
-        (name, parent_id, preset_id),
+        "INSERT INTO decks (name, parent_id, preset_id, category) VALUES (?, ?, ?, ?)",
+        (name, parent_id, preset_id, category),
     )
     return cur.lastrowid
 
@@ -73,9 +74,25 @@ def default_preset() -> dict:
         "easy_interval": 4,
         "relearning_steps": "10",
         "minimum_interval": 1,
+        "insertion_order": "sequential",
         "leech_threshold": 8,
         "leech_action": "suspend",
     }
+
+
+def get_default_preset() -> dict | None:
+    conn = get_db()
+    row = conn.execute("SELECT * FROM deck_presets WHERE is_default = 1 LIMIT 1").fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def set_default_preset(preset_id: int) -> None:
+    conn = get_db()
+    conn.execute("UPDATE deck_presets SET is_default = 0")
+    conn.execute("UPDATE deck_presets SET is_default = 1 WHERE id = ?", (preset_id,))
+    conn.commit()
+    conn.close()
 
 
 def get_preset(preset_id: int) -> dict:
@@ -103,12 +120,13 @@ def insert_preset(preset: dict) -> int:
             reading_new_per_day, reading_reviews_per_day,
             creating_new_per_day, creating_reviews_per_day,
             learning_steps, graduating_interval, easy_interval,
-            relearning_steps, minimum_interval, leech_threshold, leech_action)
+            relearning_steps, minimum_interval, insertion_order,
+            leech_threshold, leech_action)
            VALUES (:name, :listening_new_per_day, :listening_reviews_per_day,
                    :reading_new_per_day, :reading_reviews_per_day,
                    :creating_new_per_day, :creating_reviews_per_day,
                    :learning_steps, :graduating_interval, :easy_interval,
-                   :relearning_steps, :minimum_interval,
+                   :relearning_steps, :minimum_interval, :insertion_order,
                    :leech_threshold, :leech_action)""",
         preset,
     )
@@ -124,7 +142,8 @@ def update_preset(preset_id: int, fields: dict) -> None:
         "reading_new_per_day", "reading_reviews_per_day",
         "creating_new_per_day", "creating_reviews_per_day",
         "learning_steps", "graduating_interval", "easy_interval",
-        "relearning_steps", "minimum_interval", "leech_threshold", "leech_action",
+        "relearning_steps", "minimum_interval", "insertion_order",
+        "leech_threshold", "leech_action",
     }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
@@ -141,11 +160,12 @@ def update_preset(preset_id: int, fields: dict) -> None:
 # Decks
 # ---------------------------------------------------------------------------
 
-def insert_deck(name: str, parent_id: int | None, preset_id: int) -> int:
+def insert_deck(name: str, parent_id: int | None, preset_id: int,
+                category: str | None = None) -> int:
     conn = get_db()
     cur = conn.execute(
-        "INSERT INTO decks (name, parent_id, preset_id) VALUES (?, ?, ?)",
-        (name, parent_id, preset_id),
+        "INSERT INTO decks (name, parent_id, preset_id, category) VALUES (?, ?, ?, ?)",
+        (name, parent_id, preset_id, category),
     )
     conn.commit()
     deck_id = cur.lastrowid
@@ -208,17 +228,42 @@ def get_default_deck_id() -> int:
     return deck_id
 
 
-def get_or_create_deck(name: str) -> int:
-    """Get deck id by name, creating it (with default preset) if it doesn't exist."""
+def get_or_create_deck(name: str, parent_id: int | None = None,
+                       category: str | None = None) -> int:
+    """Get deck id by name, creating it (cloning the default preset) if it doesn't exist."""
     conn = get_db()
     row = conn.execute("SELECT id FROM decks WHERE name = ?", (name,)).fetchone()
     if row:
         conn.close()
         return row["id"]
-    preset_id = _ensure_default_preset(conn)
+    # Clone the active default preset (or fall back to the hardcoded Default)
+    default_row = conn.execute(
+        "SELECT * FROM deck_presets WHERE is_default = 1 LIMIT 1"
+    ).fetchone()
+    if default_row:
+        vals = dict(default_row)
+        cur = conn.execute(
+            """INSERT INTO deck_presets
+               (name, listening_new_per_day, listening_reviews_per_day,
+                reading_new_per_day, reading_reviews_per_day,
+                creating_new_per_day, creating_reviews_per_day,
+                learning_steps, graduating_interval, easy_interval,
+                relearning_steps, minimum_interval, insertion_order,
+                leech_threshold, leech_action)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (name, vals["listening_new_per_day"], vals["listening_reviews_per_day"],
+             vals["reading_new_per_day"], vals["reading_reviews_per_day"],
+             vals["creating_new_per_day"], vals["creating_reviews_per_day"],
+             vals["learning_steps"], vals["graduating_interval"], vals["easy_interval"],
+             vals["relearning_steps"], vals["minimum_interval"], vals["insertion_order"],
+             vals["leech_threshold"], vals["leech_action"]),
+        )
+        preset_id = cur.lastrowid
+    else:
+        preset_id = _ensure_default_preset(conn)
     cur = conn.execute(
-        "INSERT INTO decks (name, parent_id, preset_id) VALUES (?, NULL, ?)",
-        (name, preset_id),
+        "INSERT INTO decks (name, parent_id, preset_id, category) VALUES (?, ?, ?, ?)",
+        (name, parent_id, preset_id, category),
     )
     conn.commit()
     deck_id = cur.lastrowid
@@ -235,9 +280,9 @@ def insert_word(word: dict) -> int:
     conn = get_db()
     conn.execute(
         """INSERT OR IGNORE INTO words
-           (word_zh, pinyin, definition, pos, hsk_level, deck_id,
+           (word_zh, pinyin, definition, pos, hsk_level,
             traditional, definition_zh, source)
-           VALUES (:word_zh, :pinyin, :definition, :pos, :hsk_level, :deck_id,
+           VALUES (:word_zh, :pinyin, :definition, :pos, :hsk_level,
                    :traditional, :definition_zh, :source)""",
         word,
     )
@@ -262,8 +307,14 @@ def get_word_by_zh(word_zh: str) -> dict | None:
 
 
 def get_words_in_deck(deck_id: int) -> list[dict]:
+    """Words that have at least one card in this deck."""
     conn = get_db()
-    rows = conn.execute("SELECT * FROM words WHERE deck_id = ?", (deck_id,)).fetchall()
+    rows = conn.execute(
+        """SELECT DISTINCT w.* FROM words w
+           JOIN cards c ON c.word_id = w.id
+           WHERE c.deck_id = ?""",
+        (deck_id,),
+    ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
@@ -378,12 +429,13 @@ def get_word_characters(word_id: int) -> list[dict]:
 # Cards
 # ---------------------------------------------------------------------------
 
-def insert_card(word_id: int, category: str, state: str = "new") -> int:
+def insert_card(word_id: int, category: str, deck_id: int,
+                state: str = "new") -> int:
     conn = get_db()
     cur = conn.execute(
-        """INSERT OR IGNORE INTO cards (word_id, category, state)
-           VALUES (?, ?, ?)""",
-        (word_id, category, state),
+        """INSERT OR IGNORE INTO cards (word_id, deck_id, category, state)
+           VALUES (?, ?, ?, ?)""",
+        (word_id, deck_id, category, state),
     )
     conn.commit()
     row = conn.execute(
@@ -400,7 +452,7 @@ def get_card(card_id: int) -> dict | None:
     row = conn.execute(
         """SELECT c.*,
                   w.word_zh, w.pinyin, w.definition, w.pos, w.hsk_level,
-                  w.traditional, w.definition_zh, w.deck_id,
+                  w.traditional, w.definition_zh,
                   p.learning_steps, p.graduating_interval, p.easy_interval,
                   p.relearning_steps, p.minimum_interval,
                   p.leech_threshold, p.leech_action,
@@ -409,7 +461,7 @@ def get_card(card_id: int) -> dict | None:
                   p.creating_new_per_day, p.creating_reviews_per_day
            FROM cards c
            JOIN words w ON w.id = c.word_id
-           JOIN decks d ON d.id = w.deck_id
+           JOIN decks d ON d.id = c.deck_id
            JOIN deck_presets p ON p.id = d.preset_id
            WHERE c.id = ?""",
         (card_id,),
@@ -422,8 +474,7 @@ def _count_new_introduced_today(conn, deck_id: int, category: str, today: str) -
     """Cards whose very first review log entry is today (introduced as new today)."""
     return conn.execute(
         """SELECT COUNT(DISTINCT c.id) FROM cards c
-           JOIN words w ON w.id = c.word_id
-           WHERE w.deck_id = ? AND c.category = ?
+           WHERE c.deck_id = ? AND c.category = ?
              AND EXISTS (
                SELECT 1 FROM review_log rl
                WHERE rl.card_id = c.id AND date(rl.reviewed_at) = ?
@@ -456,7 +507,7 @@ def get_due_cards(deck_id: int, category: str) -> list[dict]:
                   w.hsk_level, w.traditional, w.definition_zh
            FROM cards c
            JOIN words w ON w.id = c.word_id
-           WHERE w.deck_id = ?
+           WHERE c.deck_id = ?
              AND c.category = ?
              AND c.state != 'suspended'
              AND (
@@ -475,16 +526,13 @@ def get_due_cards(deck_id: int, category: str) -> list[dict]:
     ).fetchall()
     conn.close()
 
-    result = []
-    new_count = 0
-    for row in rows:
-        r = dict(row)
-        if r["state"] == "new":
-            if new_count >= new_remaining:
-                continue
-            new_count += 1
-        result.append(r)
-    return result
+    insertion_order = preset.get("insertion_order", "sequential")
+    prioritized = [dict(r) for r in rows if r["state"] != "new"]
+    new_cards = [dict(r) for r in rows if r["state"] == "new"]
+    if insertion_order == "random":
+        import random
+        random.shuffle(new_cards)
+    return prioritized + new_cards[:new_remaining]
 
 
 def get_next_card(deck_id: int, category: str) -> dict | None:
@@ -507,22 +555,22 @@ def count_due(deck_id: int, category: str) -> dict:
     new_remaining = max(0, new_limit - new_done_today)
 
     learning = conn.execute(
-        """SELECT COUNT(*) FROM cards c JOIN words w ON w.id = c.word_id
-           WHERE w.deck_id = ? AND c.category = ?
+        """SELECT COUNT(*) FROM cards c
+           WHERE c.deck_id = ? AND c.category = ?
              AND c.state IN ('learning', 'relearn') AND c.due <= ?""",
         (deck_id, category, now),
     ).fetchone()[0]
 
     review = conn.execute(
-        """SELECT COUNT(*) FROM cards c JOIN words w ON w.id = c.word_id
-           WHERE w.deck_id = ? AND c.category = ?
+        """SELECT COUNT(*) FROM cards c
+           WHERE c.deck_id = ? AND c.category = ?
              AND c.state = 'review' AND c.due <= ?""",
         (deck_id, category, today),
     ).fetchone()[0]
 
     new_available = conn.execute(
-        """SELECT COUNT(*) FROM cards c JOIN words w ON w.id = c.word_id
-           WHERE w.deck_id = ? AND c.category = ?
+        """SELECT COUNT(*) FROM cards c
+           WHERE c.deck_id = ? AND c.category = ?
              AND c.state = 'new' AND c.due <= ?""",
         (deck_id, category, today),
     ).fetchone()[0]
@@ -584,7 +632,7 @@ def get_all_cards_for_browse(filters: dict | None = None) -> list[dict]:
     params = []
     if filters:
         if filters.get("deck_id"):
-            where.append("w.deck_id = ?")
+            where.append("c.deck_id = ?")
             params.append(filters["deck_id"])
         if filters.get("category"):
             where.append("c.category = ?")
@@ -601,7 +649,7 @@ def get_all_cards_for_browse(filters: dict | None = None) -> list[dict]:
                      w.hsk_level, d.name as deck_name
               FROM cards c
               JOIN words w ON w.id = c.word_id
-              JOIN decks d ON d.id = w.deck_id
+              JOIN decks d ON d.id = c.deck_id
               WHERE {' AND '.join(where)}
               ORDER BY w.word_zh"""
     conn = get_db()
@@ -694,18 +742,21 @@ def get_stats(deck_id: int | None = None) -> dict:
     today = date.today().isoformat()
     conn = get_db()
 
-    deck_filter = "AND w.deck_id = ?" if deck_id else ""
+    deck_filter = "AND c.deck_id = ?" if deck_id else ""
     params_deck = [deck_id] if deck_id else []
 
-    total_words = conn.execute(
-        f"SELECT COUNT(*) FROM words w WHERE 1=1 {deck_filter}",
-        params_deck,
-    ).fetchone()[0]
+    # Total words: count distinct words that have at least one card in this deck
+    if deck_id:
+        total_words = conn.execute(
+            "SELECT COUNT(DISTINCT c.word_id) FROM cards c WHERE c.deck_id = ?",
+            [deck_id],
+        ).fetchone()[0]
+    else:
+        total_words = conn.execute("SELECT COUNT(*) FROM words").fetchone()[0]
 
     reviews_today = conn.execute(
         f"""SELECT COUNT(*) FROM review_log rl
             JOIN cards c ON c.id = rl.card_id
-            JOIN words w ON w.id = c.word_id
             WHERE date(rl.reviewed_at) = ? {deck_filter}""",
         [today] + params_deck,
     ).fetchone()[0]
@@ -713,13 +764,32 @@ def get_stats(deck_id: int | None = None) -> dict:
     new_today = conn.execute(
         f"""SELECT COUNT(DISTINCT rl.card_id) FROM review_log rl
             JOIN cards c ON c.id = rl.card_id
-            JOIN words w ON w.id = c.word_id
             WHERE date(rl.reviewed_at) = ? AND c.state IN ('new','learning') {deck_filter}""",
         [today] + params_deck,
     ).fetchone()[0]
 
-    # Streak: consecutive days with at least one review
     streak = _calc_streak(conn, deck_id)
+
+    # Reviews per day — last 14 days (oldest first)
+    day_rows = conn.execute(
+        f"""SELECT date(rl.reviewed_at) as d, COUNT(*) as cnt
+            FROM review_log rl
+            JOIN cards c ON c.id = rl.card_id
+            WHERE 1=1 {deck_filter}
+            GROUP BY d ORDER BY d DESC LIMIT 14""",
+        params_deck,
+    ).fetchall()
+    reviews_by_day = [{"date": r["d"], "count": r["cnt"]} for r in reversed(day_rows)]
+
+    # Card state totals
+    state_rows = conn.execute(
+        f"""SELECT c.state, COUNT(*) as cnt
+            FROM cards c
+            WHERE 1=1 {deck_filter}
+            GROUP BY c.state""",
+        params_deck,
+    ).fetchall()
+    state_counts = {r["state"]: r["cnt"] for r in state_rows}
 
     conn.close()
     return {
@@ -727,17 +797,18 @@ def get_stats(deck_id: int | None = None) -> dict:
         "reviews_today": reviews_today,
         "new_today": new_today,
         "streak_days": streak,
+        "reviews_by_day": reviews_by_day,
+        "state_counts": state_counts,
     }
 
 
 def _calc_streak(conn: sqlite3.Connection, deck_id: int | None) -> int:
-    deck_filter = "AND w.deck_id = ?" if deck_id else ""
+    deck_filter = "AND c.deck_id = ?" if deck_id else ""
     params = [deck_id] if deck_id else []
     rows = conn.execute(
         f"""SELECT DISTINCT date(rl.reviewed_at) as d
             FROM review_log rl
             JOIN cards c ON c.id = rl.card_id
-            JOIN words w ON w.id = c.word_id
             WHERE 1=1 {deck_filter}
             ORDER BY d DESC""",
         params,

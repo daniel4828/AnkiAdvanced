@@ -91,9 +91,9 @@ class TestImportKouyuYaml:
         imports_dir = write_yaml(tmp_path, "1_1.yaml", [ENTRY_你好])
         importer.import_all(imports_dir)
 
-        word = database.get_word_by_zh("你好")
-        cards = database.get_all_cards_for_browse({"deck_id": word["deck_id"]})
-        categories = {c["category"] for c in cards}
+        cards = database.get_all_cards_for_browse({})
+        word_cards = [c for c in cards if c["word_zh"] == "你好"]
+        categories = {c["category"] for c in word_cards}
         assert categories == {"listening", "reading", "creating"}
 
     def test_duplicate_word_is_skipped(self, tmp_db, tmp_path):
@@ -151,28 +151,32 @@ class TestCardQueue:
         return database.get_word_by_zh(entry["simplified"])
 
     def test_new_card_appears_in_due_list(self, tmp_db, tmp_path):
-        word = self._import_word(tmp_path, ENTRY_你好)
-        cards = database.get_due_cards(word["deck_id"], "listening")
+        self._import_word(tmp_path, ENTRY_你好)
+        deck_id = database.get_or_create_deck("Kouyu · Listening")
+        cards = database.get_due_cards(deck_id, "listening")
         assert len(cards) == 1
         assert cards[0]["word_zh"] == "你好"
         assert cards[0]["state"] == "new"
 
     def test_count_due_shows_new_card(self, tmp_db, tmp_path):
-        word = self._import_word(tmp_path, ENTRY_你好)
-        counts = database.count_due(word["deck_id"], "listening")
+        self._import_word(tmp_path, ENTRY_你好)
+        deck_id = database.get_or_create_deck("Kouyu · Listening")
+        counts = database.count_due(deck_id, "listening")
         assert counts["new"] == 1
         assert counts["learning"] == 0
         assert counts["review"] == 0
 
     def test_get_next_card_returns_top_priority(self, tmp_db, tmp_path):
-        word = self._import_word(tmp_path, ENTRY_你好)
-        card = database.get_next_card(word["deck_id"], "listening")
+        self._import_word(tmp_path, ENTRY_你好)
+        deck_id = database.get_or_create_deck("Kouyu · Listening")
+        card = database.get_next_card(deck_id, "listening")
         assert card is not None
         assert card["word_zh"] == "你好"
 
     def test_no_cards_due_returns_none(self, tmp_db, tmp_path):
-        # No words imported → queue is empty
-        deck_id = database.get_default_deck_id()
+        # No words imported → sub-deck doesn't exist yet, get_or_create returns empty deck
+        deck_id = database.get_or_create_deck("Kouyu · Listening",
+                                               category="listening")
         card = database.get_next_card(deck_id, "listening")
         assert card is None
 
@@ -206,9 +210,7 @@ def _force_card_state(card_id, state, due, step_index=0, interval=1,
 
 
 def _get_listening_card_id(word_zh):
-    word = database.get_word_by_zh(word_zh)
-    cards = database.get_all_cards_for_browse({"deck_id": word["deck_id"],
-                                               "category": "listening"})
+    cards = database.get_all_cards_for_browse({"category": "listening"})
     return next(c["id"] for c in cards if c["word_zh"] == word_zh)
 
 
@@ -220,11 +222,10 @@ class TestQueuePriority:
     """
 
     def _setup_three_words(self, tmp_path):
-        """Import 你好, 再见, 老师 into the same deck and return their deck_id."""
+        """Import 你好, 再见, 老师 and return the Kouyu · Listening deck_id."""
         write_yaml(tmp_path, "p.yaml", [ENTRY_你好, ENTRY_再见, ENTRY_老师])
         importer.import_all(str(tmp_path))
-        word = database.get_word_by_zh("你好")
-        return word["deck_id"]
+        return database.get_or_create_deck("Kouyu · Listening")
 
     def test_learning_card_beats_new_card(self, tmp_db, tmp_path):
         """A learning card that is now overdue should come before a new card."""
@@ -368,7 +369,7 @@ class TestMultipleAgainCards:
     def _setup_three_words(self, tmp_path):
         write_yaml(tmp_path, "m.yaml", [ENTRY_你好, ENTRY_再见, ENTRY_老师])
         importer.import_all(str(tmp_path))
-        return database.get_word_by_zh("你好")["deck_id"]
+        return database.get_or_create_deck("Kouyu · Listening")
 
     def test_two_again_cards_returned_in_due_order(self, tmp_db, tmp_path):
         """
