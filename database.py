@@ -38,7 +38,7 @@ def _ensure_default_preset(conn: sqlite3.Connection) -> int:
     if row:
         return row["id"]
     cur = conn.execute(
-        """INSERT INTO deck_presets (name) VALUES ('Default')"""
+        """INSERT INTO deck_presets (name, is_default) VALUES ('Default', 1)"""
     )
     return cur.lastrowid
 
@@ -74,9 +74,25 @@ def default_preset() -> dict:
         "easy_interval": 4,
         "relearning_steps": "10",
         "minimum_interval": 1,
+        "insertion_order": "sequential",
         "leech_threshold": 8,
         "leech_action": "suspend",
     }
+
+
+def get_default_preset() -> dict | None:
+    conn = get_db()
+    row = conn.execute("SELECT * FROM deck_presets WHERE is_default = 1 LIMIT 1").fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def set_default_preset(preset_id: int) -> None:
+    conn = get_db()
+    conn.execute("UPDATE deck_presets SET is_default = 0")
+    conn.execute("UPDATE deck_presets SET is_default = 1 WHERE id = ?", (preset_id,))
+    conn.commit()
+    conn.close()
 
 
 def get_preset(preset_id: int) -> dict:
@@ -104,12 +120,13 @@ def insert_preset(preset: dict) -> int:
             reading_new_per_day, reading_reviews_per_day,
             creating_new_per_day, creating_reviews_per_day,
             learning_steps, graduating_interval, easy_interval,
-            relearning_steps, minimum_interval, leech_threshold, leech_action)
+            relearning_steps, minimum_interval, insertion_order,
+            leech_threshold, leech_action)
            VALUES (:name, :listening_new_per_day, :listening_reviews_per_day,
                    :reading_new_per_day, :reading_reviews_per_day,
                    :creating_new_per_day, :creating_reviews_per_day,
                    :learning_steps, :graduating_interval, :easy_interval,
-                   :relearning_steps, :minimum_interval,
+                   :relearning_steps, :minimum_interval, :insertion_order,
                    :leech_threshold, :leech_action)""",
         preset,
     )
@@ -125,7 +142,8 @@ def update_preset(preset_id: int, fields: dict) -> None:
         "reading_new_per_day", "reading_reviews_per_day",
         "creating_new_per_day", "creating_reviews_per_day",
         "learning_steps", "graduating_interval", "easy_interval",
-        "relearning_steps", "minimum_interval", "leech_threshold", "leech_action",
+        "relearning_steps", "minimum_interval", "insertion_order",
+        "leech_threshold", "leech_action",
     }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
@@ -212,13 +230,37 @@ def get_default_deck_id() -> int:
 
 def get_or_create_deck(name: str, parent_id: int | None = None,
                        category: str | None = None) -> int:
-    """Get deck id by name, creating it (with default preset) if it doesn't exist."""
+    """Get deck id by name, creating it (cloning the default preset) if it doesn't exist."""
     conn = get_db()
     row = conn.execute("SELECT id FROM decks WHERE name = ?", (name,)).fetchone()
     if row:
         conn.close()
         return row["id"]
-    preset_id = _ensure_default_preset(conn)
+    # Clone the active default preset (or fall back to the hardcoded Default)
+    default_row = conn.execute(
+        "SELECT * FROM deck_presets WHERE is_default = 1 LIMIT 1"
+    ).fetchone()
+    if default_row:
+        vals = dict(default_row)
+        cur = conn.execute(
+            """INSERT INTO deck_presets
+               (name, listening_new_per_day, listening_reviews_per_day,
+                reading_new_per_day, reading_reviews_per_day,
+                creating_new_per_day, creating_reviews_per_day,
+                learning_steps, graduating_interval, easy_interval,
+                relearning_steps, minimum_interval, insertion_order,
+                leech_threshold, leech_action)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (name, vals["listening_new_per_day"], vals["listening_reviews_per_day"],
+             vals["reading_new_per_day"], vals["reading_reviews_per_day"],
+             vals["creating_new_per_day"], vals["creating_reviews_per_day"],
+             vals["learning_steps"], vals["graduating_interval"], vals["easy_interval"],
+             vals["relearning_steps"], vals["minimum_interval"], vals["insertion_order"],
+             vals["leech_threshold"], vals["leech_action"]),
+        )
+        preset_id = cur.lastrowid
+    else:
+        preset_id = _ensure_default_preset(conn)
     cur = conn.execute(
         "INSERT INTO decks (name, parent_id, preset_id, category) VALUES (?, ?, ?, ?)",
         (name, parent_id, preset_id, category),
@@ -484,16 +526,13 @@ def get_due_cards(deck_id: int, category: str) -> list[dict]:
     ).fetchall()
     conn.close()
 
-    result = []
-    new_count = 0
-    for row in rows:
-        r = dict(row)
-        if r["state"] == "new":
-            if new_count >= new_remaining:
-                continue
-            new_count += 1
-        result.append(r)
-    return result
+    insertion_order = preset.get("insertion_order", "sequential")
+    prioritized = [dict(r) for r in rows if r["state"] != "new"]
+    new_cards = [dict(r) for r in rows if r["state"] == "new"]
+    if insertion_order == "random":
+        import random
+        random.shuffle(new_cards)
+    return prioritized + new_cards[:new_remaining]
 
 
 def get_next_card(deck_id: int, category: str) -> dict | None:

@@ -894,6 +894,12 @@
       <div class="opt-row"><span class="opt-label">Steps (minutes, space-separated)</span><input class="opt-input wide" id="opt-learn-steps"  type="text"></div>
       <div class="opt-row"><span class="opt-label">Graduating interval (days)</span>       <input class="opt-input" id="opt-grad-int"     type="number" min="1"></div>
       <div class="opt-row"><span class="opt-label">Easy interval (days)</span>              <input class="opt-input" id="opt-easy-int"     type="number" min="1"></div>
+      <div class="opt-row"><span class="opt-label">Insertion order</span>
+        <select class="opt-input" id="opt-insertion-order">
+          <option value="sequential">Sequential (oldest first)</option>
+          <option value="random">Random</option>
+        </select>
+      </div>
     </div>
 
     <div class="opt-group">
@@ -903,6 +909,7 @@
     </div>
 
     <div class="modal-footer">
+      <button class="btn-secondary" onclick="setDefaultPreset()" id="btn-set-default" title="New decks will clone these settings">Set as default</button>
       <button class="btn-secondary" onclick="closeModal()">Cancel</button>
       <button class="btn-primary"   onclick="saveOptions()">Save</button>
     </div>
@@ -1175,8 +1182,12 @@ async function openOptions(deckId) {
     document.getElementById('opt-learn-steps').value    = preset.learning_steps;
     document.getElementById('opt-grad-int').value       = preset.graduating_interval;
     document.getElementById('opt-easy-int').value       = preset.easy_interval;
+    document.getElementById('opt-insertion-order').value = preset.insertion_order || 'sequential';
     document.getElementById('opt-relearn-steps').value  = preset.relearning_steps;
     document.getElementById('opt-leech').value          = preset.leech_threshold;
+    const btn = document.getElementById('btn-set-default');
+    btn.textContent = preset.is_default ? '✓ Already default' : 'Set as default';
+    btn.disabled = !!preset.is_default;
     document.getElementById('modal-overlay').classList.add('open');
   } catch (e) {
     showError('Could not load options: ' + e.message);
@@ -1202,6 +1213,7 @@ async function saveOptions() {
     easy_interval:              parseInt(document.getElementById('opt-easy-int').value),
     relearning_steps:           document.getElementById('opt-relearn-steps').value.trim(),
     leech_threshold:            parseInt(document.getElementById('opt-leech').value),
+    insertion_order:            document.getElementById('opt-insertion-order').value,
   };
   try {
     await fetch(`/api/decks/${optDeckId}/preset`, {
@@ -1213,6 +1225,19 @@ async function saveOptions() {
     loadDecks(); // refresh counts
   } catch (e) {
     showError('Save failed: ' + e.message);
+  }
+}
+
+async function setDefaultPreset() {
+  if (!optDeckId) return;
+  try {
+    await api('POST', `/api/decks/${optDeckId}/preset/set-default`);
+    const btn = document.getElementById('btn-set-default');
+    btn.textContent = '✓ Default set';
+    btn.disabled = true;
+    setTimeout(() => { btn.textContent = 'Set as default'; btn.disabled = false; }, 2000);
+  } catch (e) {
+    showError('Failed: ' + e.message);
   }
 }
 

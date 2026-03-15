@@ -30,6 +30,13 @@ CREATE TABLE IF NOT EXISTS deck_presets (
     -- Review scheduling
     minimum_interval        INTEGER NOT NULL DEFAULT 1,
 
+    -- New card insertion order
+    insertion_order         TEXT NOT NULL DEFAULT 'sequential'
+                                CHECK(insertion_order IN ('sequential', 'random')),
+
+    -- Mark one preset as the default for new decks
+    is_default              INTEGER NOT NULL DEFAULT 0,
+
     -- Leech settings
     leech_threshold         INTEGER NOT NULL DEFAULT 8,
     leech_action            TEXT NOT NULL DEFAULT 'suspend'

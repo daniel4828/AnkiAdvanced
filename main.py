@@ -167,6 +167,12 @@ try:
         database.update_preset(deck["preset_id"], fields)
         return database.get_preset(deck["preset_id"])
 
+    @app.post("/api/decks/{deck_id}/preset/set-default")
+    def set_deck_preset_as_default(deck_id: int):
+        deck = database.get_deck(deck_id)
+        database.set_default_preset(deck["preset_id"])
+        return database.get_preset(deck["preset_id"])
+
     # --- Review session ---
     @app.get("/api/today/{deck_id}/{category}")
     def get_today(deck_id: int, category: str):
