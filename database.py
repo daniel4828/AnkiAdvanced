@@ -418,25 +418,37 @@ def get_card(card_id: int) -> dict | None:
     return dict(row) if row else None
 
 
+def _count_new_introduced_today(conn, deck_id: int, category: str, today: str) -> int:
+    """Cards whose very first review log entry is today (introduced as new today)."""
+    return conn.execute(
+        """SELECT COUNT(DISTINCT c.id) FROM cards c
+           JOIN words w ON w.id = c.word_id
+           WHERE w.deck_id = ? AND c.category = ?
+             AND EXISTS (
+               SELECT 1 FROM review_log rl
+               WHERE rl.card_id = c.id AND date(rl.reviewed_at) = ?
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM review_log rl
+               WHERE rl.card_id = c.id AND date(rl.reviewed_at) < ?
+             )""",
+        (deck_id, category, today, today),
+    ).fetchone()[0]
+
+
 def get_due_cards(deck_id: int, category: str) -> list[dict]:
     """All due cards for a category — used for story generation."""
     today = date.today().isoformat()
     now = datetime.now().isoformat(timespec="seconds")
     conn = get_db()
 
-    # Count new cards already reviewed today to enforce daily limit
+    # Count new cards already reviewed today to enforce daily limit.
+    # We track "introduced today" = first-ever review is today, regardless of
+    # current state (a card transitions away from 'new' after the first review).
     preset = get_preset_for_deck(deck_id)
     new_limit_key = f"{category}_new_per_day"
     new_limit = preset[new_limit_key]
-    new_done_today = conn.execute(
-        """SELECT COUNT(DISTINCT rl.card_id) FROM review_log rl
-           JOIN cards c ON c.id = rl.card_id
-           JOIN words w ON w.id = c.word_id
-           WHERE w.deck_id = ? AND c.category = ?
-             AND c.state = 'new'
-             AND date(rl.reviewed_at) = ?""",
-        (deck_id, category, today),
-    ).fetchone()[0]
+    new_done_today = _count_new_introduced_today(conn, deck_id, category, today)
     new_remaining = max(0, new_limit - new_done_today)
 
     rows = conn.execute(
@@ -491,15 +503,7 @@ def count_due(deck_id: int, category: str) -> dict:
     new_limit = preset[f"{category}_new_per_day"]
 
     conn = get_db()
-    new_done_today = conn.execute(
-        """SELECT COUNT(DISTINCT rl.card_id) FROM review_log rl
-           JOIN cards c ON c.id = rl.card_id
-           JOIN words w ON w.id = c.word_id
-           WHERE w.deck_id = ? AND c.category = ?
-             AND c.state = 'new'
-             AND date(rl.reviewed_at) = ?""",
-        (deck_id, category, today),
-    ).fetchone()[0]
+    new_done_today = _count_new_introduced_today(conn, deck_id, category, today)
     new_remaining = max(0, new_limit - new_done_today)
 
     learning = conn.execute(
