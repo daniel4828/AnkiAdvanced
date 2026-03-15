@@ -414,6 +414,272 @@
     .answer-correct { color: var(--again); font-weight: 700; }
     .answer-correct .hl { color: #7c0000; }
 
+    /* ── Nav row (deck list top) ─────────────────────────── */
+    .nav-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    .nav-btn {
+      flex: 1;
+      padding: 10px 8px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      background: var(--card);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      text-align: center;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .nav-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+    /* ── Deck card gear button ───────────────────────────── */
+    .deck-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .gear-btn {
+      background: none;
+      border: none;
+      font-size: 18px;
+      cursor: pointer;
+      color: var(--muted);
+      padding: 2px 4px;
+      border-radius: 6px;
+      line-height: 1;
+    }
+    .gear-btn:hover { background: var(--border); }
+
+    /* ── Browse view ─────────────────────────────────────── */
+    #view-browse { display: none; }
+
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .filter-row input,
+    .filter-row select {
+      padding: 8px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      background: var(--card);
+      color: var(--text);
+      outline: none;
+    }
+    .filter-row input { flex: 1; min-width: 120px; }
+    .filter-row input:focus,
+    .filter-row select:focus { border-color: var(--primary); }
+
+    .browse-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .browse-item {
+      background: var(--card);
+      border-radius: 10px;
+      padding: 12px 14px;
+      box-shadow: var(--shadow);
+    }
+    .browse-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .browse-word { font-size: 20px; font-weight: 700; }
+    .browse-badges { display: flex; gap: 5px; }
+    .badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .badge-new      { background: #dbeafe; color: #1d4ed8; }
+    .badge-learning { background: #fef3c7; color: #b45309; }
+    .badge-review   { background: #dcfce7; color: #15803d; }
+    .badge-relearn  { background: #fee2e2; color: #b91c1c; }
+    .badge-suspended{ background: #f1f5f9; color: #64748b; }
+    .badge-listening{ background: #ede9fe; color: #6d28d9; }
+    .badge-reading  { background: #dbeafe; color: #1d4ed8; }
+    .badge-creating { background: #ccfbf1; color: #0f766e; }
+    .browse-meta { font-size: 12px; color: var(--muted); }
+    .browse-def  { font-size: 13px; color: var(--text); margin-top: 2px;
+                   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* ── Stats view ──────────────────────────────────────── */
+    #view-stats { display: none; }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-num  { font-size: 36px; font-weight: 800; color: var(--primary); }
+    .stat-label{ font-size: 11px; font-weight: 600; text-transform: uppercase;
+                 letter-spacing: 0.6px; color: var(--muted); margin-top: 2px; }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--muted);
+      margin: 18px 0 10px;
+    }
+
+    /* Bar chart */
+    .bar-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      height: 80px;
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 12px 12px 0;
+    }
+    .bar-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+      height: 100%;
+    }
+    .bar-fill {
+      width: 100%;
+      background: var(--primary);
+      border-radius: 3px 3px 0 0;
+      min-height: 2px;
+      transition: height 0.3s;
+    }
+    .bar-day {
+      font-size: 9px;
+      color: var(--muted);
+      padding-bottom: 6px;
+      white-space: nowrap;
+    }
+
+    /* State pills row */
+    .state-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+    .state-pill {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      flex: 1;
+      min-width: 60px;
+    }
+    .state-pill-num   { font-size: 22px; font-weight: 800; }
+    .state-pill-label { font-size: 10px; color: var(--muted); font-weight: 600;
+                        text-transform: uppercase; letter-spacing: 0.4px; }
+
+    /* ── Options modal ───────────────────────────────────── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+      padding: 24px;
+      width: 100%;
+      max-width: 460px;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+    .modal-title {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 18px;
+    }
+    .opt-group {
+      margin-bottom: 16px;
+    }
+    .opt-group-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .opt-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .opt-label {
+      font-size: 13px;
+      flex: 1;
+    }
+    .opt-input {
+      width: 72px;
+      padding: 6px 8px;
+      border: 1.5px solid var(--border);
+      border-radius: 7px;
+      font-size: 13px;
+      text-align: right;
+      outline: none;
+      background: var(--bg);
+    }
+    .opt-input:focus { border-color: var(--primary); }
+    .opt-input.wide { width: 110px; text-align: left; }
+    .modal-footer {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .btn-secondary {
+      flex: 1;
+      padding: 11px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      background: none;
+      font-size: 14px;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .btn-secondary:hover { border-color: var(--primary); }
+    .modal-footer .btn-primary { flex: 1; padding: 11px; font-size: 14px; }
+
     /* ── Done ────────────────────────────────────────────── */
     #view-done {
       display: none;
@@ -542,7 +808,73 @@
     <p>No more cards due right now.</p>
     <button class="btn-primary" onclick="goBack()">Back to Decks</button>
   </div>
+
+  <!-- Browse -->
+  <div id="view-browse">
+    <div class="filter-row">
+      <input  id="f-search"   type="text"   placeholder="Search…" oninput="applyFilters()">
+      <select id="f-state"    onchange="applyFilters()">
+        <option value="">All states</option>
+        <option value="new">New</option>
+        <option value="learning">Learning</option>
+        <option value="review">Review</option>
+        <option value="relearn">Relearn</option>
+        <option value="suspended">Suspended</option>
+      </select>
+      <select id="f-cat"      onchange="applyFilters()">
+        <option value="">All categories</option>
+        <option value="listening">Listening</option>
+        <option value="reading">Reading</option>
+        <option value="creating">Creating</option>
+      </select>
+    </div>
+    <div class="browse-list" id="browse-list"></div>
+  </div>
+
+  <!-- Stats -->
+  <div id="view-stats">
+    <div class="stat-grid" id="stat-grid"></div>
+    <div class="section-title">Reviews — Last 14 Days</div>
+    <div class="bar-chart" id="bar-chart"></div>
+    <div class="section-title">Card States</div>
+    <div class="state-row" id="state-row"></div>
+  </div>
 </main>
+
+<!-- Options modal -->
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <div class="modal-title" id="modal-title">Deck Options</div>
+
+    <div class="opt-group">
+      <div class="opt-group-label">Daily Limits</div>
+      <div class="opt-row"><span class="opt-label">Listening — new / day</span>   <input class="opt-input" id="opt-listening-new"  type="number" min="0"></div>
+      <div class="opt-row"><span class="opt-label">Listening — reviews / day</span><input class="opt-input" id="opt-listening-rev"  type="number" min="0"></div>
+      <div class="opt-row"><span class="opt-label">Reading — new / day</span>      <input class="opt-input" id="opt-reading-new"    type="number" min="0"></div>
+      <div class="opt-row"><span class="opt-label">Reading — reviews / day</span>  <input class="opt-input" id="opt-reading-rev"    type="number" min="0"></div>
+      <div class="opt-row"><span class="opt-label">Creating — new / day</span>     <input class="opt-input" id="opt-creating-new"  type="number" min="0"></div>
+      <div class="opt-row"><span class="opt-label">Creating — reviews / day</span> <input class="opt-input" id="opt-creating-rev"  type="number" min="0"></div>
+    </div>
+
+    <div class="opt-group">
+      <div class="opt-group-label">Learning</div>
+      <div class="opt-row"><span class="opt-label">Steps (minutes, space-separated)</span><input class="opt-input wide" id="opt-learn-steps"  type="text"></div>
+      <div class="opt-row"><span class="opt-label">Graduating interval (days)</span>       <input class="opt-input" id="opt-grad-int"     type="number" min="1"></div>
+      <div class="opt-row"><span class="opt-label">Easy interval (days)</span>              <input class="opt-input" id="opt-easy-int"     type="number" min="1"></div>
+    </div>
+
+    <div class="opt-group">
+      <div class="opt-group-label">Lapses</div>
+      <div class="opt-row"><span class="opt-label">Relearning steps (minutes)</span><input class="opt-input wide" id="opt-relearn-steps" type="text"></div>
+      <div class="opt-row"><span class="opt-label">Leech threshold (lapses)</span>  <input class="opt-input" id="opt-leech"         type="number" min="1"></div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary"   onclick="saveOptions()">Save</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ── State ──────────────────────────────────────────────────────────────────
@@ -554,6 +886,8 @@ let story       = null;   // story dict with sentences[]
 let sentence    = null;   // current sentence from story (may be null)
 let wordDetails = null;   // full word data: examples + characters
 let userInput   = '';     // creating category: what the user typed
+let browseAll    = [];   // all cards from API for client-side filtering
+let optDeckId    = null; // deck whose options modal is open
 
 // ── API helper ─────────────────────────────────────────────────────────────
 async function api(method, path) {
@@ -564,13 +898,15 @@ async function api(method, path) {
 
 // ── View switcher ──────────────────────────────────────────────────────────
 function showView(name) {
-  ['loading', 'decks', 'review', 'done'].forEach(v => {
+  ['loading', 'decks', 'review', 'done', 'browse', 'stats'].forEach(v => {
     document.getElementById(`view-${v}`).style.display = 'none';
   });
   document.getElementById(`view-${name}`).style.display = 'block';
   document.getElementById('back-btn').style.display = name === 'decks' ? 'none' : 'block';
   document.getElementById('header-title').textContent =
-    name === 'review' ? `${deckName} · ${cap(category)}` : 'Chinese SRS';
+    name === 'review' ? `${deckName} · ${cap(category)}` :
+    name === 'browse' ? 'Browse' :
+    name === 'stats'  ? 'Stats'  : 'Chinese SRS';
 }
 
 function setLoading(msg) {
@@ -606,11 +942,15 @@ function flatten(nodes, depth = 0) {
 
 function renderDecks(decks) {
   const CATS = ['reading', 'listening', 'creating'];
-  document.getElementById('view-decks').innerHTML = decks.map(deck => {
+  const navRow = `
+    <div class="nav-row">
+      <button class="nav-btn" onclick="openBrowse()">Browse Cards</button>
+      <button class="nav-btn" onclick="openStats()">Stats</button>
+    </div>`;
+  const deckCards = decks.map(deck => {
     const buttons = CATS.map(cat => {
       const c = deck.counts?.[cat] || { new: 0, learning: 0, review: 0 };
       const total = c.new + c.learning + c.review;
-      const isListening = cat === 'listening';
       const nums = total === 0
         ? `<span class="n-zero">—</span>`
         : [
@@ -628,10 +968,174 @@ function renderDecks(decks) {
     }).join('');
     return `
       <div class="deck-card">
-        <div class="deck-name">${deck.name}</div>
+        <div class="deck-header">
+          <div class="deck-name">${deck.name}</div>
+          <button class="gear-btn" onclick="openOptions(${deck.id})" title="Deck options">⚙</button>
+        </div>
         <div class="cat-row">${buttons}</div>
       </div>`;
   }).join('');
+  document.getElementById('view-decks').innerHTML = navRow + deckCards;
+}
+
+// ── Browse ───────────────────────────────────────────────────────────────────
+async function openBrowse() {
+  setLoading('Loading cards…');
+  try {
+    browseAll = await api('GET', '/api/browse');
+    showView('browse');
+    applyFilters();
+  } catch (e) {
+    showError('Browse failed: ' + e.message);
+    showView('decks');
+  }
+}
+
+function applyFilters() {
+  const q     = document.getElementById('f-search').value.toLowerCase();
+  const state = document.getElementById('f-state').value;
+  const cat   = document.getElementById('f-cat').value;
+  const filtered = browseAll.filter(c => {
+    if (state && c.state !== state) return false;
+    if (cat   && c.category !== cat) return false;
+    if (q && !c.word_zh?.toLowerCase().includes(q)
+           && !c.definition?.toLowerCase().includes(q)
+           && !c.pinyin?.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  renderBrowse(filtered);
+}
+
+function renderBrowse(cards) {
+  const list = document.getElementById('browse-list');
+  if (!cards.length) {
+    list.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px 0">No cards found</div>';
+    return;
+  }
+  list.innerHTML = cards.map(c => {
+    const def = (c.definition || '').slice(0, 48) + ((c.definition || '').length > 48 ? '…' : '');
+    const due = c.due ? c.due.slice(0, 10) : '';
+    const intv = c.interval > 0 ? `${c.interval}d` : '';
+    return `
+      <div class="browse-item">
+        <div class="browse-top">
+          <div class="browse-word">${c.word_zh}</div>
+          <div class="browse-badges">
+            <span class="badge badge-${c.category}">${c.category.slice(0,1).toUpperCase()}</span>
+            <span class="badge badge-${c.state}">${c.state}</span>
+          </div>
+        </div>
+        <div class="browse-def">${def}</div>
+        <div class="browse-meta">${c.pinyin || ''}${due ? ' · due ' + due : ''}${intv ? ' · ' + intv : ''}</div>
+      </div>`;
+  }).join('');
+}
+
+// ── Stats ────────────────────────────────────────────────────────────────────
+async function openStats() {
+  setLoading('Loading stats…');
+  try {
+    const data = await api('GET', '/api/stats');
+    showView('stats');
+    renderStats(data);
+  } catch (e) {
+    showError('Stats failed: ' + e.message);
+    showView('decks');
+  }
+}
+
+function renderStats(data) {
+  // Big numbers
+  document.getElementById('stat-grid').innerHTML = [
+    { num: data.streak_days,    label: 'Day Streak' },
+    { num: data.total_words,    label: 'Total Words' },
+    { num: data.reviews_today,  label: 'Reviews Today' },
+    { num: data.new_today,      label: 'New Today' },
+  ].map(s => `
+    <div class="stat-card">
+      <div class="stat-num">${s.num}</div>
+      <div class="stat-label">${s.label}</div>
+    </div>`).join('');
+
+  // Bar chart
+  const days = data.reviews_by_day || [];
+  const maxCount = Math.max(...days.map(d => d.count), 1);
+  document.getElementById('bar-chart').innerHTML = days.map(d => {
+    const pct = Math.round((d.count / maxCount) * 100);
+    const label = d.date.slice(5); // MM-DD
+    return `
+      <div class="bar-col" title="${d.date}: ${d.count}">
+        <div class="bar-fill" style="height:${pct}%"></div>
+        <div class="bar-day">${label}</div>
+      </div>`;
+  }).join('');
+
+  // State pills
+  const sc = data.state_counts || {};
+  const STATES = ['new','learning','review','relearn','suspended'];
+  const colors = { new:'var(--primary)', learning:'var(--hard)', review:'var(--good)',
+                   relearn:'var(--again)', suspended:'var(--muted)' };
+  document.getElementById('state-row').innerHTML = STATES.map(s => `
+    <div class="state-pill">
+      <div class="state-pill-num" style="color:${colors[s]}">${sc[s] || 0}</div>
+      <div class="state-pill-label">${s}</div>
+    </div>`).join('');
+}
+
+// ── Options modal ─────────────────────────────────────────────────────────────
+async function openOptions(deckId) {
+  optDeckId = deckId;
+  try {
+    const preset = await api('GET', `/api/decks/${deckId}/preset`);
+    document.getElementById('modal-title').textContent = 'Deck Options';
+    document.getElementById('opt-listening-new').value  = preset.listening_new_per_day;
+    document.getElementById('opt-listening-rev').value  = preset.listening_reviews_per_day;
+    document.getElementById('opt-reading-new').value    = preset.reading_new_per_day;
+    document.getElementById('opt-reading-rev').value    = preset.reading_reviews_per_day;
+    document.getElementById('opt-creating-new').value   = preset.creating_new_per_day;
+    document.getElementById('opt-creating-rev').value   = preset.creating_reviews_per_day;
+    document.getElementById('opt-learn-steps').value    = preset.learning_steps;
+    document.getElementById('opt-grad-int').value       = preset.graduating_interval;
+    document.getElementById('opt-easy-int').value       = preset.easy_interval;
+    document.getElementById('opt-relearn-steps').value  = preset.relearning_steps;
+    document.getElementById('opt-leech').value          = preset.leech_threshold;
+    document.getElementById('modal-overlay').classList.add('open');
+  } catch (e) {
+    showError('Could not load options: ' + e.message);
+  }
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  optDeckId = null;
+}
+
+async function saveOptions() {
+  if (!optDeckId) return;
+  const fields = {
+    listening_new_per_day:      parseInt(document.getElementById('opt-listening-new').value),
+    listening_reviews_per_day:  parseInt(document.getElementById('opt-listening-rev').value),
+    reading_new_per_day:        parseInt(document.getElementById('opt-reading-new').value),
+    reading_reviews_per_day:    parseInt(document.getElementById('opt-reading-rev').value),
+    creating_new_per_day:       parseInt(document.getElementById('opt-creating-new').value),
+    creating_reviews_per_day:   parseInt(document.getElementById('opt-creating-rev').value),
+    learning_steps:             document.getElementById('opt-learn-steps').value.trim(),
+    graduating_interval:        parseInt(document.getElementById('opt-grad-int').value),
+    easy_interval:              parseInt(document.getElementById('opt-easy-int').value),
+    relearning_steps:           document.getElementById('opt-relearn-steps').value.trim(),
+    leech_threshold:            parseInt(document.getElementById('opt-leech').value),
+  };
+  try {
+    await fetch(`/api/decks/${optDeckId}/preset`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(fields),
+    });
+    closeModal();
+    loadDecks(); // refresh counts
+  } catch (e) {
+    showError('Save failed: ' + e.message);
+  }
 }
 
 // ── Start review session ────────────────────────────────────────────────────
@@ -886,6 +1390,7 @@ async function regenerateStory() {
 // ── Back to decks ────────────────────────────────────────────────────────────
 function goBack() {
   card = null; story = null; sentence = null; wordDetails = null; userInput = '';
+  browseAll = [];
   loadDecks();
 }
 

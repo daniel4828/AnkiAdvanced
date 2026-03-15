@@ -718,8 +718,29 @@ def get_stats(deck_id: int | None = None) -> dict:
         [today] + params_deck,
     ).fetchone()[0]
 
-    # Streak: consecutive days with at least one review
     streak = _calc_streak(conn, deck_id)
+
+    # Reviews per day — last 14 days (oldest first)
+    day_rows = conn.execute(
+        f"""SELECT date(rl.reviewed_at) as d, COUNT(*) as cnt
+            FROM review_log rl
+            JOIN cards c ON c.id = rl.card_id
+            JOIN words w ON w.id = c.word_id
+            WHERE 1=1 {deck_filter}
+            GROUP BY d ORDER BY d DESC LIMIT 14""",
+        params_deck,
+    ).fetchall()
+    reviews_by_day = [{"date": r["d"], "count": r["cnt"]} for r in reversed(day_rows)]
+
+    # Card state totals
+    state_rows = conn.execute(
+        f"""SELECT c.state, COUNT(*) as cnt
+            FROM cards c JOIN words w ON w.id = c.word_id
+            WHERE 1=1 {deck_filter}
+            GROUP BY c.state""",
+        params_deck,
+    ).fetchall()
+    state_counts = {r["state"]: r["cnt"] for r in state_rows}
 
     conn.close()
     return {
@@ -727,6 +748,8 @@ def get_stats(deck_id: int | None = None) -> dict:
         "reviews_today": reviews_today,
         "new_today": new_today,
         "streak_days": streak,
+        "reviews_by_day": reviews_by_day,
+        "state_counts": state_counts,
     }
 
 
