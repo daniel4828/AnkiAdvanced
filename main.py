@@ -1,24 +1,9 @@
 import argparse
-import atexit
 import os
 import sys
 
 import database
 import importer
-
-
-# ---------------------------------------------------------------------------
-# Dev helper: wipe DB on exit (set DEV_CLEAR_DB=1 in .env for testing)
-# ---------------------------------------------------------------------------
-
-if os.environ.get("DEV_CLEAR_DB"):
-    def _clear_db_on_exit():
-        try:
-            os.unlink(database.DB_PATH)
-            print("[dev] Database cleared on exit.", file=sys.stderr)
-        except FileNotFoundError:
-            pass
-    atexit.register(_clear_db_on_exit)
 
 
 # ---------------------------------------------------------------------------
@@ -88,6 +73,15 @@ try:
     import uvicorn
 
     app = FastAPI(title="Chinese SRS")
+
+    @app.on_event("shutdown")
+    def on_shutdown():
+        if os.environ.get("DEV_CLEAR_DB"):
+            try:
+                os.unlink(database.DB_PATH)
+                print("[dev] Database cleared on exit.", file=sys.stderr)
+            except FileNotFoundError:
+                pass
 
     import os as _os
     if _os.path.exists("static"):
