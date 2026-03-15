@@ -324,6 +324,15 @@
       padding: 6px 0;
       border-bottom: 1px solid var(--border);
     }
+    /* Sentence English translation */
+    .sentence-en {
+      text-align: center;
+      font-size: 14px;
+      color: var(--muted);
+      font-style: italic;
+      min-height: 18px;
+    }
+
     .char-row:last-child { border-bottom: none; }
     .char-row-zh    { font-size: 26px; font-weight: 700; min-width: 32px; }
     .char-row-right { display: flex; flex-direction: column; gap: 2px; }
@@ -413,7 +422,10 @@
           <button class="play-icon-btn" onclick="playSentence()" title="Play audio">▶</button>
         </div>
 
-        <!-- 2. Rating buttons (immediately visible after flip) -->
+        <!-- 2. English translation of the sentence -->
+        <div class="sentence-en" id="sentence-en"></div>
+
+        <!-- 3. Rating buttons (immediately visible after flip) -->
         <div class="rating-row" id="rating-row">
           <button class="r-btn r-again" onclick="rate(1)">Again<small id="int-1"></small></button>
           <button class="r-btn r-hard"  onclick="rate(2)">Hard<small id="int-2"></small></button>
@@ -628,6 +640,7 @@ function revealAnswer() {
   document.getElementById('side-back').style.gap = '16px';
 
   document.getElementById('sentence-back').innerHTML = renderSentence();
+  document.getElementById('sentence-en').textContent = sentence?.sentence_en || '';
   document.getElementById('word-zh').textContent  = card.word_zh;
   document.getElementById('word-pin').textContent = card.pinyin || '';
   document.getElementById('word-def').textContent = card.definition || '';
