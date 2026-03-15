@@ -1,0 +1,186 @@
+import argparse
+import sys
+
+import database
+import importer
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+def cmd_import(args):
+    print("Importing from imports/...")
+    result = importer.import_all("imports")
+    print(f"Done — imported {result['imported']} words "
+          f"({result['skipped_duplicate']} skipped as duplicates)")
+
+
+def cmd_status(args):
+    decks = database.get_all_decks()
+    if args.deck:
+        decks = [d for d in decks if d["name"].lower() == args.deck.lower()]
+        if not decks:
+            print(f"No deck named '{args.deck}'")
+            return
+
+    categories = ["reading", "listening", "creating"]
+    header = f"{'Deck':<20} {'Category':<12} {'New':>5} {'Learning':>9} {'Review':>7}"
+    print(header)
+    print("-" * len(header))
+
+    for deck in decks:
+        for cat in categories:
+            counts = database.count_due(deck["id"], cat)
+            print(
+                f"{deck['name']:<20} {cat:<12} "
+                f"{counts['new']:>5} {counts['learning']:>9} {counts['review']:>7}"
+            )
+
+
+def main():
+    database.init_db()
+
+    parser = argparse.ArgumentParser(description="Chinese SRS")
+    sub = parser.add_subparsers(dest="command")
+
+    # import
+    sub.add_parser("import", help="Import vocabulary from imports/")
+
+    # status
+    status_p = sub.add_parser("status", help="Show due counts per deck/category")
+    status_p.add_argument("--deck", help="Filter to a specific deck name")
+
+    args = parser.parse_args()
+
+    if args.command == "import":
+        cmd_import(args)
+    elif args.command == "status":
+        cmd_status(args)
+    else:
+        parser.print_help()
+
+
+# ---------------------------------------------------------------------------
+# FastAPI app (stubs for M2+)
+# ---------------------------------------------------------------------------
+
+try:
+    from fastapi import FastAPI
+    from fastapi.staticfiles import StaticFiles
+    from fastapi.responses import JSONResponse
+    import uvicorn
+
+    app = FastAPI(title="Chinese SRS")
+
+    # --- Decks ---
+    @app.get("/api/decks")
+    def get_decks():
+        tree = database.get_deck_tree()
+        for deck in _flatten(tree):
+            for cat in ("reading", "listening", "creating"):
+                deck.setdefault("counts", {})[cat] = database.count_due(deck["id"], cat)
+        return tree
+
+    @app.post("/api/decks")
+    def create_deck(name: str, parent_id: int | None = None):
+        preset_id = database.get_preset_for_deck(
+            database.get_default_deck_id()
+        )["id"] if parent_id is None else \
+            database.get_deck(parent_id)["preset_id"]
+        deck_id = database.insert_deck(name, parent_id, preset_id)
+        return database.get_deck(deck_id)
+
+    @app.put("/api/decks/{deck_id}")
+    def update_deck(deck_id: int, name: str | None = None, preset_id: int | None = None):
+        if name:
+            database.rename_deck(deck_id, name)
+        return database.get_deck(deck_id)
+
+    @app.get("/api/decks/{deck_id}/preset")
+    def get_deck_preset(deck_id: int):
+        return database.get_preset_for_deck(deck_id)
+
+    @app.put("/api/decks/{deck_id}/preset")
+    def update_deck_preset(deck_id: int, fields: dict):
+        deck = database.get_deck(deck_id)
+        database.update_preset(deck["preset_id"], fields)
+        return database.get_preset(deck["preset_id"])
+
+    # --- Review session ---
+    @app.get("/api/today/{deck_id}/{category}")
+    def get_today(deck_id: int, category: str):
+        card = database.get_next_card(deck_id, category)
+        counts = database.count_due(deck_id, category)
+        return {"card": card, "counts": counts}
+
+    @app.get("/api/story/{deck_id}/{category}")
+    def get_story(deck_id: int, category: str):
+        from datetime import date
+        today = date.today().isoformat()
+        story = database.get_active_story(today, category, deck_id)
+        if story:
+            story["sentences"] = database.get_story_sentences(story["id"])
+        return story
+
+    @app.post("/api/story/{deck_id}/{category}/regenerate")
+    def regenerate_story(deck_id: int, category: str):
+        # Stub — AI generation wired in M2
+        return {"detail": "Story generation not yet implemented (M2)"}
+
+    @app.post("/api/review")
+    def submit_review(card_id: int, rating: int, user_response: str | None = None):
+        import srs
+        updated = srs.apply_review(card_id, rating, user_response=user_response)
+        deck_id = updated["deck_id"]
+        cat = updated["category"]
+        next_card = database.get_next_card(deck_id, cat)
+        counts = database.count_due(deck_id, cat)
+        return {"next_card": next_card, "counts": counts}
+
+    @app.post("/api/speak")
+    def speak(text: str):
+        # Stub — TTS wired in M2
+        return {"detail": "TTS not yet implemented (M2)"}
+
+    @app.post("/api/import")
+    def trigger_import():
+        result = importer.import_all("imports")
+        return result
+
+    @app.get("/api/browse")
+    def browse(deck_id: int | None = None, category: str | None = None,
+               state: str | None = None, q: str | None = None):
+        filters = {
+            "deck_id": deck_id,
+            "category": category,
+            "state": state,
+            "search_text": q,
+        }
+        return database.get_all_cards_for_browse(filters)
+
+    @app.get("/api/stats")
+    def get_stats(deck_id: int | None = None):
+        return database.get_stats(deck_id)
+
+    def _flatten(tree: list) -> list:
+        result = []
+        for node in tree:
+            result.append(node)
+            result.extend(_flatten(node.get("children", [])))
+        return result
+
+except ImportError:
+    app = None  # FastAPI not installed yet
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        main()
+    elif app:
+        import uvicorn
+        database.init_db()
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+    else:
+        print("Install fastapi and uvicorn to run the web server.")
+        print("Usage: python main.py import | status [--deck NAME]")
