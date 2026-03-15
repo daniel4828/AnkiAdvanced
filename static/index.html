@@ -439,10 +439,10 @@
           <div class="word-pin" id="word-pin"></div>
           <div class="word-pos-row"><span class="word-pos" id="word-pos"></span></div>
           <div class="word-def" id="word-def"></div>
-          <!-- Characters breakdown — populated by JS -->
-          <div id="char-section"></div>
           <!-- Example sentences — populated by JS -->
           <div id="examples-section"></div>
+          <!-- Characters breakdown — populated by JS -->
+          <div id="char-section"></div>
         </div>
 
       </div>
@@ -568,8 +568,11 @@ async function startReview(id, cat, name) {
       return;
     }
 
-    // Kick off background preload of ALL sentence audio — fire and forget
-    fetch(`/api/preload-session/${deckId}/${category}`, { method: 'POST' }).catch(() => {});
+    // Preload ALL sentence audio — wait for it so first play is instant
+    document.getElementById('loading-msg').textContent = 'Loading audio…';
+    try {
+      await fetch(`/api/preload-session/${deckId}/${category}`, { method: 'POST' });
+    } catch (_) {}  // TTS failure must never block the review session
 
     showView('review');
     loadCard(todayData.card, todayData.counts);

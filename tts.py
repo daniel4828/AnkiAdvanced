@@ -19,8 +19,9 @@ import edge_tts
 
 VOICE = "zh-CN-XiaoxiaoNeural"
 
-# Simple text → file-path cache so the second play is instant
+# text → file-path cache.  Large enough to hold a full session of sentences.
 _cache: dict[str, str] = {}
+_CACHE_MAX = 200
 
 
 def preload(text: str) -> None:
@@ -29,11 +30,11 @@ def preload(text: str) -> None:
                      daemon=True).start()
 
 
-def preload_all(texts: list[str]) -> None:
-    """Pre-generate audio for multiple texts in parallel. Call when a story loads."""
-    async def _all():
-        await asyncio.gather(*[_ensure_cached(t) for t in texts])
-    threading.Thread(target=lambda: asyncio.run(_all()), daemon=True).start()
+async def preload_all_async(texts: list[str]) -> None:
+    """Pre-generate audio for all texts in parallel. Awaitable — blocks until done.
+    Call from an async FastAPI endpoint so the response only returns once all
+    audio files are cached and ready."""
+    await asyncio.gather(*[_ensure_cached(t) for t in texts])
 
 
 def speak(text: str) -> None:
@@ -56,7 +57,7 @@ async def _ensure_cached(text: str) -> str:
     await communicate.save(tmp_path)
 
     # Evict oldest entry if cache is full
-    if len(_cache) >= 5:
+    if len(_cache) >= _CACHE_MAX:
         oldest_text = next(iter(_cache))
         try:
             os.unlink(_cache.pop(oldest_text))

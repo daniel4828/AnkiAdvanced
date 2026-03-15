@@ -242,8 +242,8 @@ try:
         return {"ok": True}
 
     @app.post("/api/preload-session/{deck_id}/{category}")
-    def preload_session(deck_id: int, category: str):
-        """Pre-generate TTS for every sentence in today's active story in parallel."""
+    async def preload_session(deck_id: int, category: str):
+        """Pre-generate TTS for every sentence — waits until all audio is cached."""
         import tts
         from datetime import date
         today = date.today().isoformat()
@@ -251,10 +251,12 @@ try:
         if story:
             sentences = database.get_story_sentences(story["id"])
             texts = [s["sentence_zh"] for s in sentences if s.get("sentence_zh")]
+            logger.info("tts  preloading %d sentences", len(texts))
             try:
-                tts.preload_all(texts)
-            except Exception:
-                pass
+                await tts.preload_all_async(texts)
+                logger.info("tts  preload done")
+            except Exception as _e:
+                logger.warning("tts  preload error: %s", _e)
         return {"ok": True}
 
     @app.post("/api/import")
