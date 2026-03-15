@@ -1,9 +1,22 @@
 import argparse
+import logging
 import os
 import sys
 
 import database
 import importer
+
+# ---------------------------------------------------------------------------
+# Logging — set LOG_LEVEL=DEBUG in .env for verbose output
+# ---------------------------------------------------------------------------
+
+logging.basicConfig(
+    level=os.environ.get("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s [%(levelname)-5s] %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
+    stream=sys.stderr,
+)
+logger = logging.getLogger("main")
 
 
 # ---------------------------------------------------------------------------
@@ -147,13 +160,13 @@ try:
         story = database.get_active_story(today, category, deck_id)
         if story:
             story["sentences"] = database.get_story_sentences(story["id"])
-            print(f"[story] cached  deck={deck_id} cat={category} "
-                  f"sentences={len(story['sentences'])} "
-                  f"story_id={story['id']}", file=sys.stderr)
+            logger.info("story  CACHED  deck=%d cat=%s sentences=%d story_id=%d",
+                        deck_id, category, len(story["sentences"]), story["id"])
+            _log_story(story)
             return story
         cards = database.get_due_cards(deck_id, category)
-        print(f"[story] generating deck={deck_id} cat={category} "
-              f"due_cards={len(cards)}", file=sys.stderr)
+        logger.info("story  GENERATE deck=%d cat=%s due_cards=%d",
+                    deck_id, category, len(cards))
         if cards:
             try:
                 sentences = ai.generate_story(cards)
@@ -162,11 +175,12 @@ try:
                 database.create_story(today, category, deck_id, sentences)
                 story = database.get_active_story(today, category, deck_id)
             except Exception as _e:
-                print(f"[story] generation error: {_e}", file=sys.stderr)
+                logger.error("story  generation error: %s", _e)
         if story:
             story["sentences"] = database.get_story_sentences(story["id"])
-            print(f"[story] saved   deck={deck_id} cat={category} "
-                  f"sentences={len(story['sentences'])}", file=sys.stderr)
+            logger.info("story  SAVED   deck=%d cat=%s sentences=%d",
+                        deck_id, category, len(story["sentences"]))
+            _log_story(story)
         return story
 
     @app.post("/api/story/{deck_id}/{category}/regenerate")
@@ -175,8 +189,7 @@ try:
         from datetime import date
         today = date.today().isoformat()
         cards = database.get_due_cards(deck_id, category)
-        print(f"[regen] deck={deck_id} cat={category} due_cards={len(cards)}",
-              file=sys.stderr)
+        logger.info("regen  deck=%d cat=%s due_cards=%d", deck_id, category, len(cards))
         if not cards:
             return None
         sentences = ai.generate_story(cards)
@@ -186,7 +199,8 @@ try:
         story = database.get_active_story(today, category, deck_id)
         if story:
             story["sentences"] = database.get_story_sentences(story["id"])
-            print(f"[regen] saved sentences={len(story['sentences'])}", file=sys.stderr)
+            logger.info("regen  SAVED sentences=%d", len(story["sentences"]))
+            _log_story(story)
         return story
 
     @app.post("/api/review")
@@ -201,10 +215,11 @@ try:
             next_card = database.get_card(next_card["id"])
             next_card["intervals"] = srs.preview_intervals(next_card)
         counts = database.count_due(deck_id, cat)
-        print(f"[review] card={card_id}({card_before['word_zh']}) "
-              f"rating={rating} → state={updated['state']} due={updated['due']} | "
-              f"next={next_card['word_zh'] if next_card else 'None'} | "
-              f"counts={counts}", file=sys.stderr)
+        rating_label = {1: "Again", 2: "Hard", 3: "Good", 4: "Easy"}.get(rating, rating)
+        logger.info("review %s → %s (%s)  due=%s  next=%s  queue: %d lrn %d rev %d new",
+                    card_before["word_zh"], updated["state"], rating_label,
+                    updated["due"], next_card["word_zh"] if next_card else "—",
+                    counts["learning"], counts["review"], counts["new"])
         return {"next_card": next_card, "counts": counts}
 
     @app.post("/api/speak")
@@ -272,6 +287,17 @@ try:
             result.append(node)
             result.extend(_flatten(node.get("children", [])))
         return result
+
+    def _log_story(story: dict) -> None:
+        """Log full story sentences at DEBUG level."""
+        if not logger.isEnabledFor(logging.DEBUG):
+            return
+        sentences = story.get("sentences", [])
+        lines = [f"  Story id={story['id']} ({len(sentences)} sentences):"]
+        for s in sentences:
+            lines.append(f"    {s['position']+1}. {s['sentence_zh']}")
+            lines.append(f"       {s['sentence_en']}")
+        logger.debug("\n".join(lines))
 
 except ImportError:
     app = None  # FastAPI not installed yet

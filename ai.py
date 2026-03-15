@@ -7,10 +7,12 @@ sentences so the review session always continues.
 """
 
 import json
+import logging
 import re
-import sys
 
 import anthropic
+
+logger = logging.getLogger(__name__)
 
 
 def generate_story(cards: list[dict]) -> list[dict]:
@@ -49,8 +51,9 @@ Rules:
   ...
 ]"""
 
-    print(f"[ai] Requesting story for {len(cards)} cards: "
-          f"{[c['word_zh'] for c in cards]}", file=sys.stderr)
+    words = [c['word_zh'] for c in cards]
+    logger.info("generate_story: %d cards: %s", len(cards), words)
+    logger.debug("Prompt:\n%s", prompt)
 
     # 150 tokens per sentence is generous; add 200 for overhead/fences
     max_tokens = len(cards) * 150 + 200
@@ -62,11 +65,11 @@ Rules:
     )
 
     raw = message.content[0].text.strip()
-    print(f"[ai] Raw response ({len(raw)} chars, stop={message.stop_reason}): "
-          f"{raw[:120]!r}{'...' if len(raw) > 120 else ''}", file=sys.stderr)
+    logger.debug("Raw response (%d chars, stop=%s):\n%s",
+                 len(raw), message.stop_reason, raw)
 
     if message.stop_reason == "max_tokens":
-        print(f"[ai] Response was truncated! Increase max_tokens.", file=sys.stderr)
+        logger.warning("Response truncated — increase max_tokens (was %d)", max_tokens)
 
     # Try to extract a JSON array from the response (handles markdown fences,
     # leading/trailing text, or extra commentary the model sometimes adds)
@@ -77,22 +80,19 @@ Rules:
     try:
         result = json.loads(raw)
         if isinstance(result, list) and len(result) >= 1:
-            # Truncate if the model returned too many sentences
             result = result[:len(cards)]
-            # Enforce correct word_ids — the model sometimes uses wrong values
             for item, card in zip(result, cards):
                 item["word_id"] = card["word_id"]
             if len(result) == len(cards):
-                print(f"[ai] Success: {len(result)} sentences generated.", file=sys.stderr)
+                logger.info("generate_story: success — %d sentences", len(result))
                 return result
             else:
-                print(f"[ai] Count mismatch: got {len(result)}, need {len(cards)}.",
-                      file=sys.stderr)
+                logger.warning("generate_story: count mismatch — got %d, need %d",
+                               len(result), len(cards))
     except (json.JSONDecodeError, TypeError, KeyError) as e:
-        print(f"[ai] JSON parse error: {e}", file=sys.stderr)
+        logger.error("generate_story: JSON parse error: %s", e)
 
-    # Fallback
-    print(f"[ai] Using placeholder sentences.", file=sys.stderr)
+    logger.warning("generate_story: falling back to placeholder sentences")
     return _fallback_sentences(cards)
 
 
