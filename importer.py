@@ -20,10 +20,21 @@ def import_all(imports_dir: str = "imports") -> dict:
     return {"imported": total_imported, "skipped_duplicate": total_skipped}
 
 
-def import_kouyu_yaml(filepath: str, deck_id: int | None = None) -> dict:
+def import_kouyu_yaml(filepath: str) -> dict:
     """Parse one Kouyu YAML file and import all entries."""
-    if deck_id is None:
-        deck_id = database.get_or_create_deck("Kouyu")
+    # Ensure parent deck + sub-decks exist
+    parent_id = database.get_or_create_deck("Kouyu")
+    deck_ids = {
+        "listening": database.get_or_create_deck(
+            "Kouyu · Listening", parent_id=parent_id, category="listening"
+        ),
+        "reading": database.get_or_create_deck(
+            "Kouyu · Reading", parent_id=parent_id, category="reading"
+        ),
+        "creating": database.get_or_create_deck(
+            "Kouyu · Creating", parent_id=parent_id, category="creating"
+        ),
+    }
 
     with open(filepath, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
@@ -41,15 +52,14 @@ def import_kouyu_yaml(filepath: str, deck_id: int | None = None) -> dict:
             continue
 
         word = {
-            "word_zh":      word_zh,
-            "pinyin":       entry.get("pinyin"),
-            "definition":   entry.get("english"),
-            "pos":          entry.get("pos"),
-            "hsk_level":    _kouyu_hsk_to_int(entry.get("hsk", "")),
-            "deck_id":      deck_id,
-            "traditional":  entry.get("traditional"),
+            "word_zh":       word_zh,
+            "pinyin":        entry.get("pinyin"),
+            "definition":    entry.get("english"),
+            "pos":           entry.get("pos"),
+            "hsk_level":     _kouyu_hsk_to_int(entry.get("hsk", "")),
+            "traditional":   entry.get("traditional"),
             "definition_zh": entry.get("definition_zh"),
-            "source":       "kouyu",
+            "source":        "kouyu",
         }
 
         existing = database.get_word_by_zh(word_zh)
@@ -77,15 +87,11 @@ def import_kouyu_yaml(filepath: str, deck_id: int | None = None) -> dict:
 
             detailed = char_entry.get("detailed_analysis", False)
 
-            # Serialize list fields to JSON strings
             other_meanings = char_entry.get("other_meanings")
             compounds_raw = char_entry.get("compounds")
 
-            # other_meanings is a list of strings
             other_meanings_json = json.dumps(other_meanings, ensure_ascii=False) \
                 if other_meanings else None
-
-            # compounds is a list of {simplified, pinyin, meaning} dicts
             compounds_json = json.dumps(compounds_raw, ensure_ascii=False) \
                 if compounds_raw else None
 
@@ -107,16 +113,16 @@ def import_kouyu_yaml(filepath: str, deck_id: int | None = None) -> dict:
                 meaning_in_context=char_entry.get("meaning_in_context") if detailed else None,
             )
 
-        _create_cards(word_id)
+        _create_cards(word_id, deck_ids)
         imported += 1
 
     return {"imported": imported, "skipped_duplicate": skipped_duplicate}
 
 
-def _create_cards(word_id: int) -> None:
-    """Create all 3 cards for a word, all starting as 'new'."""
-    for category in ("listening", "reading", "creating"):
-        database.insert_card(word_id, category, state="new")
+def _create_cards(word_id: int, deck_ids: dict) -> None:
+    """Create one card per category, each in its respective sub-deck."""
+    for category, deck_id in deck_ids.items():
+        database.insert_card(word_id, category, deck_id, state="new")
 
 
 def _kouyu_hsk_to_int(hsk_str: str) -> int | None:
@@ -124,21 +130,13 @@ def _kouyu_hsk_to_int(hsk_str: str) -> int | None:
 
     '超纲' → None
     '6' → 6
-    '4/5' → 5  (take the higher value)
     """
     if not hsk_str:
         return None
     s = str(hsk_str).strip()
     if s == "超纲" or s == "":
         return None
-    # Handle slash-separated values like "4/5"
-    parts = [p.strip() for p in s.split("/")]
-    values = []
-    for p in parts:
-        try:
-            values.append(int(p))
-        except ValueError:
-            pass
-    if not values:
+    try:
+        return int(s)
+    except ValueError:
         return None
-    return max(values)

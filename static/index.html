@@ -414,6 +414,39 @@
     .answer-correct { color: var(--again); font-weight: 700; }
     .answer-correct .hl { color: #7c0000; }
 
+    /* ── Deck tree ───────────────────────────────────────────── */
+    .tree-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.12s;
+      user-select: none;
+    }
+    .tree-row:last-child { border-bottom: none; }
+    .tree-row:first-of-type { border-radius: var(--radius) var(--radius) 0 0; }
+    .tree-parent:hover { background: #f8fafc; }
+    .tree-leaf:hover   { background: #eff6ff; }
+    .tree-toggle {
+      font-size: 10px;
+      color: var(--muted);
+      min-width: 14px;
+      flex-shrink: 0;
+    }
+    .tree-cat-icon { font-size: 15px; flex-shrink: 0; }
+    .tree-name  { flex: 1; font-size: 15px; font-weight: 600; }
+    .tree-counts { font-size: 13px; font-weight: 700; white-space: nowrap; }
+    .tree-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+
     /* ── Nav row (deck list top) ─────────────────────────── */
     .nav-row {
       display: flex;
@@ -888,6 +921,7 @@ let wordDetails = null;   // full word data: examples + characters
 let userInput   = '';     // creating category: what the user typed
 let browseAll    = [];   // all cards from API for client-side filtering
 let optDeckId    = null; // deck whose options modal is open
+const collapsed  = new Set();  // parent deck IDs that are collapsed
 
 // ── API helper ─────────────────────────────────────────────────────────────
 async function api(method, path) {
@@ -928,7 +962,7 @@ async function loadDecks() {
   setLoading('Loading decks…');
   try {
     const decks = await api('GET', '/api/decks');
-    renderDecks(flatten(decks));
+    renderDecks(decks);
     showView('decks');
   } catch (e) {
     showError('Could not load decks: ' + e.message);
@@ -941,41 +975,85 @@ function flatten(nodes, depth = 0) {
 }
 
 function renderDecks(decks) {
-  const CATS = ['reading', 'listening', 'creating'];
   const navRow = `
     <div class="nav-row">
       <button class="nav-btn" onclick="openBrowse()">Browse Cards</button>
       <button class="nav-btn" onclick="openStats()">Stats</button>
     </div>`;
-  const deckCards = decks.map(deck => {
-    const buttons = CATS.map(cat => {
-      const c = deck.counts?.[cat] || { new: 0, learning: 0, review: 0 };
-      const total = c.new + c.learning + c.review;
-      const nums = total === 0
-        ? `<span class="n-zero">—</span>`
-        : [
-            c.new      ? `<span class="n-new">${c.new}</span>`  : '',
-            c.learning ? `<span class="n-lrn">${c.learning}</span>` : '',
-            c.review   ? `<span class="n-rev">${c.review}</span>` : '',
-          ].filter(Boolean).join(' ');
-      return `
-        <button class="cat-btn"
-          onclick="startReview(${deck.id},'${cat}','${deck.name.replace(/'/g,'\\\'')}')"
-        >
-          <div class="cat-label">${cap(cat)}</div>
-          <div class="cat-nums">${nums}</div>
-        </button>`;
-    }).join('');
-    return `
-      <div class="deck-card">
-        <div class="deck-header">
-          <div class="deck-name">${deck.name}</div>
-          <button class="gear-btn" onclick="openOptions(${deck.id})" title="Deck options">⚙</button>
-        </div>
-        <div class="cat-row">${buttons}</div>
-      </div>`;
+  const rows = renderDeckRows(decks, 0);
+  document.getElementById('view-decks').innerHTML = navRow + `<div class="tree-card">${rows}</div>`;
+}
+
+function renderDeckRows(decks, depth) {
+  return decks.map(deck => {
+    const hasChildren = deck.children && deck.children.length > 0;
+    const isCollapsed = collapsed.has(deck.id);
+    const counts = deck.counts || { new: 0, learning: 0, review: 0 };
+    const total = counts.new + counts.learning + counts.review;
+
+    const countBadge = total === 0
+      ? `<span class="n-zero">—</span>`
+      : [
+          counts.new      ? `<span class="n-new">${counts.new}</span>`      : '',
+          counts.learning ? `<span class="n-lrn">${counts.learning}</span>` : '',
+          counts.review   ? `<span class="n-rev">${counts.review}</span>`   : '',
+        ].filter(Boolean).join(' ');
+
+    const indent = depth * 18;
+    const isLeaf = !hasChildren && deck.category;
+
+    let row;
+    if (hasChildren) {
+      // Parent deck row — clickable only to expand/collapse
+      row = `
+        <div class="tree-row tree-parent" onclick="toggleDeck(${deck.id})"
+             style="padding-left:${16 + indent}px">
+          <span class="tree-toggle">${isCollapsed ? '▶' : '▼'}</span>
+          <span class="tree-name">${deck.name}</span>
+          <span class="tree-counts">${countBadge}</span>
+          <button class="gear-btn" onclick="event.stopPropagation();openOptions(${deck.id})"
+                  title="Deck options">⚙</button>
+        </div>`;
+    } else if (isLeaf) {
+      // Category leaf deck — clickable to start review
+      const catIcon = { listening: '🔊', reading: '📖', creating: '✏️' }[deck.category] || '';
+      row = `
+        <div class="tree-row tree-leaf" onclick="startReview(${deck.id},'${deck.category}','${deck.name.replace(/'/g,"\\'")}')">
+          <span class="tree-toggle" style="padding-left:${indent}px"></span>
+          <span class="tree-cat-icon">${catIcon}</span>
+          <span class="tree-name">${deck.name}</span>
+          <span class="tree-counts">${countBadge}</span>
+          <button class="gear-btn" onclick="event.stopPropagation();openOptions(${deck.id})"
+                  title="Deck options">⚙</button>
+        </div>`;
+    } else {
+      // Parent with no children (empty)
+      row = `
+        <div class="tree-row tree-parent" onclick="toggleDeck(${deck.id})"
+             style="padding-left:${16 + indent}px">
+          <span class="tree-toggle">▶</span>
+          <span class="tree-name">${deck.name}</span>
+          <span class="tree-counts">${countBadge}</span>
+          <button class="gear-btn" onclick="event.stopPropagation();openOptions(${deck.id})"
+                  title="Deck options">⚙</button>
+        </div>`;
+    }
+
+    const childRows = hasChildren && !isCollapsed
+      ? renderDeckRows(deck.children, depth + 1)
+      : '';
+
+    return row + childRows;
   }).join('');
-  document.getElementById('view-decks').innerHTML = navRow + deckCards;
+}
+
+function toggleDeck(deckId) {
+  if (collapsed.has(deckId)) {
+    collapsed.delete(deckId);
+  } else {
+    collapsed.add(deckId);
+  }
+  loadDecks();
 }
 
 // ── Browse ───────────────────────────────────────────────────────────────────
