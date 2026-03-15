@@ -67,21 +67,23 @@ def main():
 # ---------------------------------------------------------------------------
 
 try:
+    from contextlib import asynccontextmanager
     from fastapi import FastAPI
     from fastapi.staticfiles import StaticFiles
     from fastapi.responses import JSONResponse, FileResponse
     import uvicorn
 
-    app = FastAPI(title="Chinese SRS")
-
-    @app.on_event("shutdown")
-    def on_shutdown():
+    @asynccontextmanager
+    async def lifespan(app):
+        yield  # startup (nothing to do)
         if os.environ.get("DEV_CLEAR_DB"):
             try:
                 os.unlink(database.DB_PATH)
                 print("[dev] Database cleared on exit.", file=sys.stderr)
             except FileNotFoundError:
                 pass
+
+    app = FastAPI(title="Chinese SRS", lifespan=lifespan)
 
     import os as _os
     if _os.path.exists("static"):
