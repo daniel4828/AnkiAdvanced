@@ -252,7 +252,7 @@
       margin-top: 12px;
     }
     .r-btn {
-      padding: 13px 4px;
+      padding: 11px 4px 9px;
       border: none;
       border-radius: 10px;
       font-size: 13px;
@@ -260,6 +260,14 @@
       color: #fff;
       cursor: pointer;
       transition: opacity 0.15s;
+      line-height: 1.3;
+    }
+    .r-btn small {
+      display: block;
+      font-size: 10px;
+      font-weight: 400;
+      opacity: 0.85;
+      margin-top: 2px;
     }
     .r-btn:hover   { opacity: 0.85; }
     .r-btn:disabled { opacity: 0.4; cursor: default; }
@@ -343,10 +351,10 @@
 
     <!-- Rating buttons (shown after reveal) -->
     <div class="rating-row" id="rating-row" style="display:none">
-      <button class="r-btn r-again" onclick="rate(1)">Again</button>
-      <button class="r-btn r-hard"  onclick="rate(2)">Hard</button>
-      <button class="r-btn r-good"  onclick="rate(3)">Good</button>
-      <button class="r-btn r-easy"  onclick="rate(4)">Easy</button>
+      <button class="r-btn r-again" onclick="rate(1)">Again<small id="int-1"></small></button>
+      <button class="r-btn r-hard"  onclick="rate(2)">Hard<small id="int-2"></small></button>
+      <button class="r-btn r-good"  onclick="rate(3)">Good<small id="int-3"></small></button>
+      <button class="r-btn r-easy"  onclick="rate(4)">Easy<small id="int-4"></small></button>
     </div>
   </div>
 
@@ -433,7 +441,7 @@ function renderDecks(decks) {
           ].filter(Boolean).join(' ');
       return `
         <button class="cat-btn"
-          ${isListening ? `onclick="startReview(${deck.id},'listening','${deck.name.replace(/'/g,'\\\'')}')"` : 'disabled title="Coming in M3/M4"'}
+          onclick="startReview(${deck.id},'${cat}','${deck.name.replace(/'/g,'\\\'')}')"
         >
           <div class="cat-label">${cap(cat)}</div>
           <div class="cat-nums">${nums}</div>
@@ -485,8 +493,19 @@ function loadCard(c, counts) {
   document.getElementById('cnt-lrn').textContent = counts.learning;
   document.getElementById('cnt-rev').textContent = counts.review;
 
+  // Set interval labels on rating buttons (e.g. "1m", "10m", "4d")
+  const iv = card.intervals || {};
+  [1, 2, 3, 4].forEach(r => {
+    document.getElementById(`int-${r}`).textContent = iv[r] || '';
+  });
+
   // Find sentence for this card's word in the story
   sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
+
+  // Pre-generate TTS audio now so it's ready when user clicks Play
+  const preloadText = sentence?.sentence_zh || card.word_zh;
+  fetch(`/api/preload?text=${encodeURIComponent(preloadText)}`, { method: 'POST' })
+    .catch(() => {});  // silent — preloading is best-effort
 
   showFront();
 }

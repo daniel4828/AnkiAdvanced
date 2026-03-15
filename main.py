@@ -118,7 +118,12 @@ try:
     # --- Review session ---
     @app.get("/api/today/{deck_id}/{category}")
     def get_today(deck_id: int, category: str):
+        import srs
         card = database.get_next_card(deck_id, category)
+        if card:
+            # Fetch full card (includes preset fields needed for interval preview)
+            card = database.get_card(card["id"])
+            card["intervals"] = srs.preview_intervals(card)
         counts = database.count_due(deck_id, category)
         return {"card": card, "counts": counts}
 
@@ -167,6 +172,9 @@ try:
         deck_id = updated["deck_id"]
         cat = updated["category"]
         next_card = database.get_next_card(deck_id, cat)
+        if next_card:
+            next_card = database.get_card(next_card["id"])
+            next_card["intervals"] = srs.preview_intervals(next_card)
         counts = database.count_due(deck_id, cat)
         return {"next_card": next_card, "counts": counts}
 
@@ -177,6 +185,16 @@ try:
             tts.speak(text)
         except Exception:
             pass  # TTS is best-effort; never break the review session
+        return {"ok": True}
+
+    @app.post("/api/preload")
+    def preload(text: str):
+        """Pre-generate TTS audio without playing — call when a card loads."""
+        import tts
+        try:
+            tts.preload(text)
+        except Exception:
+            pass
         return {"ok": True}
 
     @app.post("/api/import")

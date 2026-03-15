@@ -5,6 +5,82 @@ import database
 
 
 # ---------------------------------------------------------------------------
+# Interval preview — compute human-readable next-interval labels per rating
+# Used by the frontend to label the Again/Hard/Good/Easy buttons
+# ---------------------------------------------------------------------------
+
+def preview_intervals(card: dict) -> dict:
+    """
+    Returns {1: "1m", 2: "5m", 3: "10m", 4: "4d"} for the four ratings.
+    Requires a full card dict (with preset fields) from database.get_card().
+    """
+    state       = card["state"]
+    step_index  = card.get("step_index", 0)
+    interval    = card.get("interval", 0)
+    ease        = card.get("ease", 2.5)
+    l_steps     = _parse_steps(card.get("learning_steps",  "1 10"))
+    r_steps     = _parse_steps(card.get("relearning_steps", "10"))
+    grad_int    = card.get("graduating_interval", 1)
+    easy_int    = card.get("easy_interval",       4)
+    min_int     = card.get("minimum_interval",    1)
+
+    if state in ("new", "learning"):
+        again = _fmt_min(l_steps[0])
+        if step_index == 0 and len(l_steps) > 1:
+            hard = _fmt_min((l_steps[0] + l_steps[1]) / 2)
+        elif len(l_steps) == 1:
+            hard = _fmt_min(l_steps[0] * 1.5)
+        else:
+            hard = _fmt_min(l_steps[step_index])
+        if step_index >= len(l_steps) - 1:
+            good = _fmt_day(grad_int)
+        else:
+            good = _fmt_min(l_steps[step_index + 1])
+        easy = _fmt_day(easy_int)
+
+    elif state == "review":
+        again = _fmt_min(r_steps[0])
+        hard  = _fmt_day(max(min_int, math.floor(interval * 1.2)))
+        good  = _fmt_day(max(min_int, math.floor(interval * ease)))
+        easy  = _fmt_day(max(min_int, math.floor(interval * ease * 1.3)))
+
+    elif state == "relearn":
+        again = _fmt_min(r_steps[0])
+        if step_index == 0 and len(r_steps) > 1:
+            hard = _fmt_min((r_steps[0] + r_steps[1]) / 2)
+        else:
+            hard = _fmt_min(r_steps[step_index] * 1.5)
+        if step_index >= len(r_steps) - 1:
+            good = _fmt_day(max(min_int, interval))
+        else:
+            good = _fmt_min(r_steps[step_index + 1])
+        easy = _fmt_day(max(min_int, interval))
+
+    else:
+        again = hard = good = easy = "—"
+
+    return {1: again, 2: hard, 3: good, 4: easy}
+
+
+def _fmt_min(minutes: float) -> str:
+    m = round(minutes)
+    if m < 60:
+        return f"{m}m"
+    return f"{m // 60}h"
+
+
+def _fmt_day(days: int) -> str:
+    if days < 1:
+        return "1d"
+    if days < 31:
+        return f"{days}d"
+    months = round(days / 30)
+    if months < 12:
+        return f"{months}mo"
+    return f"{round(days / 365)}y"
+
+
+# ---------------------------------------------------------------------------
 # Pure math helpers — no DB calls
 # ---------------------------------------------------------------------------
 
