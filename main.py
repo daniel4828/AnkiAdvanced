@@ -90,11 +90,17 @@ try:
     async def lifespan(app):
         yield  # startup (nothing to do)
         if os.environ.get("DEV_CLEAR_DB"):
+            import shutil
+            import tts as _tts
             try:
                 os.unlink(database.DB_PATH)
-                print("[dev] Database cleared on exit.", file=sys.stderr)
             except FileNotFoundError:
                 pass
+            try:
+                shutil.rmtree(_tts.TTS_CACHE_DIR)
+            except FileNotFoundError:
+                pass
+            logger.info("[dev] DB and TTS cache cleared on exit.")
 
     app = FastAPI(title="Chinese SRS", lifespan=lifespan)
 

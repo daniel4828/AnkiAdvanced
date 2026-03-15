@@ -350,6 +350,70 @@
     .example-pin { font-size: 12px; color: var(--muted); margin-top: 2px; }
     .example-de  { font-size: 13px; color: var(--muted); margin-top: 4px; font-style: italic; }
 
+    /* ── Creating: front input ───────────────────────────── */
+    .sentence-en-front {
+      font-size: 20px;
+      line-height: 1.6;
+      text-align: center;
+      color: var(--text);
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .creating-input-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .input-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--muted);
+    }
+    #creating-input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 22px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+      background: var(--card);
+      color: var(--text);
+    }
+    #creating-input:focus { border-color: var(--primary); }
+
+    /* ── Creating: back answer comparison ────────────────── */
+    .answer-compare {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .answer-block {
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: var(--bg);
+    }
+    .answer-block-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .answer-block-text {
+      font-size: 22px;
+      line-height: 1.4;
+    }
+    .answer-user  { color: var(--text); }
+    .answer-correct { color: var(--again); font-weight: 700; }
+    .answer-correct .hl { color: #7c0000; }
+
     /* ── Done ────────────────────────────────────────────── */
     #view-done {
       display: none;
@@ -408,16 +472,38 @@
         <!-- Listening: speaker icon + replay -->
         <div class="listen-icon" id="front-listen-icon">🔊</div>
         <button class="play-btn" id="front-play-btn" onclick="playSentence()">▶ Replay</button>
-        <!-- Reading / Creating: sentence shown on front -->
+        <!-- Reading: Chinese sentence on front -->
         <div class="sentence" id="sentence-front"></div>
-        <button class="reveal-btn" onclick="revealAnswer()">Show Answer</button>
+        <!-- Creating: English sentence + input field -->
+        <div class="sentence-en-front" id="sentence-en-front"></div>
+        <div class="creating-input-wrap" id="creating-input-wrap">
+          <div class="input-label">Your translation in Chinese</div>
+          <input type="text" id="creating-input" placeholder="Type here…"
+                 onkeydown="if(event.key==='Enter')revealAnswer()">
+        </div>
+        <button class="reveal-btn" id="reveal-btn" onclick="revealAnswer()">Show Answer</button>
       </div>
 
       <!-- Back: sentence → ratings → full vocab detail -->
       <div id="side-back" style="display:none">
 
-        <!-- 1. Sentence with inline play button -->
-        <div class="sentence-row">
+        <!-- Creating only: answer comparison -->
+        <div class="answer-compare" id="creating-answer-section" style="display:none">
+          <div class="answer-block">
+            <div class="answer-block-label">Your answer</div>
+            <div class="answer-block-text answer-user" id="user-answer-text"></div>
+          </div>
+          <div class="answer-block">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+              <div class="answer-block-label" style="margin-bottom:0">Correct</div>
+              <button class="play-icon-btn" onclick="playSentence()" title="Play audio">▶</button>
+            </div>
+            <div class="answer-block-text answer-correct" id="correct-answer-text"></div>
+          </div>
+        </div>
+
+        <!-- 1. Sentence with inline play button (listening/reading back; hidden for creating) -->
+        <div class="sentence-row" id="sentence-row-back">
           <div class="sentence" id="sentence-back"></div>
           <button class="play-icon-btn" onclick="playSentence()" title="Play audio">▶</button>
         </div>
@@ -467,6 +553,7 @@ let card        = null;   // current card dict from API
 let story       = null;   // story dict with sentences[]
 let sentence    = null;   // current sentence from story (may be null)
 let wordDetails = null;   // full word data: examples + characters
+let userInput   = '';     // creating category: what the user typed
 
 // ── API helper ─────────────────────────────────────────────────────────────
 async function api(method, path) {
@@ -618,31 +705,66 @@ function loadCard(c, counts) {
 // ── Front of card ───────────────────────────────────────────────────────────
 function showFront() {
   const isListening = category === 'listening';
+  const isCreating  = category === 'creating';
 
   document.getElementById('side-front').style.display = 'flex';
   document.getElementById('side-front').style.flexDirection = 'column';
   document.getElementById('side-front').style.gap = '16px';
   document.getElementById('side-back').style.display = 'none';
 
-  // Toggle listening-specific elements
+  // Listening elements
   document.getElementById('front-listen-icon').style.display = isListening ? 'flex' : 'none';
   document.getElementById('front-play-btn').style.display    = isListening ? 'flex' : 'none';
-  // Toggle sentence (Reading / Creating)
+
+  // Reading: Chinese sentence
   const sentFront = document.getElementById('sentence-front');
-  sentFront.style.display = isListening ? 'none' : 'flex';
-  if (!isListening) {
+  sentFront.style.display = (!isListening && !isCreating) ? 'flex' : 'none';
+  if (!isListening && !isCreating) {
     sentFront.innerHTML = renderSentence();
   }
+
+  // Creating: English sentence + input
+  document.getElementById('sentence-en-front').style.display   = isCreating ? 'flex' : 'none';
+  document.getElementById('creating-input-wrap').style.display = isCreating ? 'flex' : 'none';
+  if (isCreating) {
+    document.getElementById('sentence-en-front').textContent = sentence?.sentence_en || '';
+    const inp = document.getElementById('creating-input');
+    inp.value = '';
+    userInput = '';
+    // Focus input after a short delay so the card render doesn't steal it
+    setTimeout(() => inp.focus(), 80);
+  }
+
+  // Rename reveal button for creating
+  document.getElementById('reveal-btn').textContent = isCreating ? 'Check Answer' : 'Show Answer';
 }
 
 // ── Back of card ────────────────────────────────────────────────────────────
 function revealAnswer() {
+  const isCreating = category === 'creating';
+
+  // Capture user input before hiding front
+  if (isCreating) {
+    userInput = document.getElementById('creating-input').value.trim();
+  }
+
   document.getElementById('side-front').style.display = 'none';
   document.getElementById('side-back').style.display  = 'flex';
   document.getElementById('side-back').style.flexDirection = 'column';
   document.getElementById('side-back').style.gap = '16px';
 
-  document.getElementById('sentence-back').innerHTML = renderSentence();
+  if (isCreating) {
+    // Show answer comparison block; hide normal sentence row
+    document.getElementById('creating-answer-section').style.display = 'flex';
+    document.getElementById('sentence-row-back').style.display = 'none';
+    document.getElementById('user-answer-text').textContent   = userInput || '(no answer)';
+    document.getElementById('correct-answer-text').innerHTML  = renderSentence();
+  } else {
+    document.getElementById('creating-answer-section').style.display = 'none';
+    document.getElementById('sentence-row-back').style.display = 'flex';
+    document.getElementById('sentence-back').innerHTML = renderSentence();
+  }
+
   document.getElementById('sentence-en').textContent = sentence?.sentence_en || '';
   document.getElementById('word-zh').textContent  = card.word_zh;
   document.getElementById('word-pin').textContent = card.pinyin || '';
@@ -658,8 +780,8 @@ function revealAnswer() {
   // Populate character breakdown + examples from preloaded word details
   renderVocabDetail();
 
-  // Auto-play audio when revealing the answer for reading
-  if (category === 'reading') {
+  // Auto-play audio on reveal for reading and creating
+  if (category === 'reading' || category === 'creating') {
     playSentence();
   }
 }
@@ -763,7 +885,7 @@ async function regenerateStory() {
 
 // ── Back to decks ────────────────────────────────────────────────────────────
 function goBack() {
-  card = null; story = null; sentence = null; wordDetails = null;
+  card = null; story = null; sentence = null; wordDetails = null; userInput = '';
   loadDecks();
 }
 
