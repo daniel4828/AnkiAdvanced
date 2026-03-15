@@ -68,10 +68,18 @@ def main():
 try:
     from fastapi import FastAPI
     from fastapi.staticfiles import StaticFiles
-    from fastapi.responses import JSONResponse
+    from fastapi.responses import JSONResponse, FileResponse
     import uvicorn
 
     app = FastAPI(title="Chinese SRS")
+
+    import os as _os
+    if _os.path.exists("static"):
+        app.mount("/static", StaticFiles(directory="static"), name="static")
+
+    @app.get("/")
+    def root():
+        return FileResponse("static/index.html")
 
     # --- Decks ---
     @app.get("/api/decks")
@@ -116,17 +124,41 @@ try:
 
     @app.get("/api/story/{deck_id}/{category}")
     def get_story(deck_id: int, category: str):
+        import ai
         from datetime import date
         today = date.today().isoformat()
         story = database.get_active_story(today, category, deck_id)
+        if not story:
+            cards = database.get_due_cards(deck_id, category)
+            if cards:
+                try:
+                    sentences = ai.generate_story(cards)
+                    for i, s in enumerate(sentences):
+                        s["position"] = i
+                    database.create_story(today, category, deck_id, sentences)
+                    story = database.get_active_story(today, category, deck_id)
+                except Exception:
+                    pass  # return null if AI fails; review can still proceed
         if story:
             story["sentences"] = database.get_story_sentences(story["id"])
         return story
 
     @app.post("/api/story/{deck_id}/{category}/regenerate")
     def regenerate_story(deck_id: int, category: str):
-        # Stub — AI generation wired in M2
-        return {"detail": "Story generation not yet implemented (M2)"}
+        import ai
+        from datetime import date
+        today = date.today().isoformat()
+        cards = database.get_due_cards(deck_id, category)
+        if not cards:
+            return None
+        sentences = ai.generate_story(cards)
+        for i, s in enumerate(sentences):
+            s["position"] = i
+        database.create_story(today, category, deck_id, sentences)
+        story = database.get_active_story(today, category, deck_id)
+        if story:
+            story["sentences"] = database.get_story_sentences(story["id"])
+        return story
 
     @app.post("/api/review")
     def submit_review(card_id: int, rating: int, user_response: str | None = None):
@@ -140,8 +172,12 @@ try:
 
     @app.post("/api/speak")
     def speak(text: str):
-        # Stub — TTS wired in M2
-        return {"detail": "TTS not yet implemented (M2)"}
+        import tts
+        try:
+            tts.speak(text)
+        except Exception:
+            pass  # TTS is best-effort; never break the review session
+        return {"ok": True}
 
     @app.post("/api/import")
     def trigger_import():
