@@ -172,6 +172,16 @@
     }
     .sentence .hl { color: var(--primary); font-weight: 700; }
 
+    /* Listen icon (front of listening card) */
+    .listen-icon {
+      font-size: 72px;
+      text-align: center;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
     /* Play button */
     .play-btn {
       display: flex;
@@ -329,10 +339,10 @@
 
     <div class="review-card" id="review-card">
 
-      <!-- Front: sentence + play + reveal -->
+      <!-- Front: audio only — no Hanzi shown -->
       <div id="side-front">
-        <div class="sentence" id="sentence-front"></div>
-        <button class="play-btn" onclick="playSentence()">▶ Play</button>
+        <div class="listen-icon">🔊</div>
+        <button class="play-btn" onclick="playSentence()">▶ Replay</button>
         <button class="reveal-btn" onclick="revealAnswer()">Show Answer</button>
       </div>
 
@@ -476,6 +486,9 @@ async function startReview(id, cat, name) {
       return;
     }
 
+    // Kick off background preload of ALL sentence audio — fire and forget
+    fetch(`/api/preload-session/${deckId}/${category}`, { method: 'POST' }).catch(() => {});
+
     showView('review');
     loadCard(todayData.card, todayData.counts);
   } catch (e) {
@@ -502,12 +515,12 @@ function loadCard(c, counts) {
   // Find sentence for this card's word in the story
   sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
 
-  // Pre-generate TTS audio now so it's ready when user clicks Play
-  const preloadText = sentence?.sentence_zh || card.word_zh;
-  fetch(`/api/preload?text=${encodeURIComponent(preloadText)}`, { method: 'POST' })
-    .catch(() => {});  // silent — preloading is best-effort
-
   showFront();
+
+  // Auto-play audio for the listening category
+  if (category === 'listening') {
+    playSentence();
+  }
 }
 
 // ── Front of card ───────────────────────────────────────────────────────────

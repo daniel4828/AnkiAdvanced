@@ -29,6 +29,13 @@ def preload(text: str) -> None:
                      daemon=True).start()
 
 
+def preload_all(texts: list[str]) -> None:
+    """Pre-generate audio for multiple texts in parallel. Call when a story loads."""
+    async def _all():
+        await asyncio.gather(*[_ensure_cached(t) for t in texts])
+    threading.Thread(target=lambda: asyncio.run(_all()), daemon=True).start()
+
+
 def speak(text: str) -> None:
     """Play audio. Uses cached file if preload() already ran for this text."""
     threading.Thread(target=lambda: asyncio.run(_play(text)),

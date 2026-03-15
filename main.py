@@ -197,6 +197,22 @@ try:
             pass
         return {"ok": True}
 
+    @app.post("/api/preload-session/{deck_id}/{category}")
+    def preload_session(deck_id: int, category: str):
+        """Pre-generate TTS for every sentence in today's active story in parallel."""
+        import tts
+        from datetime import date
+        today = date.today().isoformat()
+        story = database.get_active_story(today, category, deck_id)
+        if story:
+            sentences = database.get_story_sentences(story["id"])
+            texts = [s["sentence_zh"] for s in sentences if s.get("sentence_zh")]
+            try:
+                tts.preload_all(texts)
+            except Exception:
+                pass
+        return {"ok": True}
+
     @app.post("/api/import")
     def trigger_import():
         result = importer.import_all("imports")
