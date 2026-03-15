@@ -339,10 +339,13 @@
 
     <div class="review-card" id="review-card">
 
-      <!-- Front: audio only — no Hanzi shown -->
+      <!-- Front side (content varies by category) -->
       <div id="side-front">
-        <div class="listen-icon">🔊</div>
-        <button class="play-btn" onclick="playSentence()">▶ Replay</button>
+        <!-- Listening: speaker icon + replay -->
+        <div class="listen-icon" id="front-listen-icon">🔊</div>
+        <button class="play-btn" id="front-play-btn" onclick="playSentence()">▶ Replay</button>
+        <!-- Reading / Creating: sentence shown on front -->
+        <div class="sentence" id="sentence-front"></div>
         <button class="reveal-btn" onclick="revealAnswer()">Show Answer</button>
       </div>
 
@@ -525,13 +528,23 @@ function loadCard(c, counts) {
 
 // ── Front of card ───────────────────────────────────────────────────────────
 function showFront() {
+  const isListening = category === 'listening';
+
   document.getElementById('side-front').style.display = 'flex';
   document.getElementById('side-front').style.flexDirection = 'column';
   document.getElementById('side-front').style.gap = '16px';
   document.getElementById('side-back').style.display  = 'none';
   document.getElementById('rating-row').style.display = 'none';
 
-  document.getElementById('sentence-front').innerHTML = renderSentence();
+  // Toggle listening-specific elements
+  document.getElementById('front-listen-icon').style.display = isListening ? 'flex' : 'none';
+  document.getElementById('front-play-btn').style.display    = isListening ? 'flex' : 'none';
+  // Toggle sentence (Reading / Creating)
+  const sentFront = document.getElementById('sentence-front');
+  sentFront.style.display = isListening ? 'none' : 'flex';
+  if (!isListening) {
+    sentFront.innerHTML = renderSentence();
+  }
 }
 
 // ── Back of card ────────────────────────────────────────────────────────────
@@ -553,6 +566,11 @@ function revealAnswer() {
 
   // Re-enable rating buttons (in case they were disabled from previous card)
   document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
+
+  // Auto-play audio when revealing the answer for reading
+  if (category === 'reading') {
+    playSentence();
+  }
 }
 
 // ── Render sentence (with target word highlighted) ──────────────────────────
@@ -563,7 +581,10 @@ function renderSentence() {
   }
   const zh   = sentence.sentence_zh;
   const word = card.word_zh;
-  return zh.replace(word, `<span class="hl">${word}</span>`);
+  // Wrap in <span> so the flex container has a single child — avoids flex
+  // treating the text node and the highlight span as separate block items
+  const inner = zh.replace(word, `<span class="hl">${word}</span>`);
+  return `<span>${inner}</span>`;
 }
 
 // ── Submit rating ───────────────────────────────────────────────────────────

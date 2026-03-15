@@ -142,8 +142,9 @@ try:
                         s["position"] = i
                     database.create_story(today, category, deck_id, sentences)
                     story = database.get_active_story(today, category, deck_id)
-                except Exception:
-                    pass  # return null if AI fails; review can still proceed
+                except Exception as _e:
+                    import sys
+                    print(f"[story] generation error: {_e}", file=sys.stderr)
         if story:
             story["sentences"] = database.get_story_sentences(story["id"])
         return story

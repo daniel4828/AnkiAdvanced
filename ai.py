@@ -7,6 +7,8 @@ sentences so the review session always continues.
 """
 
 import json
+import re
+import sys
 
 import anthropic
 
@@ -55,23 +57,29 @@ Rules:
 
     raw = message.content[0].text.strip()
 
-    # Strip markdown code fences if the model wrapped its response
-    if raw.startswith("```"):
-        parts = raw.split("```")
-        # parts[1] is the content inside the fences; strip a leading "json" label
-        raw = parts[1].lstrip("json").strip()
+    # Try to extract a JSON array from the response (handles markdown fences,
+    # leading/trailing text, or extra commentary the model sometimes adds)
+    json_match = re.search(r'\[\s*\{.*?\}\s*\]', raw, re.DOTALL)
+    if json_match:
+        raw = json_match.group(0)
 
     try:
         result = json.loads(raw)
-        if isinstance(result, list) and len(result) == len(cards):
+        if isinstance(result, list) and len(result) >= 1:
+            # Truncate if the model returned too many sentences
+            result = result[:len(cards)]
             # Enforce correct word_ids — the model sometimes uses wrong values
             for item, card in zip(result, cards):
                 item["word_id"] = card["word_id"]
-            return result
-    except (json.JSONDecodeError, TypeError, KeyError):
-        pass
+            # If we got at least as many sentences as cards, return them
+            if len(result) == len(cards):
+                return result
+    except (json.JSONDecodeError, TypeError, KeyError) as e:
+        print(f"[ai] JSON parse error: {e} | raw={raw[:200]!r}", file=sys.stderr)
 
     # Fallback: simple placeholder sentences that at least contain the word
+    print(f"[ai] Falling back to placeholder sentences for {len(cards)} cards. "
+          f"raw response start: {raw[:300]!r}", file=sys.stderr)
     return _fallback_sentences(cards)
 
 
