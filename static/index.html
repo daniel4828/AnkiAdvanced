@@ -316,24 +316,20 @@
       margin: 14px 0 8px;
     }
 
-    /* Character tiles */
-    .char-tiles {
+    /* Character rows */
+    .char-row {
       display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 10px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
     }
-    .char-tile {
-      background: var(--bg);
-      border-radius: 10px;
-      padding: 10px 14px;
-      text-align: center;
-      flex: 1;
-      min-width: 64px;
-    }
-    .char-tile-zh      { font-size: 30px; font-weight: 700; }
-    .char-tile-pin     { font-size: 12px; color: var(--muted); margin-top: 2px; }
-    .char-tile-meaning { font-size: 12px; color: var(--text); margin-top: 4px; line-height: 1.4; }
-    .char-tile-etym    { font-size: 11px; color: var(--muted); margin-top: 4px; font-style: italic; line-height: 1.4; }
+    .char-row:last-child { border-bottom: none; }
+    .char-row-zh    { font-size: 26px; font-weight: 700; min-width: 32px; }
+    .char-row-right { display: flex; flex-direction: column; gap: 2px; }
+    .char-row-pin   { font-size: 13px; color: var(--muted); }
+    .char-row-info  { font-size: 13px; color: var(--text); line-height: 1.4; }
+    .char-row-etym  { font-size: 12px; color: var(--muted); font-style: italic; line-height: 1.4; }
 
     /* Examples */
     .example-item {
@@ -611,8 +607,7 @@ function showFront() {
   document.getElementById('side-front').style.display = 'flex';
   document.getElementById('side-front').style.flexDirection = 'column';
   document.getElementById('side-front').style.gap = '16px';
-  document.getElementById('side-back').style.display  = 'none';
-  document.getElementById('rating-row').style.display = 'none';
+  document.getElementById('side-back').style.display = 'none';
 
   // Toggle listening-specific elements
   document.getElementById('front-listen-icon').style.display = isListening ? 'flex' : 'none';
@@ -661,17 +656,16 @@ function renderVocabDetail() {
   if (chars.length > 0) {
     charSection.innerHTML =
       `<div class="section-label">Characters</div>` +
-      `<div class="char-tiles">` +
       chars.map(c => {
-        let html = `<div class="char-tile">`;
-        html += `<div class="char-tile-zh">${c.char}</div>`;
-        if (c.pinyin)           html += `<div class="char-tile-pin">${c.pinyin}</div>`;
-        if (c.meaning_in_context) html += `<div class="char-tile-meaning">${c.meaning_in_context}</div>`;
-        if (c.etymology)        html += `<div class="char-tile-etym">${c.etymology}</div>`;
-        html += `</div>`;
-        return html;
-      }).join('') +
-      `</div>`;
+        let right = '';
+        if (c.pinyin)             right += `<div class="char-row-pin">${c.pinyin}</div>`;
+        if (c.meaning_in_context) right += `<div class="char-row-info">${c.meaning_in_context}</div>`;
+        if (c.etymology)          right += `<div class="char-row-etym">${c.etymology}</div>`;
+        return `<div class="char-row">` +
+               `<div class="char-row-zh">${c.char}</div>` +
+               `<div class="char-row-right">${right}</div>` +
+               `</div>`;
+      }).join('');
   } else {
     charSection.innerHTML = '';
   }
