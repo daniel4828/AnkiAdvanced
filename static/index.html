@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chinese SRS</title>
+  <style>
+    :root {
+      --bg:        #f1f5f9;
+      --card:      #ffffff;
+      --border:    #e2e8f0;
+      --text:      #1e293b;
+      --muted:     #64748b;
+      --primary:   #2563eb;
+      --again:     #dc2626;
+      --hard:      #d97706;
+      --good:      #16a34a;
+      --easy:      #0891b2;
+      --radius:    14px;
+      --shadow:    0 2px 16px rgba(0,0,0,0.07);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────────────── */
+    header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    #back-btn {
+      background: none;
+      border: none;
+      font-size: 22px;
+      cursor: pointer;
+      color: var(--muted);
+      padding: 2px 6px;
+      border-radius: 6px;
+      line-height: 1;
+      display: none;
+    }
+    #back-btn:hover { background: var(--border); }
+    header h1 { font-size: 18px; font-weight: 700; }
+
+    /* ── Layout ──────────────────────────────────────────── */
+    main {
+      max-width: 500px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+    }
+
+    /* ── Loading ─────────────────────────────────────────── */
+    #view-loading {
+      text-align: center;
+      padding: 80px 20px;
+      color: var(--muted);
+    }
+    .spinner {
+      width: 38px; height: 38px;
+      border: 3px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading-msg { font-size: 15px; }
+
+    /* ── Error banner ────────────────────────────────────── */
+    #error-banner {
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      font-size: 14px;
+      display: none;
+    }
+
+    /* ── Deck list ───────────────────────────────────────── */
+    #view-decks { display: none; }
+
+    .deck-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px 20px 20px;
+      margin-bottom: 14px;
+    }
+    .deck-name {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .cat-row { display: flex; gap: 8px; }
+
+    .cat-btn {
+      flex: 1;
+      padding: 10px 6px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      background: var(--card);
+      cursor: pointer;
+      text-align: center;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .cat-btn:hover:not([disabled]) {
+      border-color: var(--primary);
+      background: #eff6ff;
+    }
+    .cat-btn[disabled] { opacity: 0.38; cursor: not-allowed; }
+    .cat-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      font-weight: 600;
+    }
+    .cat-nums { margin-top: 5px; font-size: 13px; font-weight: 700; }
+    .n-new  { color: var(--primary); }
+    .n-lrn  { color: var(--hard); }
+    .n-rev  { color: var(--good); }
+    .n-zero { color: var(--border); }
+
+    /* ── Review ──────────────────────────────────────────── */
+    #view-review { display: none; }
+
+    .counts-row {
+      display: flex;
+      gap: 14px;
+      font-size: 13px;
+      margin-bottom: 18px;
+    }
+    .counts-row b { font-weight: 700; }
+
+    /* The main card */
+    .review-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 32px 24px 28px;
+      min-height: 300px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Sentence display */
+    .sentence {
+      font-size: 30px;
+      line-height: 1.7;
+      letter-spacing: 1px;
+      text-align: center;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .sentence .hl { color: var(--primary); font-weight: 700; }
+
+    /* Play button */
+    .play-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 11px 22px;
+      font-size: 15px;
+      cursor: pointer;
+      margin: 0 auto;
+      transition: opacity 0.15s;
+    }
+    .play-btn:hover { opacity: 0.85; }
+
+    /* Show-answer button */
+    .reveal-btn {
+      width: 100%;
+      padding: 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      background: none;
+      font-size: 15px;
+      cursor: pointer;
+      color: var(--text);
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .reveal-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+    /* Word answer area */
+    .answer {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .word-big   { font-size: 46px; font-weight: 700; letter-spacing: 4px; }
+    .word-pin   { font-size: 17px; color: var(--muted); }
+    .word-pos   {
+      display: inline-block;
+      font-size: 11px;
+      background: var(--bg);
+      padding: 2px 8px;
+      border-radius: 4px;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .word-def   { font-size: 17px; color: var(--text); margin-top: 2px; }
+
+    /* Regenerate button (small, top-right of review) */
+    .regen-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 4px;
+    }
+    .regen-btn {
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      color: var(--muted);
+      padding: 2px 6px;
+      border-radius: 6px;
+      line-height: 1;
+    }
+    .regen-btn:hover { background: var(--border); }
+
+    /* Rating buttons */
+    .rating-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .r-btn {
+      padding: 13px 4px;
+      border: none;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .r-btn:hover   { opacity: 0.85; }
+    .r-btn:disabled { opacity: 0.4; cursor: default; }
+    .r-again { background: var(--again); }
+    .r-hard  { background: var(--hard); }
+    .r-good  { background: var(--good); }
+    .r-easy  { background: var(--easy); }
+
+    /* ── Done ────────────────────────────────────────────── */
+    #view-done {
+      display: none;
+      text-align: center;
+      padding: 72px 20px;
+    }
+    #view-done .icon  { font-size: 64px; margin-bottom: 16px; }
+    #view-done h2     { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    #view-done p      { color: var(--muted); margin-bottom: 28px; }
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 28px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    .btn-primary:hover { opacity: 0.85; }
+  </style>
+</head>
+<body>
+
+<header>
+  <button id="back-btn" onclick="goBack()">←</button>
+  <h1 id="header-title">Chinese SRS</h1>
+</header>
+
+<main>
+  <div id="error-banner"></div>
+
+  <!-- Loading -->
+  <div id="view-loading">
+    <div class="spinner"></div>
+    <div id="loading-msg">Loading…</div>
+  </div>
+
+  <!-- Deck list -->
+  <div id="view-decks"></div>
+
+  <!-- Review -->
+  <div id="view-review">
+    <div class="regen-row">
+      <button class="regen-btn" onclick="regenerateStory()" title="Regenerate story">↺</button>
+    </div>
+    <div class="counts-row">
+      <span><b id="cnt-lrn" class="n-lrn">0</b> learning</span>
+      <span><b id="cnt-rev" class="n-rev">0</b> review</span>
+      <span><b id="cnt-new" class="n-new">0</b> new</span>
+    </div>
+
+    <div class="review-card" id="review-card">
+
+      <!-- Front: sentence + play + reveal -->
+      <div id="side-front">
+        <div class="sentence" id="sentence-front"></div>
+        <button class="play-btn" onclick="playSentence()">▶ Play</button>
+        <button class="reveal-btn" onclick="revealAnswer()">Show Answer</button>
+      </div>
+
+      <!-- Back: sentence + word info + play again -->
+      <div id="side-back" style="display:none">
+        <div class="sentence" id="sentence-back"></div>
+        <div class="answer">
+          <div class="word-big"  id="word-zh"></div>
+          <div class="word-pin"  id="word-pin"></div>
+          <div><span class="word-pos" id="word-pos"></span></div>
+          <div class="word-def"  id="word-def"></div>
+        </div>
+        <button class="play-btn" onclick="playSentence()">▶ Play again</button>
+      </div>
+    </div>
+
+    <!-- Rating buttons (shown after reveal) -->
+    <div class="rating-row" id="rating-row" style="display:none">
+      <button class="r-btn r-again" onclick="rate(1)">Again</button>
+      <button class="r-btn r-hard"  onclick="rate(2)">Hard</button>
+      <button class="r-btn r-good"  onclick="rate(3)">Good</button>
+      <button class="r-btn r-easy"  onclick="rate(4)">Easy</button>
+    </div>
+  </div>
+
+  <!-- Done -->
+  <div id="view-done">
+    <div class="icon">🎉</div>
+    <h2>All done!</h2>
+    <p>No more cards due right now.</p>
+    <button class="btn-primary" onclick="goBack()">Back to Decks</button>
+  </div>
+</main>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let deckId   = null;
+let deckName = '';
+let category = '';
+let card     = null;   // current card dict from API
+let story    = null;   // story dict with sentences[]
+let sentence = null;   // current sentence from story (may be null)
+
+// ── API helper ─────────────────────────────────────────────────────────────
+async function api(method, path) {
+  const r = await fetch(path, { method });
+  if (!r.ok) throw new Error(`${method} ${path} → ${r.status}`);
+  return r.json();
+}
+
+// ── View switcher ──────────────────────────────────────────────────────────
+function showView(name) {
+  ['loading', 'decks', 'review', 'done'].forEach(v => {
+    document.getElementById(`view-${v}`).style.display = 'none';
+  });
+  document.getElementById(`view-${name}`).style.display = 'block';
+  document.getElementById('back-btn').style.display = name === 'decks' ? 'none' : 'block';
+  document.getElementById('header-title').textContent =
+    name === 'review' ? `${deckName} · ${cap(category)}` : 'Chinese SRS';
+}
+
+function setLoading(msg) {
+  document.getElementById('loading-msg').textContent = msg || 'Loading…';
+  showView('loading');
+}
+
+function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 6000);
+}
+
+// ── Deck list ───────────────────────────────────────────────────────────────
+async function loadDecks() {
+  setLoading('Loading decks…');
+  try {
+    const decks = await api('GET', '/api/decks');
+    renderDecks(flatten(decks));
+    showView('decks');
+  } catch (e) {
+    showError('Could not load decks: ' + e.message);
+    showView('decks');
+  }
+}
+
+function flatten(nodes, depth = 0) {
+  return nodes.flatMap(n => [{ ...n, _depth: depth }, ...flatten(n.children || [], depth + 1)]);
+}
+
+function renderDecks(decks) {
+  const CATS = ['reading', 'listening', 'creating'];
+  document.getElementById('view-decks').innerHTML = decks.map(deck => {
+    const buttons = CATS.map(cat => {
+      const c = deck.counts?.[cat] || { new: 0, learning: 0, review: 0 };
+      const total = c.new + c.learning + c.review;
+      const isListening = cat === 'listening';
+      const nums = total === 0
+        ? `<span class="n-zero">—</span>`
+        : [
+            c.new      ? `<span class="n-new">${c.new}</span>`  : '',
+            c.learning ? `<span class="n-lrn">${c.learning}</span>` : '',
+            c.review   ? `<span class="n-rev">${c.review}</span>` : '',
+          ].filter(Boolean).join(' ');
+      return `
+        <button class="cat-btn"
+          ${isListening ? `onclick="startReview(${deck.id},'listening','${deck.name.replace(/'/g,'\\\'')}')"` : 'disabled title="Coming in M3/M4"'}
+        >
+          <div class="cat-label">${cap(cat)}</div>
+          <div class="cat-nums">${nums}</div>
+        </button>`;
+    }).join('');
+    return `
+      <div class="deck-card">
+        <div class="deck-name">${deck.name}</div>
+        <div class="cat-row">${buttons}</div>
+      </div>`;
+  }).join('');
+}
+
+// ── Start review session ────────────────────────────────────────────────────
+async function startReview(id, cat, name) {
+  deckId   = id;
+  category = cat;
+  deckName = name;
+  setLoading('Generating your story…');
+
+  try {
+    // Fetch story and first card in parallel — story may take several seconds
+    const [todayData, storyData] = await Promise.all([
+      api('GET', `/api/today/${deckId}/${category}`),
+      api('GET', `/api/story/${deckId}/${category}`),
+    ]);
+
+    story = storyData;
+
+    if (!todayData.card) {
+      showView('done');
+      return;
+    }
+
+    showView('review');
+    loadCard(todayData.card, todayData.counts);
+  } catch (e) {
+    showError('Failed to start session: ' + e.message);
+    showView('decks');
+  }
+}
+
+// ── Load a card ─────────────────────────────────────────────────────────────
+function loadCard(c, counts) {
+  card = c;
+
+  // Update progress counts
+  document.getElementById('cnt-new').textContent = counts.new;
+  document.getElementById('cnt-lrn').textContent = counts.learning;
+  document.getElementById('cnt-rev').textContent = counts.review;
+
+  // Find sentence for this card's word in the story
+  sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
+
+  showFront();
+}
+
+// ── Front of card ───────────────────────────────────────────────────────────
+function showFront() {
+  document.getElementById('side-front').style.display = 'flex';
+  document.getElementById('side-front').style.flexDirection = 'column';
+  document.getElementById('side-front').style.gap = '16px';
+  document.getElementById('side-back').style.display  = 'none';
+  document.getElementById('rating-row').style.display = 'none';
+
+  document.getElementById('sentence-front').innerHTML = renderSentence();
+}
+
+// ── Back of card ────────────────────────────────────────────────────────────
+function revealAnswer() {
+  document.getElementById('side-front').style.display = 'none';
+  document.getElementById('side-back').style.display  = 'flex';
+  document.getElementById('side-back').style.flexDirection = 'column';
+  document.getElementById('side-back').style.gap = '16px';
+  document.getElementById('rating-row').style.display = 'grid';
+
+  document.getElementById('sentence-back').innerHTML = renderSentence();
+  document.getElementById('word-zh').textContent  = card.word_zh;
+  document.getElementById('word-pin').textContent = card.pinyin || '';
+  document.getElementById('word-def').textContent = card.definition || '';
+
+  const posEl = document.getElementById('word-pos');
+  posEl.textContent   = card.pos || '';
+  posEl.style.display = card.pos ? 'inline-block' : 'none';
+
+  // Re-enable rating buttons (in case they were disabled from previous card)
+  document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
+}
+
+// ── Render sentence (with target word highlighted) ──────────────────────────
+function renderSentence() {
+  if (!sentence) {
+    // No story sentence — just show the word itself
+    return `<span class="hl">${card.word_zh}</span>`;
+  }
+  const zh   = sentence.sentence_zh;
+  const word = card.word_zh;
+  return zh.replace(word, `<span class="hl">${word}</span>`);
+}
+
+// ── Submit rating ───────────────────────────────────────────────────────────
+async function rate(rating) {
+  document.querySelectorAll('.r-btn').forEach(b => b.disabled = true);
+  try {
+    const result = await api('POST', `/api/review?card_id=${card.id}&rating=${rating}`);
+    if (!result.next_card) {
+      showView('done');
+      return;
+    }
+    loadCard(result.next_card, result.counts);
+  } catch (e) {
+    showError('Submit failed: ' + e.message);
+    document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
+  }
+}
+
+// ── TTS ─────────────────────────────────────────────────────────────────────
+async function playSentence() {
+  const text = sentence?.sentence_zh || card?.word_zh;
+  if (!text) return;
+  try {
+    await api('POST', `/api/speak?text=${encodeURIComponent(text)}`);
+  } catch (e) {
+    showError('TTS failed: ' + e.message);
+  }
+}
+
+// ── Regenerate story ─────────────────────────────────────────────────────────
+async function regenerateStory() {
+  setLoading('Regenerating story…');
+  try {
+    story = await api('POST', `/api/story/${deckId}/${category}/regenerate`);
+    // Re-find sentence for the current card in the new story
+    sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
+    showView('review');
+    showFront();
+  } catch (e) {
+    showError('Regenerate failed: ' + e.message);
+    showView('review');
+  }
+}
+
+// ── Back to decks ────────────────────────────────────────────────────────────
+function goBack() {
+  card = null; story = null; sentence = null;
+  loadDecks();
+}
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+loadDecks();
+</script>
+</body>
+</html>
