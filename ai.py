@@ -49,13 +49,24 @@ Rules:
   ...
 ]"""
 
+    print(f"[ai] Requesting story for {len(cards)} cards: "
+          f"{[c['word_zh'] for c in cards]}", file=sys.stderr)
+
+    # 150 tokens per sentence is generous; add 200 for overhead/fences
+    max_tokens = len(cards) * 150 + 200
+
     message = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=1024,
+        max_tokens=max_tokens,
         messages=[{"role": "user", "content": prompt}],
     )
 
     raw = message.content[0].text.strip()
+    print(f"[ai] Raw response ({len(raw)} chars, stop={message.stop_reason}): "
+          f"{raw[:120]!r}{'...' if len(raw) > 120 else ''}", file=sys.stderr)
+
+    if message.stop_reason == "max_tokens":
+        print(f"[ai] Response was truncated! Increase max_tokens.", file=sys.stderr)
 
     # Try to extract a JSON array from the response (handles markdown fences,
     # leading/trailing text, or extra commentary the model sometimes adds)
@@ -71,15 +82,17 @@ Rules:
             # Enforce correct word_ids — the model sometimes uses wrong values
             for item, card in zip(result, cards):
                 item["word_id"] = card["word_id"]
-            # If we got at least as many sentences as cards, return them
             if len(result) == len(cards):
+                print(f"[ai] Success: {len(result)} sentences generated.", file=sys.stderr)
                 return result
+            else:
+                print(f"[ai] Count mismatch: got {len(result)}, need {len(cards)}.",
+                      file=sys.stderr)
     except (json.JSONDecodeError, TypeError, KeyError) as e:
-        print(f"[ai] JSON parse error: {e} | raw={raw[:200]!r}", file=sys.stderr)
+        print(f"[ai] JSON parse error: {e}", file=sys.stderr)
 
-    # Fallback: simple placeholder sentences that at least contain the word
-    print(f"[ai] Falling back to placeholder sentences for {len(cards)} cards. "
-          f"raw response start: {raw[:300]!r}", file=sys.stderr)
+    # Fallback
+    print(f"[ai] Using placeholder sentences.", file=sys.stderr)
     return _fallback_sentences(cards)
 
 

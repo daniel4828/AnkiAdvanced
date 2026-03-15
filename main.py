@@ -145,20 +145,28 @@ try:
         from datetime import date
         today = date.today().isoformat()
         story = database.get_active_story(today, category, deck_id)
-        if not story:
-            cards = database.get_due_cards(deck_id, category)
-            if cards:
-                try:
-                    sentences = ai.generate_story(cards)
-                    for i, s in enumerate(sentences):
-                        s["position"] = i
-                    database.create_story(today, category, deck_id, sentences)
-                    story = database.get_active_story(today, category, deck_id)
-                except Exception as _e:
-                    import sys
-                    print(f"[story] generation error: {_e}", file=sys.stderr)
         if story:
             story["sentences"] = database.get_story_sentences(story["id"])
+            print(f"[story] cached  deck={deck_id} cat={category} "
+                  f"sentences={len(story['sentences'])} "
+                  f"story_id={story['id']}", file=sys.stderr)
+            return story
+        cards = database.get_due_cards(deck_id, category)
+        print(f"[story] generating deck={deck_id} cat={category} "
+              f"due_cards={len(cards)}", file=sys.stderr)
+        if cards:
+            try:
+                sentences = ai.generate_story(cards)
+                for i, s in enumerate(sentences):
+                    s["position"] = i
+                database.create_story(today, category, deck_id, sentences)
+                story = database.get_active_story(today, category, deck_id)
+            except Exception as _e:
+                print(f"[story] generation error: {_e}", file=sys.stderr)
+        if story:
+            story["sentences"] = database.get_story_sentences(story["id"])
+            print(f"[story] saved   deck={deck_id} cat={category} "
+                  f"sentences={len(story['sentences'])}", file=sys.stderr)
         return story
 
     @app.post("/api/story/{deck_id}/{category}/regenerate")
@@ -167,6 +175,8 @@ try:
         from datetime import date
         today = date.today().isoformat()
         cards = database.get_due_cards(deck_id, category)
+        print(f"[regen] deck={deck_id} cat={category} due_cards={len(cards)}",
+              file=sys.stderr)
         if not cards:
             return None
         sentences = ai.generate_story(cards)
@@ -176,11 +186,13 @@ try:
         story = database.get_active_story(today, category, deck_id)
         if story:
             story["sentences"] = database.get_story_sentences(story["id"])
+            print(f"[regen] saved sentences={len(story['sentences'])}", file=sys.stderr)
         return story
 
     @app.post("/api/review")
     def submit_review(card_id: int, rating: int, user_response: str | None = None):
         import srs
+        card_before = database.get_card(card_id)
         updated = srs.apply_review(card_id, rating, user_response=user_response)
         deck_id = updated["deck_id"]
         cat = updated["category"]
@@ -189,6 +201,10 @@ try:
             next_card = database.get_card(next_card["id"])
             next_card["intervals"] = srs.preview_intervals(next_card)
         counts = database.count_due(deck_id, cat)
+        print(f"[review] card={card_id}({card_before['word_zh']}) "
+              f"rating={rating} → state={updated['state']} due={updated['due']} | "
+              f"next={next_card['word_zh'] if next_card else 'None'} | "
+              f"counts={counts}", file=sys.stderr)
         return {"next_card": next_card, "counts": counts}
 
     @app.post("/api/speak")
