@@ -1,8 +1,24 @@
 import argparse
+import atexit
+import os
 import sys
 
 import database
 import importer
+
+
+# ---------------------------------------------------------------------------
+# Dev helper: wipe DB on exit (set DEV_CLEAR_DB=1 in .env for testing)
+# ---------------------------------------------------------------------------
+
+if os.environ.get("DEV_CLEAR_DB"):
+    def _clear_db_on_exit():
+        try:
+            os.unlink(database.DB_PATH)
+            print("[dev] Database cleared on exit.", file=sys.stderr)
+        except FileNotFoundError:
+            pass
+    atexit.register(_clear_db_on_exit)
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +234,10 @@ try:
     def trigger_import():
         result = importer.import_all("imports")
         return result
+
+    @app.get("/api/word/{word_id}")
+    def get_word_detail(word_id: int):
+        return database.get_word_full(word_id)
 
     @app.get("/api/browse")
     def browse(deck_id: int | None = None, category: str | None = None,
