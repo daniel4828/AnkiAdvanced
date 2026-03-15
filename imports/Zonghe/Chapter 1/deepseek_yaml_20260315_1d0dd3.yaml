@@ -433,7 +433,7 @@ entries:
         etymology: |
           The traditional form 戀 consists of the heart/mind radical 心 at the bottom, and a complex phonetic top (亦 with 言 and 絲) that suggests entanglement or binding. It implies a strong emotional attachment, as if the heart is tied or bound.
       - char: 恋
-        *bereits analysiert*
+        detailed_analysis: false
       - char: 不
         pinyin: bù
         hsk: "1"
@@ -1482,7 +1482,7 @@ entries:
         etymology: |
           The character 邦 in oracle bone script depicted a field (丰) with a tree planted to mark the boundary of a state. It later added the city radical 阝 (right). Its original meaning is a state or nation. In reduplicated form (邦邦) after adjectives, it acts as a suffix to describe the state or appearance, often with an onomatopoeic quality suggesting a "thumping" hardness.
       - char: 邦
-        *bereits analysiert*
+        detailed_analysis: false
 
   - type: vocabulary
     simplified: 简陋

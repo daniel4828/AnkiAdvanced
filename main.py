@@ -157,6 +157,32 @@ try:
             database.rename_deck(deck_id, name)
         return database.get_deck(deck_id)
 
+    @app.get("/api/presets")
+    def list_presets():
+        return database.list_presets()
+
+    @app.post("/api/presets")
+    def create_preset(name: str, clone_from_id: int | None = None):
+        if clone_from_id:
+            src = database.get_preset(clone_from_id)
+        else:
+            src = database.default_preset()
+        src["name"] = name
+        src.pop("id", None)
+        src.pop("is_default", None)
+        src.pop("deck_count", None)
+        preset_id = database.insert_preset(src)
+        return database.get_preset(preset_id)
+
+    @app.delete("/api/presets/{preset_id}")
+    def delete_preset(preset_id: int):
+        try:
+            database.delete_preset(preset_id)
+            return {"ok": True}
+        except ValueError as e:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=409, detail=str(e))
+
     @app.get("/api/decks/{deck_id}/preset")
     def get_deck_preset(deck_id: int):
         return database.get_preset_for_deck(deck_id)
@@ -166,6 +192,11 @@ try:
         deck = database.get_deck(deck_id)
         database.update_preset(deck["preset_id"], fields)
         return database.get_preset(deck["preset_id"])
+
+    @app.put("/api/decks/{deck_id}/preset/assign")
+    def assign_preset_to_deck(deck_id: int, preset_id: int):
+        database.assign_preset_to_deck(deck_id, preset_id)
+        return database.get_preset(preset_id)
 
     @app.post("/api/decks/{deck_id}/preset/set-default")
     def set_deck_preset_as_default(deck_id: int):

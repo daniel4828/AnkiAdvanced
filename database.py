@@ -3,7 +3,7 @@ import os
 import sqlite3
 from datetime import date, datetime
 
-DB_PATH = "data/srs.db"
+DB_PATH = os.environ.get("DB_PATH", "data/srs.db")
 SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema.sql")
 
 
@@ -26,21 +26,45 @@ def init_db() -> None:
     conn.executescript(schema)
     conn.commit()
 
-    # Ensure a default preset + deck exist
-    preset_id = _ensure_default_preset(conn)
+    # Ensure presets + default deck exist
+    _ensure_presets(conn)
+    preset_id = conn.execute("SELECT id FROM deck_presets WHERE is_default = 1 LIMIT 1").fetchone()["id"]
     _ensure_deck(conn, "Default", parent_id=None, preset_id=preset_id)
     conn.commit()
     conn.close()
 
 
+def _ensure_presets(conn: sqlite3.Connection) -> None:
+    """Seed the two built-in presets if they don't exist yet."""
+    existing = {r["name"] for r in conn.execute("SELECT name FROM deck_presets").fetchall()}
+
+    if "Default" not in existing:
+        conn.execute(
+            """INSERT INTO deck_presets (name, is_default) VALUES ('Default', 0)"""
+        )
+
+    if "Anki Default" not in existing:
+        conn.execute(
+            """INSERT INTO deck_presets
+               (name, new_per_day, reviews_per_day,
+                learning_steps, graduating_interval, easy_interval,
+                relearning_steps, minimum_interval, insertion_order,
+                leech_threshold, leech_action, is_default)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)""",
+            ("Anki Default", 9999, 9999, "1m 2d", 4, 9, "10", 1, "sequential", 8, "suspend"),
+        )
+
+    # Guarantee exactly one default
+    if not conn.execute("SELECT id FROM deck_presets WHERE is_default = 1").fetchone():
+        conn.execute("UPDATE deck_presets SET is_default = 1 WHERE name = 'Anki Default'")
+
+
 def _ensure_default_preset(conn: sqlite3.Connection) -> int:
-    row = conn.execute("SELECT id FROM deck_presets WHERE name = 'Default'").fetchone()
+    row = conn.execute("SELECT id FROM deck_presets WHERE is_default = 1 LIMIT 1").fetchone()
     if row:
         return row["id"]
-    cur = conn.execute(
-        """INSERT INTO deck_presets (name, is_default) VALUES ('Default', 1)"""
-    )
-    return cur.lastrowid
+    _ensure_presets(conn)
+    return conn.execute("SELECT id FROM deck_presets WHERE is_default = 1 LIMIT 1").fetchone()["id"]
 
 
 def _ensure_deck(conn: sqlite3.Connection, name: str,
@@ -63,12 +87,8 @@ def _ensure_deck(conn: sqlite3.Connection, name: str,
 def default_preset() -> dict:
     return {
         "name": "Default",
-        "listening_new_per_day": 20,
-        "listening_reviews_per_day": 100,
-        "reading_new_per_day": 20,
-        "reading_reviews_per_day": 100,
-        "creating_new_per_day": 10,
-        "creating_reviews_per_day": 50,
+        "new_per_day": 20,
+        "reviews_per_day": 100,
         "learning_steps": "1 10",
         "graduating_interval": 1,
         "easy_interval": 4,
@@ -95,6 +115,39 @@ def set_default_preset(preset_id: int) -> None:
     conn.close()
 
 
+def list_presets() -> list[dict]:
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT p.*, COUNT(d.id) AS deck_count
+           FROM deck_presets p
+           LEFT JOIN decks d ON d.preset_id = p.id
+           GROUP BY p.id
+           ORDER BY p.is_default DESC, p.name"""
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def delete_preset(preset_id: int) -> None:
+    conn = get_db()
+    in_use = conn.execute(
+        "SELECT COUNT(*) FROM decks WHERE preset_id = ?", (preset_id,)
+    ).fetchone()[0]
+    if in_use:
+        conn.close()
+        raise ValueError("Preset is still assigned to one or more decks")
+    conn.execute("DELETE FROM deck_presets WHERE id = ?", (preset_id,))
+    conn.commit()
+    conn.close()
+
+
+def assign_preset_to_deck(deck_id: int, preset_id: int) -> None:
+    conn = get_db()
+    conn.execute("UPDATE decks SET preset_id = ? WHERE id = ?", (preset_id, deck_id))
+    conn.commit()
+    conn.close()
+
+
 def get_preset(preset_id: int) -> dict:
     conn = get_db()
     row = conn.execute("SELECT * FROM deck_presets WHERE id = ?", (preset_id,)).fetchone()
@@ -116,15 +169,11 @@ def insert_preset(preset: dict) -> int:
     conn = get_db()
     cur = conn.execute(
         """INSERT INTO deck_presets
-           (name, listening_new_per_day, listening_reviews_per_day,
-            reading_new_per_day, reading_reviews_per_day,
-            creating_new_per_day, creating_reviews_per_day,
+           (name, new_per_day, reviews_per_day,
             learning_steps, graduating_interval, easy_interval,
             relearning_steps, minimum_interval, insertion_order,
             leech_threshold, leech_action)
-           VALUES (:name, :listening_new_per_day, :listening_reviews_per_day,
-                   :reading_new_per_day, :reading_reviews_per_day,
-                   :creating_new_per_day, :creating_reviews_per_day,
+           VALUES (:name, :new_per_day, :reviews_per_day,
                    :learning_steps, :graduating_interval, :easy_interval,
                    :relearning_steps, :minimum_interval, :insertion_order,
                    :leech_threshold, :leech_action)""",
@@ -138,9 +187,7 @@ def insert_preset(preset: dict) -> int:
 
 def update_preset(preset_id: int, fields: dict) -> None:
     allowed = {
-        "name", "listening_new_per_day", "listening_reviews_per_day",
-        "reading_new_per_day", "reading_reviews_per_day",
-        "creating_new_per_day", "creating_reviews_per_day",
+        "name", "new_per_day", "reviews_per_day",
         "learning_steps", "graduating_interval", "easy_interval",
         "relearning_steps", "minimum_interval", "insertion_order",
         "leech_threshold", "leech_action",
@@ -230,37 +277,13 @@ def get_default_deck_id() -> int:
 
 def get_or_create_deck(name: str, parent_id: int | None = None,
                        category: str | None = None) -> int:
-    """Get deck id by name, creating it (cloning the default preset) if it doesn't exist."""
+    """Get deck id by name, creating it (sharing the default preset) if it doesn't exist."""
     conn = get_db()
     row = conn.execute("SELECT id FROM decks WHERE name = ?", (name,)).fetchone()
     if row:
         conn.close()
         return row["id"]
-    # Clone the active default preset (or fall back to the hardcoded Default)
-    default_row = conn.execute(
-        "SELECT * FROM deck_presets WHERE is_default = 1 LIMIT 1"
-    ).fetchone()
-    if default_row:
-        vals = dict(default_row)
-        cur = conn.execute(
-            """INSERT INTO deck_presets
-               (name, listening_new_per_day, listening_reviews_per_day,
-                reading_new_per_day, reading_reviews_per_day,
-                creating_new_per_day, creating_reviews_per_day,
-                learning_steps, graduating_interval, easy_interval,
-                relearning_steps, minimum_interval, insertion_order,
-                leech_threshold, leech_action)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (name, vals["listening_new_per_day"], vals["listening_reviews_per_day"],
-             vals["reading_new_per_day"], vals["reading_reviews_per_day"],
-             vals["creating_new_per_day"], vals["creating_reviews_per_day"],
-             vals["learning_steps"], vals["graduating_interval"], vals["easy_interval"],
-             vals["relearning_steps"], vals["minimum_interval"], vals["insertion_order"],
-             vals["leech_threshold"], vals["leech_action"]),
-        )
-        preset_id = cur.lastrowid
-    else:
-        preset_id = _ensure_default_preset(conn)
+    preset_id = _ensure_default_preset(conn)
     cur = conn.execute(
         "INSERT INTO decks (name, parent_id, preset_id, category) VALUES (?, ?, ?, ?)",
         (name, parent_id, preset_id, category),
@@ -456,9 +479,7 @@ def get_card(card_id: int) -> dict | None:
                   p.learning_steps, p.graduating_interval, p.easy_interval,
                   p.relearning_steps, p.minimum_interval,
                   p.leech_threshold, p.leech_action,
-                  p.listening_new_per_day, p.listening_reviews_per_day,
-                  p.reading_new_per_day, p.reading_reviews_per_day,
-                  p.creating_new_per_day, p.creating_reviews_per_day
+                  p.new_per_day, p.reviews_per_day
            FROM cards c
            JOIN words w ON w.id = c.word_id
            JOIN decks d ON d.id = c.deck_id
@@ -497,8 +518,7 @@ def get_due_cards(deck_id: int, category: str) -> list[dict]:
     # We track "introduced today" = first-ever review is today, regardless of
     # current state (a card transitions away from 'new' after the first review).
     preset = get_preset_for_deck(deck_id)
-    new_limit_key = f"{category}_new_per_day"
-    new_limit = preset[new_limit_key]
+    new_limit = preset["new_per_day"]
     new_done_today = _count_new_introduced_today(conn, deck_id, category, today)
     new_remaining = max(0, new_limit - new_done_today)
 
@@ -548,7 +568,7 @@ def count_due(deck_id: int, category: str) -> dict:
     today = date.today().isoformat()
     now = datetime.now().isoformat(timespec="seconds")
     preset = get_preset_for_deck(deck_id)
-    new_limit = preset[f"{category}_new_per_day"]
+    new_limit = preset["new_per_day"]
 
     conn = get_db()
     new_done_today = _count_new_introduced_today(conn, deck_id, category, today)

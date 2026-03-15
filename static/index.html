@@ -880,13 +880,19 @@
     <div class="modal-title" id="modal-title">Deck Options</div>
 
     <div class="opt-group">
+      <div class="opt-group-label">Preset</div>
+      <div class="opt-row" style="gap:6px">
+        <select class="opt-input" id="opt-preset-select" style="flex:1" onchange="switchPreset(this.value)"></select>
+        <button class="btn-secondary" style="padding:6px 10px" onclick="addPreset()" title="New preset">+</button>
+        <button class="btn-secondary" style="padding:6px 10px" onclick="renamePreset()" title="Rename">✏</button>
+        <button class="btn-secondary" style="padding:6px 10px;color:#e74c3c" onclick="deletePreset()" title="Delete" id="btn-delete-preset">✕</button>
+      </div>
+    </div>
+
+    <div class="opt-group">
       <div class="opt-group-label">Daily Limits</div>
-      <div class="opt-row"><span class="opt-label">Listening — new / day</span>   <input class="opt-input" id="opt-listening-new"  type="number" min="0"></div>
-      <div class="opt-row"><span class="opt-label">Listening — reviews / day</span><input class="opt-input" id="opt-listening-rev"  type="number" min="0"></div>
-      <div class="opt-row"><span class="opt-label">Reading — new / day</span>      <input class="opt-input" id="opt-reading-new"    type="number" min="0"></div>
-      <div class="opt-row"><span class="opt-label">Reading — reviews / day</span>  <input class="opt-input" id="opt-reading-rev"    type="number" min="0"></div>
-      <div class="opt-row"><span class="opt-label">Creating — new / day</span>     <input class="opt-input" id="opt-creating-new"  type="number" min="0"></div>
-      <div class="opt-row"><span class="opt-label">Creating — reviews / day</span> <input class="opt-input" id="opt-creating-rev"  type="number" min="0"></div>
+      <div class="opt-row"><span class="opt-label">New / day</span>    <input class="opt-input" id="opt-new-per-day"     type="number" min="0"></div>
+      <div class="opt-row"><span class="opt-label">Reviews / day</span><input class="opt-input" id="opt-reviews-per-day" type="number" min="0"></div>
     </div>
 
     <div class="opt-group">
@@ -913,6 +919,7 @@
       <button class="btn-secondary" onclick="closeModal()">Cancel</button>
       <button class="btn-primary"   onclick="saveOptions()">Save</button>
     </div>
+
   </div>
 </div>
 
@@ -931,8 +938,13 @@ let optDeckId    = null; // deck whose options modal is open
 const collapsed  = new Set();  // parent deck IDs that are collapsed
 
 // ── API helper ─────────────────────────────────────────────────────────────
-async function api(method, path) {
-  const r = await fetch(path, { method });
+async function api(method, path, body) {
+  const opts = { method };
+  if (body !== undefined) {
+    opts.headers = { 'Content-Type': 'application/json' };
+    opts.body = JSON.stringify(body);
+  }
+  const r = await fetch(path, opts);
   if (!r.ok) throw new Error(`${method} ${path} → ${r.status}`);
   return r.json();
 }
@@ -1168,29 +1180,101 @@ function renderStats(data) {
 }
 
 // ── Options modal ─────────────────────────────────────────────────────────────
+let allPresets = [];
+
+function loadPresetFields(preset) {
+  document.getElementById('opt-new-per-day').value     = preset.new_per_day;
+  document.getElementById('opt-reviews-per-day').value = preset.reviews_per_day;
+  document.getElementById('opt-learn-steps').value     = preset.learning_steps;
+  document.getElementById('opt-grad-int').value        = preset.graduating_interval;
+  document.getElementById('opt-easy-int').value        = preset.easy_interval;
+  document.getElementById('opt-insertion-order').value = preset.insertion_order || 'sequential';
+  document.getElementById('opt-relearn-steps').value   = preset.relearning_steps;
+  document.getElementById('opt-leech').value           = preset.leech_threshold;
+  const btnDef = document.getElementById('btn-set-default');
+  btnDef.textContent = preset.is_default ? '✓ Already default' : 'Set as default';
+  btnDef.disabled = !!preset.is_default;
+  const btnDel = document.getElementById('btn-delete-preset');
+  btnDel.disabled = allPresets.length <= 1;
+}
+
+function renderPresetSelect(selectedId) {
+  const sel = document.getElementById('opt-preset-select');
+  sel.innerHTML = allPresets.map(p =>
+    `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.name}${p.is_default ? ' ★' : ''}</option>`
+  ).join('');
+}
+
 async function openOptions(deckId) {
   optDeckId = deckId;
   try {
-    const preset = await api('GET', `/api/decks/${deckId}/preset`);
-    document.getElementById('modal-title').textContent = 'Deck Options';
-    document.getElementById('opt-listening-new').value  = preset.listening_new_per_day;
-    document.getElementById('opt-listening-rev').value  = preset.listening_reviews_per_day;
-    document.getElementById('opt-reading-new').value    = preset.reading_new_per_day;
-    document.getElementById('opt-reading-rev').value    = preset.reading_reviews_per_day;
-    document.getElementById('opt-creating-new').value   = preset.creating_new_per_day;
-    document.getElementById('opt-creating-rev').value   = preset.creating_reviews_per_day;
-    document.getElementById('opt-learn-steps').value    = preset.learning_steps;
-    document.getElementById('opt-grad-int').value       = preset.graduating_interval;
-    document.getElementById('opt-easy-int').value       = preset.easy_interval;
-    document.getElementById('opt-insertion-order').value = preset.insertion_order || 'sequential';
-    document.getElementById('opt-relearn-steps').value  = preset.relearning_steps;
-    document.getElementById('opt-leech').value          = preset.leech_threshold;
-    const btn = document.getElementById('btn-set-default');
-    btn.textContent = preset.is_default ? '✓ Already default' : 'Set as default';
-    btn.disabled = !!preset.is_default;
+    const [preset, presets] = await Promise.all([
+      api('GET', `/api/decks/${deckId}/preset`),
+      api('GET', '/api/presets'),
+    ]);
+    allPresets = presets;
+    renderPresetSelect(preset.id);
+    loadPresetFields(preset);
     document.getElementById('modal-overlay').classList.add('open');
   } catch (e) {
     showError('Could not load options: ' + e.message);
+  }
+}
+
+async function switchPreset(presetId) {
+  presetId = parseInt(presetId);
+  try {
+    await api('PUT', `/api/decks/${optDeckId}/preset/assign?preset_id=${presetId}`);
+    const preset = allPresets.find(p => p.id === presetId);
+    loadPresetFields(preset);
+  } catch (e) {
+    showError('Failed to switch preset: ' + e.message);
+  }
+}
+
+async function addPreset() {
+  const name = prompt('Preset name:');
+  if (!name) return;
+  const currentId = parseInt(document.getElementById('opt-preset-select').value);
+  try {
+    const preset = await api('POST', `/api/presets?name=${encodeURIComponent(name)}&clone_from_id=${currentId}`);
+    allPresets = await api('GET', '/api/presets');
+    renderPresetSelect(preset.id);
+    await switchPreset(preset.id);
+  } catch (e) {
+    showError('Failed to create preset: ' + e.message);
+  }
+}
+
+async function renamePreset() {
+  const currentId = parseInt(document.getElementById('opt-preset-select').value);
+  const current = allPresets.find(p => p.id === currentId);
+  const name = prompt('New name:', current?.name || '');
+  if (!name || name === current?.name) return;
+  try {
+    await api('PUT', `/api/decks/${optDeckId}/preset`, { name });
+    allPresets = await api('GET', '/api/presets');
+    renderPresetSelect(currentId);
+  } catch (e) {
+    showError('Failed to rename: ' + e.message);
+  }
+}
+
+async function deletePreset() {
+  if (allPresets.length <= 1) return;
+  const currentId = parseInt(document.getElementById('opt-preset-select').value);
+  const current = allPresets.find(p => p.id === currentId);
+  if (!confirm(`Delete preset "${current?.name}"? Decks using it will be reassigned to the default preset.`)) return;
+  // First reassign all decks using this preset to the default
+  const defaultPreset = allPresets.find(p => p.is_default && p.id !== currentId) || allPresets.find(p => p.id !== currentId);
+  try {
+    await api('PUT', `/api/decks/${optDeckId}/preset/assign?preset_id=${defaultPreset.id}`);
+    await api('DELETE', `/api/presets/${currentId}`);
+    allPresets = await api('GET', '/api/presets');
+    renderPresetSelect(defaultPreset.id);
+    loadPresetFields(defaultPreset);
+  } catch (e) {
+    showError('Delete failed: ' + e.message);
   }
 }
 
@@ -1202,27 +1286,19 @@ function closeModal() {
 async function saveOptions() {
   if (!optDeckId) return;
   const fields = {
-    listening_new_per_day:      parseInt(document.getElementById('opt-listening-new').value),
-    listening_reviews_per_day:  parseInt(document.getElementById('opt-listening-rev').value),
-    reading_new_per_day:        parseInt(document.getElementById('opt-reading-new').value),
-    reading_reviews_per_day:    parseInt(document.getElementById('opt-reading-rev').value),
-    creating_new_per_day:       parseInt(document.getElementById('opt-creating-new').value),
-    creating_reviews_per_day:   parseInt(document.getElementById('opt-creating-rev').value),
-    learning_steps:             document.getElementById('opt-learn-steps').value.trim(),
-    graduating_interval:        parseInt(document.getElementById('opt-grad-int').value),
-    easy_interval:              parseInt(document.getElementById('opt-easy-int').value),
-    relearning_steps:           document.getElementById('opt-relearn-steps').value.trim(),
-    leech_threshold:            parseInt(document.getElementById('opt-leech').value),
-    insertion_order:            document.getElementById('opt-insertion-order').value,
+    new_per_day:         parseInt(document.getElementById('opt-new-per-day').value),
+    reviews_per_day:     parseInt(document.getElementById('opt-reviews-per-day').value),
+    learning_steps:      document.getElementById('opt-learn-steps').value.trim(),
+    graduating_interval: parseInt(document.getElementById('opt-grad-int').value),
+    easy_interval:       parseInt(document.getElementById('opt-easy-int').value),
+    relearning_steps:    document.getElementById('opt-relearn-steps').value.trim(),
+    leech_threshold:     parseInt(document.getElementById('opt-leech').value),
+    insertion_order:     document.getElementById('opt-insertion-order').value,
   };
   try {
-    await fetch(`/api/decks/${optDeckId}/preset`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(fields),
-    });
+    await api('PUT', `/api/decks/${optDeckId}/preset`, fields);
     closeModal();
-    loadDecks(); // refresh counts
+    loadDecks();
   } catch (e) {
     showError('Save failed: ' + e.message);
   }
@@ -1232,10 +1308,12 @@ async function setDefaultPreset() {
   if (!optDeckId) return;
   try {
     await api('POST', `/api/decks/${optDeckId}/preset/set-default`);
+    allPresets = await api('GET', '/api/presets');
+    const currentId = parseInt(document.getElementById('opt-preset-select').value);
+    renderPresetSelect(currentId);
     const btn = document.getElementById('btn-set-default');
-    btn.textContent = '✓ Default set';
+    btn.textContent = '✓ Already default';
     btn.disabled = true;
-    setTimeout(() => { btn.textContent = 'Set as default'; btn.disabled = false; }, 2000);
   } catch (e) {
     showError('Failed: ' + e.message);
   }
