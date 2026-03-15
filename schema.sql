@@ -9,13 +9,9 @@ CREATE TABLE IF NOT EXISTS deck_presets (
     id                      INTEGER PRIMARY KEY AUTOINCREMENT,
     name                    TEXT NOT NULL,
 
-    -- Per-category daily limits
-    listening_new_per_day   INTEGER NOT NULL DEFAULT 20,
-    listening_reviews_per_day INTEGER NOT NULL DEFAULT 100,
-    reading_new_per_day     INTEGER NOT NULL DEFAULT 20,
-    reading_reviews_per_day INTEGER NOT NULL DEFAULT 100,
-    creating_new_per_day    INTEGER NOT NULL DEFAULT 10,
-    creating_reviews_per_day INTEGER NOT NULL DEFAULT 50,
+    -- Daily limits
+    new_per_day             INTEGER NOT NULL DEFAULT 20,
+    reviews_per_day         INTEGER NOT NULL DEFAULT 100,
 
     -- Learning steps in minutes, space-separated e.g. "1 10"
     learning_steps          TEXT NOT NULL DEFAULT '1 10',
