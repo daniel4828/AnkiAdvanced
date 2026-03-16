@@ -115,7 +115,7 @@ function buildCategoryButtons(deck) {
     if (leaf) {
       // Direct leaf — use leaf's deck_id (single-deck session)
       const c = leaf.counts || { new: 0, learning: 0, review: 0 };
-      return `<button class="cat-pill" onclick="event.stopPropagation();startReview(${leaf.id},'${cat}','${safeName}')"><span class="cat-pill-label">${LABELS[cat]}</span><span class="cat-pill-counts">${countHtml(c)}</span></button>`;
+      return `<span class="cat-pill-wrap"><button class="cat-pill" onclick="event.stopPropagation();startReview(${leaf.id},'${cat}','${safeName}')"><span class="cat-pill-label">${LABELS[cat]}</span><span class="cat-pill-counts">${countHtml(c)}</span></button><button class="cat-pill-gear" onclick="event.stopPropagation();openOptions(${leaf.id})" title="Options">⚙</button></span>`;
     }
     // Structural parent — aggregate and use this deck's id (multi-deck session via backend)
     const c = aggregateCounts(deck, cat);
