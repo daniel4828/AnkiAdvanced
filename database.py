@@ -532,6 +532,7 @@ def get_due_cards(deck_id: int, category: str) -> list[dict]:
            WHERE c.deck_id = ?
              AND c.category = ?
              AND c.state != 'suspended'
+             AND (c.buried_until IS NULL OR c.buried_until < ?)
              AND (
                (c.state IN ('learning', 'relearn') AND c.due <= ?)
                OR (c.state = 'review' AND c.due <= ?)
@@ -544,21 +545,8 @@ def get_due_cards(deck_id: int, category: str) -> list[dict]:
                ELSE 2
              END,
              c.due""",
-        (deck_id, category, now, today, today),
+        (deck_id, category, today, now, today, today),
     ).fetchall()
-
-    # Bury siblings: exclude cards whose word was already reviewed today in another category
-    if preset.get("bury_siblings", 1):
-        buried_word_ids = {
-            r[0] for r in conn.execute(
-                """SELECT DISTINCT c.word_id FROM cards c
-                   JOIN review_log rl ON rl.card_id = c.id
-                   WHERE c.category != ?
-                     AND date(rl.reviewed_at) = ?""",
-                (category, today),
-            ).fetchall()
-        }
-        rows = [r for r in rows if r["word_id"] not in buried_word_ids]
 
     conn.close()
 
@@ -601,25 +589,30 @@ def count_due(deck_id: int, category: str) -> dict:
     new_done_today = _count_new_introduced_today(conn, deck_id, category, today)
     new_remaining = max(0, new_limit - new_done_today)
 
+    buried_filter = "AND (c.buried_until IS NULL OR c.buried_until < ?)"
+
     learning = conn.execute(
-        """SELECT COUNT(*) FROM cards c
+        f"""SELECT COUNT(*) FROM cards c
            WHERE c.deck_id = ? AND c.category = ?
-             AND c.state IN ('learning', 'relearn') AND c.due <= ?""",
-        (deck_id, category, now),
+             AND c.state IN ('learning', 'relearn') AND c.due <= ?
+             {buried_filter}""",
+        (deck_id, category, now, today),
     ).fetchone()[0]
 
     review = conn.execute(
-        """SELECT COUNT(*) FROM cards c
+        f"""SELECT COUNT(*) FROM cards c
            WHERE c.deck_id = ? AND c.category = ?
-             AND c.state = 'review' AND c.due <= ?""",
-        (deck_id, category, today),
+             AND c.state = 'review' AND c.due <= ?
+             {buried_filter}""",
+        (deck_id, category, today, today),
     ).fetchone()[0]
 
     new_available = conn.execute(
-        """SELECT COUNT(*) FROM cards c
+        f"""SELECT COUNT(*) FROM cards c
            WHERE c.deck_id = ? AND c.category = ?
-             AND c.state = 'new' AND c.due <= ?""",
-        (deck_id, category, today),
+             AND c.state = 'new' AND c.due <= ?
+             {buried_filter}""",
+        (deck_id, category, today, today),
     ).fetchone()[0]
 
     conn.close()
@@ -639,6 +632,35 @@ def update_card(card_id: int, *, state: str, due: str,
                             ease=?, repetitions=?, lapses=?
            WHERE id=?""",
         (state, due, step_index, interval, ease, repetitions, lapses, card_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def bury_card(card_id: int) -> None:
+    """Bury a card until tomorrow (hidden for the rest of today)."""
+    today = date.today().isoformat()
+    conn = get_db()
+    conn.execute("UPDATE cards SET buried_until = ? WHERE id = ?", (today, card_id))
+    conn.commit()
+    conn.close()
+
+
+def unbury_card(card_id: int) -> None:
+    """Remove burial — card becomes available immediately."""
+    conn = get_db()
+    conn.execute("UPDATE cards SET buried_until = NULL WHERE id = ?", (card_id,))
+    conn.commit()
+    conn.close()
+
+
+def bury_siblings(word_id: int, reviewed_category: str) -> None:
+    """Bury all other-category cards for this word for the rest of today."""
+    today = date.today().isoformat()
+    conn = get_db()
+    conn.execute(
+        "UPDATE cards SET buried_until = ? WHERE word_id = ? AND category != ?",
+        (today, word_id, reviewed_category),
     )
     conn.commit()
     conn.close()

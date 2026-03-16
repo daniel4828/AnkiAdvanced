@@ -131,6 +131,9 @@ CREATE TABLE IF NOT EXISTS cards (
     repetitions INTEGER NOT NULL DEFAULT 0,
     lapses      INTEGER NOT NULL DEFAULT 0,
 
+    -- Temporary burial: card is hidden until this date (resets automatically next day)
+    buried_until TEXT,
+
     UNIQUE(word_id, category)
 );
 
