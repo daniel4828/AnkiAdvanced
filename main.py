@@ -26,8 +26,10 @@ logger = logging.getLogger("main")
 def cmd_import(args):
     print("Importing from imports/...")
     result = importer.import_all("imports")
+    invalid = result.get('skipped_invalid', 0)
+    invalid_str = f", {invalid} skipped as invalid" if invalid else ""
     print(f"Done — imported {result['imported']} words "
-          f"({result['skipped_duplicate']} skipped as duplicates)")
+          f"({result['skipped_duplicate']} skipped as duplicates{invalid_str})")
 
 
 def cmd_status(args):
@@ -204,16 +206,29 @@ try:
         database.set_default_preset(deck["preset_id"])
         return database.get_preset(deck["preset_id"])
 
+    _DISABLE_AI = os.getenv("DISABLE_AI", "").lower() in ("1", "true", "yes")
+
+    def _leaf_ids(deck_id: int, category: str) -> list[int]:
+        """If deck is a parent (no category), return descendant leaf IDs; else [deck_id]."""
+        deck = database.get_deck(deck_id)
+        if deck["category"] is None:
+            return database.get_descendant_leaf_deck_ids(deck_id, category)
+        return [deck_id]
+
     # --- Review session ---
     @app.get("/api/today/{deck_id}/{category}")
     def get_today(deck_id: int, category: str):
         import srs
-        card = database.get_next_card(deck_id, category)
+        ids = _leaf_ids(deck_id, category)
+        if len(ids) == 1:
+            card = database.get_next_card(ids[0], category)
+            counts = database.count_due(ids[0], category)
+        else:
+            card = database.get_next_card_multi(ids, category)
+            counts = database.count_due_multi(ids, category)
         if card:
-            # Fetch full card (includes preset fields needed for interval preview)
             card = database.get_card(card["id"])
             card["intervals"] = srs.preview_intervals(card)
-        counts = database.count_due(deck_id, category)
         return {"card": card, "counts": counts}
 
     @app.get("/api/story/{deck_id}/{category}")
@@ -228,12 +243,15 @@ try:
                         deck_id, category, len(story["sentences"]), story["id"])
             _log_story(story)
             return story
-        cards = database.get_due_cards(deck_id, category)
-        logger.info("story  GENERATE deck=%d cat=%s due_cards=%d",
-                    deck_id, category, len(cards))
+        if _DISABLE_AI:
+            logger.info("story  DISABLED (DISABLE_AI=1) deck=%d cat=%s", deck_id, category)
+            return None
+        ids = _leaf_ids(deck_id, category)
+        cards = database.get_due_cards_multi(ids, category) if len(ids) > 1 else database.get_due_cards(deck_id, category)
+        logger.info("story  GENERATE deck=%d cat=%s due_cards=%d", deck_id, category, len(cards))
         if cards:
             try:
-                preset = database.get_preset_for_deck(deck_id)
+                preset = database.get_preset_for_deck(ids[0] if ids else deck_id)
                 if preset.get("randomize_story_order", 1):
                     import random as _random
                     _random.shuffle(cards)
@@ -256,11 +274,14 @@ try:
         import ai
         from datetime import date
         today = date.today().isoformat()
-        cards = database.get_due_cards(deck_id, category)
+        if _DISABLE_AI:
+            return None
+        ids = _leaf_ids(deck_id, category)
+        cards = database.get_due_cards_multi(ids, category) if len(ids) > 1 else database.get_due_cards(deck_id, category)
         logger.info("regen  deck=%d cat=%s due_cards=%d", deck_id, category, len(cards))
         if not cards:
             return None
-        preset = database.get_preset_for_deck(deck_id)
+        preset = database.get_preset_for_deck(ids[0] if ids else deck_id)
         if preset.get("randomize_story_order", 1):
             import random as _random
             _random.shuffle(cards)
@@ -275,8 +296,19 @@ try:
             _log_story(story)
         return story
 
+    @app.get("/api/today-mixed/{deck_id}")
+    def get_today_mixed(deck_id: int):
+        import srs
+        card = database.get_next_card_any_cat(deck_id)
+        if card:
+            card = database.get_card(card["id"])
+            card["intervals"] = srs.preview_intervals(card)
+        counts = database.count_due_any_cat(deck_id)
+        return {"card": card, "counts": counts}
+
     @app.post("/api/review")
-    def submit_review(card_id: int, rating: int, user_response: str | None = None):
+    def submit_review(card_id: int, rating: int, user_response: str | None = None,
+                      root_deck_id: int | None = None):
         import srs
         card_before = database.get_card(card_id)
         updated = srs.apply_review(card_id, rating, user_response=user_response)
@@ -285,11 +317,14 @@ try:
         preset = database.get_preset_for_deck(deck_id)
         if preset.get("bury_siblings", 1):
             database.bury_siblings(updated["word_id"], cat)
-        next_card = database.get_next_card(deck_id, cat)
+        if root_deck_id:
+            next_card = database.get_next_card_any_cat(root_deck_id)
+        else:
+            next_card = database.get_next_card(deck_id, cat)
         if next_card:
             next_card = database.get_card(next_card["id"])
             next_card["intervals"] = srs.preview_intervals(next_card)
-        counts = database.count_due(deck_id, cat)
+        counts = database.count_due_any_cat(root_deck_id) if root_deck_id else database.count_due(deck_id, cat)
         rating_label = {1: "Again", 2: "Hard", 3: "Good", 4: "Easy"}.get(rating, rating)
         logger.info("review %s → %s (%s)  due=%s  next=%s  queue: %d lrn %d rev %d new",
                     card_before["word_zh"], updated["state"], rating_label,

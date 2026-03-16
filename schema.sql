@@ -50,11 +50,12 @@ CREATE TABLE IF NOT EXISTS deck_presets (
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS decks (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT NOT NULL UNIQUE,
+    name        TEXT NOT NULL,
     parent_id   INTEGER REFERENCES decks(id) ON DELETE CASCADE,
     preset_id   INTEGER NOT NULL REFERENCES deck_presets(id),
     -- NULL for parent decks; set for category leaf decks
-    category    TEXT CHECK(category IN ('listening', 'reading', 'creating'))
+    category    TEXT CHECK(category IN ('listening', 'reading', 'creating')),
+    UNIQUE(name, parent_id)
 );
 
 -- ---------------------------------------------------------------------------

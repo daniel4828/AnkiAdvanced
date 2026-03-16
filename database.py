@@ -51,7 +51,12 @@ def _ensure_presets(conn: sqlite3.Connection) -> None:
                 relearning_steps, minimum_interval, insertion_order,
                 bury_siblings, randomize_story_order, leech_threshold, leech_action, is_default)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)""",
-            ("Anki Default", 9999, 9999, "1m 10m", 4, 9, "10", 1, "sequential", 1, 0, 8, "suspend"),
+            ("Anki Default", 9999, 9999, "11m 10m", 4, 9, "10", 1, "sequential", 1, 0, 8, "suspend"),
+        )
+    else:
+        # Migrate existing row to current defaults
+        conn.execute(
+            "UPDATE deck_presets SET learning_steps = '11m 10m' WHERE name = 'Anki Default'",
         )
 
     # Guarantee exactly one default
@@ -89,7 +94,7 @@ def default_preset() -> dict:
         "name": "Default",
         "new_per_day": 20,
         "reviews_per_day": 100,
-        "learning_steps": "1m 10m",
+        "learning_steps": "11m 10m",
         "graduating_interval": 1,
         "easy_interval": 4,
         "relearning_steps": "10",
@@ -279,9 +284,11 @@ def get_default_deck_id() -> int:
 
 def get_or_create_deck(name: str, parent_id: int | None = None,
                        category: str | None = None) -> int:
-    """Get deck id by name, creating it (sharing the default preset) if it doesn't exist."""
+    """Get deck id by (name, parent_id), creating it if it doesn't exist."""
     conn = get_db()
-    row = conn.execute("SELECT id FROM decks WHERE name = ?", (name,)).fetchone()
+    row = conn.execute(
+        "SELECT id FROM decks WHERE name = ? AND parent_id IS ?", (name, parent_id)
+    ).fetchone()
     if row:
         conn.close()
         return row["id"]
@@ -652,6 +659,106 @@ def unbury_card(card_id: int) -> None:
     conn.execute("UPDATE cards SET buried_until = NULL WHERE id = ?", (card_id,))
     conn.commit()
     conn.close()
+
+
+def get_descendant_leaf_deck_ids(deck_id: int, category: str | None = None) -> list[int]:
+    """Return all category-leaf deck IDs under deck_id (depth-first). Optionally filter by category."""
+    conn = get_db()
+    rows = conn.execute("SELECT id, parent_id, category FROM decks").fetchall()
+    conn.close()
+
+    children_map: dict = {}
+    deck_cat: dict = {}
+    for row in rows:
+        deck_cat[row["id"]] = row["category"]
+        pid = row["parent_id"]
+        children_map.setdefault(pid, []).append(row["id"])
+
+    result = []
+    stack = [deck_id]
+    while stack:
+        current = stack.pop()
+        cat = deck_cat.get(current)
+        kids = children_map.get(current, [])
+        if cat is not None:  # category leaf
+            if category is None or cat == category:
+                result.append(current)
+        for kid in kids:
+            stack.append(kid)
+    return result
+
+
+def _leaf_decks_with_category(root_deck_id: int) -> list[tuple[int, str]]:
+    """Return [(deck_id, category)] for all category leaves under root_deck_id."""
+    all_leaf_ids = get_descendant_leaf_deck_ids(root_deck_id)
+    if not all_leaf_ids:
+        deck = get_deck(root_deck_id)
+        if deck and deck["category"]:
+            return [(root_deck_id, deck["category"])]
+        return []
+    conn = get_db()
+    placeholders = ','.join('?' * len(all_leaf_ids))
+    rows = conn.execute(
+        f"SELECT id, category FROM decks WHERE id IN ({placeholders})", all_leaf_ids
+    ).fetchall()
+    conn.close()
+    return [(r["id"], r["category"]) for r in rows if r["category"]]
+
+
+def get_next_card_any_cat(root_deck_id: int) -> dict | None:
+    """Highest-priority card across all categories under root_deck_id."""
+    leaf_pairs = _leaf_decks_with_category(root_deck_id)
+    all_cards = []
+    for deck_id, cat in leaf_pairs:
+        all_cards.extend(get_due_cards(deck_id, cat))
+    if not all_cards:
+        return None
+    all_cards.sort(key=lambda c: (
+        0 if c["state"] in ("learning", "relearn") else
+        1 if c["state"] == "review" else 2,
+        c["due"]
+    ))
+    return all_cards[0]
+
+
+def count_due_any_cat(root_deck_id: int) -> dict:
+    """Total due counts across all categories under root_deck_id."""
+    leaf_pairs = _leaf_decks_with_category(root_deck_id)
+    total = {"new": 0, "learning": 0, "review": 0}
+    for deck_id, cat in leaf_pairs:
+        c = count_due(deck_id, cat)
+        for k in total:
+            total[k] += c[k]
+    return total
+
+
+def get_due_cards_multi(deck_ids: list[int], category: str) -> list[dict]:
+    """Due cards across multiple decks, merged and priority-sorted."""
+    all_cards = []
+    for deck_id in deck_ids:
+        all_cards.extend(get_due_cards(deck_id, category))
+    all_cards.sort(key=lambda c: (
+        0 if c["state"] in ("learning", "relearn") else
+        1 if c["state"] == "review" else 2,
+        c["due"]
+    ))
+    return all_cards
+
+
+def get_next_card_multi(deck_ids: list[int], category: str) -> dict | None:
+    """Highest-priority card across multiple decks."""
+    cards = get_due_cards_multi(deck_ids, category)
+    return cards[0] if cards else None
+
+
+def count_due_multi(deck_ids: list[int], category: str) -> dict:
+    """Aggregate due counts across multiple decks."""
+    total = {"new": 0, "learning": 0, "review": 0}
+    for deck_id in deck_ids:
+        c = count_due(deck_id, category)
+        for k in total:
+            total[k] += c[k]
+    return total
 
 
 def bury_siblings(word_id: int, reviewed_category: str) -> None:

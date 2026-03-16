@@ -2,6 +2,7 @@ import glob
 import json
 import logging
 import os
+import re
 
 import yaml
 
@@ -19,6 +20,7 @@ def import_all(imports_dir: str = "imports") -> dict:
     """
     total_imported = 0
     total_skipped = 0
+    total_invalid = 0
     for source_dir in sorted(os.scandir(imports_dir), key=lambda e: e.name):
         if not source_dir.is_dir():
             continue
@@ -31,7 +33,9 @@ def import_all(imports_dir: str = "imports") -> dict:
                 result = import_yaml_file(filepath, deck_path)
                 total_imported += result["imported"]
                 total_skipped += result["skipped_duplicate"]
-    return {"imported": total_imported, "skipped_duplicate": total_skipped}
+                total_invalid += result["skipped_invalid"]
+    return {"imported": total_imported, "skipped_duplicate": total_skipped,
+            "skipped_invalid": total_invalid}
 
 
 def import_kouyu_yaml(filepath: str) -> dict:
@@ -47,22 +51,21 @@ def import_yaml_file(filepath: str, deck_path: list[str]) -> dict:
       ["Kouyu", "Chapter 1"] → creates "Kouyu" then "Kouyu · Chapter 1"
     Category leaf decks are created under the deepest intermediate deck.
     """
-    # Build intermediate deck hierarchy bottom-up
+    # Build intermediate deck hierarchy — each deck is named by its own segment only
     parent_id = None
-    for i in range(len(deck_path)):
-        name = " · ".join(deck_path[:i + 1])
-        parent_id = database.get_or_create_deck(name, parent_id=parent_id)
+    for segment in deck_path:
+        parent_id = database.get_or_create_deck(segment, parent_id=parent_id)
 
-    leaf_prefix = " · ".join(deck_path)
+    leaf_parent = deck_path[-1]
     deck_ids = {
         "listening": database.get_or_create_deck(
-            f"{leaf_prefix} · Listening", parent_id=parent_id, category="listening"
+            f"{leaf_parent} · Listening", parent_id=parent_id, category="listening"
         ),
         "reading": database.get_or_create_deck(
-            f"{leaf_prefix} · Reading", parent_id=parent_id, category="reading"
+            f"{leaf_parent} · Reading", parent_id=parent_id, category="reading"
         ),
         "creating": database.get_or_create_deck(
-            f"{leaf_prefix} · Creating", parent_id=parent_id, category="creating"
+            f"{leaf_parent} · Creating", parent_id=parent_id, category="creating"
         ),
     }
 
@@ -76,6 +79,7 @@ def import_yaml_file(filepath: str, deck_path: list[str]) -> dict:
     entries = data.get("entries", [])
     imported = 0
     skipped_duplicate = 0
+    skipped_invalid = 0
 
     for entry in entries:
         if entry.get("type") != "vocabulary":
@@ -83,6 +87,11 @@ def import_yaml_file(filepath: str, deck_path: list[str]) -> dict:
 
         word_zh = entry.get("simplified", "").strip()
         if not word_zh:
+            continue
+
+        warning = _validate_word(word_zh, filepath)
+        if warning:
+            skipped_invalid += 1
             continue
 
         word = {
@@ -147,7 +156,29 @@ def import_yaml_file(filepath: str, deck_path: list[str]) -> dict:
         _create_cards(word_id, deck_ids)
         imported += 1
 
-    return {"imported": imported, "skipped_duplicate": skipped_duplicate}
+    return {"imported": imported, "skipped_duplicate": skipped_duplicate,
+            "skipped_invalid": skipped_invalid}
+
+
+_HANZI_RE = re.compile(r'[\u4e00-\u9fff\u3400-\u4dbf]')
+
+
+def _validate_word(word_zh: str, filepath: str) -> str | None:
+    """Return a warning string if the entry looks invalid and should be skipped, else None."""
+    if '/' in word_zh or '／' in word_zh:
+        msg = f"SKIP  {os.path.basename(filepath)}: slash in word (multiple entries combined): {word_zh!r}"
+        logger.warning(msg)
+        return msg
+    if '。' in word_zh or '. ' in word_zh:
+        msg = f"SKIP  {os.path.basename(filepath)}: period in word (looks like a sentence): {word_zh!r}"
+        logger.warning(msg)
+        return msg
+    hanzi_count = len(_HANZI_RE.findall(word_zh))
+    if hanzi_count > 6:
+        msg = f"SKIP  {os.path.basename(filepath)}: {hanzi_count} hanzi (looks like a phrase, max 6): {word_zh!r}"
+        logger.warning(msg)
+        return msg
+    return None
 
 
 def _create_cards(word_id: int, deck_ids: dict) -> None:
