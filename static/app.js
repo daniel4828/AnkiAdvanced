@@ -720,11 +720,14 @@ function renderVocabDetail() {
 
 function renderNotesSection() {
   const section = document.getElementById('notes-section');
-  const body    = document.getElementById('notes-body');
   if (card?.notes) {
-    body.textContent = card.notes;
+    section.innerHTML =
+      `<div class="section-label section-toggle" onclick="toggleSection('notes-section-body')">` +
+        `<span id="notes-section-body-arrow">▶</span> Notes</div>` +
+      `<div id="notes-section-body" class="notes-body" style="display:none">${card.notes}</div>`;
     section.style.display = 'block';
   } else {
+    section.innerHTML = '';
     section.style.display = 'none';
   }
 }
