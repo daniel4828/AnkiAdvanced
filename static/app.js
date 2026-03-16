@@ -1,0 +1,717 @@
+// ── State ──────────────────────────────────────────────────────────────────
+let deckId      = null;
+let rootDeckId  = null;   // set when studying all categories (mixed mode)
+let deckName    = '';
+let category    = '';
+let card        = null;   // current card dict from API
+let story       = null;   // story dict with sentences[]
+let sentence    = null;   // current sentence from story (may be null)
+let wordDetails = null;   // full word data: examples + characters
+let userInput   = '';     // creating category: what the user typed
+let browseAll    = [];   // all cards from API for client-side filtering
+let optDeckId    = null; // deck whose options modal is open
+const collapsed  = new Set();  // parent deck IDs that are collapsed
+
+// ── API helper ─────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = { method };
+  if (body !== undefined) {
+    opts.headers = { 'Content-Type': 'application/json' };
+    opts.body = JSON.stringify(body);
+  }
+  const r = await fetch(path, opts);
+  if (!r.ok) throw new Error(`${method} ${path} → ${r.status}`);
+  return r.json();
+}
+
+// ── View switcher ──────────────────────────────────────────────────────────
+function showView(name) {
+  ['loading', 'decks', 'review', 'done', 'browse', 'stats'].forEach(v => {
+    document.getElementById(`view-${v}`).style.display = 'none';
+  });
+  document.getElementById(`view-${name}`).style.display = 'block';
+  document.getElementById('back-btn').style.display = name === 'decks' ? 'none' : 'block';
+  document.getElementById('header-title').textContent =
+    name === 'review' ? `${deckName} · ${cap(category)}` :
+    name === 'browse' ? 'Browse' :
+    name === 'stats'  ? 'Stats'  : 'Chinese SRS';
+}
+
+function setLoading(msg) {
+  document.getElementById('loading-msg').textContent = msg || 'Loading…';
+  showView('loading');
+}
+
+function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 6000);
+}
+
+// ── Deck list ───────────────────────────────────────────────────────────────
+async function loadDecks() {
+  setLoading('Loading decks…');
+  try {
+    const decks = await api('GET', '/api/decks');
+    renderDecks(decks);
+    showView('decks');
+  } catch (e) {
+    showError('Could not load decks: ' + e.message);
+    showView('decks');
+  }
+}
+
+function flatten(nodes, depth = 0) {
+  return nodes.flatMap(n => [{ ...n, _depth: depth }, ...flatten(n.children || [], depth + 1)]);
+}
+
+// Direct category-leaf children of a deck keyed by category
+function getCategoryLeaves(deck) {
+  const map = {};
+  for (const child of (deck.children || [])) {
+    if (child.category && (!child.children || child.children.length === 0)) {
+      map[child.category] = child;
+    }
+  }
+  return map;
+}
+
+// All category-leaf decks anywhere under this deck (recursive)
+function getDeepCategoryLeaves(deck) {
+  const result = [];
+  for (const child of (deck.children || [])) {
+    if (child.category && (!child.children || child.children.length === 0)) {
+      result.push(child);
+    } else {
+      result.push(...getDeepCategoryLeaves(child));
+    }
+  }
+  return result;
+}
+
+// Aggregate counts for one category from all deep leaves
+function aggregateCounts(deck, category) {
+  const leaves = getDeepCategoryLeaves(deck).filter(l => l.category === category);
+  const agg = { new: 0, learning: 0, review: 0 };
+  for (const l of leaves) for (const k of ['new', 'learning', 'review']) agg[k] += (l.counts || {})[k] || 0;
+  return agg;
+}
+
+function countHtml(c) {
+  return `<span class="n-new">${c.new}</span> <span class="n-lrn">${c.learning}</span> <span class="n-rev">${c.review}</span>`;
+}
+
+// Build 3 inline pills (L/R/C) for any deck. Uses direct cat leaves if present, else aggregates.
+function buildCategoryButtons(deck) {
+  const CATS   = ['listening', 'reading', 'creating'];
+  const LABELS = { listening: 'L', reading: 'R', creating: 'C' };
+  const catLeaves = getCategoryLeaves(deck);
+  const safeName  = deck.name.replace(/'/g, "\\'");
+  return CATS.map(cat => {
+    const leaf = catLeaves[cat];
+    if (leaf) {
+      // Direct leaf — use leaf's deck_id (single-deck session)
+      const c = leaf.counts || { new: 0, learning: 0, review: 0 };
+      return `<button class="cat-pill" onclick="event.stopPropagation();startReview(${leaf.id},'${cat}','${safeName}')"><span class="cat-pill-label">${LABELS[cat]}</span><span class="cat-pill-counts">${countHtml(c)}</span></button>`;
+    }
+    // Structural parent — aggregate and use this deck's id (multi-deck session via backend)
+    const c = aggregateCounts(deck, cat);
+    const hasCards = getDeepCategoryLeaves(deck).some(l => l.category === cat);
+    if (!hasCards) return `<button class="cat-pill" disabled><span class="cat-pill-label">${LABELS[cat]}</span><span class="cat-pill-counts"><span class="n-zero">—</span></span></button>`;
+    return `<button class="cat-pill" onclick="event.stopPropagation();startReview(${deck.id},'${cat}','${safeName}')"><span class="cat-pill-label">${LABELS[cat]}</span><span class="cat-pill-counts">${countHtml(c)}</span></button>`;
+  }).join('');
+}
+
+function renderDecks(decks) {
+  const navRow = `
+    <div class="nav-row">
+      <button class="nav-btn" onclick="openBrowse()">Browse Cards</button>
+      <button class="nav-btn" onclick="openStats()">Stats</button>
+    </div>`;
+  const rows = renderDeckRows(decks, 0);
+  document.getElementById('view-decks').innerHTML = navRow + `<div class="tree-card">${rows}</div>`;
+}
+
+function renderDeckRows(decks, depth) {
+  return decks.map(deck => {
+    // Category leaf decks are consumed as pills — not rendered as rows
+    if (deck.category && (!deck.children || deck.children.length === 0)) return '';
+
+    const structChildren = (deck.children || []).filter(
+      c => !(c.category && (!c.children || c.children.length === 0))
+    );
+    const hasStructChildren = structChildren.length > 0;
+    const isCollapsed = collapsed.has(deck.id);
+    const indent = depth * 18;
+
+    const toggleIcon = hasStructChildren ? (isCollapsed ? '▶' : '▼') : '';
+    const pillsHtml = `<div class="cat-pills-inline">${buildCategoryButtons(deck)}</div>`;
+    const safeName  = deck.name.replace(/'/g, "\\'");
+    const c = deck.counts || { new: 0, learning: 0, review: 0 };
+    const deckCounts = `<span class="deck-counts"><span class="n-new">${c.new}</span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span></span>`;
+
+    const row = `
+      <div class="tree-row tree-parent" style="padding-left:${16 + indent}px">
+        <span class="tree-toggle" onclick="toggleDeck(${deck.id})">${toggleIcon}</span>
+        <span class="tree-name" onclick="startReviewMixed(${deck.id},'${safeName}')" style="cursor:pointer">${deck.name}</span>
+        ${pillsHtml}
+        ${deckCounts}
+        <button class="gear-btn" onclick="openOptions(${deck.id})"
+                title="Deck options">⚙</button>
+      </div>`;
+
+    const childRows = hasStructChildren && !isCollapsed
+      ? renderDeckRows(structChildren, depth + 1)
+      : '';
+
+    return row + childRows;
+  }).join('');
+}
+
+function toggleDeck(deckId) {
+  if (collapsed.has(deckId)) {
+    collapsed.delete(deckId);
+  } else {
+    collapsed.add(deckId);
+  }
+  loadDecks();
+}
+
+// ── Browse ───────────────────────────────────────────────────────────────────
+async function openBrowse() {
+  setLoading('Loading cards…');
+  try {
+    browseAll = await api('GET', '/api/browse');
+    showView('browse');
+    applyFilters();
+  } catch (e) {
+    showError('Browse failed: ' + e.message);
+    showView('decks');
+  }
+}
+
+function applyFilters() {
+  const q     = document.getElementById('f-search').value.toLowerCase();
+  const state = document.getElementById('f-state').value;
+  const cat   = document.getElementById('f-cat').value;
+  const filtered = browseAll.filter(c => {
+    if (state && c.state !== state) return false;
+    if (cat   && c.category !== cat) return false;
+    if (q && !c.word_zh?.toLowerCase().includes(q)
+           && !c.definition?.toLowerCase().includes(q)
+           && !c.pinyin?.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  renderBrowse(filtered);
+}
+
+function renderBrowse(cards) {
+  const list = document.getElementById('browse-list');
+  if (!cards.length) {
+    list.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px 0">No cards found</div>';
+    return;
+  }
+  list.innerHTML = cards.map(c => {
+    const def = (c.definition || '').slice(0, 48) + ((c.definition || '').length > 48 ? '…' : '');
+    const due = c.due ? c.due.slice(0, 10) : '';
+    const intv = c.interval > 0 ? `${c.interval}d` : '';
+    return `
+      <div class="browse-item">
+        <div class="browse-top">
+          <div class="browse-word">${c.word_zh}</div>
+          <div class="browse-badges">
+            <span class="badge badge-${c.category}">${c.category.slice(0,1).toUpperCase()}</span>
+            <span class="badge badge-${c.state}">${c.state}</span>
+          </div>
+        </div>
+        <div class="browse-def">${def}</div>
+        <div class="browse-meta">${c.pinyin || ''}${due ? ' · due ' + due : ''}${intv ? ' · ' + intv : ''}</div>
+      </div>`;
+  }).join('');
+}
+
+// ── Stats ────────────────────────────────────────────────────────────────────
+async function openStats() {
+  setLoading('Loading stats…');
+  try {
+    const data = await api('GET', '/api/stats');
+    showView('stats');
+    renderStats(data);
+  } catch (e) {
+    showError('Stats failed: ' + e.message);
+    showView('decks');
+  }
+}
+
+function renderStats(data) {
+  // Big numbers
+  document.getElementById('stat-grid').innerHTML = [
+    { num: data.streak_days,    label: 'Day Streak' },
+    { num: data.total_words,    label: 'Total Words' },
+    { num: data.reviews_today,  label: 'Reviews Today' },
+    { num: data.new_today,      label: 'New Today' },
+  ].map(s => `
+    <div class="stat-card">
+      <div class="stat-num">${s.num}</div>
+      <div class="stat-label">${s.label}</div>
+    </div>`).join('');
+
+  // Bar chart
+  const days = data.reviews_by_day || [];
+  const maxCount = Math.max(...days.map(d => d.count), 1);
+  document.getElementById('bar-chart').innerHTML = days.map(d => {
+    const pct = Math.round((d.count / maxCount) * 100);
+    const label = d.date.slice(5); // MM-DD
+    return `
+      <div class="bar-col" title="${d.date}: ${d.count}">
+        <div class="bar-fill" style="height:${pct}%"></div>
+        <div class="bar-day">${label}</div>
+      </div>`;
+  }).join('');
+
+  // State pills
+  const sc = data.state_counts || {};
+  const STATES = ['new','learning','review','relearn','suspended'];
+  const colors = { new:'var(--primary)', learning:'var(--hard)', review:'var(--good)',
+                   relearn:'var(--again)', suspended:'var(--muted)' };
+  document.getElementById('state-row').innerHTML = STATES.map(s => `
+    <div class="state-pill">
+      <div class="state-pill-num" style="color:${colors[s]}">${sc[s] || 0}</div>
+      <div class="state-pill-label">${s}</div>
+    </div>`).join('');
+}
+
+// ── Options modal ─────────────────────────────────────────────────────────────
+let allPresets = [];
+
+function loadPresetFields(preset) {
+  document.getElementById('opt-new-per-day').value     = preset.new_per_day;
+  document.getElementById('opt-reviews-per-day').value = preset.reviews_per_day;
+  document.getElementById('opt-learn-steps').value     = preset.learning_steps;
+  document.getElementById('opt-grad-int').value        = preset.graduating_interval;
+  document.getElementById('opt-easy-int').value        = preset.easy_interval;
+  document.getElementById('opt-insertion-order').value = preset.insertion_order || 'sequential';
+  document.getElementById('opt-relearn-steps').value   = preset.relearning_steps;
+  document.getElementById('opt-leech').value           = preset.leech_threshold;
+  document.getElementById('opt-bury-siblings').checked  = !!preset.bury_siblings;
+  document.getElementById('opt-randomize-story').checked = !!preset.randomize_story_order;
+  const btnDef = document.getElementById('btn-set-default');
+  btnDef.textContent = preset.is_default ? '✓ Already default' : 'Set as default';
+  btnDef.disabled = !!preset.is_default;
+  const btnDel = document.getElementById('btn-delete-preset');
+  btnDel.disabled = allPresets.length <= 1;
+}
+
+function renderPresetSelect(selectedId) {
+  const sel = document.getElementById('opt-preset-select');
+  sel.innerHTML = allPresets.map(p =>
+    `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.name}${p.is_default ? ' ★' : ''}</option>`
+  ).join('');
+}
+
+async function openOptions(deckId) {
+  optDeckId = deckId;
+  try {
+    const [preset, presets] = await Promise.all([
+      api('GET', `/api/decks/${deckId}/preset`),
+      api('GET', '/api/presets'),
+    ]);
+    allPresets = presets;
+    renderPresetSelect(preset.id);
+    loadPresetFields(preset);
+    document.getElementById('modal-overlay').classList.add('open');
+  } catch (e) {
+    showError('Could not load options: ' + e.message);
+  }
+}
+
+async function switchPreset(presetId) {
+  presetId = parseInt(presetId);
+  try {
+    await api('PUT', `/api/decks/${optDeckId}/preset/assign?preset_id=${presetId}`);
+    const preset = allPresets.find(p => p.id === presetId);
+    loadPresetFields(preset);
+  } catch (e) {
+    showError('Failed to switch preset: ' + e.message);
+  }
+}
+
+async function addPreset() {
+  const name = prompt('Preset name:');
+  if (!name) return;
+  const currentId = parseInt(document.getElementById('opt-preset-select').value);
+  try {
+    const preset = await api('POST', `/api/presets?name=${encodeURIComponent(name)}&clone_from_id=${currentId}`);
+    allPresets = await api('GET', '/api/presets');
+    renderPresetSelect(preset.id);
+    await switchPreset(preset.id);
+  } catch (e) {
+    showError('Failed to create preset: ' + e.message);
+  }
+}
+
+async function renamePreset() {
+  const currentId = parseInt(document.getElementById('opt-preset-select').value);
+  const current = allPresets.find(p => p.id === currentId);
+  const name = prompt('New name:', current?.name || '');
+  if (!name || name === current?.name) return;
+  try {
+    await api('PUT', `/api/decks/${optDeckId}/preset`, { name });
+    allPresets = await api('GET', '/api/presets');
+    renderPresetSelect(currentId);
+  } catch (e) {
+    showError('Failed to rename: ' + e.message);
+  }
+}
+
+async function deletePreset() {
+  if (allPresets.length <= 1) return;
+  const currentId = parseInt(document.getElementById('opt-preset-select').value);
+  const current = allPresets.find(p => p.id === currentId);
+  if (!confirm(`Delete preset "${current?.name}"? Decks using it will be reassigned to the default preset.`)) return;
+  // First reassign all decks using this preset to the default
+  const defaultPreset = allPresets.find(p => p.is_default && p.id !== currentId) || allPresets.find(p => p.id !== currentId);
+  try {
+    await api('PUT', `/api/decks/${optDeckId}/preset/assign?preset_id=${defaultPreset.id}`);
+    await api('DELETE', `/api/presets/${currentId}`);
+    allPresets = await api('GET', '/api/presets');
+    renderPresetSelect(defaultPreset.id);
+    loadPresetFields(defaultPreset);
+  } catch (e) {
+    showError('Delete failed: ' + e.message);
+  }
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+  optDeckId = null;
+}
+
+async function saveOptions() {
+  if (!optDeckId) return;
+  const fields = {
+    new_per_day:         parseInt(document.getElementById('opt-new-per-day').value),
+    reviews_per_day:     parseInt(document.getElementById('opt-reviews-per-day').value),
+    learning_steps:      document.getElementById('opt-learn-steps').value.trim(),
+    graduating_interval: parseInt(document.getElementById('opt-grad-int').value),
+    easy_interval:       parseInt(document.getElementById('opt-easy-int').value),
+    relearning_steps:    document.getElementById('opt-relearn-steps').value.trim(),
+    leech_threshold:     parseInt(document.getElementById('opt-leech').value),
+    insertion_order:     document.getElementById('opt-insertion-order').value,
+    bury_siblings:          document.getElementById('opt-bury-siblings').checked ? 1 : 0,
+    randomize_story_order:  document.getElementById('opt-randomize-story').checked ? 1 : 0,
+  };
+  try {
+    await api('PUT', `/api/decks/${optDeckId}/preset`, fields);
+    closeModal();
+    loadDecks();
+  } catch (e) {
+    showError('Save failed: ' + e.message);
+  }
+}
+
+async function setDefaultPreset() {
+  if (!optDeckId) return;
+  try {
+    await api('POST', `/api/decks/${optDeckId}/preset/set-default`);
+    allPresets = await api('GET', '/api/presets');
+    const currentId = parseInt(document.getElementById('opt-preset-select').value);
+    renderPresetSelect(currentId);
+    const btn = document.getElementById('btn-set-default');
+    btn.textContent = '✓ Already default';
+    btn.disabled = true;
+  } catch (e) {
+    showError('Failed: ' + e.message);
+  }
+}
+
+// ── Start review session ────────────────────────────────────────────────────
+async function startReview(id, cat, name) {
+  deckId   = id;
+  category = cat;
+  deckName = name;
+  setLoading('Generating your story…');
+
+  try {
+    // Fetch story and first card in parallel — story may take several seconds
+    const [todayData, storyData] = await Promise.all([
+      api('GET', `/api/today/${deckId}/${category}`),
+      api('GET', `/api/story/${deckId}/${category}`),
+    ]);
+
+    story = storyData;
+
+    if (!todayData.card) {
+      showView('done');
+      return;
+    }
+
+    // Preload ALL sentence audio — wait for it so first play is instant
+    document.getElementById('loading-msg').textContent = 'Loading audio…';
+    try {
+      await fetch(`/api/preload-session/${deckId}/${category}`, { method: 'POST' });
+    } catch (_) {}  // TTS failure must never block the review session
+
+    showView('review');
+    loadCard(todayData.card, todayData.counts);
+  } catch (e) {
+    showError('Failed to start session: ' + e.message);
+    showView('decks');
+  }
+}
+
+// ── Start mixed (all-category) review session ────────────────────────────────
+async function startReviewMixed(id, name) {
+  rootDeckId = id;
+  deckId     = id;
+  deckName   = name;
+  story      = null;  // no single story in mixed mode
+  setLoading('Loading cards…');
+  try {
+    const todayData = await api('GET', `/api/today-mixed/${id}`);
+    if (!todayData.card) {
+      rootDeckId = null;
+      showView('done');
+      return;
+    }
+    category = todayData.card.category;
+    showView('review');
+    loadCard(todayData.card, todayData.counts);
+  } catch (e) {
+    showError('Failed to start session: ' + e.message);
+    rootDeckId = null;
+    showView('decks');
+  }
+}
+
+// ── Load a card ─────────────────────────────────────────────────────────────
+function loadCard(c, counts) {
+  card = c;
+  wordDetails = null;
+
+  // Update progress counts
+  document.getElementById('cnt-new').textContent = counts.new;
+  document.getElementById('cnt-lrn').textContent = counts.learning;
+  document.getElementById('cnt-rev').textContent = counts.review;
+
+  // Set interval labels on rating buttons (e.g. "1m", "10m", "4d")
+  const iv = card.intervals || {};
+  [1, 2, 3, 4].forEach(r => {
+    document.getElementById(`int-${r}`).textContent = iv[r] || '';
+  });
+
+  // Find sentence for this card's word in the story
+  sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
+
+  // Preload full word details for the back side (local DB — near-instant)
+  fetch(`/api/word/${c.word_id}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(d => { wordDetails = d; })
+    .catch(() => {});
+
+  showFront();
+
+  // Auto-play audio for the listening category
+  if (category === 'listening') {
+    playSentence();
+  }
+}
+
+// ── Front of card ───────────────────────────────────────────────────────────
+function showFront() {
+  const isListening = category === 'listening';
+  const isCreating  = category === 'creating';
+
+  document.getElementById('side-front').style.display = 'flex';
+  document.getElementById('side-front').style.flexDirection = 'column';
+  document.getElementById('side-front').style.gap = '16px';
+  document.getElementById('side-back').style.display = 'none';
+
+  // Listening elements
+  document.getElementById('front-listen-icon').style.display = isListening ? 'flex' : 'none';
+  document.getElementById('front-play-btn').style.display    = isListening ? 'flex' : 'none';
+
+  // Reading: Chinese sentence
+  const sentFront = document.getElementById('sentence-front');
+  sentFront.style.display = (!isListening && !isCreating) ? 'flex' : 'none';
+  if (!isListening && !isCreating) {
+    sentFront.innerHTML = renderSentence();
+  }
+
+  // Creating: English sentence + input
+  document.getElementById('sentence-en-front').style.display   = isCreating ? 'flex' : 'none';
+  document.getElementById('creating-input-wrap').style.display = isCreating ? 'flex' : 'none';
+  if (isCreating) {
+    document.getElementById('sentence-en-front').textContent = sentence?.sentence_en || '';
+    const inp = document.getElementById('creating-input');
+    inp.value = '';
+    userInput = '';
+    // Focus input after a short delay so the card render doesn't steal it
+    setTimeout(() => inp.focus(), 80);
+  }
+
+  // Rename reveal button for creating
+  document.getElementById('reveal-btn').textContent = isCreating ? 'Check Answer' : 'Show Answer';
+}
+
+// ── Back of card ────────────────────────────────────────────────────────────
+function revealAnswer() {
+  const isCreating = category === 'creating';
+
+  // Capture user input before hiding front
+  if (isCreating) {
+    userInput = document.getElementById('creating-input').value.trim();
+  }
+
+  document.getElementById('side-front').style.display = 'none';
+  document.getElementById('side-back').style.display  = 'flex';
+  document.getElementById('side-back').style.flexDirection = 'column';
+  document.getElementById('side-back').style.gap = '16px';
+
+  if (isCreating) {
+    // Show answer comparison block; hide normal sentence row
+    document.getElementById('creating-answer-section').style.display = 'flex';
+    document.getElementById('sentence-row-back').style.display = 'none';
+    document.getElementById('user-answer-text').textContent   = userInput || '(no answer)';
+    document.getElementById('correct-answer-text').innerHTML  = renderSentence();
+  } else {
+    document.getElementById('creating-answer-section').style.display = 'none';
+    document.getElementById('sentence-row-back').style.display = 'flex';
+    document.getElementById('sentence-back').innerHTML = renderSentence();
+  }
+
+  document.getElementById('sentence-en').textContent = sentence?.sentence_en || '';
+  document.getElementById('word-zh').textContent  = card.word_zh;
+  document.getElementById('word-pin').textContent = card.pinyin || '';
+  document.getElementById('word-def').textContent = card.definition || '';
+
+  const posEl = document.getElementById('word-pos');
+  posEl.textContent   = card.pos || '';
+  posEl.style.display = card.pos ? 'inline-block' : 'none';
+
+  // Re-enable rating buttons
+  document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
+
+  // Populate character breakdown + examples from preloaded word details
+  renderVocabDetail();
+
+  // Auto-play audio on reveal for reading and creating
+  if (category === 'reading' || category === 'creating') {
+    playSentence();
+  }
+}
+
+// ── Populate vocab detail (chars + examples) ────────────────────────────────
+function renderVocabDetail() {
+  // Characters
+  const chars = wordDetails?.characters || [];
+  const charSection = document.getElementById('char-section');
+  if (chars.length > 0) {
+    charSection.innerHTML =
+      `<div class="section-label">Characters</div>` +
+      chars.map(c => {
+        let right = '';
+        if (c.pinyin)             right += `<div class="char-row-pin">${c.pinyin}</div>`;
+        if (c.meaning_in_context) right += `<div class="char-row-info">${c.meaning_in_context}</div>`;
+        if (c.etymology)          right += `<div class="char-row-etym">${c.etymology}</div>`;
+        return `<div class="char-row">` +
+               `<div class="char-row-zh">${c.char}</div>` +
+               `<div class="char-row-right">${right}</div>` +
+               `</div>`;
+      }).join('');
+  } else {
+    charSection.innerHTML = '';
+  }
+
+  // Examples
+  const examples = wordDetails?.examples || [];
+  const exSection = document.getElementById('examples-section');
+  if (examples.length > 0) {
+    exSection.innerHTML =
+      `<div class="section-label">Examples</div>` +
+      examples.map(ex => {
+        let html = `<div class="example-item">`;
+        html += `<div class="example-zh">${ex.example_zh || ''}</div>`;
+        if (ex.example_pinyin) html += `<div class="example-pin">${ex.example_pinyin}</div>`;
+        if (ex.example_de)     html += `<div class="example-de">${ex.example_de}</div>`;
+        html += `</div>`;
+        return html;
+      }).join('');
+  } else {
+    exSection.innerHTML = '';
+  }
+}
+
+// ── Render sentence (with target word highlighted) ──────────────────────────
+function renderSentence() {
+  if (!sentence) {
+    // No story sentence — just show the word itself
+    return `<span class="hl">${card.word_zh}</span>`;
+  }
+  const zh   = sentence.sentence_zh;
+  const word = card.word_zh;
+  // Wrap in <span> so the flex container has a single child — avoids flex
+  // treating the text node and the highlight span as separate block items
+  const inner = zh.replace(word, `<span class="hl">${word}</span>`);
+  return `<span>${inner}</span>`;
+}
+
+// ── Submit rating ───────────────────────────────────────────────────────────
+async function rate(rating) {
+  document.querySelectorAll('.r-btn').forEach(b => b.disabled = true);
+  try {
+    let url = `/api/review?card_id=${card.id}&rating=${rating}`;
+    if (rootDeckId) url += `&root_deck_id=${rootDeckId}`;
+    const result = await api('POST', url);
+    if (!result.next_card) {
+      rootDeckId = null;
+      showView('done');
+      return;
+    }
+    if (rootDeckId) category = result.next_card.category;
+    loadCard(result.next_card, result.counts);
+  } catch (e) {
+    showError('Submit failed: ' + e.message);
+    document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
+  }
+}
+
+// ── TTS ─────────────────────────────────────────────────────────────────────
+async function playSentence() {
+  const text = sentence?.sentence_zh || card?.word_zh;
+  if (!text) return;
+  try {
+    await api('POST', `/api/speak?text=${encodeURIComponent(text)}`);
+  } catch (e) {
+    showError('TTS failed: ' + e.message);
+  }
+}
+
+// ── Regenerate story ─────────────────────────────────────────────────────────
+async function regenerateStory() {
+  setLoading('Regenerating story…');
+  try {
+    story = await api('POST', `/api/story/${deckId}/${category}/regenerate`);
+    // Re-find sentence for the current card in the new story
+    sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
+    showView('review');
+    showFront();
+  } catch (e) {
+    showError('Regenerate failed: ' + e.message);
+    showView('review');
+  }
+}
+
+// ── Back to decks ────────────────────────────────────────────────────────────
+function goBack() {
+  card = null; story = null; sentence = null; wordDetails = null; userInput = '';
+  rootDeckId = null;
+  browseAll = [];
+  loadDecks();
+}
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+loadDecks();
