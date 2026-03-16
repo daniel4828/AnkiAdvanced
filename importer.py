@@ -51,22 +51,21 @@ def import_yaml_file(filepath: str, deck_path: list[str]) -> dict:
       ["Kouyu", "Chapter 1"] → creates "Kouyu" then "Kouyu · Chapter 1"
     Category leaf decks are created under the deepest intermediate deck.
     """
-    # Build intermediate deck hierarchy bottom-up
+    # Build intermediate deck hierarchy — each deck is named by its own segment only
     parent_id = None
-    for i in range(len(deck_path)):
-        name = " · ".join(deck_path[:i + 1])
-        parent_id = database.get_or_create_deck(name, parent_id=parent_id)
+    for segment in deck_path:
+        parent_id = database.get_or_create_deck(segment, parent_id=parent_id)
 
-    leaf_prefix = " · ".join(deck_path)
+    leaf_parent = deck_path[-1]
     deck_ids = {
         "listening": database.get_or_create_deck(
-            f"{leaf_prefix} · Listening", parent_id=parent_id, category="listening"
+            f"{leaf_parent} · Listening", parent_id=parent_id, category="listening"
         ),
         "reading": database.get_or_create_deck(
-            f"{leaf_prefix} · Reading", parent_id=parent_id, category="reading"
+            f"{leaf_parent} · Reading", parent_id=parent_id, category="reading"
         ),
         "creating": database.get_or_create_deck(
-            f"{leaf_prefix} · Creating", parent_id=parent_id, category="creating"
+            f"{leaf_parent} · Creating", parent_id=parent_id, category="creating"
         ),
     }
 
