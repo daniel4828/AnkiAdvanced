@@ -330,7 +330,44 @@ main {
   border-bottom: 1px solid var(--border);
 }
 /* Sentence English translation */
+.pinyin-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pinyin-btn {
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 3px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: border-color 0.12s, color 0.12s;
+}
+.pinyin-btn:hover, .pinyin-btn.active { border-color: var(--primary); color: var(--primary); }
+.pinyin-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  font-size: 14px;
+  justify-content: center;
+}
+.py-char {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.py-syl { font-size: 11px; color: var(--muted); }
+.py-zh  { font-size: 18px; }
+.py-target .py-syl { color: #7c0000; font-weight: 700; }
+.py-target .py-zh  { color: #7c0000; font-weight: 700; }
 .sentence-en {
+  flex: 1;
   text-align: center;
   font-size: 14px;
   color: var(--muted);

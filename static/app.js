@@ -514,6 +514,10 @@ function loadCard(c, counts) {
     counter.style.display = 'none';
   }
 
+  // Reset pinyin toggle
+  document.getElementById('pinyin-row').style.display = 'none';
+  document.getElementById('pinyin-btn').classList.remove('active');
+
   // Preload full word details for the back side (local DB — near-instant)
   fetch(`/api/word/${c.word_id}`)
     .then(r => r.ok ? r.json() : null)
@@ -741,6 +745,43 @@ async function rate(rating) {
     showError('Submit failed: ' + e.message);
     document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
   }
+}
+
+// ── Pinyin toggle ────────────────────────────────────────────────────────────
+let pinyinCache = {};
+
+async function togglePinyin() {
+  const row = document.getElementById('pinyin-row');
+  const btn = document.getElementById('pinyin-btn');
+  if (row.style.display !== 'none') {
+    row.style.display = 'none';
+    btn.classList.remove('active');
+    return;
+  }
+  const text = sentence?.sentence_zh || card?.word_zh;
+  if (!text) return;
+  if (!pinyinCache[text]) {
+    try {
+      const data = await api('GET', `/api/pinyin?text=${encodeURIComponent(text)}`);
+      pinyinCache[text] = data.syllables;
+    } catch (e) {
+      return;
+    }
+  }
+  const syllables = pinyinCache[text];
+  const chars = [...text];
+  const wordStart = text.indexOf(card.word_zh);
+  const wordEnd = wordStart + [...card.word_zh].length;
+  row.innerHTML = chars.map((ch, i) => {
+    const py = syllables[i] || '';
+    const isTarget = wordStart >= 0 && i >= wordStart && i < wordEnd;
+    return `<span class="py-char${isTarget ? ' py-target' : ''}">`+
+             `<span class="py-syl">${py}</span>`+
+             `<span class="py-zh">${ch}</span>`+
+           `</span>`;
+  }).join('');
+  row.style.display = 'flex';
+  btn.classList.add('active');
 }
 
 // ── TTS ─────────────────────────────────────────────────────────────────────

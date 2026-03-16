@@ -1,6 +1,7 @@
 import database
 import importer
 from fastapi import APIRouter
+from pypinyin import pinyin as _pinyin, Style
 
 router = APIRouter()
 
@@ -29,3 +30,9 @@ def browse(deck_id: int | None = None, category: str | None = None,
 @router.get("/api/stats")
 def get_stats(deck_id: int | None = None):
     return database.get_stats(deck_id)
+
+
+@router.get("/api/pinyin")
+def get_pinyin(text: str):
+    syllables = [item[0] for item in _pinyin(text, style=Style.TONE)]
+    return {"syllables": syllables}

@@ -82,8 +82,13 @@
           <button class="play-icon-btn" onclick="playSentence()" title="Play audio">▶</button>
         </div>
 
-        <!-- 2. English translation of the sentence -->
-        <div class="sentence-en" id="sentence-en"></div>
+        <!-- 2. Pinyin toggle + row -->
+        <div class="pinyin-row" id="pinyin-row" style="display:none"></div>
+        <div class="pinyin-toggle-row">
+          <button class="pinyin-btn" id="pinyin-btn" onclick="togglePinyin()">Pinyin</button>
+          <!-- 2. English translation of the sentence -->
+          <div class="sentence-en" id="sentence-en"></div>
+        </div>
 
         <!-- 3. Rating buttons (immediately visible after flip) -->
         <div class="rating-row" id="rating-row">
