@@ -49,9 +49,9 @@ def _ensure_presets(conn: sqlite3.Connection) -> None:
                (name, new_per_day, reviews_per_day,
                 learning_steps, graduating_interval, easy_interval,
                 relearning_steps, minimum_interval, insertion_order,
-                leech_threshold, leech_action, is_default)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)""",
-            ("Anki Default", 9999, 9999, "1m 2d", 4, 9, "10", 1, "sequential", 8, "suspend"),
+                bury_siblings, randomize_story_order, leech_threshold, leech_action, is_default)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)""",
+            ("Anki Default", 9999, 9999, "1m 2d", 4, 9, "10", 1, "sequential", 1, 0, 8, "suspend"),
         )
 
     # Guarantee exactly one default
@@ -89,12 +89,14 @@ def default_preset() -> dict:
         "name": "Default",
         "new_per_day": 20,
         "reviews_per_day": 100,
-        "learning_steps": "1 10",
+        "learning_steps": "1m 10m",
         "graduating_interval": 1,
         "easy_interval": 4,
         "relearning_steps": "10",
         "minimum_interval": 1,
         "insertion_order": "sequential",
+        "bury_siblings": 1,
+        "randomize_story_order": 0,
         "leech_threshold": 8,
         "leech_action": "suspend",
     }
@@ -172,11 +174,11 @@ def insert_preset(preset: dict) -> int:
            (name, new_per_day, reviews_per_day,
             learning_steps, graduating_interval, easy_interval,
             relearning_steps, minimum_interval, insertion_order,
-            leech_threshold, leech_action)
+            bury_siblings, randomize_story_order, leech_threshold, leech_action)
            VALUES (:name, :new_per_day, :reviews_per_day,
                    :learning_steps, :graduating_interval, :easy_interval,
                    :relearning_steps, :minimum_interval, :insertion_order,
-                   :leech_threshold, :leech_action)""",
+                   :bury_siblings, :randomize_story_order, :leech_threshold, :leech_action)""",
         preset,
     )
     conn.commit()
@@ -190,7 +192,7 @@ def update_preset(preset_id: int, fields: dict) -> None:
         "name", "new_per_day", "reviews_per_day",
         "learning_steps", "graduating_interval", "easy_interval",
         "relearning_steps", "minimum_interval", "insertion_order",
-        "leech_threshold", "leech_action",
+        "bury_siblings", "randomize_story_order", "leech_threshold", "leech_action",
     }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
@@ -544,6 +546,20 @@ def get_due_cards(deck_id: int, category: str) -> list[dict]:
              c.due""",
         (deck_id, category, now, today, today),
     ).fetchall()
+
+    # Bury siblings: exclude cards whose word was already reviewed today in another category
+    if preset.get("bury_siblings", 1):
+        buried_word_ids = {
+            r[0] for r in conn.execute(
+                """SELECT DISTINCT c.word_id FROM cards c
+                   JOIN review_log rl ON rl.card_id = c.id
+                   WHERE c.category != ?
+                     AND date(rl.reviewed_at) = ?""",
+                (category, today),
+            ).fetchall()
+        }
+        rows = [r for r in rows if r["word_id"] not in buried_word_ids]
+
     conn.close()
 
     insertion_order = preset.get("insertion_order", "sequential")
@@ -556,10 +572,21 @@ def get_due_cards(deck_id: int, category: str) -> list[dict]:
 
 
 def get_next_card(deck_id: int, category: str) -> dict | None:
-    """Top-priority card for the review session. Returns None when done."""
+    """Top-priority card for the review session, ordered by today's story position."""
     cards = get_due_cards(deck_id, category)
     if not cards:
         return None
+
+    # Reorder by story sentence position if a story exists for today
+    today = date.today().isoformat()
+    story = get_active_story(today, category, deck_id)
+    if story:
+        sentences = get_story_sentences(story["id"])
+        # word_id → story position
+        story_pos = {s["word_id"]: s["position"] for s in sentences}
+        NO_POS = len(sentences)  # cards not in story go last
+        cards.sort(key=lambda c: story_pos.get(c["word_id"], NO_POS))
+
     return cards[0]
 
 

@@ -85,8 +85,16 @@ def _fmt_day(days: int) -> str:
 # ---------------------------------------------------------------------------
 
 def _parse_steps(steps_str: str) -> list[int]:
-    """Parse "1 10" → [1, 10]."""
-    return [int(s) for s in steps_str.strip().split()]
+    """Parse step strings to minutes. Supports plain ints ("1 10"), "m" suffix ("1m 10m"), and "d" suffix ("1d" = 1440 min)."""
+    result = []
+    for s in steps_str.strip().split():
+        if s.endswith('d'):
+            result.append(int(s[:-1]) * 1440)
+        elif s.endswith('m'):
+            result.append(int(s[:-1]))
+        else:
+            result.append(int(s))
+    return result
 
 
 def next_learning_due(steps: list[int], step_index: int) -> str:

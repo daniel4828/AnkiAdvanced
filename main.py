@@ -233,6 +233,10 @@ try:
                     deck_id, category, len(cards))
         if cards:
             try:
+                preset = database.get_preset_for_deck(deck_id)
+                if preset.get("randomize_story_order", 1):
+                    import random as _random
+                    _random.shuffle(cards)
                 sentences = ai.generate_story(cards)
                 for i, s in enumerate(sentences):
                     s["position"] = i
@@ -256,6 +260,10 @@ try:
         logger.info("regen  deck=%d cat=%s due_cards=%d", deck_id, category, len(cards))
         if not cards:
             return None
+        preset = database.get_preset_for_deck(deck_id)
+        if preset.get("randomize_story_order", 1):
+            import random as _random
+            _random.shuffle(cards)
         sentences = ai.generate_story(cards)
         for i, s in enumerate(sentences):
             s["position"] = i
