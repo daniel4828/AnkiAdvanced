@@ -307,6 +307,117 @@ main {
 .word-pos-row { text-align: center; margin: 2px 0; }
 .word-def  { font-size: 16px; color: var(--text); text-align: center; margin-bottom: 4px; }
 
+/* ── Edit card ───────────────────────────────────────── */
+.edit-card-btn {
+  display: block;
+  margin: 16px auto 0;
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+.edit-card-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+#edit-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 100;
+}
+#edit-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 101;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  width: min(480px, 92vw);
+  max-height: 85vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 24px 24px;
+  gap: 16px;
+}
+.edit-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.edit-modal-title { font-size: 16px; font-weight: 700; }
+.edit-modal-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.edit-modal-close:hover { color: var(--text); }
+.edit-card-fields { display: flex; flex-direction: column; gap: 12px; }
+.edit-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.edit-input {
+  font-size: 15px;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  outline: none;
+  transition: border-color 0.12s;
+}
+.edit-input:focus { border-color: var(--primary); }
+.edit-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.edit-cancel-btn {
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  padding: 7px 16px;
+  cursor: pointer;
+}
+.edit-save-btn {
+  background: var(--primary);
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  padding: 7px 20px;
+  cursor: pointer;
+}
+.edit-notes { resize: vertical; min-height: 60px; line-height: 1.5; }
+
+.notes-body {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  padding: 8px 0 4px;
+}
+
 .section-label {
   font-size: 10px;
   font-weight: 700;

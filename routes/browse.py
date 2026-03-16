@@ -16,6 +16,12 @@ def get_word_detail(word_id: int):
     return database.get_word_full(word_id)
 
 
+@router.put("/api/word/{word_id}")
+def update_word(word_id: int, body: dict):
+    database.update_word(word_id, body)
+    return database.get_word_full(word_id)
+
+
 @router.get("/api/browse")
 def browse(deck_id: int | None = None, category: str | None = None,
            state: str | None = None, q: str | None = None):

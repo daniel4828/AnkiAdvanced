@@ -71,7 +71,8 @@ CREATE TABLE IF NOT EXISTS words (
     traditional     TEXT,
     definition_zh   TEXT,
     date_added      TEXT NOT NULL DEFAULT (datetime('now')),
-    source          TEXT NOT NULL DEFAULT 'kouyu'
+    source          TEXT NOT NULL DEFAULT 'kouyu',
+    notes           TEXT            -- personal notes
 );
 
 -- ---------------------------------------------------------------------------
