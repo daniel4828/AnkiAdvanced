@@ -85,7 +85,7 @@ def _fmt_day(days: int) -> str:
 # ---------------------------------------------------------------------------
 
 def _parse_steps(steps_str: str) -> list[int]:
-    """Parse step strings to minutes. Supports "1 10", "1m 10m", "1d" (=1440 min)."""
+    """Parse step strings to minutes. Supports plain ints ("1 10"), "m" suffix ("1m 10m"), and "d" suffix ("1d" = 1440 min)."""
     result = []
     for s in steps_str.strip().split():
         if s.endswith('d'):

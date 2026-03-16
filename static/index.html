@@ -914,6 +914,18 @@
       <div class="opt-row"><span class="opt-label">Leech threshold (lapses)</span>  <input class="opt-input" id="opt-leech"         type="number" min="1"></div>
     </div>
 
+    <div class="opt-group">
+      <div class="opt-group-label">Display</div>
+      <div class="opt-row">
+        <span class="opt-label">Bury siblings (same word in other categories)</span>
+        <input type="checkbox" id="opt-bury-siblings" style="width:18px;height:18px;cursor:pointer">
+      </div>
+      <div class="opt-row">
+        <span class="opt-label">Randomize story word order</span>
+        <input type="checkbox" id="opt-randomize-story" style="width:18px;height:18px;cursor:pointer">
+      </div>
+    </div>
+
     <div class="modal-footer">
       <button class="btn-secondary" onclick="setDefaultPreset()" id="btn-set-default" title="New decks will clone these settings">Set as default</button>
       <button class="btn-secondary" onclick="closeModal()">Cancel</button>
@@ -1191,6 +1203,8 @@ function loadPresetFields(preset) {
   document.getElementById('opt-insertion-order').value = preset.insertion_order || 'sequential';
   document.getElementById('opt-relearn-steps').value   = preset.relearning_steps;
   document.getElementById('opt-leech').value           = preset.leech_threshold;
+  document.getElementById('opt-bury-siblings').checked  = !!preset.bury_siblings;
+  document.getElementById('opt-randomize-story').checked = !!preset.randomize_story_order;
   const btnDef = document.getElementById('btn-set-default');
   btnDef.textContent = preset.is_default ? '✓ Already default' : 'Set as default';
   btnDef.disabled = !!preset.is_default;
@@ -1294,6 +1308,8 @@ async function saveOptions() {
     relearning_steps:    document.getElementById('opt-relearn-steps').value.trim(),
     leech_threshold:     parseInt(document.getElementById('opt-leech').value),
     insertion_order:     document.getElementById('opt-insertion-order').value,
+    bury_siblings:          document.getElementById('opt-bury-siblings').checked ? 1 : 0,
+    randomize_story_order:  document.getElementById('opt-randomize-story').checked ? 1 : 0,
   };
   try {
     await api('PUT', `/api/decks/${optDeckId}/preset`, fields);
