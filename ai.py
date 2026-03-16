@@ -43,6 +43,7 @@ Rules:
 - Exactly {len(cards)} sentences total
 - Each sentence must naturally contain the corresponding target word
 - Each sentence must be ≤15 Chinese characters
+- Use proper Chinese punctuation — include commas（，）where natural pauses occur
 - Use only HSK 1-2 vocabulary for non-target words
 - The sentences must form a coherent narrative with the same recurring characters
 - Return ONLY valid JSON, no explanation, no markdown:
