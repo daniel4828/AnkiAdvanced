@@ -34,7 +34,7 @@ function showView(name) {
   document.getElementById('header-title').textContent =
     name === 'review' ? `${deckName} · ${cap(category)}` :
     name === 'browse' ? 'Browse' :
-    name === 'stats'  ? 'Stats'  : 'Chinese SRS';
+    name === 'stats'  ? 'Stats'  : 'AnkiAdvanced';
 }
 
 function setLoading(msg) {
