@@ -654,6 +654,62 @@ def unbury_card(card_id: int) -> None:
     conn.close()
 
 
+def get_descendant_leaf_deck_ids(deck_id: int, category: str | None = None) -> list[int]:
+    """Return all category-leaf deck IDs under deck_id (depth-first). Optionally filter by category."""
+    conn = get_db()
+    rows = conn.execute("SELECT id, parent_id, category FROM decks").fetchall()
+    conn.close()
+
+    children_map: dict = {}
+    deck_cat: dict = {}
+    for row in rows:
+        deck_cat[row["id"]] = row["category"]
+        pid = row["parent_id"]
+        children_map.setdefault(pid, []).append(row["id"])
+
+    result = []
+    stack = [deck_id]
+    while stack:
+        current = stack.pop()
+        cat = deck_cat.get(current)
+        kids = children_map.get(current, [])
+        if cat is not None:  # category leaf
+            if category is None or cat == category:
+                result.append(current)
+        for kid in kids:
+            stack.append(kid)
+    return result
+
+
+def get_due_cards_multi(deck_ids: list[int], category: str) -> list[dict]:
+    """Due cards across multiple decks, merged and priority-sorted."""
+    all_cards = []
+    for deck_id in deck_ids:
+        all_cards.extend(get_due_cards(deck_id, category))
+    all_cards.sort(key=lambda c: (
+        0 if c["state"] in ("learning", "relearn") else
+        1 if c["state"] == "review" else 2,
+        c["due"]
+    ))
+    return all_cards
+
+
+def get_next_card_multi(deck_ids: list[int], category: str) -> dict | None:
+    """Highest-priority card across multiple decks."""
+    cards = get_due_cards_multi(deck_ids, category)
+    return cards[0] if cards else None
+
+
+def count_due_multi(deck_ids: list[int], category: str) -> dict:
+    """Aggregate due counts across multiple decks."""
+    total = {"new": 0, "learning": 0, "review": 0}
+    for deck_id in deck_ids:
+        c = count_due(deck_id, category)
+        for k in total:
+            total[k] += c[k]
+    return total
+
+
 def bury_siblings(word_id: int, reviewed_category: str) -> None:
     """Bury all other-category cards for this word for the rest of today."""
     today = date.today().isoformat()

@@ -447,36 +447,38 @@
       overflow: hidden;
     }
 
-    /* ── Category pill buttons on deck rows ─────────────── */
-    .cat-pills-row {
-      width: 100%;
+    /* ── Category pill buttons on deck rows (inline) ────── */
+    .cat-pills-inline {
       display: flex;
-      gap: 6px;
-      padding: 6px 0 4px 22px;
+      gap: 4px;
+      margin-left: auto;
+      margin-right: 4px;
+      flex-shrink: 0;
     }
     .cat-pill {
-      flex: 1;
-      padding: 6px 4px 5px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
       border: 1.5px solid var(--border);
-      border-radius: 8px;
+      border-radius: 12px;
       background: var(--card);
       cursor: pointer;
-      text-align: center;
+      font-size: 12px;
+      white-space: nowrap;
       transition: border-color 0.12s, background 0.12s;
-      line-height: 1;
+      line-height: 1.4;
     }
     .cat-pill:hover:not([disabled]) { border-color: var(--primary); background: #eff6ff; }
     .cat-pill[disabled] { opacity: 0.35; cursor: not-allowed; }
     .cat-pill-label {
-      display: block;
       font-size: 10px;
       color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 0.5px;
       font-weight: 600;
-      margin-bottom: 3px;
     }
-    .cat-pill-counts { display: block; font-size: 12px; font-weight: 700; }
+    .cat-pill-counts { font-size: 11px; font-weight: 700; }
 
     /* ── Nav row (deck list top) ─────────────────────────── */
     .nav-row {
@@ -1036,6 +1038,7 @@ function flatten(nodes, depth = 0) {
   return nodes.flatMap(n => [{ ...n, _depth: depth }, ...flatten(n.children || [], depth + 1)]);
 }
 
+// Direct category-leaf children of a deck keyed by category
 function getCategoryLeaves(deck) {
   const map = {};
   for (const child of (deck.children || [])) {
@@ -1046,23 +1049,55 @@ function getCategoryLeaves(deck) {
   return map;
 }
 
-function buildCategoryButtons(catLeaves, parentName) {
-  const ORDER  = ['listening', 'reading', 'creating'];
-  const LABELS = { listening: 'Listening', reading: 'Reading', creating: 'Creating' };
-  return ORDER.map(cat => {
+// All category-leaf decks anywhere under this deck (recursive)
+function getDeepCategoryLeaves(deck) {
+  const result = [];
+  for (const child of (deck.children || [])) {
+    if (child.category && (!child.children || child.children.length === 0)) {
+      result.push(child);
+    } else {
+      result.push(...getDeepCategoryLeaves(child));
+    }
+  }
+  return result;
+}
+
+// Aggregate counts for one category from all deep leaves
+function aggregateCounts(deck, category) {
+  const leaves = getDeepCategoryLeaves(deck).filter(l => l.category === category);
+  const agg = { new: 0, learning: 0, review: 0 };
+  for (const l of leaves) for (const k of ['new', 'learning', 'review']) agg[k] += (l.counts || {})[k] || 0;
+  return agg;
+}
+
+function countHtml(c) {
+  const total = c.new + c.learning + c.review;
+  if (total === 0) return `<span class="n-zero">—</span>`;
+  return [
+    c.new      ? `<span class="n-new">${c.new}</span>`      : '',
+    c.learning ? `<span class="n-lrn">${c.learning}</span>` : '',
+    c.review   ? `<span class="n-rev">${c.review}</span>`   : '',
+  ].filter(Boolean).join(' ');
+}
+
+// Build 3 inline pills (L/R/C) for any deck. Uses direct cat leaves if present, else aggregates.
+function buildCategoryButtons(deck) {
+  const CATS   = ['listening', 'reading', 'creating'];
+  const LABELS = { listening: 'L', reading: 'R', creating: 'C' };
+  const catLeaves = getCategoryLeaves(deck);
+  const safeName  = deck.name.replace(/'/g, "\\'");
+  return CATS.map(cat => {
     const leaf = catLeaves[cat];
-    if (!leaf) return `<button class="cat-pill" disabled><span class="cat-pill-label">${LABELS[cat]}</span><span class="cat-pill-counts"><span class="n-zero">—</span></span></button>`;
-    const c = leaf.counts || { new: 0, learning: 0, review: 0 };
-    const total = c.new + c.learning + c.review;
-    const countHtml = total === 0
-      ? `<span class="n-zero">—</span>`
-      : [
-          c.new      ? `<span class="n-new">${c.new}</span>`      : '',
-          c.learning ? `<span class="n-lrn">${c.learning}</span>` : '',
-          c.review   ? `<span class="n-rev">${c.review}</span>`   : '',
-        ].filter(Boolean).join(' ');
-    const safeName = parentName.replace(/'/g, "\\'");
-    return `<button class="cat-pill" onclick="event.stopPropagation();startReview(${leaf.id},'${cat}','${safeName}')"><span class="cat-pill-label">${LABELS[cat]}</span><span class="cat-pill-counts">${countHtml}</span></button>`;
+    if (leaf) {
+      // Direct leaf — use leaf's deck_id (single-deck session)
+      const c = leaf.counts || { new: 0, learning: 0, review: 0 };
+      return `<button class="cat-pill" onclick="event.stopPropagation();startReview(${leaf.id},'${cat}','${safeName}')"><span class="cat-pill-label">${LABELS[cat]}</span><span class="cat-pill-counts">${countHtml(c)}</span></button>`;
+    }
+    // Structural parent — aggregate and use this deck's id (multi-deck session via backend)
+    const c = aggregateCounts(deck, cat);
+    const hasCards = getDeepCategoryLeaves(deck).some(l => l.category === cat);
+    if (!hasCards) return `<button class="cat-pill" disabled><span class="cat-pill-label">${LABELS[cat]}</span><span class="cat-pill-counts"><span class="n-zero">—</span></span></button>`;
+    return `<button class="cat-pill" onclick="event.stopPropagation();startReview(${deck.id},'${cat}','${safeName}')"><span class="cat-pill-label">${LABELS[cat]}</span><span class="cat-pill-counts">${countHtml(c)}</span></button>`;
   }).join('');
 }
 
@@ -1078,9 +1113,9 @@ function renderDecks(decks) {
 
 function renderDeckRows(decks, depth) {
   return decks.map(deck => {
-    // Separate category leaves (shown as pills) from structural children (shown as rows)
-    const catLeaves    = getCategoryLeaves(deck);
-    const hasCatLeaves = Object.keys(catLeaves).length > 0;
+    // Category leaf decks are consumed as pills — not rendered as rows
+    if (deck.category && (!deck.children || deck.children.length === 0)) return '';
+
     const structChildren = (deck.children || []).filter(
       c => !(c.category && (!c.children || c.children.length === 0))
     );
@@ -1088,34 +1123,17 @@ function renderDeckRows(decks, depth) {
     const isCollapsed = collapsed.has(deck.id);
     const indent = depth * 18;
 
-    // Count badge (only shown when no pills — pills show the breakdown themselves)
-    const counts = deck.counts || { new: 0, learning: 0, review: 0 };
-    const total  = counts.new + counts.learning + counts.review;
-    const countBadge = (!hasCatLeaves)
-      ? (total === 0
-          ? `<span class="n-zero">—</span>`
-          : [
-              counts.new      ? `<span class="n-new">${counts.new}</span>`      : '',
-              counts.learning ? `<span class="n-lrn">${counts.learning}</span>` : '',
-              counts.review   ? `<span class="n-rev">${counts.review}</span>`   : '',
-            ].filter(Boolean).join(' '))
-      : '';
-
-    const toggleIcon = (hasCatLeaves || hasStructChildren) ? (isCollapsed ? '▶' : '▼') : '';
-
-    const catPillsHtml = hasCatLeaves && !isCollapsed
-      ? `<div class="cat-pills-row">${buildCategoryButtons(catLeaves, deck.name)}</div>`
-      : '';
+    const toggleIcon = hasStructChildren ? (isCollapsed ? '▶' : '▼') : '';
+    const pillsHtml = `<div class="cat-pills-inline">${buildCategoryButtons(deck)}</div>`;
 
     const row = `
       <div class="tree-row tree-parent" onclick="toggleDeck(${deck.id})"
-           style="padding-left:${16 + indent}px; flex-wrap:wrap">
+           style="padding-left:${16 + indent}px">
         <span class="tree-toggle">${toggleIcon}</span>
         <span class="tree-name">${deck.name}</span>
-        <span class="tree-counts">${countBadge}</span>
+        ${pillsHtml}
         <button class="gear-btn" onclick="event.stopPropagation();openOptions(${deck.id})"
                 title="Deck options">⚙</button>
-        ${catPillsHtml}
       </div>`;
 
     const childRows = hasStructChildren && !isCollapsed

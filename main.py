@@ -204,16 +204,29 @@ try:
         database.set_default_preset(deck["preset_id"])
         return database.get_preset(deck["preset_id"])
 
+    _DISABLE_AI = os.getenv("DISABLE_AI", "").lower() in ("1", "true", "yes")
+
+    def _leaf_ids(deck_id: int, category: str) -> list[int]:
+        """If deck is a parent (no category), return descendant leaf IDs; else [deck_id]."""
+        deck = database.get_deck(deck_id)
+        if deck["category"] is None:
+            return database.get_descendant_leaf_deck_ids(deck_id, category)
+        return [deck_id]
+
     # --- Review session ---
     @app.get("/api/today/{deck_id}/{category}")
     def get_today(deck_id: int, category: str):
         import srs
-        card = database.get_next_card(deck_id, category)
+        ids = _leaf_ids(deck_id, category)
+        if len(ids) == 1:
+            card = database.get_next_card(ids[0], category)
+            counts = database.count_due(ids[0], category)
+        else:
+            card = database.get_next_card_multi(ids, category)
+            counts = database.count_due_multi(ids, category)
         if card:
-            # Fetch full card (includes preset fields needed for interval preview)
             card = database.get_card(card["id"])
             card["intervals"] = srs.preview_intervals(card)
-        counts = database.count_due(deck_id, category)
         return {"card": card, "counts": counts}
 
     @app.get("/api/story/{deck_id}/{category}")
@@ -228,12 +241,15 @@ try:
                         deck_id, category, len(story["sentences"]), story["id"])
             _log_story(story)
             return story
-        cards = database.get_due_cards(deck_id, category)
-        logger.info("story  GENERATE deck=%d cat=%s due_cards=%d",
-                    deck_id, category, len(cards))
+        if _DISABLE_AI:
+            logger.info("story  DISABLED (DISABLE_AI=1) deck=%d cat=%s", deck_id, category)
+            return None
+        ids = _leaf_ids(deck_id, category)
+        cards = database.get_due_cards_multi(ids, category) if len(ids) > 1 else database.get_due_cards(deck_id, category)
+        logger.info("story  GENERATE deck=%d cat=%s due_cards=%d", deck_id, category, len(cards))
         if cards:
             try:
-                preset = database.get_preset_for_deck(deck_id)
+                preset = database.get_preset_for_deck(ids[0] if ids else deck_id)
                 if preset.get("randomize_story_order", 1):
                     import random as _random
                     _random.shuffle(cards)
@@ -256,11 +272,14 @@ try:
         import ai
         from datetime import date
         today = date.today().isoformat()
-        cards = database.get_due_cards(deck_id, category)
+        if _DISABLE_AI:
+            return None
+        ids = _leaf_ids(deck_id, category)
+        cards = database.get_due_cards_multi(ids, category) if len(ids) > 1 else database.get_due_cards(deck_id, category)
         logger.info("regen  deck=%d cat=%s due_cards=%d", deck_id, category, len(cards))
         if not cards:
             return None
-        preset = database.get_preset_for_deck(deck_id)
+        preset = database.get_preset_for_deck(ids[0] if ids else deck_id)
         if preset.get("randomize_story_order", 1):
             import random as _random
             _random.shuffle(cards)
