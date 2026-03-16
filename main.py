@@ -282,6 +282,9 @@ try:
         updated = srs.apply_review(card_id, rating, user_response=user_response)
         deck_id = updated["deck_id"]
         cat = updated["category"]
+        preset = database.get_preset_for_deck(deck_id)
+        if preset.get("bury_siblings", 1):
+            database.bury_siblings(updated["word_id"], cat)
         next_card = database.get_next_card(deck_id, cat)
         if next_card:
             next_card = database.get_card(next_card["id"])
@@ -293,6 +296,16 @@ try:
                     updated["due"], next_card["word_zh"] if next_card else "—",
                     counts["learning"], counts["review"], counts["new"])
         return {"next_card": next_card, "counts": counts}
+
+    @app.post("/api/cards/{card_id}/bury")
+    def bury_card(card_id: int):
+        database.bury_card(card_id)
+        return {"ok": True}
+
+    @app.post("/api/cards/{card_id}/unbury")
+    def unbury_card(card_id: int):
+        database.unbury_card(card_id)
+        return {"ok": True}
 
     @app.post("/api/speak")
     def speak(text: str):
