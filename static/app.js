@@ -816,8 +816,11 @@ function openStoryModal() {
       `<span class="story-target">${s.word_zh}</span>`
     );
     return `<div class="story-sentence${isCurrent ? ' story-sentence-current' : ''}">
-      <div class="story-zh">${highlighted}</div>
-      <div class="story-en">${s.sentence_en}</div>
+      <span class="story-num">${s.position + 1}</span>
+      <div class="story-content">
+        <div class="story-zh">${highlighted}</div>
+        <div class="story-en">${s.sentence_en}</div>
+      </div>
     </div>`;
   }).join('');
   document.getElementById('story-modal-body').innerHTML = html;

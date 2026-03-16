@@ -481,6 +481,9 @@ main {
 }
 #story-modal-body { display: flex; flex-direction: column; gap: 8px; }
 .story-sentence {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
   padding: 10px 14px;
   border-radius: 10px;
   background: var(--bg);
@@ -489,6 +492,17 @@ main {
   background: #eff6ff;
   border: 1.5px solid #bfdbfe;
 }
+.story-num {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  min-width: 18px;
+  padding-top: 4px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.story-sentence-current .story-num { color: var(--primary); }
+.story-content { flex: 1; }
 .story-zh  { font-size: 18px; line-height: 1.5; }
 .story-en  { font-size: 13px; color: var(--muted); margin-top: 3px; }
 .story-target { color: var(--primary); font-weight: 700; }
