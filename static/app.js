@@ -576,24 +576,21 @@ function diffAnswer(userInput, correct, wordZh) {
   const wordIdx = userInput.indexOf(wordZh);
   const wordLen = [...wordZh].length;
 
-  // Count character-level matches against correct sentence
+  // Bag-of-characters: which hanzi from correct appear in user's answer?
   const hanzi = /[\u4e00-\u9fff\u3400-\u4dbf]/;
-  let matched = 0, total = 0;
-  corrChars.forEach((ch, i) => {
-    if (hanzi.test(ch)) {
-      total++;
-      if (userChars[i] === ch) matched++;
-    }
-  });
+  const corrSet = new Set(corrChars.filter(ch => hanzi.test(ch)));
+  const userSet = new Set(userChars.filter(ch => hanzi.test(ch)));
+  const total   = corrSet.size;
+  const matched = [...corrSet].filter(ch => userSet.has(ch)).length;
   const pct = total > 0 ? Math.round((matched / total) * 100) : 0;
   const filled = Math.round(pct / 10);
   const bar = '▓'.repeat(filled) + '░'.repeat(10 - filled);
 
-  // Build per-character HTML
+  // Per-character coloring: green if char appears anywhere in correct sentence
   const html = userChars.map((ch, i) => {
     const inWord = wordIdx >= 0 && i >= wordIdx && i < wordIdx + wordLen;
     if (inWord) return `<span class="ch-target">${ch}</span>`;
-    if (corrChars[i] === ch) return `<span class="ch-match">${ch}</span>`;
+    if (hanzi.test(ch) && corrSet.has(ch)) return `<span class="ch-match">${ch}</span>`;
     return `<span class="ch-miss">${ch}</span>`;
   }).join('');
 
