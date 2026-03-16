@@ -815,17 +815,34 @@ function openStoryModal() {
       s.word_zh,
       `<span class="story-target">${s.word_zh}</span>`
     );
+    const esc = encodeURIComponent(s.sentence_zh);
     return `<div class="story-sentence${isCurrent ? ' story-sentence-current' : ''}">
       <span class="story-num">${s.position + 1}</span>
       <div class="story-content">
         <div class="story-zh">${highlighted}</div>
         <div class="story-en">${s.sentence_en}</div>
       </div>
+      <button class="story-play-btn" onclick="playStoryLine('${esc}')" title="Play">▶</button>
     </div>`;
   }).join('');
   document.getElementById('story-modal-body').innerHTML = html;
   document.getElementById('story-modal-overlay').style.display = 'block';
   document.getElementById('story-modal').style.display = 'flex';
+}
+
+async function playFullStory() {
+  if (!story?.sentences?.length) return;
+  const text = story.sentences.map(s => s.sentence_zh).join('，');
+  const btn = document.getElementById('story-play-all-btn');
+  btn.disabled = true;
+  try { await api('POST', `/api/speak?text=${encodeURIComponent(text)}`); }
+  catch (e) { showError('TTS failed: ' + e.message); }
+  finally { btn.disabled = false; }
+}
+
+async function playStoryLine(encodedText) {
+  try { await api('POST', `/api/speak?text=${encodedText}`); }
+  catch (e) { showError('TTS failed: ' + e.message); }
 }
 
 function closeStoryModal() {
