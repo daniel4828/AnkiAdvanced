@@ -1,6 +1,7 @@
 // ── State ──────────────────────────────────────────────────────────────────
 let deckId      = null;
-let rootDeckId  = null;   // set when studying all categories (mixed mode)
+let rootDeckId      = null;   // set when studying all categories (mixed mode)
+let unfinishedMode  = false;  // set when studying the "Unfinished Cards" virtual deck
 let deckName    = '';
 let category    = '';
 let card        = null;   // current card dict from API
@@ -131,14 +132,40 @@ function renderDecks(decks) {
       <button class="nav-btn" onclick="openBrowse()">Browse Cards</button>
       <button class="nav-btn" onclick="openStats()">Stats</button>
     </div>`;
-  const rows = renderDeckRows(decks, 0);
-  document.getElementById('view-decks').innerHTML = navRow + `<div class="tree-card">${rows}</div>`;
+
+  // Separate virtual entries from real decks
+  const virtualDecks = decks.filter(d => d.virtual);
+  const realDecks    = decks.filter(d => !d.virtual);
+
+  let html = '';
+
+  // Render "Unfinished Cards" virtual deck first
+  for (const vd of virtualDecks) {
+    if (vd.id === 'unfinished') {
+      const c = vd.counts;
+      html += `
+        <div class="tree-card unfinished-card" onclick="startReviewUnfinished()">
+          <div class="unfinished-row">
+            <span class="unfinished-name">${vd.name}</span>
+            <span class="unfinished-count">${c.learning}</span>
+          </div>
+        </div>`;
+    }
+  }
+
+  // Render real decks
+  html += `<div class="tree-card">${renderDeckRows(realDecks, 0)}</div>`;
+  document.getElementById('view-decks').innerHTML = navRow + html;
 }
 
 function renderDeckRows(decks, depth) {
   return decks.map(deck => {
     // Category leaf decks are consumed as pills — not rendered as rows
     if (deck.category && (!deck.children || deck.children.length === 0)) return '';
+
+    // Hide "Default" deck when it has no cards at all
+    const c0 = deck.counts || {};
+    if (deck.name === 'Default' && (c0.new || 0) + (c0.learning || 0) + (c0.review || 0) === 0) return '';
 
     const structChildren = (deck.children || []).filter(
       c => !(c.category && (!c.children || c.children.length === 0))
@@ -486,6 +513,29 @@ async function startReviewMixed(id, name) {
   }
 }
 
+// ── Start "Unfinished Cards" review session ───────────────────────────────────
+async function startReviewUnfinished() {
+  unfinishedMode = true;
+  deckName = 'Unfinished Cards';
+  story    = null;
+  setLoading('Loading cards…');
+  try {
+    const todayData = await api('GET', '/api/today-unfinished');
+    if (!todayData.card) {
+      unfinishedMode = false;
+      showView('done');
+      return;
+    }
+    category = todayData.card.category;
+    showView('review');
+    loadCard(todayData.card, todayData.counts);
+  } catch (e) {
+    showError('Failed to start session: ' + e.message);
+    unfinishedMode = false;
+    showView('decks');
+  }
+}
+
 // ── Load a card ─────────────────────────────────────────────────────────────
 function loadCard(c, counts) {
   card = c;
@@ -732,14 +782,16 @@ async function rate(rating) {
   document.querySelectorAll('.r-btn').forEach(b => b.disabled = true);
   try {
     let url = `/api/review?card_id=${card.id}&rating=${rating}`;
-    if (rootDeckId) url += `&root_deck_id=${rootDeckId}`;
+    if (unfinishedMode) url += `&unfinished_mode=true`;
+    else if (rootDeckId) url += `&root_deck_id=${rootDeckId}`;
     const result = await api('POST', url);
     if (!result.next_card) {
       rootDeckId = null;
+      unfinishedMode = false;
       showView('done');
       return;
     }
-    if (rootDeckId) category = result.next_card.category;
+    if (unfinishedMode || rootDeckId) category = result.next_card.category;
     loadCard(result.next_card, result.counts);
   } catch (e) {
     showError('Submit failed: ' + e.message);
@@ -816,7 +868,7 @@ async function regenerateStory() {
 // ── Back to decks ────────────────────────────────────────────────────────────
 function goBack() {
   card = null; story = null; sentence = null; wordDetails = null; userInput = '';
-  rootDeckId = null;
+  rootDeckId = null; unfinishedMode = false;
   browseAll = [];
   loadDecks();
 }

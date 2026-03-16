@@ -488,6 +488,34 @@ main {
   overflow: hidden;
 }
 
+/* ── Unfinished Cards virtual deck ──────────────────── */
+.unfinished-card {
+  background: #eff6ff;
+  border: 1.5px solid #bfdbfe;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.unfinished-card:hover { background: #dbeafe; border-color: var(--primary); }
+.unfinished-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+}
+.unfinished-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary);
+}
+.unfinished-count {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary);
+  background: #bfdbfe;
+  border-radius: 20px;
+  padding: 2px 10px;
+}
+
 /* ── Deck-level count badge (New / Learn / Due) ─────── */
 .deck-counts {
   display: flex;

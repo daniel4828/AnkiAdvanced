@@ -43,6 +43,15 @@ def _attach_counts(flat_decks: list) -> None:
 def get_decks():
     tree = database.get_deck_tree()
     _attach_counts(_flatten(tree))
+    unfinished = database.count_unfinished()
+    if unfinished["learning"] > 0:
+        tree.insert(0, {
+            "id": "unfinished",
+            "name": "Unfinished Cards",
+            "virtual": True,
+            "counts": unfinished,
+            "children": [],
+        })
     return tree
 
 
