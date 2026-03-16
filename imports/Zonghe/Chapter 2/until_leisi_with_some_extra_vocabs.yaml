@@ -1,0 +1,2597 @@
+entries:
+  - type: sentence
+    date: "03/15"
+    source_de: Ich kann es kaum erwarten
+    simplified: 我迫不及待
+    traditional: 我迫不及待
+    pinyin: Wǒ pò bù jí dài
+    english: I can hardly wait / I can't wait
+    hsk: "5-6"
+    grammar_de: |
+      迫不及待 ist ein 成语 (chéngyǔ) — eine vierstellige klassische Redewendung — und bedeutet
+      wörtlich „so gedrängt, dass man nicht warten kann". Es wird als Adverbialausdruck verwendet
+      und steht häufig vor dem Hauptverb, oft verbunden mit dem Strukturpartikel 地 (de), das
+      das Adverbial vom Verb trennt (z.B. 迫不及待地想…).
+      Alternative Ausdrücke:
+      - 我等不及了 (Wǒ děng bù jí le) — umgangssprachlicher, weniger intensiv
+      - 我急不可耐 (Wǒ jí bù kě nài) — ähnlich formal wie 迫不及待
+    examples:
+      - zh: 他迫不及待地打开了礼物。
+        pinyin: Tā pò bù jí dài de dǎkāi le lǐwù.
+        de: Er konnte es kaum erwarten, das Geschenk zu öffnen.
+      - zh: 我迫不及待地想知道结果。
+        pinyin: Wǒ pò bù jí dài de xiǎng zhīdào jiéguǒ.
+        de: Ich kann es kaum erwarten, das Ergebnis zu erfahren.
+      - zh: 孩子们迫不及待地冲进了游乐园。
+        pinyin: Háizimen pò bù jí dài de chōng jìn le yóulèyuán.
+        de: Die Kinder stürmten voller Ungeduld in den Freizeitpark.
+      - zh: 她迫不及待地分享了这个好消息。
+        pinyin: Tā pò bù jí dài de fēnxiǎng le zhège hǎo xiāoxi.
+        de: Sie konnte es kaum erwarten, die gute Nachricht zu teilen.
+      - zh: 我迫不及待地想回家见我的家人。
+        pinyin: Wǒ pò bù jí dài de xiǎng huí jiā jiàn wǒ de jiārén.
+        de: Ich kann es kaum erwarten, nach Hause zu fahren und meine Familie zu sehen.
+    characters:
+      - char: 我
+        pinyin: wǒ
+        hsk: 1
+        detailed_analysis: false
+      - char: 迫
+        pinyin: pò
+        hsk: "5-6"
+        detailed_analysis: true
+        meaning_in_context: pressed, urgent, forced
+        other_meanings:
+          - "to approach, to be close to (迫近 pòjìn)"
+          - "to compel, to oppress (逼迫 bīpò)"
+          - "urgent (紧迫 jǐnpò)"
+          - "to persecute (迫害 pòhài)"
+          - "to be forced to (被迫 bèipò)"
+        compounds:
+          - simplified: 紧迫
+            pinyin: jǐnpò
+            meaning: urgent, pressing
+          - simplified: 被迫
+            pinyin: bèipò
+            meaning: to be forced to
+          - simplified: 迫害
+            pinyin: pòhài
+            meaning: to persecute
+          - simplified: 迫近
+            pinyin: pòjìn
+            meaning: to approach, to close in on
+        etymology: |
+          迫 consists of the movement radical 辶 (辵, chuò) on the left, suggesting motion
+          or approach, and the phonetic component 白 (bái) on the right, which approximates
+          the sound (though the tone differs). Originally conveyed the sense of pressing
+          close or approaching with urgency; extended to mean being hemmed in, compelled,
+          or forced. Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 敌军迫近城墙。
+          pinyin: Díjūn pòjìn chéngqiáng.
+          de: Die feindliche Armee näherte sich der Stadtmauer.
+      - char: 不
+        pinyin: bù
+        hsk: 1
+        detailed_analysis: false
+      - char: 及
+        pinyin: jí
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: to reach, to catch up with
+        other_meanings:
+          - "and (literary usage)"
+          - "in time, to make it (来得及 láidejí)"
+          - "too late, unable to make it (来不及 láibùjí)"
+          - "to involve, to touch upon (涉及 shèjí)"
+        compounds:
+          - simplified: 及时
+            pinyin: jíshí
+            meaning: in time, promptly
+          - simplified: 来不及
+            pinyin: láibùjí
+            meaning: too late, unable to make it in time
+          - simplified: 涉及
+            pinyin: shèjí
+            meaning: to involve, to touch upon
+        etymology: |
+          Oracle bone script depicts a hand reaching out and grasping a person from behind —
+          the vivid image of "catching up to" something or someone. The radical is 又 (yòu),
+          meaning "hand/again," reinforcing the sense of reaching out. The literary meaning
+          "and" developed from the idea of "extending to / reaching as far as." Simplified
+          and traditional forms are identical.
+        etymology_example:
+          zh: 他跑得太快，我根本及不上他。
+          pinyin: Tā pǎo de tài kuài, wǒ gēnběn jí bù shàng tā.
+          de: Er lief so schnell, dass ich ihn unmöglich einholen konnte.
+      - char: 待
+        pinyin: dài
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: to wait
+        other_meanings:
+          - "to treat (待人 dàirén)"
+          - "to stay somewhere, colloquial (dāi)"
+          - "to receive/entertain guests (招待 zhāodài)"
+          - "to treat someone (对待 duìdài)"
+          - "to look forward to (期待 qīdài)"
+        compounds:
+          - simplified: 等待
+            pinyin: děngdài
+            meaning: to wait
+          - simplified: 期待
+            pinyin: qīdài
+            meaning: to look forward to, to anticipate
+          - simplified: 招待
+            pinyin: zhāodài
+            meaning: to receive/entertain guests
+          - simplified: 对待
+            pinyin: duìdài
+            meaning: to treat (someone)
+        etymology: |
+          待 consists of the "step/walk" radical 彳 (chì) on the left, suggesting movement
+          or pausing mid-movement, and the phonetic component 寺 (sì, temple) on the right,
+          which provides the sound. Originally depicted pausing in one's tracks, hence both
+          "to wait" and "to attend to / treat someone." The dual reading (dài = wait/treat;
+          dāi = to stay, colloquial) reflects this split in meaning. Simplified and traditional
+          forms are identical.
+        etymology_example:
+          zh: 请在此稍待片刻。
+          pinyin: Qǐng zài cǐ shāo dài piànkè.
+          de: Bitte warten Sie hier einen Moment.
+  - type: sentence
+    date: "03/15"
+    source_de: Ich bin dem Sonnenschein sehr dankbar.
+    simplified: 我非常感谢阳光。
+    traditional: 我非常感謝陽光。
+    pinyin: Wǒ fēicháng gǎnxiè yángguāng.
+    english: I am very grateful for the sunshine.
+    hsk: "3-4"
+    grammar_de: |
+      Der deutsche Satz verwendet „jemandem/etwas dankbar sein" — auf Chinesisch wird dies mit
+      感谢 (gǎnxiè) + Objekt ausgedrückt, einer direkten Verb-Objekt-Konstruktion ohne Dativ.
+      Struktur: 我 (Subj.) + 非常 (Adverbial: sehr) + 感谢 (Verb) + 阳光 (Obj.).
+      Alternativen:
+      - 我对阳光充满感激。(Wǒ duì yángguāng chōngmǎn gǎnjī.) — mit Präposition 对 (duì),
+        poetischer: „Ich bin erfüllt von Dankbarkeit gegenüber dem Sonnenschein."
+      - 我很感激有阳光。(Wǒ hěn gǎnjī yǒu yángguāng.) — „Ich bin dankbar, dass es Sonnenschein gibt."
+    examples:
+      - zh: 我非常感谢你的帮助。
+        pinyin: Wǒ fēicháng gǎnxiè nǐ de bāngzhù.
+        de: Ich bin dir sehr dankbar für deine Hilfe.
+      - zh: 他对大自然充满感激。
+        pinyin: Tā duì dàzìrán chōngmǎn gǎnjī.
+        de: Er ist der Natur gegenüber voller Dankbarkeit.
+      - zh: 我们应该感谢生命中美好的事物。
+        pinyin: Wǒmen yīnggāi gǎnxiè shēngmìng zhōng měihǎo de shìwù.
+        de: Wir sollten dankbar sein für die schönen Dinge im Leben.
+      - zh: 她感激地看着他。
+        pinyin: Tā gǎnjī de kànzhe tā.
+        de: Sie schaute ihn dankbar an.
+      - zh: 我对今天的阳光心存感激。
+        pinyin: Wǒ duì jīntiān de yángguāng xīn cún gǎnjī.
+        de: Ich trage Dankbarkeit für den heutigen Sonnenschein in meinem Herzen.
+    characters:
+      - char: 我
+        pinyin: wǒ
+        hsk: 1
+        detailed_analysis: false
+        note: bereits analysiert
+      - char: 非
+        pinyin: fēi
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: not, non- (prefix in 非常 — extraordinary → very)
+        other_meanings:
+          - "wrong, to violate"
+          - "Africa (abbrev. 非洲 Fēizhōu)"
+          - "illegal (非法 fēifǎ)"
+        compounds:
+          - simplified: 非常
+            pinyin: fēicháng
+            meaning: extremely, very
+          - simplified: 是非
+            pinyin: shìfēi
+            meaning: right and wrong
+          - simplified: 非法
+            pinyin: fēifǎ
+            meaning: illegal
+        etymology: |
+          Oracle bone script depicts two wings pointing in opposite directions — the image of
+          things going against each other, hence "not, contrary to." 非 is its own radical.
+          Extended from "going against" to general negation. In 非常 the literal sense is
+          "not ordinary/normal" → extraordinary → very. Simplified and traditional forms
+          are identical.
+        etymology_example:
+          zh: 此事是非难断。
+          pinyin: Cǐ shì shìfēi nán duàn.
+          de: Bei dieser Sache ist Recht und Unrecht schwer zu beurteilen.
+      - char: 常
+        pinyin: cháng
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: ordinary, normal (in 非常 → extraordinary → very)
+        other_meanings:
+          - "often, frequently"
+          - "constant, always"
+          - "usually (通常 tōngcháng)"
+        compounds:
+          - simplified: 经常
+            pinyin: jīngcháng
+            meaning: often, regularly
+          - simplified: 正常
+            pinyin: zhèngcháng
+            meaning: normal
+          - simplified: 通常
+            pinyin: tōngcháng
+            meaning: usually, normally
+        etymology: |
+          常 has the cloth/curtain radical 巾 (jīn) at the bottom and the phonetic component
+          尚 (shàng) on top, which provides the sound. Originally referred to a long ceremonial
+          cloth or banner; extended to mean "constant, unchanging" → "ordinary, normal" → "often."
+          Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 他经常在早晨散步。
+          pinyin: Tā jīngcháng zài zǎochén sànbù.
+          de: Er geht oft morgens spazieren.
+      - char: 感
+        pinyin: gǎn
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: to feel, to sense; gratitude
+        other_meanings:
+          - "to move emotionally (感动 gǎndòng)"
+          - "feeling, emotion (感情 gǎnqíng)"
+          - "to catch a cold (感冒 gǎnmào)"
+          - "sensation (感觉 gǎnjué)"
+        compounds:
+          - simplified: 感觉
+            pinyin: gǎnjué
+            meaning: feeling, sensation
+          - simplified: 感动
+            pinyin: gǎndòng
+            meaning: to be moved (emotionally)
+          - simplified: 感情
+            pinyin: gǎnqíng
+            meaning: emotion, feeling, affection
+          - simplified: 感冒
+            pinyin: gǎnmào
+            meaning: to catch a cold
+        etymology: |
+          感 has the heart radical 心 (xīn) at the bottom, indicating an emotional or mental
+          state, and the phonetic component 咸 (xián) on top, which originally meant "all,
+          together" — the idea of the heart being touched by something from outside. The
+          character conveys the heart being moved or affected by an external stimulus.
+          Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 这首歌深深地感动了我。
+          pinyin: Zhè shǒu gē shēnshēn de gǎndòng le wǒ.
+          de: Dieses Lied hat mich tief bewegt.
+      - char: 谢
+        traditional: 謝
+        pinyin: xiè
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: to thank, gratitude
+        other_meanings:
+          - "to wither/fall (flowers — 凋谢 diāoxiè)"
+          - "to decline an offer"
+          - "to express thanks (道谢 dàoxiè)"
+        compounds:
+          - simplified: 谢谢
+            pinyin: xièxie
+            meaning: thank you
+          - simplified: 感谢
+            pinyin: gǎnxiè
+            meaning: to be grateful
+          - simplified: 凋谢
+            pinyin: diāoxiè
+            meaning: to wither, to fade (flowers)
+          - simplified: 道谢
+            pinyin: dàoxiè
+            meaning: to express thanks
+        etymology: |
+          谢 has the speech radical 讠(言, yán) on the left, indicating verbal expression,
+          and the phonetic component 射 (shè, to shoot) on the right, approximating the sound.
+          Traditional form 謝 uses the full 言 radical; simplified 谢 uses the abbreviated 讠.
+          Originally meant to speak words of acknowledgment; extended to formal thanks and
+          later to "letting go" — as in flowers shedding their petals (凋谢).
+        etymology_example:
+          zh: 秋风一吹，花儿都凋谢了。
+          pinyin: Qiūfēng yī chuī, huār dōu diāoxiè le.
+          de: Als der Herbstwind blies, verwelkten alle Blumen.
+      - char: 阳
+        traditional: 陽
+        pinyin: yáng
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: sun, sunlight
+        other_meanings:
+          - "the sun (太阳 tàiyáng)"
+          - "south side of a mountain"
+          - "male/positive principle in 阴阳"
+          - "balcony (阳台 yángtái)"
+        compounds:
+          - simplified: 阳光
+            pinyin: yángguāng
+            meaning: sunshine, sunlight
+          - simplified: 太阳
+            pinyin: tàiyáng
+            meaning: the sun
+          - simplified: 阴阳
+            pinyin: yīnyáng
+            meaning: yin and yang
+          - simplified: 阳台
+            pinyin: yángtái
+            meaning: balcony
+        etymology: |
+          阳 has the mound/hill radical 阝(阜, fù) on the left, originally relating to elevated
+          terrain, and the phonetic component 昜 (yáng) on the right, which depicts the sun
+          rising over a horizon with rays — directly evoking sunlight. Traditional 陽 preserves
+          the full phonetic 昜; simplified 阳 reduces the right side. Originally referred to
+          the sunny (south-facing) side of a hill; extended to sunlight, brightness, and the
+          yang principle in Chinese philosophy.
+        etymology_example:
+          zh: 山的阳面比阴面温暖得多。
+          pinyin: Shān de yáng miàn bǐ yīn miàn wēnnuǎn de duō.
+          de: Die Südseite des Berges ist viel wärmer als die Nordseite.
+      - char: 光
+        pinyin: guāng
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: light, rays
+        other_meanings:
+          - "glory, honor (光荣 guāngróng)"
+          - "bare, naked"
+          - "to use up completely"
+          - "only"
+          - "smooth (光滑 guānghuá)"
+        compounds:
+          - simplified: 光明
+            pinyin: guāngmíng
+            meaning: bright, radiant; promising
+          - simplified: 目光
+            pinyin: mùguāng
+            meaning: gaze, eyesight
+          - simplified: 光荣
+            pinyin: guāngróng
+            meaning: glory, honor
+          - simplified: 光滑
+            pinyin: guānghuá
+            meaning: smooth
+        etymology: |
+          Oracle bone and bronze script depict a person (人) kneeling beneath a flame on their
+          head — a torch-bearer, symbolizing light. 光 is its own radical. From the concrete
+          image of a flame or torch, the meaning extended to all forms of light and brightness,
+          and by further extension to glory and honor. Simplified and traditional forms are
+          identical.
+        etymology_example:
+          zh: 火光照亮了黑暗的山洞。
+          pinyin: Huǒguāng zhàoliàng le hēiàn de shāndòng.
+          de: Das Feuerlicht erhellte die dunkle Höhle.
+  - type: vocabulary
+    date: "03/15"
+    source_de: vorzeitige Sehnsucht
+    simplified: 过早的思念
+    traditional: 過早的思念
+    pinyin: guòzǎo de sīniàn
+    english: premature longing / early-onset yearning
+    hsk: "4-5"
+    examples:
+      - zh: 他们还没分离，她心中已涌起过早的思念。
+        pinyin: Tāmen hái méi fēnlí, tā xīn zhōng yǐ yǒngqǐ guòzǎo de sīniàn.
+        de: Sie hatten sich noch nicht getrennt, doch in ihrem Herzen stieg bereits vorzeitige Sehnsucht auf.
+      - zh: 这种过早的思念，比真正的别离更难受。
+        pinyin: Zhè zhǒng guòzǎo de sīniàn, bǐ zhēnzhèng de bié lí gèng nán shòu.
+        de: Diese vorzeitige Sehnsucht ist schwerer zu ertragen als die eigentliche Trennung.
+      - zh: 火车还没开，我就开始思念家乡了。
+        pinyin: Huǒchē hái méi kāi, wǒ jiù kāishǐ sīniàn jiāxiāng le.
+        de: Der Zug war noch nicht abgefahren, und ich vermisste schon meine Heimat.
+      - zh: 预知别离的痛苦，让这份思念更加沉重。
+        pinyin: Yù zhī bié lí de tòngkǔ, ràng zhè fèn sīniàn gèng jiā chénzhòng.
+        de: Das Wissen um den kommenden Abschied macht diese Sehnsucht noch schwerer.
+      - zh: 她望着窗外，心里已经开始过早地想念他。
+        pinyin: Tā wàng zhe chuāng wài, xīn lǐ yǐjīng kāishǐ guòzǎo de xiǎngniàn tā.
+        de: Sie schaute aus dem Fenster und begann schon vorzeitig, ihn zu vermissen.
+    characters:
+      - char: 过
+        traditional: 過
+        pinyin: guò
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: excessively, too (prefix indicating excess, as in 过早 — too early)
+        other_meanings:
+          - "to pass, to go through (经过 jīngguò)"
+          - "the past (过去 guòqù)"
+          - "excessive, going too far (过分 guòfèn)"
+          - "a mistake/fault"
+        compounds:
+          - simplified: 经过
+            pinyin: jīngguò
+            meaning: to pass by, to go through
+          - simplified: 过去
+            pinyin: guòqù
+            meaning: the past; to go over
+          - simplified: 过分
+            pinyin: guòfèn
+            meaning: excessive, going too far
+        etymology: |
+          过 has the movement/walk radical 辶 (辵, chuò) indicating motion, and the phonetic
+          component 咼 (guō/wā) providing the sound. Traditional 過 preserves the full phonetic;
+          simplified 过 reduces it. Originally meant "to pass by, to cross over"; extended to
+          "excess" (crossing a boundary too far) and "mistake" (going beyond what is correct).
+        etymology_example:
+          zh: 时间一去不过返，要珍惜当下。
+          pinyin: Shíjiān yī qù bù guò fǎn, yào zhēnxī dāngxià.
+          de: Die Zeit vergeht und kehrt nicht zurück — man sollte den Moment schätzen.
+      - char: 早
+        pinyin: zǎo
+        hsk: "1"
+        detailed_analysis: true
+        meaning_in_context: early
+        other_meanings:
+          - "good morning (早! as greeting)"
+          - "long ago, already (早已 zǎoyǐ)"
+          - "premature (过早 guòzǎo)"
+        compounds:
+          - simplified: 早上
+            pinyin: zǎoshang
+            meaning: morning
+          - simplified: 早已
+            pinyin: zǎoyǐ
+            meaning: long since, already
+        note: |
+          HSK 1 character, but analysed here due to its role in the compound 过早 and its
+          interesting pictographic etymology.
+        etymology: |
+          Oracle bone script depicts the sun (日) above a plant or stem — the sun just rising
+          above vegetation, evoking early morning. The radical is 日 (rì, sun). The image is
+          purely pictographic: sunrise = early. Extended to "morning" and then to "ahead of
+          time / premature." Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 太阳早早升起，照亮了山谷。
+          pinyin: Tàiyáng zǎozǎo shēngqǐ, zhàoliàng le shāngǔ.
+          de: Die Sonne ging früh auf und beleuchtete das Tal.
+      - char: 思
+        pinyin: sī
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: to think of, to miss, to long for
+        other_meanings:
+          - "thought, thinking (思想 sīxiǎng)"
+          - "to ponder (沉思 chénsī)"
+          - "lovesickness (相思 xiāngsī)"
+          - "literary inspiration (文思 wénsī)"
+        compounds:
+          - simplified: 思考
+            pinyin: sīkǎo
+            meaning: to think, to reflect
+          - simplified: 思想
+            pinyin: sīxiǎng
+            meaning: thought, ideology
+          - simplified: 相思
+            pinyin: xiāngsī
+            meaning: mutual longing, lovesickness
+          - simplified: 沉思
+            pinyin: chénsī
+            meaning: to ponder deeply
+        etymology: |
+          思 has the heart radical 心 (xīn) at the bottom and the phonetic component 囟 (xìn)
+          — the fontanelle (top of the skull), historically associated with the mind — on top.
+          The combination of skull (mind) + heart beautifully captures the Chinese understanding
+          of thinking as both cognitive and emotional. Simplified and traditional forms are
+          identical.
+        etymology_example:
+          zh: 他沉思良久，终于做出了决定。
+          pinyin: Tā chénsī liáng jiǔ, zhōngyú zuòchū le juédìng.
+          de: Er grübelte lange und traf schließlich eine Entscheidung.
+      - char: 念
+        pinyin: niàn
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: to miss, to long for (in 思念)
+        other_meanings:
+          - "to read aloud (念书 niànshū)"
+          - "thought, idea (念头 niàntou)"
+          - "to commemorate (纪念 jìniàn)"
+          - "belief, conviction (信念 xìnniàn)"
+        compounds:
+          - simplified: 想念
+            pinyin: xiǎngniàn
+            meaning: to miss someone
+          - simplified: 念书
+            pinyin: niànshū
+            meaning: to study, to read books
+          - simplified: 纪念
+            pinyin: jìniàn
+            meaning: to commemorate
+          - simplified: 信念
+            pinyin: xìnniàn
+            meaning: belief, conviction
+        etymology: |
+          念 has the heart radical 心 (xīn) at the bottom and 今 (jīn, now/the present moment)
+          on top. The combination suggests "the heart dwelling on the present moment" — what
+          the heart is preoccupied with right now. Extended to "to miss" (the heart staying
+          with someone or something absent). Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 他心中只有一个念头：回家。
+          pinyin: Tā xīn zhōng zhǐ yǒu yīgè niàntou huí jiā.
+          de: In seinem Herzen gab es nur einen Gedanken — nach Hause gehen.
+  - type: sentence
+    date: "03/15"
+    source_de: Ich habe auf den Tisch gehauen. Ich wollte irgendwie erwachsen wirken.
+    simplified: 我拍了桌子。我不知为何想显得成熟。
+    traditional: 我拍了桌子。我不知為何想顯得成熟。
+    pinyin: Wǒ pāi le zhuōzi. Wǒ bù zhī wèihé xiǎng xiǎnde chéngshú.
+    english: I slammed my fist on the table. I somehow wanted to appear grown-up / mature.
+    hsk: "3-4"
+    grammar_de: |
+      Satz 1 — 我拍了桌子：
+      Struktur: 我 (Subj.) + 拍 (Verb: schlagen/klatschen) + 了 (Aspektpartikel: abgeschlossen)
+      + 桌子 (Obj.). 拍桌子 ist die natürlichste Entsprechung für „auf den Tisch hauen".
+      Alternativen je nach Intensität: 敲桌子 (rhythmisch klopfen), 砸桌子 (mit voller Wucht).
+      Satz 2 — 我不知为何想显得成熟：
+      不知为何 = „irgendwie / ich weiß nicht warum" (wörtlich: weiß nicht weshalb).
+      显得 (xiǎnde) = wirken, erscheinen — betont den Eindruck auf andere; Unterschied zu
+      看起来 (kànqǐlái), das eher visuelle Wahrnehmung betont.
+      成熟 = reif, erwachsen (physisch und psychisch).
+      Alternativen: 我想让自己看起来更成熟 (mit Kausativkonstruktion 让);
+      我莫名地想表现得成熟一些 (莫名 = unerklärlich).
+    examples:
+      - zh: 他生气地拍了桌子，大声说："够了！"
+        pinyin: Tā shēngqì de pāi le zhuōzi, dàshēng shuō "Gòu le!"
+        de: Er schlug wütend auf den Tisch und rief laut „Genug!"
+      - zh: 她不知为何想在同事面前显得更自信。
+        pinyin: Tā bù zhī wèihé xiǎng zài tóngshì miànqián xiǎnde gèng zìxìn.
+        de: Sie wollte aus irgendeinem Grund vor den Kollegen selbstbewusster wirken.
+      - zh: 青少年有时会做一些奇怪的事，只是想显得成熟。
+        pinyin: Qīngshàonián yǒushí huì zuò yīxiē qíguài de shì, zhǐshì xiǎng xiǎnde chéngshú.
+        de: Jugendliche tun manchmal seltsame Dinge, nur um erwachsen zu wirken.
+      - zh: 他拍桌子的样子反而让他显得更不成熟。
+        pinyin: Tā pāi zhuōzi de yàngzi fǎn'ér ràng tā xiǎnde gèng bù chéngshú.
+        de: Sein Auf-den-Tisch-Hauen ließ ihn im Gegenteil noch unreifer wirken.
+      - zh: 我莫名地想表现得成熟一些，结果适得其反。
+        pinyin: Wǒ mòmíng de xiǎng biǎoxiàn de chéngshú yīxiē, jiéguǒ shìdéqífǎn.
+        de: Ich wollte aus irgendeinem Grund reifer wirken — das Gegenteil trat ein.
+    characters:
+      - char: 我
+        pinyin: wǒ
+        hsk: 1
+        detailed_analysis: false
+        note: bereits analysiert
+      - char: 拍
+        pinyin: pāi
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: to slap, to hit, to slam (on a surface)
+        other_meanings:
+          - "to pat, to clap (拍手 pāishǒu)"
+          - "to take a photo (拍照 pāizhào)"
+          - "to flatter (拍马屁 pāi mǎpì)"
+          - "auction (拍卖 pāimài)"
+        compounds:
+          - simplified: 拍手
+            pinyin: pāishǒu
+            meaning: to clap hands
+          - simplified: 拍照
+            pinyin: pāizhào
+            meaning: to take a photo
+          - simplified: 拍马屁
+            pinyin: pāi mǎpì
+            meaning: to flatter, to kiss up
+          - simplified: 拍卖
+            pinyin: pāimài
+            meaning: auction
+        etymology: |
+          拍 has the hand radical 扌(手, shǒu) on the left, indicating a physical hand action,
+          and the phonetic component 白 (bái) on the right, approximating the sound. The
+          character depicts a flat, open-handed striking motion. Simplified and traditional
+          forms are identical.
+        etymology_example:
+          zh: 她轻轻拍了拍孩子的背，让他安静下来。
+          pinyin: Tā qīngqīng pāi le pāi háizi de bèi, ràng tā ānjìng xiàlái.
+          de: Sie klopfte dem Kind sanft auf den Rücken, damit es sich beruhigte.
+      - char: 桌
+        pinyin: zhuō
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: table
+        other_meanings:
+          - "tabletop; desktop (桌面 zhuōmiàn)"
+          - "dining table (餐桌 cānzhuō)"
+          - "school desk (课桌 kèzhuō)"
+        compounds:
+          - simplified: 桌子
+            pinyin: zhuōzi
+            meaning: table
+          - simplified: 桌面
+            pinyin: zhuōmiàn
+            meaning: tabletop; desktop (computer)
+          - simplified: 餐桌
+            pinyin: cānzhuō
+            meaning: dining table
+        etymology: |
+          桌 has the wood radical 木 (mù) at the bottom, indicating a wooden object, and the
+          phonetic component 卓 (zhuō, outstanding/tall) on top, which provides the sound and
+          hints at something elevated or raised. The character depicts a raised wooden surface —
+          a table standing tall above the ground. Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 这张木桌是我爷爷亲手做的。
+          pinyin: Zhè zhāng mùzhuō shì wǒ yéye qīnshǒu zuò de.
+          de: Dieser Holztisch wurde von meinem Großvater eigenhändig gebaut.
+      - char: 不
+        pinyin: bù
+        hsk: 1
+        detailed_analysis: false
+        note: bereits analysiert
+      - char: 显
+        traditional: 顯
+        pinyin: xiǎn
+        hsk: "4-5"
+        detailed_analysis: true
+        meaning_in_context: to appear, to seem, to show (in 显得 — to come across as)
+        other_meanings:
+          - "obvious, evident (明显 míngxiǎn)"
+          - "to display (显示 xiǎnshì)"
+          - "clearly (显然 xiǎnrán)"
+          - "remarkable (显著 xiǎnzhù)"
+        compounds:
+          - simplified: 明显
+            pinyin: míngxiǎn
+            meaning: obvious, evident
+          - simplified: 显示
+            pinyin: xiǎnshì
+            meaning: to display, to show
+          - simplified: 显然
+            pinyin: xiǎnrán
+            meaning: clearly, obviously
+          - simplified: 显著
+            pinyin: xiǎnzhù
+            meaning: remarkable, notable
+        etymology: |
+          Traditional 顯 has the radical 頁 (yè, head/page) combined with 㬎, depicting
+          sunlight through silk threads making patterns visible. Simplified 显 reduces this
+          significantly. Core meaning: making something visible or evident; extended to
+          "appearing as" or "seeming."
+        etymology_example:
+          zh: 他的才华在比赛中充分显示出来。
+          pinyin: Tā de cáihuá zài bǐsài zhōng chōngfèn xiǎnshì chūlái.
+          de: Sein Talent zeigte sich im Wettkampf in vollem Umfang.
+      - char: 成
+        pinyin: chéng
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: to become, accomplished (in 成熟 — to become ripe/mature)
+        other_meanings:
+          - "to succeed (成功 chénggōng)"
+          - "to complete (完成 wánchéng)"
+          - "to become (成为 chéngwéi)"
+          - "adult (成人 chéngrén)"
+        compounds:
+          - simplified: 成功
+            pinyin: chénggōng
+            meaning: to succeed
+          - simplified: 完成
+            pinyin: wánchéng
+            meaning: to complete
+          - simplified: 成为
+            pinyin: chéngwéi
+            meaning: to become
+          - simplified: 成人
+            pinyin: chéngrén
+            meaning: adult
+        etymology: |
+          Oracle bone and bronze script depict a weapon (戊, a type of axe) with a sound
+          indicator — originally related to completing a military campaign. The radical is
+          戈 (gē, spear/weapon). Extended from "completing a military action" to general
+          completion and success. Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 他终于完成了多年的心愿。
+          pinyin: Tā zhōngyú wánchéng le duōnián de xīnyuàn.
+          de: Er erfüllte sich endlich seinen langjährigen Wunsch.
+      - char: 熟
+        pinyin: shú
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: ripe, mature (in 成熟)
+        other_meanings:
+          - "cooked (煮熟 zhǔshú)"
+          - "familiar, well-acquainted (熟悉 shúxī)"
+          - "skilled, proficient (熟练 shúliàn)"
+        compounds:
+          - simplified: 熟悉
+            pinyin: shúxī
+            meaning: familiar with, to know well
+          - simplified: 熟练
+            pinyin: shúliàn
+            meaning: skilled, proficient
+          - simplified: 煮熟
+            pinyin: zhǔshú
+            meaning: to cook until done
+        etymology: |
+          熟 has the fire radical 灬(火, huǒ) at the bottom, originally indicating cooking over
+          flame, and the phonetic/semantic component 孰 (shú) on top — an ancient character
+          depicting hands holding meat over fire, asking "which one is done?" From the concrete
+          meaning of "cooked through by heat," extended to "ripe" (fruit), then "mature"
+          (person), then "familiar/skilled" (through repeated exposure). Simplified and
+          traditional forms are identical.
+        etymology_example:
+          zh: 果子还没熟，再等几天吧。
+          pinyin: Guǒzi hái méi shú, zài děng jǐ tiān ba.
+          de: Die Früchte sind noch nicht reif — warte noch ein paar Tage.
+  - type: vocabulary
+    date: "03/15"
+    source_de: Onlineshopping
+    simplified: 网购
+    traditional: 網購
+    pinyin: wǎnggòu
+    english: online shopping
+    hsk: "4-5"
+    examples:
+      - zh: 她习惯在睡前网购，结果买了很多不需要的东西。
+        pinyin: Tā xíguàn zài shuì qián wǎnggòu, jiéguǒ mǎi le hěn duō bù xūyào de dōngxi.
+        de: Sie hat die Gewohnheit, vor dem Schlafen online einzukaufen, und kauft dabei viele unnötige Dinge.
+      - zh: 网购让我们足不出户就能买到世界各地的商品。
+        pinyin: Wǎnggòu ràng wǒmen zú bù chū hù jiù néng mǎi dào shìjiè gèdì de shāngpǐn.
+        de: Online-Shopping ermöglicht es uns, Produkte aus aller Welt zu kaufen, ohne das Haus zu verlassen.
+      - zh: 他网购上瘾了，每天都在等快递。
+        pinyin: Tā wǎnggòu shàngyǐn le, měitiān dōu zài děng kuàidì.
+        de: Er ist süchtig nach Online-Shopping und wartet jeden Tag auf Pakete.
+      - zh: 双十一是中国最大的网购节。
+        pinyin: Shuāng shíyī shì Zhōngguó zuì dà de wǎnggòu jié.
+        de: Der „Double Eleven" ist Chinas größtes Online-Shopping-Festival.
+      - zh: 我在网上下单后，第二天快递就到了。
+        pinyin: Wǒ zài wǎng shàng xià dān hòu, dì èr tiān kuàidì jiù dào le.
+        de: Nachdem ich online bestellt hatte, kam das Paket schon am nächsten Tag an.
+    characters:
+      - char: 网
+        traditional: 網
+        pinyin: wǎng
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: net, network, internet
+        other_meanings:
+          - "to net, to catch in a net (fishing)"
+          - "network, internet (网络 wǎngluò)"
+          - "website (网站 wǎngzhàn)"
+          - "tennis (网球 wǎngqiú — lit. net ball)"
+        compounds:
+          - simplified: 网络
+            pinyin: wǎngluò
+            meaning: network, internet
+          - simplified: 网站
+            pinyin: wǎngzhàn
+            meaning: website
+          - simplified: 上网
+            pinyin: shàngwǎng
+            meaning: to go online
+          - simplified: 网球
+            pinyin: wǎngqiú
+            meaning: tennis
+        etymology: |
+          Oracle bone and bronze script show a pictograph of a fishing net — criss-crossing
+          lines forming a mesh. 网 is its own radical. Traditional 網 adds the phonetic
+          component 罔 (wǎng) to the net pictograph; simplified 网 returns to the bare
+          pictographic form. From the physical fishing net, extended to any kind of web or
+          network — including the internet.
+        etymology_example:
+          zh: 渔夫把网撒进河里，捕到了很多鱼。
+          pinyin: Yúfū bǎ wǎng sā jìn hé lǐ, bǔ dào le hěn duō yú.
+          de: Der Fischer warf das Netz in den Fluss und fing viele Fische.
+      - char: 购
+        traditional: 購
+        pinyin: gòu
+        hsk: "4-5"
+        detailed_analysis: true
+        meaning_in_context: to purchase, to buy
+        other_meanings:
+          - "to go shopping (购物 gòuwù)"
+          - "to purchase (购买 gòumǎi)"
+          - "to procure (采购 cǎigòu)"
+          - "group buying (团购 tuángòu)"
+        compounds:
+          - simplified: 购物
+            pinyin: gòuwù
+            meaning: to go shopping
+          - simplified: 购买
+            pinyin: gòumǎi
+            meaning: to purchase
+          - simplified: 采购
+            pinyin: cǎigòu
+            meaning: to procure, bulk purchasing
+          - simplified: 团购
+            pinyin: tuángòu
+            meaning: group buying, group deal
+        etymology: |
+          购 has the cowrie shell radical 贝/貝 (bèi) on the left — the ancient Chinese
+          currency symbol, indicating commerce and money — and the phonetic component 冓 (gòu)
+          on the right, which provides the sound and depicts two structures interlocking,
+          suggesting exchange. Traditional 購 preserves the full 貝 and 冓; simplified 购 uses
+          the abbreviated 贝. The combination of currency radical and interlocking structure
+          captures the idea of a transaction — buying.
+        etymology_example:
+          zh: 他去超市采购了一周所需的食材。
+          pinyin: Tā qù chāoshì cǎigòu le yī zhōu suǒ xū de shícái.
+          de: Er ging in den Supermarkt und kaufte Lebensmittel für eine Woche ein.
+  - type: vocabulary
+    date: "03/15"
+    simplified: 乱
+    traditional: 亂
+    pinyin: luàn
+    english: chaotic / messy / disorderly / randomly (adv.)
+    hsk: "3-4"
+    examples:
+      - zh: 他的房间乱得没法住人。
+        pinyin: Tā de fángjiān luàn de méifǎ zhù rén.
+        de: Sein Zimmer ist so unordentlich, dass man darin nicht leben kann.
+      - zh: 别乱花钱，要学会储蓄。
+        pinyin: Bié luàn huā qián, yào xuéhuì chǔxù.
+        de: Gib das Geld nicht wahllos aus — lern zu sparen.
+      - zh: 战争让整座城市陷入一片混乱。
+        pinyin: Zhànzhēng ràng zhěng zuò chéngshì xiànrù yīpiàn hùnluàn.
+        de: Der Krieg stürzte die ganze Stadt ins Chaos.
+      - zh: 她心里很乱，不知道该怎么办。
+        pinyin: Tā xīn lǐ hěn luàn, bù zhīdào gāi zěnme bàn.
+        de: In ihr herrschte großes Durcheinander — sie wusste nicht, was sie tun sollte.
+      - zh: 你别乱想，他只是朋友而已。
+        pinyin: Nǐ bié luàn xiǎng, tā zhǐshì péngyou éryǐ.
+        de: Denk nicht so wild nach — er ist nur ein Freund.
+    characters:
+      - char: 乱
+        traditional: 亂
+        pinyin: luàn
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: chaotic, messy, disorderly; randomly, wildly (adverb)
+        other_meanings:
+          - "chaos, confusion (混乱 hùnluàn)"
+          - "a complete mess (乱七八糟 luàn qī bā zāo)"
+          - "chaos of war (战乱 zhànluàn)"
+          - "to disturb, to disrupt (扰乱 rǎoluàn)"
+          - "carelessly, haphazardly (胡乱 húluàn)"
+        compounds:
+          - simplified: 混乱
+            pinyin: hùnluàn
+            meaning: chaos, confusion
+          - simplified: 乱七八糟
+            pinyin: luàn qī bā zāo
+            meaning: a complete mess (idiom)
+          - simplified: 战乱
+            pinyin: zhànluàn
+            meaning: chaos of war
+          - simplified: 扰乱
+            pinyin: rǎoluàn
+            meaning: to disturb, to disrupt
+          - simplified: 胡乱
+            pinyin: húluàn
+            meaning: carelessly, haphazardly
+        etymology: |
+          Traditional 亂 is a rich pictograph depicting two hands on either side of a tangled
+          skein of silk thread, with a tool in the middle used to wind the thread back into
+          order. The image simultaneously conveys disorder and the act of restoring order —
+          a philosophically interesting duality encoded in the character itself. Simplified 乱
+          retains a winding/curving stroke on the right (乙, evoking tangled thread) but
+          drastically reduces the complexity of the original form.
+        etymology_example:
+          zh: 丝线缠乱了，需要慢慢理清。
+          pinyin: Sīxiàn chán luàn le, xūyào mànmàn lǐqīng.
+          de: Der Seidenfaden hat sich verwickelt — man muss ihn langsam entwirren.
+  - type: vocabulary
+    date: "03/15"
+    source_de: kleine frittierte Snacks
+    simplified: 炸小吃
+    traditional: 炸小吃
+    pinyin: zhá xiǎochī
+    english: small fried snacks
+    hsk: "3-4"
+    tag: 口语
+    note: |
+      Several variants exist by register:
+      炸小吃 (zhá xiǎochī) — most common everyday term
+      油炸小食 (yóuzhá xiǎoshí) — slightly more formal, often on menus
+      炸货 (zhá huò) — colloquial, "fried stuff" (street markets)
+    examples:
+      - zh: 街边摊上有很多好吃的炸小吃。
+        pinyin: Jiēbiān tān shàng yǒu hěn duō hǎo chī de zhá xiǎochī.
+        de: An den Straßenständen gibt es viele leckere frittierte Snacks.
+      - zh: 她喜欢在看电影的时候吃油炸小食。
+        pinyin: Tā xǐhuān zài kàn diànyǐng de shíhòu chī yóuzhá xiǎoshí.
+        de: Sie isst beim Filmschauen gerne frittierte Snacks.
+      - zh: 这些炸货闻起来香极了。
+        pinyin: Zhèxiē zhá huò wén qǐlái xiāng jí le.
+        de: Dieses frittierte Zeug riecht unglaublich gut.
+      - zh: 庙会上总少不了各种油炸小吃。
+        pinyin: Miào huì shàng zǒng shǎo bù liǎo gè zhǒng yóuzhá xiǎochī.
+        de: Auf Tempelmärkten fehlen niemals allerlei frittierte Snacks.
+      - zh: 他忍不住买了一袋炸小吃边走边吃。
+        pinyin: Tā rěn bù zhù mǎi le yī dài zhá xiǎochī biān zǒu biān chī.
+        de: Er konnte nicht widerstehen und kaufte eine Tüte frittierter Snacks zum Unterwegsessen.
+    characters:
+      - char: 炸
+        pinyin: zhá / zhà
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: to fry, to deep-fry (zhá)
+        other_meanings:
+          - "to explode, to blow up (爆炸 bàozhà) — tone zhà"
+          - "bomb (炸弹 zhàdàn)"
+          - "fried chicken (炸鸡 zhájī)"
+        compounds:
+          - simplified: 油炸
+            pinyin: yóuzhá
+            meaning: deep-fried
+          - simplified: 爆炸
+            pinyin: bàozhà
+            meaning: to explode
+          - simplified: 炸弹
+            pinyin: zhàdàn
+            meaning: bomb
+          - simplified: 炸鸡
+            pinyin: zhájī
+            meaning: fried chicken
+        etymology: |
+          炸 has the fire radical 火 (huǒ) on the left, indicating heat or explosive energy,
+          and the phonetic component 乍 (zhà) on the right, which originally meant "suddenly,
+          abruptly." The combination of fire + sudden/abrupt neatly captures both meanings:
+          sudden intense heat (frying) and sudden explosive force (explosion). The tone alone
+          distinguishes the two readings: zhá (to fry) vs. zhà (to explode). Simplified and
+          traditional forms are identical.
+        etymology_example:
+          zh: 厨师把鱼放入热油中炸至金黄。
+          pinyin: Chúshī bǎ yú fàng rù rè yóu zhōng zhá zhì jīn huáng.
+          de: Der Koch gab den Fisch in heißes Öl und frittierte ihn goldbraun.
+      - char: 小
+        pinyin: xiǎo
+        hsk: 1
+        detailed_analysis: false
+      - char: 吃
+        pinyin: chī
+        hsk: 1
+        detailed_analysis: false
+      - char: 油
+        pinyin: yóu
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: oil (in 油炸 — deep-fried in oil)
+        other_meanings:
+          - "petroleum (石油 shíyóu)"
+          - "oil painting (油画 yóuhuà)"
+          - "to add fuel; go for it! (加油 jiāyóu)"
+          - "oily, greasy"
+        compounds:
+          - simplified: 石油
+            pinyin: shíyóu
+            meaning: petroleum, oil
+          - simplified: 油画
+            pinyin: yóuhuà
+            meaning: oil painting
+          - simplified: 加油
+            pinyin: jiāyóu
+            meaning: to add fuel; cheer up! / go for it!
+          - simplified: 花生油
+            pinyin: huāshēngyóu
+            meaning: peanut oil
+        etymology: |
+          油 has the water radical 氵(水, shuǐ) on the left, classifying it as a liquid, and
+          the phonetic component 由 (yóu) on the right, providing the sound. 由 originally
+          meant "to follow from, reason/cause." Oil was categorized with liquids. Originally
+          referred to animal fat or grease; extended to all oils and oily substances.
+          Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 锅里的油开始冒烟了。
+          pinyin: Guō lǐ de yóu kāishǐ mào yān le.
+          de: Das Öl in der Pfanne begann zu rauchen.
+  - type: sentence
+    date: "03/16"
+    source_de: Morgen würde ich gerne 放假。Ich fahre auf eine Tagung wo ich bei einigen Vorträgen zuhöre, die von meinem Stipendium angeboten werden.
+    simplified: 明天我想放假。我要去参加一个研讨会，听几场由我的奖学金项目提供的讲座。
+    traditional: 明天我想放假。我要去參加一個研討會，聽幾場由我的獎學金項目提供的講座。
+    pinyin: Míngtiān wǒ xiǎng fàngjià. Wǒ yào qù cānjiā yīgè yántǎohuì, tīng jǐ chǎng yóu wǒ de jiǎngxuéjīn xiàngmù tígōng de jiǎngzuò.
+    english: Tomorrow I'd like to take a day off. I'm going to a conference where I'll attend some talks offered by my scholarship.
+    hsk: "4-5"
+    grammar_de: |
+      放假 ist eine 离合词 (trennbares Verb-Objekt-Kompositum): 放 (loslassen) + 假 (Urlaub).
+      Trennbar: 放了三天假 (drei Tage Urlaub gemacht).
+      Satz 2 verwendet einen vorgestellten Relativsatz mit 由...提供:
+      由 (yóu) markiert den Handlungsträger (von/durch), ähnlich dem Passiv-„von" im Deutschen.
+      由我的奖学金项目提供的讲座 = „die von meinem Stipendiumprogramm angebotenen Vorträge".
+      场 (chǎng) ist das Zählwort für Veranstaltungen und Vorträge.
+      Alternativen für Tagung: 会议 (huìyì, allg. Konferenz), 学术会议 (xuéshù huìyì, akademisch).
+    examples:
+      - zh: 这周五开始放假，我打算去旅行。
+        pinyin: Zhè zhōuwǔ kāishǐ fàngjià, wǒ dǎsuàn qù lǚxíng.
+        de: Ab diesem Freitag habe ich frei — ich plane zu verreisen.
+      - zh: 学校放假了，孩子们都在外面玩。
+        pinyin: Xuéxiào fàngjià le, háizimen dōu zài wàimiàn wán.
+        de: Die Schule hat Ferien und die Kinder spielen alle draußen.
+      - zh: 你们公司什么时候放假？
+        pinyin: Nǐmen gōngsī shénme shíhou fàngjià?
+        de: Wann hat eure Firma Urlaub/frei?
+      - zh: 他请假了，不是放假。
+        pinyin: Tā qǐngjià le, bù shì fàngjià.
+        de: Er hat sich freigenommen — das ist kein offizieller Urlaub.
+      - zh: 放假期间我参加了一个学术研讨会。
+        pinyin: Fàngjià qījiān wǒ cānjiā le yīgè xuéshù yántǎohuì.
+        de: Während der freien Zeit nahm ich an einer Fachtagung teil.
+    characters:
+      - char: 放
+        pinyin: fàng
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: to let go, to release (in 放假 — to release into holiday)
+        other_meanings:
+          - "to put, to place"
+          - "to set free (释放 shìfàng)"
+          - "to relax (放松 fàngsōng)"
+          - "to give up (放弃 fàngqì)"
+          - "to set one's mind at ease (放心 fàngxīn)"
+        compounds:
+          - simplified: 放松
+            pinyin: fàngsōng
+            meaning: to relax
+          - simplified: 放弃
+            pinyin: fàngqì
+            meaning: to give up
+          - simplified: 释放
+            pinyin: shìfàng
+            meaning: to release, to set free
+          - simplified: 放心
+            pinyin: fàngxīn
+            meaning: to set one's mind at ease
+        etymology: |
+          放 has the radical 攴/攵 (pū) on the right — a hand holding a stick, indicating a
+          directed action — and the phonetic component 方 (fāng, square/direction) on the left,
+          providing the sound. Original meaning: to drive animals out to pasture, releasing
+          them into open space. Extended to any act of releasing, placing, or letting go.
+          Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 牧童把牛羊放到山坡上吃草。
+          pinyin: Mùtóng bǎ niúyáng fàng dào shānpō shàng chī cǎo.
+          de: Der Hirtenjunge trieb das Vieh den Hang hinauf zum Grasen.
+      - char: 假
+        pinyin: jià / jiǎ
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: holiday, leave, vacation (jià)
+        other_meanings:
+          - "fake, false, artificial (jiǎ)"
+          - "to borrow/use (假借 jiǎjiè)"
+          - "hypothetical (假设 jiǎshè)"
+          - "to pretend (假装 jiǎzhuāng)"
+        compounds:
+          - simplified: 假期
+            pinyin: jiàqī
+            meaning: holiday period, vacation
+          - simplified: 请假
+            pinyin: qǐngjià
+            meaning: to ask for leave
+          - simplified: 假装
+            pinyin: jiǎzhuāng
+            meaning: to pretend
+          - simplified: 假设
+            pinyin: jiǎshè
+            meaning: to suppose, hypothesis
+        etymology: |
+          假 has the person radical 亻(人, rén) on the left and the phonetic component 叚 (jiǎ)
+          on the right, which depicts borrowing or taking something temporarily. The dual
+          reading (jiǎ = fake/borrow; jià = holiday) both stem from the core idea of something
+          temporary or not fully one's own — a holiday is time "borrowed" from work; fake is
+          something pretending to be real. Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 他请了三天假，回家探亲。
+          pinyin: Tā qǐng le sān tiān jià, huí jiā tànqīn.
+          de: Er nahm sich drei Tage frei, um nach Hause zu fahren und die Familie zu besuchen.
+  - type: sentence
+    date: "03/16"
+    source_de: Ich habe das gerade gefreestylt — nicht vorbereitet.
+    simplified: 我刚才即兴发挥的，没有准备。
+    traditional: 我剛才即興發揮的，沒有準備。
+    pinyin: Wǒ gāngcái jíxìng fāhuī de, méiyǒu zhǔnbèi.
+    english: I just freestyled that — unprepared / off the cuff.
+    hsk: "4-5"
+    grammar_de: |
+      即兴发挥 (jíxìng fāhuī) = improvisieren, freestylen.
+      即兴 (jíxìng) — spontan, aus dem Moment heraus (wörtlich: „dem Augenblick folgend").
+      发挥 (fāhuī) — entfalten, zum Einsatz bringen.
+      刚才 (gāngcái) = gerade eben (abgeschlossene Vergangenheit).
+      Das abschließende 的 markiert die Art und Weise einer vergangenen Handlung.
+      Alternativen: 我是临时发挥的 (línshí = kurzfristig, auf die Schnelle);
+      我没有提前准备，全靠即兴 (tíqián = im Voraus).
+    examples:
+      - zh: 他的演讲完全是即兴发挥的，听起来却非常流畅。
+        pinyin: Tā de yǎnjiǎng wánquán shì jíxìng fāhuī de, tīng qǐlái què fēicháng liúchàng.
+        de: Seine Rede war völlig improvisiert, klang aber äußerst flüssig.
+      - zh: 我刚才说的话是即兴的，请别太认真。
+        pinyin: Wǒ gāngcái shuō de huà shì jíxìng de, qǐng bié tài rènzhēn.
+        de: Was ich gerade sagte, war aus dem Stegreif — nimm es nicht zu ernst.
+      - zh: jazz音乐家们经常即兴发挥，创造出独特的音乐。
+        pinyin: Jazz yīnyuèjiāmen jīngcháng jíxìng fāhuī, chuàngzào chū dútè de yīnyuè.
+        de: Jazzmusiker improvisieren oft und erschaffen dabei einzigartige Musik.
+      - zh: 她没有准备台词，全靠临时发挥，却赢得了满堂彩。
+        pinyin: Tā méiyǒu zhǔnbèi táicí, quán kào línshí fāhuī, què yíngdé le mǎntáng cǎi.
+        de: Sie hatte keinen Text vorbereitet, improvisierte alles — und erntete trotzdem stürmischen Applaus.
+      - zh: 别担心，我们今天就即兴发挥吧！
+        pinyin: Bié dānxīn, wǒmen jīntiān jiù jíxìng fāhuī ba!
+        de: Kein Stress — lass uns heute einfach improvisieren!
+    characters:
+      - char: 即
+        pinyin: jí
+        hsk: "4-5"
+        detailed_analysis: true
+        meaning_in_context: immediately, at once (in 即兴 — following the immediate moment)
+        other_meanings:
+          - "even if (即使 jíshǐ)"
+          - "immediately (立即 lìjí)"
+          - "about to (即将 jíjiāng)"
+          - "namely (即是 jí shì)"
+        compounds:
+          - simplified: 即使
+            pinyin: jíshǐ
+            meaning: even if, even though
+          - simplified: 立即
+            pinyin: lìjí
+            meaning: immediately
+          - simplified: 即将
+            pinyin: jíjiāng
+            meaning: about to, on the verge of
+        etymology: |
+          Oracle bone script depicts a person kneeling before a food vessel, about to eat —
+          the image of being right there, present, at the moment of action. Radical: 卩 (jié),
+          a kneeling person. Contrast with 既 (jì, already done): 既 shows the person turning
+          away after eating; 即 shows leaning in, present. Extended from "being present at"
+          to "immediately, at this very moment." Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 他即将出发，行李已经准备好了。
+          pinyin: Tā jíjiāng chūfā, xíngli yǐjīng zhǔnbèi hǎo le.
+          de: Er ist im Begriff aufzubrechen — das Gepäck ist schon bereit.
+      - char: 兴
+        traditional: 興
+        pinyin: xìng / xīng
+        hsk: "3-4"
+        detailed_analysis: true
+        meaning_in_context: mood, inspiration (in 即兴 — spontaneous inspiration; xìng)
+        other_meanings:
+          - "to rise, to prosper (xīng)"
+          - "interest, enthusiasm (兴趣 xìngqù)"
+          - "excited (兴奋 xīngfèn)"
+          - "revival (复兴 fùxīng)"
+        compounds:
+          - simplified: 兴趣
+            pinyin: xìngqù
+            meaning: interest, hobby
+          - simplified: 高兴
+            pinyin: gāoxìng
+            meaning: happy, pleased
+          - simplified: 兴奋
+            pinyin: xīngfèn
+            meaning: excited
+          - simplified: 复兴
+            pinyin: fùxīng
+            meaning: to revive, renaissance
+        etymology: |
+          Traditional 興 depicts four hands lifting an object together — the image of collective
+          effort raising something up. The radical is 臼 (jiù, a mortar), the central object
+          being lifted. Simplified 兴 drastically reduces this. From "lifting together" extended
+          to rising, prosperity, and the uplifting feeling of enthusiasm or inspiration. Dual
+          reading: xīng (to rise/prosper) vs. xìng (mood/inspiration) reflects physical vs.
+          emotional dimensions.
+        etymology_example:
+          zh: 他对音乐很感兴趣，每天都练习。
+          pinyin: Tā duì yīnyuè hěn gǎn xìngqù, měitiān dōu liànxí.
+          de: Er interessiert sich sehr für Musik und übt täglich.
+      - char: 发
+        pinyin: fā
+        hsk: "3-4"
+        detailed_analysis: false
+        note: "bereits analysiert — here in 发挥: to emit, to deploy (ones abilities)"
+      - char: 挥
+        traditional: 揮
+        pinyin: huī
+        hsk: "4-5"
+        detailed_analysis: true
+        meaning_in_context: to wield, to deploy, to give full play to (in 发挥)
+        other_meanings:
+          - "to wave, to brandish (挥手 huīshǒu)"
+          - "to conduct, to command (指挥 zhǐhuī)"
+          - "to squander (挥霍 huīhuò)"
+        compounds:
+          - simplified: 发挥
+            pinyin: fāhuī
+            meaning: to give full play to, to bring into full effect
+          - simplified: 指挥
+            pinyin: zhǐhuī
+            meaning: to conduct, to command
+          - simplified: 挥手
+            pinyin: huīshǒu
+            meaning: to wave one's hand
+          - simplified: 挥霍
+            pinyin: huīhuò
+            meaning: to squander, to spend lavishly
+        etymology: |
+          挥 has the hand radical 扌(手, shǒu) on the left, indicating a hand motion, and the
+          phonetic component 军 (jūn, army) on the right, which approximates the sound and
+          hints at the original military context of commanding and directing. Traditional 揮
+          preserves the full components; simplified 挥 reduces slightly. Originally depicted
+          a commander waving his hand to direct troops; extended to any broad sweeping gesture
+          or deployment of force and ability.
+        etymology_example:
+          zh: 指挥家举起指挥棒，乐团随即开始演奏。
+          pinyin: Zhǐhuījiā jǔqǐ zhǐhuībàng, yuètuán suíjí kāishǐ yǎnzòu.
+          de: Der Dirigent hob den Taktstock — das Orchester begann sofort zu spielen.
+          
+  - type: vocabulary
+    date: "03/16"
+    simplified: 随笔
+    traditional: 隨筆
+    pinyin: suíbǐ
+    english: essay / personal essay / jottings
+    hsk: "6"
+    examples:
+      - zh: 他写了一本关于旅行的随笔集。
+        pinyin: Tā xiě le yī běn guānyú lǚxíng de suíbǐ jí.
+        de: Er hat eine Sammlung von Reiseessays geschrieben.
+      - zh: 随笔是一种自由的文学形式，没有固定格式。
+        pinyin: Suíbǐ shì yī zhǒng zìyóu de wénxué xíngshì, méiyǒu gùdìng géshì.
+        de: Das persönliche Essay ist eine freie literarische Form ohne festes Format.
+      - zh: 她每天在日记本上写几行随笔。
+        pinyin: Tā měitiān zài rìjìběn shàng xiě jǐ háng suíbǐ.
+        de: Sie schreibt täglich ein paar Zeilen Gedanken in ihr Tagebuch.
+      - zh: 这篇随笔语言简洁，却充满哲理。
+        pinyin: Zhè piān suíbǐ yǔyán jiǎnjié, què chōngmǎn zhélǐ.
+        de: Dieser Essay ist sprachlich schlicht, aber voller Weisheit.
+    characters:
+      - char: 随
+        traditional: 隨
+        pinyin: suí
+        hsk: "4"
+        detailed_analysis: true
+        meaning_in_context: to follow, at will, freely
+        other_meanings:
+          - "casually (随便 suíbiàn)"
+          - "at any time (随时 suíshí)"
+          - "along with (随着 suízhe)"
+        compounds:
+          - simplified: 随便
+            pinyin: suíbiàn
+            meaning: casually, as one pleases
+          - simplified: 随时
+            pinyin: suíshí
+            meaning: at any time
+          - simplified: 随着
+            pinyin: suízhe
+            meaning: along with, following
+        etymology: |
+          随 has the movement radical 辶 (辵, chuò) and the phonetic component 隋 (suí),
+          which also provides the name of the Sui Dynasty. Depicts following along a path
+          without resistance — going wherever the flow leads. Extended to "at will, freely,
+          casually." Traditional 隨 preserves the fuller form.
+        etymology_example:
+          zh: 你随便坐吧，哪里都可以。
+          pinyin: Nǐ suíbiàn zuò ba, nǎlǐ dōu kěyǐ.
+          de: Setz dich einfach irgendwo hin.
+      - char: 笔
+        traditional: 筆
+        pinyin: bǐ
+        hsk: "2"
+        detailed_analysis: false
+  - type: vocabulary
+    date: "03/16"
+    simplified: 所谓
+    traditional: 所謂
+    pinyin: suǒwèi
+    english: so-called / what is meant by
+    hsk: "5"
+    examples:
+      - zh: 所谓朋友，就是在你需要时出现的人。
+        pinyin: Suǒwèi péngyou, jiùshì zài nǐ xūyào shí chūxiàn de rén.
+        de: Was man einen Freund nennt, ist jemand, der erscheint, wenn man ihn braucht.
+      - zh: 他所谓的"计划"根本没有任何细节。
+        pinyin: Tā suǒwèi de "jìhuà" gēnběn méiyǒu rènhé xìjié.
+        de: Sein sogenannter „Plan" hatte keinerlei Details.
+      - zh: 所谓成功，因人而异。
+        pinyin: Suǒwèi chénggōng, yīn rén ér yì.
+        de: Was man Erfolg nennt, ist für jeden anders.
+      - zh: 这就是所谓的"一石二鸟"。
+        pinyin: Zhè jiùshì suǒwèi de "yī shí èr niǎo".
+        de: Das ist das, was man „einen Stein, zwei Vögel" nennt.
+    characters:
+      - char: 所
+        pinyin: suǒ
+        hsk: "3"
+        detailed_analysis: true
+        meaning_in_context: that which, what is (nominalizer particle)
+        other_meanings:
+          - "place (场所 chǎngsuǒ)"
+          - "measure word for buildings"
+          - "used in passive constructions"
+        compounds:
+          - simplified: 场所
+            pinyin: chǎngsuǒ
+            meaning: place, venue
+          - simplified: 所以
+            pinyin: suǒyǐ
+            meaning: therefore, so
+          - simplified: 所有
+            pinyin: suǒyǒu
+            meaning: all, every
+        etymology: |
+          所 has the axe radical 斤 (jīn) on the right and 户 (hù, door) on the left.
+          Originally depicted a place where things are done or cut. Evolved into a
+          nominalizer meaning "that which" in classical Chinese, used to turn verbs into
+          noun phrases.
+        etymology_example:
+          zh: 他所说的话让大家都沉默了。
+          pinyin: Tā suǒ shuō de huà ràng dàjiā dōu chénmò le.
+          de: Das, was er sagte, ließ alle verstummen.
+      - char: 谓
+        traditional: 謂
+        pinyin: wèi
+        hsk: "5"
+        detailed_analysis: true
+        meaning_in_context: to call, to say, to be called
+        other_meanings:
+          - "doesn't matter (无所谓 wúsuǒwèi)"
+          - "to address as"
+          - "meaning, sense"
+        compounds:
+          - simplified: 无所谓
+            pinyin: wúsuǒwèi
+            meaning: doesn't matter, indifferent
+          - simplified: 所谓
+            pinyin: suǒwèi
+            meaning: so-called
+        etymology: |
+          谓 has the speech radical 讠(言, yán) on the left and the phonetic component
+          胃 (wèi, stomach) on the right, providing the sound. Originally meant to speak
+          to someone directly, to address. Extended to "to name, to call something."
+          Traditional 謂 uses the full 言.
+        etymology_example:
+          zh: 无所谓，怎么都行。
+          pinyin: Wúsuǒwèi, zěnme dōu xíng.
+          de: Egal, alles ist mir recht.
+  - type: vocabulary
+    date: "03/16"
+    simplified: 兆
+    traditional: 兆
+    pinyin: zhào
+    english: omen / sign / portent / mega- (prefix)
+    hsk: "6"
+    examples:
+      - zh: 乌云是暴风雨的先兆。
+        pinyin: Wūyún shì bàofēngyǔ de xiānzhào.
+        de: Dunkle Wolken sind ein Vorzeichen des Sturms.
+      - zh: 这是一个好兆头，说明事情会顺利进行。
+        pinyin: Zhè shì yīgè hǎo zhàotou, shuōmíng shìqing huì shùnlì jìnxíng.
+        de: Das ist ein gutes Zeichen — die Dinge werden gut laufen.
+      - zh: 古代人用龟甲占卜，观察兆纹来预测未来。
+        pinyin: Gǔdài rén yòng guījiǎ zhānbǔ, guānchá zhàowén lái yùcè wèilái.
+        de: Menschen der Antike nutzten Schildkrötenpanzer zur Wahrsagerei und deuteten die Rissmuster.
+      - zh: 兆赫是无线电频率的单位。
+        pinyin: Zhàohè shì wúxiàndiàn pínlǜ de dānwèi.
+        de: Megahertz ist eine Einheit der Funkfrequenz.
+    characters:
+      - char: 兆
+        pinyin: zhào
+        hsk: "6"
+        detailed_analysis: true
+        meaning_in_context: omen, sign, portent; mega- prefix for large numbers
+        other_meanings:
+          - "trillion (in traditional Chinese counting)"
+          - "sign, omen (兆头 zhàotou)"
+          - "megahertz (兆赫 zhàohè)"
+        compounds:
+          - simplified: 兆头
+            pinyin: zhàotou
+            meaning: sign, omen
+          - simplified: 先兆
+            pinyin: xiānzhào
+            meaning: precursor, forewarning
+          - simplified: 兆赫
+            pinyin: zhàohè
+            meaning: megahertz
+        etymology: |
+          Oracle bone script depicts the crack patterns on a heated tortoise shell used in
+          divination — the branching lines read as omens. The character literally IS a crack
+          pattern. The radical is 儿 (legs/person) at the bottom. Extended to large numbers
+          (the cracks suggesting countless branching paths) and the prefix mega-. Simplified
+          and traditional forms are identical.
+        etymology_example:
+          zh: 这次考试成绩是个好兆头。
+          pinyin: Zhè cì kǎoshì chéngjì shì gè hǎo zhàotou.
+          de: Das Ergebnis dieser Prüfung ist ein gutes Zeichen.
+  - type: vocabulary
+    date: "03/16"
+    simplified: 繁体字
+    traditional: 繁體字
+    pinyin: fántǐzì
+    english: traditional Chinese characters
+    hsk: "5"
+    examples:
+      - zh: 台湾和香港至今仍使用繁体字。
+        pinyin: Táiwān hé Xiānggǎng zhìjīn réng shǐyòng fántǐzì.
+        de: Taiwan und Hongkong verwenden bis heute traditionelle Schriftzeichen.
+      - zh: 学会繁体字有助于阅读古典文学。
+        pinyin: Xuéhuì fántǐzì yǒuzhù yú yuèdú gǔdiǎn wénxué.
+        de: Das Erlernen traditioneller Schriftzeichen hilft beim Lesen klassischer Literatur.
+      - zh: 简体字是从繁体字简化而来的。
+        pinyin: Jiǎntǐzì shì cóng fántǐzì jiǎnhuà ér lái de.
+        de: Vereinfachte Schriftzeichen wurden aus den traditionellen vereinfacht.
+      - zh: 她能同时读写简体字和繁体字。
+        pinyin: Tā néng tóngshí dú xiě jiǎntǐzì hé fántǐzì.
+        de: Sie kann sowohl vereinfachte als auch traditionelle Zeichen lesen und schreiben.
+    characters:
+      - char: 繁
+        pinyin: fán
+        hsk: "5"
+        detailed_analysis: true
+        meaning_in_context: complex, elaborate, numerous
+        other_meanings:
+          - "to multiply, to flourish"
+          - "troublesome, cumbersome (繁琐 fánsuǒ)"
+          - "繁荣 (fánróng) — prosperous, flourishing"
+        compounds:
+          - simplified: 繁琐
+            pinyin: fánsuǒ
+            meaning: cumbersome, overly complicated
+          - simplified: 繁荣
+            pinyin: fánróng
+            meaning: prosperous, flourishing
+          - simplified: 繁忙
+            pinyin: fánmáng
+            meaning: busy, hectic
+        etymology: |
+          繁 has the silk/thread radical 糸 (mì) at the bottom, suggesting intricacy, and
+          the upper components derived from 每 (měi) with additional strokes evoking a
+          woman's elaborate hairpiece adorned with silk threads — the image of something
+          intricate and complex. Extended to "numerous, elaborate, complicated."
+          Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 这项工作程序繁琐，需要耐心。
+          pinyin: Zhè xiàng gōngzuò chéngxù fánsuǒ, xūyào nàixīn.
+          de: Dieses Verfahren ist umständlich und erfordert Geduld.
+      - char: 体
+        traditional: 體
+        pinyin: tǐ
+        hsk: "3"
+        detailed_analysis: false
+      - char: 字
+        pinyin: zì
+        hsk: "1"
+        detailed_analysis: false
+  - type: vocabulary
+    date: "03/16"
+    simplified: 赞许
+    traditional: 讚許
+    pinyin: zànxǔ
+    english: to approve of / to praise / approbation
+    hsk: "6"
+    examples:
+      - zh: 老师赞许地点了点头。
+        pinyin: Lǎoshī zànxǔ de diǎn le diǎn tóu.
+        de: Die Lehrerin nickte anerkennend.
+      - zh: 他的努力得到了所有人的赞许。
+        pinyin: Tā de nǔlì dédào le suǒyǒu rén de zànxǔ.
+        de: Sein Einsatz fand die Anerkennung aller.
+      - zh: 这幅画赢得了评委的赞许。
+        pinyin: Zhè fú huà yíngdé le píngwěi de zànxǔ.
+        de: Dieses Gemälde erntete die Zustimmung der Jury.
+      - zh: 她的演讲获得了观众热烈的赞许。
+        pinyin: Tā de yǎnjiǎng huòdé le guānzhòng rèliè de zànxǔ.
+        de: Ihre Rede erhielt begeisterte Zustimmung vom Publikum.
+    characters:
+      - char: 赞
+        traditional: 讚
+        pinyin: zàn
+        hsk: "5"
+        detailed_analysis: true
+        meaning_in_context: to praise, to approve
+        other_meanings:
+          - "to support (赞成 zànchéng)"
+          - "to compliment (称赞 chēngzàn)"
+          - "to like on social media (点赞 diǎnzàn)"
+        compounds:
+          - simplified: 赞成
+            pinyin: zànchéng
+            meaning: to agree, to approve
+          - simplified: 称赞
+            pinyin: chēngzàn
+            meaning: to compliment, to praise
+          - simplified: 点赞
+            pinyin: diǎnzàn
+            meaning: to like (social media)
+        etymology: |
+          Simplified 赞 has the cowrie shell/money radical 贝 (bèi) at the bottom, suggesting
+          the value placed on praise, and 兟 (two 先 stacked) above providing the sound.
+          Traditional 讚 uses the speech radical 言 instead, emphasizing verbal praise.
+          The shift from speech to value in the simplification is culturally interesting.
+        etymology_example:
+          zh: 大家都点赞了他的帖子。
+          pinyin: Dàjiā dōu diǎnzàn le tā de tiězi.
+          de: Alle haben seinen Beitrag geliked.
+      - char: 许
+        traditional: 許
+        pinyin: xǔ
+        hsk: "4"
+        detailed_analysis: true
+        meaning_in_context: to permit, to acknowledge
+        other_meanings:
+          - "perhaps (也许 yěxǔ)"
+          - "many (许多 xǔduō)"
+          - "to promise"
+        compounds:
+          - simplified: 也许
+            pinyin: yěxǔ
+            meaning: perhaps, maybe
+          - simplified: 许多
+            pinyin: xǔduō
+            meaning: many, a lot of
+          - simplified: 允许
+            pinyin: yǔnxǔ
+            meaning: to allow, to permit
+        etymology: |
+          许 has the speech radical 讠(言, yán) on the left and the phonetic component
+          午 (wǔ, noon) on the right providing the sound. Originally meant to make a verbal
+          promise or give verbal permission. Extended to approval and acknowledgment.
+          Traditional 許 uses the full 言.
+        etymology_example:
+          zh: 也许明天会下雨。
+          pinyin: Yěxǔ míngtiān huì xià yǔ.
+          de: Vielleicht regnet es morgen.
+  - type: vocabulary
+    date: "03/16"
+    simplified: 随意
+    traditional: 隨意
+    pinyin: suíyì
+    english: as one pleases / freely / casual
+    hsk: "5"
+    examples:
+      - zh: 请随意取用桌上的食物。
+        pinyin: Qǐng suíyì qǔyòng zhuō shàng de shíwù.
+        de: Bitte bedient euch frei am Essen auf dem Tisch.
+      - zh: 她的穿着总是很随意，从不在乎别人的眼光。
+        pinyin: Tā de chuānzhuó zǒng shì hěn suíyì, cóng bù zàihu biérén de yǎnguāng.
+        de: Sie kleidet sich immer sehr locker und kümmert sich nie um den Blick anderer.
+      - zh: 随意涂鸦有助于放松心情。
+        pinyin: Suíyì túyā yǒuzhù yú fàngsōng xīnqíng.
+        de: Freies Kritzeln hilft dabei, den Geist zu entspannen.
+      - zh: 他随意地翻了翻书，没有认真阅读。
+        pinyin: Tā suíyì de fān le fān shū, méiyǒu rènzhēn yuèdú.
+        de: Er blätterte das Buch flüchtig durch, ohne es wirklich zu lesen.
+    characters:
+      - char: 随
+        pinyin: suí
+        hsk: "4"
+        detailed_analysis: false
+        note: bereits analysiert (随笔)
+      - char: 意
+        pinyin: yì
+        hsk: "3"
+        detailed_analysis: false
+  - type: vocabulary
+    date: "03/16"
+    simplified: 晚年
+    traditional: 晚年
+    pinyin: wǎnnián
+    english: one's later years / old age
+    hsk: "5"
+    examples:
+      - zh: 他希望晚年能在乡下安度余生。
+        pinyin: Tā xīwàng wǎnnián néng zài xiāngxià āndù yúshēng.
+        de: Er hofft, seine späten Jahre ruhig auf dem Land verbringen zu können.
+      - zh: 齐白石在晚年创作了许多著名的画作。
+        pinyin: Qí Báishí zài wǎnnián chuàngzuò le xǔduō zhùmíng de huàzuò.
+        de: Qi Baishi schuf in seinen späten Jahren viele berühmte Gemälde.
+      - zh: 晚年生活幸福是很多人的心愿。
+        pinyin: Wǎnnián shēnghuó xìngfú shì hěn duō rén de xīnyuàn.
+        de: Ein glückliches Leben im Alter ist der Wunsch vieler Menschen.
+      - zh: 她在晚年依然保持着对学习的热情。
+        pinyin: Tā zài wǎnnián yīrán bǎochí zhe duì xuéxí de rèqíng.
+        de: Sie bewahrte auch in ihren späten Jahren die Begeisterung fürs Lernen.
+    characters:
+      - char: 晚
+        pinyin: wǎn
+        hsk: "2"
+        detailed_analysis: false
+      - char: 年
+        pinyin: nián
+        hsk: "1"
+        detailed_analysis: false
+  - type: vocabulary
+    date: "03/16"
+    simplified: 顺理成章
+    traditional: 順理成章
+    pinyin: shùnlǐ chéng zhāng
+    english: to follow logically / to be a natural consequence / to fall into place
+    hsk: "6"
+    tag: 成语
+    examples:
+      - zh: 他努力了这么多年，获得成功是顺理成章的事。
+        pinyin: Tā nǔlì le zhème duō nián, huòdé chénggōng shì shùnlǐ chéng zhāng de shì.
+        de: Nach so vielen Jahren harter Arbeit war sein Erfolg eine natürliche Folge.
+      - zh: 两人相爱多年，顺理成章地走进了婚姻。
+        pinyin: Liǎng rén xiāng'ài duō nián, shùnlǐ chéng zhāng de zǒu jìn le hūnyīn.
+        de: Nach vielen Jahren der Liebe heirateten sie ganz selbstverständlich.
+      - zh: 这个结论顺理成章，没有人提出异议。
+        pinyin: Zhège jiélùn shùnlǐ chéng zhāng, méiyǒu rén tíchū yìyì.
+        de: Diese Schlussfolgerung war logisch und niemand widersprach.
+      - zh: 事情发展到这一步，顺理成章地就该做决定了。
+        pinyin: Shìqing fāzhǎn dào zhè yī bù, shùnlǐ chéng zhāng de jiù gāi zuò juédìng le.
+        de: Da die Dinge so weit gediehen sind, ist es der natürliche Schritt, eine Entscheidung zu treffen.
+    characters:
+      - char: 顺
+        traditional: 順
+        pinyin: shùn
+        hsk: "4"
+        detailed_analysis: true
+        meaning_in_context: to follow, to comply with, smooth
+        other_meanings:
+          - "smooth, without obstacles (顺利 shùnlì)"
+          - "to obey (顺从 shùncóng)"
+          - "along, in the direction of (顺着 shùnzhe)"
+        compounds:
+          - simplified: 顺利
+            pinyin: shùnlì
+            meaning: smooth, successful
+          - simplified: 顺从
+            pinyin: shùncóng
+            meaning: to obey, to comply
+          - simplified: 顺口
+            pinyin: shùnkǒu
+            meaning: to roll off the tongue
+        etymology: |
+          Traditional 順 depicts a river (川) beside a head (頁/页) — the image of going
+          with the flow, following the current without resistance. Simplified 顺 keeps
+          the head radical 页 on the right. Extended to compliance, smoothness, and
+          natural progression.
+        etymology_example:
+          zh: 一切都很顺利，没有遇到任何困难。
+          pinyin: Yīqiē dōu hěn shùnlì, méiyǒu yùdào rènhé kùnnán.
+          de: Alles lief reibungslos — keinerlei Schwierigkeiten.
+      - char: 理
+        pinyin: lǐ
+        hsk: "4"
+        detailed_analysis: false
+      - char: 成
+        pinyin: chéng
+        hsk: "3"
+        detailed_analysis: false
+        note: bereits analysiert
+      - char: 章
+        pinyin: zhāng
+        hsk: "4"
+        detailed_analysis: true
+        meaning_in_context: chapter, composition, pattern
+        other_meanings:
+          - "seal, stamp (印章 yìnzhāng)"
+          - "rules, regulations (章程 zhāngchéng)"
+          - "badge, emblem (徽章 huīzhāng)"
+        compounds:
+          - simplified: 文章
+            pinyin: wénzhāng
+            meaning: essay, article
+          - simplified: 印章
+            pinyin: yìnzhāng
+            meaning: seal, stamp
+          - simplified: 章程
+            pinyin: zhāngchéng
+            meaning: rules, constitution
+        etymology: |
+          章 combines 立 (lì, to stand) on top and 早 (zǎo, early/sun above plant) below.
+          Originally depicted a completed musical piece — ten sections constituting one
+          full chapter. Extended to any structured composition, chapter, pattern, or
+          formal rule. Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 这本书共有十二章。
+          pinyin: Zhè běn shū gòng yǒu shí'èr zhāng.
+          de: Dieses Buch hat insgesamt zwölf Kapitel.
+  - type: vocabulary
+    date: "03/16"
+    simplified: 落空
+    traditional: 落空
+    pinyin: luòkōng
+    english: to come to nothing / to fall through / to fail to materialize
+    hsk: "6"
+    examples:
+      - zh: 他的计划因为资金不足而落空了。
+        pinyin: Tā de jìhuà yīnwèi zījīn bùzú ér luòkōng le.
+        de: Sein Plan scheiterte mangels Finanzierung.
+      - zh: 她等了一整天，最终希望落空。
+        pinyin: Tā děng le yī zhěng tiān, zuìzhōng xīwàng luòkōng.
+        de: Sie wartete den ganzen Tag — am Ende war die Hoffnung vergebens.
+      - zh: 这次谈判落空了，双方未能达成协议。
+        pinyin: Zhè cì tánpàn luòkōng le, shuāngfāng wèi néng dáchéng xiéyì.
+        de: Die Verhandlungen scheiterten — beide Seiten konnten sich nicht einigen.
+      - zh: 别让你的梦想落空，要坚持努力。
+        pinyin: Bié ràng nǐ de mèngxiǎng luòkōng, yào jiānchí nǔlì.
+        de: Lass deine Träume nicht scheitern — bleib dran.
+    characters:
+      - char: 落
+        pinyin: luò
+        hsk: "4"
+        detailed_analysis: true
+        meaning_in_context: to fall, to drop (into emptiness → to fail)
+        other_meanings:
+          - "to fall behind (落后 luòhòu)"
+          - "village, settlement (村落 cūnluò)"
+          - "to settle, to land (落定 luòdìng)"
+        compounds:
+          - simplified: 落后
+            pinyin: luòhòu
+            meaning: to fall behind, backward
+          - simplified: 村落
+            pinyin: cūnluò
+            meaning: village, settlement
+          - simplified: 降落
+            pinyin: jiànluò
+            meaning: to land, to descend
+        etymology: |
+          落 has the grass/plant radical 艹 at the top and the phonetic component 洛 (luò,
+          a river name) below, providing the sound. Depicts leaves falling from a plant —
+          the natural downward motion. Extended to anything that drops or fails to land
+          as intended. Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 秋天树叶纷纷落下。
+          pinyin: Qiūtiān shùyè fēnfēn luòxia.
+          de: Im Herbst fallen die Blätter einer nach dem anderen.
+      - char: 空
+        pinyin: kōng
+        hsk: "3"
+        detailed_analysis: false
+  - type: vocabulary
+    date: "03/16"
+    simplified: 堂
+    traditional: 堂
+    pinyin: táng
+    english: hall / main room / measure word for lessons
+    hsk: "4"
+    examples:
+      - zh: 他们在礼堂举行了毕业典礼。
+        pinyin: Tāmen zài lǐtáng jǔxíng le bìyè diǎnlǐ.
+        de: Sie hielten die Abschlussfeier in der Aula ab.
+      - zh: 今天上了三堂课，很累。
+        pinyin: Jīntiān shàng le sān táng kè, hěn lèi.
+        de: Heute hatte ich drei Unterrichtsstunden — ich bin sehr müde.
+      - zh: 堂兄弟是指同祖父的兄弟。
+        pinyin: Táng xiōngdì shì zhǐ tóng zǔfù de xiōngdì.
+        de: 堂兄弟 bezeichnet Cousins mit demselben Großvater.
+      - zh: 正堂上坐着一位长者。
+        pinyin: Zhèng táng shàng zuò zhe yī wèi zhǎngzhě.
+        de: In der Haupthalle saß ein Ältester.
+    characters:
+      - char: 堂
+        pinyin: táng
+        hsk: "4"
+        detailed_analysis: true
+        meaning_in_context: hall, main room; measure word for lessons
+        other_meanings:
+          - "paternal cousins (堂兄 táng xiōng)"
+          - "open and dignified (堂堂 tángtáng)"
+          - "ceremonial hall (礼堂 lǐtáng)"
+        compounds:
+          - simplified: 礼堂
+            pinyin: lǐtáng
+            meaning: auditorium, ceremonial hall
+          - simplified: 课堂
+            pinyin: kètáng
+            meaning: classroom
+          - simplified: 堂堂
+            pinyin: tángtáng
+            meaning: dignified, imposing
+        note: |
+          堂 functions as a measure word for lessons/classes: 一堂课 (yī táng kè) = one lesson.
+          Also used for paternal-side cousins: 堂兄 (older male cousin), 堂妹 (younger female cousin).
+        etymology: |
+          堂 has the earth/ground radical 土 (tǔ) at the bottom, indicating a structure built
+          on the ground, and the phonetic component 尚 (shàng, to esteem/above) on top,
+          providing the sound and hinting at something elevated and respected. An elevated,
+          respected building on the ground — the main hall. Simplified and traditional forms
+          are identical.
+        etymology_example:
+          zh: 正堂上坐着一位长者。
+          pinyin: Zhèng táng shàng zuò zhe yī wèi zhǎngzhě.
+          de: In der Haupthalle saß ein Ältester.
+  - type: vocabulary
+    date: "03/16"
+    simplified: 学名
+    traditional: 學名
+    pinyin: xuémíng
+    english: scientific name / formal name / Latin name
+    hsk: "5"
+    examples:
+      - zh: 熊猫的学名是"Ailuropoda melanoleuca"。
+        pinyin: Xióngmāo de xuémíng shì "Ailuropoda melanoleuca".
+        de: Der wissenschaftliche Name des Pandas ist „Ailuropoda melanoleuca".
+      - zh: 学名通常用拉丁文表示。
+        pinyin: Xuémíng tōngcháng yòng lādīngwén biǎoshì.
+        de: Wissenschaftliche Namen werden gewöhnlich auf Latein angegeben.
+      - zh: 这种植物的学名很长，一般人很难记住。
+        pinyin: Zhè zhǒng zhíwù de xuémíng hěn cháng, yībān rén hěn nán jìzhù.
+        de: Der wissenschaftliche Name dieser Pflanze ist sehr lang — die meisten können ihn sich kaum merken.
+      - zh: 老师让我们查出十种鸟类的学名。
+        pinyin: Lǎoshī ràng wǒmen chá chū shí zhǒng niǎolèi de xuémíng.
+        de: Der Lehrer ließ uns die wissenschaftlichen Namen von zehn Vogelarten heraussuchen.
+    characters:
+      - char: 学
+        traditional: 學
+        pinyin: xué
+        hsk: "1"
+        detailed_analysis: false
+      - char: 名
+        pinyin: míng
+        hsk: "2"
+        detailed_analysis: false
+  - type: vocabulary
+    date: "03/16"
+    simplified: 小名
+    traditional: 小名
+    pinyin: xiǎomíng
+    english: pet name / childhood nickname
+    hsk: "4"
+    examples:
+      - zh: 他的小名叫"毛毛"，只有家人这样叫他。
+        pinyin: Tā de xiǎomíng jiào "Máomao", zhǐyǒu jiārén zhèyàng jiào tā.
+        de: Sein Spitzname ist „Maomao" — nur die Familie nennt ihn so.
+      - zh: 在中国，给孩子起小名是一种传统。
+        pinyin: Zài Zhōngguó, gěi háizi qǐ xiǎomíng shì yī zhǒng chuántǒng.
+        de: In China ist es Tradition, Kindern einen Kosenamen zu geben.
+      - zh: 她的小名是"豆豆"，因为她小时候特别爱吃豆子。
+        pinyin: Tā de xiǎomíng shì "Dòudou", yīnwèi tā xiǎoshíhou tèbié ài chī dòuzi.
+        de: Ihr Kosename ist „Doudou", weil sie als Kind besonders gerne Bohnen aß.
+      - zh: 长大后很多人不再用小名，而是用正式名字。
+        pinyin: Zhǎngdà hòu hěn duō rén bù zài yòng xiǎomíng, ér shì yòng zhèngshì míngzì.
+        de: Nach dem Aufwachsen benutzen viele den Kosenamen nicht mehr und verwenden ihren offiziellen Namen.
+    characters:
+      - char: 小
+        pinyin: xiǎo
+        hsk: "1"
+        detailed_analysis: false
+      - char: 名
+        pinyin: míng
+        hsk: "2"
+        detailed_analysis: false
+        note: bereits analysiert (学名)
+  - type: vocabulary
+    date: "03/16"
+    simplified: 顺口
+    traditional: 順口
+    pinyin: shùnkǒu
+    english: to roll off the tongue / catchy / to say casually
+    hsk: "5"
+    examples:
+      - zh: 这个名字很顺口，好记又好听。
+        pinyin: Zhège míngzì hěn shùnkǒu, hǎo jì yòu hǎotīng.
+        de: Dieser Name rollt leicht von der Zunge — leicht zu merken und angenehm klingend.
+      - zh: 他顺口说了一句话，没想到伤了她的心。
+        pinyin: Tā shùnkǒu shuō le yī jù huà, méi xiǎngdào shāng le tā de xīn.
+        de: Er sagte beiläufig etwas, ohne zu ahnen, dass es ihr wehtun würde.
+      - zh: 这首儿歌节奏明快，非常顺口。
+        pinyin: Zhè shǒu érgē jiézòu míngkuài, fēicháng shùnkǒu.
+        de: Dieses Kinderlied hat einen lebhaften Rhythmus und rollt wunderbar von der Zunge.
+      - zh: 起名字时，顺口是一个重要的考虑因素。
+        pinyin: Qǐ míngzì shí, shùnkǒu shì yīgè zhòngyào de kǎolǜ yīnsù.
+        de: Beim Namensgeben ist der Wohlklang ein wichtiger Faktor.
+    characters:
+      - char: 顺
+        pinyin: shùn
+        hsk: "4"
+        detailed_analysis: false
+        note: bereits analysiert (顺理成章)
+      - char: 口
+        pinyin: kǒu
+        hsk: "1"
+        detailed_analysis: false
+  - type: vocabulary
+    date: "03/16"
+    simplified: 奎
+    traditional: 奎
+    pinyin: kuí
+    english: star name (one of the 28 lunar mansions); used in personal names to invoke literary talent
+    hsk: "6"
+    examples:
+      - zh: 奎星是中国传统二十八星宿之一，象征文运。
+        pinyin: Kuí xīng shì Zhōngguó chuántǒng èrshíbā xiùzhī yī, xiàngzhēng wényùn.
+        de: Kui ist eines der traditionellen 28 Mondhäuser Chinas und symbolisiert literarisches Glück.
+      - zh: 他的名字里有个"奎"字，寄托了父母对他学业的期望。
+        pinyin: Tā de míngzì lǐ yǒu gè "kuí" zì, jìtuō le fùmǔ duì tā xuéyè de qīwàng.
+        de: In seinem Namen steht 奎 — ein Ausdruck der Hoffnung seiner Eltern auf seinen akademischen Erfolg.
+      - zh: 古人常以"奎"字命名，希望子女有文采。
+        pinyin: Gǔrén cháng yǐ "kuí" zì mìngmíng, xīwàng zǐnǚ yǒu wéncǎi.
+        de: Die Alten gaben Kindern oft den Namen 奎 in der Hoffnung auf literarisches Talent.
+    characters:
+      - char: 奎
+        pinyin: kuí
+        hsk: "6"
+        detailed_analysis: true
+        meaning_in_context: star name associated with literary talent; used in scholarly names
+        other_meanings:
+          - "one of the 28 lunar mansions (二十八星宿)"
+          - "god of literature (奎星 kuíxīng)"
+        compounds:
+          - simplified: 奎星
+            pinyin: kuíxīng
+            meaning: the star deity of literature
+          - simplified: 奎文阁
+            pinyin: Kuí Wén Gé
+            meaning: Kuiwen Pavilion (in the Confucius Temple, Qufu)
+        etymology: |
+          奎 has 大 (dà, big/great) on top and 圭 (guī, a jade ritual tablet) at the bottom,
+          which also provides the sound. A jade tablet (圭) was a symbol of rank and
+          refinement in ancient China. As one of the 28 lunar mansions, 奎 was associated
+          with the god of literature, making it a prestigious character for scholarly names.
+        etymology_example:
+          zh: 奎文阁是曲阜孔庙中的著名建筑。
+          pinyin: Kuí Wén Gé shì Qūfù Kǒngmiào zhōng de zhùmíng jiànzhù.
+          de: Der Kuiwen-Pavillon ist ein berühmtes Bauwerk im Konfuziustempel in Qufu.
+  - type: vocabulary
+    date: "03/16"
+    simplified: 沫
+    traditional: 沫
+    pinyin: mò
+    english: foam / froth / bubbles / spittle
+    hsk: "6"
+    examples:
+      - zh: 河水拍打礁石，溅起白色泡沫。
+        pinyin: Héshuǐ pāidǎ jiāoshí, jiàn qǐ báisè pàomò.
+        de: Das Flusswasser schlug gegen die Felsen und sprühte weißen Schaum auf.
+      - zh: 他说话时嘴角带着沫子。
+        pinyin: Tā shuōhuà shí zuǐjiǎo dài zhe mòzi.
+        de: Beim Reden hatte er Schaum in den Mundwinkeln.
+      - zh: 相濡以沫是一个描述患难与共的成语。
+        pinyin: Xiāng rú yǐ mò shì yīgè miáoshù huànnàn yǔ gòng de chéngyǔ.
+        de: 相濡以沫 ist ein Chengyu für gegenseitige Unterstützung in schwierigen Zeiten.
+      - zh: 咖啡表面漂浮着细腻的泡沫。
+        pinyin: Kāfēi biǎomiàn piāofú zhe xìnì de pàomò.
+        de: Auf der Oberfläche des Kaffees schwimmt feiner Schaum.
+    characters:
+      - char: 沫
+        pinyin: mò
+        hsk: "6"
+        detailed_analysis: true
+        meaning_in_context: foam, froth, bubbles, spittle
+        other_meanings:
+          - "foam, bubble (泡沫 pàomò)"
+          - "mutual support in hardship (相濡以沫 xiāng rú yǐ mò)"
+        compounds:
+          - simplified: 泡沫
+            pinyin: pàomò
+            meaning: foam, bubble
+          - simplified: 相濡以沫
+            pinyin: xiāng rú yǐ mò
+            meaning: to help each other through hardship (idiom)
+        etymology: |
+          沫 has the water radical 氵(水, shuǐ) on the left, indicating a liquid substance,
+          and the phonetic component 末 (mò, end/tip) on the right, providing both the
+          sound and a sense of smallness at the extremity. Water + tip = the tiny droplets
+          at the very edge of water, i.e. foam and froth. Simplified and traditional forms
+          are identical.
+        etymology_example:
+          zh: 瀑布下方涌起大量白沫。
+          pinyin: Pùbù xiàfāng yǒngqǐ dàliàng bái mò.
+          de: Unterhalb des Wasserfalls quoll mächtiger weißer Schaum auf.
+  - type: vocabulary
+    date: "03/16"
+    simplified: 省事
+    traditional: 省事
+    pinyin: shěngshì
+    english: to save trouble / convenient / to simplify things
+    hsk: "5"
+    examples:
+      - zh: 网购很省事，不用出门就能买到东西。
+        pinyin: Wǎnggòu hěn shěngshì, bùyòng chūmén jiù néng mǎi dào dōngxi.
+        de: Online-Shopping ist bequem — man muss nicht aus dem Haus, um einzukaufen.
+      - zh: 为了省事，她每周日一次性做好一周的饭。
+        pinyin: Wèile shěngshì, tā měi zhōurì yīcìxìng zuò hǎo yī zhōu de fàn.
+        de: Um sich Arbeit zu sparen, kocht sie jeden Sonntag das Essen für die ganze Woche.
+      - zh: 直接告诉他真相最省事。
+        pinyin: Zhíjiē gàosù tā zhēnxiàng zuì shěngshì.
+        de: Am unkompliziertesten ist es, ihm direkt die Wahrheit zu sagen.
+      - zh: 买现成的比自己做省事多了。
+        pinyin: Mǎi xiànchéng de bǐ zìjǐ zuò shěngshì duō le.
+        de: Fertigware zu kaufen ist viel bequemer als selbst zu machen.
+    characters:
+      - char: 省
+        pinyin: shěng
+        hsk: "4"
+        detailed_analysis: true
+        meaning_in_context: to save, to economize (shěng)
+        other_meanings:
+          - "province (shěng — 广东省)"
+          - "to examine oneself (反省 fǎnxǐng — xǐng reading)"
+        compounds:
+          - simplified: 省钱
+            pinyin: shěngqián
+            meaning: to save money
+          - simplified: 反省
+            pinyin: fǎnxǐng
+            meaning: to reflect, to examine oneself
+          - simplified: 省力
+            pinyin: shěnglì
+            meaning: to save effort
+        etymology: |
+          省 has the eye radical 目 (mù) at the bottom and 少 (shǎo, few/little) on top,
+          providing both sound and meaning hint — saving = using less, scrutinizing to
+          reduce. Originally meant to look carefully and eliminate the unnecessary.
+          Extended to saving/economizing and to self-examination (looking inward carefully).
+          Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 出门前要反省自己的行为。
+          pinyin: Chūmén qián yào fǎnxǐng zìjǐ de xíngwéi.
+          de: Bevor man geht, sollte man das eigene Verhalten reflektieren.
+      - char: 事
+        pinyin: shì
+        hsk: "2"
+        detailed_analysis: false
+  - type: vocabulary
+    date: "03/16"
+    simplified: 响亮
+    traditional: 響亮
+    pinyin: xiǎngliàng
+    english: loud and clear / resonant / resounding
+    hsk: "5"
+    examples:
+      - zh: 他的名字响亮，容易被人记住。
+        pinyin: Tā de míngzì xiǎngliàng, róngyì bèi rén jìzhù.
+        de: Sein Name klingt gut und ist leicht zu merken.
+      - zh: 孩子用响亮的声音回答了老师的问题。
+        pinyin: Háizi yòng xiǎngliàng de shēngyīn huídá le lǎoshī de wèntí.
+        de: Das Kind beantwortete die Frage mit klarer, lauter Stimme.
+      - zh: 她的笑声响亮，感染了周围所有人。
+        pinyin: Tā de xiàoshēng xiǎngliàng, gǎnrǎn le zhōuwéi suǒyǒu rén.
+        de: Ihr lautes Lachen steckte alle um sie herum an.
+      - zh: 口号响亮，但行动更重要。
+        pinyin: Kǒuhào xiǎngliàng, dàn xíngdòng gèng zhòngyào.
+        de: Slogans mögen laut klingen, aber Taten sind wichtiger.
+    characters:
+      - char: 响
+        traditional: 響
+        pinyin: xiǎng
+        hsk: "4"
+        detailed_analysis: true
+        meaning_in_context: loud, resounding; to sound, to ring
+        other_meanings:
+          - "sound, noise (声响 shēngxiǎng)"
+          - "to influence (影响 yǐngxiǎng)"
+        compounds:
+          - simplified: 影响
+            pinyin: yǐngxiǎng
+            meaning: influence, to influence
+          - simplified: 声响
+            pinyin: shēngxiǎng
+            meaning: sound, noise
+          - simplified: 响亮
+            pinyin: xiǎngliàng
+            meaning: loud and clear
+        etymology: |
+          Traditional 響 combines 音 (yīn, sound) with the phonetic 鄉 (xiāng, countryside),
+          evoking sound echoing across open land. Simplified 响 reduces to 口 (mouth) + 向
+          (direction), suggesting sound directed outward. Extended to anything resonant
+          or influential.
+        etymology_example:
+          zh: 远处传来响亮的钟声。
+          pinyin: Yuǎnchù chuán lái xiǎngliàng de zhōng shēng.
+          de: Von weitem drang heller Glockenschlag herüber.
+      - char: 亮
+        pinyin: liàng
+        hsk: "3"
+        detailed_analysis: false
+  - type: vocabulary
+    date: "03/16"
+    simplified: 典故
+    traditional: 典故
+    pinyin: diǎngù
+    english: literary allusion / classical reference / historical anecdote
+    hsk: "6"
+    examples:
+      - zh: 这首诗里有很多典故，需要了解历史才能读懂。
+        pinyin: Zhè shǒu shī lǐ yǒu hěn duō diǎngù, xūyào liǎojiě lìshǐ cái néng dú dǒng.
+        de: Dieses Gedicht enthält viele Anspielungen — man muss die Geschichte kennen, um es zu verstehen.
+      - zh: 他说话爱用典故，听起来很有学问。
+        pinyin: Tā shuōhuà ài yòng diǎngù, tīng qǐlái hěn yǒu xuéwèn.
+        de: Er verwendet gerne klassische Anspielungen — das klingt sehr gelehrt.
+      - zh: 了解典故有助于深入理解中国文化。
+        pinyin: Liǎojiě diǎngù yǒuzhù yú shēnrù lǐjiě Zhōngguó wénhuà.
+        de: Klassische Anspielungen zu kennen hilft, die chinesische Kultur tiefer zu verstehen.
+      - zh: 「对牛弹琴」是一个家喻户晓的典故。
+        pinyin: Duì niú tán qín shì yīgè jiā yù hù xiǎo de diǎngù.
+        de: „Jemandem vorspielen, der kein Verständnis dafür hat" ist eine allseits bekannte Anspielung.
+    characters:
+      - char: 典
+        pinyin: diǎn
+        hsk: "5"
+        detailed_analysis: true
+        meaning_in_context: classic, standard, canonical
+        other_meanings:
+          - "ceremony (典礼 diǎnlǐ)"
+          - "dictionary (词典 cídiǎn)"
+          - "to pawn (典当 diǎndàng)"
+        compounds:
+          - simplified: 典礼
+            pinyin: diǎnlǐ
+            meaning: ceremony, celebration
+          - simplified: 词典
+            pinyin: cídiǎn
+            meaning: dictionary
+          - simplified: 经典
+            pinyin: jīngdiǎn
+            meaning: classic, canonical
+        etymology: |
+          典 depicts two hands (八) holding up a book of canonical texts (册, bamboo strips
+          bound together) — the image of something authoritative and classical being elevated
+          and revered. Extended to anything standard, formal, or ceremonially important.
+          Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 这是一场隆重的毕业典礼。
+          pinyin: Zhè shì yī chǎng lóngzhòng de bìyè diǎnlǐ.
+          de: Das war eine feierliche Abschlussfeier.
+      - char: 故
+        pinyin: gù
+        hsk: "4"
+        detailed_analysis: true
+        meaning_in_context: old story, reason, cause (in 典故 — classical story/allusion)
+        other_meanings:
+          - "therefore (故此 gùcǐ)"
+          - "old, former (故乡 gùxiāng — hometown)"
+          - "intentionally (故意 gùyì)"
+        compounds:
+          - simplified: 故意
+            pinyin: gùyì
+            meaning: intentionally, on purpose
+          - simplified: 故乡
+            pinyin: gùxiāng
+            meaning: hometown, birthplace
+          - simplified: 故事
+            pinyin: gùshi
+            meaning: story, tale
+        etymology: |
+          故 has the hand-with-stick radical 攵 (pū) on the right and the phonetic/semantic
+          component 古 (gǔ, old/ancient) on the left, providing both sound and meaning.
+          Doing something in the old/established way: hence "old story, precedent, reason."
+          Extended to "therefore" (because of established precedent) and "intentionally"
+          (acting from prior knowledge). Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 他故意迟到，引起了大家的注意。
+          pinyin: Tā gùyì chídào, yǐnqǐ le dàjiā de zhùyì.
+          de: Er kam absichtlich zu spät und erregte so die Aufmerksamkeit aller.
+  - type: vocabulary
+    date: "03/16"
+    simplified: 谐音
+    traditional: 諧音
+    pinyin: xiéyīn
+    english: homophone / similar-sounding words / phonetic wordplay
+    hsk: "6"
+    examples:
+      - zh: 「4」在中文里是不吉利的数字，因为它的谐音是「死」。
+        pinyin: Sì zài zhōngwén lǐ shì bù jílì de shùzì, yīnwèi tā de xiéyīn shì sǐ.
+        de: „4" gilt im Chinesischen als Unglückszahl, weil es wie „Tod" klingt.
+      - zh: 谐音梗是中文幽默的重要组成部分。
+        pinyin: Xiéyīn gěng shì zhōngwén yōumò de zhòngyào zǔchéng bùfen.
+        de: Lautspielereien sind ein wichtiger Bestandteil des chinesischen Humors.
+      - zh: 结婚送枣、花生、桂圆、莲子，谐音"早生贵子"。
+        pinyin: Jiéhūn sòng zǎo, huāshēng, guìyuán, liánzǐ, xiéyīn "zǎo shēng guìzǐ".
+        de: Zur Hochzeit schenkt man Datteln, Erdnüsse, Longan und Lotussamen — zusammen klingt das wie „bald einen edlen Sohn gebären".
+      - zh: 中国人不喜欢送梨，因为"梨"的谐音是"离"。
+        pinyin: Zhōngguórén bù xǐhuān sòng lí, yīnwèi "lí" de xiéyīn shì "lí".
+        de: Chinesen verschenken keine Birnen, weil 梨 (Birne) wie 离 (Trennung) klingt.
+    characters:
+      - char: 谐
+        traditional: 諧
+        pinyin: xié
+        hsk: "6"
+        detailed_analysis: true
+        meaning_in_context: harmonious, in accord; matching in sound
+        other_meanings:
+          - "humorous (诙谐 huīxié)"
+          - "harmonious (和谐 héxié)"
+        compounds:
+          - simplified: 和谐
+            pinyin: héxié
+            meaning: harmonious, in harmony
+          - simplified: 诙谐
+            pinyin: huīxié
+            meaning: humorous, witty
+        etymology: |
+          谐 has the speech radical 讠(言, yán) on the left and the phonetic component
+          皆 (jiē, all/everyone) on the right, providing the sound. Speech + all/everyone —
+          words that harmonize, that bring things into accord. Extended to wordplay where
+          sounds match across different meanings. Traditional 諧 uses the full 言.
+        etymology_example:
+          zh: 社会和谐是大家共同的愿望。
+          pinyin: Shèhuì héxié shì dàjiā gòngtóng de yuànwàng.
+          de: Gesellschaftliche Harmonie ist der gemeinsame Wunsch aller.
+      - char: 音
+        pinyin: yīn
+        hsk: "4"
+        detailed_analysis: false
+  - type: vocabulary
+    date: "03/16"
+    simplified: 迫不及待
+    traditional: 迫不及待
+    pinyin: pò bù jí dài
+    english: cannot wait / eager / impatient
+    hsk: "5"
+    note: bereits analysiert — Eintrag vom 03/15 enthält die vollständige Analyse aller vier Zeichen.
+  - type: vocabulary
+    date: "03/16"
+    simplified: 囊中羞涩
+    traditional: 囊中羞澀
+    pinyin: náng zhōng xiū sè
+    english: to be short of money / to have an empty purse
+    hsk: "6"
+    tag: 成语
+    examples:
+      - zh: 刚毕业那年，我囊中羞涩，连旅行都负担不起。
+        pinyin: Gāng bìyè nà nián, wǒ náng zhōng xiū sè, lián lǚxíng dōu fùdān bù qǐ.
+        de: Im Jahr nach meinem Abschluss war ich ziemlich knapp bei Kasse — ich konnte mir nicht mal eine Reise leisten.
+      - zh: 囊中羞涩的时候，最能看出谁是真朋友。
+        pinyin: Náng zhōng xiū sè de shíhou, zuì néng kàn chū shéi shì zhēn péngyou.
+        de: Wenn man knapp bei Kasse ist, sieht man am deutlichsten, wer wirklich ein Freund ist.
+      - zh: 他虽然囊中羞涩，却从不向人借钱。
+        pinyin: Tā suīrán náng zhōng xiū sè, què cóng bù xiàng rén jiè qián.
+        de: Obwohl er kaum Geld hatte, lieh er sich nie etwas von anderen.
+      - zh: 这家餐厅价格亲民，适合囊中羞涩的学生。
+        pinyin: Zhè jiā cāntīng jiàgé qīnmín, shìhé náng zhōng xiū sè de xuésheng.
+        de: Dieses Restaurant ist günstig — ideal für Studenten mit schmalem Geldbeutel.
+    characters:
+      - char: 囊
+        pinyin: náng
+        hsk: "6"
+        detailed_analysis: true
+        meaning_in_context: pouch, bag, purse
+        other_meanings:
+          - "capsule (药囊 yào náng)"
+          - "travel bag (行囊 xíngnáng)"
+          - "as easy as taking from a bag (探囊取物 tàn náng qǔ wù)"
+        compounds:
+          - simplified: 行囊
+            pinyin: xíngnáng
+            meaning: travel bag
+          - simplified: 药囊
+            pinyin: yào náng
+            meaning: medicine capsule
+          - simplified: 探囊取物
+            pinyin: tàn náng qǔ wù
+            meaning: as easy as reaching into a bag
+        etymology: |
+          Oracle bone and seal script clearly depict a tied bag with items visible inside —
+          a pure pictograph of a sack. The enclosure radical 囗 (wéi) forms the outer frame.
+          One of the more visually complex characters, retaining much of its original
+          pictographic form. Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 他把所有积蓄装进行囊，踏上了旅途。
+          pinyin: Tā bǎ suǒyǒu jīxù zhuāng jìn xíngnáng, tà shàng le lǚtú.
+          de: Er packte all seine Ersparnisse in den Reisebeutel und machte sich auf den Weg.
+      - char: 中
+        pinyin: zhōng
+        hsk: "1"
+        detailed_analysis: false
+      - char: 羞
+        pinyin: xiū
+        hsk: "5"
+        detailed_analysis: true
+        meaning_in_context: ashamed, embarrassed (the purse is ashamed of its emptiness)
+        other_meanings:
+          - "shy, bashful (害羞 hàixiū)"
+          - "to offer food as a gift (classical)"
+        compounds:
+          - simplified: 害羞
+            pinyin: hàixiū
+            meaning: shy, bashful
+          - simplified: 羞耻
+            pinyin: xiūchǐ
+            meaning: shame, sense of shame
+          - simplified: 羞愧
+            pinyin: xiūkuì
+            meaning: ashamed, abashed
+        etymology: |
+          羞 has the sheep radical 羊 (yáng) on top and 丑 (chǒu, ugly/clumsy) at the bottom,
+          providing approximate sound. Originally depicted offering a sheep as a gift — the
+          feeling of shyness or vulnerability when making an offering. Extended to shame
+          and embarrassment. Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 她害羞地低下了头。
+          pinyin: Tā hàixiū de dī xià le tóu.
+          de: Schüchtern senkte sie den Kopf.
+      - char: 涩
+        traditional: 澀
+        pinyin: sè
+        hsk: "6"
+        detailed_analysis: true
+        meaning_in_context: astringent, rough; (in 羞涩) shy and constrained, inhibited
+        other_meanings:
+          - "rough, awkward (生涩 shēngsè)"
+          - "astringent taste"
+          - "unsmooth, halting"
+        compounds:
+          - simplified: 生涩
+            pinyin: shēngsè
+            meaning: raw, awkward, inexperienced
+          - simplified: 羞涩
+            pinyin: xiūsè
+            meaning: shy and inhibited
+        etymology: |
+          涩 has the water radical 氵(水, shuǐ) suggesting something that doesn't flow
+          smoothly, and the phonetic component 歰 (sè) — an ancient character depicting
+          feet moving with difficulty. Water that doesn't flow freely — hence astringency,
+          roughness, inhibition. In 羞涩, the combination evokes someone stuck, unable
+          to move or speak freely. Traditional 澀 preserves the complex phonetic.
+        etymology_example:
+          zh: 这种水果吃起来有点涩。
+          pinyin: Zhè zhǒng shuǐguǒ chī qǐlái yǒudiǎn sè.
+          de: Diese Frucht schmeckt etwas herb/adstringierend.
+  - type: vocabulary
+    date: "03/16"
+    simplified: 免不了
+    traditional: 免不了
+    pinyin: miǎn bu liǎo
+    english: unavoidable / cannot be avoided / bound to happen
+    hsk: "5"
+    grammar_de: |
+      免不了 ist ein Resultativkomplement (结果补语): 免 (vermeiden) + 不了 (nicht möglich).
+      Struktur: Verb + 不了 = „kann nicht [Verb] werden."
+      Kontrast: 免得了 (miǎn de liǎo) = kann vermieden werden (mit 得 statt 不).
+      Typische Konstruktion: 免不了 + Verb/Adjektiv: 免不了担心 = wird zwangsläufig Sorgen machen.
+    examples:
+      - zh: 长途旅行免不了会累。
+        pinyin: Cháng tú lǚxíng miǎn bu liǎo huì lèi.
+        de: Bei einer langen Reise ist Erschöpfung unvermeidlich.
+      - zh: 犯了错误，免不了要受批评。
+        pinyin: Fàn le cuòwù, miǎn bu liǎo yào shòu pīpíng.
+        de: Wer Fehler macht, wird unweigerlich Kritik ernten.
+      - zh: 初学者免不了会犯一些错误。
+        pinyin: Chūxuézhě miǎn bu liǎo huì fàn yīxiē cuòwù.
+        de: Anfänger werden zwangsläufig einige Fehler machen.
+      - zh: 分离的时候，免不了会有些伤感。
+        pinyin: Fēnlí de shíhou, miǎn bu liǎo huì yǒu xiē shānggǎn.
+        de: Bei einer Trennung lässt sich ein Anflug von Wehmut nicht vermeiden.
+    characters:
+      - char: 免
+        pinyin: miǎn
+        hsk: "4"
+        detailed_analysis: true
+        meaning_in_context: to avoid, to exempt
+        other_meanings:
+          - "free of charge (免费 miǎnfèi)"
+          - "to dismiss from office"
+          - "to be spared"
+        compounds:
+          - simplified: 免费
+            pinyin: miǎnfèi
+            meaning: free of charge
+          - simplified: 避免
+            pinyin: bìmiǎn
+            meaning: to avoid
+          - simplified: 免疫
+            pinyin: miǎnyì
+            meaning: immunity
+        etymology: |
+          免 resembles 兔 (tù, rabbit) without the tail dot — originally depicted a person
+          giving birth, the child slipping free; hence "to escape, to be freed from."
+          The legs radical 儿 at the bottom reinforces the sense of emergence and escape.
+          Extended to exemption, avoidance, and being spared. Simplified and traditional
+          forms are identical.
+        etymology_example:
+          zh: 博物馆今天免费开放。
+          pinyin: Bówùguǎn jīntiān miǎnfèi kāifàng.
+          de: Das Museum hat heute freien Eintritt.
+      - char: 不
+        pinyin: bù
+        hsk: "1"
+        detailed_analysis: false
+        note: bereits analysiert
+      - char: 了
+        pinyin: liǎo
+        hsk: "1"
+        detailed_analysis: false
+  - type: vocabulary
+    date: "03/16"
+    simplified: 货币
+    traditional: 貨幣
+    pinyin: huòbì
+    english: currency / money / coinage
+    hsk: "5"
+    examples:
+      - zh: 欧元是欧洲多国通用的货币。
+        pinyin: Ōuyuán shì Ōuzhōu duō guó tōngyòng de huòbì.
+        de: Der Euro ist die gemeinsame Währung vieler europäischer Länder.
+      - zh: 货币的价值会随着通货膨胀而下降。
+        pinyin: Huòbì de jiàzhí huì suízhe tōnghuò péngzhàng ér xiàjiàng.
+        de: Der Wert einer Währung sinkt mit der Inflation.
+      - zh: 数字货币正在改变全球金融体系。
+        pinyin: Shùzì huòbì zhèngzài gǎibiàn quánqiú jīnróng tǐxì.
+        de: Digitale Währungen verändern gerade das globale Finanzsystem.
+      - zh: 古代中国用贝壳作为最早的货币。
+        pinyin: Gǔdài Zhōngguó yòng bèiké zuòwéi zuìzǎo de huòbì.
+        de: Im alten China wurden Kaurimuscheln als früheste Währung verwendet.
+    characters:
+      - char: 货
+        traditional: 貨
+        pinyin: huò
+        hsk: "4"
+        detailed_analysis: true
+        meaning_in_context: goods, merchandise; currency (in 货币)
+        other_meanings:
+          - "freight (货物 huòwù)"
+          - "to sell (贩货 fànhuò)"
+          - "blockhead, jokingly (笨货 bèn huò)"
+        compounds:
+          - simplified: 货物
+            pinyin: huòwù
+            meaning: goods, freight
+          - simplified: 货币
+            pinyin: huòbì
+            meaning: currency
+          - simplified: 百货
+            pinyin: bǎihuò
+            meaning: general merchandise (百货公司 = department store)
+        etymology: |
+          货 has the cowrie shell/money radical 贝/貝 (bèi) at the bottom, directly tying
+          the character to ancient Chinese commerce, and the phonetic component 化 (huà,
+          to change/transform) on top providing the sound. Goods as things exchanged and
+          transformed through trade. Traditional 貨 preserves the full 貝.
+        etymology_example:
+          zh: 这批货明天就能到达仓库。
+          pinyin: Zhè pī huò míngtiān jiù néng dàodá cāngkù.
+          de: Diese Warenlieferung kommt morgen im Lager an.
+      - char: 币
+        traditional: 幣
+        pinyin: bì
+        hsk: "5"
+        detailed_analysis: true
+        meaning_in_context: coin, currency
+        other_meanings:
+          - "coin (硬币 yìngbì)"
+          - "banknote (纸币 zhǐbì)"
+          - "RMB (人民币 Rénmínbì)"
+        compounds:
+          - simplified: 硬币
+            pinyin: yìngbì
+            meaning: coin
+          - simplified: 纸币
+            pinyin: zhǐbì
+            meaning: banknote
+          - simplified: 人民币
+            pinyin: Rénmínbì
+            meaning: Chinese yuan (RMB)
+        etymology: |
+          币 has the cloth radical 巾 (jīn) at the bottom — cloth was one of the earliest
+          forms of currency in ancient China, with lengths of silk used as payment. The
+          phonetic component 敝 (bì, worn out) provides the sound. Traditional 幣 preserves
+          the full phonetic 敝 above 巾; simplified 币 drastically reduces this. The
+          character literally encodes the history of cloth-as-money.
+        etymology_example:
+          zh: 人民币是中国的法定货币。
+          pinyin: Rénmínbì shì Zhōngguó de fǎdìng huòbì.
+          de: Der Renminbi ist Chinas gesetzliches Zahlungsmittel.
+  - type: vocabulary
+    date: "03/16"
+    simplified: 俗
+    traditional: 俗
+    pinyin: sú
+    english: common / vulgar / worldly / popular / custom
+    hsk: "5"
+    examples:
+      - zh: 这幅画太俗气，不适合挂在客厅。
+        pinyin: Zhè fú huà tài súqì, bù shìhé guà zài kètīng.
+        de: Dieses Gemälde ist zu kitschig — es passt nicht ins Wohnzimmer.
+      - zh: 入乡随俗是与人相处的智慧。
+        pinyin: Rù xiāng suí sú shì yǔ rén xiāngchǔ de zhìhuì.
+        de: „Wenn du in ein Dorf kommst, folge seinen Bräuchen" — das ist die Weisheit im Umgang mit Menschen.
+      - zh: 雅俗共赏的作品才是真正的好作品。
+        pinyin: Yǎ sú gòng shǎng de zuòpǐn cái shì zhēnzhèng de hǎo zuòpǐn.
+        de: Ein wirklich gutes Werk ist eines, das sowohl Gebildete als auch einfache Menschen schätzen.
+      - zh: 他说话很通俗易懂，老百姓都喜欢听。
+        pinyin: Tā shuōhuà hěn tōngsú yì dǒng, lǎobǎixìng dōu xǐhuān tīng.
+        de: Er spricht verständlich und volksnah — die einfachen Leute hören ihm gerne zu.
+    characters:
+      - char: 俗
+        pinyin: sú
+        hsk: "5"
+        detailed_analysis: true
+        meaning_in_context: common, popular, worldly; vulgar, kitsch
+        other_meanings:
+          - "custom, convention (风俗 fēngsú)"
+          - "colloquial, accessible (通俗 tōngsú)"
+          - "secular, worldly (世俗 shìsú)"
+        compounds:
+          - simplified: 风俗
+            pinyin: fēngsú
+            meaning: custom, folk tradition
+          - simplified: 通俗
+            pinyin: tōngsú
+            meaning: popular, accessible, colloquial
+          - simplified: 世俗
+            pinyin: shìsú
+            meaning: secular, worldly
+          - simplified: 俗气
+            pinyin: súqì
+            meaning: vulgar, kitsch, tasteless
+        etymology: |
+          俗 has the person radical 亻(人, rén) on the left and the phonetic component
+          谷 (gǔ, valley) on the right, providing the sound. The valley is where common
+          people live, as opposed to the mountain where sages retreat — a subtle social
+          geography encoded in the character. Hence "of the common people, worldly,
+          conventional." Extended to "vulgar" when contrasted with refinement (雅 yǎ).
+          Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 各地都有自己的风俗习惯。
+          pinyin: Gèdì dōu yǒu zìjǐ de fēngsú xíguàn.
+          de: Jede Region hat ihre eigenen Sitten und Bräuche.
+  - type: vocabulary
+    date: "03/16"
+    simplified: 类似
+    traditional: 類似
+    pinyin: lèisì
+    english: similar / analogous / of the same type
+    hsk: "5"
+    examples:
+      - zh: 这两种语言有很多类似的地方。
+        pinyin: Zhè liǎng zhǒng yǔyán yǒu hěn duō lèisì de dìfang.
+        de: Diese beiden Sprachen haben viele Gemeinsamkeiten.
+      - zh: 类似的情况在历史上曾多次发生。
+        pinyin: Lèisì de qíngkuàng zài lìshǐ shàng céng duō cì fāshēng.
+        de: Ähnliche Situationen haben sich in der Geschichte mehrfach ereignet.
+      - zh: 他的想法和我的非常类似。
+        pinyin: Tā de xiǎngfǎ hé wǒ de fēicháng lèisì.
+        de: Seine Gedanken sind meinen sehr ähnlich.
+      - zh: 我们可以用类似的方法解决这个问题。
+        pinyin: Wǒmen kěyǐ yòng lèisì de fāngfǎ jiějué zhège wèntí.
+        de: Wir können dieses Problem mit einer ähnlichen Methode lösen.
+    characters:
+      - char: 类
+        traditional: 類
+        pinyin: lèi
+        hsk: "4"
+        detailed_analysis: true
+        meaning_in_context: category, type, kind (in 类似 — of a similar type)
+        other_meanings:
+          - "human race (人类 rénlèi)"
+          - "various kinds (各类 gèlèi)"
+          - "to classify"
+        compounds:
+          - simplified: 人类
+            pinyin: rénlèi
+            meaning: humankind
+          - simplified: 各类
+            pinyin: gèlèi
+            meaning: various kinds
+          - simplified: 分类
+            pinyin: fēnlèi
+            meaning: to classify, to categorize
+        etymology: |
+          Traditional 類 combines 頁 (head), 犬 (dog), and 米 (grain/rice) — originally
+          depicted sorting grain by type, the dog helping to separate categories. The idea
+          of things belonging together in a group. Simplified 类 reduces this significantly,
+          retaining 米 at the bottom. Extended to any category or classification.
+        etymology_example:
+          zh: 人类应该保护濒危动物。
+          pinyin: Rénlèi yīnggāi bǎohù bīn wēi dòngwù.
+          de: Die Menschheit sollte bedrohte Tierarten schützen.
+      - char: 似
+        pinyin: sì
+        hsk: "4"
+        detailed_analysis: true
+        meaning_in_context: to resemble, to be similar to
+        other_meanings:
+          - "seemingly, as if (似乎 sìhū)"
+          - "similar (相似 xiāngsì)"
+          - "colloquial: like (似的 shìde)"
+        compounds:
+          - simplified: 似乎
+            pinyin: sìhū
+            meaning: seemingly, as if
+          - simplified: 相似
+            pinyin: xiāngsì
+            meaning: similar, alike
+          - simplified: 类似
+            pinyin: lèisì
+            meaning: similar, analogous
+        etymology: |
+          似 has the person radical 亻(人, rén) on the left and the phonetic component
+          以 (yǐ, by means of) on the right providing approximate sound. Originally depicted
+          one person resembling another. Extended to any form of resemblance or similarity.
+          The reading shì appears in colloquial 似的 (shìde, like/as if). Simplified and
+          traditional forms are identical.
+        etymology_example:
+          zh: 他似乎知道发生了什么。
+          pinyin: Tā sìhū zhīdào fāshēng le shénme.
+          de: Er schien zu wissen, was passiert war.
