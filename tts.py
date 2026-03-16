@@ -77,9 +77,14 @@ _playback_lock = threading.Lock()
 
 
 def speak(text: str) -> None:
-    """Play audio, killing any ongoing playback first."""
+    """Play audio, killing any ongoing playback first (fire-and-forget)."""
     threading.Thread(target=lambda: asyncio.run(_play(text)),
                      daemon=True).start()
+
+
+def speak_sync(text: str) -> None:
+    """Play audio and block until playback is complete."""
+    asyncio.run(_play(text))
 
 
 async def _play(text: str) -> None:

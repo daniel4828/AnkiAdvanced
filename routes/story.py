@@ -97,7 +97,7 @@ def regenerate_story(deck_id: int, category: str):
 @router.post("/api/speak")
 def speak(text: str):
     try:
-        tts.speak(text)
+        tts.speak_sync(text)
     except Exception:
         pass
     return {"ok": True}
