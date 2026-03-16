@@ -15,11 +15,13 @@ import anthropic
 logger = logging.getLogger(__name__)
 
 
-def generate_story(cards: list[dict]) -> list[dict]:
+def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2) -> list[dict]:
     """
     Generate a short Mandarin story using Haiku, one sentence per card.
 
-    cards: list of dicts with keys word_id, word_zh, pinyin, definition, pos
+    cards:   list of dicts with keys word_id, word_zh, pinyin, definition, pos
+    topic:   optional theme/setting to guide the story
+    max_hsk: maximum HSK level for non-target background vocabulary (1-6)
     Returns: list of {word_id, sentence_zh, sentence_en} — same length as cards.
     Returns [] immediately if cards is empty (no API call made).
     """
@@ -34,6 +36,8 @@ def generate_story(cards: list[dict]) -> list[dict]:
         for i, c in enumerate(cards)
     )
 
+    topic_line = f"- The story should be set around this topic or theme: {topic}\n" if topic else ""
+
     prompt = f"""Write a short Mandarin Chinese story to help an HSK 4-5 learner review vocabulary.
 
 Target words — write exactly one sentence per word, in this order:
@@ -44,8 +48,9 @@ Rules:
 - Each sentence must naturally contain the corresponding target word
 - Each sentence must be ≤15 Chinese characters
 - Use proper Chinese punctuation — include commas（，）where natural pauses occur
-- Use only HSK 1-2 vocabulary for non-target words
-- The sentences must form a coherent narrative with the same recurring characters
+- Use only HSK 1-{max_hsk} vocabulary for non-target words
+{topic_line}- The sentences must form a coherent narrative with the same recurring characters
+- NEVER use ASCII double-quote characters (") inside Chinese sentences — use 「」or （）instead if quoting is needed
 - Return ONLY valid JSON, no explanation, no markdown:
 [
   {{"word_id": <integer>, "sentence_zh": "<Chinese sentence>", "sentence_en": "<English translation>"}},
@@ -60,14 +65,14 @@ Rules:
     max_tokens = len(cards) * 150 + 200
 
     message = client.messages.create(
-        model="claude-haiku-4-5-20251001",
+        model="claude-sonnet-4-6",
         max_tokens=max_tokens,
         messages=[{"role": "user", "content": prompt}],
     )
 
     raw = message.content[0].text.strip()
     logger.debug("Raw response (%d chars, stop=%s):\n%s",
-                 len(raw), message.stop_reason, raw)
+                len(raw), message.stop_reason, raw)
 
     if message.stop_reason == "max_tokens":
         logger.warning("Response truncated — increase max_tokens (was %d)", max_tokens)

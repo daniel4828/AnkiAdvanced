@@ -432,13 +432,30 @@ async function startReview(id, cat, name) {
   deckId   = id;
   category = cat;
   deckName = name;
-  setLoading('Generating your story…');
 
   try {
-    // Fetch story and first card in parallel — story may take several seconds
+    const { count, has_story } = await api('GET', `/api/story/${deckId}/${category}/count`);
+    if (has_story) {
+      // Story already exists for today — start directly
+      await _doStartReview(null, 2);
+    } else {
+      // No story yet — show setup modal first
+      await openStorySetup(count);
+    }
+  } catch (e) {
+    showError('Failed to start session: ' + e.message);
+    showView('decks');
+    return;
+  }
+}
+
+async function _doStartReview(topic, maxHsk) {
+  setLoading('Generating your story…');
+  try {
+    const storyUrl = `/api/story/${deckId}/${category}` + _storyParams(topic, maxHsk);
     const [todayData, storyData] = await Promise.all([
       api('GET', `/api/today/${deckId}/${category}`),
-      api('GET', `/api/story/${deckId}/${category}`),
+      api('GET', storyUrl),
     ]);
 
     story = storyData;
@@ -448,11 +465,10 @@ async function startReview(id, cat, name) {
       return;
     }
 
-    // Preload ALL sentence audio — wait for it so first play is instant
     document.getElementById('loading-msg').textContent = 'Loading audio…';
     try {
       await fetch(`/api/preload-session/${deckId}/${category}`, { method: 'POST' });
-    } catch (_) {}  // TTS failure must never block the review session
+    } catch (_) {}
 
     showView('review');
     loadCard(todayData.card, todayData.counts);
@@ -460,6 +476,14 @@ async function startReview(id, cat, name) {
     showError('Failed to start session: ' + e.message);
     showView('decks');
   }
+}
+
+function _storyParams(topic, maxHsk) {
+  const p = new URLSearchParams();
+  if (topic)        p.set('topic', topic);
+  if (maxHsk !== 2) p.set('max_hsk', maxHsk);
+  const s = p.toString();
+  return s ? '?' + s : '';
 }
 
 // ── Start mixed (all-category) review session ────────────────────────────────
@@ -805,6 +829,49 @@ async function togglePinyin() {
   btn.classList.add('active');
 }
 
+// ── Story setup modal ────────────────────────────────────────────────────────
+let _setupResolve = null;
+let _setupIsRegen = false;
+
+function openStorySetup(sentenceCount) {
+  _setupIsRegen = !!card; // card exists → we're regenerating, not starting fresh
+  document.getElementById('setup-count-label').textContent =
+    `This story will have ${sentenceCount} sentence${sentenceCount !== 1 ? 's' : ''}.`;
+  document.getElementById('setup-topic').value = '';
+  document.getElementById('setup-hsk-slider').value = 2;
+  updateHskLabel();
+  document.getElementById('setup-modal-overlay').style.display = 'block';
+  document.getElementById('setup-modal').style.display        = 'flex';
+  document.getElementById('setup-topic').focus();
+  return new Promise((resolve, reject) => { _setupResolve = resolve; });
+}
+
+function updateHskLabel() {
+  const v = document.getElementById('setup-hsk-slider').value;
+  document.getElementById('setup-hsk-badge').textContent = `HSK ${v}`;
+}
+
+function confirmStorySetup() {
+  const topic  = document.getElementById('setup-topic').value.trim() || null;
+  const maxHsk = parseInt(document.getElementById('setup-hsk-slider').value, 10);
+  _closeSetupModal();
+  if (_setupIsRegen) {
+    _doRegenerateStory(topic, maxHsk);
+  } else {
+    _doStartReview(topic, maxHsk);
+  }
+}
+
+function cancelStorySetup() {
+  _closeSetupModal();
+  if (!_setupIsRegen) showView('decks');
+}
+
+function _closeSetupModal() {
+  document.getElementById('setup-modal-overlay').style.display = 'none';
+  document.getElementById('setup-modal').style.display        = 'none';
+}
+
 // ── Story modal ───────────────────────────────────────────────────────────────
 function openStoryModal() {
   if (!story?.sentences?.length) return;
@@ -928,12 +995,20 @@ async function playSentence() {
 
 // ── Regenerate story ─────────────────────────────────────────────────────────
 async function regenerateStory() {
+  // Show setup modal before regenerating
+  const count = story?.sentences?.length ?? 0;
+  try {
+    await openStorySetup(count);
+  } catch (_) {
+    showView('review');
+  }
+}
+
+async function _doRegenerateStory(topic, maxHsk) {
   setLoading('Regenerating story…');
   try {
-    story = await api('POST', `/api/story/${deckId}/${category}/regenerate`);
-    // Re-find sentence for the current card in the new story
+    story = await api('POST', `/api/story/${deckId}/${category}/regenerate` + _storyParams(topic, maxHsk));
     sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
-    // Preload audio for the new story
     try {
       await fetch(`/api/preload-session/${deckId}/${category}`, { method: 'POST' });
     } catch (_) {}
