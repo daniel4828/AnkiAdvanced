@@ -565,6 +565,41 @@ function showFront() {
   document.getElementById('reveal-btn').textContent = isCreating ? 'Check Answer' : 'Show Answer';
 }
 
+// ── Answer diff (creating category) ─────────────────────────────────────────
+function diffAnswer(userInput, correct, wordZh) {
+  if (!userInput) return { html: '(no answer)', pct: 0, bar: '░'.repeat(10) };
+
+  const userChars = [...userInput];
+  const corrChars = correct ? [...correct] : [];
+
+  // Find where the target word starts in the user's input
+  const wordIdx = userInput.indexOf(wordZh);
+  const wordLen = [...wordZh].length;
+
+  // Count character-level matches against correct sentence
+  const hanzi = /[\u4e00-\u9fff\u3400-\u4dbf]/;
+  let matched = 0, total = 0;
+  corrChars.forEach((ch, i) => {
+    if (hanzi.test(ch)) {
+      total++;
+      if (userChars[i] === ch) matched++;
+    }
+  });
+  const pct = total > 0 ? Math.round((matched / total) * 100) : 0;
+  const filled = Math.round(pct / 10);
+  const bar = '▓'.repeat(filled) + '░'.repeat(10 - filled);
+
+  // Build per-character HTML
+  const html = userChars.map((ch, i) => {
+    const inWord = wordIdx >= 0 && i >= wordIdx && i < wordIdx + wordLen;
+    if (inWord) return `<span class="ch-target">${ch}</span>`;
+    if (corrChars[i] === ch) return `<span class="ch-match">${ch}</span>`;
+    return `<span class="ch-miss">${ch}</span>`;
+  }).join('');
+
+  return { html, pct, bar };
+}
+
 // ── Back of card ────────────────────────────────────────────────────────────
 function revealAnswer() {
   const isCreating = category === 'creating';
@@ -583,8 +618,17 @@ function revealAnswer() {
     // Show answer comparison block; hide normal sentence row
     document.getElementById('creating-answer-section').style.display = 'flex';
     document.getElementById('sentence-row-back').style.display = 'none';
-    document.getElementById('user-answer-text').textContent   = userInput || '(no answer)';
-    document.getElementById('correct-answer-text').innerHTML  = renderSentence();
+    const { html: userHtml, pct, bar } = diffAnswer(userInput, sentence?.sentence_zh, card.word_zh);
+    document.getElementById('user-answer-text').innerHTML = userHtml;
+    const matchBar = document.getElementById('answer-match-bar');
+    if (sentence && userInput) {
+      const color = pct >= 80 ? 'var(--good)' : pct >= 50 ? 'var(--hard)' : 'var(--again)';
+      matchBar.innerHTML = `<span class="match-bar" style="color:${color}">${bar} ${pct}%</span>`;
+      matchBar.style.display = 'block';
+    } else {
+      matchBar.style.display = 'none';
+    }
+    document.getElementById('correct-answer-text').innerHTML = renderSentence();
   } else {
     document.getElementById('creating-answer-section').style.display = 'none';
     document.getElementById('sentence-row-back').style.display = 'flex';
