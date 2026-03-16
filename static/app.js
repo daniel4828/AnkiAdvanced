@@ -433,10 +433,15 @@ async function startReview(id, cat, name) {
   category = cat;
   deckName = name;
 
-  // Show setup modal before generating
   try {
-    const { count } = await api('GET', `/api/story/${deckId}/${category}/count`);
-    await openStorySetup(count);
+    const { count, has_story } = await api('GET', `/api/story/${deckId}/${category}/count`);
+    if (has_story) {
+      // Story already exists for today — start directly
+      await _doStartReview(null, 2);
+    } else {
+      // No story yet — show setup modal first
+      await openStorySetup(count);
+    }
   } catch (e) {
     showError('Failed to start session: ' + e.message);
     showView('decks');

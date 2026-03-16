@@ -103,9 +103,11 @@ def regenerate_story(deck_id: int, category: str,
 
 @router.get("/api/story/{deck_id}/{category}/count")
 def story_count(deck_id: int, category: str):
-    """Return how many sentences the next story will have."""
+    """Return sentence count and whether a cached story already exists today."""
+    today = date.today().isoformat()
+    has_story = database.get_active_story(today, category, deck_id) is not None
     cards = _get_cards_for_story(deck_id, category)
-    return {"count": len(cards)}
+    return {"count": len(cards), "has_story": has_story}
 
 
 @router.post("/api/speak")
