@@ -456,13 +456,14 @@ main {
   flex-shrink: 0;
 }
 
-/* ── Category pill buttons on deck rows (inline) ────── */
-.cat-pills-inline {
+/* ── Category pill buttons on deck rows (second line) ── */
+.tree-row { flex-wrap: wrap; }
+.cat-pills-row {
+  width: 100%;
   display: flex;
   gap: 4px;
-  margin-left: auto;
-  margin-right: 4px;
-  flex-shrink: 0;
+  padding-left: 22px;
+  padding-bottom: 4px;
 }
 .cat-pill {
   display: flex;
