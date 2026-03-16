@@ -517,7 +517,13 @@ function loadCard(c, counts) {
   // Preload full word details for the back side (local DB — near-instant)
   fetch(`/api/word/${c.word_id}`)
     .then(r => r.ok ? r.json() : null)
-    .then(d => { wordDetails = d; })
+    .then(d => {
+      wordDetails = d;
+      // If back is already showing (user flipped before fetch completed), re-render
+      if (document.getElementById('side-back').style.display !== 'none') {
+        renderVocabDetail();
+      }
+    })
     .catch(() => {});
 
   showFront();
