@@ -657,23 +657,30 @@ function revealAnswer() {
 }
 
 // ── Populate vocab detail (chars + examples) ────────────────────────────────
+function toggleSection(id) {
+  const body = document.getElementById(id);
+  const arrow = document.getElementById(id + '-arrow');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  arrow.textContent = open ? '▶' : '▼';
+}
+
 function renderVocabDetail() {
   // Characters
   const chars = wordDetails?.characters || [];
   const charSection = document.getElementById('char-section');
   if (chars.length > 0) {
+    const rows = chars.map(c => {
+      let right = '';
+      if (c.pinyin)             right += `<div class="char-row-pin">${c.pinyin}</div>`;
+      if (c.meaning_in_context) right += `<div class="char-row-info">${c.meaning_in_context}</div>`;
+      if (c.etymology)          right += `<div class="char-row-etym">${c.etymology}</div>`;
+      return `<div class="char-row"><div class="char-row-zh">${c.char}</div><div class="char-row-right">${right}</div></div>`;
+    }).join('');
     charSection.innerHTML =
-      `<div class="section-label">Characters</div>` +
-      chars.map(c => {
-        let right = '';
-        if (c.pinyin)             right += `<div class="char-row-pin">${c.pinyin}</div>`;
-        if (c.meaning_in_context) right += `<div class="char-row-info">${c.meaning_in_context}</div>`;
-        if (c.etymology)          right += `<div class="char-row-etym">${c.etymology}</div>`;
-        return `<div class="char-row">` +
-               `<div class="char-row-zh">${c.char}</div>` +
-               `<div class="char-row-right">${right}</div>` +
-               `</div>`;
-      }).join('');
+      `<div class="section-label section-toggle" onclick="toggleSection('char-section-body')">` +
+        `<span id="char-section-body-arrow">▶</span> Characters</div>` +
+      `<div id="char-section-body" style="display:none">${rows}</div>`;
   } else {
     charSection.innerHTML = '';
   }
@@ -682,16 +689,18 @@ function renderVocabDetail() {
   const examples = wordDetails?.examples || [];
   const exSection = document.getElementById('examples-section');
   if (examples.length > 0) {
+    const items = examples.map(ex => {
+      let html = `<div class="example-item">`;
+      html += `<div class="example-zh">${ex.example_zh || ''}</div>`;
+      if (ex.example_pinyin) html += `<div class="example-pin">${ex.example_pinyin}</div>`;
+      if (ex.example_de)     html += `<div class="example-de">${ex.example_de}</div>`;
+      html += `</div>`;
+      return html;
+    }).join('');
     exSection.innerHTML =
-      `<div class="section-label">Examples</div>` +
-      examples.map(ex => {
-        let html = `<div class="example-item">`;
-        html += `<div class="example-zh">${ex.example_zh || ''}</div>`;
-        if (ex.example_pinyin) html += `<div class="example-pin">${ex.example_pinyin}</div>`;
-        if (ex.example_de)     html += `<div class="example-de">${ex.example_de}</div>`;
-        html += `</div>`;
-        return html;
-      }).join('');
+      `<div class="section-label section-toggle" onclick="toggleSection('ex-section-body')">` +
+        `<span id="ex-section-body-arrow">▶</span> Examples</div>` +
+      `<div id="ex-section-body" style="display:none">${items}</div>`;
   } else {
     exSection.innerHTML = '';
   }

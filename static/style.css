@@ -315,6 +315,11 @@ main {
   color: var(--muted);
   margin: 14px 0 8px;
 }
+.section-toggle {
+  cursor: pointer;
+  user-select: none;
+}
+.section-toggle:hover { color: var(--primary); }
 
 /* Character rows */
 .char-row {
