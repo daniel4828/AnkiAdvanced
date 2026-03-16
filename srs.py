@@ -66,7 +66,10 @@ def _fmt_min(minutes: float) -> str:
     m = round(minutes)
     if m < 60:
         return f"{m}m"
-    return f"{m // 60}h"
+    h = m // 60
+    if h < 24:
+        return f"{h}h"
+    return _fmt_day(h // 24)
 
 
 def _fmt_day(days: int) -> str:

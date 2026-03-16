@@ -777,7 +777,6 @@ async function togglePinyin() {
     const isTarget = wordStart >= 0 && i >= wordStart && i < wordEnd;
     return `<span class="py-char${isTarget ? ' py-target' : ''}">`+
              `<span class="py-syl">${py}</span>`+
-             `<span class="py-zh">${ch}</span>`+
            `</span>`;
   }).join('');
   row.style.display = 'flex';
