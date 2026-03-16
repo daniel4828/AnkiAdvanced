@@ -706,6 +706,10 @@ async function regenerateStory() {
     story = await api('POST', `/api/story/${deckId}/${category}/regenerate`);
     // Re-find sentence for the current card in the new story
     sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
+    // Preload audio for the new story
+    try {
+      await fetch(`/api/preload-session/${deckId}/${category}`, { method: 'POST' });
+    } catch (_) {}
     showView('review');
     showFront();
   } catch (e) {
