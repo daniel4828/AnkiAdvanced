@@ -1082,13 +1082,7 @@ function aggregateCounts(deck, category) {
 }
 
 function countHtml(c) {
-  const total = c.new + c.learning + c.review;
-  if (total === 0) return `<span class="n-zero">—</span>`;
-  return [
-    c.new      ? `<span class="n-new">${c.new}</span>`      : '',
-    c.learning ? `<span class="n-lrn">${c.learning}</span>` : '',
-    c.review   ? `<span class="n-rev">${c.review}</span>`   : '',
-  ].filter(Boolean).join(' ');
+  return `<span class="n-new">${c.new}</span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span>`;
 }
 
 // Build 3 inline pills (L/R/C) for any deck. Uses direct cat leaves if present, else aggregates.
