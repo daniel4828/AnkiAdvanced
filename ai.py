@@ -58,7 +58,7 @@ Rules:
 
     words = [c['word_zh'] for c in cards]
     logger.info("generate_story: %d cards: %s", len(cards), words)
-    logger.debug("Prompt:\n%s", prompt)
+    logger.info("Prompt:\n%s", prompt)
 
     # 150 tokens per sentence is generous; add 200 for overhead/fences
     max_tokens = len(cards) * 150 + 200
@@ -70,8 +70,8 @@ Rules:
     )
 
     raw = message.content[0].text.strip()
-    logger.debug("Raw response (%d chars, stop=%s):\n%s",
-                 len(raw), message.stop_reason, raw)
+    logger.info("Raw response (%d chars, stop=%s):\n%s",
+                len(raw), message.stop_reason, raw)
 
     if message.stop_reason == "max_tokens":
         logger.warning("Response truncated — increase max_tokens (was %d)", max_tokens)
