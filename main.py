@@ -294,8 +294,19 @@ try:
             _log_story(story)
         return story
 
+    @app.get("/api/today-mixed/{deck_id}")
+    def get_today_mixed(deck_id: int):
+        import srs
+        card = database.get_next_card_any_cat(deck_id)
+        if card:
+            card = database.get_card(card["id"])
+            card["intervals"] = srs.preview_intervals(card)
+        counts = database.count_due_any_cat(deck_id)
+        return {"card": card, "counts": counts}
+
     @app.post("/api/review")
-    def submit_review(card_id: int, rating: int, user_response: str | None = None):
+    def submit_review(card_id: int, rating: int, user_response: str | None = None,
+                      root_deck_id: int | None = None):
         import srs
         card_before = database.get_card(card_id)
         updated = srs.apply_review(card_id, rating, user_response=user_response)
@@ -304,11 +315,14 @@ try:
         preset = database.get_preset_for_deck(deck_id)
         if preset.get("bury_siblings", 1):
             database.bury_siblings(updated["word_id"], cat)
-        next_card = database.get_next_card(deck_id, cat)
+        if root_deck_id:
+            next_card = database.get_next_card_any_cat(root_deck_id)
+        else:
+            next_card = database.get_next_card(deck_id, cat)
         if next_card:
             next_card = database.get_card(next_card["id"])
             next_card["intervals"] = srs.preview_intervals(next_card)
-        counts = database.count_due(deck_id, cat)
+        counts = database.count_due_any_cat(root_deck_id) if root_deck_id else database.count_due(deck_id, cat)
         rating_label = {1: "Again", 2: "Hard", 3: "Good", 4: "Easy"}.get(rating, rating)
         logger.info("review %s → %s (%s)  due=%s  next=%s  queue: %d lrn %d rev %d new",
                     card_before["word_zh"], updated["state"], rating_label,

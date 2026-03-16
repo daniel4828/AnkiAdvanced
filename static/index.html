@@ -971,6 +971,7 @@
 <script>
 // ── State ──────────────────────────────────────────────────────────────────
 let deckId      = null;
+let rootDeckId  = null;   // set when studying all categories (mixed mode)
 let deckName    = '';
 let category    = '';
 let card        = null;   // current card dict from API
@@ -1125,14 +1126,14 @@ function renderDeckRows(decks, depth) {
 
     const toggleIcon = hasStructChildren ? (isCollapsed ? '▶' : '▼') : '';
     const pillsHtml = `<div class="cat-pills-inline">${buildCategoryButtons(deck)}</div>`;
+    const safeName  = deck.name.replace(/'/g, "\\'");
 
     const row = `
-      <div class="tree-row tree-parent" onclick="toggleDeck(${deck.id})"
-           style="padding-left:${16 + indent}px">
-        <span class="tree-toggle">${toggleIcon}</span>
-        <span class="tree-name">${deck.name}</span>
+      <div class="tree-row tree-parent" style="padding-left:${16 + indent}px">
+        <span class="tree-toggle" onclick="toggleDeck(${deck.id})">${toggleIcon}</span>
+        <span class="tree-name" onclick="startReviewMixed(${deck.id},'${safeName}')" style="cursor:pointer">${deck.name}</span>
         ${pillsHtml}
-        <button class="gear-btn" onclick="event.stopPropagation();openOptions(${deck.id})"
+        <button class="gear-btn" onclick="openOptions(${deck.id})"
                 title="Deck options">⚙</button>
       </div>`;
 
@@ -1436,6 +1437,30 @@ async function startReview(id, cat, name) {
   }
 }
 
+// ── Start mixed (all-category) review session ────────────────────────────────
+async function startReviewMixed(id, name) {
+  rootDeckId = id;
+  deckId     = id;
+  deckName   = name;
+  story      = null;  // no single story in mixed mode
+  setLoading('Loading cards…');
+  try {
+    const todayData = await api('GET', `/api/today-mixed/${id}`);
+    if (!todayData.card) {
+      rootDeckId = null;
+      showView('done');
+      return;
+    }
+    category = todayData.card.category;
+    showView('review');
+    loadCard(todayData.card, todayData.counts);
+  } catch (e) {
+    showError('Failed to start session: ' + e.message);
+    rootDeckId = null;
+    showView('decks');
+  }
+}
+
 // ── Load a card ─────────────────────────────────────────────────────────────
 function loadCard(c, counts) {
   card = c;
@@ -1612,11 +1637,15 @@ function renderSentence() {
 async function rate(rating) {
   document.querySelectorAll('.r-btn').forEach(b => b.disabled = true);
   try {
-    const result = await api('POST', `/api/review?card_id=${card.id}&rating=${rating}`);
+    let url = `/api/review?card_id=${card.id}&rating=${rating}`;
+    if (rootDeckId) url += `&root_deck_id=${rootDeckId}`;
+    const result = await api('POST', url);
     if (!result.next_card) {
+      rootDeckId = null;
       showView('done');
       return;
     }
+    if (rootDeckId) category = result.next_card.category;
     loadCard(result.next_card, result.counts);
   } catch (e) {
     showError('Submit failed: ' + e.message);
@@ -1653,6 +1682,7 @@ async function regenerateStory() {
 // ── Back to decks ────────────────────────────────────────────────────────────
 function goBack() {
   card = null; story = null; sentence = null; wordDetails = null; userInput = '';
+  rootDeckId = null;
   browseAll = [];
   loadDecks();
 }

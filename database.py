@@ -51,7 +51,12 @@ def _ensure_presets(conn: sqlite3.Connection) -> None:
                 relearning_steps, minimum_interval, insertion_order,
                 bury_siblings, randomize_story_order, leech_threshold, leech_action, is_default)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)""",
-            ("Anki Default", 9999, 9999, "1m 10m", 4, 9, "10", 1, "sequential", 1, 0, 8, "suspend"),
+            ("Anki Default", 9999, 9999, "11m 10m", 4, 9, "10", 1, "sequential", 1, 0, 8, "suspend"),
+        )
+    else:
+        # Migrate existing row to current defaults
+        conn.execute(
+            "UPDATE deck_presets SET learning_steps = '11m 10m' WHERE name = 'Anki Default'",
         )
 
     # Guarantee exactly one default
@@ -89,7 +94,7 @@ def default_preset() -> dict:
         "name": "Default",
         "new_per_day": 20,
         "reviews_per_day": 100,
-        "learning_steps": "1m 10m",
+        "learning_steps": "11m 10m",
         "graduating_interval": 1,
         "easy_interval": 4,
         "relearning_steps": "10",
@@ -679,6 +684,50 @@ def get_descendant_leaf_deck_ids(deck_id: int, category: str | None = None) -> l
         for kid in kids:
             stack.append(kid)
     return result
+
+
+def _leaf_decks_with_category(root_deck_id: int) -> list[tuple[int, str]]:
+    """Return [(deck_id, category)] for all category leaves under root_deck_id."""
+    all_leaf_ids = get_descendant_leaf_deck_ids(root_deck_id)
+    if not all_leaf_ids:
+        deck = get_deck(root_deck_id)
+        if deck and deck["category"]:
+            return [(root_deck_id, deck["category"])]
+        return []
+    conn = get_db()
+    placeholders = ','.join('?' * len(all_leaf_ids))
+    rows = conn.execute(
+        f"SELECT id, category FROM decks WHERE id IN ({placeholders})", all_leaf_ids
+    ).fetchall()
+    conn.close()
+    return [(r["id"], r["category"]) for r in rows if r["category"]]
+
+
+def get_next_card_any_cat(root_deck_id: int) -> dict | None:
+    """Highest-priority card across all categories under root_deck_id."""
+    leaf_pairs = _leaf_decks_with_category(root_deck_id)
+    all_cards = []
+    for deck_id, cat in leaf_pairs:
+        all_cards.extend(get_due_cards(deck_id, cat))
+    if not all_cards:
+        return None
+    all_cards.sort(key=lambda c: (
+        0 if c["state"] in ("learning", "relearn") else
+        1 if c["state"] == "review" else 2,
+        c["due"]
+    ))
+    return all_cards[0]
+
+
+def count_due_any_cat(root_deck_id: int) -> dict:
+    """Total due counts across all categories under root_deck_id."""
+    leaf_pairs = _leaf_decks_with_category(root_deck_id)
+    total = {"new": 0, "learning": 0, "review": 0}
+    for deck_id, cat in leaf_pairs:
+        c = count_due(deck_id, cat)
+        for k in total:
+            total[k] += c[k]
+    return total
 
 
 def get_due_cards_multi(deck_ids: list[int], category: str) -> list[dict]:
