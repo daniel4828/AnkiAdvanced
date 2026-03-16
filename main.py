@@ -26,8 +26,10 @@ logger = logging.getLogger("main")
 def cmd_import(args):
     print("Importing from imports/...")
     result = importer.import_all("imports")
+    invalid = result.get('skipped_invalid', 0)
+    invalid_str = f", {invalid} skipped as invalid" if invalid else ""
     print(f"Done — imported {result['imported']} words "
-          f"({result['skipped_duplicate']} skipped as duplicates)")
+          f"({result['skipped_duplicate']} skipped as duplicates{invalid_str})")
 
 
 def cmd_status(args):
