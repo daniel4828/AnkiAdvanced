@@ -103,6 +103,21 @@ def speak(text: str):
     return {"ok": True}
 
 
+@router.post("/api/speak-multi")
+def speak_multi(body: dict):
+    try:
+        tts.speak_multi(body.get("texts", []))
+    except Exception:
+        pass
+    return {"ok": True}
+
+
+@router.post("/api/speak-stop")
+def speak_stop():
+    tts.stop()
+    return {"ok": True}
+
+
 @router.post("/api/preload")
 def preload(text: str):
     try:

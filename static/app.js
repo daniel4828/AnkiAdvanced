@@ -835,20 +835,33 @@ async function playStoryLine(encodedText) {
   catch (e) { showError('TTS failed: ' + e.message); }
 }
 
-async function playFullStory() {
-  if (!story?.sentences?.length) return;
-  const btn = document.getElementById('story-play-all-btn');
-  btn.disabled = true;
-  try {
-    for (const s of story.sentences) {
-      await playStoryLine(encodeURIComponent(s.sentence_zh));
-    }
-  } finally {
-    btn.disabled = false;
+let _storyPlaying = false;
+
+async function toggleFullStory() {
+  if (_storyPlaying) {
+    stopFullStory();
+    return;
   }
+  if (!story?.sentences?.length) return;
+  _storyPlaying = true;
+  const btn = document.getElementById('story-play-all-btn');
+  btn.textContent = '■ Stop';
+  try {
+    await api('POST', '/api/speak-multi', { texts: story.sentences.map(s => s.sentence_zh) });
+  } catch (e) { /* stopped or error — ignore */ }
+  _storyPlaying = false;
+  btn.textContent = '▶ Play full story';
+}
+
+function stopFullStory() {
+  if (!_storyPlaying) return;
+  _storyPlaying = false;
+  document.getElementById('story-play-all-btn').textContent = '▶ Play full story';
+  api('POST', '/api/speak-stop').catch(() => {});
 }
 
 function closeStoryModal() {
+  stopFullStory();
   document.getElementById('story-modal-overlay').style.display = 'none';
   document.getElementById('story-modal').style.display = 'none';
 }
