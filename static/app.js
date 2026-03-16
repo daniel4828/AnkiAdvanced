@@ -506,6 +506,15 @@ function loadCard(c, counts) {
   // Find sentence for this card's word in the story
   sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
 
+  // Update sentence position counter
+  const counter = document.getElementById('sentence-counter');
+  if (sentence && story?.sentences?.length) {
+    counter.textContent = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
+    counter.style.display = 'block';
+  } else {
+    counter.style.display = 'none';
+  }
+
   // Preload full word details for the back side (local DB — near-instant)
   fetch(`/api/word/${c.word_id}`)
     .then(r => r.ok ? r.json() : null)
