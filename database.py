@@ -284,9 +284,11 @@ def get_default_deck_id() -> int:
 
 def get_or_create_deck(name: str, parent_id: int | None = None,
                        category: str | None = None) -> int:
-    """Get deck id by name, creating it (sharing the default preset) if it doesn't exist."""
+    """Get deck id by (name, parent_id), creating it if it doesn't exist."""
     conn = get_db()
-    row = conn.execute("SELECT id FROM decks WHERE name = ?", (name,)).fetchone()
+    row = conn.execute(
+        "SELECT id FROM decks WHERE name = ? AND parent_id IS ?", (name, parent_id)
+    ).fetchone()
     if row:
         conn.close()
         return row["id"]
