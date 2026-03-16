@@ -106,17 +106,12 @@
           <div id="examples-section"></div>
           <!-- Characters breakdown — populated by JS -->
           <div id="char-section"></div>
-          <!-- Edit card panel -->
-          <div id="edit-card-panel" style="display:none">
-            <div class="edit-card-fields">
-              <label class="edit-label">Pinyin<input class="edit-input" id="edit-pinyin" type="text"></label>
-              <label class="edit-label">Definition<input class="edit-input" id="edit-definition" type="text"></label>
-              <label class="edit-label">Part of speech<input class="edit-input" id="edit-pos" type="text"></label>
+          <!-- Notes — populated by JS, hidden when empty -->
+          <div id="notes-section" style="display:none">
+            <div class="section-label" onclick="toggleSection('notes-body')" style="cursor:pointer">
+              Notes <span id="notes-body-arrow">▼</span>
             </div>
-            <div class="edit-card-actions">
-              <button class="edit-cancel-btn" onclick="closeEditCard()">Cancel</button>
-              <button class="edit-save-btn" onclick="saveEditCard()">Save</button>
-            </div>
+            <div id="notes-body" class="notes-body"></div>
           </div>
           <button class="edit-card-btn" id="edit-card-btn" onclick="openEditCard()">Edit card</button>
         </div>
@@ -227,5 +222,27 @@
 </div>
 
 <script src="/static/app.js"></script>
+
+<!-- Edit card modal -->
+<div id="edit-modal-overlay" onclick="closeEditCard()" style="display:none"></div>
+<div id="edit-modal" style="display:none">
+  <div class="edit-modal-header">
+    <span class="edit-modal-title">Edit card</span>
+    <button class="edit-modal-close" onclick="closeEditCard()">✕</button>
+  </div>
+  <div class="edit-card-fields">
+    <label class="edit-label">Hanzi<input class="edit-input" id="edit-word-zh" type="text" lang="zh"></label>
+    <label class="edit-label">Pinyin<input class="edit-input" id="edit-pinyin" type="text"></label>
+    <label class="edit-label">Definition<input class="edit-input" id="edit-definition" type="text"></label>
+    <label class="edit-label">Part of speech<input class="edit-input" id="edit-pos" type="text"></label>
+    <label class="edit-label">Traditional<input class="edit-input" id="edit-traditional" type="text" lang="zh"></label>
+    <label class="edit-label">Chinese definition<input class="edit-input" id="edit-definition-zh" type="text" lang="zh"></label>
+    <label class="edit-label">Notes<textarea class="edit-input edit-notes" id="edit-notes" rows="3"></textarea></label>
+  </div>
+  <div class="edit-card-actions">
+    <button class="edit-cancel-btn" onclick="closeEditCard()">Cancel</button>
+    <button class="edit-save-btn" onclick="saveEditCard()">Save</button>
+  </div>
+</div>
 </body>
 </html>

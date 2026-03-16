@@ -518,9 +518,8 @@ function loadCard(c, counts) {
   document.getElementById('pinyin-row').style.display = 'none';
   document.getElementById('pinyin-btn').classList.remove('active');
 
-  // Reset edit panel
-  document.getElementById('edit-card-panel').style.display = 'none';
-  document.getElementById('edit-card-btn').style.display   = 'block';
+  // Close edit modal if open
+  closeEditCard();
 
   // Preload full word details for the back side (local DB — near-instant)
   fetch(`/api/word/${c.word_id}`)
@@ -530,6 +529,7 @@ function loadCard(c, counts) {
       // If back is already showing (user flipped before fetch completed), re-render
       if (document.getElementById('side-back').style.display !== 'none') {
         renderVocabDetail();
+        renderNotesSection();
       }
     })
     .catch(() => {});
@@ -658,8 +658,9 @@ function revealAnswer() {
   // Re-enable rating buttons
   document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
 
-  // Populate character breakdown + examples from preloaded word details
+  // Populate character breakdown, examples, and notes from preloaded word details
   renderVocabDetail();
+  renderNotesSection();
 
   // Auto-play audio on reveal for reading and creating
   if (category === 'reading' || category === 'creating') {
@@ -714,6 +715,17 @@ function renderVocabDetail() {
       `<div id="ex-section-body" style="display:none">${items}</div>`;
   } else {
     exSection.innerHTML = '';
+  }
+}
+
+function renderNotesSection() {
+  const section = document.getElementById('notes-section');
+  const body    = document.getElementById('notes-body');
+  if (card?.notes) {
+    body.textContent = card.notes;
+    section.style.display = 'block';
+  } else {
+    section.style.display = 'none';
   }
 }
 
@@ -787,36 +799,49 @@ async function togglePinyin() {
   btn.classList.add('active');
 }
 
-// ── Edit card ────────────────────────────────────────────────────────────────
+// ── Edit card modal ───────────────────────────────────────────────────────────
 function openEditCard() {
-  document.getElementById('edit-pinyin').value     = card.pinyin || '';
-  document.getElementById('edit-definition').value = card.definition || '';
-  document.getElementById('edit-pos').value        = card.pos || '';
-  document.getElementById('edit-card-panel').style.display = 'block';
-  document.getElementById('edit-card-btn').style.display   = 'none';
+  document.getElementById('edit-word-zh').value       = card.word_zh || '';
+  document.getElementById('edit-pinyin').value        = card.pinyin || '';
+  document.getElementById('edit-definition').value    = card.definition || '';
+  document.getElementById('edit-pos').value           = card.pos || '';
+  document.getElementById('edit-traditional').value   = card.traditional || '';
+  document.getElementById('edit-definition-zh').value = card.definition_zh || '';
+  document.getElementById('edit-notes').value         = card.notes || '';
+  document.getElementById('edit-modal-overlay').style.display = 'block';
+  document.getElementById('edit-modal').style.display         = 'flex';
 }
 
 function closeEditCard() {
-  document.getElementById('edit-card-panel').style.display = 'none';
-  document.getElementById('edit-card-btn').style.display   = 'block';
+  document.getElementById('edit-modal-overlay').style.display = 'none';
+  document.getElementById('edit-modal').style.display         = 'none';
 }
 
 async function saveEditCard() {
   const body = {
-    pinyin:     document.getElementById('edit-pinyin').value.trim(),
-    definition: document.getElementById('edit-definition').value.trim(),
-    pos:        document.getElementById('edit-pos').value.trim(),
+    word_zh:       document.getElementById('edit-word-zh').value.trim(),
+    pinyin:        document.getElementById('edit-pinyin').value.trim(),
+    definition:    document.getElementById('edit-definition').value.trim(),
+    pos:           document.getElementById('edit-pos').value.trim(),
+    traditional:   document.getElementById('edit-traditional').value.trim(),
+    definition_zh: document.getElementById('edit-definition-zh').value.trim(),
+    notes:         document.getElementById('edit-notes').value.trim(),
   };
   try {
     const updated = await api('PUT', `/api/word/${card.word_id}`, body);
-    card.pinyin     = updated.pinyin;
-    card.definition = updated.definition;
-    card.pos        = updated.pos;
+    Object.assign(card, {
+      word_zh: updated.word_zh, pinyin: updated.pinyin,
+      definition: updated.definition, pos: updated.pos,
+      traditional: updated.traditional, definition_zh: updated.definition_zh,
+      notes: updated.notes,
+    });
+    document.getElementById('word-zh').textContent  = updated.word_zh || '';
     document.getElementById('word-pin').textContent = updated.pinyin || '';
     document.getElementById('word-def').textContent = updated.definition || '';
     const posEl = document.getElementById('word-pos');
     posEl.textContent   = updated.pos || '';
     posEl.style.display = updated.pos ? 'inline-block' : 'none';
+    renderNotesSection();
     closeEditCard();
   } catch (e) {
     showError('Save failed: ' + e.message);

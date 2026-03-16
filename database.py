@@ -26,6 +26,12 @@ def init_db() -> None:
     conn.executescript(schema)
     conn.commit()
 
+    # Migrations for existing databases
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(words)").fetchall()}
+    if "notes" not in cols:
+        conn.execute("ALTER TABLE words ADD COLUMN notes TEXT")
+    conn.commit()
+
     # Ensure presets + default deck exist
     _ensure_presets(conn)
     preset_id = conn.execute("SELECT id FROM deck_presets WHERE is_default = 1 LIMIT 1").fetchone()["id"]
@@ -626,7 +632,7 @@ def count_due(deck_id: int, category: str) -> dict:
 
 
 def update_word(word_id: int, fields: dict) -> None:
-    allowed = {"pinyin", "definition", "pos"}
+    allowed = {"word_zh", "pinyin", "definition", "pos", "traditional", "definition_zh", "notes"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return
