@@ -447,6 +447,37 @@
       overflow: hidden;
     }
 
+    /* ── Category pill buttons on deck rows ─────────────── */
+    .cat-pills-row {
+      width: 100%;
+      display: flex;
+      gap: 6px;
+      padding: 6px 0 4px 22px;
+    }
+    .cat-pill {
+      flex: 1;
+      padding: 6px 4px 5px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      background: var(--card);
+      cursor: pointer;
+      text-align: center;
+      transition: border-color 0.12s, background 0.12s;
+      line-height: 1;
+    }
+    .cat-pill:hover:not([disabled]) { border-color: var(--primary); background: #eff6ff; }
+    .cat-pill[disabled] { opacity: 0.35; cursor: not-allowed; }
+    .cat-pill-label {
+      display: block;
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+      margin-bottom: 3px;
+    }
+    .cat-pill-counts { display: block; font-size: 12px; font-weight: 700; }
+
     /* ── Nav row (deck list top) ─────────────────────────── */
     .nav-row {
       display: flex;
@@ -1005,6 +1036,36 @@ function flatten(nodes, depth = 0) {
   return nodes.flatMap(n => [{ ...n, _depth: depth }, ...flatten(n.children || [], depth + 1)]);
 }
 
+function getCategoryLeaves(deck) {
+  const map = {};
+  for (const child of (deck.children || [])) {
+    if (child.category && (!child.children || child.children.length === 0)) {
+      map[child.category] = child;
+    }
+  }
+  return map;
+}
+
+function buildCategoryButtons(catLeaves, parentName) {
+  const ORDER  = ['listening', 'reading', 'creating'];
+  const LABELS = { listening: 'Listening', reading: 'Reading', creating: 'Creating' };
+  return ORDER.map(cat => {
+    const leaf = catLeaves[cat];
+    if (!leaf) return `<button class="cat-pill" disabled><span class="cat-pill-label">${LABELS[cat]}</span><span class="cat-pill-counts"><span class="n-zero">—</span></span></button>`;
+    const c = leaf.counts || { new: 0, learning: 0, review: 0 };
+    const total = c.new + c.learning + c.review;
+    const countHtml = total === 0
+      ? `<span class="n-zero">—</span>`
+      : [
+          c.new      ? `<span class="n-new">${c.new}</span>`      : '',
+          c.learning ? `<span class="n-lrn">${c.learning}</span>` : '',
+          c.review   ? `<span class="n-rev">${c.review}</span>`   : '',
+        ].filter(Boolean).join(' ');
+    const safeName = parentName.replace(/'/g, "\\'");
+    return `<button class="cat-pill" onclick="event.stopPropagation();startReview(${leaf.id},'${cat}','${safeName}')"><span class="cat-pill-label">${LABELS[cat]}</span><span class="cat-pill-counts">${countHtml}</span></button>`;
+  }).join('');
+}
+
 function renderDecks(decks) {
   const navRow = `
     <div class="nav-row">
@@ -1017,61 +1078,48 @@ function renderDecks(decks) {
 
 function renderDeckRows(decks, depth) {
   return decks.map(deck => {
-    const hasChildren = deck.children && deck.children.length > 0;
+    // Separate category leaves (shown as pills) from structural children (shown as rows)
+    const catLeaves    = getCategoryLeaves(deck);
+    const hasCatLeaves = Object.keys(catLeaves).length > 0;
+    const structChildren = (deck.children || []).filter(
+      c => !(c.category && (!c.children || c.children.length === 0))
+    );
+    const hasStructChildren = structChildren.length > 0;
     const isCollapsed = collapsed.has(deck.id);
-    const counts = deck.counts || { new: 0, learning: 0, review: 0 };
-    const total = counts.new + counts.learning + counts.review;
-
-    const countBadge = total === 0
-      ? `<span class="n-zero">—</span>`
-      : [
-          counts.new      ? `<span class="n-new">${counts.new}</span>`      : '',
-          counts.learning ? `<span class="n-lrn">${counts.learning}</span>` : '',
-          counts.review   ? `<span class="n-rev">${counts.review}</span>`   : '',
-        ].filter(Boolean).join(' ');
-
     const indent = depth * 18;
-    const isLeaf = !hasChildren && deck.category;
 
-    let row;
-    if (hasChildren) {
-      // Parent deck row — clickable only to expand/collapse
-      row = `
-        <div class="tree-row tree-parent" onclick="toggleDeck(${deck.id})"
-             style="padding-left:${16 + indent}px">
-          <span class="tree-toggle">${isCollapsed ? '▶' : '▼'}</span>
-          <span class="tree-name">${deck.name}</span>
-          <span class="tree-counts">${countBadge}</span>
-          <button class="gear-btn" onclick="event.stopPropagation();openOptions(${deck.id})"
-                  title="Deck options">⚙</button>
-        </div>`;
-    } else if (isLeaf) {
-      // Category leaf deck — clickable to start review
-      const catIcon = { listening: '🔊', reading: '📖', creating: '✏️' }[deck.category] || '';
-      row = `
-        <div class="tree-row tree-leaf" onclick="startReview(${deck.id},'${deck.category}','${deck.name.replace(/'/g,"\\'")}')">
-          <span class="tree-toggle" style="padding-left:${indent}px"></span>
-          <span class="tree-cat-icon">${catIcon}</span>
-          <span class="tree-name">${deck.name}</span>
-          <span class="tree-counts">${countBadge}</span>
-          <button class="gear-btn" onclick="event.stopPropagation();openOptions(${deck.id})"
-                  title="Deck options">⚙</button>
-        </div>`;
-    } else {
-      // Parent with no children (empty)
-      row = `
-        <div class="tree-row tree-parent" onclick="toggleDeck(${deck.id})"
-             style="padding-left:${16 + indent}px">
-          <span class="tree-toggle">▶</span>
-          <span class="tree-name">${deck.name}</span>
-          <span class="tree-counts">${countBadge}</span>
-          <button class="gear-btn" onclick="event.stopPropagation();openOptions(${deck.id})"
-                  title="Deck options">⚙</button>
-        </div>`;
-    }
+    // Count badge (only shown when no pills — pills show the breakdown themselves)
+    const counts = deck.counts || { new: 0, learning: 0, review: 0 };
+    const total  = counts.new + counts.learning + counts.review;
+    const countBadge = (!hasCatLeaves)
+      ? (total === 0
+          ? `<span class="n-zero">—</span>`
+          : [
+              counts.new      ? `<span class="n-new">${counts.new}</span>`      : '',
+              counts.learning ? `<span class="n-lrn">${counts.learning}</span>` : '',
+              counts.review   ? `<span class="n-rev">${counts.review}</span>`   : '',
+            ].filter(Boolean).join(' '))
+      : '';
 
-    const childRows = hasChildren && !isCollapsed
-      ? renderDeckRows(deck.children, depth + 1)
+    const toggleIcon = (hasCatLeaves || hasStructChildren) ? (isCollapsed ? '▶' : '▼') : '';
+
+    const catPillsHtml = hasCatLeaves && !isCollapsed
+      ? `<div class="cat-pills-row">${buildCategoryButtons(catLeaves, deck.name)}</div>`
+      : '';
+
+    const row = `
+      <div class="tree-row tree-parent" onclick="toggleDeck(${deck.id})"
+           style="padding-left:${16 + indent}px; flex-wrap:wrap">
+        <span class="tree-toggle">${toggleIcon}</span>
+        <span class="tree-name">${deck.name}</span>
+        <span class="tree-counts">${countBadge}</span>
+        <button class="gear-btn" onclick="event.stopPropagation();openOptions(${deck.id})"
+                title="Deck options">⚙</button>
+        ${catPillsHtml}
+      </div>`;
+
+    const childRows = hasStructChildren && !isCollapsed
+      ? renderDeckRows(structChildren, depth + 1)
       : '';
 
     return row + childRows;
