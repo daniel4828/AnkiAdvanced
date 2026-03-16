@@ -50,6 +50,7 @@ Rules:
 - Use proper Chinese punctuation — include commas（，）where natural pauses occur
 - Use only HSK 1-{max_hsk} vocabulary for non-target words
 {topic_line}- The sentences must form a coherent narrative with the same recurring characters
+- NEVER use ASCII double-quote characters (") inside Chinese sentences — use 「」or （）instead if quoting is needed
 - Return ONLY valid JSON, no explanation, no markdown:
 [
   {{"word_id": <integer>, "sentence_zh": "<Chinese sentence>", "sentence_en": "<English translation>"}},
@@ -58,7 +59,7 @@ Rules:
 
     words = [c['word_zh'] for c in cards]
     logger.info("generate_story: %d cards: %s", len(cards), words)
-    logger.info("Prompt:\n%s", prompt)
+    logger.debug("Prompt:\n%s", prompt)
 
     # 150 tokens per sentence is generous; add 200 for overhead/fences
     max_tokens = len(cards) * 150 + 200
@@ -70,7 +71,7 @@ Rules:
     )
 
     raw = message.content[0].text.strip()
-    logger.info("Raw response (%d chars, stop=%s):\n%s",
+    logger.debug("Raw response (%d chars, stop=%s):\n%s",
                 len(raw), message.stop_reason, raw)
 
     if message.stop_reason == "max_tokens":
