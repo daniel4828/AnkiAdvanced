@@ -74,12 +74,38 @@ def preload(text: str) -> None:
 
 _current_playback: subprocess.Popen | None = None
 _playback_lock = threading.Lock()
+_stop_requested = False
 
 
 def speak(text: str) -> None:
-    """Play audio, killing any ongoing playback first."""
+    """Play audio, killing any ongoing playback first (fire-and-forget)."""
     threading.Thread(target=lambda: asyncio.run(_play(text)),
                      daemon=True).start()
+
+
+def speak_sync(text: str) -> None:
+    """Play audio and block until playback is complete."""
+    asyncio.run(_play(text))
+
+
+def speak_multi(texts: list[str]) -> None:
+    """Play a list of texts sequentially, stopping if stop() is called."""
+    global _stop_requested
+    _stop_requested = False
+    for text in texts:
+        if _stop_requested:
+            break
+        asyncio.run(_play(text))
+
+
+def stop() -> None:
+    """Stop any ongoing playback and cancel speak_multi loop."""
+    global _current_playback, _stop_requested
+    _stop_requested = True
+    with _playback_lock:
+        if _current_playback and _current_playback.poll() is None:
+            _current_playback.kill()
+            _current_playback.wait()
 
 
 async def _play(text: str) -> None:

@@ -518,8 +518,10 @@ function loadCard(c, counts) {
   document.getElementById('pinyin-row').style.display = 'none';
   document.getElementById('pinyin-btn').classList.remove('active');
 
-  // Close edit modal if open
+  // Close modals if open
   closeEditCard();
+  closeStoryModal();
+  document.getElementById('story-btn').style.display = 'none';
 
   // Preload full word details for the back side (local DB — near-instant)
   fetch(`/api/word/${c.word_id}`)
@@ -647,6 +649,7 @@ function revealAnswer() {
   }
 
   document.getElementById('sentence-en').textContent = sentence?.sentence_en || '';
+  document.getElementById('story-btn').style.display = story?.sentences?.length > 1 ? 'block' : 'none';
   document.getElementById('word-zh').textContent  = card.word_zh;
   document.getElementById('word-pin').textContent = card.pinyin || '';
   document.getElementById('word-def').textContent = card.definition || '';
@@ -800,6 +803,67 @@ async function togglePinyin() {
   }).join('');
   row.style.display = 'flex';
   btn.classList.add('active');
+}
+
+// ── Story modal ───────────────────────────────────────────────────────────────
+function openStoryModal() {
+  if (!story?.sentences?.length) return;
+  const currentPos = sentence?.position ?? -1;
+  const html = story.sentences.map(s => {
+    const isCurrent = s.position === currentPos;
+    const highlighted = s.sentence_zh.replace(
+      s.word_zh,
+      `<span class="story-target">${s.word_zh}</span>`
+    );
+    const esc = encodeURIComponent(s.sentence_zh);
+    return `<div class="story-sentence${isCurrent ? ' story-sentence-current' : ''}">
+      <span class="story-num">${s.position + 1}</span>
+      <div class="story-content">
+        <div class="story-zh">${highlighted}</div>
+        <div class="story-en">${s.sentence_en}</div>
+      </div>
+      <button class="story-play-btn" onclick="playStoryLine('${esc}')" title="Play">▶</button>
+    </div>`;
+  }).join('');
+  document.getElementById('story-modal-body').innerHTML = html;
+  document.getElementById('story-modal-overlay').style.display = 'block';
+  document.getElementById('story-modal').style.display = 'flex';
+}
+
+async function playStoryLine(encodedText) {
+  try { await api('POST', `/api/speak?text=${encodedText}`); }
+  catch (e) { showError('TTS failed: ' + e.message); }
+}
+
+let _storyPlaying = false;
+
+async function toggleFullStory() {
+  if (_storyPlaying) {
+    stopFullStory();
+    return;
+  }
+  if (!story?.sentences?.length) return;
+  _storyPlaying = true;
+  const btn = document.getElementById('story-play-all-btn');
+  btn.textContent = '■ Stop';
+  try {
+    await api('POST', '/api/speak-multi', { texts: story.sentences.map(s => s.sentence_zh) });
+  } catch (e) { /* stopped or error — ignore */ }
+  _storyPlaying = false;
+  btn.textContent = '▶ Play full story';
+}
+
+function stopFullStory() {
+  if (!_storyPlaying) return;
+  _storyPlaying = false;
+  document.getElementById('story-play-all-btn').textContent = '▶ Play full story';
+  api('POST', '/api/speak-stop').catch(() => {});
+}
+
+function closeStoryModal() {
+  stopFullStory();
+  document.getElementById('story-modal-overlay').style.display = 'none';
+  document.getElementById('story-modal').style.display = 'none';
 }
 
 // ── Edit card modal ───────────────────────────────────────────────────────────

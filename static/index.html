@@ -87,6 +87,7 @@
         <div class="pinyin-row" id="pinyin-row" style="display:none"></div>
         <!-- English translation of the sentence -->
         <div class="sentence-en" id="sentence-en"></div>
+        <button class="story-btn" id="story-btn" onclick="openStoryModal()" style="display:none">View full story</button>
 
         <!-- 3. Rating buttons (immediately visible after flip) -->
         <div class="rating-row" id="rating-row">
@@ -238,6 +239,17 @@
     <button class="edit-cancel-btn" onclick="closeEditCard()">Cancel</button>
     <button class="edit-save-btn" onclick="saveEditCard()">Save</button>
   </div>
+</div>
+
+<!-- Story modal -->
+<div id="story-modal-overlay" onclick="closeStoryModal()" style="display:none"></div>
+<div id="story-modal" style="display:none">
+  <div class="edit-modal-header">
+    <span class="edit-modal-title">Full story</span>
+    <button class="edit-modal-close" onclick="closeStoryModal()">✕</button>
+  </div>
+  <button class="story-play-all-btn" id="story-play-all-btn" onclick="toggleFullStory()">▶ Play full story</button>
+  <div id="story-modal-body"></div>
 </div>
 </body>
 </html>

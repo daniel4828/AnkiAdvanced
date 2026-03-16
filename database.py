@@ -916,7 +916,9 @@ def get_sentence_for_word(story_id: int, word_id: int) -> dict | None:
 def get_story_sentences(story_id: int) -> list[dict]:
     conn = get_db()
     rows = conn.execute(
-        "SELECT * FROM sentences WHERE story_id = ? ORDER BY position",
+        """SELECT s.*, w.word_zh
+           FROM sentences s JOIN words w ON w.id = s.word_id
+           WHERE s.story_id = ? ORDER BY s.position""",
         (story_id,),
     ).fetchall()
     conn.close()

@@ -97,9 +97,24 @@ def regenerate_story(deck_id: int, category: str):
 @router.post("/api/speak")
 def speak(text: str):
     try:
-        tts.speak(text)
+        tts.speak_sync(text)
     except Exception:
         pass
+    return {"ok": True}
+
+
+@router.post("/api/speak-multi")
+def speak_multi(body: dict):
+    try:
+        tts.speak_multi(body.get("texts", []))
+    except Exception:
+        pass
+    return {"ok": True}
+
+
+@router.post("/api/speak-stop")
+def speak_stop():
+    tts.stop()
     return {"ok": True}
 
 
