@@ -121,7 +121,7 @@ function buildCategoryButtons(deck) {
     const c = aggregateCounts(deck, cat);
     const hasCards = getDeepCategoryLeaves(deck).some(l => l.category === cat);
     if (!hasCards) return `<button class="cat-pill" disabled><span class="cat-pill-label">${LABELS[cat]}</span><span class="cat-pill-counts"><span class="n-zero">—</span></span></button>`;
-    return `<button class="cat-pill" onclick="event.stopPropagation();startReview(${deck.id},'${cat}','${safeName}')"><span class="cat-pill-label">${LABELS[cat]}</span><span class="cat-pill-counts">${countHtml(c)}</span></button>`;
+    return `<span class="cat-pill-wrap"><button class="cat-pill" onclick="event.stopPropagation();startReview(${deck.id},'${cat}','${safeName}')"><span class="cat-pill-label">${LABELS[cat]}</span><span class="cat-pill-counts">${countHtml(c)}</span></button><button class="cat-pill-gear" onclick="event.stopPropagation();openOptions(${deck.id})" title="Options">⚙</button></span>`;
   }).join('');
 }
 
