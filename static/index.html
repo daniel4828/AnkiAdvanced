@@ -451,7 +451,7 @@
     .deck-counts {
       display: flex;
       gap: 5px;
-      margin-left: 6px;
+      margin-left: auto;
       font-size: 12px;
       font-weight: 700;
       flex-shrink: 0;
@@ -1144,8 +1144,8 @@ function renderDeckRows(decks, depth) {
       <div class="tree-row tree-parent" style="padding-left:${16 + indent}px">
         <span class="tree-toggle" onclick="toggleDeck(${deck.id})">${toggleIcon}</span>
         <span class="tree-name" onclick="startReviewMixed(${deck.id},'${safeName}')" style="cursor:pointer">${deck.name}</span>
-        ${deckCounts}
         ${pillsHtml}
+        ${deckCounts}
         <button class="gear-btn" onclick="openOptions(${deck.id})"
                 title="Deck options">⚙</button>
       </div>`;
