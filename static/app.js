@@ -34,7 +34,7 @@ function showView(name) {
   document.getElementById('header-title').textContent =
     name === 'review' ? `${deckName} · ${cap(category)}` :
     name === 'browse' ? 'Browse' :
-    name === 'stats'  ? 'Stats'  : 'Chinese SRS';
+    name === 'stats'  ? 'Stats'  : 'AnkiAdvanced';
 }
 
 function setLoading(msg) {
@@ -115,13 +115,13 @@ function buildCategoryButtons(deck) {
     if (leaf) {
       // Direct leaf — use leaf's deck_id (single-deck session)
       const c = leaf.counts || { new: 0, learning: 0, review: 0 };
-      return `<button class="cat-pill" onclick="event.stopPropagation();startReview(${leaf.id},'${cat}','${safeName}')"><span class="cat-pill-label">${LABELS[cat]}</span><span class="cat-pill-counts">${countHtml(c)}</span></button>`;
+      return `<span class="cat-pill-wrap"><button class="cat-pill" onclick="event.stopPropagation();startReview(${leaf.id},'${cat}','${safeName}')"><span class="cat-pill-label">${LABELS[cat]}</span><span class="cat-pill-counts">${countHtml(c)}</span></button><button class="cat-pill-gear" onclick="event.stopPropagation();openOptions(${leaf.id})" title="Options">⚙</button></span>`;
     }
     // Structural parent — aggregate and use this deck's id (multi-deck session via backend)
     const c = aggregateCounts(deck, cat);
     const hasCards = getDeepCategoryLeaves(deck).some(l => l.category === cat);
     if (!hasCards) return `<button class="cat-pill" disabled><span class="cat-pill-label">${LABELS[cat]}</span><span class="cat-pill-counts"><span class="n-zero">—</span></span></button>`;
-    return `<button class="cat-pill" onclick="event.stopPropagation();startReview(${deck.id},'${cat}','${safeName}')"><span class="cat-pill-label">${LABELS[cat]}</span><span class="cat-pill-counts">${countHtml(c)}</span></button>`;
+    return `<span class="cat-pill-wrap"><button class="cat-pill" onclick="event.stopPropagation();startReview(${deck.id},'${cat}','${safeName}')"><span class="cat-pill-label">${LABELS[cat]}</span><span class="cat-pill-counts">${countHtml(c)}</span></button><button class="cat-pill-gear" onclick="event.stopPropagation();openOptions(${deck.id})" title="Options">⚙</button></span>`;
   }).join('');
 }
 
@@ -148,7 +148,6 @@ function renderDeckRows(decks, depth) {
     const indent = depth * 18;
 
     const toggleIcon = hasStructChildren ? (isCollapsed ? '▶' : '▼') : '';
-    const pillsHtml = `<div class="cat-pills-inline">${buildCategoryButtons(deck)}</div>`;
     const safeName  = deck.name.replace(/'/g, "\\'");
     const c = deck.counts || { new: 0, learning: 0, review: 0 };
     const deckCounts = `<span class="deck-counts"><span class="n-new">${c.new}</span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span></span>`;
@@ -157,10 +156,10 @@ function renderDeckRows(decks, depth) {
       <div class="tree-row tree-parent" style="padding-left:${16 + indent}px">
         <span class="tree-toggle" onclick="toggleDeck(${deck.id})">${toggleIcon}</span>
         <span class="tree-name" onclick="startReviewMixed(${deck.id},'${safeName}')" style="cursor:pointer">${deck.name}</span>
-        ${pillsHtml}
         ${deckCounts}
         <button class="gear-btn" onclick="openOptions(${deck.id})"
                 title="Deck options">⚙</button>
+        <div class="cat-pills-row">${buildCategoryButtons(deck)}</div>
       </div>`;
 
     const childRows = hasStructChildren && !isCollapsed

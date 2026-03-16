@@ -55,7 +55,7 @@ def cmd_status(args):
 def main():
     database.init_db()
 
-    parser = argparse.ArgumentParser(description="Chinese SRS")
+    parser = argparse.ArgumentParser(description="AnkiAdvanced")
     sub = parser.add_subparsers(dest="command")
     sub.add_parser("import", help="Import vocabulary from imports/")
     status_p = sub.add_parser("status", help="Show due counts per deck/category")
@@ -99,7 +99,7 @@ try:
                 pass
             logger.info("[dev] DB and TTS cache cleared on exit.")
 
-    app = FastAPI(title="Chinese SRS", lifespan=lifespan)
+    app = FastAPI(title="AnkiAdvanced", lifespan=lifespan)
 
     if os.path.exists("static"):
         app.mount("/static", StaticFiles(directory="static"), name="static")
