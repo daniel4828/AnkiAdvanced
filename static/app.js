@@ -514,10 +514,20 @@ function loadCard(c, counts) {
     counter.style.display = 'none';
   }
 
+  // Reset pinyin toggle
+  document.getElementById('pinyin-row').style.display = 'none';
+  document.getElementById('pinyin-btn').classList.remove('active');
+
   // Preload full word details for the back side (local DB — near-instant)
   fetch(`/api/word/${c.word_id}`)
     .then(r => r.ok ? r.json() : null)
-    .then(d => { wordDetails = d; })
+    .then(d => {
+      wordDetails = d;
+      // If back is already showing (user flipped before fetch completed), re-render
+      if (document.getElementById('side-back').style.display !== 'none') {
+        renderVocabDetail();
+      }
+    })
     .catch(() => {});
 
   showFront();
@@ -565,6 +575,38 @@ function showFront() {
   document.getElementById('reveal-btn').textContent = isCreating ? 'Check Answer' : 'Show Answer';
 }
 
+// ── Answer diff (creating category) ─────────────────────────────────────────
+function diffAnswer(userInput, correct, wordZh) {
+  if (!userInput) return { html: '(no answer)', pct: 0, bar: '░'.repeat(10) };
+
+  const userChars = [...userInput];
+  const corrChars = correct ? [...correct] : [];
+
+  // Find where the target word starts in the user's input
+  const wordIdx = userInput.indexOf(wordZh);
+  const wordLen = [...wordZh].length;
+
+  // Bag-of-characters: which hanzi from correct appear in user's answer?
+  const hanzi = /[\u4e00-\u9fff\u3400-\u4dbf]/;
+  const corrSet = new Set(corrChars.filter(ch => hanzi.test(ch)));
+  const userSet = new Set(userChars.filter(ch => hanzi.test(ch)));
+  const total   = corrSet.size;
+  const matched = [...corrSet].filter(ch => userSet.has(ch)).length;
+  const pct = total > 0 ? Math.round((matched / total) * 100) : 0;
+  const filled = Math.round(pct / 10);
+  const bar = '▓'.repeat(filled) + '░'.repeat(10 - filled);
+
+  // Per-character coloring: green if char appears anywhere in correct sentence
+  const html = userChars.map((ch, i) => {
+    const inWord = wordIdx >= 0 && i >= wordIdx && i < wordIdx + wordLen;
+    if (inWord) return `<span class="ch-target">${ch}</span>`;
+    if (hanzi.test(ch) && corrSet.has(ch)) return `<span class="ch-match">${ch}</span>`;
+    return `<span class="ch-miss">${ch}</span>`;
+  }).join('');
+
+  return { html, pct, bar };
+}
+
 // ── Back of card ────────────────────────────────────────────────────────────
 function revealAnswer() {
   const isCreating = category === 'creating';
@@ -583,8 +625,17 @@ function revealAnswer() {
     // Show answer comparison block; hide normal sentence row
     document.getElementById('creating-answer-section').style.display = 'flex';
     document.getElementById('sentence-row-back').style.display = 'none';
-    document.getElementById('user-answer-text').textContent   = userInput || '(no answer)';
-    document.getElementById('correct-answer-text').innerHTML  = renderSentence();
+    const { html: userHtml, pct, bar } = diffAnswer(userInput, sentence?.sentence_zh, card.word_zh);
+    document.getElementById('user-answer-text').innerHTML = userHtml;
+    const matchBar = document.getElementById('answer-match-bar');
+    if (sentence && userInput) {
+      const color = pct >= 80 ? 'var(--good)' : pct >= 50 ? 'var(--hard)' : 'var(--again)';
+      matchBar.innerHTML = `<span class="match-bar" style="color:${color}">${bar} ${pct}%</span>`;
+      matchBar.style.display = 'block';
+    } else {
+      matchBar.style.display = 'none';
+    }
+    document.getElementById('correct-answer-text').innerHTML = renderSentence();
   } else {
     document.getElementById('creating-answer-section').style.display = 'none';
     document.getElementById('sentence-row-back').style.display = 'flex';
@@ -613,23 +664,30 @@ function revealAnswer() {
 }
 
 // ── Populate vocab detail (chars + examples) ────────────────────────────────
+function toggleSection(id) {
+  const body = document.getElementById(id);
+  const arrow = document.getElementById(id + '-arrow');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  arrow.textContent = open ? '▶' : '▼';
+}
+
 function renderVocabDetail() {
   // Characters
   const chars = wordDetails?.characters || [];
   const charSection = document.getElementById('char-section');
   if (chars.length > 0) {
+    const rows = chars.map(c => {
+      let right = '';
+      if (c.pinyin)             right += `<div class="char-row-pin">${c.pinyin}</div>`;
+      if (c.meaning_in_context) right += `<div class="char-row-info">${c.meaning_in_context}</div>`;
+      if (c.etymology)          right += `<div class="char-row-etym">${c.etymology}</div>`;
+      return `<div class="char-row"><div class="char-row-zh">${c.char}</div><div class="char-row-right">${right}</div></div>`;
+    }).join('');
     charSection.innerHTML =
-      `<div class="section-label">Characters</div>` +
-      chars.map(c => {
-        let right = '';
-        if (c.pinyin)             right += `<div class="char-row-pin">${c.pinyin}</div>`;
-        if (c.meaning_in_context) right += `<div class="char-row-info">${c.meaning_in_context}</div>`;
-        if (c.etymology)          right += `<div class="char-row-etym">${c.etymology}</div>`;
-        return `<div class="char-row">` +
-               `<div class="char-row-zh">${c.char}</div>` +
-               `<div class="char-row-right">${right}</div>` +
-               `</div>`;
-      }).join('');
+      `<div class="section-label section-toggle" onclick="toggleSection('char-section-body')">` +
+        `<span id="char-section-body-arrow">▶</span> Characters</div>` +
+      `<div id="char-section-body" style="display:none">${rows}</div>`;
   } else {
     charSection.innerHTML = '';
   }
@@ -638,16 +696,18 @@ function renderVocabDetail() {
   const examples = wordDetails?.examples || [];
   const exSection = document.getElementById('examples-section');
   if (examples.length > 0) {
+    const items = examples.map(ex => {
+      let html = `<div class="example-item">`;
+      html += `<div class="example-zh">${ex.example_zh || ''}</div>`;
+      if (ex.example_pinyin) html += `<div class="example-pin">${ex.example_pinyin}</div>`;
+      if (ex.example_de)     html += `<div class="example-de">${ex.example_de}</div>`;
+      html += `</div>`;
+      return html;
+    }).join('');
     exSection.innerHTML =
-      `<div class="section-label">Examples</div>` +
-      examples.map(ex => {
-        let html = `<div class="example-item">`;
-        html += `<div class="example-zh">${ex.example_zh || ''}</div>`;
-        if (ex.example_pinyin) html += `<div class="example-pin">${ex.example_pinyin}</div>`;
-        if (ex.example_de)     html += `<div class="example-de">${ex.example_de}</div>`;
-        html += `</div>`;
-        return html;
-      }).join('');
+      `<div class="section-label section-toggle" onclick="toggleSection('ex-section-body')">` +
+        `<span id="ex-section-body-arrow">▶</span> Examples</div>` +
+      `<div id="ex-section-body" style="display:none">${items}</div>`;
   } else {
     exSection.innerHTML = '';
   }
@@ -685,6 +745,42 @@ async function rate(rating) {
     showError('Submit failed: ' + e.message);
     document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
   }
+}
+
+// ── Pinyin toggle ────────────────────────────────────────────────────────────
+let pinyinCache = {};
+
+async function togglePinyin() {
+  const row = document.getElementById('pinyin-row');
+  const btn = document.getElementById('pinyin-btn');
+  if (row.style.display !== 'none') {
+    row.style.display = 'none';
+    btn.classList.remove('active');
+    return;
+  }
+  const text = sentence?.sentence_zh || card?.word_zh;
+  if (!text) return;
+  if (!pinyinCache[text]) {
+    try {
+      const data = await api('GET', `/api/pinyin?text=${encodeURIComponent(text)}`);
+      pinyinCache[text] = data.syllables;
+    } catch (e) {
+      return;
+    }
+  }
+  const syllables = pinyinCache[text];
+  const chars = [...text];
+  const wordStart = text.indexOf(card.word_zh);
+  const wordEnd = wordStart + [...card.word_zh].length;
+  row.innerHTML = chars.map((ch, i) => {
+    const py = syllables[i] || '';
+    const isTarget = wordStart >= 0 && i >= wordStart && i < wordEnd;
+    return `<span class="py-char${isTarget ? ' py-target' : ''}">`+
+             `<span class="py-syl">${py}</span>`+
+           `</span>`;
+  }).join('');
+  row.style.display = 'flex';
+  btn.classList.add('active');
 }
 
 // ── TTS ─────────────────────────────────────────────────────────────────────

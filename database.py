@@ -53,11 +53,6 @@ def _ensure_presets(conn: sqlite3.Connection) -> None:
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)""",
             ("Anki Default", 9999, 9999, "11m 10m", 4, 9, "10", 1, "sequential", 1, 0, 8, "suspend"),
         )
-    else:
-        # Migrate existing row to current defaults
-        conn.execute(
-            "UPDATE deck_presets SET learning_steps = '11m 10m' WHERE name = 'Anki Default'",
-        )
 
     # Guarantee exactly one default
     if not conn.execute("SELECT id FROM deck_presets WHERE is_default = 1").fetchone():

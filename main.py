@@ -113,7 +113,9 @@ try:
     app.include_router(story.router)
     app.include_router(browse.router)
 
-except ImportError:
+except ImportError as e:
+    import sys
+    print(f"Import error (app disabled): {e}", file=sys.stderr)
     app = None  # FastAPI not installed
 
 

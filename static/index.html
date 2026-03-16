@@ -51,6 +51,7 @@
         <div class="creating-input-wrap" id="creating-input-wrap">
           <div class="input-label">Your translation in Chinese</div>
           <input type="text" id="creating-input" placeholder="Type here…"
+                 autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                  onkeydown="if(event.key==='Enter')revealAnswer()">
         </div>
         <button class="reveal-btn" id="reveal-btn" onclick="revealAnswer()">Show Answer</button>
@@ -64,6 +65,7 @@
           <div class="answer-block">
             <div class="answer-block-label">Your answer</div>
             <div class="answer-block-text answer-user" id="user-answer-text"></div>
+            <div id="answer-match-bar" style="display:none"></div>
           </div>
           <div class="answer-block">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
@@ -80,7 +82,10 @@
           <button class="play-icon-btn" onclick="playSentence()" title="Play audio">▶</button>
         </div>
 
-        <!-- 2. English translation of the sentence -->
+        <!-- 2. Pinyin toggle + row -->
+        <button class="pinyin-btn" id="pinyin-btn" onclick="togglePinyin()">Pinyin</button>
+        <div class="pinyin-row" id="pinyin-row" style="display:none"></div>
+        <!-- English translation of the sentence -->
         <div class="sentence-en" id="sentence-en"></div>
 
         <!-- 3. Rating buttons (immediately visible after flip) -->

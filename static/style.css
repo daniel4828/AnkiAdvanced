@@ -170,6 +170,7 @@ main {
   min-height: 90px;
 }
 .sentence .hl { color: var(--primary); font-weight: 700; }
+.answer-user .hl { color: var(--primary); font-weight: 700; }
 
 /* Small inline play icon next to sentence on back */
 .sentence-row {
@@ -314,6 +315,11 @@ main {
   color: var(--muted);
   margin: 14px 0 8px;
 }
+.section-toggle {
+  cursor: pointer;
+  user-select: none;
+}
+.section-toggle:hover { color: var(--primary); }
 
 /* Character rows */
 .char-row {
@@ -323,8 +329,40 @@ main {
   padding: 6px 0;
   border-bottom: 1px solid var(--border);
 }
-/* Sentence English translation */
+.pinyin-btn {
+  display: block;
+  margin: 0 auto;
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 3px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.12s, color 0.12s;
+}
+.pinyin-btn:hover, .pinyin-btn.active { border-color: var(--primary); color: var(--primary); }
+.pinyin-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  font-size: 14px;
+  justify-content: center;
+}
+.py-char {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.py-syl { font-size: 11px; color: var(--muted); }
+.py-zh  { font-size: 18px; }
+.py-target .py-syl { color: var(--primary); font-weight: 700; }
+.py-target .py-zh  { color: var(--primary); font-weight: 700; }
 .sentence-en {
+  flex: 1;
   text-align: center;
   font-size: 14px;
   color: var(--muted);
@@ -409,9 +447,13 @@ main {
   font-size: 22px;
   line-height: 1.4;
 }
-.answer-user  { color: var(--text); }
-.answer-correct { color: var(--again); font-weight: 700; }
-.answer-correct .hl { color: #7c0000; }
+.answer-user  { color: var(--muted); }
+.answer-correct { color: var(--good); font-weight: 700; }
+.answer-correct .hl { color: var(--primary); }
+.ch-match  { color: var(--good);      font-weight: 700; }
+.ch-target { color: var(--primary);   font-weight: 700; }
+.ch-miss   { color: var(--muted); }
+.match-bar { font-size: 13px; font-weight: 700; margin-top: 8px; display: block; letter-spacing: 1px; }
 
 /* ── Deck tree ───────────────────────────────────────────── */
 .tree-row {
