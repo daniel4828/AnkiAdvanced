@@ -51,7 +51,7 @@ def _ensure_presets(conn: sqlite3.Connection) -> None:
                 relearning_steps, minimum_interval, insertion_order,
                 bury_siblings, randomize_story_order, leech_threshold, leech_action, is_default)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)""",
-            ("Anki Default", 9999, 9999, "1m 2d", 4, 9, "10", 1, "sequential", 1, 0, 8, "suspend"),
+            ("Anki Default", 9999, 9999, "1m 10m", 4, 9, "10", 1, "sequential", 1, 0, 8, "suspend"),
         )
 
     # Guarantee exactly one default

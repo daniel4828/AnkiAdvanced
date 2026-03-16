@@ -72,12 +72,22 @@ def preload(text: str) -> None:
                      daemon=True).start()
 
 
+_current_playback: subprocess.Popen | None = None
+_playback_lock = threading.Lock()
+
+
 def speak(text: str) -> None:
-    """Play audio. Uses cached file if available, otherwise generates first."""
+    """Play audio, killing any ongoing playback first."""
     threading.Thread(target=lambda: asyncio.run(_play(text)),
                      daemon=True).start()
 
 
 async def _play(text: str) -> None:
+    global _current_playback
     path = await _ensure_cached(text)
-    subprocess.run(["afplay", path], check=True)
+    with _playback_lock:
+        if _current_playback and _current_playback.poll() is None:
+            _current_playback.kill()
+            _current_playback.wait()
+        _current_playback = subprocess.Popen(["afplay", path])
+    _current_playback.wait()
