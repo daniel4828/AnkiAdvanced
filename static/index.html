@@ -241,6 +241,34 @@
   </div>
 </div>
 
+<!-- Story setup modal -->
+<div id="setup-modal-overlay" onclick="cancelStorySetup()" style="display:none"></div>
+<div id="setup-modal" style="display:none">
+  <div class="edit-modal-header">
+    <span class="edit-modal-title">Story setup</span>
+    <button class="edit-modal-close" onclick="cancelStorySetup()">✕</button>
+  </div>
+  <p id="setup-count-label" class="setup-count-label"></p>
+  <div class="edit-card-fields">
+    <label class="edit-label">Topic <span style="font-weight:400;text-transform:none">(optional)</span>
+      <input class="edit-input" id="setup-topic" type="text" placeholder="e.g. a day at a coffee shop" onkeydown="if(event.key==='Enter')confirmStorySetup()">
+    </label>
+    <label class="edit-label">
+      Max HSK level for background vocabulary
+      <div class="setup-slider-row">
+        <span class="setup-slider-min">1</span>
+        <input type="range" id="setup-hsk-slider" min="1" max="6" value="2" oninput="updateHskLabel()">
+        <span class="setup-slider-max">6</span>
+        <span class="setup-hsk-badge" id="setup-hsk-badge">HSK 2</span>
+      </div>
+    </label>
+  </div>
+  <div class="edit-card-actions">
+    <button class="edit-cancel-btn" onclick="cancelStorySetup()">Cancel</button>
+    <button class="edit-save-btn" id="setup-generate-btn" onclick="confirmStorySetup()">Generate story</button>
+  </div>
+</div>
+
 <!-- Story modal -->
 <div id="story-modal-overlay" onclick="closeStoryModal()" style="display:none"></div>
 <div id="story-modal" style="display:none">

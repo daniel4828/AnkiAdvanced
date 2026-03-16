@@ -455,6 +455,51 @@ main {
 }
 .story-btn:hover { border-color: var(--primary); color: var(--primary); }
 
+/* ── Story setup modal ───────────────────────────────── */
+#setup-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 100;
+}
+#setup-modal {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 101;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  width: min(440px, 92vw);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 24px 24px;
+  gap: 16px;
+}
+.setup-count-label {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+  text-align: center;
+}
+.setup-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.setup-slider-row input[type=range] { flex: 1; accent-color: var(--primary); }
+.setup-slider-min, .setup-slider-max { font-size: 12px; color: var(--muted); font-weight: 600; }
+.setup-hsk-badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary);
+  background: #dbeafe;
+  border-radius: 6px;
+  padding: 2px 8px;
+  min-width: 44px;
+  text-align: center;
+}
+
 /* ── Story modal ─────────────────────────────────────── */
 #story-modal-overlay {
   position: fixed;

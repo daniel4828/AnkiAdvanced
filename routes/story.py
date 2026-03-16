@@ -31,29 +31,34 @@ def _get_cards_for_story(deck_id: int, category: str) -> list:
 
 
 @router.get("/api/story/{deck_id}/{category}")
-def get_story(deck_id: int, category: str):
+def get_story(deck_id: int, category: str,
+              topic: str | None = None, max_hsk: int = 2):
     today = date.today().isoformat()
-    story = database.get_active_story(today, category, deck_id)
-    if story:
-        story["sentences"] = database.get_story_sentences(story["id"])
-        logger.info("story  CACHED  deck=%d cat=%s sentences=%d story_id=%d",
-                    deck_id, category, len(story["sentences"]), story["id"])
-        _log_story(story)
-        return story
+    # Only use cached story if no custom options were provided
+    if not topic and max_hsk == 2:
+        story = database.get_active_story(today, category, deck_id)
+        if story:
+            story["sentences"] = database.get_story_sentences(story["id"])
+            logger.info("story  CACHED  deck=%d cat=%s sentences=%d story_id=%d",
+                        deck_id, category, len(story["sentences"]), story["id"])
+            _log_story(story)
+            return story
 
     if DISABLE_AI:
         logger.info("story  DISABLED (DISABLE_AI=1) deck=%d cat=%s", deck_id, category)
         return None
 
+    story = None
     cards = _get_cards_for_story(deck_id, category)
-    logger.info("story  GENERATE deck=%d cat=%s due_cards=%d", deck_id, category, len(cards))
+    logger.info("story  GENERATE deck=%d cat=%s due_cards=%d topic=%r max_hsk=%d",
+                deck_id, category, len(cards), topic, max_hsk)
     if cards:
         try:
             ids = leaf_ids(deck_id, category)
             preset = database.get_preset_for_deck(ids[0] if ids else deck_id)
             if preset.get("randomize_story_order", 1):
                 random.shuffle(cards)
-            sentences = ai.generate_story(cards)
+            sentences = ai.generate_story(cards, topic=topic, max_hsk=max_hsk)
             for i, s in enumerate(sentences):
                 s["position"] = i
             database.create_story(today, category, deck_id, sentences)
@@ -70,19 +75,21 @@ def get_story(deck_id: int, category: str):
 
 
 @router.post("/api/story/{deck_id}/{category}/regenerate")
-def regenerate_story(deck_id: int, category: str):
+def regenerate_story(deck_id: int, category: str,
+                     topic: str | None = None, max_hsk: int = 2):
     if DISABLE_AI:
         return None
     today = date.today().isoformat()
     cards = _get_cards_for_story(deck_id, category)
-    logger.info("regen  deck=%d cat=%s due_cards=%d", deck_id, category, len(cards))
+    logger.info("regen  deck=%d cat=%s due_cards=%d topic=%r max_hsk=%d",
+                deck_id, category, len(cards), topic, max_hsk)
     if not cards:
         return None
     ids = leaf_ids(deck_id, category)
     preset = database.get_preset_for_deck(ids[0] if ids else deck_id)
     if preset.get("randomize_story_order", 1):
         random.shuffle(cards)
-    sentences = ai.generate_story(cards)
+    sentences = ai.generate_story(cards, topic=topic, max_hsk=max_hsk)
     for i, s in enumerate(sentences):
         s["position"] = i
     database.create_story(today, category, deck_id, sentences)
@@ -92,6 +99,13 @@ def regenerate_story(deck_id: int, category: str):
         logger.info("regen  SAVED sentences=%d", len(story["sentences"]))
         _log_story(story)
     return story
+
+
+@router.get("/api/story/{deck_id}/{category}/count")
+def story_count(deck_id: int, category: str):
+    """Return how many sentences the next story will have."""
+    cards = _get_cards_for_story(deck_id, category)
+    return {"count": len(cards)}
 
 
 @router.post("/api/speak")
