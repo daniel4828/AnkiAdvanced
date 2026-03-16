@@ -447,6 +447,16 @@
       overflow: hidden;
     }
 
+    /* ── Deck-level count badge (New / Learn / Due) ─────── */
+    .deck-counts {
+      display: flex;
+      gap: 5px;
+      margin-left: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
     /* ── Category pill buttons on deck rows (inline) ────── */
     .cat-pills-inline {
       display: flex;
@@ -1127,11 +1137,14 @@ function renderDeckRows(decks, depth) {
     const toggleIcon = hasStructChildren ? (isCollapsed ? '▶' : '▼') : '';
     const pillsHtml = `<div class="cat-pills-inline">${buildCategoryButtons(deck)}</div>`;
     const safeName  = deck.name.replace(/'/g, "\\'");
+    const c = deck.counts || { new: 0, learning: 0, review: 0 };
+    const deckCounts = `<span class="deck-counts"><span class="n-new">${c.new}</span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span></span>`;
 
     const row = `
       <div class="tree-row tree-parent" style="padding-left:${16 + indent}px">
         <span class="tree-toggle" onclick="toggleDeck(${deck.id})">${toggleIcon}</span>
         <span class="tree-name" onclick="startReviewMixed(${deck.id},'${safeName}')" style="cursor:pointer">${deck.name}</span>
+        ${deckCounts}
         ${pillsHtml}
         <button class="gear-btn" onclick="openOptions(${deck.id})"
                 title="Deck options">⚙</button>
