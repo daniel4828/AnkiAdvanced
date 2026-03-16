@@ -625,6 +625,18 @@ def count_due(deck_id: int, category: str) -> dict:
     }
 
 
+def update_word(word_id: int, fields: dict) -> None:
+    allowed = {"pinyin", "definition", "pos"}
+    updates = {k: v for k, v in fields.items() if k in allowed}
+    if not updates:
+        return
+    conn = get_db()
+    sets = ", ".join(f"{k}=?" for k in updates)
+    conn.execute(f"UPDATE words SET {sets} WHERE id=?", (*updates.values(), word_id))
+    conn.commit()
+    conn.close()
+
+
 def update_card(card_id: int, *, state: str, due: str,
                 step_index: int, interval: int,
                 ease: float, repetitions: int, lapses: int) -> None:

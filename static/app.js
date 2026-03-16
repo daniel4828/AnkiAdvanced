@@ -518,6 +518,10 @@ function loadCard(c, counts) {
   document.getElementById('pinyin-row').style.display = 'none';
   document.getElementById('pinyin-btn').classList.remove('active');
 
+  // Reset edit panel
+  document.getElementById('edit-card-panel').style.display = 'none';
+  document.getElementById('edit-card-btn').style.display   = 'block';
+
   // Preload full word details for the back side (local DB — near-instant)
   fetch(`/api/word/${c.word_id}`)
     .then(r => r.ok ? r.json() : null)
@@ -781,6 +785,42 @@ async function togglePinyin() {
   }).join('');
   row.style.display = 'flex';
   btn.classList.add('active');
+}
+
+// ── Edit card ────────────────────────────────────────────────────────────────
+function openEditCard() {
+  document.getElementById('edit-pinyin').value     = card.pinyin || '';
+  document.getElementById('edit-definition').value = card.definition || '';
+  document.getElementById('edit-pos').value        = card.pos || '';
+  document.getElementById('edit-card-panel').style.display = 'block';
+  document.getElementById('edit-card-btn').style.display   = 'none';
+}
+
+function closeEditCard() {
+  document.getElementById('edit-card-panel').style.display = 'none';
+  document.getElementById('edit-card-btn').style.display   = 'block';
+}
+
+async function saveEditCard() {
+  const body = {
+    pinyin:     document.getElementById('edit-pinyin').value.trim(),
+    definition: document.getElementById('edit-definition').value.trim(),
+    pos:        document.getElementById('edit-pos').value.trim(),
+  };
+  try {
+    const updated = await api('PUT', `/api/word/${card.word_id}`, body);
+    card.pinyin     = updated.pinyin;
+    card.definition = updated.definition;
+    card.pos        = updated.pos;
+    document.getElementById('word-pin').textContent = updated.pinyin || '';
+    document.getElementById('word-def').textContent = updated.definition || '';
+    const posEl = document.getElementById('word-pos');
+    posEl.textContent   = updated.pos || '';
+    posEl.style.display = updated.pos ? 'inline-block' : 'none';
+    closeEditCard();
+  } catch (e) {
+    showError('Save failed: ' + e.message);
+  }
 }
 
 // ── TTS ─────────────────────────────────────────────────────────────────────

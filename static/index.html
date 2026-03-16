@@ -106,6 +106,19 @@
           <div id="examples-section"></div>
           <!-- Characters breakdown — populated by JS -->
           <div id="char-section"></div>
+          <!-- Edit card panel -->
+          <div id="edit-card-panel" style="display:none">
+            <div class="edit-card-fields">
+              <label class="edit-label">Pinyin<input class="edit-input" id="edit-pinyin" type="text"></label>
+              <label class="edit-label">Definition<input class="edit-input" id="edit-definition" type="text"></label>
+              <label class="edit-label">Part of speech<input class="edit-input" id="edit-pos" type="text"></label>
+            </div>
+            <div class="edit-card-actions">
+              <button class="edit-cancel-btn" onclick="closeEditCard()">Cancel</button>
+              <button class="edit-save-btn" onclick="saveEditCard()">Save</button>
+            </div>
+          </div>
+          <button class="edit-card-btn" id="edit-card-btn" onclick="openEditCard()">Edit card</button>
         </div>
 
       </div>
