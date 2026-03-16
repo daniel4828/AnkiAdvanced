@@ -33,6 +33,12 @@ CREATE TABLE IF NOT EXISTS deck_presets (
     -- Mark one preset as the default for new decks
     is_default              INTEGER NOT NULL DEFAULT 0,
 
+    -- Bury siblings (same word reviewed in another category today)
+    bury_siblings           INTEGER NOT NULL DEFAULT 1,
+
+    -- Randomize word order when generating stories
+    randomize_story_order   INTEGER NOT NULL DEFAULT 0,
+
     -- Leech settings
     leech_threshold         INTEGER NOT NULL DEFAULT 8,
     leech_action            TEXT NOT NULL DEFAULT 'suspend'
