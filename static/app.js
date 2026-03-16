@@ -830,19 +830,22 @@ function openStoryModal() {
   document.getElementById('story-modal').style.display = 'flex';
 }
 
-async function playFullStory() {
-  if (!story?.sentences?.length) return;
-  const text = story.sentences.map(s => s.sentence_zh).join('，');
-  const btn = document.getElementById('story-play-all-btn');
-  btn.disabled = true;
-  try { await api('POST', `/api/speak?text=${encodeURIComponent(text)}`); }
-  catch (e) { showError('TTS failed: ' + e.message); }
-  finally { btn.disabled = false; }
-}
-
 async function playStoryLine(encodedText) {
   try { await api('POST', `/api/speak?text=${encodedText}`); }
   catch (e) { showError('TTS failed: ' + e.message); }
+}
+
+async function playFullStory() {
+  if (!story?.sentences?.length) return;
+  const btn = document.getElementById('story-play-all-btn');
+  btn.disabled = true;
+  try {
+    for (const s of story.sentences) {
+      await playStoryLine(encodeURIComponent(s.sentence_zh));
+    }
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 function closeStoryModal() {
