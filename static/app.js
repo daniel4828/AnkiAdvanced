@@ -134,6 +134,7 @@ function renderDecks(decks) {
     <div class="nav-row">
       <button class="nav-btn" onclick="openBrowse()">Browse Cards</button>
       <button class="nav-btn" onclick="openStats()">Stats</button>
+      <button class="nav-btn" onclick="openCostModal()">API Costs</button>
     </div>`;
 
   const virtualDecks = decks.filter(d => d.virtual);
@@ -470,6 +471,52 @@ async function openStats() {
     showError('Stats failed: ' + e.message);
     showView('decks');
   }
+}
+
+async function openCostModal() {
+  try {
+    const data = await api('GET', '/api/costs');
+    renderCostModal(data);
+    document.getElementById('cost-modal-overlay').style.display = 'block';
+    document.getElementById('cost-modal').style.display = 'flex';
+  } catch (e) {
+    showError('Failed to load cost data: ' + e.message);
+  }
+}
+
+function closeCostModal() {
+  document.getElementById('cost-modal-overlay').style.display = 'none';
+  document.getElementById('cost-modal').style.display = 'none';
+}
+
+function renderCostModal(data) {
+  const fmt = n => '$' + n.toFixed(4);
+  const fmtFull = n => '$' + n.toFixed(6);
+
+  let html = `<div class="cost-total">Total spent <b>${fmt(data.total_cost)}</b></div>`;
+
+  if (!data.calls.length) {
+    html += '<div class="cost-empty">No API calls logged yet.</div>';
+  } else {
+    html += `<table class="cost-table">
+      <thead><tr>
+        <th>Date</th><th>Model</th><th>Tokens in / out</th>
+        <th style="text-align:right">Cost</th>
+      </tr></thead><tbody>`;
+    for (const c of data.calls) {
+      const dt = c.called_at.slice(0, 16).replace('T', ' ');
+      const model = c.model.replace('claude-', '').replace('-20251001', '');
+      html += `<tr>
+        <td style="color:var(--muted);font-size:12px;white-space:nowrap">${dt}</td>
+        <td><span class="cost-model">${model}</span></td>
+        <td class="cost-num" style="color:var(--muted)">${c.input_tokens.toLocaleString()} / ${c.output_tokens.toLocaleString()}</td>
+        <td class="cost-num cost-value">${fmtFull(c.cost)}</td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+  }
+
+  document.getElementById('cost-modal-body').innerHTML = html;
 }
 
 function renderStats(data) {
@@ -1070,7 +1117,7 @@ async function togglePinyin() {
   const chars = [...text];
   const wordStart = text.indexOf(card.word_zh);
   const wordEnd = wordStart + [...card.word_zh].length;
-  row.innerHTML = chars.map((ch, i) => {
+  row.innerHTML = chars.map((_ch, i) => {
     const py = syllables[i] || '';
     const isTarget = wordStart >= 0 && i >= wordStart && i < wordEnd;
     return `<span class="py-char${isTarget ? ' py-target' : ''}">`+
@@ -1095,7 +1142,7 @@ function openStorySetup(sentenceCount) {
   document.getElementById('setup-modal-overlay').style.display = 'block';
   document.getElementById('setup-modal').style.display        = 'flex';
   document.getElementById('setup-topic').focus();
-  return new Promise((resolve, reject) => { _setupResolve = resolve; });
+  return new Promise(resolve => { _setupResolve = resolve; });
 }
 
 function updateHskLabel() {

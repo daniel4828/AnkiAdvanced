@@ -71,6 +71,11 @@ def get_stats(deck_id: int | None = None):
     return database.get_stats(deck_id)
 
 
+@router.get("/api/costs")
+def get_api_costs():
+    return database.get_api_costs()
+
+
 @router.get("/api/pinyin")
 def get_pinyin(text: str):
     syllables = [item[0] for item in _pinyin(text, style=Style.TONE)]

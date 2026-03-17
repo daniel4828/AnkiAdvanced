@@ -30,6 +30,14 @@ def init_db() -> None:
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(words)").fetchall()}
     if "notes" not in cols:
         conn.execute("ALTER TABLE words ADD COLUMN notes TEXT")
+    conn.execute("""CREATE TABLE IF NOT EXISTS api_call_log (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        called_at     TEXT NOT NULL DEFAULT (datetime('now')),
+        model         TEXT NOT NULL,
+        input_tokens  INTEGER NOT NULL,
+        output_tokens INTEGER NOT NULL,
+        purpose       TEXT NOT NULL DEFAULT 'story'
+    )""")
     conn.commit()
 
     # Ensure presets + default deck exist
@@ -1146,6 +1154,50 @@ def get_stats(deck_id: int | None = None) -> dict:
         "reviews_by_day": reviews_by_day,
         "state_counts": state_counts,
     }
+
+
+# ---------------------------------------------------------------------------
+# API cost tracking
+# ---------------------------------------------------------------------------
+
+# Prices per million tokens (USD) as of 2025
+_MODEL_PRICING: dict[str, dict[str, float]] = {
+    "claude-haiku-4-5-20251001": {"input": 0.80,  "output": 4.00},
+    "claude-sonnet-4-6":         {"input": 3.00,  "output": 15.00},
+    "claude-opus-4-6":           {"input": 15.00, "output": 75.00},
+}
+
+
+def log_api_call(model: str, input_tokens: int, output_tokens: int,
+                 purpose: str = "story") -> None:
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO api_call_log (model, input_tokens, output_tokens, purpose) VALUES (?, ?, ?, ?)",
+        (model, input_tokens, output_tokens, purpose),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_api_costs() -> dict:
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM api_call_log ORDER BY called_at DESC"
+    ).fetchall()
+    conn.close()
+
+    calls = []
+    total_cost = 0.0
+    for r in rows:
+        r = dict(r)
+        pricing = _MODEL_PRICING.get(r["model"], {"input": 0.0, "output": 0.0})
+        cost = (r["input_tokens"] * pricing["input"] +
+                r["output_tokens"] * pricing["output"]) / 1_000_000
+        r["cost"] = round(cost, 6)
+        total_cost += cost
+        calls.append(r)
+
+    return {"calls": calls, "total_cost": round(total_cost, 6)}
 
 
 def _calc_streak(conn: sqlite3.Connection, deck_id: int | None) -> int:

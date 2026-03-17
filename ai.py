@@ -11,6 +11,7 @@ import logging
 import re
 
 import anthropic
+import database
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,13 @@ Rules:
         model="claude-sonnet-4-6",
         max_tokens=max_tokens,
         messages=[{"role": "user", "content": prompt}],
+    )
+
+    database.log_api_call(
+        model=message.model,
+        input_tokens=message.usage.input_tokens,
+        output_tokens=message.usage.output_tokens,
+        purpose="story",
     )
 
     raw = message.content[0].text.strip()
