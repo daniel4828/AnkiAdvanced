@@ -25,6 +25,14 @@ def get_today(deck_id: int, category: str):
     return {"card": card, "counts": counts}
 
 
+@router.get("/api/today-unfinished")
+def get_today_unfinished():
+    card = database.get_next_unfinished_card()
+    if card:
+        card["intervals"] = srs.preview_intervals(card)
+    return {"card": card, "counts": database.count_unfinished()}
+
+
 @router.get("/api/today-mixed/{deck_id}")
 def get_today_mixed(deck_id: int):
     card = database.get_next_card_any_cat(deck_id)
@@ -37,7 +45,7 @@ def get_today_mixed(deck_id: int):
 
 @router.post("/api/review")
 def submit_review(card_id: int, rating: int, user_response: str | None = None,
-                  root_deck_id: int | None = None):
+                  root_deck_id: int | None = None, unfinished_mode: bool = False):
     card_before = database.get_card(card_id)
     updated     = srs.apply_review(card_id, rating, user_response=user_response)
     deck_id     = updated["deck_id"]
@@ -47,7 +55,10 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
     if preset.get("bury_siblings", 1):
         database.bury_siblings(updated["word_id"], cat)
 
-    if root_deck_id:
+    if unfinished_mode:
+        next_card = database.get_next_unfinished_card()
+        counts    = database.count_unfinished()
+    elif root_deck_id:
         next_card = database.get_next_card_any_cat(root_deck_id)
         counts    = database.count_due_any_cat(root_deck_id)
     else:

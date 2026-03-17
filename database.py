@@ -774,6 +774,35 @@ def count_due_multi(deck_ids: list[int], category: str) -> dict:
     return total
 
 
+def count_unfinished() -> dict:
+    """Count learning/relearn cards due right now across all decks and categories."""
+    now = datetime.now().isoformat(timespec="seconds")
+    conn = get_db()
+    learning = conn.execute(
+        """SELECT COUNT(*) FROM cards
+           WHERE state IN ('learning', 'relearn') AND due <= ?
+             AND (buried_until IS NULL OR buried_until < date('now'))""",
+        (now,),
+    ).fetchone()[0]
+    conn.close()
+    return {"new": 0, "learning": learning, "review": 0}
+
+
+def get_next_unfinished_card() -> dict | None:
+    """Highest-priority learning/relearn card due right now across all decks/categories."""
+    now = datetime.now().isoformat(timespec="seconds")
+    conn = get_db()
+    row = conn.execute(
+        """SELECT id FROM cards
+           WHERE state IN ('learning', 'relearn') AND due <= ?
+             AND (buried_until IS NULL OR buried_until < date('now'))
+           ORDER BY due ASC LIMIT 1""",
+        (now,),
+    ).fetchone()
+    conn.close()
+    return get_card(row["id"]) if row else None
+
+
 def bury_siblings(word_id: int, reviewed_category: str) -> None:
     """Bury all other-category cards for this word for the rest of today."""
     today = date.today().isoformat()
