@@ -844,6 +844,132 @@ def unsuspend_card(card_id: int) -> None:
     conn.close()
 
 
+def get_words_for_browse() -> list[dict]:
+    """Return all words that have cards, with embedded card states per category."""
+    sql = """
+        SELECT w.id, w.word_zh, w.pinyin, w.definition, w.pos, w.hsk_level,
+               c.id as card_id, c.category, c.state, c.interval, c.ease,
+               c.due, c.lapses, c.step_index, c.deck_id,
+               d.name as deck_name
+        FROM words w
+        JOIN cards c ON c.word_id = w.id
+        JOIN decks d ON d.id = c.deck_id
+        ORDER BY w.word_zh, c.category
+    """
+    conn = get_db()
+    rows = conn.execute(sql).fetchall()
+    conn.close()
+    words: dict = {}
+    for r in rows:
+        r = dict(r)
+        wid = r["id"]
+        if wid not in words:
+            words[wid] = {
+                "id": wid,
+                "word_zh": r["word_zh"],
+                "pinyin": r["pinyin"],
+                "definition": r["definition"],
+                "pos": r["pos"],
+                "hsk_level": r["hsk_level"],
+                "cards": [],
+            }
+        words[wid]["cards"].append({
+            "id": r["card_id"],
+            "category": r["category"],
+            "state": r["state"],
+            "interval": r["interval"],
+            "ease": r["ease"],
+            "due": r["due"],
+            "lapses": r["lapses"],
+            "step_index": r["step_index"],
+            "deck_id": r["deck_id"],
+            "deck_name": r["deck_name"],
+        })
+    return list(words.values())
+
+
+def search_words(q: str) -> dict:
+    """Return word IDs split into primary (word/def match) and secondary (example/notes match)."""
+    like = f"%{q}%"
+    conn = get_db()
+    primary_ids = {r["id"] for r in conn.execute(
+        """SELECT DISTINCT w.id FROM words w
+           JOIN cards c ON c.word_id = w.id
+           WHERE w.word_zh LIKE ? OR w.pinyin LIKE ?
+              OR w.definition LIKE ? OR w.definition_zh LIKE ?""",
+        (like, like, like, like),
+    ).fetchall()}
+    secondary_ids = {r["id"] for r in conn.execute(
+        """SELECT DISTINCT w.id FROM words w
+           JOIN cards c ON c.word_id = w.id
+           LEFT JOIN word_examples we ON we.word_id = w.id
+           WHERE we.example_zh LIKE ? OR we.example_de LIKE ? OR w.notes LIKE ?""",
+        (like, like, like),
+    ).fetchall()} - primary_ids
+    conn.close()
+    return {"primary": list(primary_ids), "secondary": list(secondary_ids)}
+
+
+def get_cards_for_word(word_id: int) -> list[dict]:
+    """Return all cards for a word with full deck path (parent › child)."""
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT c.*, d.name as deck_name, p.name as parent_deck_name
+           FROM cards c
+           JOIN decks d ON d.id = c.deck_id
+           LEFT JOIN decks p ON p.id = d.parent_id
+           WHERE c.word_id = ? ORDER BY c.category""",
+        (word_id,),
+    ).fetchall()
+    conn.close()
+    result = []
+    for r in rows:
+        r = dict(r)
+        if r.get("parent_deck_name"):
+            r["deck_path"] = f"{r['parent_deck_name']} › {r['deck_name']}"
+        else:
+            r["deck_path"] = r["deck_name"]
+        result.append(r)
+    return result
+
+
+def suspend_card(card_id: int) -> dict:
+    """Toggle a card between suspended and new."""
+    conn = get_db()
+    cur = conn.execute("SELECT state FROM cards WHERE id=?", (card_id,)).fetchone()
+    new_state = "new" if cur and cur["state"] == "suspended" else "suspended"
+    conn.execute("UPDATE cards SET state=? WHERE id=?", (new_state, card_id))
+    conn.commit()
+    conn.close()
+    return get_card(card_id)
+
+
+def reset_card(card_id: int) -> dict:
+    """Reset a card to new state with default scheduling values."""
+    conn = get_db()
+    conn.execute(
+        """UPDATE cards SET state='new', step_index=0, interval=1,
+                            ease=2.5, lapses=0, due=date('now'), buried_until=NULL
+           WHERE id=?""",
+        (card_id,),
+    )
+    conn.commit()
+    conn.close()
+    return get_card(card_id)
+
+
+def bury_card_until_tomorrow(card_id: int) -> dict:
+    """Bury a card until tomorrow."""
+    conn = get_db()
+    conn.execute(
+        "UPDATE cards SET buried_until=date('now', '+1 day') WHERE id=?",
+        (card_id,),
+    )
+    conn.commit()
+    conn.close()
+    return get_card(card_id)
+
+
 def get_all_cards_for_browse(filters: dict | None = None) -> list[dict]:
     """Browse view. Supports filters: deck_id, category, state, search_text."""
     where = ["1=1"]

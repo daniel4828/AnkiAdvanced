@@ -9,7 +9,9 @@ let story       = null;   // story dict with sentences[]
 let sentence    = null;   // current sentence from story (may be null)
 let wordDetails = null;   // full word data: examples + characters
 let userInput   = '';     // creating category: what the user typed
-let browseAll    = [];   // all cards from API for client-side filtering
+let browseWords  = [];   // all words from /api/browse-words
+let browseAll    = [];   // kept for legacy (unused by new browse)
+let _browseSort  = 'pinyin-asc';
 let optDeckId    = null; // deck whose options modal is open
 const collapsed  = new Set();  // parent deck IDs that are collapsed
 
@@ -27,15 +29,16 @@ async function api(method, path, body) {
 
 // ── View switcher ──────────────────────────────────────────────────────────
 function showView(name) {
-  ['loading', 'decks', 'review', 'done', 'browse', 'stats'].forEach(v => {
+  ['loading', 'decks', 'review', 'done', 'browse', 'word-detail', 'stats'].forEach(v => {
     document.getElementById(`view-${v}`).style.display = 'none';
   });
   document.getElementById(`view-${name}`).style.display = 'block';
   document.getElementById('back-btn').style.display = name === 'decks' ? 'none' : 'block';
   document.getElementById('header-title').textContent =
-    name === 'review' ? `${deckName} · ${cap(category)}` :
-    name === 'browse' ? 'Browse' :
-    name === 'stats'  ? 'Stats'  : 'AnkiAdvanced';
+    name === 'review'      ? `${deckName} · ${cap(category)}` :
+    name === 'browse'      ? 'Browse' :
+    name === 'word-detail' ? 'Word Detail' :
+    name === 'stats'       ? 'Stats' : 'AnkiAdvanced';
 }
 
 function setLoading(msg) {
@@ -218,57 +221,243 @@ function toggleDeck(deckId) {
 }
 
 // ── Browse ───────────────────────────────────────────────────────────────────
+let _browseSearchTimer = null;
+
+function _sortWords(words) {
+  const sorted = [...words];
+  const locale = { sensitivity: 'base' };
+  switch (_browseSort) {
+    case 'pinyin-asc':  sorted.sort((a, b) => (a.pinyin || '').localeCompare(b.pinyin || '', 'en', locale)); break;
+    case 'pinyin-desc': sorted.sort((a, b) => (b.pinyin || '').localeCompare(a.pinyin || '', 'en', locale)); break;
+    case 'hanzi-asc':   sorted.sort((a, b) => (a.word_zh || '').localeCompare(b.word_zh || '', 'zh')); break;
+    case 'hanzi-desc':  sorted.sort((a, b) => (b.word_zh || '').localeCompare(a.word_zh || '', 'zh')); break;
+    case 'newest':      sorted.sort((a, b) => b.id - a.id); break;
+  }
+  return sorted;
+}
+
+function onBrowseSort(val) {
+  _browseSort = val;
+  // Re-run current search or re-render full list
+  const q = document.getElementById('browse-search').value.trim();
+  if (q) onBrowseSearch(q); else renderBrowseWords(browseWords);
+}
+
 async function openBrowse() {
-  setLoading('Loading cards…');
+  setLoading('Loading words…');
   try {
-    browseAll = await api('GET', '/api/browse');
+    browseWords = await api('GET', '/api/browse-words');
     showView('browse');
-    applyFilters();
+    document.getElementById('browse-search').value = '';
+    document.getElementById('browse-sort').value = _browseSort;
+    renderBrowseWords(browseWords);
   } catch (e) {
     showError('Browse failed: ' + e.message);
     showView('decks');
   }
 }
 
-function applyFilters() {
-  const q     = document.getElementById('f-search').value.toLowerCase();
-  const state = document.getElementById('f-state').value;
-  const cat   = document.getElementById('f-cat').value;
-  const filtered = browseAll.filter(c => {
-    if (state && c.state !== state) return false;
-    if (cat   && c.category !== cat) return false;
-    if (q && !c.word_zh?.toLowerCase().includes(q)
-           && !c.definition?.toLowerCase().includes(q)
-           && !c.pinyin?.toLowerCase().includes(q)) return false;
-    return true;
-  });
-  renderBrowse(filtered);
+function onBrowseSearch(val) {
+  clearTimeout(_browseSearchTimer);
+  const q = val.trim();
+  if (!q) { renderBrowseWords(browseWords); return; }
+  _browseSearchTimer = setTimeout(async () => {
+    try {
+      const result = await api('GET', `/api/search-words?q=${encodeURIComponent(q)}`);
+      const primarySet   = new Set(result.primary);
+      const secondarySet = new Set(result.secondary);
+      const primary   = browseWords.filter(w => primarySet.has(w.id));
+      const secondary = browseWords.filter(w => secondarySet.has(w.id));
+      renderBrowseSearchResults(primary, secondary, q);
+    } catch (e) { showError('Search failed: ' + e.message); }
+  }, 250);
 }
 
-function renderBrowse(cards) {
+function _wordRow(w) {
+  const dots = ['listening', 'reading', 'creating'].map(cat => {
+    const c = w.cards.find(c => c.category === cat);
+    return c
+      ? `<span class="bw-dot bw-dot-${c.state}" title="${cat}: ${c.state}"></span>`
+      : `<span class="bw-dot bw-dot-none" title="${cat}: —"></span>`;
+  }).join('');
+  const def = (w.definition || '').slice(0, 60) + ((w.definition || '').length > 60 ? '…' : '');
+  return `
+    <div class="bw-row" onclick="openWordDetail(${w.id})">
+      <div class="bw-left">
+        <span class="bw-hanzi">${w.word_zh}</span>
+        <span class="bw-pinyin">${w.pinyin || ''}</span>
+      </div>
+      <div class="bw-mid">
+        <span class="bw-def">${def}</span>
+      </div>
+      <div class="bw-right">${dots}</div>
+    </div>`;
+}
+
+function renderBrowseWords(words) {
   const list = document.getElementById('browse-list');
-  if (!cards.length) {
-    list.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px 0">No cards found</div>';
+  if (!words.length) {
+    list.innerHTML = '<div class="browse-empty">No words found</div>';
     return;
   }
-  list.innerHTML = cards.map(c => {
-    const def = (c.definition || '').slice(0, 48) + ((c.definition || '').length > 48 ? '…' : '');
-    const due = c.due ? c.due.slice(0, 10) : '';
-    const intv = c.interval > 0 ? `${c.interval}d` : '';
+  list.innerHTML = `<div class="bw-list">${_sortWords(words).map(_wordRow).join('')}</div>`;
+}
+
+function renderBrowseSearchResults(primary, secondary, q) {
+  const list = document.getElementById('browse-list');
+  if (!primary.length && !secondary.length) {
+    list.innerHTML = '<div class="browse-empty">No results for "' + q + '"</div>';
+    return;
+  }
+  let html = '';
+  if (primary.length) {
+    html += `<div class="browse-section-label">Words (${primary.length})</div>
+             <div class="bw-list">${_sortWords(primary).map(_wordRow).join('')}</div>`;
+  }
+  if (secondary.length) {
+    html += `<div class="browse-section-label">Found in examples / notes (${secondary.length})</div>
+             <div class="bw-list">${_sortWords(secondary).map(_wordRow).join('')}</div>`;
+  }
+  list.innerHTML = html;
+}
+
+// ── Word Detail ───────────────────────────────────────────────────────────────
+async function openWordDetail(wordId) {
+  setLoading('Loading word…');
+  try {
+    const word = await api('GET', `/api/word/${wordId}`);
+    renderWordDetail(word);
+    showView('word-detail');
+  } catch (e) {
+    showError('Failed to load word: ' + e.message);
+    showView('browse');
+  }
+}
+
+function renderWordDetail(word) {
+  document.getElementById('wd-edit-btn').onclick = () => openEditCardFromDetail(word.id);
+  document.getElementById('wd-hanzi').textContent = word.word_zh || '';
+  document.getElementById('wd-pinyin').textContent = word.pinyin || '';
+  document.getElementById('wd-def').textContent = word.definition || '';
+  const posEl = document.getElementById('wd-pos');
+  posEl.textContent = word.pos || '';
+  posEl.style.display = word.pos ? 'inline-block' : 'none';
+  const defZhEl = document.getElementById('wd-def-zh');
+  defZhEl.textContent = word.definition_zh || '';
+  defZhEl.style.display = word.definition_zh ? 'block' : 'none';
+
+  // Characters section
+  const charsEl = document.getElementById('wd-chars-section');
+  if (word.characters?.length) {
+    const rows = word.characters.map(wc => {
+      const c = wc.character || wc;
+      const char = wc.char || c.char || '';
+      const pin  = wc.pinyin || c.pinyin || '';
+      const ctx  = wc.meaning_in_context ? `<span class="wd-ctx">${wc.meaning_in_context}</span>` : '';
+      const etym = c.etymology ? `<div class="wd-etym">${c.etymology}</div>` : '';
+      return `<div class="wd-char-row">
+        <span class="wd-char-zh">${char}</span>
+        <span class="wd-char-pin">${pin}</span>
+        ${ctx}${etym}
+      </div>`;
+    }).join('');
+    charsEl.innerHTML =
+      `<div class="wd-section-head section-toggle" onclick="toggleSection('wd-chars-body')">` +
+        `<span id="wd-chars-body-arrow">▶</span> Characters</div>` +
+      `<div id="wd-chars-body" class="wd-section-body" style="display:none">${rows}</div>`;
+  } else {
+    charsEl.innerHTML = '';
+  }
+
+  // Examples section
+  const exEl = document.getElementById('wd-examples-section');
+  if (word.examples?.length) {
+    const rows = word.examples.map(ex => `
+      <div class="wd-example-row">
+        <div class="wd-ex-zh">${ex.example_zh || ''}</div>
+        ${ex.example_pinyin ? `<div class="wd-ex-pin">${ex.example_pinyin}</div>` : ''}
+        ${ex.example_de ? `<div class="wd-ex-de">${ex.example_de}</div>` : ''}
+      </div>`).join('');
+    exEl.innerHTML =
+      `<div class="wd-section-head section-toggle" onclick="toggleSection('wd-examples-body')">` +
+        `<span id="wd-examples-body-arrow">▶</span> Examples</div>` +
+      `<div id="wd-examples-body" class="wd-section-body" style="display:none">${rows}</div>`;
+  } else {
+    exEl.innerHTML = '';
+  }
+
+  // Cards section
+  renderWordDetailCards(word.cards || [], word.id);
+}
+
+function renderWordDetailCards(cards, wordId) {
+  const el = document.getElementById('wd-cards-section');
+  if (!cards.length) { el.innerHTML = ''; return; }
+  const CAT_FULL = { listening: 'Listening', reading: 'Reading', creating: 'Creating' };
+  const rows = cards.map(c => {
+    const isSuspended = c.state === 'suspended';
+    const intv  = c.interval > 0 ? `${c.interval}d` : '—';
+    const ease  = c.ease ? `${Math.round(c.ease * 100)}%` : '—';
+    const due   = c.due ? c.due.slice(0, 10) : '—';
+    const isBuried = c.buried_until && c.buried_until >= new Date().toISOString().slice(0, 10);
     return `
-      <div class="browse-item">
-        <div class="browse-top">
-          <div class="browse-word">${c.word_zh}</div>
-          <div class="browse-badges">
-            <span class="badge badge-${c.category}">${c.category.slice(0,1).toUpperCase()}</span>
-            <span class="badge badge-${c.state}">${c.state}</span>
+      <div class="wd-card-block" id="wd-card-${c.id}">
+        <div class="wd-card-head">
+          <span class="wd-cat-label">${CAT_FULL[c.category] || c.category}</span>
+          <span class="badge badge-${c.state}">${c.state}</span>
+          ${isBuried ? '<span class="badge badge-buried">buried</span>' : ''}
+          <div class="wd-card-menu-wrap">
+            <button class="wd-menu-btn" onclick="toggleCardMenu(${c.id}, event)">⋯</button>
+            <div class="wd-card-menu" id="wd-menu-${c.id}" style="display:none">
+              <button class="wd-menu-item" onclick="cardAction(${c.id}, 'bury', ${wordId})">Bury until tomorrow</button>
+              <button class="wd-menu-item ${isSuspended ? 'wd-menu-item-active' : ''}"
+                      onclick="cardAction(${c.id}, 'suspend', ${wordId})">
+                ${isSuspended ? 'Unsuspend' : 'Suspend'}
+              </button>
+              <button class="wd-menu-item wd-menu-item-danger"
+                      onclick="cardAction(${c.id}, 'reset', ${wordId})">Reset to new</button>
+            </div>
           </div>
         </div>
-        <div class="browse-def">${def}</div>
-        <div class="browse-meta">${c.pinyin || ''}${due ? ' · due ' + due : ''}${intv ? ' · ' + intv : ''}</div>
+        <div class="wd-card-stats">
+          <span>Deck <b>${c.deck_path || c.deck_name || '—'}</b></span>
+          <span>Interval <b>${intv}</b></span>
+          <span>Due <b>${due}</b></span>
+          <span>Ease <b>${ease}</b></span>
+          <span>Lapses <b>${c.lapses}</b></span>
+        </div>
       </div>`;
   }).join('');
+  el.innerHTML = `<div class="wd-section-head">Cards</div><div class="wd-cards-list">${rows}</div>`;
 }
+
+function toggleCardMenu(cardId, e) {
+  e.stopPropagation();
+  const menu = document.getElementById(`wd-menu-${cardId}`);
+  const isOpen = menu.style.display !== 'none';
+  closeAllCardMenus();
+  if (!isOpen) menu.style.display = 'block';
+}
+
+function closeAllCardMenus() {
+  document.querySelectorAll('.wd-card-menu').forEach(m => m.style.display = 'none');
+}
+
+document.addEventListener('click', closeAllCardMenus);
+
+async function cardAction(cardId, action, wordId) {
+  closeAllCardMenus();
+  try {
+    await api('POST', `/api/cards/${cardId}/${action}`);
+    const word = await api('GET', `/api/word/${wordId}`);
+    renderWordDetailCards(word.cards || [], wordId);
+  } catch (e) {
+    showError(`Action failed: ${e.message}`);
+  }
+}
+
+// ── applyFilters kept for legacy (no longer used by browse) ──────────────────
+function applyFilters() {}
 
 // ── Stats ────────────────────────────────────────────────────────────────────
 async function openStats() {
@@ -997,16 +1186,31 @@ function closeStoryModal() {
 }
 
 // ── Edit card modal ───────────────────────────────────────────────────────────
-function openEditCard() {
-  document.getElementById('edit-word-zh').value       = card.word_zh || '';
-  document.getElementById('edit-pinyin').value        = card.pinyin || '';
-  document.getElementById('edit-definition').value    = card.definition || '';
-  document.getElementById('edit-pos').value           = card.pos || '';
-  document.getElementById('edit-traditional').value   = card.traditional || '';
-  document.getElementById('edit-definition-zh').value = card.definition_zh || '';
-  document.getElementById('edit-notes').value         = card.notes || '';
+let _editWordId   = null;   // word ID being edited
+let _editFromWord = false;  // true when opened from word-detail view
+
+function _openEditModal(wordObj) {
+  _editWordId = wordObj.id || wordObj.word_id;
+  document.getElementById('edit-word-zh').value       = wordObj.word_zh       || '';
+  document.getElementById('edit-pinyin').value        = wordObj.pinyin        || '';
+  document.getElementById('edit-definition').value    = wordObj.definition    || '';
+  document.getElementById('edit-pos').value           = wordObj.pos           || '';
+  document.getElementById('edit-traditional').value   = wordObj.traditional   || '';
+  document.getElementById('edit-definition-zh').value = wordObj.definition_zh || '';
+  document.getElementById('edit-notes').value         = wordObj.notes         || '';
   document.getElementById('edit-modal-overlay').style.display = 'block';
   document.getElementById('edit-modal').style.display         = 'flex';
+}
+
+function openEditCard() {
+  _editFromWord = false;
+  _openEditModal(card);
+}
+
+function openEditCardFromDetail(wordId) {
+  closeAllCardMenus();
+  _editFromWord = true;
+  api('GET', `/api/word/${wordId}`).then(w => _openEditModal(w)).catch(e => showError(e.message));
 }
 
 function closeEditCard() {
@@ -1025,20 +1229,34 @@ async function saveEditCard() {
     notes:         document.getElementById('edit-notes').value.trim(),
   };
   try {
-    const updated = await api('PUT', `/api/word/${card.word_id}`, body);
-    Object.assign(card, {
-      word_zh: updated.word_zh, pinyin: updated.pinyin,
-      definition: updated.definition, pos: updated.pos,
-      traditional: updated.traditional, definition_zh: updated.definition_zh,
-      notes: updated.notes,
-    });
-    document.getElementById('word-zh').textContent  = updated.word_zh || '';
-    document.getElementById('word-pin').textContent = updated.pinyin || '';
-    document.getElementById('word-def').textContent = updated.definition || '';
-    const posEl = document.getElementById('word-pos');
-    posEl.textContent   = updated.pos || '';
-    posEl.style.display = updated.pos ? 'inline-block' : 'none';
-    renderNotesSection();
+    const updated = await api('PUT', `/api/word/${_editWordId}`, body);
+    if (_editFromWord) {
+      // Refresh word-detail header in place
+      document.getElementById('wd-hanzi').textContent  = updated.word_zh || '';
+      document.getElementById('wd-pinyin').textContent = updated.pinyin  || '';
+      document.getElementById('wd-def').textContent    = updated.definition || '';
+      const posEl = document.getElementById('wd-pos');
+      posEl.textContent = updated.pos || '';
+      posEl.style.display = updated.pos ? 'inline-block' : 'none';
+      const defZhEl = document.getElementById('wd-def-zh');
+      defZhEl.textContent    = updated.definition_zh || '';
+      defZhEl.style.display  = updated.definition_zh ? 'block' : 'none';
+    } else {
+      // Refresh review card in place
+      Object.assign(card, {
+        word_zh: updated.word_zh, pinyin: updated.pinyin,
+        definition: updated.definition, pos: updated.pos,
+        traditional: updated.traditional, definition_zh: updated.definition_zh,
+        notes: updated.notes,
+      });
+      document.getElementById('word-zh').textContent  = updated.word_zh || '';
+      document.getElementById('word-pin').textContent = updated.pinyin  || '';
+      document.getElementById('word-def').textContent = updated.definition || '';
+      const posEl = document.getElementById('word-pos');
+      posEl.textContent   = updated.pos || '';
+      posEl.style.display = updated.pos ? 'inline-block' : 'none';
+      renderNotesSection();
+    }
     closeEditCard();
   } catch (e) {
     showError('Save failed: ' + e.message);
@@ -1085,9 +1303,14 @@ async function _doRegenerateStory(topic, maxHsk) {
 
 // ── Back to decks ────────────────────────────────────────────────────────────
 function goBack() {
+  // Word detail → back to browse list
+  if (document.getElementById('view-word-detail').style.display !== 'none') {
+    showView('browse');
+    return;
+  }
   card = null; story = null; sentence = null; wordDetails = null; userInput = '';
   rootDeckId = null; unfinishedMode = false;
-  browseAll = [];
+  browseWords = []; browseAll = [];
   loadDecks();
 }
 

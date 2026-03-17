@@ -126,24 +126,36 @@
 
   <!-- Browse -->
   <div id="view-browse">
-    <div class="filter-row">
-      <input  id="f-search"   type="text"   placeholder="Search…" oninput="applyFilters()">
-      <select id="f-state"    onchange="applyFilters()">
-        <option value="">All states</option>
-        <option value="new">New</option>
-        <option value="learning">Learning</option>
-        <option value="review">Review</option>
-        <option value="relearn">Relearn</option>
-        <option value="suspended">Suspended</option>
-      </select>
-      <select id="f-cat"      onchange="applyFilters()">
-        <option value="">All categories</option>
-        <option value="listening">Listening</option>
-        <option value="reading">Reading</option>
-        <option value="creating">Creating</option>
+    <div class="browse-search-row">
+      <input id="browse-search" type="text" placeholder="Search words, pinyin, definition…"
+             oninput="onBrowseSearch(this.value)" autocomplete="off"
+             autocorrect="off" autocapitalize="off" spellcheck="false">
+      <select id="browse-sort" onchange="onBrowseSort(this.value)">
+        <option value="pinyin-asc">Pinyin A→Z</option>
+        <option value="pinyin-desc">Pinyin Z→A</option>
+        <option value="hanzi-asc">Hanzi A→Z</option>
+        <option value="hanzi-desc">Hanzi Z→A</option>
+        <option value="newest">Newest first</option>
       </select>
     </div>
-    <div class="browse-list" id="browse-list"></div>
+    <div id="browse-list"></div>
+  </div>
+
+  <!-- Word Detail -->
+  <div id="view-word-detail">
+    <div class="wd-header">
+      <div class="wd-hanzi" id="wd-hanzi"></div>
+      <div class="wd-pinyin" id="wd-pinyin"></div>
+      <div class="wd-pos-def-row">
+        <span class="word-pos" id="wd-pos" style="display:none"></span>
+        <span class="wd-def" id="wd-def"></span>
+      </div>
+      <div class="wd-def-zh" id="wd-def-zh" style="display:none"></div>
+      <button class="wd-edit-btn" id="wd-edit-btn" onclick="openEditCardFromDetail(0)">Edit</button>
+    </div>
+    <div id="wd-chars-section"></div>
+    <div id="wd-examples-section"></div>
+    <div id="wd-cards-section"></div>
   </div>
 
   <!-- Stats -->
