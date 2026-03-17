@@ -133,28 +133,43 @@ function renderDecks(decks) {
       <button class="nav-btn" onclick="openStats()">Stats</button>
     </div>`;
 
-  // Separate virtual entries from real decks
   const virtualDecks = decks.filter(d => d.virtual);
-  const realDecks    = decks.filter(d => !d.virtual);
+  const defaultDeck  = decks.find(d => !d.virtual && d.name === 'Default');
+  const regularDecks = decks.filter(d => !d.virtual && d.name !== 'Default');
 
   let html = '';
 
-  // Render "Unfinished Cards" virtual deck first
+  // ── Filtered Decks section ────────────────────────────────────────────────
+  let filteredHtml = '';
+
   for (const vd of virtualDecks) {
     if (vd.id === 'unfinished') {
       const c = vd.counts;
-      html += `
-        <div class="tree-card unfinished-card" onclick="startReviewUnfinished()">
-          <div class="unfinished-row">
-            <span class="unfinished-name">${vd.name}</span>
-            <span class="unfinished-count">${c.learning}</span>
-          </div>
+      filteredHtml += `
+        <div class="filtered-row unfinished-entry" onclick="startReviewUnfinished()">
+          <span class="filtered-name">${vd.name}</span>
+          <span class="filtered-count">${c.learning}</span>
         </div>`;
     }
   }
 
-  // Render real decks
-  html += `<div class="tree-card">${renderDeckRows(realDecks, 0)}</div>`;
+  if (defaultDeck) {
+    const c0 = defaultDeck.counts || {};
+    if ((c0.new || 0) + (c0.learning || 0) + (c0.review || 0) > 0) {
+      filteredHtml += renderDeckRows([defaultDeck], 0);
+    }
+  }
+
+  if (filteredHtml) {
+    html += `<div class="section-label">Filtered Decks</div><div class="tree-card">${filteredHtml}</div>`;
+  }
+
+  // ── Regular Decks section ─────────────────────────────────────────────────
+  const regularHtml = renderDeckRows(regularDecks, 0);
+  if (regularHtml.trim()) {
+    html += `<div class="section-label">Decks</div><div class="tree-card">${regularHtml}</div>`;
+  }
+
   document.getElementById('view-decks').innerHTML = navRow + html;
 }
 
@@ -162,10 +177,6 @@ function renderDeckRows(decks, depth) {
   return decks.map(deck => {
     // Category leaf decks are consumed as pills — not rendered as rows
     if (deck.category && (!deck.children || deck.children.length === 0)) return '';
-
-    // Hide "Default" deck when it has no cards at all
-    const c0 = deck.counts || {};
-    if (deck.name === 'Default' && (c0.new || 0) + (c0.learning || 0) + (c0.review || 0) === 0) return '';
 
     const structChildren = (deck.children || []).filter(
       c => !(c.category && (!c.children || c.children.length === 0))

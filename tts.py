@@ -47,8 +47,17 @@ async def _ensure_cached(text: str) -> str:
     tmp = path + ".tmp"
     logger.debug("tts  generating %r → %s", text[:30], os.path.basename(path))
     communicate = edge_tts.Communicate(text, VOICE)
-    await communicate.save(tmp)
-    os.replace(tmp, path)   # atomic: no partial files visible to readers
+    try:
+        await communicate.save(tmp)
+        if not os.path.exists(tmp):
+            raise RuntimeError("edge-tts produced no output")
+        os.replace(tmp, path)   # atomic: no partial files visible to readers
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
     _hot.add(path)
     logger.debug("tts  cached     %s", os.path.basename(path))
     return path

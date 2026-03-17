@@ -488,27 +488,39 @@ main {
   overflow: hidden;
 }
 
-/* ── Unfinished Cards virtual deck ──────────────────── */
-.unfinished-card {
-  background: #eff6ff;
-  border: 1.5px solid #bfdbfe;
-  cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
+/* ── Section labels (Filtered Decks / Decks) ─────────── */
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+  padding: 0 4px 6px;
+  margin-top: 8px;
 }
-.unfinished-card:hover { background: #dbeafe; border-color: var(--primary); }
-.unfinished-row {
+
+/* ── Filtered Decks rows ─────────────────────────────── */
+.filtered-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.12s;
+  user-select: none;
 }
-.unfinished-name {
+.filtered-row:last-child { border-bottom: none; }
+.filtered-row:first-of-type { border-radius: var(--radius) var(--radius) 0 0; }
+.unfinished-entry { background: #eff6ff; }
+.unfinished-entry:hover { background: #dbeafe; }
+.filtered-name {
   font-size: 15px;
   font-weight: 700;
   color: var(--primary);
 }
-.unfinished-count {
-  font-size: 15px;
+.filtered-count {
+  font-size: 13px;
   font-weight: 700;
   color: var(--primary);
   background: #bfdbfe;
