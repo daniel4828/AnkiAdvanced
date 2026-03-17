@@ -180,6 +180,18 @@ CREATE TABLE IF NOT EXISTS sentences (
 );
 
 -- ---------------------------------------------------------------------------
+-- api_call_log
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS api_call_log (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    called_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    model           TEXT NOT NULL,
+    input_tokens    INTEGER NOT NULL,
+    output_tokens   INTEGER NOT NULL,
+    purpose         TEXT NOT NULL DEFAULT 'story'
+);
+
+-- ---------------------------------------------------------------------------
 -- structures  (future)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS structures (
