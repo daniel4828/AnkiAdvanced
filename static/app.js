@@ -723,10 +723,10 @@ async function startReview(id, cat, name) {
   }
 }
 
-async function _doStartReview(topic, maxHsk) {
+async function _doStartReview(topic, maxHsk, model) {
   setLoading('Generating your story…');
   try {
-    const storyUrl = `/api/story/${deckId}/${category}` + _storyParams(topic, maxHsk);
+    const storyUrl = `/api/story/${deckId}/${category}` + _storyParams(topic, maxHsk, model);
     const [todayData, storyData] = await Promise.all([
       api('GET', `/api/today/${deckId}/${category}`),
       api('GET', storyUrl),
@@ -752,10 +752,11 @@ async function _doStartReview(topic, maxHsk) {
   }
 }
 
-function _storyParams(topic, maxHsk) {
+function _storyParams(topic, maxHsk, model) {
   const p = new URLSearchParams();
-  if (topic)        p.set('topic', topic);
-  if (maxHsk !== 2) p.set('max_hsk', maxHsk);
+  if (topic)                              p.set('topic', topic);
+  if (maxHsk !== 2)                       p.set('max_hsk', maxHsk);
+  if (model && model !== 'claude-haiku-4-5-20251001') p.set('model', model);
   const s = p.toString();
   return s ? '?' + s : '';
 }
@@ -1153,11 +1154,12 @@ function updateHskLabel() {
 function confirmStorySetup() {
   const topic  = document.getElementById('setup-topic').value.trim() || null;
   const maxHsk = parseInt(document.getElementById('setup-hsk-slider').value, 10);
+  const model  = document.getElementById('setup-model').value;
   _closeSetupModal();
   if (_setupIsRegen) {
-    _doRegenerateStory(topic, maxHsk);
+    _doRegenerateStory(topic, maxHsk, model);
   } else {
-    _doStartReview(topic, maxHsk);
+    _doStartReview(topic, maxHsk, model);
   }
 }
 
@@ -1332,10 +1334,10 @@ async function regenerateStory() {
   }
 }
 
-async function _doRegenerateStory(topic, maxHsk) {
+async function _doRegenerateStory(topic, maxHsk, model) {
   setLoading('Regenerating story…');
   try {
-    story = await api('POST', `/api/story/${deckId}/${category}/regenerate` + _storyParams(topic, maxHsk));
+    story = await api('POST', `/api/story/${deckId}/${category}/regenerate` + _storyParams(topic, maxHsk, model));
     sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
     try {
       await fetch(`/api/preload-session/${deckId}/${category}`, { method: 'POST' });

@@ -265,6 +265,13 @@
     <label class="edit-label">Topic <span style="font-weight:400;text-transform:none">(optional)</span>
       <input class="edit-input" id="setup-topic" type="text" placeholder="e.g. a day at a coffee shop" onkeydown="if(event.key==='Enter')confirmStorySetup()">
     </label>
+    <label class="edit-label">Model
+      <select class="edit-input" id="setup-model">
+        <option value="claude-haiku-4-5-20251001" selected>Haiku — fast &amp; cheap</option>
+        <option value="claude-sonnet-4-6">Sonnet — balanced</option>
+        <option value="claude-opus-4-6">Opus — best quality</option>
+      </select>
+    </label>
     <label class="edit-label">
       Max HSK level for background vocabulary
       <div class="setup-slider-row">

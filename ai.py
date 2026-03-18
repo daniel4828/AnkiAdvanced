@@ -16,13 +16,15 @@ import database
 logger = logging.getLogger(__name__)
 
 
-def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2) -> list[dict]:
+def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2,
+                   model: str = "claude-haiku-4-5-20251001") -> list[dict]:
     """
-    Generate a short Mandarin story using Haiku, one sentence per card.
+    Generate a short Mandarin story, one sentence per card.
 
     cards:   list of dicts with keys word_id, word_zh, pinyin, definition, pos
     topic:   optional theme/setting to guide the story
     max_hsk: maximum HSK level for non-target background vocabulary (1-6)
+    model:   Anthropic model ID to use for generation
     Returns: list of {word_id, sentence_zh, sentence_en} — same length as cards.
     Returns [] immediately if cards is empty (no API call made).
     """
@@ -66,7 +68,7 @@ Rules:
     max_tokens = len(cards) * 150 + 200
 
     message = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=model,
         max_tokens=max_tokens,
         messages=[{"role": "user", "content": prompt}],
     )
