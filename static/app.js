@@ -766,10 +766,32 @@ async function startReviewMixed(id, name) {
   rootDeckId = id;
   deckId     = id;
   deckName   = name;
-  story      = null;  // no single story in mixed mode
-  setLoading('Loading cards…');
+  story      = null;
   try {
     const todayData = await api('GET', `/api/today-mixed/${id}`);
+    if (!todayData.card) {
+      rootDeckId = null;
+      showView('done');
+      return;
+    }
+    const c = todayData.counts;
+    const total = (c.new || 0) + (c.learning || 0) + (c.review || 0);
+    openStorySetup(total, { isMixed: true });
+  } catch (e) {
+    showError('Failed to start session: ' + e.message);
+    rootDeckId = null;
+    showView('decks');
+  }
+}
+
+async function _doStartReviewMixed(topic, maxHsk, model) {
+  setLoading('Generating stories…');
+  // Fire story generation for all 3 categories in the background
+  for (const cat of ['listening', 'reading', 'creating']) {
+    fetch(`/api/story/${rootDeckId}/${cat}` + _storyParams(topic, maxHsk, model)).catch(() => {});
+  }
+  try {
+    const todayData = await api('GET', `/api/today-mixed/${rootDeckId}`);
     if (!todayData.card) {
       rootDeckId = null;
       showView('done');
@@ -1132,9 +1154,11 @@ async function togglePinyin() {
 // ── Story setup modal ────────────────────────────────────────────────────────
 let _setupResolve = null;
 let _setupIsRegen = false;
+let _setupIsMixed = false;
 
-function openStorySetup(sentenceCount) {
-  _setupIsRegen = !!card; // card exists → we're regenerating, not starting fresh
+function openStorySetup(sentenceCount, { isMixed = false } = {}) {
+  _setupIsRegen = !isMixed && !!card; // card exists (and not a fresh mixed start) → regenerating
+  _setupIsMixed = isMixed;
   document.getElementById('setup-count-label').textContent =
     `This story will have ${sentenceCount} sentence${sentenceCount !== 1 ? 's' : ''}.`;
   document.getElementById('setup-topic').value = '';
@@ -1158,6 +1182,8 @@ function confirmStorySetup() {
   _closeSetupModal();
   if (_setupIsRegen) {
     _doRegenerateStory(topic, maxHsk, model);
+  } else if (_setupIsMixed) {
+    _doStartReviewMixed(topic, maxHsk, model);
   } else {
     _doStartReview(topic, maxHsk, model);
   }
