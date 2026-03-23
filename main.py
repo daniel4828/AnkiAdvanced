@@ -3,6 +3,24 @@ import logging
 import os
 import sys
 
+
+def _load_env(path: str = ".env") -> None:
+    try:
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("export "):
+                    line = line[7:]
+                key, _, val = line.partition("=")
+                val = val.strip('"').strip("'")
+                os.environ.setdefault(key.strip(), val)
+    except FileNotFoundError:
+        pass
+
+_load_env()
+
 import database
 import importer
 
@@ -81,7 +99,7 @@ try:
     from fastapi.responses import FileResponse
     import uvicorn
 
-    from routes import decks, review, story, browse
+    from routes import decks, review, story, browse, imports
 
     @asynccontextmanager
     async def lifespan(app):
@@ -112,6 +130,18 @@ try:
     app.include_router(review.router)
     app.include_router(story.router)
     app.include_router(browse.router)
+    app.include_router(imports.router)
+
+    import threading
+    import time
+
+    @app.post("/api/restart")
+    def restart_server():
+        def _do_restart():
+            time.sleep(0.3)
+            os.execv(sys.executable, [sys.executable] + sys.argv)
+        threading.Thread(target=_do_restart, daemon=False).start()
+        return {"ok": True}
 
 except ImportError as e:
     import sys

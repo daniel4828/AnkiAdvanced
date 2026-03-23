@@ -1,0 +1,741 @@
+vocab:
+  - type: expression
+    date: "03/19"
+    simplified: 对那些仅
+    traditional: 對那些僅
+    pinyin: duì nà xiē jǐn
+    english: only for those / exclusively for those (sentence fragment)
+    hsk: "2-4"
+    grammar_de: |
+      「对那些仅」 ist ein Satzfragment, das typischerweise den Anfang eines Relativsatzes bildet.
+      对 (duì) markiert hier den Bezug ("in Bezug auf", "für"), 那些 (nà xiē) bedeutet "jene / diejenigen"
+      (Demonstrativpronomen + Pluralmarker 些), und 仅 (jǐn) bedeutet "nur / lediglich". Zusammen
+      leiten sie einen einschränkenden Relativsatz ein: 对那些仅 + [Verb/Adj] + 的人 = "für diejenigen,
+      die nur...".
+    examples:
+      - zh: 对那些仅想赚钱的人来说，这份工作很理想。
+        pinyin: Duì nà xiē jǐn xiǎng zhuànqián de rén lái shuō, zhè fèn gōngzuò hěn lǐxiǎng.
+        de: Für diejenigen, die nur Geld verdienen wollen, ist diese Stelle ideal.
+      - zh: 对那些仅有初级水平的学生适用。
+        pinyin: Duì nà xiē jǐn yǒu chūjí shuǐpíng de xuéshēng shìyòng.
+        de: Dies gilt nur für Schüler mit Anfängerniveau.
+      - zh: 对那些仅凭运气成功的人，我不太佩服。
+        pinyin: Duì nà xiē jǐn píng yùnqì chénggōng de rén, wǒ bù tài pèifú.
+        de: Menschen, die nur durch Glück erfolgreich sind, beeindrucken mich nicht.
+    word_analyses:
+      - char_only: 对
+        pinyin: duì
+        hsk: "2"
+        detailed_analysis: false
+      - char_only: 那
+        pinyin: nà
+        hsk: "1"
+        detailed_analysis: false
+      - type: vocabulary
+        simplified: 些
+        pinyin: xiē
+        english: some; (plural marker)
+        hsk: "2"
+        detailed_analysis: true
+        meaning_in_context: those (plural marker after demonstratives)
+        other_meanings:
+          - "一些 (yīxiē – some, a few)"
+          - "这些 (zhèxiē – these)"
+        etymology: |
+          The character 些 combines 此 (cǐ, "this") over 二 (èr, "two"), originally a particle
+          in southern Chinese dialects used at the end of elegies to mark plural or indefinite
+          quantities. In modern Mandarin it functions as a standalone plural/indefinite marker
+          placed after demonstratives and numerals. Simplified and traditional forms are identical.
+        etymology_example:
+          zh: 给我一些水。
+          pinyin: Gěi wǒ yīxiē shuǐ.
+          de: Gib mir etwas Wasser.
+        characters:
+          - char: 些
+            pinyin: xiē
+            hsk: "2"
+            detailed_analysis: false
+      - type: vocabulary
+        simplified: 仅
+        traditional: 僅
+        pinyin: jǐn
+        english: only; merely; just
+        hsk: "4"
+        detailed_analysis: true
+        meaning_in_context: only, merely (restrictive adverb)
+        other_meanings:
+          - "仅仅 (jǐnjǐn – merely, simply)"
+          - "不仅 (bùjǐn – not only)"
+          - "仅此而已 (jǐn cǐ ér yǐ – that's all)"
+        etymology: |
+          The traditional form 僅 uses the 人 radical (亻, "person") on the left and 堇 (jǐn)
+          as the phonetic component on the right. 堇 originally depicted a plant used medicinally
+          in small amounts, lending the sense of "scarce" or "barely sufficient." Over time the
+          character came to mean "only" or "merely" — the idea of something being at its bare
+          minimum. The simplified 仅 reduces the phonetic component while preserving the semantic
+          core.
+        etymology_example:
+          zh: 我仅有一次机会。
+          pinyin: Wǒ jǐn yǒu yī cì jīhuì.
+          de: Ich habe nur eine einzige Chance.
+        characters:
+          - char: 仅
+            traditional: 僅
+            pinyin: jǐn
+            hsk: "4"
+            detailed_analysis: true
+  - type: sentence
+    date: "03/19"
+    source_de: Ich liebe es am Computer zu programmieren.
+    simplified: 我喜欢在电脑上编程。
+    traditional: 我喜歡在電腦上編程。
+    pinyin: Wǒ xǐhuān zài diànnǎo shàng biānchéng.
+    english: I love programming on the computer.
+    hsk: "3-5"
+    grammar_de: |
+      Die Struktur folgt dem Muster: 主语 + 喜欢 + 在 + 地点 + 上 + 动词.
+      在…上 (zài…shàng) ist eine lokale Präpositionalphrase („auf/an etwas") — hier: 在电脑上 = „am Computer".
+      喜欢 + Verb/Verbphrase bedeutet „gerne tun"; das Verb folgt direkt ohne zusätzliche Partikel.
+      Im Deutschen steht der Infinitiv mit „zu", im Chinesischen folgt das Verb direkt auf 喜欢.
+    examples:
+      - zh: 我喜欢在电脑上编程，因为它让我感到满足。
+        pinyin: Wǒ xǐhuān zài diànnǎo shàng biānchéng, yīnwèi tā ràng wǒ gǎndào mǎnzú.
+        de: Ich programmiere gerne am Computer, weil es mich erfüllt.
+      - zh: 他每天晚上都在电脑上编程到很晚。
+        pinyin: Tā měi tiān wǎnshang dōu zài diànnǎo shàng biānchéng dào hěn wǎn.
+        de: Er programmiert jeden Abend bis spät in die Nacht am Computer.
+      - zh: 在电脑上编程需要耐心和逻辑思维。
+        pinyin: Zài diànnǎo shàng biānchéng xūyào nàixīn hé luójí sīwéi.
+        de: Das Programmieren am Computer erfordert Geduld und logisches Denken.
+    word_analyses:
+      - type: vocabulary
+        simplified: 喜欢
+        traditional: 喜歡
+        pinyin: xǐhuān
+        english: to like; to enjoy
+        hsk: "1"
+        characters:
+          - char: 喜
+            pinyin: xǐ
+            hsk: "2"
+            detailed_analysis: false
+          - char: 欢
+            traditional: 歡
+            pinyin: huān
+            hsk: "2"
+            detailed_analysis: false
+      - type: vocabulary
+        simplified: 电脑
+        traditional: 電腦
+        pinyin: diànnǎo
+        english: computer (lit. electric brain)
+        hsk: "3"
+        characters:
+          - char: 电
+            traditional: 電
+            pinyin: diàn
+            hsk: "3"
+            detailed_analysis: true
+            meaning_in_context: electricity, electric
+            other_meanings:
+              - "电话 (diànhuà – telephone)"
+              - "电视 (diànshì – television)"
+              - "电子 (diànzǐ – electronic)"
+            etymology: |
+              The traditional form 電 depicts lightning with the rain radical (雨) on top and a
+              lightning bolt stroke below. The character originally meant "lightning" and extended
+              to "electricity" as the natural phenomenon harnessed by humans. The simplified 电 is
+              a drastically reduced form retaining only the central lightning stroke shape. The
+              semantic jump from lightning to electricity to compounds like 电脑 (electric brain =
+              computer) reflects modern technological borrowing.
+            etymology_example:
+              zh: 天空中出现了闪电。
+              pinyin: Tiānkōng zhōng chūxiàn le shǎndiàn.
+              de: Am Himmel erschien ein Blitz.
+          - char: 脑
+            traditional: 腦
+            pinyin: nǎo
+            hsk: "4"
+            detailed_analysis: true
+            meaning_in_context: brain
+            other_meanings:
+              - "大脑 (dànǎo – cerebrum)"
+              - "脑子 (nǎozi – brain/mind, colloquial)"
+            etymology: |
+              The character 脑/腦 uses the flesh radical (月/肉) on the left, indicating a body
+              part, and 囟 (xìn, the fontanelle — the soft spot on a baby's skull) as the core
+              component. The traditional 腦 includes additional strokes elaborating the skull
+              imagery, making 脑 literally "the flesh inside the skull." The simplified form strips
+              away the more complex strokes while keeping the essential radical pairing. In modern
+              Chinese, 电脑 (electric brain) is the standard word for computer.
+            etymology_example:
+              zh: 大脑控制我们的思想。
+              pinyin: Dànǎo kòngzhì wǒmen de sīxiǎng.
+              de: Das Gehirn steuert unser Denken.
+      - type: vocabulary
+        simplified: 编程
+        traditional: 編程
+        pinyin: biānchéng
+        english: to program; programming
+        hsk: "5-6"
+        characters:
+          - char: 编
+            traditional: 編
+            pinyin: biān
+            hsk: "5-6"
+            detailed_analysis: true
+            meaning_in_context: to compile, to write (code); to weave/organize
+            other_meanings:
+              - "编写 (biānxiě – to write/compile)"
+              - "编辑 (biānjí – to edit)"
+              - "编织 (biānzhī – to knit/weave)"
+            etymology: |
+              The traditional 編 uses the silk/thread radical (糸) on the left with 扁 (biǎn) as
+              the phonetic component. The radical reflects the original meaning of weaving or
+              braiding threads together in an organized pattern. This extended naturally to
+              compiling texts, arranging content, and eventually writing code — all activities
+              involving organizing elements into a structured whole. The simplified 编 retains the
+              thread radical (纟) in its reduced form.
+            etymology_example:
+              zh: 她在编一顶帽子。
+              pinyin: Tā zài biān yī dǐng màozi.
+              de: Sie strickt einen Hut.
+          - char: 程
+            pinyin: chéng
+            hsk: "4"
+            detailed_analysis: true
+            meaning_in_context: procedure; process
+            other_meanings:
+              - "程序 (chéngxù – procedure, program)"
+              - "过程 (guòchéng – process)"
+              - "行程 (xíngchéng – itinerary)"
+            etymology: |
+              The character 程 combines 禾 (hé, grain/cereal) as the radical and 呈 (chéng) as the
+              phonetic component. Originally it referred to a measured quantity of grain — a
+              standard unit of measurement. From "measured standard" it extended to mean
+              "procedure," "regulated process," or "journey stage." In 编程 it carries the sense
+              of a structured sequence of steps. Simplified and traditional forms are identical.
+            etymology_example:
+              zh: 我们需要遵守程序。
+              pinyin: Wǒmen xūyào zūnshǒu chéngxù.
+              de: Wir müssen die Prozedur einhalten.
+  - type: sentence
+    date: "03/19"
+    source_de: die Rolle von Deutschland im Kalten Krieg
+    folder: am Computer
+    simplified: 德国在冷战中的角色
+    traditional: 德國在冷戰中的角色
+    pinyin: Déguó zài lěng zhàn zhōng de juésè
+    english: Germany's role in the Cold War
+    hsk: "超纲"
+    grammar_de: |
+      Die Phrase folgt dem Muster: 德国 + 在 + 冷战 + 中 + 的 + 角色.
+      在…中 (zài…zhōng) rahmt den Kontext ein („in/innerhalb von"), ähnlich wie „im" im Deutschen.
+      Das Partikel 的 (de) verbindet die gesamte Präpositionalphrase attributiv mit dem Nomen 角色 (Rolle).
+      Im Deutschen steht das Genitivattribut vor dem Nomen („Deutschlands Rolle"), im Chinesischen
+      steht der Kontext ebenfalls vor dem Nomen, aber explizit mit 的 markiert.
+    examples:
+      - zh: 德国在冷战中的角色十分复杂，因为它被分成了东西两部分。
+        pinyin: Déguó zài lěng zhàn zhōng de juésè shífēn fùzá, yīnwèi tā bèi fēnchéngle dōng xī liǎng bùfen.
+        de: Deutschlands Rolle im Kalten Krieg war sehr komplex, da es in einen östlichen und westlichen Teil geteilt wurde.
+      - zh: 联邦德国加入了北约，而民主德国则加入了华沙条约组织。
+        pinyin: Liánbāng Déguó jiārùle Běiyuē, ér Mínzhǔ Déguó zé jiārùle Huáshā Tiáoyuē Zǔzhī.
+        de: Die BRD trat der NATO bei, während die DDR dem Warschauer Pakt beitrat.
+      - zh: 德国统一标志着冷战的实际终结。
+        pinyin: Déguó tǒngyī biāozhìzhe lěng zhàn de shíjì zhōngjié.
+        de: Die deutsche Wiedervereinigung markierte das faktische Ende des Kalten Krieges.
+    word_analyses:
+      - type: vocabulary
+        simplified: 冷战
+        traditional: 冷戰
+        pinyin: lěng zhàn
+        english: Cold War
+        hsk: "超纲"
+        characters:
+          - char: 冷
+            pinyin: lěng
+            hsk: "3"
+            detailed_analysis: true
+            meaning_in_context: cold; metaphorically without open armed conflict
+            other_meanings:
+              - "冷静 (lěngjìng – calm, cool-headed)"
+              - "冷漠 (lěngmò – indifferent, cold)"
+              - "冷笑 (lěngxiào – to sneer)"
+            etymology: |
+              The character 冷 uses the ice radical 冫(bīng, two drops of water/ice) on the left,
+              visually evoking coldness, and 令 (lìng, to command/order) as the phonetic component
+              on the right. The ice radical firmly anchors the physical sensation of cold. From
+              literal cold temperature the meaning extended to emotional coldness, indifference,
+              and finally the metaphorical "cold" of the Cold War — a conflict fought without
+              direct military engagement. Simplified and traditional forms are identical.
+            etymology_example:
+              zh: 今天天气很冷，要多穿衣服。
+              pinyin: Jīntiān tiānqì hěn lěng, yào duō chuān yīfu.
+              de: Heute ist es sehr kalt — zieh dich warm an.
+          - char: 战
+            traditional: 戰
+            pinyin: zhàn
+            hsk: "4"
+            detailed_analysis: false
+      - type: vocabulary
+        simplified: 角色
+        pinyin: juésè
+        english: role; character (in a play or context)
+        hsk: "4"
+        characters:
+          - char: 角
+            pinyin: jué
+            hsk: "3"
+            detailed_analysis: true
+            meaning_in_context: role (theatrical/contextual reading jué)
+            other_meanings:
+              - "角落 (jiǎoluò – corner)"
+              - "角度 (jiǎodù – angle, perspective)"
+              - "主角 (zhǔjué – protagonist)"
+              - "配角 (pèijué – supporting role)"
+            etymology: |
+              The character 角 is a pictograph originally depicting an animal horn — the curved,
+              pointed horn of an ox or deer. Oracle bone script clearly shows this horn shape.
+              From "horn" the meaning extended to "corner" or "angle" (both share a pointed
+              shape), and then to "role" in theatrical contexts — an actor who takes on a part
+              in a performance. The two readings (jiǎo = horn/corner; jué = role/theatrical part)
+              preserve both branches of meaning. Simplified and traditional forms are identical.
+            etymology_example:
+              zh: 墙角有一只猫。
+              pinyin: Qiáng jiǎo yǒu yī zhī māo.
+              de: In der Ecke der Wand sitzt eine Katze.
+          - char: 色
+            pinyin: sè
+            hsk: "2"
+            detailed_analysis: false
+  - type: sentence
+    date: "03/19"
+    source_de: Ich kann Hitler gar nicht so gut imitieren.
+    folder: am Computer
+    simplified: 我根本不太会模仿希特勒
+    traditional: 我根本不太會模仿希特勒
+    pinyin: Wǒ gēnběn bù tài huì mófǎng Xītèlè
+    english: I can't imitate Hitler very well at all.
+    hsk: "3-5"
+    grammar_de: |
+      Struktur: 我 + 根本 + 不太 + 会 + 模仿 + 希特勒.
+      根本 (gēnběn) verstärkt die Verneinung stark: „überhaupt / grundsätzlich nicht" — entspricht
+      „gar nicht" im Deutschen. 不太 (bù tài) = „nicht sehr / nicht so gut" (abgeschwächte
+      Verneinung). 会 (huì) ist das Modalverb für erlernte Fähigkeiten, nicht zu verwechseln
+      mit 能 (néng = physisch in der Lage sein) oder 可以 (kěyǐ = dürfen/erlaubt sein).
+    examples:
+      - zh: 她很擅长模仿各种口音。
+        pinyin: Tā hěn shàncháng mófǎng gè zhǒng kǒuyīn.
+        de: Sie ist sehr gut darin, verschiedene Akzente zu imitieren.
+      - zh: 小孩子喜欢模仿大人的行为。
+        pinyin: Xiǎo háizi xǐhuān mófǎng dàrén de xíngwéi.
+        de: Kleine Kinder ahmen gerne das Verhalten von Erwachsenen nach.
+      - zh: 这个演员非常擅长模仿历史人物。
+        pinyin: Zhège yǎnyuán fēicháng shàncháng mófǎng lìshǐ rénwù.
+        de: Dieser Schauspieler ist ausgezeichnet darin, historische Persönlichkeiten zu imitieren.
+    word_analyses:
+      - type: vocabulary
+        simplified: 根本
+        pinyin: gēnběn
+        english: at all; fundamentally; basically (reinforces negation)
+        hsk: "4"
+        characters:
+          - char: 根
+            pinyin: gēn
+            hsk: "4"
+            detailed_analysis: true
+            meaning_in_context: root; fundamentally (adverb reinforcing negation)
+            other_meanings:
+              - "根据 (gēnjù – basis, according to)"
+              - "根源 (gēnyuán – root cause, origin)"
+              - "树根 (shùgēn – tree root)"
+            etymology: |
+              The character 根 uses the wood/tree radical 木 (mù) on the left and 艮 (gèn,
+              stubborn/solid) as the phonetic component. The tree radical combined with the image
+              of something solid and immovable perfectly captures the meaning of "root" — the part
+              of a tree firmly anchored underground. From "tree root" the meaning extended to
+              "foundation," "basis," and adverbially to "fundamentally" or "at all." Simplified
+              and traditional forms are identical.
+            etymology_example:
+              zh: 这棵树的根扎得很深。
+              pinyin: Zhè kē shù de gēn zhā de hěn shēn.
+              de: Die Wurzeln dieses Baumes reichen sehr tief.
+          - char: 本
+            pinyin: běn
+            hsk: "3"
+            detailed_analysis: false
+      - type: vocabulary
+        simplified: 模仿
+        pinyin: mófǎng
+        english: to imitate; to mimic
+        hsk: "4-5"
+        characters:
+          - char: 模
+            pinyin: mó
+            hsk: "4-5"
+            detailed_analysis: true
+            meaning_in_context: to imitate; model; pattern
+            other_meanings:
+              - "模型 (móxíng – model, scale model)"
+              - "模式 (móshì – mode, pattern)"
+              - "模糊 (móhu – blurry, vague)"
+              - "模板 (múbǎn – template)"
+            etymology: |
+              The character 模 uses the wood/tree radical 木 (mù) on the left and 莫 (mò,
+              no one/nothing) as the phonetic component. Originally it referred to a wooden mold
+              or template used in casting or construction — a physical form that other things are
+              shaped to match. From "wooden mold" the meaning extended to "pattern," "model,"
+              and "to imitate." Simplified and traditional forms are identical.
+            etymology_example:
+              zh: 工人用模具制作零件。
+              pinyin: Gōngrén yòng múju zhìzuò língjian.
+              de: Die Arbeiter stellten Teile mit einer Form her.
+          - char: 仿
+            pinyin: fǎng
+            hsk: "4-5"
+            detailed_analysis: true
+            meaning_in_context: to imitate; to copy; to resemble
+            other_meanings:
+              - "仿照 (fǎngzhào – to model after)"
+              - "仿佛 (fǎngfú – as if, seemingly)"
+              - "仿制 (fǎngzhì – to copy, to manufacture a replica)"
+            etymology: |
+              The character 仿 uses the person radical 亻(rén) on the left and 方 (fāng,
+              square/direction) as the phonetic component. The person radical grounds the meaning
+              in human behavior, while 方 suggests orientation or following a direction. Together
+              仿 captures the idea of a person orienting themselves toward another — following
+              their example or copying their form. Simplified and traditional forms are identical.
+            etymology_example:
+              zh: 这幅画是仿照名画制作的。
+              pinyin: Zhè fú huà shì fǎngzhào mínghuà zhìzuò de.
+              de: Dieses Gemälde wurde nach einem berühmten Bild nachgebildet.
+  - type: sentence
+    date: "03/19"
+    source_de: Ich bin gleich fertig!
+    folder: am Computer
+    simplified: 我马上就好了！
+    traditional: 我馬上就好了！
+    pinyin: Wǒ mǎshàng jiù hǎo le!
+    english: I'm almost done!
+    hsk: "2-3"
+    grammar_de: |
+      Struktur: 马上 + 就 + 好 + 了.
+      马上 (mǎshàng) = „sofort / gleich / in Kürze" — zeitliches Adverb (wörtlich „auf dem Pferd",
+      aus der Zeit berittener Boten). 就 (jiù) verstärkt in Kombination mit 马上 die
+      Unmittelbarkeit: 马上就 ist eine sehr natürliche Kollokation. 好 (hǎo) bedeutet hier nicht
+      „gut", sondern „fertig / in Ordnung sein" — ein Zustandsverb. 了 (le) ist eine Partikel,
+      die eine Zustandsveränderung anzeigt: etwas wird gerade abgeschlossen oder ist im Begriff
+      abgeschlossen zu werden.
+    examples:
+      - zh: 别着急，我马上就好了！
+        pinyin: Bié zháojí, wǒ mǎshàng jiù hǎo le!
+        de: Keine Eile — ich bin gleich fertig!
+      - zh: 饭马上就好了，你先坐着等一下。
+        pinyin: Fàn mǎshàng jiù hǎo le, nǐ xiān zuòzhe děng yīxià.
+        de: Das Essen ist gleich fertig — setz dich schon mal hin und warte kurz.
+      - zh: 程序马上就好了，再等两分钟。
+        pinyin: Chéngxù mǎshàng jiù hǎo le, zài děng liǎng fēnzhōng.
+        de: Das Programm ist gleich fertig — noch zwei Minuten.
+    word_analyses:
+      - type: vocabulary
+        simplified: 马上
+        traditional: 馬上
+        pinyin: mǎshàng
+        english: immediately; right away; in a moment
+        hsk: "2"
+        compound_note: |
+          Literally "on the horse" — from the era of mounted messengers as the fastest
+          communication. "To handle while still on horseback" = immediately, without dismounting.
+        characters:
+          - char: 马
+            traditional: 馬
+            pinyin: mǎ
+            hsk: "1"
+            detailed_analysis: false
+          - char: 上
+            pinyin: shàng
+            hsk: "1"
+            detailed_analysis: false
+      - char_only: 就
+        pinyin: jiù
+        hsk: "2"
+        detailed_analysis: false
+      - char_only: 好
+        pinyin: hǎo
+        hsk: "1"
+        detailed_analysis: false
+      - char_only: 了
+        pinyin: le
+        hsk: "1"
+        detailed_analysis: false
+  - type: expression
+    date: "03/19"
+    source_de: Es gibt nicht einen Menschen, der…
+    folder: am Computer
+    simplified: 没有一个人
+    traditional: 沒有一個人…
+    pinyin: Méiyǒu yī gè rén…
+    english: There is not a single person who…
+    hsk: "2-3"
+    grammar_de: |
+      Struktur: 没有 + 一个 + 人 + [Prädikat direkt].
+      Im Deutschen leitet „der/die/das" einen Relativsatz ein. Im Chinesischen folgt das Verb
+      direkt auf 人 ohne Relativpronomen. 没有 (méiyǒu) = „es gibt nicht / es existiert kein" —
+      stärker als 不 allein. 一个 (yī gè) verstärkt die Aussage: „nicht ein einziger" —
+      entspricht dem deutschen „nicht einen einzigen." Verstärkte Variante:
+      没有任何人 (méiyǒu rènhé rén) — absolut niemand, formeller.
+    examples:
+      - zh: 没有一个人知道答案。
+        pinyin: Méiyǒu yī gè rén zhīdào dá'àn.
+        de: Es gibt nicht einen Menschen, der die Antwort weiß.
+      - zh: 没有一个人是完美的。
+        pinyin: Méiyǒu yī gè rén shì wánměi de.
+        de: Es gibt keinen Menschen, der perfekt ist.
+      - zh: 没有一个人能预测未来。
+        pinyin: Méiyǒu yī gè rén néng yùcè wèilái.
+        de: Es gibt nicht einen Menschen, der die Zukunft vorhersagen kann.
+    word_analyses:
+      - type: vocabulary
+        simplified: 没有
+        pinyin: méiyǒu
+        english: there is no; to not have
+        hsk: "1"
+        characters:
+          - char: 没
+            pinyin: méi
+            hsk: "1"
+            detailed_analysis: false
+          - char: 有
+            pinyin: yǒu
+            hsk: "1"
+            detailed_analysis: false
+      - char_only: 一
+        pinyin: yī
+        hsk: "1"
+        detailed_analysis: false
+      - char_only: 个
+        traditional: 個
+        pinyin: gè
+        hsk: "1"
+        detailed_analysis: false
+      - char_only: 人
+        pinyin: rén
+        hsk: "1"
+        detailed_analysis: false
+  - type: sentence
+    date: "03/19"
+    source_de: USA hat hohe Zölle gegen China verhängt.
+    folder: am Computer
+    simplified: 美国对中国征收了高额关税。
+    traditional: 美國對中國徵收了高額關稅。
+    pinyin: Měiguó duì Zhōngguó zhēngshōule gāo'é guānshuì.
+    english: The USA has imposed high tariffs on China.
+    hsk: "超纲"
+    grammar_de: |
+      Struktur: 美国 + 对 + 中国 + 征收了 + 高额 + 关税.
+      对 (duì) markiert das Zielobjekt der Handlung — „gegenüber / gegen jemanden."
+      征收 (zhēngshōu) = „erheben / einziehen" — Standardverb für staatliche Abgaben und Zölle.
+      了 (le) zeigt den Abschluss der Handlung an — die Zölle wurden bereits verhängt.
+      高额 (gāo'é) = „hoher Betrag" — Adjektiv für hohe Geldbeträge.
+    examples:
+      - zh: 美国对中国进口商品征收了高额关税。
+        pinyin: Měiguó duì Zhōngguó jìnkǒu shāngpǐn zhēngshōule gāo'é guānshuì.
+        de: Die USA haben hohe Zölle auf chinesische Importwaren erhoben.
+      - zh: 高额关税对两国的经济都产生了负面影响。
+        pinyin: Gāo'é guānshuì duì liǎng guó de jīngjì dōu chǎnshēngle fùmiàn yǐngxiǎng.
+        de: Hohe Zölle haben die Wirtschaft beider Länder negativ beeinflusst.
+      - zh: 中国宣布对美国商品采取反制关税措施。
+        pinyin: Zhōngguó xuānbù duì Měiguó shāngpǐn cǎiqǔ fǎnzhì guānshuì cuòshī.
+        de: China kündigte Gegenzölle auf amerikanische Waren an.
+    word_analyses:
+      - type: vocabulary
+        simplified: 征收
+        traditional: 徵收
+        pinyin: zhēngshōu
+        english: to levy; to collect (taxes, duties)
+        hsk: "超纲"
+        characters:
+          - char: 征
+            traditional: 徵
+            pinyin: zhēng
+            hsk: "5-6"
+            detailed_analysis: true
+            meaning_in_context: to levy; to collect (from state authority)
+            other_meanings:
+              - "征税 (zhēng shuì – to levy taxes)"
+              - "远征 (yuǎnzhēng – expedition, long campaign)"
+              - "征服 (zhēngfú – to conquer)"
+              - "象征 (xiàngzhēng – symbol, to symbolize)"
+            etymology: |
+              The character 征 combines the 彳(chì, step/movement) radical on the left with
+              正 (zhèng, upright/correct) as the phonetic component. The movement radical evokes
+              marching or advancing, while 正 suggests authority and correctness. Together 征
+              originally meant "to march on" or "to go on a military expedition" — the state
+              advancing to assert its authority. From military campaigns the meaning extended to
+              the state's authority to collect tribute, taxes, and duties. The traditional form
+              徵 is more complex but retains the same core components.
+            etymology_example:
+              zh: 皇帝派兵远征边疆。
+              pinyin: Huángdì pài bīng yuǎnzhēng biānjiāng.
+              de: Der Kaiser schickte Truppen auf einen Feldzug in die Grenzgebiete.
+          - char: 收
+            pinyin: shōu
+            hsk: "3"
+            detailed_analysis: true
+            meaning_in_context: to collect; to receive; to take in
+            other_meanings:
+              - "收入 (shōurù – income, revenue)"
+              - "收获 (shōuhuò – harvest, gains)"
+              - "接收 (jiēshōu – to receive, to accept)"
+              - "收税 (shōu shuì – to collect taxes)"
+            etymology: |
+              The character 收 combines 丩 (jiū, to entangle/wind) on the left and 攴 (pū, to
+              strike/tap lightly) as the right component — a hand performing a gathering action.
+              The original image was of harvesting or gathering crops with a light striking
+              motion, like beating grain from stalks. From "gathering harvest" the meaning
+              extended broadly to "collecting," "receiving," and "taking in" anything — money,
+              mail, signals, or taxes. Simplified and traditional forms are identical.
+            etymology_example:
+              zh: 农民们开始收割庄稼。
+              pinyin: Nóngmínmen kāishǐ shōugē zhuāngjia.
+              de: Die Bauern begannen mit der Ernte.
+      - type: vocabulary
+        simplified: 高额
+        traditional: 高額
+        pinyin: gāo'é
+        english: high amount; large sum
+        hsk: "超纲"
+        characters:
+          - char: 高
+            pinyin: gāo
+            hsk: "1"
+            detailed_analysis: false
+          - char: 额
+            traditional: 額
+            pinyin: é
+            hsk: "超纲"
+            detailed_analysis: true
+            meaning_in_context: amount; sum; quota
+            other_meanings:
+              - "金额 (jīn'é – monetary amount)"
+              - "数额 (shù'é – quantity, amount)"
+              - "额外 (é wài – extra, additional)"
+              - "定额 (dìng'é – fixed quota)"
+            etymology: |
+              The traditional form 額 uses 頁 (yè, head/page) as the radical and 客 (kè, guest)
+              as the phonetic component. The original meaning was "forehead" — the flat surface
+              at the top of the face. From "forehead" the meaning extended to "a flat surface
+              bearing an inscription" (like a plaque above a door), then to "a fixed amount or
+              quota inscribed on such a plaque." In modern Chinese 额 functions as a suffix
+              meaning "amount" or "sum." The simplified 额 replaces 頁 with 页.
+            etymology_example:
+              zh: 她的额头上有一道伤疤。
+              pinyin: Tā de étóu shàng yǒu yī dào shāngbā.
+              de: Auf ihrer Stirn war eine Narbe.
+  - type: sentence
+    date: "03/19"
+    source_de: Benutzt ihr mehr TikTok oder Instagram?
+    folder: am Computer
+    simplified: 你们更常用抖音还是Instagram？
+    traditional: 你們更常用抖音還是Instagram？
+    pinyin: Nǐmen gèng cháng yòng Dǒuyīn háishi Instagram?
+    english: Do you (plural) use TikTok or Instagram more?
+    hsk: "2-4"
+    grammar_de: |
+      Struktur: 你们 + 更 + 常 + 用 + A + 还是 + B?
+      更 (gèng) = „mehr / noch mehr" — Komparativpartikel. 常 (cháng) = „häufig / oft."
+      更常 zusammen = „öfter / mehr." 还是 (háishi) = „oder" in Entscheidungsfragen (A oder B?)
+      — nicht zu verwechseln mit 或者 (huòzhě), das in Aussagesätzen „oder" bedeutet.
+      TikTok heißt in China 抖音 (Dǒuyīn) — die internationale Version ist in China gesperrt.
+      Instagram hat keine feststehende chinesische Übersetzung; umgangssprachlich auch
+      ins oder 照片墙 (zhàopiàn qiáng – Fotowand).
+    examples:
+      - zh: 我每天都刷抖音，但很少用Instagram。
+        pinyin: Wǒ měitiān dōu shuā Dǒuyīn, dàn hěn shǎo yòng Instagram.
+        de: Ich scrolle jeden Tag durch TikTok, aber benutze Instagram selten.
+      - zh: 抖音在中国非常流行，而Instagram在海外更受欢迎。
+        pinyin: Dǒuyīn zài Zhōngguó fēicháng liúxíng, ér Instagram zài hǎiwài gèng shòu huānyíng.
+        de: TikTok ist in China sehr beliebt, während Instagram im Ausland populärer ist.
+      - zh: 很多UP主同时在B站和抖音上发布内容。
+        pinyin: Hěn duō UP zhǔ tóngshí zài B zhàn hé Dǒuyīn shàng fābù nèiróng.
+        de: Viele Creator veröffentlichen gleichzeitig auf Bilibili und TikTok Inhalte.
+    word_analyses:
+      - type: vocabulary
+        simplified: 常
+        pinyin: cháng
+        english: often; frequently; usual
+        hsk: "3"
+        characters:
+          - char: 常
+            pinyin: cháng
+            hsk: "3"
+            detailed_analysis: true
+            meaning_in_context: often; frequently; usual
+            other_meanings:
+              - "经常 (jīngcháng – often, regularly)"
+              - "平常 (píngcháng – ordinary, usually)"
+              - "常识 (chángshí – common sense)"
+              - "非常 (fēicháng – very, extremely)"
+            etymology: |
+              The character 常 combines 巾 (jīn, cloth/kerchief) at the bottom and 尚 (shàng,
+              to esteem/above) as the phonetic component on top. The original meaning was a type
+              of long ceremonial skirt — something worn regularly and associated with ritual
+              constancy. From "regular ceremonial dress" the meaning extended to "constant,"
+              "usual," and "often." The idea of something worn habitually every day naturally
+              gave rise to the adverbial meaning of frequency. Simplified and traditional forms
+              are identical.
+            etymology_example:
+              zh: 他经常去图书馆看书。
+              pinyin: Tā jīngcháng qù túshūguǎn kànshū.
+              de: Er geht oft in die Bibliothek zum Lesen.
+      - type: vocabulary
+        simplified: 抖音
+        pinyin: Dǒuyīn
+        english: TikTok (Chinese version, lit. "vibrating sound")
+        hsk: "超纲"
+        characters:
+          - char: 抖
+            pinyin: dǒu
+            hsk: "超纲"
+            detailed_analysis: true
+            meaning_in_context: to shake; to tremble; evoking pulsing music
+            other_meanings:
+              - "抖动 (dǒudòng – to shake, to vibrate)"
+              - "发抖 (fādǒu – to shiver, to tremble)"
+              - "抖擞 (dǒusǒu – to rouse oneself, energetic)"
+            etymology: |
+              The character 抖 uses the hand radical 扌(shǒu) on the left and 斗 (dǒu, a
+              measuring vessel/to fight) as the phonetic component. The hand radical grounds
+              the meaning in a quick, jerky shaking motion. In the app name 抖音, 抖 evokes
+              the rhythmic, pulsing quality of music that makes you want to move and dance.
+              Simplified and traditional forms are identical.
+            etymology_example:
+              zh: 她冷得直发抖。
+              pinyin: Tā lěng de zhí fādǒu.
+              de: Sie zitterte vor Kälte.
+          - char: 音
+            pinyin: yīn
+            hsk: "3"
+            detailed_analysis: true
+            meaning_in_context: sound; music; tone
+            other_meanings:
+              - "音乐 (yīnyuè – music)"
+              - "声音 (shēngyīn – sound, voice)"
+              - "音调 (yīndiào – tone, pitch)"
+              - "噪音 (zàoyīn – noise)"
+            etymology: |
+              The character 音 is derived from 言 (yán, speech/words) with an extra stroke
+              inside — the image of sound coming out of a mouth, but more refined than mere
+              speech. Where 言 depicts articulated words, 音 captures the broader concept of
+              musical sound and tone. In classical Chinese poetics, 音 referred specifically to
+              musical notes and tonal qualities of language. In 抖音 it pairs with 抖 (vibrate)
+              to evoke "vibrating sound" — the pulsing beat of music. Simplified and traditional
+              forms are identical.
+            etymology_example:
+              zh: 这首歌的音调很优美。
+              pinyin: Zhè shǒu gē de yīndiào hěn yōuměi.
+              de: Die Melodie dieses Liedes ist sehr schön.
+      - char_only: 还是
+        pinyin: háishi
+        hsk: "2"
+        detailed_analysis: false

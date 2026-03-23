@@ -843,6 +843,62 @@ main {
 .cat-pill-gear:hover { border-color: var(--primary); color: var(--primary); background: #eff6ff; }
 .cat-pill-wrap .cat-pill { border-radius: 12px 0 0 12px; }
 
+/* ── Category suspend badge (superscript top-left of pill) ─ */
+.cat-pill-group {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 10px;
+}
+.cat-susp-badge {
+  position: absolute;
+  top: -7px;
+  left: -10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 9px;
+  padding: 0 2px;
+  border-radius: 3px;
+  line-height: 1;
+  transition: opacity 0.15s, color 0.15s;
+}
+.cat-badge-active {
+  color: var(--muted);
+  opacity: 0.4;
+}
+.cat-pill-group:hover .cat-badge-active { opacity: 1; }
+.cat-badge-active:hover { color: #f59e0b; opacity: 1; }
+.cat-badge-suspended {
+  color: #f59e0b;
+  opacity: 1;
+  animation: badge-pulse 2.5s ease-in-out infinite;
+}
+.cat-badge-suspended:hover { color: #10b981; animation: none; }
+@keyframes badge-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+.cat-pill.cat-pill-dimmed { opacity: 0.5; border-color: #ddd; }
+
+/* ── Deck-level suspend button (in deck row) ────────── */
+.deck-susp-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--muted);
+  padding: 3px 5px;
+  border-radius: 4px;
+  transition: color 0.12s, opacity 0.12s;
+  opacity: 0.35;
+  flex-shrink: 0;
+}
+.tree-row:hover .deck-susp-btn { opacity: 1; }
+.deck-susp-btn:hover { opacity: 1 !important; color: #f59e0b; }
+.deck-susp-btn.deck-all-suspended { opacity: 1; color: #f59e0b; }
+.deck-susp-btn.deck-all-suspended:hover { color: #10b981; }
+
 /* ── Nav row (deck list top) ─────────────────────────── */
 .nav-row {
   display: flex;
