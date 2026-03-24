@@ -127,8 +127,7 @@ Rules:
   ...
 ]"""
 
-    words = [c['word_zh'] for c in cards]
-    logger.info("generate_story: %d cards: %s", len(cards), words)
+    logger.info("[%s] generate_story: %d 张卡片", model, len(cards))
     logger.debug("Prompt:\n%s", prompt)
 
     # 150 tokens per sentence is generous; add 200 for overhead/fences
