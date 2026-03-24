@@ -1359,7 +1359,7 @@ async function _doStartReview(topic, maxHsk, model) {
       api('GET', storyUrl),
     ]);
 
-    story = storyData;
+    story = await _resolveStory(storyData, deckId, category, topic, maxHsk);
 
     if (!todayData.card) {
       showView('done');
@@ -1524,8 +1524,11 @@ function loadCard(c, counts) {
     document.getElementById(`int-${r}`).textContent = iv[r] || '';
   });
 
-  // Find sentence for this card's word in the story
-  sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
+  // Find sentence for this card's word in the story.
+  // If no exact match (e.g. using a historical story), fall back to the first sentence.
+  sentence = story?.sentences?.find(s => s.word_id === card.word_id)
+          || story?.sentences?.[0]
+          || null;
 
   // Update sentence position counter
   const counter = document.getElementById('sentence-counter');
@@ -2050,6 +2053,73 @@ async function togglePinyin() {
   btn.classList.add('active');
 }
 
+// ── Story error modal ─────────────────────────────────────────────────────────
+let _storyErrorResolve = null;
+
+function _openStoryErrorModal(errorData) {
+  document.getElementById('story-error-msg').textContent =
+    `Failed using ${errorData.model}: ${errorData.reason}`;
+  const histBtn  = document.getElementById('story-error-history-btn');
+  const histNote = document.getElementById('story-error-history-note');
+  if (errorData.has_history) {
+    histBtn.disabled = false;
+    histBtn.style.opacity = '';
+    histNote.textContent = '⚠ Saved sentences may not include all current words';
+    histNote.style.display = '';
+  } else {
+    histBtn.disabled = true;
+    histBtn.style.opacity = '0.4';
+    histNote.style.display = 'none';
+  }
+  const sel = document.getElementById('story-error-model');
+  for (const opt of sel.options) {
+    if (opt.value !== errorData.model) { opt.selected = true; break; }
+  }
+  document.getElementById('story-error-overlay').style.display = 'block';
+  document.getElementById('story-error-modal').style.display = 'flex';
+  return new Promise(r => { _storyErrorResolve = r; });
+}
+
+function _closeStoryErrorModal() {
+  document.getElementById('story-error-overlay').style.display = 'none';
+  document.getElementById('story-error-modal').style.display = 'none';
+}
+
+function storyErrorSkip() {
+  _closeStoryErrorModal();
+  if (_storyErrorResolve) { _storyErrorResolve({ action: 'skip' }); _storyErrorResolve = null; }
+}
+
+function storyErrorRetry() {
+  const model = document.getElementById('story-error-model').value;
+  _closeStoryErrorModal();
+  if (_storyErrorResolve) { _storyErrorResolve({ action: 'retry', model }); _storyErrorResolve = null; }
+}
+
+function storyErrorUseHistory() {
+  _closeStoryErrorModal();
+  if (_storyErrorResolve) { _storyErrorResolve({ action: 'history' }); _storyErrorResolve = null; }
+}
+
+async function _resolveStory(storyData, resolvedeckId, resolveCat, topic, maxHsk) {
+  if (!storyData?.error) return storyData;
+  const choice = await _openStoryErrorModal(storyData);
+  if (choice.action === 'skip') return null;
+  if (choice.action === 'history') {
+    try { return await api('GET', `/api/story/${resolvedeckId}/${resolveCat}/history`); }
+    catch (_) { return null; }
+  }
+  // retry with new model — not counted toward the 2-attempt limit
+  setLoading('Generating your story…');
+  let newData;
+  try {
+    newData = await api('GET', `/api/story/${resolvedeckId}/${resolveCat}` + _storyParams(topic, maxHsk, choice.model));
+  } catch (e) {
+    newData = { error: true, reason: e.message, model: choice.model, has_history: storyData.has_history };
+  }
+  return _resolveStory(newData, resolvedeckId, resolveCat, topic, maxHsk);
+}
+
 // ── Story setup modal ────────────────────────────────────────────────────────
 let _setupResolve = null;
 let _setupIsRegen = false;
@@ -2365,7 +2435,8 @@ async function regenerateStory() {
 async function _doRegenerateStory(topic, maxHsk, model) {
   setLoading('Regenerating story…');
   try {
-    story = await api('POST', `/api/story/${deckId}/${category}/regenerate` + _storyParams(topic, maxHsk, model));
+    const storyData = await api('POST', `/api/story/${deckId}/${category}/regenerate` + _storyParams(topic, maxHsk, model));
+    story = await _resolveStory(storyData, deckId, category, topic, maxHsk);
     sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
     try {
       await fetch(`/api/preload-session/${deckId}/${category}`, { method: 'POST' });
