@@ -82,15 +82,27 @@ def get_story(deck_id: int, category: str,
     logger.info("story  GENERATE deck=%d cat=%s due_cards=%d topic=%r max_hsk=%d model=%s",
                 deck_id, category, len(cards), topic, max_hsk, chosen_model)
     if cards:
-        try:
-            sentences = ai.generate_story(cards, topic=topic, max_hsk=max_hsk,
-                                          model=chosen_model)
-            for i, s in enumerate(sentences):
-                s["position"] = i
-            database.create_story(today, category, deck_id, sentences)
-            story = database.get_active_story(today, category, deck_id)
-        except Exception as e:
-            logger.error("story  generation error: %s", e)
+        last_error = None
+        for attempt in range(2):
+            try:
+                sentences = ai.generate_story(cards, topic=topic, max_hsk=max_hsk,
+                                              model=chosen_model)
+                for i, s in enumerate(sentences):
+                    s["position"] = i
+                database.create_story(today, category, deck_id, sentences)
+                story = database.get_active_story(today, category, deck_id)
+                last_error = None
+                break
+            except Exception as e:
+                last_error = e
+                logger.error("story  generation error (attempt %d/2): %s", attempt + 1, e)
+        if last_error is not None:
+            return {
+                "error": True,
+                "reason": str(last_error),
+                "model": chosen_model,
+                "has_history": database.has_story_history(deck_id, category),
+            }
 
     if story:
         story["sentences"] = database.get_story_sentences(story["id"])
@@ -115,16 +127,40 @@ def regenerate_story(deck_id: int, category: str,
                 deck_id, category, len(cards), topic, max_hsk, chosen_model)
     if not cards:
         return None
-    sentences = ai.generate_story(cards, topic=topic, max_hsk=max_hsk,
-                                  model=chosen_model)
-    for i, s in enumerate(sentences):
-        s["position"] = i
-    database.create_story(today, category, deck_id, sentences)
-    story = database.get_active_story(today, category, deck_id)
+    last_error = None
+    for attempt in range(2):
+        try:
+            sentences = ai.generate_story(cards, topic=topic, max_hsk=max_hsk,
+                                          model=chosen_model)
+            for i, s in enumerate(sentences):
+                s["position"] = i
+            database.create_story(today, category, deck_id, sentences)
+            story = database.get_active_story(today, category, deck_id)
+            last_error = None
+            break
+        except Exception as e:
+            last_error = e
+            logger.error("regen  generation error (attempt %d/2): %s", attempt + 1, e)
+    if last_error is not None:
+        return {
+            "error": True,
+            "reason": str(last_error),
+            "model": chosen_model,
+            "has_history": database.has_story_history(deck_id, category),
+        }
     if story:
         story["sentences"] = database.get_story_sentences(story["id"])
         logger.info("regen  SAVED sentences=%d", len(story["sentences"]))
         _log_story(story)
+    return story
+
+
+@router.get("/api/story/{deck_id}/{category}/history")
+def get_history_story(deck_id: int, category: str):
+    """Return the most recent story for this deck+category, regardless of date."""
+    story = database.get_latest_story(deck_id, category)
+    if story:
+        story["sentences"] = database.get_story_sentences(story["id"])
     return story
 
 
