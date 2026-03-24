@@ -2211,3 +2211,74 @@ select.opt-input {
   padding: 20px 24px 24px;
   gap: 16px;
 }
+
+/* ── Import modal – wide layout & table ─────────────────────────────────── */
+.import-modal-wide {
+  width: min(900px, 96vw);
+  max-height: 90vh;
+}
+.import-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.import-table th {
+  text-align: left;
+  padding: 4px 6px;
+  font-size: 11px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  background: var(--card);
+  z-index: 1;
+}
+.import-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  vertical-align: middle;
+}
+.import-table tr.import-row-excluded td {
+  opacity: 0.35;
+}
+.import-table tr.import-row-invalid td {
+  color: #e74c3c;
+}
+.import-toggle-btn {
+  width: 26px; height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, color 0.1s;
+}
+.import-toggle-btn.active   { background: #27ae60; color: #fff; border-color: #27ae60; }
+.import-toggle-btn.inactive { background: transparent; color: var(--muted); }
+.import-toggle-btn.suspended { background: transparent; color: var(--muted); }
+.import-toggle-btn.unsuspended { background: #2980b9; color: #fff; border-color: #2980b9; }
+.import-toggle-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.import-batch-btn {
+  padding: 2px 8px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.import-batch-btn:hover { background: rgba(255,255,255,0.06); }
+.import-row-deck-select {
+  font-size: 12px;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 4px;
+  max-width: 140px;
+}

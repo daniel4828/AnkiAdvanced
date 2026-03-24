@@ -22,7 +22,8 @@ async def upload_import(
     deck_id: int | None = Form(None),
     deck_path: str | None = Form(None),
     deck_name: str | None = Form(None),
-    resolutions: str | None = Form(None),  # JSON: {"word_zh": "keep"|"update"}
+    resolutions: str | None = Form(None),    # JSON: {"word_zh": "keep"|"update"}
+    card_configs: str | None = Form(None),   # JSON: {word_zh: {include, deck_path, suspended, ai_fill}}
 ):
     """Import a YAML file into a deck.
 
@@ -57,5 +58,16 @@ async def upload_import(
         except json.JSONDecodeError:
             raise HTTPException(status_code=400, detail="resolutions must be valid JSON")
 
-    result = importer.import_yaml_content(content, deck_id, resolutions=resolution_map)
+    card_configs_map: dict = {}
+    if card_configs:
+        try:
+            card_configs_map = json.loads(card_configs)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="card_configs must be valid JSON")
+
+    result = importer.import_yaml_content(
+        content, deck_id,
+        resolutions=resolution_map,
+        card_configs=card_configs_map,
+    )
     return {"deck_id": deck_id, **result}

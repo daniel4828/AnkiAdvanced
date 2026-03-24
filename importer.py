@@ -72,11 +72,13 @@ def import_yaml_file(filepath: str, deck_path: list[str]) -> dict:
 
 
 def import_yaml_content(content: str, parent_deck_id: int,
-                        resolutions: dict | None = None) -> dict:
+                        resolutions: dict | None = None,
+                        card_configs: dict | None = None) -> dict:
     """Import YAML from a string into an existing parent deck.
 
-    resolutions: {word_zh: "keep"|"update"} for component word conflicts.
-                 Defaults to "keep" for any word not present.
+    resolutions:  {word_zh: "keep"|"update"} for component word conflicts.
+    card_configs: {word_zh: {include, deck_path, suspended, ai_fill}}
+                  Per-card overrides; omitted keys fall back to defaults.
     """
     try:
         data = yaml.safe_load(content)
@@ -86,12 +88,13 @@ def import_yaml_content(content: str, parent_deck_id: int,
 
     parent = database.get_deck(parent_deck_id)
     leaf_parent = parent["name"] if parent else "Upload"
-    deck_ids = _make_leaf_decks(leaf_parent, parent_deck_id)
+    default_deck_ids = _make_leaf_decks(leaf_parent, parent_deck_id)
 
     entries = _get_entries(data)
     source = leaf_parent.lower()
-    return _import_entries(entries, deck_ids, source, label="<upload>",
-                           resolutions=resolutions or {})
+    return _import_entries(entries, default_deck_ids, source, label="<upload>",
+                           resolutions=resolutions or {},
+                           card_configs=card_configs or {})
 
 
 def preview_yaml_content(content: str) -> dict:
@@ -334,13 +337,18 @@ def _get_sentences_deck_ids() -> dict:
 
 
 def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
-                    resolutions: dict | None = None) -> dict:
+                    resolutions: dict | None = None,
+                    card_configs: dict | None = None) -> dict:
     if resolutions is None:
         resolutions = {}
+    if card_configs is None:
+        card_configs = {}
+
     imported = 0
     skipped_duplicate = 0
     skipped_invalid = 0
     skipped_entries: list[dict] = []
+    _deck_path_cache: dict[str, dict] = {}  # deck_path → leaf deck_ids
 
     for entry in entries:
         yaml_type = entry.get("type", "")
@@ -370,12 +378,34 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
             })
             continue
 
+        # Per-card config (frontend overrides)
+        card_cfg = card_configs.get(word_zh, {})
+
+        # Respect per-card include flag (defaults to True)
+        if not card_cfg.get("include", True):
+            logger.debug("SKIP %s: excluded by user config", word_zh)
+            continue
+
         # Sentences always go into the dedicated Sentences deck regardless of source
         if note_type == "sentence":
             target_deck_ids = _get_sentences_deck_ids()
             logger.info("SENTENCE %s: %r → Sentences deck", label, word_zh)
         else:
-            target_deck_ids = deck_ids
+            # Resolve per-card deck path override
+            card_deck_path = card_cfg.get("deck_path")
+            if card_deck_path:
+                if card_deck_path not in _deck_path_cache:
+                    try:
+                        pid = database.get_or_create_deck_path(card_deck_path)
+                        parent = database.get_deck(pid)
+                        leaf_name = parent["name"] if parent else card_deck_path.split("::")[-1]
+                        _deck_path_cache[card_deck_path] = _make_leaf_decks(leaf_name, pid)
+                    except Exception as e:
+                        logger.warning("deck_path %r failed (%s), using default", card_deck_path, e)
+                        _deck_path_cache[card_deck_path] = deck_ids
+                target_deck_ids = _deck_path_cache[card_deck_path]
+            else:
+                target_deck_ids = deck_ids
 
         word = _build_word_dict(entry, source=source, note_type=note_type)
         word_id = database.insert_word(word)  # INSERT OR IGNORE → always get id
@@ -411,7 +441,8 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
             elif analysis.get("type") in NOTE_TYPE_MAP:
                 _process_component(analysis, word_id, pos, source, resolutions)
 
-        _create_cards(word_id, target_deck_ids)
+        suspended_states = card_cfg.get("suspended") or None
+        _create_cards(word_id, target_deck_ids, suspended_states)
         imported += 1
 
     return {"imported": imported, "skipped_duplicate": skipped_duplicate,
@@ -432,9 +463,22 @@ def _validate_entry(word_zh: str, note_type: str) -> str | None:
     return None
 
 
-def _create_cards(word_id: int, deck_ids: dict) -> None:
+# Default per-category suspension: creating is active, reading/listening are suspended
+_DEFAULT_SUSPENDED: dict[str, bool] = {
+    "reading": True,
+    "listening": True,
+    "creating": False,
+}
+
+
+def _create_cards(word_id: int, deck_ids: dict,
+                  suspended_states: dict[str, bool] | None = None) -> None:
+    if suspended_states is None:
+        suspended_states = _DEFAULT_SUSPENDED
     for category, deck_id in deck_ids.items():
-        state = "suspended" if category == "creating" else "new"
+        is_suspended = suspended_states.get(category,
+                                            _DEFAULT_SUSPENDED.get(category, False))
+        state = "suspended" if is_suspended else "new"
         database.insert_card(word_id, category, deck_id, state=state)
 
 

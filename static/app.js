@@ -2468,7 +2468,385 @@ function goBack() {
 // ── Import modal ─────────────────────────────────────────────────────────────
 
 let importResolutions = {};  // {word_zh: "keep"|"update"}
-let _previewEntries = [];   // full entry list from last preview (with raw_yaml)
+let _previewEntries = [];    // full entry list from last preview (with raw_yaml)
+let _cardConfigs = {};       // {word_zh: {include, deck_path, suspended:{reading,listening,creating}}}
+let _importDeckOptions = []; // flat list of deck paths for per-card dropdowns
+
+// Default per-category suspension states (creating active, others suspended)
+const IMPORT_DEFAULT_SUSPENDED = { reading: true, listening: true, creating: false };
+
+const NOTE_TYPE_LABEL = { vocabulary: 'Word', sentence: 'Sentence', chengyu: '成语', expression: 'Expr' };
+const STATUS_ICON  = { ok: '✓', duplicate: '⚠', invalid: '✕' };
+const STATUS_COLOR = { ok: 'var(--clr-ok,#27ae60)', duplicate: '#e67e22', invalid: '#e74c3c' };
+
+// Escape a value for use in an HTML attribute (prevents quote-breaking)
+function _ea(str) { return String(str ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
+
+function openYamlEditFromBtn(btn) {
+  const idx = btn.dataset.idx !== undefined ? parseInt(btn.dataset.idx) : -1;
+  openYamlEdit(btn.dataset.word, btn.dataset.yaml, btn.dataset.deck, idx);
+}
+
+// ── Render the per-card import table ─────────────────────────────────────────
+
+function _importRenderTable() {
+  const tbody = document.getElementById('import-table-body');
+  const globalDeck = document.getElementById('import-deck-path').value.trim();
+
+  const deckOptHtml = `<option value="">— default —</option>` +
+    _importDeckOptions.map(p => `<option value="${_ea(p)}">${p}</option>`).join('');
+
+  tbody.innerHTML = _previewEntries.map((e, idx) => {
+    const cfg = _cardConfigs[e.simplified] || {};
+    const include  = cfg.include ?? (e.status !== 'invalid');
+    const susp     = cfg.suspended || IMPORT_DEFAULT_SUSPENDED;
+    const deckVal  = cfg.deck_path || '';
+    const isInvalid = e.status === 'invalid';
+
+    const rowClass = isInvalid ? 'import-row-invalid' : (!include ? 'import-row-excluded' : '');
+
+    const inclBtnCls = isInvalid ? 'import-toggle-btn inactive' :
+                       (include ? 'import-toggle-btn active' : 'import-toggle-btn inactive');
+    const inclLabel  = include ? '+' : '−';
+    const inclDisabled = isInvalid ? 'disabled' : '';
+
+    const suspBtn = (cat) => {
+      const isSusp = susp[cat] ?? IMPORT_DEFAULT_SUSPENDED[cat];
+      const cls = isSusp ? 'import-toggle-btn suspended' : 'import-toggle-btn unsuspended';
+      const lbl = isSusp ? '🔒' : '✓';
+      const dis = (!include || isInvalid) ? 'disabled' : '';
+      return `<button class="${cls}" ${dis}
+        onclick="importToggleSuspended(${_ea(JSON.stringify(e.simplified))}, '${cat}')"
+        title="${isSusp ? 'suspended — click to activate' : 'active — click to suspend'}">${lbl}</button>`;
+    };
+
+    const statusSpan = `<span style="color:${STATUS_COLOR[e.status]}">${STATUS_ICON[e.status]}</span>` +
+      (e.reason ? ` <span style="font-size:10px;color:${STATUS_COLOR[e.status]}" title="${_ea(e.reason)}">!</span>` : '');
+
+    return `<tr class="${rowClass}" id="import-row-${idx}">
+      <td>
+        <button class="${inclBtnCls}" ${inclDisabled}
+          onclick="importToggleInclude(${_ea(JSON.stringify(e.simplified))})">${inclLabel}</button>
+      </td>
+      <td style="font-weight:500">${e.simplified}
+        ${e.raw_yaml ? `<button class="edit-cancel-btn" style="font-size:10px;padding:1px 5px;margin-left:4px"
+          data-word="${_ea(e.simplified)}" data-yaml="${_ea(e.raw_yaml)}" data-deck="" data-idx="${idx}"
+          onclick="openYamlEditFromBtn(this)">Edit</button>` : ''}
+      </td>
+      <td style="color:var(--clr-muted,#888);font-size:11px">${NOTE_TYPE_LABEL[e.note_type] || e.note_type}</td>
+      <td>${statusSpan}</td>
+      <td>${suspBtn('reading')}</td>
+      <td>${suspBtn('listening')}</td>
+      <td>${suspBtn('creating')}</td>
+      <td>
+        <select class="import-row-deck-select"
+          onchange="importSetCardDeck(${_ea(JSON.stringify(e.simplified))}, this.value)"
+          ${(!include || isInvalid) ? 'disabled' : ''}>
+          ${deckOptHtml}
+        </select>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Set selected deck value for each row's <select>
+  tbody.querySelectorAll('select.import-row-deck-select').forEach((sel, i) => {
+    const e = _previewEntries[i];
+    if (!e) return;
+    sel.value = (_cardConfigs[e.simplified] || {}).deck_path || '';
+  });
+}
+
+function importToggleInclude(wordZh) {
+  const cfg = _cardConfigs[wordZh] || {};
+  _cardConfigs[wordZh] = { ...cfg, include: !(cfg.include ?? true) };
+  _importRenderTable();
+}
+
+function importToggleSuspended(wordZh, category) {
+  const cfg = _cardConfigs[wordZh] || {};
+  const susp = { ...IMPORT_DEFAULT_SUSPENDED, ...(cfg.suspended || {}) };
+  susp[category] = !susp[category];
+  _cardConfigs[wordZh] = { ...cfg, suspended: susp };
+  _importRenderTable();
+}
+
+function importSetCardDeck(wordZh, deckPath) {
+  const cfg = _cardConfigs[wordZh] || {};
+  _cardConfigs[wordZh] = { ...cfg, deck_path: deckPath || null };
+}
+
+function importSelectAll(include) {
+  _previewEntries.forEach(e => {
+    if (e.status === 'invalid') return;
+    const cfg = _cardConfigs[e.simplified] || {};
+    _cardConfigs[e.simplified] = { ...cfg, include };
+  });
+  _importRenderTable();
+}
+
+function importSetAllSuspended(category, suspended) {
+  _previewEntries.forEach(e => {
+    if (e.status === 'invalid') return;
+    const cfg = _cardConfigs[e.simplified] || {};
+    const susp = { ...IMPORT_DEFAULT_SUSPENDED, ...(cfg.suspended || {}) };
+    susp[category] = suspended;
+    _cardConfigs[e.simplified] = { ...cfg, suspended: susp };
+  });
+  _importRenderTable();
+}
+
+function importApplyGlobalDeck() {
+  // When global deck changes, cards using the default automatically use it
+  // (deck_path: null means "use global default"), so just re-render
+  _importRenderTable();
+}
+
+async function openImportModal() {
+  importResolutions = {};
+  _previewEntries = [];
+  _cardConfigs = {};
+  document.getElementById('import-file').value = '';
+  document.getElementById('import-preview').style.display = 'none';
+  document.getElementById('import-conflicts-section').style.display = 'none';
+  document.getElementById('import-deck-section').style.display = 'none';
+  document.getElementById('import-result').style.display = 'none';
+  document.getElementById('import-preview-btn').style.display = '';
+  document.getElementById('import-preview-btn').disabled = false;
+  document.getElementById('import-preview-btn').textContent = 'Preview';
+  document.getElementById('import-submit-btn').style.display = 'none';
+  document.getElementById('import-deck-path').value = '';
+  document.getElementById('deck-picker-new-badge').style.display = 'none';
+  document.getElementById('deck-picker-dropdown').style.display = 'none';
+
+  // Build suggestion list for deck picker and per-card dropdown
+  const decks = await api('GET', '/api/decks');
+  window._deckSuggestions = [];
+  _importDeckOptions = [];
+  function addDeckSuggestions(list, prefix) {
+    for (const d of list) {
+      if (d.virtual) {
+        if (d.children && d.children.length) addDeckSuggestions(d.children, prefix);
+        continue;
+      }
+      if (d.category) continue;
+      const path = prefix ? `${prefix}::${d.name}` : d.name;
+      window._deckSuggestions.push(path);
+      _importDeckOptions.push(path);
+      if (d.children && d.children.length) addDeckSuggestions(d.children, path);
+    }
+  }
+  addDeckSuggestions(decks, '');
+
+  document.getElementById('import-modal-overlay').style.display = 'block';
+  document.getElementById('import-modal').style.display = 'flex';
+}
+
+function closeImportModal() {
+  document.getElementById('import-modal-overlay').style.display = 'none';
+  document.getElementById('import-modal').style.display = 'none';
+  const btn = document.getElementById('import-submit-btn');
+  btn.onclick = doImport;
+}
+
+function onImportFileChange() {
+  importResolutions = {};
+  _previewEntries = [];
+  _cardConfigs = {};
+  document.getElementById('import-preview').style.display = 'none';
+  document.getElementById('import-conflicts-section').style.display = 'none';
+  document.getElementById('import-deck-section').style.display = 'none';
+  document.getElementById('import-submit-btn').style.display = 'none';
+  document.getElementById('import-preview-btn').style.display = '';
+  document.getElementById('import-preview-btn').disabled = false;
+  document.getElementById('import-preview-btn').textContent = 'Preview';
+  document.getElementById('import-result').style.display = 'none';
+}
+
+async function previewImport(yamlContent) {
+  const fileInput = document.getElementById('import-file');
+  if (!yamlContent && !fileInput.files.length) { showError('Please select a YAML file.'); return; }
+
+  const btn = document.getElementById('import-preview-btn');
+  btn.disabled = true;
+  btn.textContent = 'Loading…';
+
+  const form = new FormData();
+  if (yamlContent) {
+    form.append('file', new File([yamlContent], 'edited.yaml', { type: 'application/x-yaml' }));
+  } else {
+    form.append('file', fileInput.files[0]);
+  }
+
+  try {
+    const res = await fetch('/api/import/preview', { method: 'POST', body: form });
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+    const data = await res.json();
+
+    if (data.error) {
+      showError('YAML parse error: ' + data.error);
+      btn.disabled = false;
+      btn.textContent = 'Preview';
+      return;
+    }
+
+    // Summary line
+    const s = data.summary;
+    const summaryEl = document.getElementById('import-summary');
+    const parts = [];
+    if (s.ok)           parts.push(`<span style="color:${STATUS_COLOR.ok}">${s.ok} ready</span>`);
+    if (s.duplicate)    parts.push(`<span style="color:${STATUS_COLOR.duplicate}">${s.duplicate} duplicate</span>`);
+    if (s.invalid)      parts.push(`<span style="color:${STATUS_COLOR.invalid}">${s.invalid} invalid</span>`);
+    if (s.unknown_type) parts.push(`${s.unknown_type} unknown type`);
+    summaryEl.innerHTML = parts.join(' · ') || 'No importable entries found.';
+
+    // Initialize card configs with defaults
+    _previewEntries = data.entries;
+    const prevConfigs = { ..._cardConfigs };  // preserve any existing user changes
+    _cardConfigs = {};
+    data.entries.forEach(e => {
+      if (prevConfigs[e.simplified]) {
+        _cardConfigs[e.simplified] = prevConfigs[e.simplified];
+      } else {
+        _cardConfigs[e.simplified] = {
+          include: e.status !== 'invalid',
+          deck_path: null,
+          suspended: { ...IMPORT_DEFAULT_SUSPENDED },
+        };
+      }
+    });
+
+    _importRenderTable();
+    document.getElementById('import-preview').style.display = 'block';
+
+    // Conflict resolution
+    if (data.conflicts && data.conflicts.length > 0) {
+      importResolutions = {};
+      const listEl = document.getElementById('import-conflicts-list');
+      listEl.innerHTML = data.conflicts.map(c => `
+        <div class="conflict-card" id="conflict-${c.simplified}" style="border:1px solid var(--clr-border,#333);border-radius:6px;padding:8px 10px;margin-bottom:8px">
+          <div style="font-weight:600;margin-bottom:4px">${c.simplified}</div>
+          <div style="display:grid;grid-template-columns:70px 1fr;gap:2px 8px;font-size:12px">
+            <span style="color:var(--clr-muted,#888)">Existing</span>
+            <span>${_fmtConflictData(c.existing)}</span>
+            <span style="color:#e67e22">Incoming</span>
+            <span>${_fmtConflictData(c.incoming)}</span>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <button class="edit-cancel-btn" style="flex:1;font-size:12px"
+              onclick="resolveConflict('${c.simplified}','keep',this)">Keep Existing</button>
+            <button class="edit-cancel-btn" style="flex:1;font-size:12px"
+              onclick="resolveConflict('${c.simplified}','update',this)">Use Incoming</button>
+          </div>
+        </div>`).join('');
+      document.getElementById('import-conflicts-section').style.display = 'block';
+    } else {
+      document.getElementById('import-conflicts-section').style.display = 'none';
+    }
+
+    if (s.ok > 0 || s.duplicate > 0) {
+      document.getElementById('import-deck-section').style.display = 'block';
+      document.getElementById('import-submit-btn').style.display = '';
+    }
+    if (!yamlContent) btn.style.display = 'none';
+    else { btn.disabled = false; btn.textContent = 'Preview'; }
+  } catch (e) {
+    showError('Preview failed: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = 'Preview';
+  }
+}
+
+async function doImport() {
+  const fileInput = document.getElementById('import-file');
+  const deckPath  = document.getElementById('import-deck-path').value.trim();
+  const resultEl  = document.getElementById('import-result');
+
+  if (!fileInput.files.length) { showError('Please select a YAML file.'); return; }
+  if (!deckPath) { showError('Please enter a target deck.'); return; }
+
+  const btn = document.getElementById('import-submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Importing…';
+
+  // Build card_configs: only include entries explicitly configured
+  const cardConfigsMap = {};
+  _previewEntries.forEach(e => {
+    const cfg = _cardConfigs[e.simplified];
+    if (cfg) cardConfigsMap[e.simplified] = cfg;
+  });
+
+  const form = new FormData();
+  form.append('file', fileInput.files[0]);
+  form.append('deck_path', deckPath);
+  if (Object.keys(importResolutions).length > 0) {
+    form.append('resolutions', JSON.stringify(importResolutions));
+  }
+  form.append('card_configs', JSON.stringify(cardConfigsMap));
+
+  try {
+    const res = await fetch('/api/import/upload', { method: 'POST', body: form });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || res.statusText);
+    }
+    const data = await res.json();
+    resultEl.style.display = 'block';
+
+    const summaryParts = [`<span style="color:${STATUS_COLOR.ok}">Imported ${data.imported} notes.</span>`];
+    if (data.skipped_duplicate) summaryParts.push(`<span style="color:#e67e22">${data.skipped_duplicate} duplicates skipped</span>`);
+    if (data.skipped_invalid)   summaryParts.push(`<span style="color:#e74c3c">${data.skipped_invalid} invalid skipped</span>`);
+    let html = summaryParts.join(' · ');
+
+    if (data.skipped_entries && data.skipped_entries.length) {
+      html += '<div style="margin-top:10px;border-top:1px solid var(--clr-border,#333);padding-top:8px">';
+      html += data.skipped_entries.map(s => `
+        <div style="display:flex;gap:8px;align-items:center;padding:3px 0;font-size:13px">
+          <span style="color:${s.reason === 'already in deck' ? '#e67e22' : '#e74c3c'};flex:0 0 auto">${s.reason === 'already in deck' ? '⚠' : '✕'}</span>
+          <span style="flex:1;font-weight:500">${s.word}</span>
+          <span style="color:var(--clr-muted,#888);font-size:11px">${s.reason}</span>
+          ${s.raw_yaml ? `<button class="edit-cancel-btn" style="font-size:11px;padding:1px 7px" data-word="${_ea(s.word)}" data-yaml="${_ea(s.raw_yaml)}" data-deck="${_ea(deckPath)}" onclick="openYamlEditFromBtn(this)">Edit</button>` : ''}
+        </div>`).join('');
+      html += '</div>';
+    }
+
+    resultEl.innerHTML = html;
+    btn.disabled = false;
+    btn.textContent = 'Done';
+    btn.onclick = closeImportModal;
+    loadDecks();
+  } catch (e) {
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = `<span style="color:#e74c3c">Error: ${e.message}</span>`;
+    btn.disabled = false;
+    btn.textContent = 'Import';
+  }
+}
+
+function _fmtConflictData(obj) {
+  return Object.entries(obj)
+    .filter(([, v]) => v != null)
+    .map(([k, v]) => `<span style="color:var(--clr-muted,#888)">${k}:</span> ${v}`)
+    .join('  ');
+}
+
+function resolveConflict(wordZh, choice, btn) {
+  importResolutions[wordZh] = choice;
+  const card = document.getElementById(`conflict-${wordZh}`);
+  if (card) card.style.opacity = '0.5';
+  btn.style.fontWeight = 'bold';
+}
+
+function resolveAllConflicts(choice) {
+  document.querySelectorAll('[id^="conflict-"]').forEach(card => {
+    const wordZh = card.id.replace('conflict-', '');
+    importResolutions[wordZh] = choice;
+    card.style.opacity = '0.5';
+    const btns = card.querySelectorAll('button');
+    btns.forEach(b => {
+      b.style.fontWeight = b.textContent.toLowerCase().includes(choice === 'keep' ? 'keep' : 'incoming') ? 'bold' : '';
+    });
+  });
+}
 
 // ── Trash ────────────────────────────────────────────────────────────────────
 let _trashData = null;
@@ -2613,253 +2991,6 @@ async function emptyTrash() {
   await _refreshTrash();
   loadDecks();
 }
-
-async function openImportModal() {
-  // Reset to step 1
-  importResolutions = {};
-  _previewEntries = [];
-  document.getElementById('import-file').value = '';
-  document.getElementById('import-preview').style.display = 'none';
-  document.getElementById('import-conflicts-section').style.display = 'none';
-  document.getElementById('import-deck-section').style.display = 'none';
-  document.getElementById('import-result').style.display = 'none';
-  document.getElementById('import-preview-btn').style.display = '';
-  document.getElementById('import-preview-btn').disabled = false;
-  document.getElementById('import-preview-btn').textContent = 'Preview';
-  document.getElementById('import-submit-btn').style.display = 'none';
-  document.getElementById('import-deck-path').value = '';
-  document.getElementById('deck-picker-new-badge').style.display = 'none';
-  document.getElementById('deck-picker-dropdown').style.display = 'none';
-
-  // Build suggestion list for custom deck picker
-  const decks = await api('GET', '/api/decks');
-  window._deckSuggestions = [];
-  function addDeckSuggestions(list, prefix) {
-    for (const d of list) {
-      if (d.virtual) {
-        if (d.children && d.children.length) addDeckSuggestions(d.children, prefix);
-        continue;
-      }
-      if (d.category) continue;
-      const path = prefix ? `${prefix}::${d.name}` : d.name;
-      window._deckSuggestions.push(path);
-      if (d.children && d.children.length) addDeckSuggestions(d.children, path);
-    }
-  }
-  addDeckSuggestions(decks, '');
-
-  document.getElementById('import-modal-overlay').style.display = 'block';
-  document.getElementById('import-modal').style.display = 'flex';
-}
-
-function closeImportModal() {
-  document.getElementById('import-modal-overlay').style.display = 'none';
-  document.getElementById('import-modal').style.display = 'none';
-  const btn = document.getElementById('import-submit-btn');
-  btn.onclick = doImport;
-}
-
-function onImportFileChange() {
-  importResolutions = {};
-  document.getElementById('import-preview').style.display = 'none';
-  document.getElementById('import-conflicts-section').style.display = 'none';
-  document.getElementById('import-deck-section').style.display = 'none';
-  document.getElementById('import-submit-btn').style.display = 'none';
-  document.getElementById('import-preview-btn').style.display = '';
-  document.getElementById('import-preview-btn').disabled = false;
-  document.getElementById('import-preview-btn').textContent = 'Preview';
-  document.getElementById('import-result').style.display = 'none';
-}
-
-const NOTE_TYPE_LABEL = { vocabulary: 'Word', sentence: 'Sentence', chengyu: '成语' };
-const STATUS_ICON = { ok: '✓', duplicate: '⚠', invalid: '✕' };
-const STATUS_COLOR = { ok: 'var(--clr-ok,#27ae60)', duplicate: '#e67e22', invalid: '#e74c3c' };
-
-// Escape a value for use in an HTML attribute (prevents quote-breaking)
-function _ea(str) { return String(str ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;'); }
-
-function openYamlEditFromBtn(btn) {
-  const idx = btn.dataset.idx !== undefined ? parseInt(btn.dataset.idx) : -1;
-  openYamlEdit(btn.dataset.word, btn.dataset.yaml, btn.dataset.deck, idx);
-}
-
-async function previewImport(yamlContent) {
-  const fileInput = document.getElementById('import-file');
-  if (!yamlContent && !fileInput.files.length) { showError('Please select a YAML file.'); return; }
-
-  const btn = document.getElementById('import-preview-btn');
-  btn.disabled = true;
-  btn.textContent = 'Loading…';
-
-  const form = new FormData();
-  if (yamlContent) {
-    form.append('file', new File([yamlContent], 'edited.yaml', { type: 'application/x-yaml' }));
-  } else {
-    form.append('file', fileInput.files[0]);
-  }
-
-  try {
-    const res = await fetch('/api/import/preview', { method: 'POST', body: form });
-    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
-    const data = await res.json();
-
-    if (data.error) {
-      showError('YAML parse error: ' + data.error);
-      btn.disabled = false;
-      btn.textContent = 'Preview';
-      return;
-    }
-
-    // Summary line
-    const s = data.summary;
-    const summaryEl = document.getElementById('import-summary');
-    const parts = [];
-    if (s.ok)           parts.push(`<span style="color:${STATUS_COLOR.ok}">${s.ok} ready</span>`);
-    if (s.duplicate)    parts.push(`<span style="color:${STATUS_COLOR.duplicate}">${s.duplicate} duplicate</span>`);
-    if (s.invalid)      parts.push(`<span style="color:${STATUS_COLOR.invalid}">${s.invalid} invalid</span>`);
-    if (s.unknown_type) parts.push(`${s.unknown_type} unknown type`);
-    summaryEl.innerHTML = parts.join(' · ') || 'No importable entries found.';
-
-    // Table
-    _previewEntries = data.entries;
-    const tableEl = document.getElementById('import-preview-table');
-    if (data.entries.length) {
-      tableEl.innerHTML = data.entries.map((e, idx) => `
-        <div style="display:flex;gap:8px;align-items:baseline;padding:2px 0;border-bottom:1px solid var(--clr-border,#333)">
-          <span style="color:${STATUS_COLOR[e.status]};width:14px;flex-shrink:0">${STATUS_ICON[e.status]}</span>
-          <span style="flex:1;font-weight:500">${e.simplified}</span>
-          <span style="color:var(--clr-muted,#888);font-size:11px">${NOTE_TYPE_LABEL[e.note_type] || e.note_type}</span>
-          ${e.reason ? `<span style="color:${STATUS_COLOR[e.status]};font-size:11px">${e.reason}</span>` : ''}
-          ${e.raw_yaml ? `<button class="edit-cancel-btn" style="font-size:11px;padding:1px 7px" data-word="${_ea(e.simplified)}" data-yaml="${_ea(e.raw_yaml)}" data-deck="" data-idx="${idx}" onclick="openYamlEditFromBtn(this)">Edit</button>` : ''}
-        </div>`).join('');
-    } else {
-      tableEl.innerHTML = '<div style="color:var(--clr-muted,#888);padding:6px 0">No entries found.</div>';
-    }
-
-    document.getElementById('import-preview').style.display = 'block';
-
-    // Render conflicts
-    if (data.conflicts && data.conflicts.length > 0) {
-      importResolutions = {};
-      const listEl = document.getElementById('import-conflicts-list');
-      listEl.innerHTML = data.conflicts.map(c => `
-        <div class="conflict-card" id="conflict-${c.simplified}" style="border:1px solid var(--clr-border,#333);border-radius:6px;padding:8px 10px;margin-bottom:8px">
-          <div style="font-weight:600;margin-bottom:4px">${c.simplified}</div>
-          <div style="display:grid;grid-template-columns:70px 1fr;gap:2px 8px;font-size:12px">
-            <span style="color:var(--clr-muted,#888)">Existing</span>
-            <span>${_fmtConflictData(c.existing)}</span>
-            <span style="color:#e67e22">Incoming</span>
-            <span>${_fmtConflictData(c.incoming)}</span>
-          </div>
-          <div style="display:flex;gap:6px;margin-top:6px">
-            <button class="edit-cancel-btn" style="flex:1;font-size:12px"
-              onclick="resolveConflict('${c.simplified}','keep',this)">Keep Existing</button>
-            <button class="edit-cancel-btn" style="flex:1;font-size:12px"
-              onclick="resolveConflict('${c.simplified}','update',this)">Use Incoming</button>
-          </div>
-        </div>`).join('');
-      document.getElementById('import-conflicts-section').style.display = 'block';
-    } else {
-      document.getElementById('import-conflicts-section').style.display = 'none';
-    }
-
-    if (s.ok > 0) {
-      document.getElementById('import-deck-section').style.display = 'block';
-      document.getElementById('import-submit-btn').style.display = '';
-    }
-    if (!yamlContent) btn.style.display = 'none';
-    else { btn.disabled = false; btn.textContent = 'Preview'; }
-  } catch (e) {
-    showError('Preview failed: ' + e.message);
-    btn.disabled = false;
-    btn.textContent = 'Preview';
-  }
-}
-
-async function doImport() {
-  const fileInput = document.getElementById('import-file');
-  const deckPath  = document.getElementById('import-deck-path').value.trim();
-  const resultEl  = document.getElementById('import-result');
-
-  if (!fileInput.files.length) { showError('Please select a YAML file.'); return; }
-  if (!deckPath) { showError('Please enter a target deck.'); return; }
-
-  const btn = document.getElementById('import-submit-btn');
-  btn.disabled = true;
-  btn.textContent = 'Importing…';
-
-  const form = new FormData();
-  form.append('file', fileInput.files[0]);
-  form.append('deck_path', deckPath);
-  if (Object.keys(importResolutions).length > 0) {
-    form.append('resolutions', JSON.stringify(importResolutions));
-  }
-
-  try {
-    const res = await fetch('/api/import/upload', { method: 'POST', body: form });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || res.statusText);
-    }
-    const data = await res.json();
-    resultEl.style.display = 'block';
-
-    const summaryParts = [`<span style="color:${STATUS_COLOR.ok}">Imported ${data.imported} notes.</span>`];
-    if (data.skipped_duplicate) summaryParts.push(`<span style="color:#e67e22">${data.skipped_duplicate} duplicates skipped</span>`);
-    if (data.skipped_invalid)   summaryParts.push(`<span style="color:#e74c3c">${data.skipped_invalid} invalid skipped</span>`);
-    let html = summaryParts.join(' · ');
-
-    if (data.skipped_entries && data.skipped_entries.length) {
-      html += '<div style="margin-top:10px;border-top:1px solid var(--clr-border,#333);padding-top:8px">';
-      html += data.skipped_entries.map(s => `
-        <div style="display:flex;gap:8px;align-items:center;padding:3px 0;font-size:13px">
-          <span style="color:${s.reason === 'already in deck' ? '#e67e22' : '#e74c3c'};flex:0 0 auto">${s.reason === 'already in deck' ? '⚠' : '✕'}</span>
-          <span style="flex:1;font-weight:500">${s.word}</span>
-          <span style="color:var(--clr-muted,#888);font-size:11px">${s.reason}</span>
-          ${s.raw_yaml ? `<button class="edit-cancel-btn" style="font-size:11px;padding:1px 7px" data-word="${_ea(s.word)}" data-yaml="${_ea(s.raw_yaml)}" data-deck="${_ea(deckPath)}" onclick="openYamlEditFromBtn(this)">Edit</button>` : ''}
-        </div>`).join('');
-      html += '</div>';
-    }
-
-    resultEl.innerHTML = html;
-    btn.disabled = false;
-    btn.textContent = 'Done';
-    btn.onclick = closeImportModal;
-    loadDecks();
-  } catch (e) {
-    resultEl.style.display = 'block';
-    resultEl.innerHTML = `<span style="color:#e74c3c">Error: ${e.message}</span>`;
-    btn.disabled = false;
-    btn.textContent = 'Import';
-  }
-}
-
-function _fmtConflictData(obj) {
-  return Object.entries(obj)
-    .filter(([, v]) => v != null)
-    .map(([k, v]) => `<span style="color:var(--clr-muted,#888)">${k}:</span> ${v}`)
-    .join('  ');
-}
-
-function resolveConflict(wordZh, choice, btn) {
-  importResolutions[wordZh] = choice;
-  const card = document.getElementById(`conflict-${wordZh}`);
-  if (card) card.style.opacity = '0.5';
-  btn.style.fontWeight = 'bold';
-}
-
-function resolveAllConflicts(choice) {
-  document.querySelectorAll('[id^="conflict-"]').forEach(card => {
-    const wordZh = card.id.replace('conflict-', '');
-    importResolutions[wordZh] = choice;
-    card.style.opacity = '0.5';
-    const btns = card.querySelectorAll('button');
-    btns.forEach(b => {
-      b.style.fontWeight = b.textContent.toLowerCase().includes(choice === 'keep' ? 'keep' : 'incoming') ? 'bold' : '';
-    });
-  });
-}
-
 // ── YAML entry editor ────────────────────────────────────────────────────────
 
 let _yamlEditDeckPath = '';
