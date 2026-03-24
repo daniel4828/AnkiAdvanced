@@ -2473,7 +2473,7 @@ let _cardConfigs = {};       // {word_zh: {include, deck_path, suspended:{readin
 let _importDeckOptions = []; // flat list of deck paths for per-card dropdowns
 
 // Default per-category suspension states (creating active, others suspended)
-const IMPORT_DEFAULT_SUSPENDED = { reading: true, listening: true, creating: false };
+const IMPORT_DEFAULT_SUSPENDED = { reading: false, listening: false, creating: true };
 
 const NOTE_TYPE_LABEL = { vocabulary: 'Word', sentence: 'Sentence', chengyu: '成语', expression: 'Expr' };
 const STATUS_ICON  = { ok: '✓', duplicate: '⚠', invalid: '✕' };
@@ -2513,7 +2513,7 @@ function _importRenderTable() {
     const suspBtn = (cat) => {
       const isSusp = susp[cat] ?? IMPORT_DEFAULT_SUSPENDED[cat];
       const cls = isSusp ? 'import-toggle-btn suspended' : 'import-toggle-btn unsuspended';
-      const lbl = isSusp ? '🔒' : '✓';
+      const lbl = isSusp ? '✕' : '✓';
       const dis = (!include || isInvalid) ? 'disabled' : '';
       return `<button class="${cls}" ${dis}
         onclick="importToggleSuspended(${_ea(JSON.stringify(e.simplified))}, '${cat}')"

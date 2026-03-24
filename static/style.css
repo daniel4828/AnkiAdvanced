@@ -2260,7 +2260,7 @@ select.opt-input {
 }
 .import-toggle-btn.active   { background: #27ae60; color: #fff; border-color: #27ae60; }
 .import-toggle-btn.inactive { background: transparent; color: var(--muted); }
-.import-toggle-btn.suspended { background: transparent; color: var(--muted); }
+.import-toggle-btn.suspended { background: transparent; color: #e74c3c; border-color: #e74c3c; }
 .import-toggle-btn.unsuspended { background: #2980b9; color: #fff; border-color: #2980b9; }
 .import-toggle-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .import-batch-btn {
