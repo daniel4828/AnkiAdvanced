@@ -19,7 +19,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install fastapi uvicorn anthropic edge-tts pyyaml openai
+        run: pip install fastapi uvicorn anthropic edge-tts pyyaml openai python-multipart
 
       - name: Check syntax (all Python files)
         run: python -m py_compile database.py main.py srs.py importer.py ai.py tts.py

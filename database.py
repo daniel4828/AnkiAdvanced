@@ -89,11 +89,31 @@ def init_db() -> None:
     _ensure_presets(conn)
     preset_id = conn.execute("SELECT id FROM deck_presets WHERE is_default = 1 LIMIT 1").fetchone()["id"]
     all_id = _ensure_deck(conn, "All", parent_id=None, preset_id=preset_id)
-    # Migrate any pre-existing root decks (other than "All") to be children of "All"
-    conn.execute(
-        "UPDATE decks SET parent_id = ? WHERE parent_id IS NULL AND id != ?",
-        (all_id, all_id),
-    )
+    # Migrate any pre-existing root decks (other than "All") to be children of "All".
+    # Done one-by-one to handle cases where a same-named deck already exists under "All"
+    # (which would cause a UNIQUE(name, parent_id) violation on a bulk UPDATE).
+    root_decks = conn.execute(
+        "SELECT id, name FROM decks WHERE parent_id IS NULL AND id != ? AND deleted_at IS NULL",
+        (all_id,),
+    ).fetchall()
+    for deck in root_decks:
+        already_child = conn.execute(
+            "SELECT id FROM decks WHERE name = ? AND parent_id = ?",
+            (deck["name"], all_id),
+        ).fetchone()
+        if already_child:
+            # A deck with the same name already lives under "All" — re-point any cards
+            # that reference this orphaned root deck, then delete it.
+            conn.execute(
+                "UPDATE cards SET deck_id = ? WHERE deck_id = ?",
+                (already_child["id"], deck["id"]),
+            )
+            conn.execute("DELETE FROM decks WHERE id = ?", (deck["id"],))
+        else:
+            conn.execute(
+                "UPDATE decks SET parent_id = ? WHERE id = ?",
+                (all_id, deck["id"]),
+            )
     # Remove the unused "Default" deck if it exists and has no cards
     default_row = conn.execute("SELECT id FROM decks WHERE name = 'Default'").fetchone()
     if default_row:
