@@ -2467,10 +2467,13 @@ function goBack() {
 
 // ── Import modal ─────────────────────────────────────────────────────────────
 
-let importResolutions = {};  // {word_zh: "keep"|"update"}
-let _previewEntries = [];    // full entry list from last preview (with raw_yaml)
-let _cardConfigs = {};       // {word_zh: {include, deck_path, suspended:{reading,listening,creating}}}
-let _importDeckOptions = []; // flat list of deck paths for per-card dropdowns
+let importResolutions = {};    // {word_zh: "keep"|"update"|"custom"}
+let _previewEntries = [];      // full entry list from last preview (with raw_yaml)
+let _cardConfigs = {};         // {word_zh: {include, deck_path, suspended:{reading,listening,creating}}}
+let _importDeckOptions = [];   // flat list of deck paths for per-card dropdowns
+let _conflictData = [];        // full conflict list from last preview
+let _conflictEdits = {};       // {word_zh: {field: value}} custom edits
+let _conflictSelections = {};  // {word_zh: "keep"|"update"}
 
 // Default per-category suspension states (creating active, others suspended)
 const IMPORT_DEFAULT_SUSPENDED = { reading: false, listening: false, creating: true };
@@ -2533,10 +2536,12 @@ function _importRenderTable() {
           data-word="${_ea(e.simplified)}" data-yaml="${_ea(e.raw_yaml)}" data-deck="" data-idx="${idx}"
           onclick="openYamlEditFromBtn(this)">Edit</button>` : ''}
       </td>
+      <td style="color:var(--clr-muted,#888);font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_ea(e.english || '')}">${e.english || ''}</td>
       <td style="color:var(--clr-muted,#888);font-size:11px">${NOTE_TYPE_LABEL[e.note_type] || e.note_type}</td>
+      <td style="color:var(--clr-muted,#888);font-size:11px">${e.hsk || ''}</td>
       <td>${statusSpan}</td>
-      <td>${suspBtn('reading')}</td>
       <td>${suspBtn('listening')}</td>
+      <td>${suspBtn('reading')}</td>
       <td>${suspBtn('creating')}</td>
       <td>
         <select class="import-row-deck-select"
@@ -2605,14 +2610,14 @@ async function openImportModal() {
   importResolutions = {};
   _previewEntries = [];
   _cardConfigs = {};
+  _conflictData = [];
+  _conflictEdits = {};
+  _conflictSelections = {};
   document.getElementById('import-file').value = '';
   document.getElementById('import-preview').style.display = 'none';
   document.getElementById('import-conflicts-section').style.display = 'none';
   document.getElementById('import-deck-section').style.display = 'none';
   document.getElementById('import-result').style.display = 'none';
-  document.getElementById('import-preview-btn').style.display = '';
-  document.getElementById('import-preview-btn').disabled = false;
-  document.getElementById('import-preview-btn').textContent = 'Preview';
   document.getElementById('import-submit-btn').style.display = 'none';
   document.getElementById('import-deck-path').value = '';
   document.getElementById('deck-picker-new-badge').style.display = 'none';
@@ -2637,8 +2642,8 @@ async function openImportModal() {
   }
   addDeckSuggestions(decks, '');
 
-  document.getElementById('import-modal-overlay').style.display = 'block';
-  document.getElementById('import-modal').style.display = 'flex';
+  // Open file picker directly — modal opens after file is selected
+  document.getElementById('import-file').click();
 }
 
 function closeImportModal() {
@@ -2649,17 +2654,27 @@ function closeImportModal() {
 }
 
 function onImportFileChange() {
+  const fileInput = document.getElementById('import-file');
+  if (!fileInput.files.length) return;  // user cancelled picker
+
   importResolutions = {};
   _previewEntries = [];
   _cardConfigs = {};
+  _conflictData = [];
+  _conflictEdits = {};
+  _conflictSelections = {};
   document.getElementById('import-preview').style.display = 'none';
   document.getElementById('import-conflicts-section').style.display = 'none';
   document.getElementById('import-deck-section').style.display = 'none';
   document.getElementById('import-submit-btn').style.display = 'none';
-  document.getElementById('import-preview-btn').style.display = '';
-  document.getElementById('import-preview-btn').disabled = false;
-  document.getElementById('import-preview-btn').textContent = 'Preview';
   document.getElementById('import-result').style.display = 'none';
+
+  // Open modal now that a file has been chosen
+  document.getElementById('import-modal-overlay').style.display = 'block';
+  document.getElementById('import-modal').style.display = 'flex';
+
+  // Auto-preview as soon as a file is selected
+  previewImport();
 }
 
 async function previewImport(yamlContent) {
@@ -2705,7 +2720,12 @@ async function previewImport(yamlContent) {
     _cardConfigs = {};
     data.entries.forEach(e => {
       if (prevConfigs[e.simplified]) {
-        _cardConfigs[e.simplified] = prevConfigs[e.simplified];
+        const prev = prevConfigs[e.simplified];
+        // If status changed from invalid → ok/duplicate, reset include to true
+        const wasInvalid = prev.include === false && e.status !== 'invalid';
+        _cardConfigs[e.simplified] = wasInvalid
+          ? { ...prev, include: true }
+          : prev;
       } else {
         _cardConfigs[e.simplified] = {
           include: e.status !== 'invalid',
@@ -2721,25 +2741,14 @@ async function previewImport(yamlContent) {
     // Conflict resolution
     if (data.conflicts && data.conflicts.length > 0) {
       importResolutions = {};
-      const listEl = document.getElementById('import-conflicts-list');
-      listEl.innerHTML = data.conflicts.map(c => `
-        <div class="conflict-card" id="conflict-${c.simplified}" style="border:1px solid var(--clr-border,#333);border-radius:6px;padding:8px 10px;margin-bottom:8px">
-          <div style="font-weight:600;margin-bottom:4px">${c.simplified}</div>
-          <div style="display:grid;grid-template-columns:70px 1fr;gap:2px 8px;font-size:12px">
-            <span style="color:var(--clr-muted,#888)">Existing</span>
-            <span>${_fmtConflictData(c.existing)}</span>
-            <span style="color:#e67e22">Incoming</span>
-            <span>${_fmtConflictData(c.incoming)}</span>
-          </div>
-          <div style="display:flex;gap:6px;margin-top:6px">
-            <button class="edit-cancel-btn" style="flex:1;font-size:12px"
-              onclick="resolveConflict('${c.simplified}','keep',this)">Keep Existing</button>
-            <button class="edit-cancel-btn" style="flex:1;font-size:12px"
-              onclick="resolveConflict('${c.simplified}','update',this)">Use Incoming</button>
-          </div>
-        </div>`).join('');
+      _conflictData = data.conflicts;
+      _conflictSelections = {};
+      _conflictEdits = {};
+      data.conflicts.forEach(c => { _conflictSelections[c.simplified] = 'keep'; });
+      document.getElementById('import-conflicts-count').textContent = data.conflicts.length;
       document.getElementById('import-conflicts-section').style.display = 'block';
     } else {
+      _conflictData = [];
       document.getElementById('import-conflicts-section').style.display = 'none';
     }
 
@@ -2782,6 +2791,19 @@ async function doImport() {
     form.append('resolutions', JSON.stringify(importResolutions));
   }
   form.append('card_configs', JSON.stringify(cardConfigsMap));
+  // Send custom field edits for "custom" resolutions
+  const customFieldsMap = {};
+  _conflictData.forEach(c => {
+    if (importResolutions[c.simplified] === 'custom') {
+      const sel = _conflictSelections[c.simplified] || 'keep';
+      const base = sel === 'keep' ? c.existing : c.incoming;
+      const edits = _conflictEdits[c.simplified] || {};
+      customFieldsMap[c.simplified] = { ...base, ...edits };
+    }
+  });
+  if (Object.keys(customFieldsMap).length > 0) {
+    form.append('custom_fields', JSON.stringify(customFieldsMap));
+  }
 
   try {
     const res = await fetch('/api/import/upload', { method: 'POST', body: form });
@@ -2790,30 +2812,18 @@ async function doImport() {
       throw new Error(err.detail || res.statusText);
     }
     const data = await res.json();
-    resultEl.style.display = 'block';
-
-    const summaryParts = [`<span style="color:${STATUS_COLOR.ok}">Imported ${data.imported} notes.</span>`];
-    if (data.skipped_duplicate) summaryParts.push(`<span style="color:#e67e22">${data.skipped_duplicate} duplicates skipped</span>`);
-    if (data.skipped_invalid)   summaryParts.push(`<span style="color:#e74c3c">${data.skipped_invalid} invalid skipped</span>`);
-    let html = summaryParts.join(' · ');
-
-    if (data.skipped_entries && data.skipped_entries.length) {
-      html += '<div style="margin-top:10px;border-top:1px solid var(--clr-border,#333);padding-top:8px">';
-      html += data.skipped_entries.map(s => `
-        <div style="display:flex;gap:8px;align-items:center;padding:3px 0;font-size:13px">
-          <span style="color:${s.reason === 'already in deck' ? '#e67e22' : '#e74c3c'};flex:0 0 auto">${s.reason === 'already in deck' ? '⚠' : '✕'}</span>
-          <span style="flex:1;font-weight:500">${s.word}</span>
-          <span style="color:var(--clr-muted,#888);font-size:11px">${s.reason}</span>
-          ${s.raw_yaml ? `<button class="edit-cancel-btn" style="font-size:11px;padding:1px 7px" data-word="${_ea(s.word)}" data-yaml="${_ea(s.raw_yaml)}" data-deck="${_ea(deckPath)}" onclick="openYamlEditFromBtn(this)">Edit</button>` : ''}
-        </div>`).join('');
-      html += '</div>';
-    }
-
-    resultEl.innerHTML = html;
-    btn.disabled = false;
-    btn.textContent = 'Done';
-    btn.onclick = closeImportModal;
+    closeImportModal();
     loadDecks();
+
+    const parts = [`✓ Imported ${data.imported}`];
+    if (data.skipped_duplicate) parts.push(`${data.skipped_duplicate} duplicates skipped`);
+    if (data.skipped_invalid)   parts.push(`${data.skipped_invalid} invalid skipped`);
+    const banner = document.getElementById('error-banner');
+    banner.textContent = parts.join(' · ');
+    banner.style.background = data.skipped_invalid ? '#e67e22' : '#27ae60';
+    banner.style.color = '#fff';
+    banner.style.display = 'block';
+    setTimeout(() => { banner.style.display = 'none'; banner.style.background = ''; banner.style.color = ''; }, 4000);
   } catch (e) {
     resultEl.style.display = 'block';
     resultEl.innerHTML = `<span style="color:#e74c3c">Error: ${e.message}</span>`;
@@ -2822,30 +2832,123 @@ async function doImport() {
   }
 }
 
-function _fmtConflictData(obj) {
-  return Object.entries(obj)
-    .filter(([, v]) => v != null)
-    .map(([k, v]) => `<span style="color:var(--clr-muted,#888)">${k}:</span> ${v}`)
-    .join('  ');
+const _CF_FIELD_LABELS = { pinyin: 'Pinyin', definition: 'Definition', traditional: 'Traditional' };
+
+function openConflictModal() {
+  _renderConflictModal();
+  document.getElementById('conflict-modal-overlay').style.display = 'block';
+  document.getElementById('conflict-modal').style.display = 'flex';
 }
 
-function resolveConflict(wordZh, choice, btn) {
-  importResolutions[wordZh] = choice;
-  const card = document.getElementById(`conflict-${wordZh}`);
-  if (card) card.style.opacity = '0.5';
-  btn.style.fontWeight = 'bold';
+function closeConflictModal() {
+  document.getElementById('conflict-modal-overlay').style.display = 'none';
+  document.getElementById('conflict-modal').style.display = 'none';
 }
 
-function resolveAllConflicts(choice) {
-  document.querySelectorAll('[id^="conflict-"]').forEach(card => {
-    const wordZh = card.id.replace('conflict-', '');
-    importResolutions[wordZh] = choice;
-    card.style.opacity = '0.5';
-    const btns = card.querySelectorAll('button');
-    btns.forEach(b => {
-      b.style.fontWeight = b.textContent.toLowerCase().includes(choice === 'keep' ? 'keep' : 'incoming') ? 'bold' : '';
-    });
+function _renderConflictModal() {
+  const body = document.getElementById('conflict-modal-body');
+  body.innerHTML = _conflictData.map((c, idx) => {
+    const sel = _conflictSelections[c.simplified] || 'keep';
+    const edits = _conflictEdits[c.simplified] || {};
+
+    const renderField = (f) => {
+      const existingVal = c.existing[f] || '';
+      const incomingVal = c.incoming[f] || '';
+      const isEdited = edits[f] !== undefined;
+      const isDiff = existingVal !== incomingVal;
+      const currentVal = isEdited ? edits[f] : (sel === 'keep' ? existingVal : incomingVal);
+      return `
+        <div class="cf-field">
+          <div class="cf-field-label">
+            ${_CF_FIELD_LABELS[f]}
+            <span id="cf-badge-${idx}-${f}" class="cf-edited-badge" style="${isEdited ? '' : 'display:none'}">edited</span>
+            ${isDiff && !isEdited ? `<span class="cf-diff-badge">differs</span>` : ''}
+          </div>
+          <div class="cf-field-compare">
+            <span class="cf-compare-val ${sel === 'keep' && !isEdited ? 'cf-active' : ''}"
+              title="Existing: ${_ea(existingVal)}"
+              onclick="conflictLoadField(${idx},'${f}','existing')">${existingVal || '—'}</span>
+            <span style="color:var(--clr-muted,#888)">↔</span>
+            <span class="cf-compare-val ${sel === 'update' && !isEdited ? 'cf-active' : ''}"
+              title="Incoming: ${_ea(incomingVal)}"
+              onclick="conflictLoadField(${idx},'${f}','incoming')">${incomingVal || '—'}</span>
+          </div>
+          <input class="edit-input cf-field-input" value="${_ea(currentVal)}"
+            oninput="conflictEditField(${idx},'${f}',this.value)">
+        </div>`;
+    };
+
+    return `
+      <div class="cf-card">
+        <div class="cf-card-header">
+          <span class="cf-word">${c.simplified}</span>
+          <div class="cf-version-btns">
+            <button class="cf-version-btn ${sel === 'keep' ? 'cf-version-selected' : ''}"
+              onclick="conflictSelectVersion(${idx},'keep')">✓ Existing</button>
+            <button class="cf-version-btn ${sel === 'update' ? 'cf-version-selected' : ''}"
+              onclick="conflictSelectVersion(${idx},'update')">✓ Incoming</button>
+          </div>
+        </div>
+        ${Object.keys(_CF_FIELD_LABELS).map(renderField).join('')}
+      </div>`;
+  }).join('');
+}
+
+function conflictSelectVersion(idx, version) {
+  const c = _conflictData[idx];
+  if (!c) return;
+  _conflictSelections[c.simplified] = version;
+  delete _conflictEdits[c.simplified];
+  _renderConflictModal();
+}
+
+function conflictLoadField(idx, field, source) {
+  const c = _conflictData[idx];
+  if (!c) return;
+  const val = source === 'existing' ? (c.existing[field] || '') : (c.incoming[field] || '');
+  _conflictEdits[c.simplified] = { ...(_conflictEdits[c.simplified] || {}), [field]: val };
+  _renderConflictModal();
+}
+
+function conflictEditField(idx, field, value) {
+  const c = _conflictData[idx];
+  if (!c) return;
+  const edits = { ...(_conflictEdits[c.simplified] || {}) };
+  const sel = _conflictSelections[c.simplified] || 'keep';
+  const baseVal = sel === 'keep' ? (c.existing[field] || '') : (c.incoming[field] || '');
+  if (value !== baseVal) {
+    edits[field] = value;
+  } else {
+    delete edits[field];
+  }
+  _conflictEdits[c.simplified] = Object.keys(edits).length ? edits : undefined;
+  if (!_conflictEdits[c.simplified]) delete _conflictEdits[c.simplified];
+  // Update just the badge without re-rendering (preserve focus)
+  const badgeEl = document.getElementById(`cf-badge-${idx}-${field}`);
+  if (badgeEl) {
+    badgeEl.style.display = edits[field] !== undefined ? '' : 'none';
+  }
+}
+
+function conflictAcceptAll(version) {
+  _conflictData.forEach(c => {
+    _conflictSelections[c.simplified] = version;
+    delete _conflictEdits[c.simplified];
   });
+  _renderConflictModal();
+}
+
+function conflictDone() {
+  importResolutions = {};
+  _conflictData.forEach(c => {
+    const edits = _conflictEdits[c.simplified];
+    if (edits && Object.keys(edits).length > 0) {
+      importResolutions[c.simplified] = 'custom';
+    } else {
+      importResolutions[c.simplified] = _conflictSelections[c.simplified] || 'keep';
+    }
+  });
+  closeConflictModal();
 }
 
 // ── Trash ────────────────────────────────────────────────────────────────────

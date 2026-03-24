@@ -2282,3 +2282,61 @@ select.opt-input {
   padding: 2px 4px;
   max-width: 140px;
 }
+
+/* ── Conflict resolution modal ───────────────────────────────────────── */
+.cf-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.cf-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.cf-word { font-size: 16px; font-weight: 600; }
+.cf-version-btns { display: flex; gap: 6px; }
+.cf-version-btn {
+  padding: 3px 10px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.cf-version-btn.cf-version-selected { background: #2980b9; color: #fff; border-color: #2980b9; }
+.cf-field { margin-bottom: 6px; }
+.cf-field-label {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.cf-edited-badge {
+  font-size: 9px; padding: 1px 5px;
+  background: #e67e22; color: #fff;
+  border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.cf-diff-badge {
+  font-size: 9px; padding: 1px 5px;
+  background: rgba(231,76,60,0.15); color: #e74c3c;
+  border-radius: 3px;
+}
+.cf-field-compare {
+  display: flex; align-items: center; gap: 4px;
+  margin-bottom: 4px; font-size: 11px;
+}
+.cf-compare-val {
+  padding: 1px 6px; border-radius: 3px; border: 1px solid transparent;
+  cursor: pointer; color: var(--muted);
+  max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cf-compare-val:hover { border-color: var(--border); color: var(--text); }
+.cf-compare-val.cf-active { background: rgba(41,128,185,0.15); border-color: #2980b9; color: var(--text); }
+.cf-field-input { width: 100%; box-sizing: border-box; font-size: 12px; }

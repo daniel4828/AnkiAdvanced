@@ -73,12 +73,13 @@ def import_yaml_file(filepath: str, deck_path: list[str]) -> dict:
 
 def import_yaml_content(content: str, parent_deck_id: int,
                         resolutions: dict | None = None,
-                        card_configs: dict | None = None) -> dict:
+                        card_configs: dict | None = None,
+                        custom_fields: dict | None = None) -> dict:
     """Import YAML from a string into an existing parent deck.
 
-    resolutions:  {word_zh: "keep"|"update"} for component word conflicts.
-    card_configs: {word_zh: {include, deck_path, suspended, ai_fill}}
-                  Per-card overrides; omitted keys fall back to defaults.
+    resolutions:   {word_zh: "keep"|"update"|"custom"} for component word conflicts.
+    card_configs:  {word_zh: {include, deck_path, suspended, ai_fill}}
+    custom_fields: {word_zh: {pinyin, definition, traditional}} merged values for "custom" resolutions.
     """
     try:
         data = yaml.safe_load(content)
@@ -94,7 +95,8 @@ def import_yaml_content(content: str, parent_deck_id: int,
     source = leaf_parent.lower()
     return _import_entries(entries, default_deck_ids, source, label="<upload>",
                            resolutions=resolutions or {},
-                           card_configs=card_configs or {})
+                           card_configs=card_configs or {},
+                           custom_fields=custom_fields or {})
 
 
 def preview_yaml_content(content: str) -> dict:
@@ -131,6 +133,8 @@ def preview_yaml_content(content: str) -> dict:
             word_zh = entry.get("simplified", "").strip() or "(no simplified)"
             result_entries.append({
                 "simplified": word_zh, "note_type": yaml_type or "(none)",
+                "english": entry.get("english", ""),
+                "hsk": str(entry.get("hsk", "") or ""),
                 "status": "invalid", "reason": f"unknown type: {yaml_type!r}",
                 "raw_yaml": yaml.dump(entry, allow_unicode=True, default_flow_style=False, sort_keys=False).strip(),
             })
@@ -141,6 +145,7 @@ def preview_yaml_content(content: str) -> dict:
             summary["invalid"] += 1
             result_entries.append({
                 "simplified": "(empty)", "note_type": note_type,
+                "english": "",
                 "status": "invalid", "reason": "missing simplified field",
             })
             continue
@@ -150,11 +155,14 @@ def preview_yaml_content(content: str) -> dict:
             logger.warning("STRIP preview: ellipsis stripped from %r → %r", word_zh, stripped)
             word_zh = stripped
 
+        english = entry.get("english", "")
+        hsk = str(entry.get("hsk", "") or "")
         warning = _validate_entry(word_zh, note_type)
         if warning:
             summary["invalid"] += 1
             result_entries.append({
                 "simplified": word_zh, "note_type": note_type,
+                "english": english, "hsk": hsk,
                 "status": "invalid", "reason": warning,
                 "raw_yaml": yaml.dump(entry, allow_unicode=True, default_flow_style=False, sort_keys=False).strip(),
             })
@@ -166,6 +174,7 @@ def preview_yaml_content(content: str) -> dict:
             summary["duplicate"] += 1
             result_entries.append({
                 "simplified": word_zh, "note_type": note_type,
+                "english": english, "hsk": hsk,
                 "status": "duplicate", "reason": None,
                 "raw_yaml": raw,
             })
@@ -173,6 +182,7 @@ def preview_yaml_content(content: str) -> dict:
             summary["ok"] += 1
             result_entries.append({
                 "simplified": word_zh, "note_type": note_type,
+                "english": english, "hsk": hsk,
                 "status": "ok", "reason": None,
                 "raw_yaml": raw,
             })
@@ -304,7 +314,8 @@ def _process_char_only_component(analysis: dict, note_word_id: int,
 
 
 def _process_component(analysis: dict, note_word_id: int, position: int,
-                       source: str, resolutions: dict) -> None:
+                       source: str, resolutions: dict,
+                       custom_fields: dict | None = None) -> None:
     """Store a word_analyses component word and link it to its parent note."""
     comp_zh = analysis.get("simplified", "").strip()
     if not comp_zh:
@@ -313,9 +324,12 @@ def _process_component(analysis: dict, note_word_id: int, position: int,
     comp_word = _build_word_dict(analysis, source=source, note_type="vocabulary")
     comp_word_id = database.insert_word(comp_word)  # INSERT OR IGNORE
 
-    # Apply conflict resolution: "update" overwrites existing data
-    if resolutions.get(comp_zh, "keep") == "update":
+    resolution = resolutions.get(comp_zh, "keep")
+    if resolution == "update":
         database.update_word(comp_word_id, comp_word)
+    elif resolution == "custom" and custom_fields and comp_zh in custom_fields:
+        merged = {**comp_word, **(custom_fields[comp_zh] or {})}
+        database.update_word(comp_word_id, merged)
 
     _process_characters(analysis, comp_word_id)
 
@@ -344,11 +358,14 @@ def _get_sentences_deck_ids() -> dict:
 
 def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
                     resolutions: dict | None = None,
-                    card_configs: dict | None = None) -> dict:
+                    card_configs: dict | None = None,
+                    custom_fields: dict | None = None) -> dict:
     if resolutions is None:
         resolutions = {}
     if card_configs is None:
         card_configs = {}
+    if custom_fields is None:
+        custom_fields = {}
 
     imported = 0
     skipped_duplicate = 0
@@ -424,7 +441,7 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
                 if analysis.get("char_only"):
                     _process_char_only_component(analysis, word_id, pos, source)
                 elif analysis.get("type") in NOTE_TYPE_MAP:
-                    _process_component(analysis, word_id, pos, source, resolutions)
+                    _process_component(analysis, word_id, pos, source, resolutions, custom_fields)
             continue
 
         # Examples
