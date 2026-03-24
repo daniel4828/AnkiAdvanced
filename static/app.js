@@ -2528,7 +2528,7 @@ function _importRenderTable() {
         <button class="${inclBtnCls}" ${inclDisabled}
           onclick="importToggleInclude(${_ea(JSON.stringify(e.simplified))})">${inclLabel}</button>
       </td>
-      <td style="font-weight:500">${e.simplified}
+      <td style="font-weight:500" title="${_ea(e.simplified)}">${e.simplified.length > 6 ? e.simplified.slice(0,4) + '…' : e.simplified}
         ${e.raw_yaml ? `<button class="edit-cancel-btn" style="font-size:10px;padding:1px 5px;margin-left:4px"
           data-word="${_ea(e.simplified)}" data-yaml="${_ea(e.raw_yaml)}" data-deck="" data-idx="${idx}"
           onclick="openYamlEditFromBtn(this)">Edit</button>` : ''}
