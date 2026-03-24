@@ -11,6 +11,7 @@
 <header>
   <button id="back-btn" onclick="goBack()">←</button>
   <h1 id="header-title">AnkiAdvanced</h1>
+  <button id="restart-btn" onclick="restartServer()" title="Restart server (Shift+R)">↺</button>
 </header>
 
 <main>
@@ -31,19 +32,28 @@
       <span><b id="cnt-lrn" class="n-lrn">0</b> learning</span>
       <span><b id="cnt-rev" class="n-rev">0</b> review</span>
       <span><b id="cnt-new" class="n-new">0</b> new</span>
-      <button class="regen-btn" onclick="regenerateStory()" title="Regenerate story">Regenerate story ↺</button>
+      <div style="display:flex;gap:6px;margin-left:auto">
+        <button class="undo-btn" id="undo-btn" onclick="undoReview()" title="Undo last rating [Z]" disabled>↩ Undo</button>
+        <button class="regen-btn" onclick="regenerateStory()" title="Regenerate story">Regenerate story ↺</button>
+      </div>
     </div>
 
     <div class="review-card" id="review-card">
 
-      <!-- Sentence position indicator -->
-      <div id="sentence-counter" style="display:none"></div>
+      <!-- Card meta row: sentence position (left) + right group -->
+      <div class="card-meta-row">
+        <div id="sentence-counter"></div>
+        <div class="card-meta-right">
+          <button id="card-hsk-badge" class="card-hsk-badge" onclick="enrichCard()" title="Ask AI to fill HSK level &amp; character data" style="display:none"></button>
+          <button id="back-meta-play-btn" class="play-icon-btn play-icon-sm" onclick="playSentence()" style="display:none" title="Play audio">🔊</button>
+          <div id="card-type-badge"></div>
+        </div>
+      </div>
 
       <!-- Front side (content varies by category) -->
       <div id="side-front">
-        <!-- Listening: speaker icon + replay -->
-        <div class="listen-icon" id="front-listen-icon">🔊</div>
-        <button class="play-btn" id="front-play-btn" onclick="playSentence()">▶ Replay</button>
+        <!-- Listening: speaker icon (clickable) -->
+        <button class="listen-icon" id="front-listen-icon" onclick="playSentence()">🔊</button>
         <!-- Reading: Chinese sentence on front -->
         <div class="sentence" id="sentence-front"></div>
         <!-- Creating: English sentence + input field -->
@@ -76,10 +86,9 @@
           </div>
         </div>
 
-        <!-- 1. Sentence with inline play button (listening/reading back; hidden for creating) -->
+        <!-- 1. Sentence (listening/reading back; hidden for creating) -->
         <div class="sentence-row" id="sentence-row-back">
           <div class="sentence" id="sentence-back"></div>
-          <button class="play-icon-btn" onclick="playSentence()" title="Play audio">▶</button>
         </div>
 
         <!-- 2. Pinyin toggle + row -->
@@ -107,8 +116,12 @@
           <div id="examples-section"></div>
           <!-- Characters breakdown — populated by JS -->
           <div id="char-section"></div>
+          <!-- Grammar notes — populated by JS, hidden when empty -->
+          <div id="grammar-notes-section"></div>
           <!-- Notes — populated by JS, hidden when empty -->
           <div id="notes-section"></div>
+          <!-- Word Analysis (sentences / chengyu / expressions) — populated by JS -->
+          <div id="word-analysis-section"></div>
           <button class="edit-card-btn" id="edit-card-btn" onclick="openEditCard()">Edit card</button>
         </div>
 
@@ -124,21 +137,56 @@
     <button class="btn-primary" onclick="goBack()">Back to Decks</button>
   </div>
 
-  <!-- Browse -->
-  <div id="view-browse">
-    <div class="browse-search-row">
-      <input id="browse-search" type="text" placeholder="Search words, pinyin, definition…"
-             oninput="onBrowseSearch(this.value)" autocomplete="off"
-             autocorrect="off" autocapitalize="off" spellcheck="false">
-      <select id="browse-sort" onchange="onBrowseSort(this.value)">
-        <option value="pinyin-asc">Pinyin A→Z</option>
-        <option value="pinyin-desc">Pinyin Z→A</option>
-        <option value="hanzi-asc">Hanzi A→Z</option>
-        <option value="hanzi-desc">Hanzi Z→A</option>
-        <option value="newest">Newest first</option>
-      </select>
+  <!-- Browse (full-width, sidebar layout) -->
+  <div id="view-browse" class="browse-layout">
+    <aside class="browse-sidebar" id="browse-sidebar">
+      <div class="bs-section">
+        <div class="bs-section-head">Notes</div>
+        <button class="bs-item" id="bsf-all"     onclick="setBrowseFilter('notes','all')">All Notes</button>
+        <button class="bs-item" id="bsf-vocabulary" onclick="setBrowseFilter('notes','vocabulary')">Words</button>
+        <button class="bs-item" id="bsf-sentence"   onclick="setBrowseFilter('notes','sentence')">Sentences</button>
+        <button class="bs-item" id="bsf-chengyu"    onclick="setBrowseFilter('notes','chengyu')">Chengyu</button>
+      </div>
+      <div class="bs-section">
+        <div class="bs-section-head">Hanzi</div>
+        <button class="bs-item" id="bsf-hanzi" onclick="setBrowseFilter('hanzi','all')">All Hanzi</button>
+      </div>
+      <div class="bs-section">
+        <div class="bs-section-head">Decks</div>
+        <div id="browse-deck-tree"></div>
+      </div>
+    </aside>
+    <div class="browse-main">
+      <div class="browse-search-row">
+        <input id="browse-search" type="text" placeholder="Search…"
+               oninput="onBrowseSearch(this.value)" autocomplete="off"
+               autocorrect="off" autocapitalize="off" spellcheck="false">
+        <select id="browse-sort" onchange="onBrowseSort(this.value)">
+          <option value="pinyin-asc">Pinyin A→Z</option>
+          <option value="pinyin-desc">Pinyin Z→A</option>
+          <option value="hanzi-asc">Hanzi A→Z</option>
+          <option value="hanzi-desc">Hanzi Z→A</option>
+          <option value="newest">Newest first</option>
+        </select>
+      </div>
+      <div id="browse-action-bar">
+        <span id="ba-count"></span>
+        <button class="ba-clear-btn" onclick="clearBrowseSelection()" title="Clear selection">×</button>
+        <div class="ba-actions">
+          <button onclick="browseActionBury()">Bury</button>
+          <button onclick="browseActionSuspend()">Suspend</button>
+          <span class="ba-move-wrap">
+            <button onclick="toggleBrowseMovePanel()">Move to…</button>
+            <span id="ba-move-panel" style="display:none">
+              <select id="ba-move-deck"></select>
+              <button onclick="browseActionMove()">Apply</button>
+            </span>
+          </span>
+          <button class="ba-danger" onclick="browseActionDelete()">Delete</button>
+        </div>
+      </div>
+      <div id="browse-list"></div>
     </div>
-    <div id="browse-list"></div>
   </div>
 
   <!-- Word Detail -->
@@ -151,11 +199,26 @@
         <span class="wd-def" id="wd-def"></span>
       </div>
       <div class="wd-def-zh" id="wd-def-zh" style="display:none"></div>
-      <button class="wd-edit-btn" id="wd-edit-btn" onclick="openEditCardFromDetail(0)">Edit</button>
+      <button class="wd-edit-btn" id="wd-edit-btn">Edit</button>
     </div>
     <div id="wd-chars-section"></div>
     <div id="wd-examples-section"></div>
+    <div id="wd-components-section"></div>
     <div id="wd-cards-section"></div>
+  </div>
+
+  <!-- Hanzi Detail -->
+  <div id="view-hanzi-detail">
+    <div class="wd-header">
+      <div class="wd-hanzi" id="hd-char"></div>
+      <div class="wd-pinyin" id="hd-pinyin"></div>
+      <div class="wd-pos-def-row" id="hd-trad-row" style="display:none">
+        <span class="word-pos">Traditional</span>
+        <span class="wd-def" id="hd-trad"></span>
+      </div>
+      <button class="wd-edit-btn" id="hd-edit-btn">Edit</button>
+    </div>
+    <div id="hd-body"></div>
   </div>
 
   <!-- Stats -->
@@ -194,12 +257,6 @@
       <div class="opt-row"><span class="opt-label">Steps (minutes, space-separated)</span><input class="opt-input wide" id="opt-learn-steps"  type="text"></div>
       <div class="opt-row"><span class="opt-label">Graduating interval (days)</span>       <input class="opt-input" id="opt-grad-int"     type="number" min="1"></div>
       <div class="opt-row"><span class="opt-label">Easy interval (days)</span>              <input class="opt-input" id="opt-easy-int"     type="number" min="1"></div>
-      <div class="opt-row"><span class="opt-label">Insertion order</span>
-        <select class="opt-input" id="opt-insertion-order">
-          <option value="sequential">Sequential (oldest first)</option>
-          <option value="random">Random</option>
-        </select>
-      </div>
     </div>
 
     <div class="opt-group">
@@ -209,14 +266,67 @@
     </div>
 
     <div class="opt-group">
-      <div class="opt-group-label">Display</div>
+      <div class="opt-group-label">Display Order</div>
+      <div class="opt-row"><span class="opt-label">New card gather order</span>
+        <select class="opt-input" id="opt-new-gather-order">
+          <option value="deck">Deck</option>
+          <option value="deck_random_notes">Deck, then random notes</option>
+          <option value="ascending_position">Ascending position (oldest first)</option>
+          <option value="descending_position">Descending position (newest first)</option>
+          <option value="random_notes">Random notes</option>
+          <option value="random_cards">Random cards</option>
+        </select>
+      </div>
+      <div class="opt-row"><span class="opt-label">New card sort order</span>
+        <select class="opt-input" id="opt-new-sort-order">
+          <option value="card_type_gathered">Card type, then order gathered</option>
+          <option value="gathered">Order gathered</option>
+          <option value="card_type_random">Card type, then random</option>
+          <option value="random_note_card_type">Random note, then card type</option>
+          <option value="random">Random</option>
+        </select>
+      </div>
+      <div class="opt-row"><span class="opt-label">New/review order</span>
+        <select class="opt-input" id="opt-new-review-order">
+          <option value="mixed">Mixed</option>
+          <option value="new_first">New cards first</option>
+          <option value="reviews_first">Reviews first</option>
+        </select>
+      </div>
+      <div class="opt-row"><span class="opt-label">Interday learning/review order</span>
+        <select class="opt-input" id="opt-interday-learning-order">
+          <option value="mixed">Mixed</option>
+          <option value="learning_first">Learning cards first</option>
+          <option value="reviews_first">Reviews first</option>
+        </select>
+      </div>
+      <div class="opt-row"><span class="opt-label">Review sort order</span>
+        <select class="opt-input" id="opt-review-sort-order">
+          <option value="due_random">Due date, then random</option>
+          <option value="due_deck">Due date, then deck</option>
+          <option value="deck_due">Deck, then due date</option>
+          <option value="ascending_intervals">Ascending intervals</option>
+          <option value="descending_intervals">Descending intervals</option>
+          <option value="ascending_ease">Ascending ease (harder first)</option>
+          <option value="descending_ease">Descending ease (easier first)</option>
+          <option value="relative_overdueness">Relative overdueness</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="opt-group">
+      <div class="opt-group-label">Burying</div>
       <div class="opt-row">
-        <span class="opt-label">Bury siblings (same word in other categories)</span>
-        <input type="checkbox" id="opt-bury-siblings" style="width:18px;height:18px;cursor:pointer">
+        <span class="opt-label">Bury new siblings</span>
+        <input type="checkbox" id="opt-bury-new" style="width:18px;height:18px;cursor:pointer">
       </div>
       <div class="opt-row">
-        <span class="opt-label">Randomize story word order</span>
-        <input type="checkbox" id="opt-randomize-story" style="width:18px;height:18px;cursor:pointer">
+        <span class="opt-label">Bury review siblings</span>
+        <input type="checkbox" id="opt-bury-review" style="width:18px;height:18px;cursor:pointer">
+      </div>
+      <div class="opt-row">
+        <span class="opt-label">Bury interday learning siblings</span>
+        <input type="checkbox" id="opt-bury-interday" style="width:18px;height:18px;cursor:pointer">
       </div>
     </div>
 
@@ -229,6 +339,7 @@
   </div>
 </div>
 
+<div id="word-tip" style="display:none"></div>
 <script src="/static/app.js"></script>
 
 <!-- Edit card modal -->
@@ -236,7 +347,17 @@
 <div id="edit-modal" style="display:none">
   <div class="edit-modal-header">
     <span class="edit-modal-title">Edit card</span>
-    <button class="edit-modal-close" onclick="closeEditCard()">✕</button>
+    <div class="edit-modal-header-actions">
+      <div class="wd-card-menu-wrap" id="edit-card-menu-wrap" style="display:none">
+        <button class="wd-menu-btn" onclick="toggleEditCardMenu(event)">⋯</button>
+        <div class="wd-card-menu" id="edit-card-menu" style="display:none">
+          <button class="wd-menu-item" onclick="editModalCardAction('bury')">Bury until tomorrow</button>
+          <button class="wd-menu-item" id="edit-suspend-btn" onclick="editModalCardAction('suspend')">Suspend</button>
+          <button class="wd-menu-item wd-menu-item-danger" onclick="editModalCardAction('delete')">Delete card</button>
+        </div>
+      </div>
+      <button class="edit-modal-close" onclick="closeEditCard()">✕</button>
+    </div>
   </div>
   <div class="edit-card-fields">
     <label class="edit-label">Hanzi<input class="edit-input" id="edit-word-zh" type="text" lang="zh"></label>
@@ -261,15 +382,37 @@
     <button class="edit-modal-close" onclick="cancelStorySetup()">✕</button>
   </div>
   <p id="setup-count-label" class="setup-count-label"></p>
+  <div id="setup-learning-warning" style="display:none;background:var(--again-bg,#fff3cd);color:var(--again-text,#856404);border:1px solid var(--again-border,#ffc107);border-radius:6px;padding:8px 12px;font-size:13px;margin:0 0 8px"></div>
   <div class="edit-card-fields">
     <label class="edit-label">Topic <span style="font-weight:400;text-transform:none">(optional)</span>
       <input class="edit-input" id="setup-topic" type="text" placeholder="e.g. a day at a coffee shop" onkeydown="if(event.key==='Enter')confirmStorySetup()">
     </label>
-    <label class="edit-label">Model
+    <label class="edit-label">
+      <span style="display:flex;align-items:center;gap:6px">
+        Model
+        <button class="price-info-btn" onclick="togglePriceTable(event)" title="Pricing info">ℹ</button>
+      </span>
+      <div id="price-table-popup" class="price-table-popup" style="display:none">
+        <table class="price-table">
+          <thead><tr><th>Model</th><th>Provider</th><th>Input</th><th>Output</th></tr></thead>
+          <tbody>
+            <tr><td>GLM-4-Flash</td><td>Zhipu</td><td class="price-free">FREE</td><td class="price-free">FREE</td></tr>
+            <tr><td>GLM-4-Air</td><td>Zhipu</td><td>$0.06</td><td>$0.06</td></tr>
+            <tr><td>DeepSeek V3</td><td>DeepSeek</td><td>$0.28</td><td>$0.42</td></tr>
+            <tr><td>Qwen Turbo</td><td>Alibaba</td><td>$0.07</td><td>$0.26</td></tr>
+            <tr><td>Haiku 4.5</td><td>Anthropic</td><td>$0.80</td><td>$4.00</td></tr>
+            <tr><td>Sonnet 4.6</td><td>Anthropic</td><td>$3.00</td><td>$15.00</td></tr>
+          </tbody>
+        </table>
+        <p class="price-table-note">Prices per 1M tokens (USD)</p>
+      </div>
       <select class="edit-input" id="setup-model">
-        <option value="claude-haiku-4-5-20251001" selected>Haiku — fast &amp; cheap</option>
-        <option value="claude-sonnet-4-6">Sonnet — balanced</option>
-        <option value="claude-opus-4-6">Opus — best quality</option>
+        <option value="glm-4-flash" selected>GLM-4-Flash — free, great Chinese</option>
+        <option value="glm-4-air">GLM-4-Air — paid, higher quality</option>
+        <option value="deepseek-chat">DeepSeek V3 — cheap, reliable</option>
+        <option value="qwen-turbo">Qwen Turbo — Alibaba, cheap</option>
+        <option value="claude-haiku-4-5-20251001">Haiku — Anthropic fast</option>
+        <option value="claude-sonnet-4-6">Sonnet — Anthropic balanced</option>
       </select>
     </label>
     <label class="edit-label">
@@ -298,6 +441,151 @@
   <div id="cost-modal-body"></div>
 </div>
 
+<!-- Import modal -->
+<div id="import-modal-overlay" onclick="closeImportModal()" style="display:none"></div>
+<div id="import-modal" style="display:none">
+  <div class="edit-modal-header">
+    <span class="edit-modal-title">Import YAML</span>
+    <button class="edit-modal-close" onclick="closeImportModal()">✕</button>
+  </div>
+  <div class="edit-card-fields">
+
+    <!-- Step 1: file + preview -->
+    <label class="edit-label">YAML File
+      <input class="edit-input" id="import-file" type="file" accept=".yaml,.yml"
+             onchange="onImportFileChange()">
+    </label>
+    <div id="import-preview" style="display:none">
+      <div id="import-summary" style="padding:6px 0;font-size:13px;color:var(--clr-muted,#888)"></div>
+      <div id="import-preview-table" style="max-height:180px;overflow-y:auto;font-size:13px"></div>
+    </div>
+
+    <!-- Step 2: conflict resolution (shown only when conflicts exist) -->
+    <div id="import-conflicts-section" style="display:none">
+      <div style="font-weight:600;color:#e67e22;margin-bottom:6px">
+        ⚠ Component word conflicts
+      </div>
+      <div style="font-size:12px;color:var(--clr-muted,#888);margin-bottom:8px">
+        These words already exist in the database with different data. Choose per word or use the global buttons.
+      </div>
+      <div id="import-conflicts-list"></div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="edit-cancel-btn" style="flex:1" onclick="resolveAllConflicts('keep')">Keep All Existing</button>
+        <button class="edit-cancel-btn" style="flex:1" onclick="resolveAllConflicts('update')">Use All Incoming</button>
+      </div>
+    </div>
+
+    <!-- Step 3: deck selection (shown after preview) -->
+    <div id="import-deck-section" style="display:none">
+      <div class="deck-picker-label">
+        <span>Target Deck</span>
+        <span class="deck-picker-new-badge" id="deck-picker-new-badge" style="display:none">New</span>
+      </div>
+      <div class="deck-picker" id="deck-picker">
+        <input class="edit-input deck-picker-input" id="import-deck-path" type="text"
+               placeholder="e.g. daily::03_19" autocomplete="off"
+               oninput="deckPickerFilter()" onfocus="deckPickerOpen()" onkeydown="deckPickerKey(event)">
+      </div>
+    </div>
+
+    <div id="import-result" style="display:none;padding:8px 0;font-size:14px"></div>
+  </div>
+  <div class="edit-card-actions">
+    <button class="edit-cancel-btn" onclick="closeImportModal()">Cancel</button>
+    <button class="edit-save-btn" id="import-preview-btn" onclick="previewImport()">Preview</button>
+    <button class="edit-save-btn" id="import-submit-btn" onclick="doImport()"
+            style="display:none">Import</button>
+  </div>
+</div>
+
+<!-- YAML entry editor modal -->
+<div id="yaml-edit-overlay" onclick="closeYamlEdit()" style="display:none"></div>
+<div id="yaml-edit-modal" style="display:none">
+  <div class="edit-modal-header">
+    <span class="edit-modal-title" id="yaml-edit-title">Edit entry</span>
+    <button class="edit-modal-close" onclick="closeYamlEdit()">✕</button>
+  </div>
+  <div class="edit-card-fields">
+    <label class="edit-label">YAML
+      <textarea id="yaml-edit-textarea" class="edit-input"
+                style="font-family:monospace;font-size:12px;min-height:260px;resize:vertical;white-space:pre"></textarea>
+    </label>
+    <div id="yaml-edit-feedback" style="display:none;font-size:13px;padding:6px 0"></div>
+  </div>
+  <div class="edit-card-actions">
+    <button class="edit-cancel-btn" onclick="closeYamlEdit()">Cancel</button>
+    <button class="edit-cancel-btn" id="yaml-edit-check-btn" onclick="checkYamlEntry()">Check</button>
+    <button class="edit-save-btn" id="yaml-edit-import-btn" onclick="importYamlEntry()">Import</button>
+  </div>
+</div>
+
+<!-- Prompt modal (replaces browser prompt()) -->
+<div id="prompt-modal-overlay" onclick="cancelPromptModal()" style="display:none"></div>
+<div id="prompt-modal" style="display:none">
+  <div class="edit-modal-header">
+    <span class="edit-modal-title" id="prompt-modal-title"></span>
+    <button class="edit-modal-close" onclick="cancelPromptModal()">✕</button>
+  </div>
+  <div class="edit-card-fields">
+    <input class="edit-input" id="prompt-modal-input" type="text"
+           onkeydown="if(event.key==='Enter')confirmPromptModal();if(event.key==='Escape')cancelPromptModal()">
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="edit-card-btn" onclick="cancelPromptModal()">Cancel</button>
+      <button class="edit-card-btn" id="prompt-modal-confirm-btn"
+              style="border-color:var(--primary);color:var(--primary)"
+              onclick="confirmPromptModal()">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hanzi regenerate confirm modal -->
+<div id="hanzi-regen-modal-overlay" onclick="closeHanziRegenModal()" style="display:none"></div>
+<div id="hanzi-regen-modal" style="display:none">
+  <button class="edit-modal-close hanzi-regen-close" onclick="closeHanziRegenModal()">✕</button>
+  <div class="hanzi-regen-preview">
+    <span class="hanzi-regen-zh" id="hanzi-regen-char"></span>
+    <span class="hanzi-regen-pin" id="hanzi-regen-pin"></span>
+  </div>
+  <p class="hanzi-regen-desc">Generate AI etymology &amp; translation for this character?</p>
+  <div class="edit-card-actions">
+    <button class="edit-cancel-btn" onclick="closeHanziRegenModal()">Cancel</button>
+    <button class="edit-save-btn" onclick="confirmHanziRegen()">Regenerate</button>
+  </div>
+</div>
+
+<!-- Hanzi edit modal -->
+<div id="hanzi-edit-modal-overlay" onclick="closeHanziEditModal()" style="display:none"></div>
+<div id="hanzi-edit-modal" style="display:none">
+  <div class="edit-modal-header">
+    <span class="edit-modal-title">Edit Hanzi</span>
+    <button class="edit-modal-close" onclick="closeHanziEditModal()">✕</button>
+  </div>
+  <div class="edit-card-fields">
+    <label class="edit-label">Pinyin<input class="edit-input" id="hedit-pinyin" type="text"></label>
+    <label class="edit-label">Traditional<input class="edit-input" id="hedit-trad" type="text"></label>
+    <label class="edit-label">HSK Level<input class="edit-input" id="hedit-hsk" type="number" min="1" max="6"></label>
+    <label class="edit-label">Etymology<textarea class="edit-input" id="hedit-etym" rows="3" style="resize:vertical"></textarea></label>
+    <label class="edit-label">Compounds (JSON array)<textarea class="edit-input" id="hedit-compounds" rows="2" style="resize:vertical"></textarea></label>
+  </div>
+  <div class="edit-card-actions">
+    <button class="edit-cancel-btn" onclick="closeHanziEditModal()">Cancel</button>
+    <button class="edit-save-btn" onclick="saveHanziEdit()">Save</button>
+  </div>
+</div>
+
+<!-- Trash modal -->
+<div id="trash-modal-overlay" onclick="closeTrash()" style="display:none"></div>
+<div id="trash-modal" style="display:none">
+  <div class="edit-modal-header">
+    <span class="edit-modal-title">Trash</span>
+    <div class="trash-header-actions">
+      <button class="trash-empty-all-btn" id="trash-empty-all-btn" onclick="emptyTrash()">Empty Trash</button>
+      <button class="edit-modal-close" onclick="closeTrash()">✕</button>
+    </div>
+  </div>
+  <div id="trash-modal-body"></div>
+</div>
+
 <!-- Story modal -->
 <div id="story-modal-overlay" onclick="closeStoryModal()" style="display:none"></div>
 <div id="story-modal" style="display:none">
@@ -308,5 +596,8 @@
   <button class="story-play-all-btn" id="story-play-all-btn" onclick="toggleFullStory()">▶ Play full story</button>
   <div id="story-modal-body"></div>
 </div>
+
+<!-- Deck picker dropdown — must be a direct body child to escape modal transform stacking context -->
+<div class="deck-picker-dropdown" id="deck-picker-dropdown" style="display:none"></div>
 </body>
 </html>

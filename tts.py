@@ -22,6 +22,11 @@ import threading
 
 import edge_tts
 
+# Bypass system proxy (e.g. Shadowrocket in China) for edge-tts WebSocket connections.
+# The VPN tunnel routes traffic at the network level, so direct connections work fine.
+os.environ.setdefault("NO_PROXY", "*")
+os.environ.setdefault("no_proxy", "*")
+
 logger = logging.getLogger(__name__)
 
 VOICE = "zh-CN-XiaoxiaoNeural"
@@ -117,12 +122,21 @@ def stop() -> None:
             _current_playback.wait()
 
 
+SAY_VOICE = "Tingting"  # macOS built-in zh_CN fallback
+
+
 async def _play(text: str) -> None:
     global _current_playback
-    path = await _ensure_cached(text)
+    try:
+        path = await asyncio.wait_for(_ensure_cached(text), timeout=5.0)
+        cmd = ["afplay", path]
+    except Exception:
+        logger.warning("tts  edge-tts failed, falling back to macOS say")
+        cmd = ["say", "-v", SAY_VOICE, text]
+
     with _playback_lock:
         if _current_playback and _current_playback.poll() is None:
             _current_playback.kill()
             _current_playback.wait()
-        _current_playback = subprocess.Popen(["afplay", path])
+        _current_playback = subprocess.Popen(cmd)
     _current_playback.wait()

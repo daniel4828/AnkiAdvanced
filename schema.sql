@@ -26,14 +26,14 @@ CREATE TABLE IF NOT EXISTS deck_presets (
     -- Review scheduling
     minimum_interval        INTEGER NOT NULL DEFAULT 1,
 
-    -- New card insertion order
+    -- New card insertion order (legacy; superseded by new_gather_order)
     insertion_order         TEXT NOT NULL DEFAULT 'sequential'
                                 CHECK(insertion_order IN ('sequential', 'random')),
 
     -- Mark one preset as the default for new decks
     is_default              INTEGER NOT NULL DEFAULT 0,
 
-    -- Bury siblings (same word reviewed in another category today)
+    -- Bury siblings (legacy; superseded by per-state options below)
     bury_siblings           INTEGER NOT NULL DEFAULT 1,
 
     -- Randomize word order when generating stories
@@ -42,7 +42,47 @@ CREATE TABLE IF NOT EXISTS deck_presets (
     -- Leech settings
     leech_threshold         INTEGER NOT NULL DEFAULT 8,
     leech_action            TEXT NOT NULL DEFAULT 'suspend'
-                                CHECK(leech_action IN ('suspend', 'tag'))
+                                CHECK(leech_action IN ('suspend', 'tag')),
+
+    -- ── Display Order ────────────────────────────────────────────────────────
+
+    new_gather_order        TEXT NOT NULL DEFAULT 'ascending_position'
+                                CHECK(new_gather_order IN (
+                                    'deck', 'deck_random_notes',
+                                    'ascending_position', 'descending_position',
+                                    'random_notes', 'random_cards')),
+
+    new_sort_order          TEXT NOT NULL DEFAULT 'card_type_gathered'
+                                CHECK(new_sort_order IN (
+                                    'card_type_gathered', 'gathered',
+                                    'card_type_random', 'random_note_card_type', 'random')),
+
+    new_review_order        TEXT NOT NULL DEFAULT 'mixed'
+                                CHECK(new_review_order IN ('mixed', 'new_first', 'reviews_first')),
+
+    interday_learning_review_order TEXT NOT NULL DEFAULT 'mixed'
+                                CHECK(interday_learning_review_order IN (
+                                    'mixed', 'learning_first', 'reviews_first')),
+
+    review_sort_order       TEXT NOT NULL DEFAULT 'due_random'
+                                CHECK(review_sort_order IN (
+                                    'due_random', 'due_deck', 'deck_due',
+                                    'ascending_intervals', 'descending_intervals',
+                                    'ascending_ease', 'descending_ease',
+                                    'relative_overdueness')),
+
+    -- ── Burying ──────────────────────────────────────────────────────────────
+
+    bury_new_siblings       INTEGER NOT NULL DEFAULT 0,
+    bury_review_siblings    INTEGER NOT NULL DEFAULT 0,
+    bury_interday_siblings  INTEGER NOT NULL DEFAULT 0,
+
+    -- Quick-access bury mode overrides the three per-state options above:
+    --   'all'    = bury all siblings (default)
+    --   'none'   = bury no siblings
+    --   'custom' = use bury_new/review/interday_siblings individually
+    bury_quick_mode         TEXT NOT NULL DEFAULT 'all'
+                                CHECK(bury_quick_mode IN ('all', 'none', 'custom'))
 );
 
 -- ---------------------------------------------------------------------------
@@ -55,6 +95,8 @@ CREATE TABLE IF NOT EXISTS decks (
     preset_id   INTEGER NOT NULL REFERENCES deck_presets(id),
     -- NULL for parent decks; set for category leaf decks
     category    TEXT CHECK(category IN ('listening', 'reading', 'creating')),
+    -- soft delete: set when moved to trash, hard-deleted after 30 days
+    deleted_at  TEXT,
     UNIQUE(name, parent_id)
 );
 
@@ -72,7 +114,11 @@ CREATE TABLE IF NOT EXISTS words (
     definition_zh   TEXT,
     date_added      TEXT NOT NULL DEFAULT (datetime('now')),
     source          TEXT NOT NULL DEFAULT 'kouyu',
-    notes           TEXT            -- personal notes
+    notes           TEXT,           -- personal notes
+    source_sentence TEXT,           -- original source-language sentence (e.g. German) for sentence notes
+    grammar_notes   TEXT,           -- grammar explanation (e.g. grammar_de from YAML)
+    note_type       TEXT NOT NULL DEFAULT 'vocabulary'
+                        -- vocabulary | sentence | chengyu | ...
 );
 
 -- ---------------------------------------------------------------------------
@@ -136,6 +182,9 @@ CREATE TABLE IF NOT EXISTS cards (
     -- Temporary burial: card is hidden until this date (resets automatically next day)
     buried_until TEXT,
 
+    -- soft delete: set when moved to trash, hard-deleted after 30 days
+    deleted_at   TEXT,
+
     UNIQUE(word_id, category)
 );
 
@@ -189,6 +238,17 @@ CREATE TABLE IF NOT EXISTS api_call_log (
     input_tokens    INTEGER NOT NULL,
     output_tokens   INTEGER NOT NULL,
     purpose         TEXT NOT NULL DEFAULT 'story'
+);
+
+-- ---------------------------------------------------------------------------
+-- note_components  (links sentences/chengyu to their component vocabulary)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS note_components (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    note_id     INTEGER NOT NULL REFERENCES words(id) ON DELETE CASCADE,
+    word_id     INTEGER NOT NULL REFERENCES words(id) ON DELETE CASCADE,
+    position    INTEGER NOT NULL,
+    UNIQUE(note_id, word_id)
 );
 
 -- ---------------------------------------------------------------------------

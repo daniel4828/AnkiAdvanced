@@ -180,8 +180,8 @@ def apply_review(card_id: int, rating: int,
         repetitions=updated["repetitions"],
         lapses=updated["lapses"],
     )
-    database.insert_review(card_id, rating, user_response=user_response)
-    return database.get_card(card_id)
+    log_id = database.insert_review(card_id, rating, user_response=user_response)
+    return database.get_card(card_id), log_id
 
 
 def _handle_learning(card: dict, preset: dict, rating: int) -> dict:
