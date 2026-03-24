@@ -99,6 +99,9 @@ function showView(name) {
     name === 'word-detail'  ? 'Word Detail' :
     name === 'hanzi-detail' ? 'Hanzi Detail' :
     name === 'stats'        ? 'Stats' : 'AnkiAdvanced';
+  if (name === 'review') {
+    document.querySelector('.regen-btn').style.display = unfinishedMode ? 'none' : '';
+  }
 }
 
 function setLoading(msg) {
@@ -1468,8 +1471,7 @@ async function startReviewUnfinished() {
       showView('done');
       return;
     }
-    const total = counts.counts.learning || 0;
-    openStorySetup(total, { isUnfinished: true });
+    await _doStartReviewUnfinished(null, 2, null);
   } catch (e) {
     showError('Failed to start session: ' + e.message);
     showView('decks');
@@ -1513,6 +1515,12 @@ function loadCard(c, counts) {
   card = c;
   wordDetails = null;
 
+  // In unfinished mode each card may belong to a different deck/category
+  if (unfinishedMode) {
+    category = c.category;
+    deckId   = c.deck_id;
+  }
+
   // Update progress counts
   document.getElementById('cnt-new').textContent = counts.new;
   document.getElementById('cnt-lrn').textContent = counts.learning;
@@ -1525,10 +1533,38 @@ function loadCard(c, counts) {
   });
 
   // Find sentence for this card's word in the story.
-  // If no exact match (e.g. using a historical story), fall back to the first sentence.
-  sentence = story?.sentences?.find(s => s.word_id === card.word_id)
-          || story?.sentences?.[0]
-          || null;
+  // If no match, leave sentence null — renderSentence() will show just the word.
+  sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
+
+  // In unfinished mode: story may be from a different deck/category.
+  // Async-load the correct story and update the display when it arrives.
+  if (!sentence && unfinishedMode) {
+    const snap = c;
+    fetch(`/api/story/${c.deck_id}/${c.category}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(s => {
+        if (card !== snap || !s?.sentences) return;
+        story    = s;
+        sentence = story.sentences.find(s => s.word_id === card.word_id) || null;
+        if (!sentence) return;
+        const counter = document.getElementById('sentence-counter');
+        counter.textContent = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
+        counter.style.display = 'block';
+        const isListening = category === 'listening';
+        const isCreating  = category === 'creating';
+        if (!isListening && !isCreating) {
+          const sentFront = document.getElementById('sentence-front');
+          if (sentFront.style.display !== 'none') sentFront.innerHTML = renderSentence();
+        }
+        if (isCreating) {
+          const inp = document.getElementById('sentence-en-front');
+          if (inp.style.display !== 'none') inp.textContent = sentence.sentence_en || '';
+        }
+        if (story.sentences.length > 1) {
+          document.getElementById('story-btn').style.display = 'block';
+        }
+      }).catch(() => {});
+  }
 
   // Update sentence position counter
   const counter = document.getElementById('sentence-counter');
