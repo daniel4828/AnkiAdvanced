@@ -443,48 +443,80 @@
 
 <!-- Import modal -->
 <div id="import-modal-overlay" onclick="closeImportModal()" style="display:none"></div>
-<div id="import-modal" style="display:none">
+<div id="import-modal" class="import-modal-wide" style="display:none">
   <div class="edit-modal-header">
     <span class="edit-modal-title">Import YAML</span>
     <button class="edit-modal-close" onclick="closeImportModal()">✕</button>
   </div>
   <div class="edit-card-fields">
 
-    <!-- Step 1: file + preview -->
+    <!-- Step 1: file -->
     <label class="edit-label">YAML File
       <input class="edit-input" id="import-file" type="file" accept=".yaml,.yml"
              onchange="onImportFileChange()">
     </label>
+
+    <!-- Step 2: preview table (shown after Preview click) -->
     <div id="import-preview" style="display:none">
-      <div id="import-summary" style="padding:6px 0;font-size:13px;color:var(--clr-muted,#888)"></div>
-      <div id="import-preview-table" style="max-height:180px;overflow-y:auto;font-size:13px"></div>
+      <div id="import-summary" style="padding:6px 0 4px;font-size:13px;color:var(--clr-muted,#888)"></div>
+
+      <!-- Batch controls bar -->
+      <div id="import-batch-bar" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--clr-border,#333);font-size:12px">
+        <span style="color:var(--clr-muted,#888)">Select:</span>
+        <button class="import-batch-btn" onclick="importSelectAll(true)">All +</button>
+        <button class="import-batch-btn" onclick="importSelectAll(false)">All −</button>
+        <span style="color:var(--clr-muted,#888);margin-left:8px">Listening:</span>
+        <button class="import-batch-btn" onclick="importSetAllSuspended('listening',true)" title="Suspend all listening cards">✕</button>
+        <button class="import-batch-btn" onclick="importSetAllSuspended('listening',false)" title="Unsuspend all listening cards">✓</button>
+        <span style="color:var(--clr-muted,#888);margin-left:4px">Reading:</span>
+        <button class="import-batch-btn" onclick="importSetAllSuspended('reading',true)" title="Suspend all reading cards">✕</button>
+        <button class="import-batch-btn" onclick="importSetAllSuspended('reading',false)" title="Unsuspend all reading cards">✓</button>
+        <span style="color:var(--clr-muted,#888);margin-left:4px">Creating:</span>
+        <button class="import-batch-btn" onclick="importSetAllSuspended('creating',true)" title="Suspend all creating cards">✕</button>
+        <button class="import-batch-btn" onclick="importSetAllSuspended('creating',false)" title="Unsuspend all creating cards">✓</button>
+      </div>
+
+      <!-- Per-card table -->
+      <div style="overflow-x:auto;max-height:300px;overflow-y:auto">
+        <table class="import-table">
+          <thead>
+            <tr>
+              <th style="width:36px">+/−</th>
+              <th>Word</th>
+              <th>Translation</th>
+              <th style="width:56px">Type</th>
+              <th style="width:44px">HSK</th>
+              <th style="width:44px">Status</th>
+              <th style="width:44px" title="Listening suspended">Listen</th>
+              <th style="width:44px" title="Reading suspended">Read</th>
+              <th style="width:44px" title="Creating suspended">Create</th>
+              <th>Deck</th>
+            </tr>
+          </thead>
+          <tbody id="import-table-body"></tbody>
+        </table>
+      </div>
     </div>
 
-    <!-- Step 2: conflict resolution (shown only when conflicts exist) -->
-    <div id="import-conflicts-section" style="display:none">
-      <div style="font-weight:600;color:#e67e22;margin-bottom:6px">
-        ⚠ Component word conflicts
-      </div>
-      <div style="font-size:12px;color:var(--clr-muted,#888);margin-bottom:8px">
-        These words already exist in the database with different data. Choose per word or use the global buttons.
-      </div>
-      <div id="import-conflicts-list"></div>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        <button class="edit-cancel-btn" style="flex:1" onclick="resolveAllConflicts('keep')">Keep All Existing</button>
-        <button class="edit-cancel-btn" style="flex:1" onclick="resolveAllConflicts('update')">Use All Incoming</button>
-      </div>
+    <!-- Conflict resolution button (shown only when conflicts exist) -->
+    <div id="import-conflicts-section" style="display:none;margin-top:8px">
+      <button onclick="openConflictModal()"
+        style="background:#e67e22;color:#fff;border:1px solid #c0392b;border-radius:4px;padding:6px 14px;font-size:13px;cursor:pointer;font-weight:600;width:100%">
+        ⚠ <span id="import-conflicts-count">0</span> component word conflict(s) — click to resolve →
+      </button>
     </div>
 
-    <!-- Step 3: deck selection (shown after preview) -->
+    <!-- Global deck selection (shown after preview) -->
     <div id="import-deck-section" style="display:none">
-      <div class="deck-picker-label">
-        <span>Target Deck</span>
+      <div class="deck-picker-label" style="margin-top:8px">
+        <span>Default Target Deck</span>
         <span class="deck-picker-new-badge" id="deck-picker-new-badge" style="display:none">New</span>
       </div>
       <div class="deck-picker" id="deck-picker">
         <input class="edit-input deck-picker-input" id="import-deck-path" type="text"
                placeholder="e.g. daily::03_19" autocomplete="off"
-               oninput="deckPickerFilter()" onfocus="deckPickerOpen()" onkeydown="deckPickerKey(event)">
+               oninput="deckPickerFilter()" onfocus="deckPickerOpen()" onkeydown="deckPickerKey(event)"
+               onchange="importApplyGlobalDeck()">
       </div>
     </div>
 
@@ -492,9 +524,30 @@
   </div>
   <div class="edit-card-actions">
     <button class="edit-cancel-btn" onclick="closeImportModal()">Cancel</button>
-    <button class="edit-save-btn" id="import-preview-btn" onclick="previewImport()">Preview</button>
+    <button class="edit-save-btn" id="import-preview-btn" onclick="previewImport()" style="display:none">Preview</button>
     <button class="edit-save-btn" id="import-submit-btn" onclick="doImport()"
             style="display:none">Import</button>
+  </div>
+</div>
+
+<!-- Conflict resolution modal -->
+<div id="conflict-modal-overlay" onclick="closeConflictModal()"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1100"></div>
+<div id="conflict-modal"
+  style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(680px,96vw);max-height:88vh;background:var(--card);border:1px solid var(--border);border-radius:8px;z-index:1101;flex-direction:column;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.15)">
+  <div class="edit-modal-header">
+    <span class="edit-modal-title">Resolve Component Word Conflicts</span>
+    <button class="edit-modal-close" onclick="closeConflictModal()">✕</button>
+  </div>
+  <div style="padding:6px 14px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border)">
+    Select which version to keep, or edit field values directly. Click a value to load it into the input.
+  </div>
+  <div id="conflict-modal-body" style="overflow-y:auto;padding:12px 14px;flex:1;background:var(--bg)"></div>
+  <div style="display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border);background:var(--card)">
+    <button class="edit-cancel-btn" onclick="conflictAcceptAll('keep')">Accept All Existing</button>
+    <button class="edit-cancel-btn" onclick="conflictAcceptAll('update')">Accept All Incoming</button>
+    <div style="flex:1"></div>
+    <button class="edit-save-btn" onclick="conflictDone()">Done</button>
   </div>
 </div>
 
