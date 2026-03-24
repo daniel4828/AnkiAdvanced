@@ -2034,6 +2034,29 @@ def get_active_story(date_str: str, category: str, deck_id: int) -> dict | None:
     return dict(row) if row else None
 
 
+def has_story_history(deck_id: int, category: str) -> bool:
+    """Return True if any story exists for this deck+category."""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT 1 FROM stories WHERE deck_id = ? AND category = ? LIMIT 1",
+        (deck_id, category),
+    ).fetchone()
+    conn.close()
+    return row is not None
+
+
+def get_latest_story(deck_id: int, category: str) -> dict | None:
+    """Most recent story for (deck_id, category), regardless of date."""
+    conn = get_db()
+    row = conn.execute(
+        """SELECT * FROM stories WHERE deck_id = ? AND category = ?
+           ORDER BY generated_at DESC LIMIT 1""",
+        (deck_id, category),
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
 def create_story(date_str: str, category: str, deck_id: int,
                  sentences: list[dict]) -> int:
     """Always inserts a new story row. Returns story_id."""
