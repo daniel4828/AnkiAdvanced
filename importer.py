@@ -128,6 +128,12 @@ def preview_yaml_content(content: str) -> dict:
 
         if note_type is None:
             summary["unknown_type"] += 1
+            word_zh = entry.get("simplified", "").strip() or "(no simplified)"
+            result_entries.append({
+                "simplified": word_zh, "note_type": yaml_type or "(none)",
+                "status": "invalid", "reason": f"unknown type: {yaml_type!r}",
+                "raw_yaml": yaml.dump(entry, allow_unicode=True, default_flow_style=False, sort_keys=False).strip(),
+            })
             continue
 
         word_zh = entry.get("simplified", "").strip()
