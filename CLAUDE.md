@@ -1,5 +1,99 @@
 # 中文间隔重复系统 — 项目说明
 
+## Git & GitHub Workflow (MANDATORY)
+
+We follow **GitHub Flow** — the standard used by most professional software teams.
+Everything flows through Issues → Branches → Pull Requests → Review → Merge.
+**Never commit directly to `main`.**
+
+### The full cycle for every piece of work
+
+```
+1. Issue exists (or create one)   →   tracks the "what" and "why"
+2. Branch off main                →   isolated workspace
+3. Commit frequently              →   small, safe checkpoints
+4. Open a PR (references issue)   →   "here's what I did"
+5. CI runs automatically          →   catches obvious breaks
+6. Daniel reviews & approves      →   human quality gate
+7. Merge to main                  →   done, issue auto-closes
+```
+
+### Issues
+
+Every task starts as a GitHub Issue. Issues track **what** needs to be done
+and **why** — they are the source of truth, not chat messages.
+
+- Create an issue before starting any significant work
+- Issues have **labels**: `feature`, `bug`, `database`, `frontend`, `backend`
+- Issues are grouped into **milestones** (e.g. "Recovery Sprint")
+- When opening a PR, always reference the issue: `Closes #42`
+  This auto-closes the issue when the PR merges.
+
+### Branches
+
+Branch names include the issue number so they're traceable:
+
+```
+feat/42-db-migrations
+feat/43-ai-provider
+fix/55-review-parent-deck
+```
+
+Commands:
+```bash
+git checkout main && git pull        # always start from fresh main
+git checkout -b feat/42-db-migrations
+```
+
+### Commits (Conventional Commits format)
+
+```
+feat: add soft-delete columns to cards and decks
+fix: exclude soft-deleted cards from review queue
+refactor: extract leaf_ids into shared utility
+chore: add openai dependency for multi-provider AI
+```
+
+Format: `<type>: <short imperative description>`
+Types: `feat` | `fix` | `refactor` | `chore` | `docs` | `test`
+
+**Commit after every logical unit of work** — a function, a file, a DB migration.
+The cost of committing too often is zero. The cost of losing work is days.
+
+### Pull Requests
+
+- Use `gh pr create` to open a PR
+- The PR template (`.github/pull_request_template.md`) guides the description
+- Every PR must: reference an issue, describe the change, list how to test it
+- PRs merge only after Daniel approves — Claude never merges
+
+### CI (GitHub Actions)
+
+Every PR triggers `.github/workflows/ci.yml` automatically:
+1. Python syntax check on all `.py` files
+2. Import check (no crash on module import)
+3. Server startup check (hits `/api/decks`, must return 200)
+
+If CI is red, the PR is not mergeable. Fix the issue, push again, CI reruns.
+
+### Protected `main` branch
+
+`main` always works. It is set up in GitHub repo settings to:
+- Require a PR (no direct push)
+- Require CI to pass before merging
+
+### Branch naming
+- Features: `feat/42-db-migrations`, `feat/43-ai-provider`
+- Bug fixes: `fix/55-review-parent-deck`
+- Frontend: `feat/60-frontend-trash`
+
+### Why this matters
+We lost 6 days of work to a `git reset --hard` on uncommitted changes.
+This workflow makes that impossible: every commit is safe on the remote,
+every feature is reviewable, and `main` is always deployable.
+
+---
+
 ## 语言指令
 
 用中文回答。

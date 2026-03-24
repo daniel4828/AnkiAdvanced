@@ -1,5 +1,4 @@
 import logging
-import random
 from datetime import date
 
 import database
@@ -26,16 +25,27 @@ def _log_story(story: dict) -> None:
 
 def _get_cards_for_story(deck_id: int, category: str) -> list:
     ids = leaf_ids(deck_id, category)
-    return database.get_due_cards_multi(ids, category) if len(ids) > 1 \
-        else database.get_due_cards(deck_id, category)
+    if not ids:
+        return []
+    # sibling_suppression=True: each word appears only once across all categories
+    # (the AI prompt should not receive the same word from both Listening and Reading)
+    cards = (database.get_due_cards_multi(ids, category)
+             if len(ids) > 1
+             else database.get_due_cards(ids[0], category))
+    # Sentence notes are standalone — never embed them in AI-generated stories
+    return [c for c in cards if c.get("note_type") != "sentence"]
 
 
 ALLOWED_MODELS = {
+    "glm-4-flash",
+    "glm-4-air",
+    "deepseek-chat",
+    "qwen-turbo",
     "claude-haiku-4-5-20251001",
     "claude-sonnet-4-6",
     "claude-opus-4-6",
 }
-DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+DEFAULT_MODEL = ai.DEFAULT_MODEL
 
 
 def _validated_model(model: str | None) -> str:
@@ -48,6 +58,9 @@ def _validated_model(model: str | None) -> str:
 def get_story(deck_id: int, category: str,
               topic: str | None = None, max_hsk: int = 2,
               model: str | None = None):
+    if database.is_sentences_deck(deck_id):
+        return None
+
     today = date.today().isoformat()
     # Only use cached story if no custom options were provided
     if not topic and max_hsk == 2 and not model:
@@ -70,10 +83,6 @@ def get_story(deck_id: int, category: str,
                 deck_id, category, len(cards), topic, max_hsk, chosen_model)
     if cards:
         try:
-            ids = leaf_ids(deck_id, category)
-            preset = database.get_preset_for_deck(ids[0] if ids else deck_id)
-            if preset.get("randomize_story_order", 1):
-                random.shuffle(cards)
             sentences = ai.generate_story(cards, topic=topic, max_hsk=max_hsk,
                                           model=chosen_model)
             for i, s in enumerate(sentences):
@@ -95,6 +104,8 @@ def get_story(deck_id: int, category: str,
 def regenerate_story(deck_id: int, category: str,
                      topic: str | None = None, max_hsk: int = 2,
                      model: str | None = None):
+    if database.is_sentences_deck(deck_id):
+        return None
     if DISABLE_AI:
         return None
     chosen_model = _validated_model(model)
@@ -104,10 +115,6 @@ def regenerate_story(deck_id: int, category: str,
                 deck_id, category, len(cards), topic, max_hsk, chosen_model)
     if not cards:
         return None
-    ids = leaf_ids(deck_id, category)
-    preset = database.get_preset_for_deck(ids[0] if ids else deck_id)
-    if preset.get("randomize_story_order", 1):
-        random.shuffle(cards)
     sentences = ai.generate_story(cards, topic=topic, max_hsk=max_hsk,
                                   model=chosen_model)
     for i, s in enumerate(sentences):
@@ -124,6 +131,8 @@ def regenerate_story(deck_id: int, category: str,
 @router.get("/api/story/{deck_id}/{category}/count")
 def story_count(deck_id: int, category: str):
     """Return sentence count and whether a cached story already exists today."""
+    if database.is_sentences_deck(deck_id):
+        return {"count": 0, "has_story": False}
     today = date.today().isoformat()
     has_story = database.get_active_story(today, category, deck_id) is not None
     cards = _get_cards_for_story(deck_id, category)

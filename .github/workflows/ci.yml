@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install fastapi uvicorn anthropic edge-tts pyyaml openai
+
+      - name: Check syntax (all Python files)
+        run: python -m py_compile database.py main.py srs.py importer.py ai.py tts.py
+             && for f in routes/*.py; do python -m py_compile "$f"; done
+
+      - name: Import check (no crash on import)
+        run: python -c "import database; import ai; import importer; import srs"
+
+      - name: Server startup check
+        # Start server, wait briefly, check it responds, then kill it
+        run: |
+          ANTHROPIC_API_KEY=dummy python main.py &
+          SERVER_PID=$!
+          sleep 4
+          curl --fail --silent http://localhost:8000/api/decks || (kill $SERVER_PID; exit 1)
+          kill $SERVER_PID

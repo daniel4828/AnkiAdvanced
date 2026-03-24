@@ -155,6 +155,7 @@ if __name__ == "__main__":
     elif app:
         import uvicorn
         database.init_db()
+        database.purge_old_trash()
         uvicorn.run(app, host="0.0.0.0", port=8000)
     else:
         print("Install fastapi and uvicorn to run the web server.")
