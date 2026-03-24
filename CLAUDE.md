@@ -11,8 +11,9 @@
 3. [Claude 对 Git 工作流的态度](#claude-对-git-工作流的态度)
 4. [可交接原则](#可交接jiāojiē---handoff原则)
 5. [Worktree 使用说明](#worktree工作树使用说明)
-6. [语言指令](#语言指令)
-7. [项目简介 & 技术细节](#项目简介)
+6. [网络问题应急方案](#网络问题应急方案)
+7. [语言指令](#语言指令)
+8. [项目简介 & 技术细节](#项目简介)
 
 ---
 
@@ -24,7 +25,7 @@
 |---|------|------|
 | R1 | **永远不要直接推送到 `main`** | 所有工作必须通过 PR |
 | R2 | **每个功能都需要一个 Issue** | 先创建 Issue，再开始写代码；Issue/PR/提交信息全部用中文 |
-| R3 | **永远不要自己合并 PR** | 只有 Daniel 可以合并 |
+| R3 | **永远不要创建或合并 PR** | Daniel 亲自创建 PR、审核并合并 —— Claude 只提供命令供 Daniel 运行 |
 | R4 | **用中文回答 Daniel** | 见"语言指令"部分 |
 | R5 | **引导 Daniel 执行 Git 步骤，不要替代他** | 给命令，让他自己运行 |
 | R6 | **CLAUDE.md 是唯一事实来源** | 所有架构决策都在这里记录 |
@@ -166,8 +167,10 @@ Claude 的角色是：
 | 创建议题 | 提醒 Daniel 运行 `gh issue create ...`，给出命令但不自动执行 |
 | 创建分支 | 提示正确的分支名格式，但让 Daniel 运行 `git checkout -b ...` |
 | 提交 | 在合适的时机提醒 Daniel 提交，建议提交信息 |
-| 开 PR | 提供 `gh pr create` 命令，让 Daniel 执行 |
+| 开 PR | 提供 `gh pr create` 命令，让 Daniel 执行 —— Claude 永远不创建 PR |
 | 合并 | 永远不要自动合并 —— 始终等待 Daniel 在 GitHub 上批准并合并 |
+
+> **关键原则（yuánzé - principle）：PR 的创建和合并完全由 Daniel 本人（běnrén - himself）负责。Claude 只给命令，Daniel 自己执行。**
 
 **当 Daniel 问"下一步做什么？"时，Claude 应该用工作流的语言回答：**
 > "下一步：为这个功能创建一个 Issue，然后从 main 创建分支。你想用什么标题？"
@@ -243,6 +246,59 @@ fix/55-bug-name
 
 ---
 
+## 网络问题应急方案
+
+Daniel 在中国需要使用 VPN 才能访问 GitHub。VPN 有时不稳定，导致 `gh` 命令报 `EOF` 错误。
+
+### 诊断（zhěnduàn - diagnose）步骤
+
+```bash
+# 1. 确认 gh 认证状态
+gh auth status
+
+# 2. 测试 API 连通性
+gh api rate_limit
+
+# 3. 测试 TLS 连接（如果 gh 失败）
+curl -sv https://api.github.com 2>&1 | tail -5
+```
+
+**`198.18.x.x` IP 出现** = VPN 正在拦截请求，TLS 握手失败。
+
+### 应急流程（liúchéng - flow）
+
+当 Claude 无法直接运行 `gh` 命令时：
+
+1. **Claude** 将所有命令写入 `create_issues.sh`（或类似脚本文件）
+2. **Daniel** 暂时关闭 VPN
+3. **Daniel** 运行脚本：`bash create_issues.sh`
+4. **Daniel** 重新开启 VPN
+
+### 脚本模板
+
+```bash
+#!/bin/bash
+set -e
+echo "===== 创建标签 ====="
+gh label create "标签名" --color "颜色" --description "描述" --force
+echo "✓ 标签创建完成"
+
+echo "===== 创建议题 ====="
+gh issue create \
+  --title "标题" \
+  --body "内容" \
+  --label "标签"
+echo "✓ 议题创建完成"
+```
+
+### Claude 的责任
+
+- 遇到 EOF 错误时，**不要反复重试**，立刻生成脚本文件
+- 脚本要包含 `echo` 进度提示，方便 Daniel 知道执行到哪一步
+- 脚本执行完成后，Claude 继续后续工作
+
+---
+
 ## 语言指令
 
 用中文回答。
@@ -252,6 +308,7 @@ fix/55-bug-name
 - 如果用户使用英语或混合语言（例如："我如何implement这个feature？"），将其翻译/改写为中文
 - 如果用户用中文写了错误，在重写时默默地纠正它们，不要单独解释错误
 - 如果用户的中文已经很完美了，就按原样重写
+- **如果用户在消息中用了英文词，在重写时把英文词替换为中文，并在第一次出现时加上注释格式：** 拉取请求（lāqǔ qǐngqiú - Pull Request）
 
 **例子：**
 | 用户输入 | 第一步输出 |
