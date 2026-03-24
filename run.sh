@@ -1,4 +1,9 @@
 #!/bin/bash
+set -e
 source .env
-python main.py import   # import YAML files (skips duplicates if already imported)
-python main.py          # start the web server
+
+# Kill any process already on port 8000
+lsof -ti :8000 | xargs kill -9 2>/dev/null || true
+
+.venv/bin/python main.py import   # import YAML files (skips duplicates if already imported)
+.venv/bin/python main.py          # start the web server

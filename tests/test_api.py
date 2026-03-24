@@ -127,7 +127,7 @@ class TestGetStory:
         Endpoint must return null (not crash, not call AI).
         The frontend handles null by showing 'all done'.
         """
-        deck_id = database.get_default_deck_id()
+        deck_id = database.get_all_deck_id()
         with patch("ai.generate_story") as mock_gen:
             r = client.get(f"/api/story/{deck_id}/listening")
 
