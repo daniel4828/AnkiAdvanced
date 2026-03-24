@@ -54,23 +54,23 @@ chat the PLAN.md + the specific step file. It does not need the whole recovery f
 
 ## Steps Overview
 
-| # | Step | Status | Branch | Depends On |
-|---|------|--------|--------|------------|
-| 01 | [Database migrations & new functions](step-01-database.md) | 🔲 TODO | `feat/db-migrations` | — |
-| 02 | [Multi-provider AI (DeepSeek/GLM/Qwen)](step-02-ai-provider.md) | 🔲 TODO | `feat/ai-provider` | — |
-| 03 | [Importer: multi-type YAML + preview](step-03-importer.md) | 🔲 TODO | `feat/importer` | 01 |
-| 04 | [Import API endpoints](step-04-import-api.md) | 🔲 TODO | `feat/import-api` | 01, 03 |
-| 05 | [Review fix: parent-deck + undo](step-05-review-fix.md) | 🔲 TODO | `feat/review-fix` | 01 |
-| 06 | [Story fix: sentences deck + mixed mode](step-06-story-fix.md) | 🔲 TODO | `feat/story-fix` | 01 |
-| 07 | [Trash system: API + DB](step-07-trash-api.md) | 🔲 TODO | `feat/trash` | 01 |
-| 08 | [Suspension toggle: category + deck-wide](step-08-suspension-api.md) | 🔲 TODO | `feat/suspension` | 01 |
-| 09 | [Browse: AI enrich endpoint](step-09-browse-enrich-api.md) | 🔲 TODO | `feat/browse-enrich` | 01, 02 |
-| 10 | [Frontend: story modal model selector](step-10-frontend-story-modal.md) | 🔲 TODO | `feat/frontend-story` | 02, 06 |
-| 11 | [Frontend: trash modal](step-11-frontend-trash.md) | 🔲 TODO | `feat/frontend-trash` | 07 |
-| 12 | [Frontend: suspension badges](step-12-frontend-suspension.md) | 🔲 TODO | `feat/frontend-suspension` | 08 |
-| 13 | [Frontend: import modal (preview + editor)](step-13-frontend-import.md) | 🔲 TODO | `feat/frontend-import` | 04 |
-| 14 | [Frontend: sentence/chengyu card design](step-14-frontend-card-design.md) | 🔲 TODO | `feat/frontend-cards` | 01 |
-| 15 | [Frontend: HSK badge + AI enrich](step-15-frontend-hsk-badge.md) | 🔲 TODO | `feat/frontend-hsk` | 09 |
+| # | Issue | Step | Status | Branch | Depends On |
+|---|-------|------|--------|--------|------------|
+| 01 | [#41](https://github.com/daniel4828/AnkiAdvanced/issues/41) | [Database migrations & new functions](step-01-database.md) | 🔲 TODO | `feat/41-db-migrations` | — |
+| 02 | [#38](https://github.com/daniel4828/AnkiAdvanced/issues/38) | [Multi-provider AI (DeepSeek/GLM/Qwen)](step-02-ai-provider.md) | 🔲 TODO | `feat/38-ai-provider` | — |
+| 03 | [#39](https://github.com/daniel4828/AnkiAdvanced/issues/39) | [Importer: multi-type YAML + preview](step-03-importer.md) | 🔲 TODO | `feat/39-importer` | #41 |
+| 04 | [#40](https://github.com/daniel4828/AnkiAdvanced/issues/40) | [Import API endpoints](step-04-import-api.md) | 🔲 TODO | `feat/40-import-api` | #41, #39 |
+| 05 | [#42](https://github.com/daniel4828/AnkiAdvanced/issues/42) | [Review fix: parent-deck + undo](step-05-review-fix.md) | 🔲 TODO | `fix/42-review-fix` | #41 |
+| 06 | [#48](https://github.com/daniel4828/AnkiAdvanced/issues/48) | [Story fix: sentences deck + mixed mode](step-06-story-fix.md) | 🔲 TODO | `fix/48-story-fix` | #41 |
+| 07 | [#43](https://github.com/daniel4828/AnkiAdvanced/issues/43) | [Trash system: API + DB](step-07-trash-api.md) | 🔲 TODO | `feat/43-trash` | #41 |
+| 08 | [#44](https://github.com/daniel4828/AnkiAdvanced/issues/44) | [Suspension toggle: category + deck-wide](step-08-suspension-api.md) | 🔲 TODO | `feat/44-suspension` | #41 |
+| 09 | [#51](https://github.com/daniel4828/AnkiAdvanced/issues/51) | [Browse: AI enrich endpoint](step-09-browse-enrich-api.md) | 🔲 TODO | `feat/51-browse-enrich` | #41, #38 |
+| 10 | [#52](https://github.com/daniel4828/AnkiAdvanced/issues/52) | [Frontend: story modal model selector](step-10-frontend-story-modal.md) | 🔲 TODO | `feat/52-frontend-story` | #38, #48 |
+| 11 | [#49](https://github.com/daniel4828/AnkiAdvanced/issues/49) | [Frontend: trash modal](step-11-frontend-trash.md) | 🔲 TODO | `feat/49-frontend-trash` | #43 |
+| 12 | [#50](https://github.com/daniel4828/AnkiAdvanced/issues/50) | [Frontend: suspension badges](step-12-frontend-suspension.md) | 🔲 TODO | `feat/50-frontend-suspension` | #44 |
+| 13 | [#45](https://github.com/daniel4828/AnkiAdvanced/issues/45) | [Frontend: import modal (preview + editor)](step-13-frontend-import.md) | 🔲 TODO | `feat/45-frontend-import` | #40 |
+| 14 | [#46](https://github.com/daniel4828/AnkiAdvanced/issues/46) | [Frontend: sentence/chengyu card design](step-14-frontend-card-design.md) | 🔲 TODO | `feat/46-frontend-cards` | #41 |
+| 15 | [#47](https://github.com/daniel4828/AnkiAdvanced/issues/47) | [Frontend: HSK badge + AI enrich](step-15-frontend-hsk-badge.md) | 🔲 TODO | `feat/47-frontend-hsk` | #51 |
 
 ### Status Key
 - 🔲 TODO — not started
