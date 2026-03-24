@@ -4,6 +4,18 @@
 
 ---
 
+## 目录（mùlù - Table of Contents）
+
+1. [代理必须遵守的固定规则](#代理必须遵守的固定规则mandatory-agent-rules)
+2. [Git & GitHub 工作流](#git--github-工作流mandatory)
+3. [Claude 对 Git 工作流的态度](#claude-对-git-工作流的态度)
+4. [可交接原则](#可交接jiāojiē---handoff原则)
+5. [Worktree 使用说明](#worktree工作树使用说明)
+6. [语言指令](#语言指令)
+7. [项目简介 & 技术细节](#项目简介)
+
+---
+
 ## 代理必须遵守的固定规则（MANDATORY AGENT RULES）
 
 每一个接手（jiēshǒu - take over）这个项目的 AI 代理都必须遵守以下规则，不得例外（lìwài - exception）：
@@ -11,7 +23,7 @@
 | # | 规则 | 说明 |
 |---|------|------|
 | R1 | **永远不要直接推送到 `main`** | 所有工作必须通过 PR |
-| R2 | **每个功能都需要一个 Issue** | 先创建 Issue，再开始写代码 |
+| R2 | **每个功能都需要一个 Issue** | 先创建 Issue，再开始写代码；Issue/PR/提交信息全部用中文 |
 | R3 | **永远不要自己合并 PR** | 只有 Daniel 可以合并 |
 | R4 | **用中文回答 Daniel** | 见"语言指令"部分 |
 | R5 | **引导 Daniel 执行 Git 步骤，不要替代他** | 给命令，让他自己运行 |
@@ -43,10 +55,18 @@
 每项任务都从一个 GitHub Issue 开始。议题追踪**做什么**和**为什么**——它们是事实来源（láiyuán - source of truth），不是聊天消息。
 
 - 开始任何重要工作之前先创建一个议题
+- **议题标题和描述用中文写**
 - 议题有**标签（biāoqiān - labels）**：`feature`、`bug`、`database`、`frontend`、`backend`
 - 议题按**里程碑（lǐchéngbēi - milestone）**分组（如"Recovery Sprint"）
 - 开 PR 时，始终引用（yǐnyòng - reference）议题：`Closes #42`
   这会在 PR 合并时自动关闭议题。
+
+**议题标题示例：**
+```
+feat: 给牌组列表添加垃圾桶功能
+fix: 修复父级牌组复习时卡片重复的问题
+chore: 升级 edge-tts 到最新版本
+```
 
 ### 分支（Branches）
 
@@ -66,14 +86,17 @@ git checkout -b feat/42-db-migrations
 
 ### 提交（Commits）—— Conventional Commits 格式
 
+**提交信息用中文写。** 格式：`<类型>: <简短的祈使句描述>`
+
 ```
-feat: add soft-delete columns to cards and decks
-fix: exclude soft-deleted cards from review queue
-refactor: extract leaf_ids into shared utility
-chore: add openai dependency for multi-provider AI
+feat: 给卡片和牌组添加软删除字段
+fix: 从复习队列中排除已软删除的卡片
+refactor: 将 leaf_ids 提取为公共工具函数
+chore: 添加 openai 依赖以支持多模型
+docs: 更新 CLAUDE.md 的工作流说明
+test: 为复习接口添加集成测试
 ```
 
-格式（géshì - format）：`<type>: <简短的祈使句描述>`
 类型（lèixíng - types）：`feat` | `fix` | `refactor` | `chore` | `docs` | `test`
 
 **每完成一个逻辑单元就提交** —— 一个函数、一个文件、一次数据库迁移（qiānyí - migration）。
@@ -82,9 +105,23 @@ chore: add openai dependency for multi-provider AI
 ### 拉取请求（Pull Requests）
 
 - 使用 `gh pr create` 创建 PR
+- **PR 标题和描述用中文写**
 - PR 模板（`.github/pull_request_template.md`）指导描述内容
-- 每个 PR 必须：引用议题、描述变更、列出如何测试
+- 每个 PR 必须：引用议题、描述变更（biàngēng - changes）、列出如何测试
 - PR 只有在 Daniel 批准后才能合并 —— Claude 永远不合并
+
+**PR 描述示例：**
+```
+## 变更内容
+- 添加了垃圾桶 API（软删除 + 恢复 + 永久删除）
+- 前端添加垃圾桶弹窗
+
+## 测试方法
+- 删除一个牌组，确认它出现在垃圾桶里
+- 恢复该牌组，确认卡片数据完整
+
+Closes #43
+```
 
 ### CI（GitHub Actions）
 
@@ -164,6 +201,45 @@ Claude 的角色是：
 > "如果我现在离开，另一个 AI 能从 GitHub 的 Issue 和 PR 历史中完全理解这个项目的状态吗？"
 
 如果答案是否定的，先补全文档（wéndàng - documentation），再写代码。
+
+---
+
+## Worktree（工作树）使用说明
+
+Worktree 允许（yǔnxǔ - allow）git 同时在多个目录检出（jiǎnchū - check out）不同分支，每个目录完全独立（dúlì - independent）。
+
+### Claude Code 何时自动使用 Worktree
+
+- 当一个代理需要修改文件，但不能影响你的主工作目录时
+- 当多个代理并行（bìngxíng - parallel）工作时，每个代理有自己的隔离（gélí - isolated）副本
+- 当 Claude Code 的 Agent 工具使用 `isolation: "worktree"` 参数启动时
+
+### 你会看到什么
+
+```
+项目根目录/
+└── .claude/worktrees/
+    ├── sleepy-elion/    ← 某个代理正在这里工作
+    └── vibrant-benz/    ← 另一个代理的隔离空间
+```
+
+工作完成后：
+- **如果有变更** → 代理将结果整合（zhěnghé - integrate）成一个新分支和 PR
+- **如果没有变更** → Worktree 自动清理，目录消失
+
+### 你不需要手动操作 Worktree
+
+这完全由 Claude Code 管理。你唯一需要知道的是：
+
+> `.claude/worktrees/` 里的目录是代理的临时（línshí - temporary）工作空间，不要手动编辑里面的文件。
+
+### 分支命名规则
+
+Worktree 里的分支和普通（pǔtōng - regular）分支遵循同样的规范（guīfàn - convention）：
+```
+feat/42-feature-name
+fix/55-bug-name
+```
 
 ---
 
