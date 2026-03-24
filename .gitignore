@@ -15,3 +15,7 @@ venv/
 # Editor
 .idea/
 .vscode/
+
+# Claude Code
+.claude/worktrees/
+create_issues.sh
