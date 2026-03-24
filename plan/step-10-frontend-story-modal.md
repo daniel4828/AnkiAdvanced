@@ -135,3 +135,14 @@ async function regenerateStory() {
 - [ ] Story generates with selected model
 - [ ] Regenerate button passes updated params
 - [ ] Modal sizing is reasonable on all screen sizes
+
+---
+
+## When you are done
+
+1. Mark the step as 🔄 IN PROGRESS in `plan/PLAN.md` when you start (update the status column)
+2. Open a PR with `gh pr create --fill` referencing `Closes #<issue>`
+3. Mark as 👀 REVIEW in `plan/PLAN.md` and push the change
+4. Daniel reviews and merges — after merge, update status to ✅ DONE
+
+**Always commit `plan/PLAN.md` together with your last code commit so the tracker stays in sync.**

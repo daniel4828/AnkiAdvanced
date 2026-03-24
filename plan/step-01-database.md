@@ -271,3 +271,14 @@ All card queries must add `AND cards.deleted_at IS NULL` to WHERE clauses.
 - [ ] `init_db()` can be called on existing DB without data loss
 - [ ] `get_word_full()` returns `note_type` and `hsk_level` fields
 - [ ] `get_due_cards()` excludes soft-deleted cards
+
+---
+
+## When you are done
+
+1. Mark the step as 🔄 IN PROGRESS in `plan/PLAN.md` when you start (update the status column)
+2. Open a PR with `gh pr create --fill` referencing `Closes #<issue>`
+3. Mark as 👀 REVIEW in `plan/PLAN.md` and push the change
+4. Daniel reviews and merges — after merge, update status to ✅ DONE
+
+**Always commit `plan/PLAN.md` together with your last code commit so the tracker stays in sync.**
