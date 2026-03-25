@@ -2293,7 +2293,7 @@ let _editWordId   = null;   // word ID being edited
 let _editFromWord = false;  // true when opened from word-detail view
 
 function _openEditModal(wordObj) {
-  _editWordId = wordObj.id || wordObj.word_id;
+  _editWordId = wordObj.word_id || wordObj.id;
   document.getElementById('edit-word-zh').value       = wordObj.word_zh       || '';
   document.getElementById('edit-pinyin').value        = wordObj.pinyin        || '';
   document.getElementById('edit-definition').value    = wordObj.definition    || '';
@@ -2385,17 +2385,9 @@ async function saveEditCard() {
   };
   try {
     const updated = await api('PUT', `/api/word/${_editWordId}`, body);
+    closeEditCard();
     if (_editFromWord) {
-      // Refresh word-detail header in place
-      document.getElementById('wd-hanzi').textContent  = updated.word_zh || '';
-      document.getElementById('wd-pinyin').textContent = updated.pinyin  || '';
-      document.getElementById('wd-def').textContent    = updated.definition || '';
-      const posEl = document.getElementById('wd-pos');
-      posEl.textContent = updated.pos || '';
-      posEl.style.display = updated.pos ? 'inline-block' : 'none';
-      const defZhEl = document.getElementById('wd-def-zh');
-      defZhEl.textContent    = updated.definition_zh || '';
-      defZhEl.style.display  = updated.definition_zh ? 'block' : 'none';
+      await openWordDetail(_editWordId);
     } else {
       // Refresh review card in place
       Object.assign(card, {
@@ -2412,7 +2404,6 @@ async function saveEditCard() {
       posEl.style.display = updated.pos ? 'inline-block' : 'none';
       renderNotesSection();
     }
-    closeEditCard();
   } catch (e) {
     showError('Save failed: ' + e.message);
   }
@@ -3375,6 +3366,15 @@ async function restartServer() {
 document.addEventListener('keydown', e => {
   const tag = document.activeElement?.tagName;
   const inInput = tag === 'INPUT' || tag === 'TEXTAREA';
+
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    const editModal = document.getElementById('edit-modal');
+    if (editModal && editModal.style.display !== 'none') {
+      e.preventDefault();
+      saveEditCard();
+      return;
+    }
+  }
 
   if (e.key === 'R' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
     if (!inInput) { e.preventDefault(); restartServer(); }
