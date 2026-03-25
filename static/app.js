@@ -2047,7 +2047,8 @@ async function undoReview() {
     loadCard(result.card, result.counts);
     // Show the back of the card so the user can re-rate
     revealAnswer();
-    document.getElementById('undo-btn').disabled = true;
+    // Only disable when the stack is empty (allow multiple undos like Anki/Word)
+    document.getElementById('undo-btn').disabled = result.stack_size === 0;
   } catch (e) {
     showError('Nothing to undo');
   }

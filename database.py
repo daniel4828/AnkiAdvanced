@@ -1240,6 +1240,14 @@ def unbury_card(card_id: int) -> None:
     conn.close()
 
 
+def set_card_buried_until(card_id: int, buried_until: str | None) -> None:
+    """Restore buried_until to an exact value (used by undo)."""
+    conn = get_db()
+    conn.execute("UPDATE cards SET buried_until = ? WHERE id = ?", (buried_until, card_id))
+    conn.commit()
+    conn.close()
+
+
 def get_descendant_leaf_deck_ids(deck_id: int, category: str | None = None) -> list[int]:
     """Return all category-leaf deck IDs under deck_id (depth-first). Optionally filter by category."""
     conn = get_db()

@@ -59,15 +59,11 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
     deck_id = updated["deck_id"]
     cat     = updated["category"]
 
-    _undo_stack.append({
-        "card_before":     card_before,
-        "log_id":          log_id,
-        "root_deck_id":    root_deck_id,
-        "parent_deck_id":  parent_deck_id,
-        "unfinished_mode": unfinished_mode,
-        "deck_id":         deck_id,
-        "category":        cat,
-    })
+    # Snapshot sibling buried_until values BEFORE burying so undo can restore them
+    siblings_snapshot = [
+        {"id": s["id"], "buried_until": s["buried_until"]}
+        for s in database.get_sibling_cards(card_id)
+    ]
 
     preset = database.get_preset_for_deck(deck_id)
     bury_new, bury_review, bury_learning = database.resolve_bury_flags(preset)
@@ -77,6 +73,17 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
         bury_review=bury_review,
         bury_learning=bury_learning,
     )
+
+    _undo_stack.append({
+        "card_before":        card_before,
+        "log_id":             log_id,
+        "root_deck_id":       root_deck_id,
+        "parent_deck_id":     parent_deck_id,
+        "unfinished_mode":    unfinished_mode,
+        "deck_id":            deck_id,
+        "category":           cat,
+        "siblings_snapshot":  siblings_snapshot,
+    })
 
     if unfinished_mode:
         next_card = database.get_next_unfinished_card()
@@ -125,6 +132,10 @@ def undo_review():
     )
     database.delete_review_log(entry["log_id"])
 
+    # Restore siblings' buried_until to their pre-review values
+    for sib in entry.get("siblings_snapshot", []):
+        database.set_card_buried_until(sib["id"], sib["buried_until"])
+
     # Return the restored card so the frontend can show it
     restored = database.get_card(cb["id"])
     restored["intervals"] = srs.preview_intervals(restored)
@@ -145,8 +156,9 @@ def undo_review():
     else:
         counts = database.count_due(deck_id, cat)
 
-    logger.info("undo review for %s, restored state=%s", restored["word_zh"], restored["state"])
-    return {"card": restored, "counts": counts}
+    logger.info("undo review for %s, restored state=%s (stack_size=%d)",
+                restored["word_zh"], restored["state"], len(_undo_stack))
+    return {"card": restored, "counts": counts, "stack_size": len(_undo_stack)}
 
 
 @router.post("/api/cards/{card_id}/bury")
