@@ -1027,7 +1027,7 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
     rows = conn.execute(
         """SELECT c.*, w.word_zh, w.pinyin, w.definition, w.pos,
                   w.hsk_level, w.traditional, w.definition_zh,
-                  w.note_type, w.source_sentence
+                  w.note_type, w.source_sentence, w.notes
            FROM cards c
            JOIN words w ON w.id = c.word_id
            WHERE c.deck_id = ?
