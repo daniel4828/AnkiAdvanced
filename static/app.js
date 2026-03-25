@@ -3376,6 +3376,15 @@ document.addEventListener('keydown', e => {
   const tag = document.activeElement?.tagName;
   const inInput = tag === 'INPUT' || tag === 'TEXTAREA';
 
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    const editModal = document.getElementById('edit-modal');
+    if (editModal && editModal.style.display !== 'none') {
+      e.preventDefault();
+      saveEditCard();
+      return;
+    }
+  }
+
   if (e.key === 'R' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
     if (!inInput) { e.preventDefault(); restartServer(); }
     return;
