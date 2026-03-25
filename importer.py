@@ -60,6 +60,8 @@ def import_all(imports_dir: str = "imports") -> dict:
     total_imported = 0
     total_skipped = 0
     total_invalid = 0
+    if not os.path.isdir(imports_dir):
+        return {"imported": 0, "skipped_duplicate": 0, "skipped_invalid": 0}
     for source_dir in sorted(os.scandir(imports_dir), key=lambda e: e.name):
         if not source_dir.is_dir():
             continue
