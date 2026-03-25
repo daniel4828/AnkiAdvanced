@@ -2647,6 +2647,10 @@ function importApplyGlobalDeck() {
 }
 
 async function openImportModal() {
+  // Hide modal in case this is a "Try Again" from an error state
+  document.getElementById('import-modal-overlay').style.display = 'none';
+  document.getElementById('import-modal').style.display = 'none';
+
   importResolutions = {};
   _previewEntries = [];
   _cardConfigs = {};
@@ -2681,10 +2685,8 @@ async function openImportModal() {
   }
   addDeckSuggestions(decks, '');
 
-  // Show modal immediately — no file picker
-  document.getElementById('import-modal-overlay').style.display = 'block';
-  document.getElementById('import-modal').style.display = 'flex';
-  document.getElementById('import-deck-path').focus();
+  // Open OS file picker — modal appears after file is chosen
+  document.getElementById('import-file').click();
 }
 
 function closeImportModal() {
@@ -2706,9 +2708,9 @@ function onImportFileChange() {
   _conflictSelections = {};
   document.getElementById('import-preview').style.display = 'none';
   document.getElementById('import-conflicts-section').style.display = 'none';
+  document.getElementById('import-result').style.display = 'none';
   document.getElementById('import-deck-section').style.display = 'none';
   document.getElementById('import-submit-btn').style.display = 'none';
-  document.getElementById('import-result').style.display = 'none';
 
   // Open modal now that a file has been chosen
   document.getElementById('import-modal-overlay').style.display = 'block';
@@ -2739,7 +2741,24 @@ async function previewImport(yamlContent) {
     const data = await res.json();
 
     if (data.error) {
-      showError('YAML parse error: ' + data.error);
+      const resultEl = document.getElementById('import-result');
+      const d = data.error_detail || {};
+      let msg = '<strong style="color:#e74c3c">⚠ YAML parse error</strong>';
+      if (d.line) msg += ` at line ${d.line}${d.column ? `, column ${d.column}` : ''}`;
+      msg += '<br>';
+      const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      if (d.problem) msg += `<br><strong>Problem:</strong> ${esc(d.problem)}`;
+      if (d.context) msg += `<br><strong>Context:</strong> ${esc(d.context)}`;
+      if (d.tip)     msg += `<br><br><span style="color:#f39c12">${esc(d.tip)}</span>`;
+      if (!d.problem && !d.context) msg += `<br>${esc(data.error)}`;
+      resultEl.innerHTML = `<div style="font-family:monospace;font-size:12px;background:rgba(231,76,60,.08);border-radius:4px;padding:10px;line-height:1.7">${msg}</div>`;
+      resultEl.style.display = 'block';
+      // Show "Try Again" button — no deck picker needed yet
+      document.getElementById('import-deck-section').style.display = 'none';
+      const submitBtn = document.getElementById('import-submit-btn');
+      submitBtn.textContent = 'Try Again';
+      submitBtn.onclick = openImportModal;
+      submitBtn.style.display = '';
       btn.disabled = false;
       btn.textContent = 'Preview';
       return;
@@ -2793,7 +2812,12 @@ async function previewImport(yamlContent) {
       document.getElementById('import-conflicts-section').style.display = 'none';
     }
 
-    document.getElementById('import-submit-btn').style.display = '';
+    // Show deck picker + Import button now that YAML is valid
+    document.getElementById('import-deck-section').style.display = '';
+    const submitBtn = document.getElementById('import-submit-btn');
+    submitBtn.textContent = 'Import';
+    submitBtn.onclick = doImport;
+    submitBtn.style.display = '';
     if (!yamlContent) btn.style.display = 'none';
     else { btn.disabled = false; btn.textContent = 'Preview'; }
   } catch (e) {
