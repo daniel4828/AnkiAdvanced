@@ -28,20 +28,10 @@ def update_word(word_id: int, body: dict):
     return database.get_word_full(word_id)
 
 
-@router.post("/api/word/{word_id}/ai-enrich")
-def ai_enrich_word(word_id: int):
-    word = database.get_word(word_id)
-    if not word:
-        raise HTTPException(status_code=404, detail="Word not found")
-    characters = database.get_word_characters(word_id)
-
-    result = ai.enrich_word(word, characters)
-
-    # Update word HSK level only if currently missing
+def _apply_enrich_result(word: dict, characters: list, result: dict) -> None:
+    """Apply ai.enrich_word result to a single word and its characters."""
     if result.get("hsk_level") and not word.get("hsk_level"):
-        database.update_word(word_id, {"hsk_level": result["hsk_level"]})
-
-    # Update character fields — only write fields that were empty
+        database.update_word(word["id"], {"hsk_level": result["hsk_level"]})
     char_map = {c["char"]: c for c in characters}
     for char_data in result.get("characters", []):
         ch = char_data.get("char")
@@ -57,6 +47,26 @@ def ai_enrich_word(word_id: int):
                 updates["other_meanings"] = _json.dumps(meanings, ensure_ascii=False)
         if updates:
             database.update_character(existing["char_id"], updates)
+
+
+@router.post("/api/word/{word_id}/ai-enrich")
+def ai_enrich_word(word_id: int):
+    word = database.get_word(word_id)
+    if not word:
+        raise HTTPException(status_code=404, detail="Word not found")
+
+    components = database.get_note_components(word_id)
+    if components:
+        # Multi-word card (chengyu/sentence/expression): enrich each component separately,
+        # because characters are linked to component words, not the top-level note.
+        for comp in components:
+            comp_chars = database.get_word_characters(comp["id"])
+            result = ai.enrich_word(comp, comp_chars)
+            _apply_enrich_result(comp, comp_chars, result)
+    else:
+        characters = database.get_word_characters(word_id)
+        result = ai.enrich_word(word, characters)
+        _apply_enrich_result(word, characters, result)
 
     return database.get_word_full(word_id)
 
