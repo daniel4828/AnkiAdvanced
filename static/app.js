@@ -2028,6 +2028,7 @@ async function rate(rating) {
     if (!result.next_card) {
       rootDeckId = null;
       unfinishedMode = false;
+      document.getElementById('done-undo-btn').disabled = false;
       showView('done');
       return;
     }
@@ -2044,6 +2045,8 @@ async function rate(rating) {
 async function undoReview() {
   try {
     const result = await api('POST', '/api/review/undo');
+    document.getElementById('done-undo-btn').disabled = true;
+    showView('review');
     loadCard(result.card, result.counts);
     // Show the back of the card so the user can re-rate
     revealAnswer();
@@ -3290,6 +3293,17 @@ document.addEventListener('keydown', e => {
   }
 
   if (inInput || e.ctrlKey || e.metaKey || e.altKey) return;
+
+  // Allow 'z' to undo from the done view too
+  if (e.key === 'z') {
+    const doneView = document.getElementById('view-done');
+    const doneUndoBtn = document.getElementById('done-undo-btn');
+    if (doneView?.style.display !== 'none' && doneUndoBtn && !doneUndoBtn.disabled) {
+      e.preventDefault();
+      undoReview();
+      return;
+    }
+  }
 
   // Only handle review shortcuts when the review view is active
   const reviewView = document.getElementById('view-review');

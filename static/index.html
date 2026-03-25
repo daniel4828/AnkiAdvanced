@@ -134,7 +134,10 @@
     <div class="icon">🎉</div>
     <h2>All done!</h2>
     <p>No more cards due right now.</p>
-    <button class="btn-primary" onclick="goBack()">Back to Decks</button>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button id="done-undo-btn" class="btn-secondary" onclick="undoReview()" disabled>↩ Undo</button>
+      <button class="btn-primary" onclick="goBack()">Back to Decks</button>
+    </div>
   </div>
 
   <!-- Browse (full-width, sidebar layout) -->
