@@ -23,6 +23,38 @@ _HANZI_RE = re.compile(r'[\u4e00-\u9fff\u3400-\u4dbf]')
 _CONFLICT_FIELDS = ("pinyin", "definition", "traditional")
 
 
+def _format_yaml_error(e: yaml.YAMLError, filename: str = None) -> dict:
+    """Return a structured, human-readable YAML error dict.
+
+    Keys: file, line, column, problem, context, tip
+    """
+    result: dict = {}
+    if filename:
+        result["file"] = filename
+    if hasattr(e, "problem_mark") and e.problem_mark is not None:
+        result["line"] = e.problem_mark.line + 1
+        result["column"] = e.problem_mark.column + 1
+    if hasattr(e, "problem") and e.problem:
+        result["problem"] = e.problem
+    if hasattr(e, "context") and e.context:
+        ctx = e.context
+        if hasattr(e, "context_mark") and e.context_mark is not None:
+            ctx += f" (line {e.context_mark.line + 1})"
+        result["context"] = ctx
+
+    # Attach a helpful tip for the most common mistake: unescaped quotes
+    raw = str(e)
+    if "scalar" in raw or "found" in raw:
+        result["tip"] = (
+            "If a value contains double quotes, wrap the whole value in single quotes. "
+            'Example — change:  meaning: "lump meat" (a dish) '
+            "→ to:  meaning: '\"lump meat\" (a dish)'"
+        )
+
+    result["raw"] = raw
+    return result
+
+
 def import_all(imports_dir: str = "imports") -> dict:
     """Recursively scan imports/<Source>/<optional subdirs>/*.yaml."""
     total_imported = 0
@@ -64,7 +96,8 @@ def import_yaml_file(filepath: str, deck_path: list[str]) -> dict:
             data = yaml.safe_load(f)
     except yaml.YAMLError as e:
         logger.error("YAML parse error in %s: %s", filepath, e)
-        return {"imported": 0, "skipped_duplicate": 0, "skipped_invalid": 0}
+        err = _format_yaml_error(e, filename=os.path.basename(filepath))
+        return {"imported": 0, "skipped_duplicate": 0, "skipped_invalid": 0, "yaml_error": err}
 
     entries = _get_entries(data)
     source = deck_path[0].lower()
@@ -85,7 +118,8 @@ def import_yaml_content(content: str, parent_deck_id: int,
         data = yaml.safe_load(content)
     except yaml.YAMLError as e:
         logger.error("YAML parse error in upload: %s", e)
-        return {"imported": 0, "skipped_duplicate": 0, "skipped_invalid": 0}
+        return {"imported": 0, "skipped_duplicate": 0, "skipped_invalid": 0,
+                "yaml_error": _format_yaml_error(e)}
 
     parent = database.get_deck(parent_deck_id)
     leaf_parent = parent["name"] if parent else "Upload"
@@ -116,6 +150,7 @@ def preview_yaml_content(content: str) -> dict:
             "entries": [], "conflicts": [],
             "summary": {"ok": 0, "duplicate": 0, "invalid": 0, "unknown_type": 0},
             "error": str(e),
+            "error_detail": _format_yaml_error(e),
         }
 
     entries = _get_entries(data)

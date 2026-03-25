@@ -2656,9 +2656,8 @@ async function openImportModal() {
   document.getElementById('import-file').value = '';
   document.getElementById('import-preview').style.display = 'none';
   document.getElementById('import-conflicts-section').style.display = 'none';
-  document.getElementById('import-deck-section').style.display = 'none';
   document.getElementById('import-result').style.display = 'none';
-  document.getElementById('import-submit-btn').style.display = 'none';
+  document.getElementById('import-submit-btn').style.display = '';
   document.getElementById('import-deck-path').value = '';
   document.getElementById('deck-picker-new-badge').style.display = 'none';
   document.getElementById('deck-picker-dropdown').style.display = 'none';
@@ -2682,8 +2681,10 @@ async function openImportModal() {
   }
   addDeckSuggestions(decks, '');
 
-  // Open file picker directly — modal opens after file is selected
-  document.getElementById('import-file').click();
+  // Show modal immediately — no file picker
+  document.getElementById('import-modal-overlay').style.display = 'block';
+  document.getElementById('import-modal').style.display = 'flex';
+  document.getElementById('import-deck-path').focus();
 }
 
 function closeImportModal() {
@@ -2792,10 +2793,7 @@ async function previewImport(yamlContent) {
       document.getElementById('import-conflicts-section').style.display = 'none';
     }
 
-    if (s.ok > 0 || s.duplicate > 0) {
-      document.getElementById('import-deck-section').style.display = 'block';
-      document.getElementById('import-submit-btn').style.display = '';
-    }
+    document.getElementById('import-submit-btn').style.display = '';
     if (!yamlContent) btn.style.display = 'none';
     else { btn.disabled = false; btn.textContent = 'Preview'; }
   } catch (e) {
@@ -2806,18 +2804,86 @@ async function previewImport(yamlContent) {
 }
 
 async function doImport() {
+  // If a file was loaded via the YAML editor preview flow, fall back to upload
+  const fileInput = document.getElementById('import-file');
+  if (fileInput.files.length) { return _doUploadImport(); }
+
+  const deckPath  = document.getElementById('import-deck-path').value.trim();
+  const resultEl  = document.getElementById('import-result');
+
+  if (!deckPath) { showError('Please enter a target deck.'); return; }
+
+  const btn = document.getElementById('import-submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Importing…';
+  resultEl.style.display = 'none';
+
+  const form = new FormData();
+  form.append('deck_path', deckPath);
+
+  try {
+    const res = await fetch('/api/import/directory', { method: 'POST', body: form });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || res.statusText);
+
+    const hasErrors = data.errors && data.errors.length > 0;
+
+    if (!hasErrors) {
+      closeImportModal();
+    }
+
+    loadDecks();
+    const parts = [`✓ Imported ${data.imported}`];
+    if (data.skipped_duplicate) parts.push(`${data.skipped_duplicate} duplicates skipped`);
+    if (data.skipped_invalid)   parts.push(`${data.skipped_invalid} invalid skipped`);
+    if (hasErrors) parts.push(`${data.errors.length} file error(s)`);
+
+    if (hasErrors) {
+      // Show detailed errors inside the modal
+      const errLines = data.errors.map(e => {
+        let msg = `⚠ ${e.file || 'unknown file'}`;
+        if (e.line)    msg += `, line ${e.line}`;
+        if (e.column)  msg += `, col ${e.column}`;
+        msg += '\n';
+        if (e.problem) msg += `  Problem: ${e.problem}\n`;
+        if (e.context) msg += `  Context: ${e.context}\n`;
+        if (e.tip)     msg += `  Tip: ${e.tip}\n`;
+        return msg;
+      }).join('\n');
+      resultEl.innerHTML =
+        `<div style="color:#27ae60;margin-bottom:6px">${parts.join(' · ')}</div>` +
+        `<div style="color:#e74c3c;background:rgba(231,76,60,.08);border-radius:4px;padding:8px;font-family:monospace;font-size:12px">${errLines.replace(/</g,'&lt;').replace(/\n/g,'<br>')}</div>`;
+      resultEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Import';
+    } else {
+      const banner = document.getElementById('error-banner');
+      banner.textContent = parts.join(' · ');
+      banner.style.background = '#27ae60';
+      banner.style.color = '#fff';
+      banner.style.display = 'block';
+      setTimeout(() => { banner.style.display = 'none'; banner.style.background = ''; banner.style.color = ''; }, 4000);
+    }
+  } catch (e) {
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = `<span style="color:#e74c3c">Error: ${e.message}</span>`;
+    btn.disabled = false;
+    btn.textContent = 'Import';
+  }
+}
+
+async function _doUploadImport() {
+  // Legacy flow: used when YAML editor previews a file via file input
   const fileInput = document.getElementById('import-file');
   const deckPath  = document.getElementById('import-deck-path').value.trim();
   const resultEl  = document.getElementById('import-result');
 
-  if (!fileInput.files.length) { showError('Please select a YAML file.'); return; }
   if (!deckPath) { showError('Please enter a target deck.'); return; }
 
   const btn = document.getElementById('import-submit-btn');
   btn.disabled = true;
   btn.textContent = 'Importing…';
 
-  // Build card_configs: only include entries explicitly configured
   const cardConfigsMap = {};
   _previewEntries.forEach(e => {
     const cfg = _cardConfigs[e.simplified];
@@ -2831,7 +2897,6 @@ async function doImport() {
     form.append('resolutions', JSON.stringify(importResolutions));
   }
   form.append('card_configs', JSON.stringify(cardConfigsMap));
-  // Send custom field edits for "custom" resolutions
   const customFieldsMap = {};
   _conflictData.forEach(c => {
     if (importResolutions[c.simplified] === 'custom') {

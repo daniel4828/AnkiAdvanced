@@ -453,17 +453,33 @@
   </div>
   <div class="edit-card-fields">
 
-    <!-- Step 1: file -->
-    <label class="edit-label">YAML File
-      <input class="edit-input" id="import-file" type="file" accept=".yaml,.yml"
-             onchange="onImportFileChange()">
-    </label>
+    <!-- Source info -->
+    <div style="font-size:12px;color:var(--clr-muted,#888);padding:2px 0 6px">
+      Scans all <code>.yaml</code> files in <code>imports/</code> recursively.
+    </div>
 
-    <!-- Step 2: preview table (shown after Preview click) -->
+    <!-- Deck picker — always visible -->
+    <div id="import-deck-section">
+      <div class="deck-picker-label">
+        <span>Target Deck</span>
+        <span class="deck-picker-new-badge" id="deck-picker-new-badge" style="display:none">New</span>
+      </div>
+      <div class="deck-picker" id="deck-picker">
+        <input class="edit-input deck-picker-input" id="import-deck-path" type="text"
+               placeholder="e.g. Kouyu::Chapter 1  or type a new name" autocomplete="off"
+               oninput="deckPickerFilter()" onfocus="deckPickerOpen()" onkeydown="deckPickerKey(event)"
+               onchange="importApplyGlobalDeck()">
+      </div>
+    </div>
+
+    <!-- Hidden file input kept for YAML-editor preview flow -->
+    <input id="import-file" type="file" accept=".yaml,.yml"
+           onchange="onImportFileChange()" style="display:none">
+
+    <!-- Preview table (used by YAML editor "save & re-preview" flow) -->
     <div id="import-preview" style="display:none">
       <div id="import-summary" style="padding:6px 0 4px;font-size:13px;color:var(--clr-muted,#888)"></div>
 
-      <!-- Batch controls bar -->
       <div id="import-batch-bar" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--clr-border,#333);font-size:12px">
         <span style="color:var(--clr-muted,#888)">Select:</span>
         <button class="import-batch-btn" onclick="importSelectAll(true)">All +</button>
@@ -479,7 +495,6 @@
         <button class="import-batch-btn" onclick="importSetAllSuspended('creating',false)" title="Unsuspend all creating cards">✓</button>
       </div>
 
-      <!-- Per-card table -->
       <div style="overflow-x:auto;max-height:300px;overflow-y:auto">
         <table class="import-table">
           <thead>
@@ -509,27 +524,12 @@
       </button>
     </div>
 
-    <!-- Global deck selection (shown after preview) -->
-    <div id="import-deck-section" style="display:none">
-      <div class="deck-picker-label" style="margin-top:8px">
-        <span>Default Target Deck</span>
-        <span class="deck-picker-new-badge" id="deck-picker-new-badge" style="display:none">New</span>
-      </div>
-      <div class="deck-picker" id="deck-picker">
-        <input class="edit-input deck-picker-input" id="import-deck-path" type="text"
-               placeholder="e.g. daily::03_19" autocomplete="off"
-               oninput="deckPickerFilter()" onfocus="deckPickerOpen()" onkeydown="deckPickerKey(event)"
-               onchange="importApplyGlobalDeck()">
-      </div>
-    </div>
-
-    <div id="import-result" style="display:none;padding:8px 0;font-size:14px"></div>
+    <div id="import-result" style="display:none;padding:8px 0;font-size:13px;white-space:pre-wrap;word-break:break-word"></div>
   </div>
   <div class="edit-card-actions">
     <button class="edit-cancel-btn" onclick="closeImportModal()">Cancel</button>
     <button class="edit-save-btn" id="import-preview-btn" onclick="previewImport()" style="display:none">Preview</button>
-    <button class="edit-save-btn" id="import-submit-btn" onclick="doImport()"
-            style="display:none">Import</button>
+    <button class="edit-save-btn" id="import-submit-btn" onclick="doImport()">Import</button>
   </div>
 </div>
 
