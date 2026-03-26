@@ -97,6 +97,9 @@ main.browse-open {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 #loading-msg { font-size: 15px; }
+#loading-sub { font-size: 12px; color: var(--muted); margin-top: 6px; min-height: 18px; }
+#loading-sub.error { color: #b91c1c; }
+.spinner.hidden { display: none; }
 
 /* ── Error banner ────────────────────────────────────── */
 #error-banner {

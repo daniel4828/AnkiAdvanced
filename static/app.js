@@ -109,6 +109,48 @@ function setLoading(msg) {
   showView('loading');
 }
 
+function _clearLoadingSub() {
+  const sub = document.getElementById('loading-sub');
+  if (sub) { sub.textContent = ''; sub.className = ''; }
+}
+
+// Start cycling through generation phase messages.
+// Returns a cleanup function that stops the cycling.
+function _startGenerationPhases() {
+  const phases = ['Calling AI model…', 'Writing to database…'];
+  let i = 0;
+  _clearLoadingSub();
+  const timer = setInterval(() => {
+    const sub = document.getElementById('loading-sub');
+    if (sub && i < phases.length) { sub.textContent = phases[i++]; }
+    else clearInterval(timer);
+  }, 4000);
+  return () => clearInterval(timer);
+}
+
+function _showLoadingSuccess(msg) {
+  const el = document.getElementById('loading-msg');
+  const sub = document.getElementById('loading-sub');
+  const spinner = document.getElementById('loading-spinner');
+  if (el) el.textContent = msg || 'Done!';
+  if (sub) { sub.textContent = ''; sub.className = ''; }
+  if (spinner) spinner.style.visibility = 'hidden';
+}
+
+function _showLoadingError(msg) {
+  const el = document.getElementById('loading-msg');
+  const sub = document.getElementById('loading-sub');
+  const spinner = document.getElementById('loading-spinner');
+  if (el) el.textContent = 'Generation failed';
+  if (sub) { sub.textContent = msg; sub.className = 'error'; }
+  if (spinner) spinner.style.visibility = 'hidden';
+}
+
+function _resetLoadingSpinner() {
+  const spinner = document.getElementById('loading-spinner');
+  if (spinner) spinner.style.visibility = '';
+}
+
 function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
 function showError(msg) {
@@ -1354,13 +1396,16 @@ async function startReview(id, cat, name, noStory = false) {
 }
 
 async function _doStartReview(topic, maxHsk, model) {
-  setLoading('Generating your story…');
+  setLoading('Generating story…');
+  _resetLoadingSpinner();
+  const stopPhases = _startGenerationPhases();
   try {
     const storyUrl = `/api/story/${deckId}/${category}` + _storyParams(topic, maxHsk, model);
     const [todayData, storyData] = await Promise.all([
       api('GET', `/api/today/${deckId}/${category}`),
       api('GET', storyUrl),
     ]);
+    stopPhases();
 
     story = await _resolveStory(storyData, deckId, category, topic, maxHsk);
 
@@ -1369,7 +1414,8 @@ async function _doStartReview(topic, maxHsk, model) {
       return;
     }
 
-    document.getElementById('loading-msg').textContent = 'Loading audio…';
+    _showLoadingSuccess('Story ready! Loading audio…');
+    _resetLoadingSpinner();
     try {
       await fetch(`/api/preload-session/${deckId}/${category}`, { method: 'POST' });
     } catch (_) {}
@@ -1377,6 +1423,9 @@ async function _doStartReview(topic, maxHsk, model) {
     showView('review');
     loadCard(todayData.card, todayData.counts);
   } catch (e) {
+    stopPhases();
+    _showLoadingError(e.message);
+    await new Promise(r => setTimeout(r, 2000));
     showError('Failed to start session: ' + e.message);
     showView('decks');
   }
@@ -1427,6 +1476,8 @@ async function startReviewMixed(id, name, noStory = false) {
 
 async function _doStartReviewMixed(topic, maxHsk, model, noStory = false) {
   setLoading(noStory ? 'Loading…' : 'Generating stories…');
+  _resetLoadingSpinner();
+  const stopPhases = noStory ? () => {} : _startGenerationPhases();
   try {
     const todayData = await api('GET', `/api/today-mixed/${rootDeckId}`);
     if (!todayData.card) {
@@ -1447,6 +1498,7 @@ async function _doStartReviewMixed(topic, maxHsk, model, noStory = false) {
       }
     }
 
+    stopPhases();
     document.getElementById('loading-msg').textContent = 'Loading audio…';
     try {
       await fetch(`/api/preload-session/${rootDeckId}/${category}`, { method: 'POST' });
@@ -1455,6 +1507,9 @@ async function _doStartReviewMixed(topic, maxHsk, model, noStory = false) {
     showView('review');
     loadCard(todayData.card, todayData.counts);
   } catch (e) {
+    stopPhases();
+    _showLoadingError(e.message);
+    await new Promise(r => setTimeout(r, 2000));
     showError('Failed to start session: ' + e.message);
     rootDeckId = null;
     showView('decks');
@@ -2465,16 +2520,25 @@ async function regenerateStory() {
 
 async function _doRegenerateStory(topic, maxHsk, model) {
   setLoading('Regenerating story…');
+  _resetLoadingSpinner();
+  const stopPhases = _startGenerationPhases();
   try {
     const storyData = await api('POST', `/api/story/${deckId}/${category}/regenerate` + _storyParams(topic, maxHsk, model));
+    stopPhases();
     story = await _resolveStory(storyData, deckId, category, topic, maxHsk);
     sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
+    _showLoadingSuccess('Story regenerated!');
+    _resetLoadingSpinner();
     try {
       await fetch(`/api/preload-session/${deckId}/${category}`, { method: 'POST' });
     } catch (_) {}
+    await new Promise(r => setTimeout(r, 600));
     showView('review');
     showFront();
   } catch (e) {
+    stopPhases();
+    _showLoadingError(e.message);
+    await new Promise(r => setTimeout(r, 2000));
     showError('Regenerate failed: ' + e.message);
     showView('review');
   }
