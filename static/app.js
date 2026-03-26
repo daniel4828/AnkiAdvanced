@@ -823,6 +823,14 @@ function renderWordDetail(word) {
   const posEl = document.getElementById('wd-pos');
   posEl.textContent = word.pos || '';
   posEl.style.display = word.pos ? 'inline-block' : 'none';
+  const regEl = document.getElementById('wd-register');
+  const regLabels = { spoken: '口语', written: '书面语', both: '通用' };
+  if (word.register) {
+    regEl.textContent = regLabels[word.register] || word.register;
+    regEl.style.display = 'inline-block';
+  } else {
+    regEl.style.display = 'none';
+  }
   const defZhEl = document.getElementById('wd-def-zh');
   defZhEl.textContent = word.definition_zh || '';
   defZhEl.style.display = word.definition_zh ? 'block' : 'none';
@@ -855,6 +863,45 @@ function renderWordDetail(word) {
       `<div id="wd-chars-body" class="wd-section-body" style="display:none">${rows}</div>`;
   } else {
     charsEl.innerHTML = '';
+  }
+
+  // Synonyms / antonyms section
+  const relEl = document.getElementById('wd-relations-section');
+  const synonyms = (word.relations || []).filter(r => r.relation_type === 'synonym');
+  const antonyms = (word.relations || []).filter(r => r.relation_type === 'antonym');
+  if (synonyms.length || antonyms.length) {
+    let html = '';
+    if (synonyms.length) {
+      html += `<div class="wd-rel-group"><span class="wd-rel-label">近义词</span>`;
+      html += synonyms.map(r =>
+        `<span class="wd-rel-item" title="${r.related_de || ''}">${r.related_zh}` +
+        (r.related_pinyin ? ` <span class="wd-rel-pin">${r.related_pinyin}</span>` : '') +
+        `</span>`).join('');
+      html += `</div>`;
+    }
+    if (antonyms.length) {
+      html += `<div class="wd-rel-group"><span class="wd-rel-label">反义词</span>`;
+      html += antonyms.map(r =>
+        `<span class="wd-rel-item" title="${r.related_de || ''}">${r.related_zh}` +
+        (r.related_pinyin ? ` <span class="wd-rel-pin">${r.related_pinyin}</span>` : '') +
+        `</span>`).join('');
+      html += `</div>`;
+    }
+    relEl.innerHTML = html;
+  } else {
+    relEl.innerHTML = '';
+  }
+
+  // Measure words (量词) section
+  const mwEl = document.getElementById('wd-measure-section');
+  if (word.measure_words?.length) {
+    const items = word.measure_words.map(m =>
+      `<span class="wd-mw-item" title="${m.meaning || ''}">${m.measure_zh}` +
+      (m.pinyin ? ` <span class="wd-rel-pin">${m.pinyin}</span>` : '') +
+      `</span>`).join('');
+    mwEl.innerHTML = `<div class="wd-rel-group"><span class="wd-rel-label">量词</span>${items}</div>`;
+  } else {
+    mwEl.innerHTML = '';
   }
 
   // Examples section

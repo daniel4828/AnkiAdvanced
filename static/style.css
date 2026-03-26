@@ -1530,6 +1530,50 @@ main.browse-open {
 }
 .wd-def    { font-size: 16px; color: var(--text); }
 .wd-def-zh { font-size: 14px; color: var(--muted); margin-top: 4px; }
+.word-register {
+  display: inline-block;
+  font-size: 11px;
+  background: #e8f4e8;
+  color: #2e7d32;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  margin-left: 4px;
+}
+.wd-rel-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.wd-rel-group:last-child { border-bottom: none; }
+.wd-rel-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  min-width: 44px;
+}
+.wd-rel-item {
+  background: var(--bg);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 14px;
+  color: var(--text);
+  cursor: default;
+}
+.wd-rel-pin { font-size: 12px; color: var(--muted); }
+.wd-mw-item {
+  background: var(--bg);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 14px;
+  color: var(--text);
+}
 
 /* Collapsible sections */
 .wd-section-head {

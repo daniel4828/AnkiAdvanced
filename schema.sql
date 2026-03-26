@@ -101,9 +101,9 @@ CREATE TABLE IF NOT EXISTS decks (
 );
 
 -- ---------------------------------------------------------------------------
--- words  (no deck_id — words are deck-agnostic)
+-- entries  (formerly 'words' — deck-agnostic vocabulary entries)
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS words (
+CREATE TABLE IF NOT EXISTS entries (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     word_zh         TEXT NOT NULL UNIQUE,
     pinyin          TEXT,
@@ -117,20 +117,63 @@ CREATE TABLE IF NOT EXISTS words (
     notes           TEXT,           -- personal notes
     source_sentence TEXT,           -- original source-language sentence (e.g. German) for sentence notes
     grammar_notes   TEXT,           -- grammar explanation (e.g. grammar_de from YAML)
-    note_type       TEXT NOT NULL DEFAULT 'vocabulary'
-                        -- vocabulary | sentence | chengyu | ...
+    note_type       TEXT NOT NULL DEFAULT 'vocabulary',
+                        -- vocabulary | sentence | chengyu | expression | grammar
+    register        TEXT CHECK(register IN ('spoken', 'written', 'both'))
+                        -- language register: spoken=口语, written=书面语, both=通用
 );
 
 -- ---------------------------------------------------------------------------
--- word_examples
+-- entry_measure_words  (量词 — classifiers/measure words for a vocabulary entry)
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS word_examples (
+CREATE TABLE IF NOT EXISTS entry_measure_words (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    word_id     INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+    measure_zh  TEXT NOT NULL,      -- simplified Chinese, e.g. 种
+    pinyin      TEXT,               -- e.g. zhǒng
+    meaning     TEXT,               -- English gloss, e.g. "kind, type"
+    position    INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(word_id, measure_zh)
+);
+
+-- ---------------------------------------------------------------------------
+-- entry_relations  (synonyms + antonyms — joint table)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS entry_relations (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    word_id         INTEGER NOT NULL REFERENCES words(id) ON DELETE CASCADE,
+    word_id         INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+    related_zh      TEXT NOT NULL,      -- simplified Chinese of the related word
+    related_pinyin  TEXT,
+    related_de      TEXT,               -- German gloss
+    relation_type   TEXT NOT NULL CHECK(relation_type IN ('synonym', 'antonym')),
+    UNIQUE(word_id, related_zh, relation_type)
+);
+
+-- ---------------------------------------------------------------------------
+-- entry_examples
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS entry_examples (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    word_id         INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
     example_zh      TEXT NOT NULL,
     example_pinyin  TEXT,
     example_de      TEXT,
-    position        INTEGER NOT NULL
+    position        INTEGER NOT NULL,
+    example_type    TEXT NOT NULL DEFAULT 'example'
+                        CHECK(example_type IN ('example', 'similar'))
+                        -- 'example': normal usage example; 'similar': similar sentence (sentence type)
+);
+
+-- ---------------------------------------------------------------------------
+-- entry_grammar_structures  (grammar patterns within sentence entries)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS entry_grammar_structures (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    word_id     INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+    structure   TEXT NOT NULL,      -- e.g. "忘记如何 + 动词"
+    explanation TEXT,               -- prose explanation
+    example_zh  TEXT,               -- short example phrase
+    position    INTEGER NOT NULL DEFAULT 0
 );
 
 -- ---------------------------------------------------------------------------
@@ -144,15 +187,28 @@ CREATE TABLE IF NOT EXISTS characters (
     hsk_level       INTEGER,
     etymology       TEXT,
     other_meanings  TEXT,   -- JSON array
-    compounds       TEXT    -- JSON array
+    compounds       TEXT    -- JSON array (kept for backwards compat; see character_compounds)
 );
 
 -- ---------------------------------------------------------------------------
--- word_characters  (junction table)
+-- character_compounds  (normalised compound rows linked to a character)
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS word_characters (
+CREATE TABLE IF NOT EXISTS character_compounds (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    char_id     INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+    compound_zh TEXT NOT NULL,      -- simplified Chinese compound, e.g. 绝望
+    pinyin      TEXT,
+    meaning     TEXT,               -- English/German gloss
+    position    INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(char_id, compound_zh)
+);
+
+-- ---------------------------------------------------------------------------
+-- entry_characters  (junction table — formerly word_characters)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS entry_characters (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-    word_id             INTEGER NOT NULL REFERENCES words(id) ON DELETE CASCADE,
+    word_id             INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
     char_id             INTEGER NOT NULL REFERENCES characters(id),
     position            INTEGER NOT NULL,
     meaning_in_context  TEXT,
@@ -160,11 +216,11 @@ CREATE TABLE IF NOT EXISTS word_characters (
 );
 
 -- ---------------------------------------------------------------------------
--- cards  (owns deck_id — one card per word per category, globally unique)
+-- cards  (owns deck_id — one card per entry per category, globally unique)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS cards (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    word_id     INTEGER NOT NULL REFERENCES words(id) ON DELETE CASCADE,
+    word_id     INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
     deck_id     INTEGER NOT NULL REFERENCES decks(id) ON DELETE CASCADE,
     category    TEXT NOT NULL CHECK(category IN ('listening', 'reading', 'creating')),
     state       TEXT NOT NULL DEFAULT 'new'
@@ -215,12 +271,12 @@ CREATE TABLE IF NOT EXISTS stories (
 );
 
 -- ---------------------------------------------------------------------------
--- sentences
+-- story_sentences  (formerly 'sentences')
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS sentences (
+CREATE TABLE IF NOT EXISTS story_sentences (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     story_id    INTEGER NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
-    word_id     INTEGER NOT NULL REFERENCES words(id) ON DELETE CASCADE,
+    word_id     INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
     position    INTEGER NOT NULL,
     sentence_zh TEXT NOT NULL,
     sentence_en TEXT NOT NULL,
@@ -241,12 +297,12 @@ CREATE TABLE IF NOT EXISTS api_call_log (
 );
 
 -- ---------------------------------------------------------------------------
--- note_components  (links sentences/chengyu to their component vocabulary)
+-- entry_components  (formerly note_components — links sentences/chengyu to their component vocabulary)
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS note_components (
+CREATE TABLE IF NOT EXISTS entry_components (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    note_id     INTEGER NOT NULL REFERENCES words(id) ON DELETE CASCADE,
-    word_id     INTEGER NOT NULL REFERENCES words(id) ON DELETE CASCADE,
+    note_id     INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+    word_id     INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
     position    INTEGER NOT NULL,
     UNIQUE(note_id, word_id)
 );
@@ -260,4 +316,65 @@ CREATE TABLE IF NOT EXISTS structures (
     description TEXT,
     example_zh  TEXT,
     example_en  TEXT
+);
+
+-- ---------------------------------------------------------------------------
+-- grammar_points  (type: grammar — reference only, no SRS cards)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS grammar_points (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT NOT NULL UNIQUE,   -- display name, e.g. "所 (suǒ) – Nominalisierung"
+    level           TEXT,                   -- e.g. "5-6"
+    structure       TEXT,                   -- e.g. "所 + Verb + 的 (+ Nomen)"
+    meaning         TEXT,                   -- short gloss
+    usage           TEXT,                   -- long prose explanation
+    cultural_note   TEXT,
+    date_added      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ---------------------------------------------------------------------------
+-- grammar_examples
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS grammar_examples (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    grammar_id  INTEGER NOT NULL REFERENCES grammar_points(id) ON DELETE CASCADE,
+    example_zh  TEXT NOT NULL,
+    pinyin      TEXT,
+    example_de  TEXT,
+    structure   TEXT,                       -- structural annotation, e.g. "我 + 所 + 知道 + 的"
+    position    INTEGER NOT NULL DEFAULT 0
+);
+
+-- ---------------------------------------------------------------------------
+-- grammar_patterns  (common_patterns in YAML)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS grammar_patterns (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    grammar_id  INTEGER NOT NULL REFERENCES grammar_points(id) ON DELETE CASCADE,
+    pattern     TEXT NOT NULL,              -- e.g. "所 + V + 的"
+    meaning     TEXT,
+    example     TEXT,
+    position    INTEGER NOT NULL DEFAULT 0
+);
+
+-- ---------------------------------------------------------------------------
+-- grammar_comparisons  (comparisons in YAML)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS grammar_comparisons (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    grammar_id  INTEGER NOT NULL REFERENCES grammar_points(id) ON DELETE CASCADE,
+    title       TEXT,
+    explanation TEXT,
+    position    INTEGER NOT NULL DEFAULT 0
+);
+
+-- ---------------------------------------------------------------------------
+-- grammar_expressions  (fixed_expressions in YAML)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS grammar_expressions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    grammar_id  INTEGER NOT NULL REFERENCES grammar_points(id) ON DELETE CASCADE,
+    expression  TEXT NOT NULL,
+    meaning     TEXT,
+    position    INTEGER NOT NULL DEFAULT 0
 );
