@@ -840,8 +840,11 @@ function renderWordDetail(word) {
       const meanHtml = meanings ? `<span class="wd-char-meaning">${meanings}</span>` : '';
       const pinEsc = pin.replace(/'/g, "\\'");
       const charEsc = char.replace(/'/g, "\\'");
+      const tradHtml = (wc.traditional && wc.traditional !== char)
+        ? `<span class="wd-char-trad">${wc.traditional}</span>`
+        : '';
       return `<div class="wd-char-row wd-char-link" onclick="openHanziRegenModal(${wc.char_id},'${charEsc}','${pinEsc}')">
-        <span class="wd-char-zh">${char}</span>
+        <span class="wd-char-zh-col"><span class="wd-char-zh">${char}</span>${tradHtml}</span>
         <span class="wd-char-pin">${pin}</span>
         ${meanHtml}${ctx}${etym}
       </div>`;
@@ -1937,8 +1940,12 @@ function renderVocabDetail() {
       if (c.etymology)          right += `<div class="char-row-etym">${c.etymology}</div>`;
       const charEsc = (c.char || '').replace(/'/g, "\\'");
       const pinEsc  = (c.pinyin || '').replace(/'/g, "\\'");
+      const tradHtml = (c.traditional && c.traditional !== c.char)
+        ? `<div class="char-row-trad">${c.traditional}</div>`
+        : '';
       return `<div class="char-row char-row-link" onclick="openHanziRegenModal(${c.char_id},'${charEsc}','${pinEsc}',true)">` +
-        `<div class="char-row-zh">${c.char}</div><div class="char-row-right">${right}</div></div>`;
+        `<div class="char-row-zh-col"><div class="char-row-zh">${c.char}</div>${tradHtml}</div>` +
+        `<div class="char-row-right">${right}</div></div>`;
     }).join('');
     charSection.innerHTML =
       `<div class="section-label section-toggle" onclick="toggleSection('char-section-body')">` +
@@ -2027,8 +2034,11 @@ function renderWordAnalysis() {
         if (c.pinyin)             right += `<span class="wa-char-pin">${c.pinyin}</span>`;
         if (c.meaning_in_context) right += `<span class="wa-char-ctx">${c.meaning_in_context}</span>`;
         if (c.etymology)          right += `<div class="wa-char-etym">${c.etymology}</div>`;
+        const tradHtml = (c.traditional && c.traditional !== c.char)
+          ? `<span class="wa-char-trad">${c.traditional}</span>`
+          : '';
         return `<div class="wa-char-row">` +
-          `<span class="wa-char-zh">${c.char}</span>` +
+          `<span class="wa-char-zh-col"><span class="wa-char-zh">${c.char}</span>${tradHtml}</span>` +
           `<div class="wa-char-right">${right}</div>` +
           `</div>`;
       }).join('');
