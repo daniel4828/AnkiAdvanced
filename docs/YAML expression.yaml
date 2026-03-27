@@ -1,0 +1,134 @@
+- type: chengyu # or expression
+  date: "03/26"
+  german: null
+  simplified: 以次充好
+  traditional: 以次充好
+  pinyin: yǐ cì chōng hǎo
+  english: to pass off inferior goods as high-quality ones / to sell defective products as genuine
+  hsk: "超纲" # we don't want this. we just force a HSK value from 1-6
+  note: |
+    „以次充好“ ist eine feste Redewendung (成语), die Betrug im Handel beschreibt:
+    - 以次 (yǐ cì) – mit/inferiore Qualität (minderwertig)
+    - 充好 (chōng hǎo) – als gut ausgeben / vortäuschen, gut zu sein
+    
+    Die Wendung wird oft in Verbraucherschutz-Kontexten, bei Produktfälschungen oder
+    betrügerischen Geschäftspraktiken verwendet. Sie ist eine von mehreren ähnlichen Redewendungen:
+    - 以假乱真 (yǐ jiǎ luàn zhēn) – Fälschungen als echte ausgeben
+    - 假冒伪劣 (jiǎmào wěiliè) – gefälscht und minderwertig (häufig in offiziellen Warnungen)
+# we don't need synonyms for chengyu and expressions
+  classifiers:
+    - noun: null (成语, kein eigenes Zählwort)
+  examples:
+    - zh: 这家商店以次充好，欺骗消费者。
+      pinyin: Zhè jiā shāngdiàn yǐ cì chōng hǎo, qīpiàn xiāofèizhě.
+      de: Dieser Laden verkauft minderwertige Ware als hochwertige und täuscht die Verbraucher.
+    - zh: 打击以次充好的违法行为。
+      pinyin: Dǎjī yǐ cì chōng hǎo de wéifǎ xíngwéi.
+      de: Illegale Praktiken wie das Verkaufen von minderwertiger Ware als hochwertige bekämpfen.
+    - zh: 这种产品明显是以次充好。
+      pinyin: Zhè zhǒng chǎnpǐn míngxiǎn shì yǐ cì chōng hǎo.
+      de: Dieses Produkt ist eindeutig minderwertige Ware, die als hochwertig ausgegeben wird.
+    - zh: 网上购物要小心以次充好的商家。
+      pinyin: Wǎngshàng gòuwù yào xiǎoxīn yǐ cì chōng hǎo de shāngjiā.
+      de: Beim Online-Shopping muss man vorsichtig sein mit Händlern, die schlechte Ware als gute verkaufen.
+    - zh: 他以次充好，把旧手机当新手机卖。
+      pinyin: Tā yǐ cì chōng hǎo, bǎ jiù shǒujī dàng xīn shǒujī mài.
+      de: Er verkaufte alte Handys als neue – minderwertige Ware als hochwertige.
+  characters:
+    - char: 以
+      simplified: 以
+      traditional: 以
+      pinyin: yǐ
+      hsk: "3-4"
+      detailed_analysis: true
+      meaning_in_context: mit, durch (Präposition; in 以次 – mit minderwertiger Ware)
+      other_meanings:
+        - "um zu, damit (以便 yǐbiàn)"
+        - "gemäß, nach (按照 ànzhào)"
+        - "wegen (以此 yǐcǐ)"
+      compounds:
+        - simplified: 所以
+          pinyin: suǒyǐ
+          meaning: deshalb, daher
+        - simplified: 以为
+          pinyin: yǐwéi
+          meaning: glauben, annehmen
+        - simplified: 以前
+          pinyin: yǐqián
+          meaning: vorher, früher
+        - simplified: 以及
+          pinyin: yǐjí
+          meaning: sowie, und auch
+      etymology: |
+        Das Zeichen 以 war ursprünglich ein Piktogramm einer Person, die etwas trägt oder benutzt.
+        Es entwickelte sich zu einer Präposition mit den Bedeutungen „mit, durch, mittels, aufgrund von“.
+        In der klassischen und modernen Sprache ist es eine wichtige Funktionspartikel, um Mittel,
+        Grund oder Bezug auszudrücken. In 以次充好 (mit minderwertiger Ware gute vortäuschen)
+        leitet 以 das Mittel oder die Grundlage der Handlung ein.
+    - char: 次
+      simplified: 次
+      traditional: 次
+      pinyin: cì
+      hsk: "3-4"
+      detailed_analysis: true
+      meaning_in_context: minderwertig, zweitklassig (in 以次 – minderwertige Ware)
+      other_meanings:
+        - "Zählwort für Vorkommnisse (一次 yī cì)"
+        - "Reihenfolge (次序 cìxù)"
+        - "nächst, zweit- (次日 cìrì)"
+        - "Unterkunft (旅次 lǚcì, literarisch)"
+      compounds:
+        - simplified: 一次
+          pinyin: yī cì
+          meaning: einmal
+        - simplified: 次序
+          pinyin: cìxù
+          meaning: Reihenfolge, Ordnung
+        - simplified: 次要
+          pinyin: cìyào
+          meaning: nebensächlich, zweitrangig
+        - simplified: 次品
+          pinyin: cìpǐn
+          meaning: minderwertige Ware, Ausschussware
+      etymology: |
+        Das Zeichen 次 besteht aus den Komponenten 冫 (Eis) und 欠 (gähnen, Mangel).
+        Ursprünglich bedeutete es „nicht an erster Stelle stehen“ → zweitrangig, minderwertig.
+        Daraus entwickelten sich die Bedeutungen „Reihenfolge“ (als Nomen) und das Zählwort für
+        Vorkommnisse. Die Bedeutung „minderwertig“ (wie in 次品) ist im modernen Chinesisch erhalten.
+    - char: 充
+      simplified: 充
+      traditional: 充
+      pinyin: chōng
+      hsk: "4-5"
+      detailed_analysis: true
+      meaning_in_context: vortäuschen, sich ausgeben als (in 充好 – als gut ausgeben)
+      other_meanings:
+        - "füllen, anfüllen (充满 chōngmǎn)"
+        - "ausreichen (充足 chōngzú)"
+        - "übernehmen, amtieren (充当 chōngdāng)"
+        - "aufladen (充电 chōngdiàn)"
+      compounds:
+        - simplified: 充满
+          pinyin: chōngmǎn
+          meaning: voll sein von, erfüllt sein
+        - simplified: 充足
+          pinyin: chōngzú
+          meaning: ausreichend, reichlich
+        - simplified: 充当
+          pinyin: chōngdāng
+          meaning: als etwas fungieren, die Rolle spielen
+        - simplified: 充电
+          pinyin: chōngdiàn
+          meaning: aufladen (Akku), Strom tanken
+      etymology: |
+        Das Zeichen 充 besteht aus den Komponenten 亠 (oben) und 允 (erlauben, genehmigen).
+        Ursprünglich bedeutete es „füllen, vollmachen“ – wie etwas bis oben hin auffüllen.
+        Die Bedeutung erweiterte sich zu „ausreichen“ und übertragen „vortäuschen, sich ausgeben als“ –
+        etwas, das nicht wirklich ist, wird „aufgefüllt“, um anders zu erscheinen.
+    - char: 好
+      simplified: 好
+      traditional: 好
+      pinyin: hǎo
+      hsk: 1
+      detailed_analysis: false
+       # HSK 1, daher keine detaillierte Analyse. Hier bedeutet es „gut, hochwertig“.

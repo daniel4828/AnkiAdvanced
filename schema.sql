@@ -119,8 +119,8 @@ CREATE TABLE IF NOT EXISTS entries (
     grammar_notes   TEXT,           -- grammar explanation (e.g. grammar_de from YAML)
     note_type       TEXT NOT NULL DEFAULT 'vocabulary',
                         -- vocabulary | sentence | chengyu | expression | grammar
-    register        TEXT CHECK(register IN ('spoken', 'written', 'both'))
-                        -- language register: spoken=口语, written=书面语, both=通用
+    register        TEXT CHECK(register IN ('spoken', 'written', 'both', 'spoken_colloquial', 'spoken_neutral', 'neutral', 'formal_written', 'literary'))
+                        -- language register: spoken=口语, written=书面语, both=通用, spoken_colloquial=口语俚语, spoken_neutral=中性口语, neutral=通用, formal_written=正式书面语, literary=文学语体
 );
 
 -- ---------------------------------------------------------------------------

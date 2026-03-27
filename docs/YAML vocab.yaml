@@ -1,0 +1,103 @@
+- type: vocabulary
+  date: "03/26"
+  deutsch: verzweifelt
+  part_of_speech：adjectiv
+  register: 
+  simplified: 绝望
+  traditional: 絕望
+  pinyin: juéwàng
+  english: desperate / hopeless / despairing
+  hsk: "5" #one value!!!
+  note: #just some more information how to or when to use/not use
+  synonyms:  # in meaning there should also be described the difference to the main word
+    - word: 拼命 #this is just a link to the word in our DB there then should be a joint table for synonyms which also stores the meaning/difference field
+      pinyin: pīnmìng
+      meaning: verzweifelt, mit letzter Kraft (als Adverb)
+    - word: 不顾一切
+      pinyin: bùgù yīqiè
+      meaning: verzweifelt, ohne Rücksicht auf Verluste
+    - word: 无助
+      pinyin: wúzhù
+      meaning: hilflos, verzweifelt
+    - word: 走投无路
+      pinyin: zǒutóu wúlù
+      meaning: am Ende sein, keine Hoffnung mehr haben
+    - word: 心灰意冷
+      pinyin: xīnhuī yìlěng
+      meaning: entmutigt, desillusioniert, verzweifelt
+  classifiers:
+    - noun: null (Adjektiv, kein eigenes Zählwort)
+  examples: # round about 3
+    - zh: 他对未来感到绝望。
+      pinyin: Tā duì wèilái gǎndào juéwàng.
+      de: Er ist verzweifelt über die Zukunft / Er empfindet Hoffnungslosigkeit für die Zukunft.
+    - zh: 她绝望地哭了。
+      pinyin: Tā juéwàng de kū le.
+      de: Sie weinte verzweifelt.
+    - zh: 他拼命地跑，想赶上火车。
+      pinyin: Tā pīnmìng de pǎo, xiǎng gǎnshàng huǒchē.
+      de: Er rannte verzweifelt, um den Zug noch zu erreichen.
+  characters: # now there I want another joint table to link characters and words which should also store the meaning in context
+    - char: 绝
+      simplified: 绝
+      traditional: 絕
+      pinyin: jué
+      hsk: "5" #one value!!!
+      detailed_analysis: true
+      meaning_in_context: hoffnungslos, völlig (in 绝望 – Hoffnung verlieren)
+      compounds: #also create a joint table with Words DB
+        - hanzi: 绝对
+          pinyin: juéduì
+          deutsch: absolut, völlig
+        - hanzi: 绝迹
+          pinyin: juéjì
+          deutsch: aufhören, enden
+        - hanzi: 绝妙
+          pinyin: juémiào
+          deutsch: einzigartig
+        - hanzi: 绝技
+          pinyin: juéjì
+          deutsch: ausgezeichnet  compounds
+        - simplified: 绝望
+          pinyin: juéwàng
+          meaning: verzweifelt, hoffnungslos
+        - simplified: 绝对
+          pinyin: juéduì
+          meaning: absolut, unbedingt
+        - simplified: 拒绝
+          pinyin: jùjué
+          meaning: ablehnen, verweigern
+        - simplified: 绝路
+          pinyin: juélù
+          meaning: Sackgasse, Weg ohne Ausweg
+      etymology: |
+        Das traditionelle Zeichen 絕 besteht aus dem Radikal 糸 (Seide) und der Komponente 刀 (Messer) mit 卩 (Siegel).
+        Ursprünglich bedeutete es „Seide mit einem Messer durchtrennen“ → abbrechen, aufhören, enden.
+        Daraus entwickelte sich die Bedeutung „äußerst, absolut“ (da etwas Endgültiges extrem ist) und in
+        Zusammensetzungen wie 绝望 (Hoffnung endet) die Bedeutung „hoffnungslos, verzweifelt“.
+        Das vereinfachte 绝 ist eine abstrakte, leichter schreibbare Form.
+    - char: 望
+      simplified: 望
+      traditional: 望
+      pinyin: wàng
+      hsk: "3-4"
+      detailed_analysis: true
+      meaning_in_context: Hoffnung (in 绝望 – Hoffnungslosigkeit)
+      compounds:
+        - simplified: 希望
+          pinyin: xīwàng
+          meaning: Hoffnung, hoffen
+        - simplified: 愿望
+          pinyin: yuànwàng
+          meaning: Wunsch, Verlangen
+        - simplified: 盼望
+          pinyin: pànwàng
+          meaning: sehnsüchtig erwarten
+        - simplified: 失望
+          pinyin: shīwàng
+          meaning: enttäuscht sein
+      etymology: |
+        Das Zeichen 望 besteht ursprünglich aus den Komponenten 月 (Mond) und 王 (König) sowie 亡 (entfernt).
+        Ursprünglich bedeutete es „zum Mond hinaufblicken“ – der König (王) blickt in die Ferne zum Mond (月).
+        Daraus entwickelten sich die Bedeutungen „blicken, schauen“ und übertragen „erwarten, hoffen“ (man blickt
+        in die Zukunft). In 绝望 (keine Hoffnung) steht 望 für die Hoffnung, die durch 绝 (enden) zunichte gemacht wird.

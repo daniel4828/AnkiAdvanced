@@ -27,7 +27,7 @@
 | `traditional` | — | 繁体中文（如与简体相同可省略） |
 | `pinyin` | ✅ | 拼音（带声调） |
 | `english` | ✅ | 英文释义 |
-| `hsk` | — | HSK 等级，`1`–`6`，超纲写 `"超纲"` |
+| `hsk` | — | HSK 等级，只能填写 `"1"` 到 `"6"` 之一 |
 | `date` | — | 添加日期，格式 `"MM/DD"` |
 
 ---
@@ -94,6 +94,17 @@
 | `both` | 口语和书面语均适用 |
 | _(空)_ | 不指定 |
 
+### Recommended Register Values
+
+| Value | Meaning | Example |
+|------|------|------|
+| `spoken_colloquial` | 口语，umgangssprachlich，Alltag | 啥, 搞定, 靠谱 |
+| `spoken_neutral` | 中性口语，neutral im Alltag | 吃, 去, 好 |
+| `neutral` | 通用，sowohl muendlich als auch schriftlich | 但是, 因为, 所以 |
+| `formal_written` | 书面语，formelle Schriftsprache | 所, 其, 予以, 鉴于 |
+| `literary` | 文言，klassisch/literarisch | 之, 者, 亦, 乃 |
+| `slang` | 俚语，Jugendsprache，Slang | 躺平, 摆烂, 社死 |
+
 ---
 
 ## 类型：`sentence`（句子）
@@ -106,7 +117,7 @@
   traditional: 我們在忘記如何自己做飯。
   pinyin: Wǒmen zài wàngjì rúhé zìjǐ zuòfàn.
   english: We are forgetting how to cook for ourselves.
-  hsk: "3-4"
+  hsk: "4"
   explanations: |        # 可选：语法或翻译说明（自由文本）
     ...
 
@@ -144,7 +155,7 @@
   traditional: 以次充好
   pinyin: yǐ cì chōng hǎo
   english: to pass off inferior goods as high-quality ones
-  hsk: "超纲"
+  hsk: "6"
   note: |
     ...
   examples:
@@ -200,7 +211,7 @@ word_analyses:
     traditional: 忘記
     pinyin: wàngjì
     english: to forget
-    hsk: "3-4"
+    hsk: "4"
     examples:
       - zh: 我忘记了他的名字。
         pinyin: Wǒ wàngjì le tā de míngzì.

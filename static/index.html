@@ -152,6 +152,12 @@
         <button class="bs-item" id="bsf-chengyu"    onclick="setBrowseFilter('notes','chengyu')">Chengyu</button>
       </div>
       <div class="bs-section">
+        <div class="bs-section-head">Status</div>
+        <button class="bs-status-item bs-active" id="bss-all"       onclick="setBrowseStatusFilter('all')">All Entries</button>
+        <button class="bs-status-item" id="bss-learning"  onclick="setBrowseStatusFilter('learning')">Learning</button>
+        <button class="bs-status-item" id="bss-reference" onclick="setBrowseStatusFilter('reference')">Reference</button>
+      </div>
+      <div class="bs-section">
         <div class="bs-section-head">Hanzi</div>
         <button class="bs-item" id="bsf-hanzi" onclick="setBrowseFilter('hanzi','all')">All Hanzi</button>
       </div>
@@ -678,6 +684,22 @@
   </div>
   <button class="story-play-all-btn" id="story-play-all-btn" onclick="toggleFullStory()">▶ Play full story</button>
   <div id="story-modal-body"></div>
+</div>
+
+<!-- Add to deck modal -->
+<div id="add-to-deck-modal-overlay" onclick="closeAddToDeckModal()" style="display:none"></div>
+<div id="add-to-deck-modal" style="display:none">
+  <div class="edit-modal-header">
+    <span class="edit-modal-title">添加到牌组</span>
+    <button class="edit-modal-close" onclick="closeAddToDeckModal()">✕</button>
+  </div>
+  <div class="edit-card-fields">
+    <select id="add-to-deck-select" class="edit-input" style="width:100%;margin-bottom:12px"></select>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="edit-card-btn" onclick="closeAddToDeckModal()">Cancel</button>
+      <button class="edit-card-btn" style="border-color:var(--primary);color:var(--primary)" onclick="confirmAddToDeck()">Add</button>
+    </div>
+  </div>
 </div>
 
 <!-- Deck picker dropdown — must be a direct body child to escape modal transform stacking context -->

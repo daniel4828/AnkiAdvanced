@@ -510,10 +510,11 @@ async function openQuickAddCard() {
 
 // ── Browse ───────────────────────────────────────────────────────────────────
 let _browseSearchTimer = null;
-let _browseMode   = 'notes';   // 'notes' | 'hanzi'
-let _browseFilter = 'all';     // note_type or 'all'; for hanzi mode: 'all'
-let _browseDeckId = null;      // deck filter (notes mode only)
-let _allHanzi     = [];        // cache
+let _browseMode       = 'notes';   // 'notes' | 'hanzi'
+let _browseFilter     = 'all';     // note_type or 'all'; for hanzi mode: 'all'
+let _browseCardStatus = 'all';     // 'all' | 'learning' | 'reference'
+let _browseDeckId     = null;      // deck filter (notes mode only)
+let _allHanzi         = [];        // cache
 
 function _sortWords(words) {
   const sorted = [...words];
@@ -539,6 +540,8 @@ function _filteredBrowseWords() {
   let words = browseWords;
   if (_browseFilter !== 'all') words = words.filter(w => w.note_type === _browseFilter);
   if (_browseDeckId !== null) words = words.filter(w => w.cards.some(c => c.deck_id === _browseDeckId));
+  if (_browseCardStatus === 'learning')   words = words.filter(w => w.cards.length > 0);
+  if (_browseCardStatus === 'reference')  words = words.filter(w => w.cards.length === 0);
   return words;
 }
 
@@ -556,6 +559,17 @@ function setBrowseFilter(mode, filter) {
   _updateBrowseActionBar();
   if (mode === 'hanzi') renderHanziList(_allHanzi);
   else renderBrowseWords(_filteredBrowseWords());
+}
+
+function setBrowseStatusFilter(status) {
+  _browseCardStatus = status;
+  document.querySelectorAll('.bs-status-item').forEach(el => el.classList.remove('bs-active'));
+  const btn = document.getElementById(`bss-${status}`);
+  if (btn) btn.classList.add('bs-active');
+  document.getElementById('browse-search').value = '';
+  _browseSelected.clear();
+  _updateBrowseActionBar();
+  if (_browseMode === 'notes') renderBrowseWords(_filteredBrowseWords());
 }
 
 function setBrowseDeckFilter(deckId) {
@@ -587,11 +601,15 @@ async function openBrowse() {
     _allHanzi = hanzi;
     _browseDecks = _flattenDecks(deckTree);
     _browseSelected.clear();
+    _browseCardStatus = 'all';
     showView('browse');
     document.getElementById('browse-search').value = '';
     document.getElementById('browse-sort').value = _browseSort;
     _renderBrowseSidebar();
     _updateBrowseActionBar();
+    document.querySelectorAll('.bs-status-item').forEach(el => el.classList.remove('bs-active'));
+    const bssAll = document.getElementById('bss-all');
+    if (bssAll) bssAll.classList.add('bs-active');
     setBrowseFilter('notes', 'all');
   } catch (e) {
     showError('Browse failed: ' + e.message);
@@ -640,14 +658,20 @@ function onBrowseSearch(val) {
 }
 
 function _wordRow(w) {
-  const dots = ['listening', 'reading', 'creating'].map(cat => {
-    const c = w.cards.find(c => c.category === cat);
-    return c
-      ? `<span class="bw-dot bw-dot-${c.state}" title="${cat}: ${c.state}"></span>`
-      : `<span class="bw-dot bw-dot-none" title="${cat}: —"></span>`;
-  }).join('');
   const def = (w.definition || '').slice(0, 60) + ((w.definition || '').length > 60 ? '…' : '');
   const sel = _browseSelected.has(w.id) ? ' bw-row-selected' : '';
+  let rightHtml;
+  if (w.cards.length === 0) {
+    rightHtml = `<span class="bw-reference-tag">参考</span>
+      <button class="bw-add-btn" onclick="openAddToDeckModal(event,${w.id})" title="添加到牌组">＋ 添加</button>`;
+  } else {
+    rightHtml = ['listening', 'reading', 'creating'].map(cat => {
+      const c = w.cards.find(c => c.category === cat);
+      return c
+        ? `<span class="bw-dot bw-dot-${c.state}" title="${cat}: ${c.state}"></span>`
+        : `<span class="bw-dot bw-dot-none" title="${cat}: —"></span>`;
+    }).join('');
+  }
   return `
     <div class="bw-row${sel}" data-word-id="${w.id}" onclick="onBrowseRowClick(event,${w.id})">
       <div class="bw-left">
@@ -657,7 +681,7 @@ function _wordRow(w) {
       <div class="bw-mid">
         <span class="bw-def">${def}</span>
       </div>
-      <div class="bw-right">${dots}</div>
+      <div class="bw-right">${rightHtml}</div>
     </div>`;
 }
 
@@ -747,8 +771,39 @@ async function _browseReload() {
   browseWords = await api('GET', '/api/browse-words');
   _browseSelected.clear();
   _updateBrowseActionBar();
+  _renderBrowseSidebar();
   if (q) onBrowseSearch(q);
   else renderBrowseWords(_filteredBrowseWords());
+}
+
+// ── Add to deck modal ─────────────────────────────────────────────────────────
+let _addToDeckEntryId = null;
+
+function openAddToDeckModal(e, entryId) {
+  e.stopPropagation();
+  _addToDeckEntryId = entryId;
+  const select = document.getElementById('add-to-deck-select');
+  const parentDecks = _browseDecks.filter(d => !d.category && !d.virtual);
+  if (!parentDecks.length) { showError('No decks available'); return; }
+  select.innerHTML = parentDecks.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+  document.getElementById('add-to-deck-modal-overlay').style.display = '';
+  document.getElementById('add-to-deck-modal').style.display = '';
+}
+
+function closeAddToDeckModal() {
+  document.getElementById('add-to-deck-modal-overlay').style.display = 'none';
+  document.getElementById('add-to-deck-modal').style.display = 'none';
+  _addToDeckEntryId = null;
+}
+
+async function confirmAddToDeck() {
+  const deckId = parseInt(document.getElementById('add-to-deck-select').value);
+  if (!deckId || !_addToDeckEntryId) return;
+  try {
+    await api('POST', `/api/entries/${_addToDeckEntryId}/add-to-deck`, { deck_id: deckId });
+    closeAddToDeckModal();
+    await _browseReload();
+  } catch (e) { showError('Failed to add to deck: ' + e.message); }
 }
 
 function renderBrowseWords(words) {
@@ -844,7 +899,11 @@ function renderWordDetail(word) {
   posEl.textContent = word.pos || '';
   posEl.style.display = word.pos ? 'inline-block' : 'none';
   const regEl = document.getElementById('wd-register');
-  const regLabels = { spoken: '口语', written: '书面语', both: '通用' };
+  const regLabels = {
+    spoken: '口语', written: '书面语', both: '通用',
+    spoken_colloquial: '口语俚语', spoken_neutral: '中性口语',
+    neutral: '通用', formal_written: '正式书面语', literary: '文学语体'
+  };
   if (word.register) {
     regEl.textContent = regLabels[word.register] || word.register;
     regEl.style.display = 'inline-block';

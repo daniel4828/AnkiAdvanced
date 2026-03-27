@@ -181,6 +181,17 @@ def bulk_move(body: dict):
     return {"ok": True, "count": count}
 
 
+@router.post("/api/entries/{entry_id}/add-to-deck")
+def add_entry_to_deck(entry_id: int, body: dict):
+    deck_id = body.get("deck_id")
+    if not deck_id:
+        raise HTTPException(status_code=400, detail="deck_id required")
+    result = database.add_entry_to_deck(entry_id, deck_id)
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
 @router.get("/api/browse")
 def browse(deck_id: int | None = None, category: str | None = None,
            state: str | None = None, q: str | None = None):

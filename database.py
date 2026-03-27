@@ -1975,16 +1975,15 @@ def toggle_deck_all_suspension(deck_id: int) -> dict:
 
 
 def get_words_for_browse() -> list[dict]:
-    """Return all words that have cards, with embedded card states per category."""
+    """Return all entries (with or without cards), with embedded card states per category."""
     sql = """
         SELECT w.id, w.word_zh, w.pinyin, w.definition, w.pos, w.hsk_level, w.note_type,
                c.id as card_id, c.category, c.state, c.interval, c.ease,
                c.due, c.lapses, c.step_index, c.deck_id,
                d.name as deck_name
         FROM entries w
-        JOIN cards c ON c.word_id = w.id
-        JOIN decks d ON d.id = c.deck_id
-        WHERE c.deleted_at IS NULL
+        LEFT JOIN cards c ON c.word_id = w.id AND c.deleted_at IS NULL
+        LEFT JOIN decks d ON d.id = c.deck_id
         ORDER BY w.word_zh, c.category
     """
     conn = get_db()
@@ -2005,39 +2004,37 @@ def get_words_for_browse() -> list[dict]:
                 "note_type": r["note_type"],
                 "cards": [],
             }
-        words[wid]["cards"].append({
-            "id": r["card_id"],
-            "category": r["category"],
-            "state": r["state"],
-            "interval": r["interval"],
-            "ease": r["ease"],
-            "due": r["due"],
-            "lapses": r["lapses"],
-            "step_index": r["step_index"],
-            "deck_id": r["deck_id"],
-            "deck_name": r["deck_name"],
-        })
+        if r["card_id"] is not None:
+            words[wid]["cards"].append({
+                "id": r["card_id"],
+                "category": r["category"],
+                "state": r["state"],
+                "interval": r["interval"],
+                "ease": r["ease"],
+                "due": r["due"],
+                "lapses": r["lapses"],
+                "step_index": r["step_index"],
+                "deck_id": r["deck_id"],
+                "deck_name": r["deck_name"],
+            })
     return list(words.values())
 
 
 def search_words(q: str) -> dict:
-    """Return word IDs split into primary (word/def match) and secondary (example/notes match)."""
+    """Return word IDs split into primary (word/def match) and secondary (example/notes match).
+    Includes reference entries (no cards) so Browse search works across the full knowledge base."""
     like = f"%{q}%"
     conn = get_db()
     primary_ids = {r["id"] for r in conn.execute(
         """SELECT DISTINCT w.id FROM entries w
-           JOIN cards c ON c.word_id = w.id
-           WHERE c.deleted_at IS NULL
-             AND (w.word_zh LIKE ? OR w.pinyin LIKE ?
+           WHERE (w.word_zh LIKE ? OR w.pinyin LIKE ?
               OR w.definition LIKE ? OR w.definition_zh LIKE ?)""",
         (like, like, like, like),
     ).fetchall()}
     secondary_ids = {r["id"] for r in conn.execute(
         """SELECT DISTINCT w.id FROM entries w
-           JOIN cards c ON c.word_id = w.id
            LEFT JOIN entry_examples we ON we.word_id = w.id
-           WHERE c.deleted_at IS NULL
-             AND (we.example_zh LIKE ? OR we.example_de LIKE ? OR w.notes LIKE ?)""",
+           WHERE (we.example_zh LIKE ? OR we.example_de LIKE ? OR w.notes LIKE ?)""",
         (like, like, like),
     ).fetchall()} - primary_ids
     conn.close()
@@ -2219,6 +2216,28 @@ def bulk_move_cards_by_words(word_ids: list[int], deck_id: int) -> int:
     conn.commit()
     conn.close()
     return cur.rowcount
+
+
+def add_entry_to_deck(entry_id: int, parent_deck_id: int) -> dict:
+    """Create cards in all category leaf-decks under parent_deck_id for a reference entry."""
+    conn = get_db()
+    leaf_decks = conn.execute(
+        "SELECT id, category FROM decks WHERE parent_id = ? AND category IS NOT NULL AND deleted_at IS NULL",
+        (parent_deck_id,),
+    ).fetchall()
+    if not leaf_decks:
+        conn.close()
+        return {"created": 0, "error": "No category decks found under this parent"}
+    created = 0
+    for ld in leaf_decks:
+        cur = conn.execute(
+            "INSERT OR IGNORE INTO cards (word_id, deck_id, category, state) VALUES (?, ?, ?, 'new')",
+            (entry_id, ld["id"], ld["category"]),
+        )
+        created += cur.rowcount
+    conn.commit()
+    conn.close()
+    return {"created": created}
 
 
 def get_all_cards_for_browse(filters: dict | None = None) -> list[dict]:
