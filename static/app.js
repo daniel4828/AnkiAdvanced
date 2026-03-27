@@ -248,10 +248,11 @@ function buildCategoryButtons(deck) {
 function renderDecks(decks) {
   const navRow = `
     <div class="nav-row">
-      <button class="nav-btn" onclick="openBrowse()">Browse Cards</button>
+      <button class="nav-btn" onclick="openBrowse()" title="Shortcut: B">Browse Cards</button>
       <button class="nav-btn" onclick="openStats()">Stats</button>
       <button class="nav-btn" onclick="openCostModal()">API Costs</button>
-      <button class="nav-btn" onclick="openImportModal()">Import</button>
+      <button class="nav-btn" onclick="openImportModal()" title="Shortcut: Command+I">Import</button>
+      <button class="nav-btn" onclick="openQuickAddCard()" title="Shortcut: A">Add Card</button>
       <button class="nav-btn" onclick="createDeck()">New Deck</button>
       <button class="nav-btn" onclick="openTrash()">Trash</button>
     </div>`;
@@ -486,6 +487,25 @@ async function createDeck() {
   } catch (e) {
     showError('Create deck failed: ' + e.message);
   }
+}
+
+async function openQuickAddCard() {
+  const defaultDeck = (document.getElementById('import-deck-path')?.value || '').trim();
+  const deckPath = await showPrompt('Deck path for new card (use :: to nest)', defaultDeck);
+  if (!deckPath || !deckPath.trim()) return;
+
+  const yamlTemplate = [
+    'type: word',
+    'simplified: ',
+    'traditional: ',
+    'pinyin: ',
+    'hsk: 1',
+    'translations:',
+    '  en: ',
+    '  zh-CN: ',
+  ].join('\n');
+
+  openYamlEdit('Add card', yamlTemplate, deckPath.trim(), -1);
 }
 
 // ── Browse ───────────────────────────────────────────────────────────────────
@@ -3484,9 +3504,39 @@ async function restartServer() {
   setTimeout(poll, 600);
 }
 
+function _isVisible(id) {
+  const el = document.getElementById(id);
+  return !!el && getComputedStyle(el).display !== 'none';
+}
+
+function _isEditableFocusTarget(el) {
+  if (!el) return false;
+  const tag = el.tagName;
+  const editable = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+  if (!editable) return false;
+  const style = getComputedStyle(el);
+  return style.display !== 'none' && style.visibility !== 'hidden';
+}
+
+function _hasOpenModal() {
+  const modalIds = [
+    'modal-overlay',
+    'edit-modal-overlay',
+    'story-modal-overlay',
+    'import-modal-overlay',
+    'yaml-edit-overlay',
+    'prompt-modal-overlay',
+    'trash-modal-overlay',
+    'story-error-overlay',
+    'hanzi-regen-modal-overlay',
+    'hanzi-edit-modal-overlay',
+    'conflict-modal-overlay',
+  ];
+  return modalIds.some(_isVisible);
+}
+
 document.addEventListener('keydown', e => {
-  const tag = document.activeElement?.tagName;
-  const inInput = tag === 'INPUT' || tag === 'TEXTAREA';
+  const inInput = _isEditableFocusTarget(document.activeElement);
 
   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
     const editModal = document.getElementById('edit-modal');
@@ -3500,6 +3550,34 @@ document.addEventListener('keydown', e => {
   if (e.key === 'R' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
     if (!inInput) { e.preventDefault(); restartServer(); }
     return;
+  }
+
+  if (!inInput && !_hasOpenModal()) {
+    const code = e.code;
+
+    if ((e.metaKey || e.ctrlKey) && code === 'KeyI' && !e.altKey) {
+      e.preventDefault();
+      openImportModal();
+      return;
+    }
+
+    if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+      if (code === 'KeyD') {
+        e.preventDefault();
+        goBack();
+        return;
+      }
+      if (code === 'KeyB') {
+        e.preventDefault();
+        openBrowse();
+        return;
+      }
+      if (code === 'KeyA') {
+        e.preventDefault();
+        openQuickAddCard();
+        return;
+      }
+    }
   }
 
   if (inInput || e.ctrlKey || e.metaKey || e.altKey) return;

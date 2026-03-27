@@ -1090,11 +1090,12 @@ main.browse-open {
 /* ── Nav row (deck list top) ─────────────────────────── */
 .nav-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 18px;
 }
 .nav-btn {
-  flex: 1;
+  flex: 1 1 120px;
   padding: 10px 8px;
   border: 1.5px solid var(--border);
   border-radius: 10px;
@@ -1107,6 +1108,13 @@ main.browse-open {
   transition: border-color 0.15s, color 0.15s;
 }
 .nav-btn:hover { border-color: var(--primary); color: var(--primary); }
+.nav-shortcuts-help {
+  width: 100%;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 2px 2px 0;
+}
 
 /* ── Deck card gear button ───────────────────────────── */
 .deck-header {
