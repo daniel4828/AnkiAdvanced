@@ -645,8 +645,10 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
                     example_type="similar",
                 )
 
-        # Characters
-        _process_characters(entry, word_id)
+        # Characters — only for vocabulary; expression/chengyu/sentence
+        # attach characters via word_analyses sub-words, not the main entry
+        if note_type == "vocabulary":
+            _process_characters(entry, word_id)
 
         # Measure words (量词)
         _process_measure_words(entry, word_id)
