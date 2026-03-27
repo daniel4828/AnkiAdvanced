@@ -97,9 +97,39 @@ def init_db() -> None:
             conn.execute("PRAGMA foreign_keys = ON")
             conn.commit()
 
+    if "date_yaml" not in cols:
+        conn.execute("ALTER TABLE entries ADD COLUMN date_yaml TEXT")
+
     ex_cols = {r["name"] for r in conn.execute("PRAGMA table_info(entry_examples)").fetchall()}
     if "example_type" not in ex_cols:
         conn.execute("ALTER TABLE entry_examples ADD COLUMN example_type TEXT NOT NULL DEFAULT 'example'")
+    if "example_en" not in ex_cols:
+        conn.execute("ALTER TABLE entry_examples ADD COLUMN example_en TEXT")
+
+    # Remove duplicate examples (keep lowest id per word+text pair)
+    conn.execute("""DELETE FROM entry_examples WHERE id NOT IN (
+        SELECT MIN(id) FROM entry_examples GROUP BY word_id, example_zh
+    )""")
+
+    # Migrate compounds from JSON column → character_compounds relational table
+    import json as _json_local
+    chars_with_json = conn.execute(
+        "SELECT id, compounds FROM characters WHERE compounds IS NOT NULL AND compounds != ''"
+    ).fetchall()
+    for ch in chars_with_json:
+        try:
+            clist = _json_local.loads(ch["compounds"])
+            for pos, c in enumerate(clist):
+                zh = (c.get("simplified") or c.get("zh") or c.get("compound") or "").strip()
+                if zh:
+                    conn.execute(
+                        """INSERT OR IGNORE INTO character_compounds
+                           (char_id, compound_zh, pinyin, meaning, position)
+                           VALUES (?, ?, ?, ?, ?)""",
+                        (ch["id"], zh, c.get("pinyin"), c.get("meaning"), pos),
+                    )
+        except Exception:
+            pass
 
     conn.execute("""CREATE TABLE IF NOT EXISTS api_call_log (
         id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -672,25 +702,38 @@ def get_or_create_deck_path(path: str) -> int:
 # ---------------------------------------------------------------------------
 
 def insert_word(word: dict) -> int:
-    """INSERT OR IGNORE. Returns the word id whether inserted or already existed."""
+    """INSERT OR IGNORE. Returns the word id whether inserted or already existed.
+    For existing entries, also backfills notes and date_yaml if previously empty."""
     conn = get_db()
     conn.execute(
         """INSERT OR IGNORE INTO entries
            (word_zh, pinyin, definition, pos, hsk_level,
             traditional, definition_zh, source, note_type,
-            notes, source_sentence, grammar_notes, register)
+            notes, date_yaml, source_sentence, grammar_notes, register)
            VALUES (:word_zh, :pinyin, :definition, :pos, :hsk_level,
                    :traditional, :definition_zh, :source, :note_type,
-                   :notes, :source_sentence, :grammar_notes, :register)""",
+                   :notes, :date_yaml, :source_sentence, :grammar_notes, :register)""",
         {
             **word,
             "note_type":       word.get("note_type", "vocabulary"),
             "notes":           word.get("notes"),
+            "date_yaml":       word.get("date_yaml"),
             "source_sentence": word.get("source_sentence"),
             "grammar_notes":   word.get("grammar_notes"),
             "register":        word.get("register"),
         },
     )
+    # Backfill notes / date_yaml for entries that existed before these fields were added
+    if word.get("notes"):
+        conn.execute(
+            "UPDATE entries SET notes = ? WHERE word_zh = ? AND (notes IS NULL OR notes = '')",
+            (word["notes"], word["word_zh"]),
+        )
+    if word.get("date_yaml"):
+        conn.execute(
+            "UPDATE entries SET date_yaml = ? WHERE word_zh = ? AND date_yaml IS NULL",
+            (word["date_yaml"], word["word_zh"]),
+        )
     conn.commit()
     row = conn.execute("SELECT id FROM entries WHERE word_zh = ?", (word["word_zh"],)).fetchone()
     conn.close()
@@ -803,15 +846,23 @@ def get_note_components(note_id: int) -> list[dict]:
 
 def insert_word_example(word_id: int, example_zh: str,
                         example_pinyin: str | None,
+                        example_en: str | None,
                         example_de: str | None,
                         position: int,
                         example_type: str = "example") -> int:
     conn = get_db()
+    existing = conn.execute(
+        "SELECT id FROM entry_examples WHERE word_id = ? AND example_zh = ?",
+        (word_id, example_zh),
+    ).fetchone()
+    if existing:
+        conn.close()
+        return existing["id"]
     cur = conn.execute(
         """INSERT INTO entry_examples
-           (word_id, example_zh, example_pinyin, example_de, position, example_type)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        (word_id, example_zh, example_pinyin, example_de, position, example_type),
+           (word_id, example_zh, example_pinyin, example_en, example_de, position, example_type)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (word_id, example_zh, example_pinyin, example_en, example_de, position, example_type),
     )
     conn.commit()
     ex_id = cur.lastrowid
@@ -1002,16 +1053,14 @@ def upsert_character(char: dict) -> int:
     conn = get_db()
     conn.execute(
         """INSERT INTO characters
-           (char, traditional, pinyin, hsk_level, etymology, other_meanings, compounds)
-           VALUES (:char, :traditional, :pinyin, :hsk_level,
-                   :etymology, :other_meanings, :compounds)
+           (char, traditional, pinyin, hsk_level, etymology, other_meanings)
+           VALUES (:char, :traditional, :pinyin, :hsk_level, :etymology, :other_meanings)
            ON CONFLICT(char) DO UPDATE SET
                traditional    = excluded.traditional,
                pinyin         = excluded.pinyin,
                hsk_level      = excluded.hsk_level,
                etymology      = COALESCE(excluded.etymology, etymology),
-               other_meanings = COALESCE(excluded.other_meanings, other_meanings),
-               compounds      = COALESCE(excluded.compounds, compounds)""",
+               other_meanings = COALESCE(excluded.other_meanings, other_meanings)""",
         char,
     )
     conn.commit()
@@ -1030,8 +1079,17 @@ def get_character(char: str) -> dict | None:
 def get_character_by_id(char_id: int) -> dict | None:
     conn = get_db()
     row = conn.execute("SELECT * FROM characters WHERE id = ?", (char_id,)).fetchone()
+    if not row:
+        conn.close()
+        return None
+    d = dict(row)
+    comp_rows = conn.execute(
+        "SELECT compound_zh, pinyin, meaning FROM character_compounds WHERE char_id = ? ORDER BY position",
+        (char_id,),
+    ).fetchall()
+    d["compounds"] = [dict(c) for c in comp_rows]
     conn.close()
-    return dict(row) if row else None
+    return d
 
 
 def get_all_characters() -> list[dict]:
@@ -1058,7 +1116,7 @@ def get_words_for_character(char_id: int) -> list[dict]:
 
 
 def update_character(char_id: int, fields: dict) -> None:
-    allowed = {"pinyin", "etymology", "other_meanings", "compounds", "traditional", "hsk_level"}
+    allowed = {"pinyin", "etymology", "other_meanings", "traditional", "hsk_level"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return
@@ -1077,7 +1135,7 @@ def upsert_character_compounds(char_id: int, compounds: list[dict]) -> None:
     """
     conn = get_db()
     for pos, c in enumerate(compounds):
-        zh = (c.get("zh") or c.get("compound") or "").strip()
+        zh = (c.get("simplified") or c.get("zh") or c.get("compound") or "").strip()
         if not zh:
             continue
         conn.execute(
@@ -1108,20 +1166,31 @@ def insert_word_character(word_id: int, char_id: int,
 
 
 def get_word_characters(word_id: int) -> list[dict]:
-    """Returns characters in position order, joined with full character details."""
+    """Returns characters in position order, joined with full character details.
+    Compounds are fetched from the character_compounds relational table."""
     conn = get_db()
     rows = conn.execute(
         """SELECT wc.position, wc.meaning_in_context,
                   c.id as char_id, c.char, c.traditional, c.pinyin,
-                  c.hsk_level, c.etymology, c.other_meanings, c.compounds
+                  c.hsk_level, c.etymology, c.other_meanings
            FROM entry_characters wc
            JOIN characters c ON c.id = wc.char_id
            WHERE wc.word_id = ?
            ORDER BY wc.position""",
         (word_id,),
     ).fetchall()
+    result = []
+    for row in rows:
+        d = dict(row)
+        comp_rows = conn.execute(
+            """SELECT compound_zh, pinyin, meaning FROM character_compounds
+               WHERE char_id = ? ORDER BY position""",
+            (d["char_id"],),
+        ).fetchall()
+        d["compounds"] = [dict(c) for c in comp_rows]
+        result.append(d)
     conn.close()
-    return [dict(r) for r in rows]
+    return result
 
 
 # ---------------------------------------------------------------------------

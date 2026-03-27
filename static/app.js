@@ -1165,12 +1165,15 @@ function renderHanziDetail(h) {
       <div class="wd-section-body"><div class="wd-etym">${h.etymology}</div></div>`;
   }
 
-  let compounds = [];
-  try { compounds = h.compounds ? JSON.parse(h.compounds) : []; } catch {}
+  const compounds = Array.isArray(h.compounds) ? h.compounds : [];
   if (compounds.length) {
     bodyHtml += `<div class="wd-section-head">Compounds</div>
       <div class="wd-section-body"><div class="hd-compounds">` +
-      compounds.map(c => `<span class="hd-compound">${c}</span>`).join('') +
+      compounds.map(c => {
+        const zh = c.compound_zh || c.simplified || String(c);
+        const tip = c.meaning ? ` title="${c.meaning}"` : '';
+        return `<span class="hd-compound"${tip}>${zh}</span>`;
+      }).join('') +
       `</div></div>`;
   }
 
@@ -1196,7 +1199,9 @@ function openHanziEditModal(h) {
   document.getElementById('hedit-trad').value      = h.traditional || '';
   document.getElementById('hedit-hsk').value       = h.hsk_level != null ? h.hsk_level : '';
   document.getElementById('hedit-etym').value      = h.etymology  || '';
-  document.getElementById('hedit-compounds').value = h.compounds  || '';
+  document.getElementById('hedit-compounds').value = Array.isArray(h.compounds)
+    ? JSON.stringify(h.compounds, null, 2)
+    : (h.compounds || '');
   document.getElementById('hanzi-edit-modal-overlay').style.display = '';
   document.getElementById('hanzi-edit-modal').style.display         = '';
 }

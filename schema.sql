@@ -113,8 +113,9 @@ CREATE TABLE IF NOT EXISTS entries (
     traditional     TEXT,
     definition_zh   TEXT,
     date_added      TEXT NOT NULL DEFAULT (datetime('now')),
+    date_yaml       TEXT,           -- date string from YAML file, e.g. "03/27"
     source          TEXT NOT NULL DEFAULT 'kouyu',
-    notes           TEXT,           -- personal notes
+    notes           TEXT,           -- usage notes / explanations from YAML `note` field
     source_sentence TEXT,           -- original source-language sentence (e.g. German) for sentence notes
     grammar_notes   TEXT,           -- grammar explanation (e.g. grammar_de from YAML)
     note_type       TEXT NOT NULL DEFAULT 'vocabulary',
@@ -157,11 +158,13 @@ CREATE TABLE IF NOT EXISTS entry_examples (
     word_id         INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
     example_zh      TEXT NOT NULL,
     example_pinyin  TEXT,
+    example_en      TEXT,           -- English translation of the example
     example_de      TEXT,
     position        INTEGER NOT NULL,
     example_type    TEXT NOT NULL DEFAULT 'example'
                         CHECK(example_type IN ('example', 'similar'))
                         -- 'example': normal usage example; 'similar': similar sentence (sentence type)
+    -- Note: deduplication enforced in application layer (INSERT OR IGNORE check on example_zh)
 );
 
 -- ---------------------------------------------------------------------------
@@ -187,7 +190,7 @@ CREATE TABLE IF NOT EXISTS characters (
     hsk_level       INTEGER,
     etymology       TEXT,
     other_meanings  TEXT,   -- JSON array
-    compounds       TEXT    -- JSON array (kept for backwards compat; see character_compounds)
+    compounds       TEXT    -- DEPRECATED: use character_compounds table; kept for migration only
 );
 
 -- ---------------------------------------------------------------------------

@@ -309,6 +309,7 @@ def _build_word_dict(entry: dict, source: str, note_type: str = "vocabulary") ->
         "source":          source,
         "note_type":       note_type,
         "notes":           entry.get("note") or entry.get("explanations"),
+        "date_yaml":       entry.get("date"),
         "source_sentence": entry.get("source_de"),
         "grammar_notes":   None,
         "register":        entry.get("register"),  # spoken | written | both
@@ -332,8 +333,7 @@ def _process_characters(entry: dict, word_id: int) -> None:
             "etymology":      char_entry.get("etymology") if detailed else None,
             "other_meanings": json.dumps(other_meanings, ensure_ascii=False)
                               if other_meanings else None,
-            "compounds":      json.dumps(compounds_raw, ensure_ascii=False)
-                              if compounds_raw else None,
+            # compounds: written to character_compounds table below, NOT as JSON
         }
         char_id = database.upsert_character(char_dict)
         database.insert_word_character(
@@ -503,6 +503,7 @@ def _process_component(analysis: dict, note_word_id: int, position: int,
             word_id=comp_word_id,
             example_zh=ex.get("zh", ""),
             example_pinyin=ex.get("pinyin"),
+            example_en=ex.get("english"),
             example_de=ex.get("de"),
             position=i,
         )
@@ -622,6 +623,7 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
                 word_id=word_id,
                 example_zh=ex.get("zh", ""),
                 example_pinyin=ex.get("pinyin"),
+                example_en=ex.get("english"),
                 example_de=ex.get("de"),
                 position=i,
                 example_type="example",
@@ -637,6 +639,7 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
                     word_id=word_id,
                     example_zh=zh,
                     example_pinyin=ss.get("pinyin"),
+                    example_en=ss.get("english"),
                     example_de=ss.get("de"),
                     position=i,
                     example_type="similar",
