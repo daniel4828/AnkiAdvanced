@@ -61,7 +61,41 @@ def init_db() -> None:
             "ALTER TABLE entries ADD COLUMN note_type TEXT NOT NULL DEFAULT 'vocabulary'"
         )
     if "register" not in cols:
-        conn.execute("ALTER TABLE entries ADD COLUMN register TEXT CHECK(register IN ('spoken', 'written', 'both'))")
+        conn.execute("ALTER TABLE entries ADD COLUMN register TEXT CHECK(register IN ('spoken', 'written', 'both', 'spoken_colloquial', 'spoken_neutral', 'neutral', 'formal_written', 'literary'))")
+    else:
+        # Fix old 3-value CHECK constraint → 6-value (SQLite requires table recreation)
+        entries_sql = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='entries'"
+        ).fetchone()["sql"]
+        if entries_sql and "spoken_neutral" not in entries_sql:
+            # SQLite FK tracking: renaming 'entries' makes child tables reference the
+            # renamed name.  Instead: create new table, copy data, drop old, rename new.
+            col_names = [r["name"] for r in conn.execute("PRAGMA table_info(entries)").fetchall()]
+            cols_csv = ", ".join(col_names)
+            conn.execute("PRAGMA foreign_keys = OFF")
+            conn.commit()
+            conn.execute("""CREATE TABLE _entries_new (
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    word_zh         TEXT NOT NULL UNIQUE,
+                    pinyin          TEXT,
+                    definition      TEXT,
+                    pos             TEXT,
+                    hsk_level       INTEGER,
+                    traditional     TEXT,
+                    definition_zh   TEXT,
+                    date_added      TEXT NOT NULL DEFAULT (datetime('now')),
+                    source          TEXT NOT NULL DEFAULT 'kouyu',
+                    notes           TEXT,
+                    note_type       TEXT NOT NULL DEFAULT 'vocabulary',
+                    source_sentence TEXT,
+                    grammar_notes   TEXT,
+                    register        TEXT CHECK(register IN ('spoken', 'written', 'both', 'spoken_colloquial', 'spoken_neutral', 'neutral', 'formal_written', 'literary'))
+                )""")
+            conn.execute(f"INSERT INTO _entries_new ({cols_csv}) SELECT {cols_csv} FROM entries")
+            conn.execute("DROP TABLE entries")
+            conn.execute("ALTER TABLE _entries_new RENAME TO entries")
+            conn.execute("PRAGMA foreign_keys = ON")
+            conn.commit()
 
     ex_cols = {r["name"] for r in conn.execute("PRAGMA table_info(entry_examples)").fetchall()}
     if "example_type" not in ex_cols:
@@ -1030,6 +1064,30 @@ def update_character(char_id: int, fields: dict) -> None:
     set_clause = ", ".join(f"{k}=:{k}" for k in updates)
     conn = get_db()
     conn.execute(f"UPDATE characters SET {set_clause} WHERE id=:id", {**updates, "id": char_id})
+    conn.commit()
+    conn.close()
+
+
+def upsert_character_compounds(char_id: int, compounds: list[dict]) -> None:
+    """Insert or update normalised compound rows for a character.
+
+    Each compound dict should have keys: zh (required), pinyin, meaning.
+    Existing rows for this char_id are replaced on conflict (zh).
+    """
+    conn = get_db()
+    for pos, c in enumerate(compounds):
+        zh = (c.get("zh") or c.get("compound") or "").strip()
+        if not zh:
+            continue
+        conn.execute(
+            """INSERT INTO character_compounds (char_id, compound_zh, pinyin, meaning, position)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(char_id, compound_zh) DO UPDATE SET
+                   pinyin   = excluded.pinyin,
+                   meaning  = excluded.meaning,
+                   position = excluded.position""",
+            (char_id, zh, c.get("pinyin"), c.get("meaning") or c.get("de"), pos),
+        )
     conn.commit()
     conn.close()
 

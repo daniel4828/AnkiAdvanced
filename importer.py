@@ -341,6 +341,8 @@ def _process_characters(entry: dict, word_id: int) -> None:
             position=pos,
             meaning_in_context=char_entry.get("meaning_in_context") if detailed else None,
         )
+        if compounds_raw and isinstance(compounds_raw, list):
+            database.upsert_character_compounds(char_id, compounds_raw)
 
 
 def _process_measure_words(entry: dict, word_id: int) -> None:
