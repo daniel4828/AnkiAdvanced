@@ -2057,35 +2057,6 @@ function hideWordTip() {
 }
 
 function renderVocabDetail() {
-  // Characters
-  const chars = wordDetails?.characters || [];
-  const charSection = document.getElementById('char-section');
-  if (chars.length > 0) {
-    const rows = chars.map(c => {
-      let right = '';
-      if (c.pinyin)             right += `<div class="char-row-pin">${c.pinyin}</div>`;
-      let meanings = '';
-      try { meanings = c.other_meanings ? JSON.parse(c.other_meanings).join(', ') : ''; } catch {}
-      if (meanings)             right += `<div class="char-row-info">${meanings}</div>`;
-      if (c.meaning_in_context) right += `<div class="char-row-info">${c.meaning_in_context}</div>`;
-      if (c.etymology)          right += `<div class="char-row-etym">${c.etymology}</div>`;
-      const charEsc = (c.char || '').replace(/'/g, "\\'");
-      const pinEsc  = (c.pinyin || '').replace(/'/g, "\\'");
-      const tradHtml = (c.traditional && c.traditional !== c.char)
-        ? `<div class="char-row-trad">${c.traditional}</div>`
-        : '';
-      return `<div class="char-row char-row-link" onclick="openHanziRegenModal(${c.char_id},'${charEsc}','${pinEsc}',true)">` +
-        `<div class="char-row-zh-col"><div class="char-row-zh">${c.char}</div>${tradHtml}</div>` +
-        `<div class="char-row-right">${right}</div></div>`;
-    }).join('');
-    charSection.innerHTML =
-      `<div class="section-label section-toggle" onclick="toggleSection('char-section-body')">` +
-        `<span id="char-section-body-arrow">▶</span> Characters</div>` +
-      `<div id="char-section-body" style="display:none">${rows}</div>`;
-  } else {
-    charSection.innerHTML = '';
-  }
-
   // Examples
   const examples = wordDetails?.examples || [];
   const exSection = document.getElementById('examples-section');
@@ -2121,80 +2092,106 @@ function renderNotesSection() {
   }
 }
 
-function renderGrammarNotesSection() {
-  const section = document.getElementById('grammar-notes-section');
-  const grammar = wordDetails?.grammar_notes || card?.grammar_notes;
-  if (grammar) {
-    section.innerHTML =
-      `<div class="section-label section-toggle" onclick="toggleSection('grammar-notes-body')">` +
-        `<span id="grammar-notes-body-arrow">▶</span> Grammar</div>` +
-      `<div id="grammar-notes-body" class="notes-body" style="display:none">${grammar}</div>`;
-    section.style.display = 'block';
-  } else {
-    section.innerHTML = '';
-    section.style.display = 'none';
-  }
-}
-
 function renderWordAnalysis() {
   const section = document.getElementById('word-analysis-section');
   const nt = wordDetails?.note_type || card?.note_type;
   const isMultiWord = nt === 'sentence' || nt === 'chengyu' || nt === 'expression';
-  const components = wordDetails?.components || [];
 
-  if (!isMultiWord || components.length === 0) {
+  // Build word groups for all note types
+  let wordGroups = [];
+  if (isMultiWord) {
+    wordGroups = wordDetails?.components || [];
+  } else if (wordDetails) {
+    // Single word: one group = the word itself
+    wordGroups = [{
+      id: wordDetails.id,
+      word_zh:      wordDetails.word_zh  || card?.word_zh,
+      pinyin:       wordDetails.pinyin   || card?.pinyin,
+      hsk_level:    wordDetails.hsk_level || card?.hsk_level,
+      definition:   wordDetails.definition || card?.definition,
+      measure_words: wordDetails.measure_words || [],
+      characters:   wordDetails.characters || [],
+    }];
+  }
+
+  if (wordGroups.length === 0) {
     section.innerHTML = '';
     return;
   }
 
-  const expanded = false;
+  const wordCards = wordGroups.map((comp, idx) => {
+    const wid = comp.id;
+    const bodyId = `wa-body-${idx}`;
 
-  const wordCards = components.map((comp, idx) => {
-    const isCharOnly = !comp.definition && !comp.pos;
-    let header = `<span class="wa-word-zh">${comp.word_zh || ''}</span>`;
-    if (comp.pinyin) header += `<span class="wa-word-pin">${comp.pinyin}</span>`;
-    if (!isCharOnly) {
-      if (comp.hsk_level) header += `<span class="wa-hsk-badge">HSK ${comp.hsk_level}</span>`;
-      if (comp.definition) header += `<span class="wa-word-def">${comp.definition}</span>`;
+    // Header: word (clickable to Browse) + pinyin + HSK + definition
+    const zhSpan = wid
+      ? `<span class="wa-word-zh wa-browse-link" onclick="openWordDetail(${wid})">${comp.word_zh || ''}</span>`
+      : `<span class="wa-word-zh">${comp.word_zh || ''}</span>`;
+    let header = zhSpan;
+    if (comp.pinyin)    header += `<span class="wa-word-pin">${comp.pinyin}</span>`;
+    if (comp.hsk_level) header += `<span class="wa-hsk-badge">HSK ${comp.hsk_level}</span>`;
+    if (comp.definition) header += `<span class="wa-word-def">${comp.definition}</span>`;
+
+    // Measure words row
+    let mwHtml = '';
+    const mw = comp.measure_words || [];
+    if (mw.length) {
+      const items = mw.map(m =>
+        `<span class="wa-mw-item" title="${m.meaning || ''}">${m.measure_zh}` +
+        (m.pinyin ? ` <span class="wa-mw-pin">${m.pinyin}</span>` : '') +
+        `</span>`
+      ).join('');
+      mwHtml = `<div class="wa-measure-row"><span class="wa-rel-label">量词</span>${items}</div>`;
     }
 
-    let body = '';
-    if (!isCharOnly && comp.characters?.length) {
-      body = comp.characters.map(c => {
+    // Characters body (collapsed sub-toggle)
+    const chars = comp.characters || [];
+    let charBody = '';
+    if (chars.length) {
+      charBody = chars.map(c => {
+        const charEsc = (c.char || '').replace(/'/g, "\\'");
+        const pinEsc  = (c.pinyin || '').replace(/'/g, "\\'");
         let right = '';
         if (c.pinyin)             right += `<span class="wa-char-pin">${c.pinyin}</span>`;
         if (c.meaning_in_context) right += `<span class="wa-char-ctx">${c.meaning_in_context}</span>`;
-        if (c.etymology)          right += `<div class="wa-char-etym">${c.etymology}</div>`;
+        if (c.compounds?.length) {
+          const cps = c.compounds.map(cp =>
+            `<span class="wa-compound-item" title="${cp.meaning || ''}">${cp.compound_zh}` +
+            (cp.pinyin ? ` <span class="wa-compound-pin">${cp.pinyin}</span>` : '') +
+            `</span>`
+          ).join('');
+          right += `<div class="wa-compounds">${cps}</div>`;
+        }
+        if (c.etymology) right += `<div class="wa-char-etym">${c.etymology}</div>`;
         const tradHtml = (c.traditional && c.traditional !== c.char)
           ? `<span class="wa-char-trad">${c.traditional}</span>`
           : '';
-        return `<div class="wa-char-row">` +
+        return `<div class="wa-char-row" onclick="openHanziRegenModal(${c.char_id},'${charEsc}','${pinEsc}',true)">` +
           `<span class="wa-char-zh-col"><span class="wa-char-zh">${c.char}</span>${tradHtml}</span>` +
           `<div class="wa-char-right">${right}</div>` +
           `</div>`;
       }).join('');
     }
 
-    const cardId = `wa-card-${idx}`;
-    const bodyId = `wa-body-${idx}`;
-    const hasChars = body.length > 0;
-    return `<div class="wa-word-card" id="${cardId}">` +
-      `<div class="wa-word-header${hasChars ? ' wa-word-header-toggle' : ''}"` +
-        (hasChars ? ` onclick="toggleSection('${bodyId}')"` : '') + `>` +
-        header +
-        (hasChars ? `<span class="wa-toggle-arrow" id="${bodyId}-arrow">${expanded ? '▼' : '▶'}</span>` : '') +
-      `</div>` +
-      (hasChars ? `<div id="${bodyId}" class="wa-chars-list" style="display:${expanded ? 'block' : 'none'}">${body}</div>` : '') +
+    const hasChars = charBody.length > 0;
+    return `<div class="wa-word-card">` +
+      `<div class="wa-word-header">${header}</div>` +
+      (mwHtml ? `<div class="wa-word-extra">${mwHtml}</div>` : '') +
+      (hasChars
+        ? `<div class="wa-chars-toggle section-toggle" onclick="toggleSection('${bodyId}')">` +
+            `<span id="${bodyId}-arrow">▶</span> Characters</div>` +
+          `<div id="${bodyId}" class="wa-chars-list" style="display:none">${charBody}</div>`
+        : '') +
       `</div>`;
   }).join('');
 
   section.innerHTML =
-    `<div class="section-label">Word Analysis</div>` +
-    `<div class="wa-list">${wordCards}</div>`;
+    `<div class="section-label section-toggle" onclick="toggleSection('wa-section-body')">` +
+      `<span id="wa-section-body-arrow">▼</span> Word Analysis</div>` +
+    `<div id="wa-section-body" class="wa-list">${wordCards}</div>`;
 }
 
 function _callRenderWordAnalysis() {
-  renderGrammarNotesSection();
   renderWordAnalysis();
 }
 

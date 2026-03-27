@@ -807,6 +807,64 @@ main.browse-open {
   white-space: pre-wrap;
   margin-top: 2px;
 }
+.wa-browse-link {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 3px;
+}
+.wa-browse-link:hover { text-decoration-color: var(--primary); color: var(--primary); }
+.wa-word-extra {
+  padding: 4px 12px 6px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.wa-measure-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.wa-rel-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  min-width: 32px;
+}
+.wa-mw-item {
+  background: var(--bg);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 14px;
+  color: var(--text);
+}
+.wa-mw-pin { font-size: 12px; color: var(--muted); }
+.wa-chars-toggle {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+  padding: 6px 12px;
+  border-top: 1px solid var(--border);
+}
+.wa-compounds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 3px;
+}
+.wa-compound-item {
+  background: var(--bg);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: default;
+}
+.wa-compound-pin { font-size: 11px; color: var(--muted); }
 
 /* ── Creating: front input ───────────────────────────── */
 .sentence-en-front {

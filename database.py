@@ -836,6 +836,7 @@ def get_note_components(note_id: int) -> list[dict]:
         comp = dict(row)
         comp["characters"] = get_word_characters(comp["id"])
         comp["examples"] = get_word_examples(comp["id"])
+        comp["measure_words"] = get_word_measure_words(comp["id"])
         components.append(comp)
     return components
 
