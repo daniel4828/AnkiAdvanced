@@ -118,7 +118,7 @@
   pinyin: Wǒmen zài wàngjì rúhé zìjǐ zuòfàn.
   english: We are forgetting how to cook for ourselves.
   hsk: "4"
-  explanations: |        # 可选：语法或翻译说明（自由文本）
+  note: |                # 可选：语法或翻译说明（自由文本）
     ...
 
   grammar_structures:    # 语法结构（可选，存入 entry_grammar_structures 表）
