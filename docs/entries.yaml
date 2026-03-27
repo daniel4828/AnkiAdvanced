@@ -1,0 +1,62 @@
+# docs/entries.yaml
+#
+# Purpose: Incremental collection of vocabulary/sentence entries for the SRS system.
+#
+# How to add a new entry:
+#   1. Append a new item to the `entries` list below.
+#   2. Follow the schema shown in the commented examples.
+#   3. The supported `type` values are: word, sentence, chengyu, expression.
+#      (See docs/yaml-format.md for the full field reference.)
+#   4. Only `type`, `simplified`, `pinyin`, and `english` are required;
+#      all other fields are optional.
+#   5. Run `python main.py import` to load new entries into the database.
+#
+# Entry format examples (uncomment and fill in to add real entries):
+#
+# entries:
+#   # --- word example ---
+#   - type: word
+#     date: "MM/DD"           # e.g. "03/27"
+#     simplified: 示例        # required – used as unique identifier
+#     traditional: 示例       # omit if identical to simplified
+#     pinyin: shìlì
+#     english: example / illustration
+#     hsk: "4"                # 1–6 or "超纲"
+#     register: both          # spoken | written | both
+#     note: |
+#       Optional usage note.
+#     examples:
+#       - zh: 这是一个示例句子。
+#         pinyin: Zhè shì yīgè shìlì jùzi.
+#         de: Dies ist ein Beispielsatz.
+#     characters:
+#       - char: 示
+#         pinyin: shì
+#         hsk: "4"
+#         detailed_analysis: true
+#         meaning_in_context: to show / demonstrate
+#
+#   # --- sentence example ---
+#   - type: sentence
+#     date: "MM/DD"
+#     simplified: 学习是一辈子的事。
+#     pinyin: Xuéxí shì yībèizi de shì.
+#     english: Learning is a lifelong pursuit.
+#     hsk: "3-4"
+#     explanations: |
+#       Optional grammar or translation notes.
+#
+#   # --- chengyu / expression example ---
+#   - type: chengyu
+#     date: "MM/DD"
+#     simplified: 半途而废
+#     traditional: 半途而廢
+#     pinyin: bàn tú ér fèi
+#     english: to give up halfway
+#     hsk: "超纲"
+#     examples:
+#       - zh: 做事不能半途而废。
+#         pinyin: Zuòshì bù néng bàntú ér fèi.
+#         de: Man darf Dinge nicht auf halbem Weg aufgeben.
+
+entries: []
