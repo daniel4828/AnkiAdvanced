@@ -255,7 +255,6 @@ function renderDecks(decks) {
       <button class="nav-btn" onclick="openQuickAddCard()" title="Shortcut: A">Add Card</button>
       <button class="nav-btn" onclick="createDeck()">New Deck</button>
       <button class="nav-btn" onclick="openTrash()">Trash</button>
-      <div class="nav-shortcuts-help">Shortcuts: D Home, Command+I Import, B Browse, A Add Card</div>
     </div>`;
 
   const virtualDecks = decks.filter(d => d.virtual);
