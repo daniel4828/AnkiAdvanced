@@ -254,10 +254,12 @@ word_analyses:
 | `simplified` | `entries.word_zh` |
 | `english` | `entries.definition` |
 | `register` | `entries.register` |
+| `note` | `entries.notes`（通用用法备注，适用所有类型） |
+| `explanations` | `entries.grammar_notes`（sentence 类型的语法说明） |
 | `synonyms` / `antonyms` | `entry_relations` |
-| `measure_word` | `entry_measure_words` |
+| `measure_word` | `entry_measure_words`（顶层词条及 word_analyses 子词均适用） |
 | `examples` | `entry_examples` (type=`example`) |
 | `similar_sentences` | `entry_examples` (type=`similar`) |
 | `grammar_structures` | `entry_grammar_structures` |
 | `characters` | `entry_characters` → `characters` → `character_compounds` |
-| `word_analyses` | `entry_components` + 递归导入子词语 |
+| `word_analyses` | `entry_components` + 递归导入子词语（含汉字与量词） |

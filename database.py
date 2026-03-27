@@ -678,13 +678,14 @@ def insert_word(word: dict) -> int:
         """INSERT OR IGNORE INTO entries
            (word_zh, pinyin, definition, pos, hsk_level,
             traditional, definition_zh, source, note_type,
-            source_sentence, grammar_notes, register)
+            notes, source_sentence, grammar_notes, register)
            VALUES (:word_zh, :pinyin, :definition, :pos, :hsk_level,
                    :traditional, :definition_zh, :source, :note_type,
-                   :source_sentence, :grammar_notes, :register)""",
+                   :notes, :source_sentence, :grammar_notes, :register)""",
         {
             **word,
             "note_type":       word.get("note_type", "vocabulary"),
+            "notes":           word.get("notes"),
             "source_sentence": word.get("source_sentence"),
             "grammar_notes":   word.get("grammar_notes"),
             "register":        word.get("register"),

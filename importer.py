@@ -308,8 +308,9 @@ def _build_word_dict(entry: dict, source: str, note_type: str = "vocabulary") ->
         "definition_zh":   entry.get("definition_zh"),
         "source":          source,
         "note_type":       note_type,
+        "notes":           entry.get("note"),
         "source_sentence": entry.get("source_de"),
-        "grammar_notes":   entry.get("grammar_de"),
+        "grammar_notes":   entry.get("grammar_de") or entry.get("explanations"),
         "register":        entry.get("register"),  # spoken | written | both
     }
 
@@ -494,6 +495,7 @@ def _process_component(analysis: dict, note_word_id: int, position: int,
         database.update_word(comp_word_id, merged)
 
     _process_characters(analysis, comp_word_id)
+    _process_measure_words(analysis, comp_word_id)
 
     # Store examples if present
     for i, ex in enumerate(analysis.get("examples") or []):
