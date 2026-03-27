@@ -308,9 +308,9 @@ def _build_word_dict(entry: dict, source: str, note_type: str = "vocabulary") ->
         "definition_zh":   entry.get("definition_zh"),
         "source":          source,
         "note_type":       note_type,
-        "notes":           entry.get("note"),
+        "notes":           entry.get("note") or entry.get("explanations"),
         "source_sentence": entry.get("source_de"),
-        "grammar_notes":   entry.get("grammar_de") or entry.get("explanations"),
+        "grammar_notes":   None,
         "register":        entry.get("register"),  # spoken | written | both
     }
 

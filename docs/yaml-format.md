@@ -241,7 +241,7 @@ word_analyses:
 |-----------|----------|------|
 | `type: vocabulary` | ✅ | 等同于 `type: word` |
 | `measure_word` | ✅ | 量词列表键名 |
-| `grammar_de` | ✅ | 存入 `entries.grammar_notes` |
+| `explanations` | ✅ | sentence 类型旧字段，现统一写入 `entries.notes` |
 | `source_de` | ✅ | 存入 `entries.source_sentence` |
 | `definition_zh` | ✅ | 存入 `entries.definition_zh` |
 
@@ -254,8 +254,7 @@ word_analyses:
 | `simplified` | `entries.word_zh` |
 | `english` | `entries.definition` |
 | `register` | `entries.register` |
-| `note` | `entries.notes`（通用用法备注，适用所有类型） |
-| `explanations` | `entries.grammar_notes`（sentence 类型的语法说明） |
+| `note` | `entries.notes`（通用用法备注，适用所有类型；sentence 类型的 `explanations` 字段向后兼容，也写入此列） |
 | `synonyms` / `antonyms` | `entry_relations` |
 | `measure_word` | `entry_measure_words`（顶层词条及 word_analyses 子词均适用） |
 | `examples` | `entry_examples` (type=`example`) |
