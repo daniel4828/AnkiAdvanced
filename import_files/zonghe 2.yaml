@@ -1,0 +1,2124 @@
+# Comprehensive Vocabulary YAML File
+# All entries from the conversation session
+
+- type: chengyu
+  simplified: 受宠若惊
+  traditional: 受寵若驚
+  pinyin: shòu chǒng ruò jīng
+  english: to be overwhelmed by favor / to be overwhelmed by unexpected kindness
+  hsk: "6"
+  date: "03/27"
+  note: |
+    Describes feeling overwhelmed, nervous, or uneasy when receiving unexpected praise, favor, or recognition. Often used to express humble gratitude toward someone's kindness or compliment.
+  examples:
+    - zh: 对于您的邀请，我真是受宠若惊。
+      pinyin: Duìyú nín de yāoqǐng, wǒ zhēnshi shòuchǒngruòjīng.
+      english: I am truly overwhelmed by your invitation.
+    - zh: 被领导当面表扬，他有些受宠若惊。
+      pinyin: Bèi lǐngdǎo dāngmiàn biǎoyáng, tā yǒuxiē shòuchǒngruòjīng.
+      english: He was a bit overwhelmed when praised by the leader in person.
+  word_analyses:
+    - type: word
+      simplified: 受宠
+      traditional: 受寵
+      pinyin: shòuchǒng
+      english: to receive favor / to be favored
+      hsk: "6"
+      characters:
+        - char: 受
+          simplified: 受
+          traditional: 受
+          pinyin: shòu
+          hsk: "4"
+          detailed_analysis: true
+          meaning_in_context: to receive, to accept
+          compounds:
+            - simplified: 接受
+              pinyin: jiēshòu
+              meaning: to accept, to receive
+            - simplified: 忍受
+              pinyin: rěnshòu
+              meaning: to endure, to bear
+            - simplified: 感受
+              pinyin: gǎnshòu
+              meaning: to feel, feeling
+            - simplified: 受伤
+              pinyin: shòushāng
+              meaning: to be injured
+          etymology: |
+            Ideographic-phonetic compound. The oracle bone script shows a hand passing an object, meaning "to receive." 
+            The original meaning is "to accept, to receive." Extended to "to suffer, to endure" (e.g., 受伤 "to be injured"), 
+            and further to "to feel, sensation" (e.g., 感受 "to feel").
+        - char: 宠
+          simplified: 宠
+          traditional: 寵
+          pinyin: chǒng
+          hsk: "6"
+          detailed_analysis: true
+          meaning_in_context: favor, affection, to dote on
+          compounds:
+            - simplified: 宠爱
+              pinyin: chǒng'ài
+              meaning: to dote on, to favor
+            - simplified: 宠物
+              pinyin: chǒngwù
+              meaning: pet
+            - simplified: 得宠
+              pinyin: déchǒng
+              meaning: to gain favor
+            - simplified: 失宠
+              pinyin: shīchǒng
+              meaning: to lose favor
+          etymology: |
+            Phono-semantic compound. Composed of the radical 宀 (roof) and the phonetic component 龙 (dragon). 
+            The original meaning was "to be exalted, to be in a high position," extended to "to favor, to bestow favor."
+            The roof component suggests a high place; the dragon represents a noble creature. Together they mean 
+            "a noble person dwelling in a grand house," implying someone who receives favor or bestows it upon others.
+    - type: word
+      simplified: 若惊
+      traditional: 若驚
+      pinyin: ruòjīng
+      english: as if frightened / as if startled
+      characters:
+        - char: 若
+          simplified: 若
+          traditional: 若
+          pinyin: ruò
+          hsk: "4"
+          detailed_analysis: true
+          meaning_in_context: as if, like
+          compounds:
+            - simplified: 若干
+              pinyin: ruògān
+              meaning: several, a certain number
+            - simplified: 若是
+              pinyin: ruòshì
+              meaning: if
+            - simplified: 倘若
+              pinyin: tǎngruò
+              meaning: if, supposing
+            - simplified: 仿佛
+              pinyin: fǎngfú
+              meaning: as if, seem
+          etymology: |
+            Pictographic. The oracle bone script depicts a person kneeling with hands arranging their hair, 
+            suggesting "to be compliant, to follow." The original meaning was "to comply, to obey," extended 
+            to "like, as if" (indicating a comparison), and further to "if" (indicating a hypothesis). 
+            In classical Chinese, it was also used as a second-person pronoun "you," but this usage has disappeared.
+        - char: 惊
+          simplified: 惊
+          traditional: 驚
+          pinyin: jīng
+          hsk: "4"
+          detailed_analysis: true
+          meaning_in_context: startled, frightened
+          compounds:
+            - simplified: 惊讶
+              pinyin: jīngyà
+              meaning: surprised, amazed
+            - simplified: 吃惊
+              pinyin: chījīng
+              meaning: to be startled
+            - simplified: 惊恐
+              pinyin: jīngkǒng
+              meaning: terrified, panic
+            - simplified: 惊喜
+              pinyin: jīngxǐ
+              meaning: pleasantly surprised
+          etymology: |
+            Phono-semantic compound. The traditional form 驚 consists of the radical 馬 (horse) and the phonetic component 敬.
+            The original meaning was "a horse startled by sudden noise," as horses are particularly sensitive to loud sounds.
+            Later extended to any creature being startled or frightened. 
+            The simplified form 惊 uses the radical 忄 (heart) with the phonetic 京, representing internal emotional agitation.
+            Modern meanings include "to be startled, alarmed," and "to be surprised, amazed."
+
+- type: word
+  date: "03/27"
+  simplified: 宾主
+  traditional: 賓主
+  pinyin: bīnzhǔ
+  english: guest and host / host and guest
+  hsk: "5"
+  register: both
+  note: |
+    Refers to the relationship between a host and their guests. Often used in social contexts, business meetings, or formal occasions.
+  examples:
+    - zh: 宾主双方进行了友好的会谈。
+      pinyin: Bīnzhǔ shuāngfāng jìnxíngle yǒuhǎo de huìtán.
+      english: The host and guest had a friendly conversation.
+    - zh: 宴会上的宾主尽欢。
+      pinyin: Yànhuì shàng de bīnzhǔ jìn huān.
+      english: Both host and guests thoroughly enjoyed the banquet.
+    - zh: 宾主之间气氛融洽。
+      pinyin: Bīnzhǔ zhī jiān qìfēn róngqià.
+      english: The atmosphere between host and guests was harmonious.
+  synonyms:
+    - word: 主客
+      pinyin: zhǔkè
+      meaning: host and guest
+  characters:
+    - char: 宾
+      simplified: 宾
+      traditional: 賓
+      pinyin: bīn
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: guest
+      compounds:
+        - simplified: 宾客
+          pinyin: bīnkè
+          meaning: guests, visitors
+        - simplified: 贵宾
+          pinyin: guìbīn
+          meaning: distinguished guest, VIP
+        - simplified: 宾馆
+          pinyin: bīnguǎn
+          meaning: hotel, guesthouse
+        - simplified: 宾语
+          pinyin: bīnyǔ
+          meaning: object (grammar)
+      etymology: |
+        Phono-semantic compound. The traditional form 賓 consists of the radical 貝 (shellfish/money) and the phonetic component 𠦜 (a variant of 步). 
+        Shellfish were used as currency in ancient China, so 貝 indicates something valuable. The original meaning was "distinguished guest" 
+        (someone valuable or honored). The simplified form 宾 uses the radical 宀 (roof) and 兵 (soldier) as phonetic, representing "a guest 
+        staying under a roof." The meaning has always been "guest, visitor."
+    - char: 主
+      simplified: 主
+      traditional: 主
+      pinyin: zhǔ
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: host
+      compounds:
+        - simplified: 主人
+          pinyin: zhǔrén
+          meaning: host, master, owner
+        - simplified: 主要
+          pinyin: zhǔyào
+          meaning: main, primary, major
+        - simplified: 主动
+          pinyin: zhǔdòng
+          meaning: initiative, proactive
+        - simplified: 主持
+          pinyin: zhǔchí
+          meaning: to host, to preside over
+      etymology: |
+        Pictographic. The oracle bone script resembles a lamp with a flame, representing "that which gives light" or "the core, the main." 
+        The original meaning was "master, lord, ruler" — the one who is central or in charge. Extended to mean "host" (as opposed to guest), 
+        "primary" (as opposed to secondary), and "to be in charge of." The character has remained stable in form from seal script to modern times.
+
+- type: word
+  date: "03/27"
+  simplified: 名堂
+  traditional: 名堂
+  pinyin: míngtang
+  english: result / achievement / reason / what lies behind something / trick / variety
+  hsk: "5"
+  register: spoken
+  note: |
+    A versatile colloquial word with several meanings:
+    1. Result or achievement (usually in questions or negatives)
+    2. Reason or cause behind something
+    3. Trick, scheme, or hidden purpose
+    4. Variety or interesting aspects (in 有名堂)
+    Often used in the phrase "有什么名堂" (what's the point? / what's behind this?)
+  examples:
+    - zh: 他学了三年，也没学出什么名堂。
+      pinyin: Tā xuéle sān nián, yě méi xuéchū shénme míngtang.
+      english: He studied for three years but didn't achieve anything significant.
+    - zh: 这背后一定有什么名堂。
+      pinyin: Zhè bèihòu yīdìng yǒu shénme míngtang.
+      english: There must be something behind this / something fishy is going on.
+    - zh: 这个展览有点名堂，值得一看。
+      pinyin: Zhège zhǎnlǎn yǒudiǎn míngtang, zhídé yī kàn.
+      english: This exhibition has some interesting features; it's worth seeing.
+    - zh: 你到底想搞什么名堂？
+      pinyin: Nǐ dàodǐ xiǎng gǎo shénme míngtang?
+      english: What exactly are you up to? / What trick are you playing?
+  synonyms:
+    - word: 成果
+      pinyin: chéngguǒ
+      meaning: achievement, result
+    - word: 花样
+      pinyin: huāyàng
+      meaning: trick, pattern, variety
+  characters:
+    - char: 名
+      simplified: 名
+      traditional: 名
+      pinyin: míng
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: "name, reputation, (in this compound: indication, \"something\")"
+      compounds:
+        - simplified: 名字
+          pinyin: míngzi
+          meaning: name
+        - simplified: 姓名
+          pinyin: xìngmíng
+          meaning: full name
+        - simplified: 出名
+          pinyin: chūmíng
+          meaning: famous, to become famous
+        - simplified: 名声
+          pinyin: míngshēng
+          meaning: reputation, fame
+      etymology: |
+        Phono-semantic compound. Composed of 夕 (evening) and 口 (mouth). 
+        In ancient times, people identified each other by calling out names in the dark (夕 = evening, when visibility is poor). 
+        The original meaning was "to name, to call by name," extended to "name, reputation, fame." 
+        In colloquial compounds like 名堂, it adds the sense of "something with a name" → "something significant or noteworthy."
+    - char: 堂
+      simplified: 堂
+      traditional: 堂
+      pinyin: táng
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: "hall, room, (in this compound: thing, matter)"
+      compounds:
+        - simplified: 课堂
+          pinyin: kètáng
+          meaning: classroom
+        - simplified: 礼堂
+          pinyin: lǐtáng
+          meaning: auditorium, hall
+        - simplified: 食堂
+          pinyin: shítáng
+          meaning: canteen, dining hall
+        - simplified: 堂兄弟
+          pinyin: tángxiōngdì
+          meaning: paternal male cousins
+      etymology: |
+        Phono-semantic compound. The top component 尚 (shàng) is phonetic, originally meaning "to add, to elevate." 
+        The bottom component 土 (earth/ground) suggests foundation. 
+        The original meaning was "raised platform" or "great hall," referring to the main hall of a building. 
+        Extended to mean "hall, main room" and later "the main or formal aspect of something." 
+        In the compound 名堂, 堂 contributes the sense of "a formal or significant thing" — the "hall" of named matters, so to speak.
+
+- type: word
+  date: "03/27"
+  simplified: 乖乖
+  traditional: 乖乖
+  pinyin: guāiguāi
+  english: well-behaved / obedient / (interjection) oh my! / good heavens! / dear me!
+  hsk: "5"
+  register: spoken
+  note: |
+    A versatile colloquial word with two main uses:
+    1. As an adjective: describes a child or person as obedient, well-behaved, cute
+    2. As an interjection: expresses surprise, shock, or admiration (often "乖乖!" or "乖乖隆地咚!")
+    Can be used as a term of endearment, especially toward children.
+  examples:
+    - zh: 这孩子很乖乖，从来不哭闹。
+      pinyin: Zhè háizi hěn guāiguāi, cónglái bù kūnào.
+      english: This child is very well-behaved and never cries or fusses.
+    - zh: 乖乖！你居然考了第一名！
+      pinyin: Guāiguāi! Nǐ jūrán kǎole dì yī míng!
+      english: Oh my! You actually got first place!
+    - zh: 宝宝乖乖，妈妈马上回来。
+      pinyin: Bǎobao guāiguāi, māma mǎshàng huílái.
+      english: Be good, baby. Mommy will be right back.
+    - zh: 乖乖，这东西也太贵了吧！
+      pinyin: Guāiguāi, zhè dōngxi yě tài guì le ba!
+      english: Good heavens! This thing is way too expensive!
+  synonyms:
+    - word: 听话
+      pinyin: tīng huà
+      meaning: obedient, does what told
+    - word: 顺从
+      pinyin: shùncóng
+      meaning: compliant, submissive
+  characters:
+    - char: 乖
+      simplified: 乖
+      traditional: 乖
+      pinyin: guāi
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: obedient, well-behaved, cute
+      compounds:
+        - simplified: 乖巧
+          pinyin: guāiqiǎo
+          meaning: clever and well-behaved, cute
+        - simplified: 乖孩子
+          pinyin: guāi háizi
+          meaning: well-behaved child
+        - simplified: 乖张
+          pinyin: guāizhāng
+          meaning: eccentric, odd (opposite meaning)
+        - simplified: 乖离
+          pinyin: guāilí
+          meaning: to deviate, to diverge
+      etymology: |
+        Originally meant "to deviate, to be contrary." The character structure combines 北 (north/back-to-back) and 丿 (a stroke indicating divergence). 
+        The original meaning was "to go against, to be at odds." This meaning survives in words like 乖张 (eccentric, perverse). 
+        However, in colloquial usage, the meaning shifted through a kind of ironic reversal: children who are "deviant" in the sense of 
+        not causing trouble — staying out of the way — came to be called "well-behaved." Alternatively, the semantic shift may have come from 
+        "being apart (from trouble)" to "peaceful, quiet." The reduplicated form 乖乖 intensifies the meaning and also serves as a term of endearment.
+
+- type: word
+  date: "03/27"
+  simplified: 鲨鱼
+  traditional: 鯊魚
+  pinyin: shāyú
+  english: shark
+  hsk: "5"
+  register: both
+  note: |
+    Refers to any shark species. Often used in contexts related to marine life, cuisine (shark fin), or metaphorically to describe a predatory person or entity.
+  examples:
+    - zh: 海洋里有很多种鲨鱼。
+      pinyin: Hǎiyáng lǐ yǒu hěnduō zhǒng shāyú.
+      english: There are many species of sharks in the ocean.
+    - zh: 这部电影讲的是鲨鱼吃人的故事。
+      pinyin: Zhè bù diànyǐng jiǎng de shì shāyú chī rén de gùshi.
+      english: This movie is about sharks eating people.
+    - zh: 这些放高利贷的人简直就是鲨鱼。
+      pinyin: Zhèxiē fàng gāolìdài de rén jiǎnzhí jiùshì shāyú.
+      english: These loan sharks are literally like sharks.
+  measure_word:
+    - simplified: 条
+      pinyin: tiáo
+      meaning: for fish
+    - simplified: 只
+      pinyin: zhī
+      meaning: for animals
+  characters:
+    - char: 鲨
+      simplified: 鲨
+      traditional: 鯊
+      pinyin: shā
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: shark
+      compounds:
+        - simplified: 鲨鱼
+          pinyin: shāyú
+          meaning: shark
+        - simplified: 鲸鲨
+          pinyin: jīngshā
+          meaning: whale shark
+        - simplified: 大白鲨
+          pinyin: dàbáishā
+          meaning: great white shark
+        - simplified: 鲨鱼鳍
+          pinyin: shāyú qí
+          meaning: shark fin
+      etymology: |
+        Phono-semantic compound. The traditional form 鯊 consists of the radical 魚 (fish) and the phonetic component 沙 (shā, "sand"). 
+        The fish radical indicates it is a type of fish. The phonetic component 沙 (sand) possibly refers to the shark's sandy color or 
+        its habitat near sandy bottoms. The simplified form 鲨 uses the same phonetic 沙 with the simplified fish radical 鱼 (⿂→鱼). 
+        The character specifically denotes sharks, known in Chinese culture as large, powerful marine predators.
+    - char: 鱼
+      simplified: 鱼
+      traditional: 魚
+      pinyin: yú
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: fish
+      compounds:
+        - simplified: 金鱼
+          pinyin: jīnyú
+          meaning: goldfish
+        - simplified: 钓鱼
+          pinyin: diàoyú
+          meaning: to fish
+        - simplified: 鱼肉
+          pinyin: yúròu
+          meaning: fish meat
+        - simplified: 鱼缸
+          pinyin: yúgāng
+          meaning: fish tank, aquarium
+      etymology: |
+        Pictographic. The oracle bone script depicts a fish with head, body, fins, and scales. 
+        The traditional form 魚 retains the more complex shape, while the simplified 鱼 is a cursive simplification 
+        that reduces the character to a more abstract form while preserving the key elements. 
+        The character represents any fish and has remained one of the most stable pictographs in Chinese writing.
+
+- type: word
+  date: "03/27"
+  simplified: 肉松
+  traditional: 肉鬆
+  pinyin: ròusōng
+  english: pork floss / meat floss / dried meat fibers
+  hsk: "5"
+  register: both
+  note: |
+    A popular Chinese food product made by simmering pork (or other meat) in soy sauce and spices, then drying and shredding until it becomes fluffy, fibrous strands. Commonly used as a topping for congee, rice, steamed buns, or in pastries.
+  examples:
+    - zh: 我喜欢在白粥上撒一些肉松。
+      pinyin: Wǒ xǐhuān zài báizhōu shàng sā yīxiē ròusōng.
+      english: I like to sprinkle some pork floss on plain congee.
+    - zh: 肉松面包是很多人的早餐选择。
+      pinyin: Ròusōng miànbāo shì hěnduō rén de zǎocān xuǎnzé.
+      english: Pork floss bread is a breakfast choice for many people.
+    - zh: 这种肉松是用鸡肉做的，味道也不错。
+      pinyin: Zhè zhǒng ròusōng shì yòng jīròu zuò de, wèidào yě bùcuò.
+      english: This meat floss is made from chicken, and the taste is also pretty good.
+  measure_word:
+    - simplified: 包
+      pinyin: bāo
+      meaning: pack, bag
+    - simplified: 罐
+      pinyin: guàn
+      meaning: can, jar
+  characters:
+    - char: 肉
+      simplified: 肉
+      traditional: 肉
+      pinyin: ròu
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: meat
+      compounds:
+        - simplified: 猪肉
+          pinyin: zhūròu
+          meaning: pork
+        - simplified: 牛肉
+          pinyin: niúròu
+          meaning: beef
+        - simplified: 鸡肉
+          pinyin: jīròu
+          meaning: chicken
+        - simplified: 肉馅
+          pinyin: ròuxiàn
+          meaning: meat filling
+      etymology: |
+        Pictographic. The oracle bone script depicts a cut of meat, showing the shape of a piece of flesh with muscle striations. 
+        The original meaning is "animal flesh used as food." Over time, the character evolved from its pictographic form to the modern 
+        square shape, but still resembles a piece of meat in outline. In compounds, it indicates something related to meat or the body.
+    - char: 松
+      simplified: 松
+      traditional: 鬆
+      pinyin: sōng
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: fluffy, loose, shredded (texture)
+      compounds:
+        - simplified: 松软
+          pinyin: sōngruǎn
+          meaning: soft and fluffy
+        - simplified: 松散
+          pinyin: sōngsǎn
+          meaning: loose, scattered
+        - simplified: 放松
+          pinyin: fàngsōng
+          meaning: to relax
+        - simplified: 轻松
+          pinyin: qīngsōng
+          meaning: easy, light
+      etymology: |
+        The traditional form 鬆 is a phono-semantic compound with the radical 髟 (hair) and the phonetic component 松 (sōng). 
+        The hair radical suggests something loose, disheveled, or unbound — like hair hanging freely. 
+        The original meaning was "to loosen, to untie, to make slack." 
+        The simplified form 松 merges two characters: 松 (pine tree) and 鬆 (loose). 
+        In the context of 肉松, the character carries the meaning "loose, fluffy, shredded" — describing the characteristic texture 
+        of meat that has been dried and teased apart into fine, airy fibers.
+
+- type: word
+  date: "03/27"
+  simplified: 唬
+  traditional: 唬
+  pinyin: hǔ
+  english: to bluff / to intimidate / to scare / to fool
+  hsk: "6"
+  register: spoken
+  note: |
+    A colloquial verb meaning to bluff, threaten, or intimidate someone. Often used in reduplicated form 唬人 (to bluff people) or in the phrase 唬住 (to successfully intimidate/scare someone into submission). It implies deception or exaggeration to frighten or control someone.
+  examples:
+    - zh: 你别唬我，我早就知道真相了。
+      pinyin: Nǐ bié hǔ wǒ, wǒ zǎo jiù zhīdào zhēnxiàng le.
+      english: Don't try to bluff me. I already know the truth.
+    - zh: 他被警察几句话就唬住了。
+      pinyin: Tā bèi jǐngchá jǐ jù huà jiù hǔ zhù le.
+      english: He was intimidated by just a few words from the police.
+    - zh: 这个人就会唬人，其实没什么本事。
+      pinyin: Zhège rén jiù huì hǔ rén, qíshí méi shénme běnshì.
+      english: This guy is all bluff; he doesn't actually have any real ability.
+    - zh: 别拿这种话唬我，我不吃这套。
+      pinyin: Bié ná zhè zhǒng huà hǔ wǒ, wǒ bù chī zhè tào.
+      english: Don't try to scare me with that kind of talk. I'm not buying it.
+  synonyms:
+    - word: 吓唬
+      pinyin: xiàhu
+      meaning: to scare, to threaten
+    - word: 欺骗
+      pinyin: qīpiàn
+      meaning: to deceive, to cheat
+  characters:
+    - char: 唬
+      simplified: 唬
+      traditional: 唬
+      pinyin: hǔ
+      hsk: "6"
+      detailed_analysis: true
+      meaning_in_context: to bluff, to intimidate, to scare
+      compounds:
+        - simplified: 吓唬
+          pinyin: xiàhu
+          meaning: to scare, to threaten
+        - simplified: 唬人
+          pinyin: hǔrén
+          meaning: to bluff people, to intimidate
+        - simplified: 唬住
+          pinyin: hǔzhù
+          meaning: to successfully intimidate, to bluff someone into submission
+        - simplified: 唬弄
+          pinyin: hǔnong
+          meaning: to fool, to deceive, to bluff one's way through
+      etymology: |
+        Phono-semantic compound. The character consists of the radical 口 (mouth) and the phonetic component 虎 (hǔ, "tiger"). 
+        The mouth radical indicates speech or vocalization. The phonetic component 虎 (tiger) contributes both the sound and a semantic nuance: 
+        tigers are fierce, intimidating animals that roar. Together, they create the meaning "to roar like a tiger" → "to threaten verbally, 
+        to intimidate with words, to bluff." The character is primarily used in colloquial contexts and often appears in the reduplicated 
+        form 吓唬 (xiàhu), which is even more common in everyday speech. The use of the tiger component cleverly conveys the idea of 
+        using fierce words to frighten others, even if the threat is empty — much like a tiger's roar can be more intimidating than its actual attack.
+
+- type: chengyu
+  simplified: 胡说八道
+  traditional: 胡說八道
+  pinyin: hú shuō bā dào
+  english: to talk nonsense / to speak irresponsibly / sheer nonsense
+  hsk: "5"
+  date: "03/27"
+  note: |
+    A common idiom meaning "to talk nonsense" or "to speak without basis." 
+    胡 refers to the northern/nomadic peoples (perceived as speaking unintelligibly), and 八道 originally referred to the Eightfold Path in Buddhism.
+    Combined meaning: speaking like a foreigner (incomprehensibly) or spouting nonsense.
+  examples:
+    - zh: 他根本不懂这件事，完全是胡说八道。
+      pinyin: Tā gēnběn bù dǒng zhè jiàn shì, wánquán shì húshuōbādào.
+      english: He doesn't understand this matter at all; he's just talking nonsense.
+    - zh: 别听他的，他胡说八道呢。
+      pinyin: Bié tīng tā de, tā húshuōbādào ne.
+      english: Don't listen to him; he's talking nonsense.
+    - zh: 这种谣言纯粹是胡说八道，根本不值得相信。
+      pinyin: Zhè zhǒng yáoyán chúncuì shì húshuōbādào, gēnběn bù zhídé xiāngxìn.
+      english: This kind of rumor is pure nonsense and not worth believing at all.
+  synonyms:
+    - word: 胡言乱语
+      pinyin: húyán luànyǔ
+      meaning: to talk nonsense, to babble
+    - word: 瞎说
+      pinyin: xiāshuō
+      meaning: to talk rubbish
+  word_analyses:
+    - type: word
+      simplified: 胡说
+      traditional: 胡說
+      pinyin: húshuō
+      english: to talk nonsense
+      hsk: "5"
+      characters:
+        - char: 胡
+          simplified: 胡
+          traditional: 胡
+          pinyin: hú
+          hsk: "4"
+          detailed_analysis: true
+          meaning_in_context: "nonsense, recklessly (originally: foreign, northern tribes)"
+          compounds:
+            - simplified: 胡乱
+              pinyin: húluàn
+              meaning: carelessly, recklessly
+            - simplified: 胡来
+              pinyin: húlái
+              meaning: to mess around, to act recklessly
+            - simplified: 胡闹
+              pinyin: húnào
+              meaning: to act foolishly, to make trouble
+            - simplified: 胡萝卜
+              pinyin: húluóbo
+              meaning: carrot
+          etymology: |
+            Originally referred to the northern nomadic peoples (Xiongnu, etc.). During the Han dynasty, 胡 broadly meant "foreigners from the north/west." 
+            Because their languages sounded incomprehensible to the Chinese, 胡 came to mean "nonsensical, reckless, wild" — as in 胡说 (foreign talk → nonsense). 
+            The character combines 月 (moon/flesh) and 古 (ancient) as phonetic, though its original meaning was "dewlap" (the hanging flesh under an animal's chin).
+        - char: 说
+          simplified: 说
+          traditional: 說
+          pinyin: shuō
+          hsk: "1"
+          detailed_analysis: true
+          meaning_in_context: to speak
+          compounds:
+            - simplified: 说话
+              pinyin: shuōhuà
+              meaning: to speak, to talk
+            - simplified: 说明
+              pinyin: shuōmíng
+              meaning: to explain, explanation
+            - simplified: 听说
+              pinyin: tīngshuō
+              meaning: to be told, to hear (said)
+            - simplified: 小说
+              pinyin: xiǎoshuō
+              meaning: novel
+          etymology: |
+            Phono-semantic compound. The traditional form 說 consists of the radical 言 (speech) and the phonetic component 兌 (duì). 
+            The simplified form 说 uses the radical 讠 (simplified speech) and the phonetic component 兑 (duì). 
+            The original meaning was "to speak, to explain." The character has consistently been used to denote verbal expression.
+    - type: word
+      simplified: 八道
+      traditional: 八道
+      pinyin: bā dào
+      english: "the Eightfold Path (Buddhist) / (in this idiom: nonsense)"
+      characters:
+        - char: 八
+          simplified: 八
+          traditional: 八
+          pinyin: bā
+          hsk: "1"
+          detailed_analysis: true
+          meaning_in_context: eight
+          compounds:
+            - simplified: 八个
+              pinyin: bā ge
+              meaning: eight (items)
+            - simplified: 八月
+              pinyin: bāyuè
+              meaning: August, eighth month
+            - simplified: 十八
+              pinyin: shíbā
+              meaning: eighteen
+            - simplified: 八卦
+              pinyin: bāguà
+              meaning: the Eight Trigrams; gossip
+          etymology: |
+            Pictographic. The oracle bone script depicts two curved lines drawn apart, representing the concept of division or separation. 
+            Originally meant "to divide, to separate," but was borrowed early on for the number eight due to phonetic similarity. 
+            The character has remained largely unchanged for over 3,000 years.
+        - char: 道
+          simplified: 道
+          traditional: 道
+          pinyin: dào
+          hsk: "1"
+          detailed_analysis: true
+          meaning_in_context: "path, way, (in Buddhism: the Noble Path)"
+          compounds:
+            - simplified: 道路
+              pinyin: dàolù
+              meaning: road, path
+            - simplified: 知道
+              pinyin: zhīdào
+              meaning: to know
+            - simplified: 道理
+              pinyin: dàolǐ
+              meaning: reason, principle
+            - simplified: 道歉
+              pinyin: dàoqiàn
+              meaning: to apologize
+          etymology: |
+            Phono-semantic compound. Composed of the radical 辶 (walk, movement) and the phonetic component 首 (shǒu, "head"). 
+            The original meaning was "to lead, to guide" — a head leading the way. Extended to mean "path, road" (the thing being led along), 
+            then to "the Way" (Dao), and further to "to say, to speak" (the words that guide). 
+            In Buddhism, 道 translates "marga" (path), as in the Eightfold Path (八正道), the way to enlightenment.
+  etymology_note: |
+    The term 八道 originally referred to the Buddhist Eightfold Path (正见、正思、正语、正业、正命、正精进、正念、正定). 
+    胡说八道 thus originally meant "foreigners (胡) speaking about the Eightfold Path (八道)" — implying they didn't understand it and were 
+    talking nonsense about sacred Buddhist doctrine. Over time, the meaning generalized to simply "talking nonsense" or "speaking irresponsibly."
+
+- type: chengyu
+  simplified: 虚虚实实
+  traditional: 虛虛實實
+  pinyin: xū xū shí shí
+  english: the intermingling of truth and falsehood / the interplay of reality and illusion / using deception and reality strategically
+  hsk: "6"
+  date: "03/27"
+  note: |
+    Describes a situation where truth and falsehood, reality and illusion, are intertwined. Often used in military strategy, deception tactics, or situations where appearances are misleading. Originates from ancient Chinese military philosophy, particularly Sun Tzu's "The Art of War."
+  examples:
+    - zh: 战场上的虚虚实实，让敌人摸不清我方实力。
+      pinyin: Zhànchǎng shàng de xū xū shí shí, ràng dírén mō bù qīng wǒfāng shílì.
+      english: The intermingling of truth and deception on the battlefield made it impossible for the enemy to gauge our true strength.
+    - zh: 他的讲话虚虚实实，没人知道哪句是真的。
+      pinyin: Tā de jiǎnghuà xū xū shí shí, méi rén zhīdào nǎ jù shì zhēn de.
+      english: His speech mixed truth with lies; no one knew which sentences were true.
+    - zh: 做生意要懂得虚虚实实的策略，既要有诚信，也要有保留。
+      pinyin: Zuò shēngyì yào dǒngde xū xū shí shí de cèlüè, jì yào yǒu chéngxìn, yě yào yǒu bǎoliú.
+      english: In business, you need to understand the strategy of mixing truth with deception — you need both honesty and discretion.
+    - zh: 小说情节虚虚实实，让人分不清是历史还是虚构。
+      pinyin: Xiǎoshuō qíngjié xū xū shí shí, ràng rén fēn bù qīng shì lìshǐ háishì xūgòu.
+      english: The novel's plot blends fact and fiction so skillfully that it's hard to tell what's history and what's invented.
+  synonyms:
+    - word: 真真假假
+      pinyin: zhēn zhēn jiǎ jiǎ
+      meaning: truth interwoven with falsehood
+  word_analyses:
+    - type: word
+      simplified: 虚
+      traditional: 虛
+      pinyin: xū
+      english: empty / false / unreal / weak / humble
+      hsk: "4"
+      characters:
+        - char: 虚
+          simplified: 虚
+          traditional: 虛
+          pinyin: xū
+          hsk: "4"
+          detailed_analysis: true
+          meaning_in_context: false, unreal, deceptive
+          compounds:
+            - simplified: 虚假
+              pinyin: xūjiǎ
+              meaning: false, fake
+            - simplified: 谦虚
+              pinyin: qiānxū
+              meaning: humble, modest
+            - simplified: 虚弱
+              pinyin: xūruò
+              meaning: weak, feeble
+            - simplified: 空虚
+              pinyin: kōngxū
+              meaning: empty, hollow
+          etymology: |
+            Phono-semantic compound. The traditional form 虛 consists of the radical 虍 (tiger) and the phonetic component 丘 (qiū, "hill"). 
+            The tiger component originally depicted a tiger's stripes, giving a sense of "empty" or "hollow" (like a tiger's roar without substance, 
+            or the tiger's empty lair). The original meaning was "large hill" or "ruin," extended to "empty, void." 
+            In military strategy, 虚 means "weak point, empty spot, feint" — a place where the enemy is vulnerable or where deception is used.
+    - type: word
+      simplified: 实
+      traditional: 實
+      pinyin: shí
+      english: real / true / solid / full / actual
+      hsk: "3"
+      characters:
+        - char: 实
+          simplified: 实
+          traditional: 實
+          pinyin: shí
+          hsk: "3"
+          detailed_analysis: true
+          meaning_in_context: real, true, solid
+          compounds:
+            - simplified: 实际
+              pinyin: shíjì
+              meaning: actual, reality, practical
+            - simplified: 实在
+              pinyin: shízài
+              meaning: really, indeed, genuine
+            - simplified: 真实
+              pinyin: zhēnshí
+              meaning: true, authentic
+            - simplified: 实力
+              pinyin: shílì
+              meaning: strength, actual power
+          etymology: |
+            Phono-semantic compound. The traditional form 實 consists of the radical 宀 (roof) and the phonetic component 貫 (guàn, "string of coins"). 
+            The roof radical indicates a house, and the phonetic component represents goods or wealth. Together they mean "a house filled with goods" → 
+            "full, abundant, substantial." The original meaning was "full, filled, rich." Extended to mean "real, actual, true" — 
+            the opposite of empty or false. In military strategy, 实 means "strong point, solid position, real strength."
+  etymology_note: |
+    This chengyu originates from ancient Chinese military strategy, most famously articulated in Sun Tzu's "The Art of War" (孙子兵法): 
+    "故善战者，致人而不致于人... 虚则实之，实则虚之" — "Therefore the skilled commander moves the enemy and is not moved by the enemy... 
+    When weak, appear strong; when strong, appear weak."
+    
+    The concept of 虚 (emptiness/weakness/false) and 实 (fullness/strength/real) is central to Chinese strategic thought. 
+    By alternating between showing strength and weakness, truth and falsehood, a commander keeps the enemy confused and uncertain. 
+    The reduplicated form 虚虚实实 emphasizes the continuous, dynamic interplay between these opposites — a constant shifting 
+    between deception and reality to maintain the strategic advantage.
+    
+    Over time, the phrase expanded beyond military contexts to describe any situation where truth and falsehood are deliberately 
+    or naturally intertwined — in business, politics, storytelling, or everyday life where appearances can't be trusted.
+
+- type: chengyu
+  simplified: 从实招来
+  traditional: 從實招來
+  pinyin: cóng shí zhāo lái
+  english: to confess the truth / to tell the truth under interrogation
+  hsk: "6"
+  date: "03/27"
+  note: |
+    A phrase used in interrogations or confrontations, demanding someone tell the truth honestly. Often used by authority figures (police, judges, parents) when they believe someone is hiding something or lying. Has a classical, somewhat stern tone.
+  examples:
+    - zh: 罪犯在审讯中终于从实招来。
+      pinyin: Zuìfàn zài shěnxùn zhōng zhōngyú cóngshízhāolái.
+      english: The criminal finally confessed the truth during interrogation.
+    - zh: 还不从实招来？你昨晚到底去哪了？
+      pinyin: Hái bù cóngshízhāolái? Nǐ zuówǎn dàodǐ qù nǎ le?
+      english: Are you going to confess the truth? Where did you really go last night?
+    - zh: 在铁证面前，他只能从实招来。
+      pinyin: Zài tiězhèng miànqián, tā zhǐnéng cóngshízhāolái.
+      english: Faced with irrefutable evidence, he had no choice but to confess the truth.
+    - zh: 法官要求被告从实招来。
+      pinyin: Fǎguān yāoqiú bèigào cóngshízhāolái.
+      english: The judge demanded that the defendant confess the truth.
+  synonyms:
+    - word: 坦白
+      pinyin: tǎnbái
+      meaning: to confess, to be honest
+    - word: 招供
+      pinyin: zhāogòng
+      meaning: to confess, to make a confession (legal term)
+  word_analyses:
+    - type: word
+      simplified: 从实
+      traditional: 從實
+      pinyin: cóngshí
+      english: according to the truth / honestly
+      characters:
+        - char: 从
+          simplified: 从
+          traditional: 從
+          pinyin: cóng
+          hsk: "1"
+          detailed_analysis: true
+          meaning_in_context: according to, following, from
+          compounds:
+            - simplified: 从来
+              pinyin: cónglái
+              meaning: always, at all times
+            - simplified: 从前
+              pinyin: cóngqián
+              meaning: before, formerly
+            - simplified: 服从
+              pinyin: fúcóng
+              meaning: to obey, to follow
+            - simplified: 从事
+              pinyin: cóngshì
+              meaning: to engage in, to undertake
+          etymology: |
+            The simplified form 从 is one of the oldest characters, depicting two people walking together — one following the other. 
+            The oracle bone script shows two figures, representing "to follow, to accompany." 
+            The traditional form 從 adds the radical 彳 (step) and 辶 (walk), emphasizing movement. 
+            The original meaning was "to follow, to accompany." Extended to mean "from, through, according to" — indicating following a source or standard.
+        - char: 实
+          simplified: 实
+          traditional: 實
+          pinyin: shí
+          hsk: "3"
+          detailed_analysis: true
+          meaning_in_context: truth, reality
+          compounds:
+            - simplified: 实际
+              pinyin: shíjì
+              meaning: actual, reality
+            - simplified: 真实
+              pinyin: zhēnshí
+              meaning: true, authentic
+            - simplified: 事实
+              pinyin: shìshí
+              meaning: fact
+            - simplified: 实在
+              pinyin: shízài
+              meaning: really, genuine
+          etymology: |
+            Phono-semantic compound. The traditional form 實 consists of the radical 宀 (roof) and the phonetic component 貫 (guàn, "string of coins"). 
+            The roof radical indicates a house, and the phonetic represents goods/wealth. Together they mean "a house filled with goods" → "full, abundant." 
+            Extended to mean "real, true" — what is substantial and not empty. The simplified form 实 preserves the roof radical 宀 and simplifies the bottom.
+    - type: word
+      simplified: 招来
+      traditional: 招來
+      pinyin: zhāolái
+      english: to confess / to admit (under questioning)
+      characters:
+        - char: 招
+          simplified: 招
+          traditional: 招
+          pinyin: zhāo
+          hsk: "4"
+          detailed_analysis: true
+          meaning_in_context: to confess, to admit, to beckon
+          compounds:
+            - simplified: 招手
+              pinyin: zhāoshǒu
+              meaning: to wave, to beckon
+            - simplified: 招聘
+              pinyin: zhāopìn
+              meaning: to recruit, to hire
+            - simplified: 招待
+              pinyin: zhāodài
+              meaning: to entertain, to serve guests
+            - simplified: 招供
+              pinyin: zhāogòng
+              meaning: to confess (legal term)
+          etymology: |
+            Phono-semantic compound. Composed of the radical 扌 (hand) and the phonetic component 召 (zhào, "to summon"). 
+            The hand radical indicates an action involving the hand. The original meaning was "to beckon, to gesture with the hand." 
+            Extended to "to summon, to call forth." In legal contexts, it developed the specialized meaning "to confess" — 
+            as in "to bring forth the truth" under questioning.
+        - char: 来
+          simplified: 来
+          traditional: 來
+          pinyin: lái
+          hsk: "1"
+          detailed_analysis: true
+          meaning_in_context: (particle indicating completion or direction)
+          compounds:
+            - simplified: 到来
+              pinyin: dàolái
+              meaning: arrival
+            - simplified: 未来
+              pinyin: wèilái
+              meaning: future
+            - simplified: 回来
+              pinyin: huílái
+              meaning: to come back
+            - simplified: 出来
+              pinyin: chūlái
+              meaning: to come out
+          etymology: |
+            Pictographic. The traditional form 來 originally depicted a wheat plant (the original meaning was "wheat"). 
+            It was borrowed early on for the verb "to come" due to phonetic similarity. The simplified form 来 preserves the essential shape.
+            In 招来, 来 functions as a directional complement indicating that the confession is "brought forth" or "comes out."
+  etymology_note: |
+    This phrase is historically associated with judicial interrogations in imperial China. 
+    When magistrates questioned suspects, they would demand they "confess according to the truth" (从实招来). 
+    The phrase appears frequently in classical literature like "Water Margin" (水浒传) and other Ming/Qing dynasty novels 
+    depicting courtroom scenes. It carries an authoritative, formal tone — often used by figures of authority who are 
+    demanding honesty from someone they believe is concealing the truth.
+    
+    In modern usage, it's used somewhat humorously or dramatically in everyday situations (e.g., parents to children, 
+    friends joking about secrets), though it retains its original serious meaning in legal contexts.
+
+- type: word
+  date: "03/27"
+  simplified: 悲壮
+  traditional: 悲壯
+  pinyin: bēizhuàng
+  english: solemn and stirring / tragic and heroic / moving and heroic
+  hsk: "6"
+  register: written
+  note: |
+    Describes a scene, event, or death that is both tragic and heroic — evoking a mix of sorrow and admiration. Often used for sacrifices, battles, or moments of noble struggle that end in tragedy but inspire awe. Combines 悲 (sorrow, grief) and 壮 (heroic, grand, powerful).
+  examples:
+    - zh: 战士们英勇牺牲的场面十分悲壮。
+      pinyin: Zhànshìmen yīngyǒng xīshēng de chǎngmiàn shífēn bēizhuàng.
+      english: The scene of the soldiers' heroic sacrifice was deeply solemn and stirring.
+    - zh: 这部电影以悲壮的结局收尾，令人久久难忘。
+      pinyin: Zhè bù diànyǐng yǐ bēizhuàng de jiéjú shōuwěi, lìng rén jiǔjiǔ nánwàng.
+      english: This film ends with a tragic and heroic conclusion that lingers in the memory.
+    - zh: 他的生命虽然短暂，却活得悲壮而精彩。
+      pinyin: Tā de shēngmìng suīrán duǎnzàn, què huó dé bēizhuàng ér jīngcǎi.
+      english: Though his life was short, he lived it in a tragic yet magnificent way.
+    - zh: 这首悲壮的歌曲让人热血沸腾。
+      pinyin: Zhè shǒu bēizhuàng de gēqǔ ràng rén rèxuè fèiténg.
+      english: This solemn and stirring song fills one with surging passion.
+  synonyms:
+    - word: 壮烈
+      pinyin: zhuàngliè
+      meaning: heroic and tragic (usually for death)
+    - word: 慷慨悲歌
+      pinyin: kāngkǎi bēigē
+      meaning: heroic and mournful
+  characters:
+    - char: 悲
+      simplified: 悲
+      traditional: 悲
+      pinyin: bēi
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: sorrow, grief, tragic
+      compounds:
+        - simplified: 悲伤
+          pinyin: bēishāng
+          meaning: sad, sorrowful
+        - simplified: 悲剧
+          pinyin: bēijù
+          meaning: tragedy
+        - simplified: 悲痛
+          pinyin: bēitòng
+          meaning: grief, sorrow
+        - simplified: 慈悲
+          pinyin: cíbēi
+          meaning: compassion, mercy
+      etymology: |
+        Phono-semantic compound. Consists of the radical 心 (heart, below) and the phonetic component 非 (fēi, "not"). 
+        The heart radical indicates emotion. The phonetic 非 originally meant "to oppose, to be wrong" — carrying a sense of something not right, 
+        something contrary to one's wishes. Combined, they express the feeling of sorrow when things go contrary to one's desires. 
+        The original meaning is "sadness, grief." In Buddhist contexts, 悲 means "compassion" (feeling others' suffering as one's own).
+    - char: 壮
+      simplified: 壮
+      traditional: 壯
+      pinyin: zhuàng
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: heroic, grand, powerful, magnificent
+      compounds:
+        - simplified: 壮大
+          pinyin: zhuàngdà
+          meaning: to expand, to grow strong
+        - simplified: 强壮
+          pinyin: qiángzhuàng
+          meaning: strong, robust
+        - simplified: 壮观
+          pinyin: zhuàngguān
+          meaning: magnificent, spectacular
+        - simplified: 壮烈
+          pinyin: zhuàngliè
+          meaning: heroic and tragic
+      etymology: |
+        Phono-semantic compound. The traditional form 壯 consists of the radical 士 (scholar/warrior) and the phonetic component 爿 (qiáng, "bed" or "wood plank"). 
+        The 士 radical originally depicted a battle axe, representing a warrior or strong man. The character's original meaning is "strong, robust, muscular." 
+        Extended to mean "grand, magnificent" (as in 壮观) and "heroic, brave" (as in 壮烈). 
+        The simplified form 壮 retains the 士 radical and simplifies the phonetic component to 丬.
+  etymology_note: |
+    The compound 悲壮 brings together sorrow (悲) and heroism (壮) — a combination that creates a uniquely powerful emotional resonance. 
+    Unlike pure tragedy (which evokes only pity or fear) or pure heroism (which evokes admiration), 悲壮 describes moments where 
+    greatness and tragedy coexist: a noble struggle that ends in sacrifice, a heroic act performed in the face of certain death. 
+    
+    The concept has deep roots in Chinese culture, from ancient tales of loyal ministers and righteous warriors who died for their principles, 
+    to modern narratives of revolutionary martyrs. 悲壮 moments are often remembered precisely because they transform loss into a kind of 
+    moral or spiritual victory — sorrow mixed with reverence, grief intertwined with pride.
+
+- type: word
+  date: "03/27"
+  simplified: 笋
+  traditional: 筍
+  pinyin: sǔn
+  english: bamboo shoot
+  hsk: "6"
+  register: both
+  note: |
+    Refers to the edible young shoot of bamboo, a common ingredient in Chinese cuisine. Can be eaten fresh, dried, or pickled. 
+    Also appears in idioms and colloquial expressions. Often paired with 竹 (bamboo) or used in compound words like 春笋 (spring bamboo shoots).
+  examples:
+    - zh: 春天是吃笋的最佳季节。
+      pinyin: Chūntiān shì chī sǔn de zuìjiā jìjié.
+      english: Spring is the best season to eat bamboo shoots.
+    - zh: 这道菜用的是新鲜竹笋。
+      pinyin: Zhè dào cài yòng de shì xīnxiān zhúsǔn.
+      english: This dish uses fresh bamboo shoots.
+    - zh: 雨后的春笋长得特别快。
+      pinyin: Yǔ hòu de chūnsǔn zhǎng de tèbié kuài.
+      english: Spring bamboo shoots grow especially fast after rain.
+  measure_word:
+    - simplified: 根
+      pinyin: gēn
+      meaning: for shoots/stalks
+    - simplified: 棵
+      pinyin: kē
+      meaning: for plants
+  characters:
+    - char: 笋
+      simplified: 笋
+      traditional: 筍
+      pinyin: sǔn
+      hsk: "6"
+      detailed_analysis: true
+      meaning_in_context: bamboo shoot
+      compounds:
+        - simplified: 竹笋
+          pinyin: zhúsǔn
+          meaning: bamboo shoot
+        - simplified: 春笋
+          pinyin: chūnsǔn
+          meaning: spring bamboo shoot
+        - simplified: 笋干
+          pinyin: sǔngān
+          meaning: dried bamboo shoot
+        - simplified: 冬笋
+          pinyin: dōngsǔn
+          meaning: winter bamboo shoot
+        - simplified: 雨后春笋
+          pinyin: yǔ hòu chūnsǔn
+          meaning: like bamboo shoots after rain — to spring up rapidly (idiom)
+      etymology: |
+        Phono-semantic compound. The traditional form 筍 consists of the radical ⺮ (bamboo) and the phonetic component 旬 (xún, "ten-day period").
+        The bamboo radical indicates the plant category. The phonetic component 旬 suggests the idea of "tender, young" — 
+        bamboo shoots are the tender new growth that appears in cycles.
+        
+        The simplified form 笋 uses the radical ⺮ (bamboo, simplified to ⺮ on top) with the phonetic component 尹 (yǐn). 
+        The character captures the essence: bamboo shoots are the young, tender sprouts that emerge from bamboo roots.
+        
+        Bamboo shoots are culturally significant in China — they symbolize rapid growth and vitality. The idiom 雨后春笋 
+        ("like bamboo shoots after rain") vividly describes how things spring up quickly and abundantly, a metaphor still 
+        widely used today.
+
+- type: word
+  date: "03/27"
+  simplified: 白
+  traditional: 白
+  pinyin: bái
+  english: (in this usage) to glare at / to give a dirty look / to stare coldly
+  hsk: "1"
+  register: spoken
+  note: |
+    When used as a verb with 了一眼, 白 means "to glare at" or "to give someone a dirty look." 
+    The full construction is 白了一眼 (báile yī yǎn) — "glanced with the whites of the eyes." 
+    This usage emphasizes turning the eyes upward or sideways to show disdain, disapproval, or annoyance.
+  examples:
+    - zh: 他说完那句话，她白了他一眼。
+      pinyin: Tā shuō wán nà jù huà, tā báile tā yī yǎn.
+      english: After he said that, she gave him a dirty look.
+    - zh: 别白我！我又没做错什么。
+      pinyin: Bié bái wǒ! Wǒ yòu méi zuòcuò shénme.
+      english: Don't glare at me! I didn't do anything wrong.
+    - zh: 老师白了他一眼，他立刻安静下来。
+      pinyin: Lǎoshī báile tā yī yǎn, tā lìkè ānjìng xiàlái.
+      english: The teacher shot him a glare, and he immediately fell silent.
+    - zh: 听到这个荒唐的建议，她忍不住白了他一眼。
+      pinyin: Tīng dào zhège huāngtáng de jiànyì, tā rěnbùzhù báile tā yī yǎn.
+      english: Upon hearing this absurd suggestion, she couldn't help but give him a dirty look.
+  synonyms:
+    - word: 瞪
+      pinyin: dèng
+      meaning: to stare angrily, to glare
+    - word: 翻白眼
+      pinyin: fān báiyǎn
+      meaning: to roll one's eyes
+  characters:
+    - char: 白
+      simplified: 白
+      traditional: 白
+      pinyin: bái
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: the white of the eye / to glare
+      compounds:
+        - simplified: 白色
+          pinyin: báisè
+          meaning: white color
+        - simplified: 白天
+          pinyin: báitiān
+          meaning: daytime
+        - simplified: 明白
+          pinyin: míngbai
+          meaning: to understand, clear
+        - simplified: 白费
+          pinyin: báifèi
+          meaning: wasted, in vain
+      etymology: |
+        Pictographic. The oracle bone script depicts the shape of a grain of rice or a flame, representing the color white. 
+        Another interpretation: the character shows the tip of a thumb (with nail), which appears white. 
+        The original meaning is the color white, symbolizing clarity, purity, and brightness.
+        
+        The verb usage meaning "to glare" derives from the phrase 白眼 (báiyǎn) — "the white of the eye." 
+        Giving someone "the whites of the eyes" by turning them upward or sideways is a gesture of contempt, disdain, or disapproval. 
+        This idiom dates back to ancient times; the Jin Dynasty poet Ruan Ji was famous for treating people he liked with 青眼 
+        (qīngyǎn — "black eyes," i.e., looking straight) and people he disliked with 白眼 (báiyǎn — "white eyes," i.e., turning away coldly).
+        
+        Thus, 白 as a verb means "to show the whites of the eyes at someone" — a non-verbal expression of scorn or annoyance.
+
+- type: word
+  date: "03/27"
+  simplified: 世面
+  traditional: 世面
+  pinyin: shìmiàn
+  english: the world / society / the ways of the world / worldly experience
+  hsk: "6"
+  register: spoken
+  note: |
+    Refers to the broader world, society, or life outside one's immediate experience. Often used in phrases like 见世面 (to see the world, to gain experience) or 没见过世面 (inexperienced, naive). Carries the idea of having exposure to different people, places, and situations.
+  examples:
+    - zh: 他从小在农村长大，没见过什么世面。
+      pinyin: Tā cóngxiǎo zài nóngcūn zhǎngdà, méi jiànguo shénme shìmiàn.
+      english: He grew up in the countryside and hasn't seen much of the world.
+    - zh: 趁年轻多出去走走，见见世面。
+      pinyin: Chèn niánqīng duō chūqù zǒuzou, jiànjian shìmiàn.
+      english: Travel while you're young and see more of the world.
+    - zh: 他在上海工作多年，见过大世面。
+      pinyin: Tā zài Shànghǎi gōngzuò duō nián, jiànguo dà shìmiàn.
+      english: He has worked in Shanghai for many years and has experienced a lot.
+    - zh: 这位外交官见多识广，见过各种世面。
+      pinyin: Zhè wèi wàijiāoguān jiàn duō shí guǎng, jiànguo gèzhǒng shìmiàn.
+      english: This diplomat is well-traveled and experienced, having seen all kinds of situations.
+  synonyms:
+    - word: 阅历
+      pinyin: yuèlì
+      meaning: experience, worldly experience
+    - word: 社会经验
+      pinyin: shèhuì jīngyàn
+      meaning: social experience, worldly wisdom
+  characters:
+    - char: 世
+      simplified: 世
+      traditional: 世
+      pinyin: shì
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: world, society, generation
+      compounds:
+        - simplified: 世界
+          pinyin: shìjiè
+          meaning: world
+        - simplified: 世纪
+          pinyin: shìjì
+          meaning: century
+        - simplified: 世代
+          pinyin: shìdài
+          meaning: generation, era
+        - simplified: 出世
+          pinyin: chūshì
+          meaning: to be born, to come into the world
+      etymology: |
+        Pictographic. The oracle bone script depicted three dots or lines representing "thirty" — a generation in ancient China. 
+        The original meaning was "thirty years" (one generation). Extended to mean "generation" and then "era, age." 
+        Further extended to "the world, society" — the broader scope of human existence across generations. 
+        The modern form is a cursive simplification of the ancient character, losing the original pictographic elements but retaining the meaning.
+    - char: 面
+      simplified: 面
+      traditional: 面
+      pinyin: miàn
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: aspect, side, face, extent
+      compounds:
+        - simplified: 面对
+          pinyin: miànduì
+          meaning: to face, to confront
+        - simplified: 面前
+          pinyin: miànqián
+          meaning: in front of, before
+        - simplified: 表面
+          pinyin: biǎomiàn
+          meaning: surface, appearance
+        - simplified: 全面
+          pinyin: quánmiàn
+          meaning: comprehensive, overall
+      etymology: |
+        Pictographic. The original character 面 depicted a face with eyes and the outline of the head. 
+        The traditional form 麵 (noodles) is a separate character that merged with 面 in simplification. 
+        The original meaning is "face" — the front of the head. Extended to mean "surface, side, aspect" (the visible side of something). 
+        Further extended to "extent, scope" (as in 全面 — all aspects). 
+        In 世面, the character contributes the sense of "aspects, facets" of the world — the many sides of life and society.
+  etymology_note: |
+    The compound 世面 combines 世 (world, society) and 面 (aspect, side) to mean "the various aspects of the world" — 
+    the breadth of human experience, society, and life beyond one's immediate environment.
+    
+    The phrase 见世面 (jiàn shìmiàn) is culturally significant in Chinese discourse. Having "seen the world" implies 
+    sophistication, cultural knowledge, and the ability to handle complex social situations. Conversely, someone who has 
+    "not seen the world" (没见过世面) is considered naive, provincial, or easily impressed by things city-dwellers 
+    or experienced people take for granted.
+    
+    This concept has roots in traditional Chinese values that emphasize the importance of travel, education, and exposure 
+    to diverse experiences as essential to becoming a well-rounded, capable person. In modern usage, it remains a common 
+    way to talk about personal growth and life experience.
+
+- type: chengyu
+  simplified: 含情脉脉
+  traditional: 含情脈脈
+  pinyin: hán qíng mò mò
+  english: (of eyes) full of affection / gazing tenderly / brimming with unspoken love
+  hsk: "6"
+  date: "03/27"
+  note: |
+    Describes eyes filled with deep, unspoken emotion — usually romantic affection. Often used to depict the way lovers look at each other or someone gazing at their beloved with tenderness. Conveys a sense of silent, heartfelt emotion that words cannot express.
+  examples:
+    - zh: 她含情脉脉地看着他，一句话也说不出来。
+      pinyin: Tā hánqíngmòmò de kànzhe tā, yī jù huà yě shuō bù chūlái.
+      english: She gazed at him with tender affection, unable to say a word.
+    - zh: 两人在烛光下含情脉脉地对望。
+      pinyin: Liǎng rén zài zhúguāng xià hánqíngmòmò de duìwàng.
+      english: The two gazed at each other lovingly by candlelight.
+    - zh: 她的眼神含情脉脉，令人心动。
+      pinyin: Tā de yǎnshén hánqíngmòmò, lìng rén xīndòng.
+      english: Her eyes were full of affection, enough to make anyone's heart flutter.
+    - zh: 离别时，她含情脉脉地回头望了他一眼。
+      pinyin: Líbié shí, tā hánqíngmòmò de huítóu wàngle tā yī yǎn.
+      english: When parting, she turned back and gave him a lingering, affectionate glance.
+  synonyms:
+    - word: 情深意切
+      pinyin: qíng shēn yì qiè
+      meaning: deep affection, heartfelt emotions
+    - word: 柔情似水
+      pinyin: róuqíng sì shuǐ
+      meaning: tender feelings like water
+  word_analyses:
+    - type: word
+      simplified: 含情
+      traditional: 含情
+      pinyin: hánqíng
+      english: filled with emotion, brimming with feeling
+      characters:
+        - char: 含
+          simplified: 含
+          traditional: 含
+          pinyin: hán
+          hsk: "4"
+          detailed_analysis: true
+          meaning_in_context: to hold in the mouth, to contain, to harbor
+          compounds:
+            - simplified: 包含
+              pinyin: bāohán
+              meaning: to contain, to include
+            - simplified: 含义
+              pinyin: hányì
+              meaning: meaning, implication
+            - simplified: 含笑
+              pinyin: hánxiào
+              meaning: with a smile
+            - simplified: 含泪
+              pinyin: hánlèi
+              meaning: with tears in one's eyes
+          etymology: |
+            Phono-semantic compound. Consists of the radical 口 (mouth) and the phonetic component 今 (jīn, "now"). 
+            The mouth radical indicates the original meaning: "to hold something in the mouth." 
+            Extended to mean "to contain, to harbor (emotions)" — as if holding feelings within, like holding something in the mouth without swallowing or spitting it out.
+        - char: 情
+          simplified: 情
+          traditional: 情
+          pinyin: qíng
+          hsk: "3"
+          detailed_analysis: true
+          meaning_in_context: emotion, feeling, affection
+          compounds:
+            - simplified: 感情
+              pinyin: gǎnqíng
+              meaning: emotion, feeling
+            - simplified: 爱情
+              pinyin: àiqíng
+              meaning: romantic love
+            - simplified: 心情
+              pinyin: xīnqíng
+              meaning: mood, state of mind
+            - simplified: 热情
+              pinyin: rèqíng
+              meaning: enthusiasm, passion
+          etymology: |
+            Phono-semantic compound. Consists of the radical 忄 (heart) and the phonetic component 青 (qīng, "blue/green"). 
+            The heart radical indicates it relates to feelings or emotions. The original meaning is "emotion, feeling, sentiment."
+    - type: word
+      simplified: 脉脉
+      traditional: 脈脈
+      pinyin: mò mò
+      english: (of eyes) gazing with affection / silently expressing emotion
+      characters:
+        - char: 脉
+          simplified: 脉
+          traditional: 脈
+          pinyin: mò (in this context, also mài)
+          hsk: "5"
+          detailed_analysis: true
+          meaning_in_context: (in reduplicated form) gazing tenderly, full of unspoken emotion
+          compounds:
+            - simplified: 脉搏
+              pinyin: màibó
+              meaning: pulse
+            - simplified: 脉络
+              pinyin: màiluò
+              meaning: veins and arteries; context, sequence
+            - simplified: 山脉
+              pinyin: shānmài
+              meaning: mountain range
+            - simplified: 脉脉含情
+              pinyin: mòmò hánqíng
+              meaning: (variant of 含情脉脉) to be full of tender affection
+          etymology: |
+            The traditional form 脈 consists of the radical 肉 (flesh) and the phonetic component 派 (pài, to send out), 
+            originally meaning "vessels, veins" — the channels through which blood flows through the body. 
+            The simplified form 脉 uses the radical 月 (moon/flesh) and 永 (yǒng, "eternal").
+            
+            The reduplicated form 脉脉 (mò mò) is a special usage that diverges from the original meaning. 
+            It describes the way eyes convey emotion — like a subtle, flowing communication between hearts. 
+            The imagery suggests feelings flowing silently between two people, like blood flowing through veins — 
+            steady, constant, and deeply connected.
+  etymology_note: |
+    This chengyu originates from classical poetry and literature, beautifully combining two visual metaphors:
+    
+    含情 — "holding emotion" — like keeping a precious feeling in one's mouth, unspoken but fully present.
+    脉脉 — the reduplicated 脉 suggests the continuous, flowing gaze of affection — eyes that speak volumes without words.
+    
+    Together, they describe a moment of profound emotional connection: the eyes are full of unexpressed love, 
+    communicating through tender glances what words cannot capture.
+    
+    The phrase appears frequently in Chinese literature, poetry, and romantic descriptions. It evokes the classical 
+    aesthetic of含蓄 (hánxù — restraint, subtlety) — the idea that the deepest emotions are not loudly declared 
+    but silently conveyed through gesture, expression, and the eyes.
+
+- type: word
+  date: "03/27"
+  simplified: 文火
+  traditional: 文火
+  pinyin: wénhuǒ
+  english: low heat / slow fire / gentle flame (cooking term)
+  hsk: "6"
+  register: neutral
+  note: |
+    A cooking term referring to low, gentle, steady heat — the opposite of 武火 (high heat). Used for slow cooking, simmering, braising, and dishes that require long, gentle cooking to develop flavors without burning. Common in Chinese cuisine, especially for soups, stews, and dishes requiring precise temperature control.
+  examples:
+    - zh: 煲汤要用文火慢炖两个小时。
+      pinyin: Bāo tāng yào yòng wénhuǒ màn dùn liǎng gè xiǎoshí.
+      english: To make soup, use low heat and simmer slowly for two hours.
+    - zh: 先大火煮沸，再转文火收汁。
+      pinyin: Xiān dàhuǒ zhǔfèi, zài zhuǎn wénhuǒ shōuzhī.
+      english: First boil over high heat, then reduce to low heat to thicken the sauce.
+    - zh: 文火慢炖的肉更加软烂入味。
+      pinyin: Wénhuǒ màn dùn de ròu gèngjiā ruǎnlàn rùwèi.
+      english: Meat slowly simmered over low heat becomes more tender and flavorful.
+    - zh: 这道菜需要用文火熬制三小时。
+      pinyin: Zhè dào cài xūyào yòng wénhuǒ áozhì sān xiǎoshí.
+      english: This dish requires three hours of slow cooking over low heat.
+  measure_word:
+    - simplified: 种
+      pinyin: zhǒng
+      meaning: kind, type (of heat)
+  synonyms:
+    - word: 小火
+      pinyin: xiǎohuǒ
+      meaning: small flame, low heat
+    - word: 慢火
+      pinyin: mànhuǒ
+      meaning: slow fire, low heat
+  antonyms:
+    - word: 武火
+      pinyin: wǔhuǒ
+      meaning: high heat, strong flame
+    - word: 大火
+      pinyin: dàhuǒ
+      meaning: high heat, strong flame
+  characters:
+    - char: 文
+      simplified: 文
+      traditional: 文
+      pinyin: wén
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: gentle, mild, subtle (as opposed to martial/forceful)
+      compounds:
+        - simplified: 文明
+          pinyin: wénmíng
+          meaning: civilization, cultured
+        - simplified: 文化
+          pinyin: wénhuà
+          meaning: culture
+        - simplified: 温柔
+          pinyin: wēnróu
+          meaning: gentle, tender
+        - simplified: 文雅
+          pinyin: wényǎ
+          meaning: elegant, refined
+      etymology: |
+        Pictographic. The oracle bone script depicted a person with a tattoo or decorative pattern on their chest. 
+        The original meaning was "pattern, decoration." Extended to mean "writing, script" (patterns that convey meaning). 
+        Further extended to "culture, civilization" (as opposed to martial/military affairs).
+        
+        In the compound 文火, 文 carries the meaning "gentle, mild, refined" — the opposite of 武 (martial, forceful). 
+        This reflects the Taoist-influenced Chinese culinary philosophy of balancing opposing forces: 
+        文火 (gentle fire) vs. 武火 (forceful fire).
+    - char: 火
+      simplified: 火
+      traditional: 火
+      pinyin: huǒ
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: fire, heat (in cooking)
+      compounds:
+        - simplified: 火灾
+          pinyin: huǒzāi
+          meaning: fire disaster
+        - simplified: 火锅
+          pinyin: huǒguō
+          meaning: hot pot
+        - simplified: 火焰
+          pinyin: huǒyàn
+          meaning: flame
+        - simplified: 火药
+          pinyin: huǒyào
+          meaning: gunpowder
+      etymology: |
+        Pictographic. The oracle bone script depicted flames rising from a burning object. 
+        The original meaning is "fire" — one of the five elements in Chinese philosophy. 
+        In cooking terminology, it represents the intensity of heat. The character has evolved from its pictographic origins 
+        to the modern form, which still suggests the shape of flames.
+  etymology_note: |
+    The term 文火 reflects a distinctly Chinese conceptual pairing: 文 (wen) and 武 (wu) represent a fundamental duality in Chinese thought.
+    
+    文 originally meant "pattern, writing, culture" — associated with refinement, gentleness, and subtle influence.
+    武 originally meant "martial, military" — associated with force, strength, and direct action.
+    
+    In cooking, this philosophical dichotomy is applied to heat control:
+    - 文火 (wen huo) — "gentle fire": low, steady, patient heat that transforms ingredients gradually.
+    - 武火 (wu huo) — "martial fire": high, strong, rapid heat for quick searing or boiling.
+    
+    This terminology appears in traditional Chinese medicine, martial arts, and culinary texts. The concept emphasizes that 
+    different dishes, different stages of cooking, and different ingredients require the right balance of gentle persistence 
+    and forceful intensity — an approach that mirrors broader Chinese philosophical principles of balance and harmony.
+    
+    In modern kitchens, 文火 remains essential for slow-cooked dishes like soups, braised meats, and stews where time 
+    and gentle heat extract maximum flavor and achieve the desired texture.
+
+- type: word
+  date: "03/27"
+  simplified: 蜡炬
+  traditional: 蠟炬
+  pinyin: làjù
+  english: candle / wax torch
+  hsk: "6"
+  register: literary
+  note: |
+    A classical/literary term for candle. While 蜡烛 (làzhú) is the common everyday word, 蜡炬 appears primarily in poetry, classical literature, and formal writing. Most famously used in the Tang dynasty poem by Li Shangyin: "春蚕到死丝方尽，蜡炬成灰泪始干" (The spring silkworm dies only when its silk is spun; the candle turns to ash before its tears are done).
+  examples:
+    - zh: 春蚕到死丝方尽，蜡炬成灰泪始干。
+      pinyin: Chūn cán dào sǐ sī fāng jìn, làjù chéng huī lèi shǐ gān.
+      english: The spring silkworm dies only when its silk is spun; the candle turns to ash before its tears are done.
+      note: Famous couplet from Li Shangyin (Tang dynasty)
+    - zh: 蜡炬虽小，却能照亮黑暗。
+      pinyin: Làjù suī xiǎo, què néng zhàoliàng hēi'àn.
+      english: Though a candle is small, it can illuminate the darkness.
+    - zh: 古时文人常以蜡炬比喻无私奉献。
+      pinyin: Gǔshí wénrén cháng yǐ làjù bǐyù wúsī fèngxiàn.
+      english: Ancient scholars often used candles as a metaphor for selfless dedication.
+  synonyms:
+    - word: 蜡烛
+      pinyin: làzhú
+      meaning: candle (common term)
+    - word: 烛
+      pinyin: zhú
+      meaning: candle (literary, often used in compounds)
+  measure_word:
+    - simplified: 支
+      pinyin: zhī
+      meaning: for candles
+    - simplified: 根
+      pinyin: gēn
+      meaning: for candles
+  characters:
+    - char: 蜡
+      simplified: 蜡
+      traditional: 蠟
+      pinyin: là
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: wax
+      compounds:
+        - simplified: 蜡烛
+          pinyin: làzhú
+          meaning: candle
+        - simplified: 蜡笔
+          pinyin: làbǐ
+          meaning: crayon, wax crayon
+        - simplified: 石蜡
+          pinyin: shílà
+          meaning: paraffin wax
+        - simplified: 打蜡
+          pinyin: dǎlà
+          meaning: to wax (car, floor)
+      etymology: |
+        Phono-semantic compound. The traditional form 蠟 consists of the radical 虫 (insect) and the phonetic component 巤 (liè). 
+        The insect radical originally referred to bees, which produce beeswax. The original meaning is "wax" — the substance produced by bees. 
+        The simplified form 蜡 uses the radical 虫 (insect) and the phonetic component 昔 (xī), maintaining the same meaning.
+    - char: 炬
+      simplified: 炬
+      traditional: 炬
+      pinyin: jù
+      hsk: "6"
+      detailed_analysis: true
+      meaning_in_context: torch, candle
+      compounds:
+        - simplified: 火炬
+          pinyin: huǒjù
+          meaning: torch, flame
+        - simplified: 目光如炬
+          pinyin: mùguāng rú jù
+          meaning: eyes blazing like torches (sharp-eyed, penetrating gaze)
+        - simplified: 付之一炬
+          pinyin: fù zhī yī jù
+          meaning: to commit to the flames, to burn down
+        - simplified: 火炬传递
+          pinyin: huǒjù chuándì
+          meaning: torch relay
+      etymology: |
+        Phono-semantic compound. Consists of the radical 火 (fire) and the phonetic component 巨 (jù, "huge, large"). 
+        The fire radical indicates it relates to fire or flame. The original meaning is "torch" — a large burning stick used for light. 
+        In literary usage, 炬 can also refer to candles, especially in poetic contexts. The character evokes the image of a burning flame that consumes itself while providing light — a classic metaphor for self-sacrifice.
+  etymology_note: |
+    The compound 蜡炬 combines 蜡 (wax) and 炬 (torch) to mean "wax torch" — i.e., a candle. Though less common than 蜡烛 in everyday speech, 蜡炬 holds a special place in Chinese literary tradition.
+    
+    The most famous use of 蜡炬 comes from Li Shangyin's (李商隐, c. 813–858) poem "Untitled" (无题):
+    
+    春蚕到死丝方尽，蜡炬成灰泪始干。
+    (The spring silkworm dies only when its silk is spun; the candle turns to ash before its tears are dry.)
+    
+    Here, the burning candle with its dripping wax ("tears") becomes a powerful metaphor for unrequited love, longing, and self-consuming devotion. The image of a candle burning itself out to give light has since become a classic symbol in Chinese poetry for:
+    - Faithful love that endures until death
+    - Selfless dedication and sacrifice
+    - The scholar's devotion to learning or duty
+    - The teacher who gives everything for students
+    
+    Because of this rich literary heritage, 蜡炬 carries far more poetic weight than the everyday 蜡烛, making it a cherished term in formal writing and classical-style poetry.
+
+- type: word
+  date: "03/27"
+  simplified: 功劳
+  traditional: 功勞
+  pinyin: gōngláo
+  english: contribution / merit / credit / service
+  hsk: "5"
+  register: neutral
+  note: |
+    Refers to contributions, merits, or achievements made through effort, especially in work, military service, or collective endeavors. Often used in contexts of recognition, praise, or attributing credit. Can be used for both significant achievements (like military honors) and everyday contributions.
+  examples:
+    - zh: 这次项目的成功，他功不可没，有很大的功劳。
+      pinyin: Zhè cì xiàngmù de chénggōng, tā gōng bùkě méi, yǒu hěndà de gōngláo.
+      english: His contribution to this project's success is indispensable; he played a major role.
+    - zh: 不要抢别人的功劳。
+      pinyin: Bùyào qiǎng biérén de gōngláo.
+      english: Don't take credit for other people's work.
+    - zh: 他在公司工作多年，立下了不少功劳。
+      pinyin: Tā zài gōngsī gōngzuò duō nián, lìxiàle bùshǎo gōngláo.
+      english: He has worked at the company for many years and has made many contributions.
+    - zh: 这份功劳应该归功于整个团队。
+      pinyin: Zhè fèn gōngláo yīnggāi guīgōng yú zhěnggè tuánduì.
+      english: The credit for this should go to the entire team.
+  synonyms:
+    - word: 贡献
+      pinyin: gòngxiàn
+      meaning: contribution (more general, often selfless)
+    - word: 功绩
+      pinyin: gōngjì
+      meaning: merit, achievement (formal)
+    - word: 功劳
+      pinyin: gōngláo
+      meaning: credit, contribution (focus on recognition)
+  characters:
+    - char: 功
+      simplified: 功
+      traditional: 功
+      pinyin: gōng
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: achievement, merit, contribution
+      compounds:
+        - simplified: 成功
+          pinyin: chénggōng
+          meaning: success, to succeed
+        - simplified: 功夫
+          pinyin: gōngfu
+          meaning: skill, effort, kung fu
+        - simplified: 功能
+          pinyin: gōngnéng
+          meaning: function
+        - simplified: 用功
+          pinyin: yònggōng
+          meaning: diligent, hardworking
+      etymology: |
+        Phono-semantic compound. Consists of the radical 力 (strength, effort) and the phonetic component 工 (gōng, "work"). 
+        The radical 力 indicates physical effort or labor. 工 provides the sound and also contributes the meaning of "work." 
+        Together, they mean "achievement through effort" — the results gained from applying strength to work. 
+        The original meaning is "merit, accomplishment, success."
+    - char: 劳
+      simplified: 劳
+      traditional: 勞
+      pinyin: láo
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: toil, labor, effort
+      compounds:
+        - simplified: 劳动
+          pinyin: láodòng
+          meaning: labor, work
+        - simplified: 疲劳
+          pinyin: píláo
+          meaning: fatigue, tired
+        - simplified: 勤劳
+          pinyin: qínláo
+          meaning: hardworking, industrious
+        - simplified: 劳驾
+          pinyin: láojià
+          meaning: excuse me, may I trouble you
+      etymology: |
+        Phono-semantic compound. The traditional form 勞 consists of the radical 力 (strength) and two 火 (fire) components above, 
+        with 冖 (cover). The original meaning is "to toil, to labor" — the imagery suggests working hard by firelight. 
+        The simplified form 劳 simplifies the top to 艹 (grass) with 冖 (cover), retaining the essential meaning of effort and exertion. 
+        The character conveys the idea of physical or mental exertion, especially over an extended period.
+  etymology_note: |
+    The compound 功劳 combines 功 (achievement from effort) and 劳 (toil, labor) to mean "merit gained through hard work."
+    
+    The distinction between the two characters is subtle but meaningful:
+    - 功 emphasizes the result — the achievement, success, or merit itself
+    - 劳 emphasizes the process — the effort, toil, and labor expended
+    
+    Together, they capture the complete idea: recognition (功) for the hard work (劳) that was done. This reflects a traditional Chinese value that achievements should be acknowledged and that credit should go to those who actually did the work.
+    
+    Common related expressions:
+    - 立功劳 (lì gōngláo) — to render meritorious service
+    - 抢功劳 (qiǎng gōngláo) — to steal credit (negative)
+    - 记一功 (jì yī gōng) — to credit someone for their contribution
+    - 功不可没 (gōng bùkě mò) — one's contribution cannot be overlooked
+    
+    In formal contexts, 功劳 appears in military commendations, work evaluations, and discussions of historical contributions. In everyday use, it's commonly used to acknowledge someone's help or to caution against taking undue credit.
+
+- type: word
+  date: "03/27"
+  simplified: 橡皮筋
+  traditional: 橡皮筋
+  pinyin: xiàngpíjīn
+  english: rubber band / elastic band
+  hsk: "5"
+  register: spoken_neutral
+  note: |
+    A common term for rubber bands or elastic bands. 橡皮 (rubber) + 筋 (tendon, sinew) — literally "rubber tendon." Used for everyday items like hair ties, office rubber bands, or elastic bands in clothing. Can also refer to the children's jump rope game played with elastic bands.
+  examples:
+    - zh: 帮我拿一根橡皮筋，我要扎头发。
+      pinyin: Bāng wǒ ná yī gēn xiàngpíjīn, wǒ yào zhā tóufa.
+      english: Get me a rubber band; I need to tie up my hair.
+    - zh: 这些文件用橡皮筋捆起来就行。
+      pinyin: Zhèxiē wénjiàn yòng xiàngpíjīn kǔn qǐlái jiù xíng.
+      english: Just bundle these documents with a rubber band.
+    - zh: 小时候我们经常玩跳橡皮筋。
+      pinyin: Xiǎoshíhou wǒmen jīngcháng wán tiào xiàngpíjīn.
+      english: When we were kids, we often played elastic jump rope.
+    - zh: 橡皮筋用久了会失去弹性。
+      pinyin: Xiàngpíjīn yòng jiǔle huì shīqù tánxìng.
+      english: Rubber bands lose their elasticity after prolonged use.
+  measure_word:
+    - simplified: 根
+      pinyin: gēn
+      meaning: for rubber bands, strings
+    - simplified: 条
+      pinyin: tiáo
+      meaning: for long, thin items
+    - simplified: 捆
+      pinyin: kǔn
+      meaning: bundle (of rubber bands)
+  synonyms:
+    - word: 皮筋
+      pinyin: píjīn
+      meaning: rubber band (shortened form)
+    - word: 弹力带
+      pinyin: tánlìdài
+      meaning: elastic band (more technical)
+  characters:
+    - char: 橡
+      simplified: 橡
+      traditional: 橡
+      pinyin: xiàng
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: rubber (in compounds); oak tree
+      compounds:
+        - simplified: 橡胶
+          pinyin: xiàngjiāo
+          meaning: rubber
+        - simplified: 橡皮
+          pinyin: xiàngpí
+          meaning: eraser; rubber
+        - simplified: 橡树
+          pinyin: xiàngshù
+          meaning: oak tree
+        - simplified: 橡木
+          pinyin: xiàngmù
+          meaning: oak wood
+      etymology: |
+        Phono-semantic compound. Consists of the radical 木 (wood, tree) and the phonetic component 象 (xiàng, "elephant"). 
+        The wood radical indicates it is a type of tree. The original meaning is "oak tree" (橡树). 
+        Later, through association with rubber trees (which also produce latex), the character was borrowed to mean "rubber" in compounds like 橡胶 (rubber). 
+        橡皮 originally meant "rubber" and later came to mean "eraser" (since erasers were made of rubber).
+    - char: 皮
+      simplified: 皮
+      traditional: 皮
+      pinyin: pí
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: skin, leather, rubber (in compounds)
+      compounds:
+        - simplified: 皮肤
+          pinyin: pífū
+          meaning: skin
+        - simplified: 皮革
+          pinyin: pígé
+          meaning: leather
+        - simplified: 皮毛
+          pinyin: pímáo
+          meaning: fur, superficial knowledge
+        - simplified: 皮包
+          pinyin: píbāo
+          meaning: leather bag, briefcase
+      etymology: |
+        Pictographic. The oracle bone script depicts a hand flaying an animal hide, representing the skin or hide of an animal. 
+        The original meaning is "animal hide, leather, skin." Extended to mean "outer layer, surface" of various things. 
+        In compounds like 橡皮, it indicates the rubber material — an elastic, flexible outer material similar to skin or leather.
+    - char: 筋
+      simplified: 筋
+      traditional: 筋
+      pinyin: jīn
+      hsk: "6"
+      detailed_analysis: true
+      meaning_in_context: tendon, sinew; elastic band, string
+      compounds:
+        - simplified: 筋骨
+          pinyin: jīngǔ
+          meaning: muscles and bones; physique
+        - simplified: 筋疲力尽
+          pinyin: jīnpílìjìn
+          meaning: exhausted, drained
+        - simplified: 青筋
+          pinyin: qīngjīn
+          meaning: vein (visible under skin)
+        - simplified: 牛筋
+          pinyin: niújīn
+          meaning: beef tendon (food)
+      etymology: |
+        Phono-semantic compound. Consists of the radical ⺮ (bamboo) and the phonetic component 月 (muscle/flesh) with 力 (strength). 
+        The bamboo radical originally represented the strength and flexibility of bamboo fibers. 
+        The original meaning is "tendon, sinew" — the fibrous tissue connecting muscle to bone. 
+        Extended to mean "something with tensile strength and flexibility" — like rubber bands or elastic. 
+        The character evokes the idea of a strong, flexible, fibrous material that can stretch and return to its shape.
+  etymology_note: |
+    The compound 橡皮筋 combines three characters to create a vivid image: 
+    - 橡 (rubber, originally oak tree) + 皮 (skin, outer layer) = 橡皮 (rubber)
+    - 筋 (tendon, sinew) = something flexible and elastic like a tendon
+    
+    The imagery is quite descriptive: a rubber band is like a "rubber tendon" — a flexible, stretchy cord that returns to its original shape, much like a biological tendon.
+    
+    Cultural note: 跳橡皮筋 (tiào xiàngpíjīn) — elastic jump rope — was an extremely popular children's game in China from the 1970s through the 1990s. Two children would hold a long elastic band at ankle, knee, or waist height while others jumped in and out of the patterns, chanting rhymes. For many Chinese people, 橡皮筋 evokes strong childhood memories of playing with friends after school.
+    
+    In modern usage, the word is still common for hair ties, office rubber bands, and the elastic in clothing. The shortened form 皮筋 (píjīn) is equally common in casual speech.
+
+- type: word
+  date: "03/27"
+  simplified: 灰姑娘
+  traditional: 灰姑娘
+  pinyin: huī gūniang
+  english: Cinderella
+  hsk: "5"
+  register: spoken_neutral
+  note: |
+    The Chinese name for the fairy tale character Cinderella. Literally "灰" (ash, grey) + "姑娘" (girl) — "the ash girl." The name directly translates the essence of the original story: a girl who sits among the cinders. Used both for the fairy tale character and metaphorically to describe someone who goes from obscurity to sudden success or recognition.
+  examples:
+    - zh: 灰姑娘的故事是全世界最著名的童话之一。
+      pinyin: Huīgūniang de gùshi shì quán shìjiè zuì zhùmíng de tónghuà zhī yī.
+      english: Cinderella is one of the most famous fairy tales in the world.
+    - zh: 她从一个普通职员变成了公司经理，简直是现实版的灰姑娘。
+      pinyin: Tā cóng yī gè pǔtōng zhíyuán biànchéngle gōngsī jīnglǐ, jiǎnzhí shì xiànshí bǎn de huīgūniang.
+      english: She went from an ordinary employee to company manager — she's like a real-life Cinderella.
+    - zh: 这部电影是灰姑娘故事的现代改编。
+      pinyin: Zhè bù diànyǐng shì huīgūniang gùshi de xiàndài gǎibiān.
+      english: This film is a modern adaptation of the Cinderella story.
+    - zh: 每个女孩心里都住着一个灰姑娘的梦。
+      pinyin: Měi gè nǚhái xīnli dōu zhùzhe yī gè huīgūniang de mèng.
+      english: Every girl has a Cinderella dream in her heart.
+  measure_word:
+    - simplified: 个
+      pinyin: gè
+      meaning: for stories, fairy tales
+    - simplified: 版
+      pinyin: bǎn
+      meaning: version (of the story)
+  synonyms:
+    - word: 辛德瑞拉
+      pinyin: Xīndéruìlā
+      meaning: Cinderella (transliteration)
+  characters:
+    - char: 灰
+      simplified: 灰
+      traditional: 灰
+      pinyin: huī
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: ash, cinder; grey
+      compounds:
+        - simplified: 灰色
+          pinyin: huīsè
+          meaning: grey color
+        - simplified: 灰尘
+          pinyin: huīchén
+          meaning: dust
+        - simplified: 灰烬
+          pinyin: huījìn
+          meaning: ashes, cinders
+        - simplified: 烟灰
+          pinyin: yānhuī
+          meaning: cigarette ash
+      etymology: |
+        Phono-semantic compound. Consists of the radical 火 (fire) and the phonetic component 又 (hand). 
+        The fire radical indicates the meaning relates to fire or burning. The original meaning is "ashes" — the residue left after burning. 
+        Extended to mean "dust" and the color "grey" (the color of ashes). 
+        In 灰姑娘, it directly translates the original "Cinderella" — "little cinder girl" — from the French "Cendrillon" (cinder).
+    - char: 姑
+      simplified: 姑
+      traditional: 姑
+      pinyin: gū
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: girl, young woman; paternal aunt
+      compounds:
+        - simplified: 姑娘
+          pinyin: gūniang
+          meaning: girl, young woman
+        - simplified: 姑姑
+          pinyin: gūgu
+          meaning: aunt (father's sister)
+        - simplified: 姑妈
+          pinyin: gūmā
+          meaning: aunt (father's sister)
+        - simplified: 尼姑
+          pinyin: nígū
+          meaning: Buddhist nun
+      etymology: |
+        Phono-semantic compound. Consists of the radical 女 (woman) and the phonetic component 古 (gǔ, "ancient"). 
+        The female radical indicates it relates to women. The original meaning is "paternal aunt" (father's sister). 
+        Extended to mean "young woman" or "girl" in compounds like 姑娘. The character carries a connotation of youth and femininity.
+    - char: 娘
+      simplified: 娘
+      traditional: 娘
+      pinyin: niáng
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: young woman, girl; mother
+      compounds:
+        - simplified: 姑娘
+          pinyin: gūniang
+          meaning: girl, young woman
+        - simplified: 娘亲
+          pinyin: niángqīn
+          meaning: mother (affectionate)
+        - simplified: 新娘
+          pinyin: xīnniáng
+          meaning: bride
+        - simplified: 爹娘
+          pinyin: diēniáng
+          meaning: parents (father and mother)
+      etymology: |
+        Phono-semantic compound. Consists of the radical 女 (woman) and the phonetic component 良 (liáng, "good, virtuous"). 
+        The female radical indicates it relates to women. The original meaning is "young woman, maiden." 
+        Extended to mean "mother" in many dialects. Combined with 姑, 姑娘 means "girl, young woman" — 
+        a common and respectful term for an unmarried woman.
+  etymology_note: |
+    The Chinese translation 灰姑娘 is a direct and elegant adaptation of the Cinderella story's name:
+    
+    灰 (huī) — "ash, cinder" — captures the original French "cendre" (cinder) and the German "Aschen" (ash) in Aschenputtel.
+    姑娘 (gūniang) — "girl, young woman" — conveys the sense of a maiden.
+    
+    The translation is semantically accurate while sounding natural in Chinese. Unlike many Western names that are transliterated phonetically (e.g., 辛德瑞拉 Xīndéruìlā), 灰姑娘 uses native Chinese words to capture the essence of the character.
+    
+    Cultural note: The Cinderella story is one of the most widely known fairy tales in China. It has been adapted into numerous Chinese films, TV dramas, and books. The term 灰姑娘 has entered everyday language as a metaphor:
+    - A person who rises from poverty/obscurity to wealth/fame
+    - An underdog who achieves unexpected success
+    - A romantic story where an ordinary person finds love with someone of higher status
+    
+    The phrase 灰姑娘式 (huīgūniang shì) — "Cinderella-style" — is commonly used in media to describe such stories.
+    
+    There is also a traditional Chinese story with similar themes — "Ye Xian" (叶限), recorded during the Tang dynasty (9th century), which some scholars consider the earliest known version of the Cinderella story predating the European versions by nearly 1,000 years.
+
+- type: expression
+  date: "03/27"
+  simplified: 蚂蚁上树
+  traditional: 螞蟻上樹
+  pinyin: mǎyǐ shàng shù
+  english: ants climbing a tree / a Sichuanese dish of glass noodles stir-fried with minced pork
+  hsk: "6"
+  register: spoken_neutral
+  note: |
+    A classic Sichuan dish name that literally means "ants climbing a tree." The dish consists of glass noodles (cellophane noodles, 粉丝) stir-fried with minced pork. The name is descriptive: the small bits of minced pork (ants) cling to the transparent noodles (tree branches). It's a popular home-style dish known for its savory, slightly spicy flavor and appealing texture.
+  examples:
+    - zh: 蚂蚁上树是一道经典的川菜。
+      pinyin: Mǎyǐ shàng shù shì yī dào jīngdiǎn de chuāncài.
+      english: Ants climbing a tree is a classic Sichuan dish.
+    - zh: 这道蚂蚁上树粉丝劲道，肉末香辣，非常下饭。
+      pinyin: Zhè dào mǎyǐ shàng shù fěnsī jìndao, ròumò xiānglà, fēicháng xiàfàn.
+      english: This ants climbing a tree dish has chewy noodles and savory-spicy minced pork — it's great with rice.
+    - zh: 我第一次吃蚂蚁上树，还以为真的有蚂蚁呢！
+      pinyin: Wǒ dì yī cì chī mǎyǐ shàng shù, hái yǐwéi zhēn de yǒu mǎyǐ ne!
+      english: The first time I ate "ants climbing a tree," I thought it actually had ants in it!
+    - zh: 蚂蚁上树的做法简单，但味道很讲究。
+      pinyin: Mǎyǐ shàng shù de zuòfǎ jiǎndān, dàn wèidào hěn jiǎngjiu.
+      english: Ants climbing a tree is simple to make, but the flavor requires skill.
+  synonyms:
+    - word: 肉末粉丝
+      pinyin: ròumò fěnsī
+      meaning: minced pork with glass noodles (descriptive name)
+  characters:
+    - char: 蚂
+      simplified: 蚂
+      traditional: 螞
+      pinyin: mǎ
+      hsk: "6"
+      detailed_analysis: true
+      meaning_in_context: ant (part of compound 蚂蚁)
+      compounds:
+        - simplified: 蚂蚁
+          pinyin: mǎyǐ
+          meaning: ant
+        - simplified: 蚂蚱
+          pinyin: màzha
+          meaning: grasshopper, locust
+      etymology: |
+        Phono-semantic compound. The traditional form 螞 consists of the radical 虫 (insect) and the phonetic component 馬 (mǎ, "horse"). 
+        The insect radical indicates it is an insect. The phonetic component contributes the sound. 
+        蚂 alone is rarely used without 蚁; together they form 蚂蚁 (ant). The character suggests a small insect, with the "horse" component perhaps ironically indicating size — the ant is like a tiny horse.
+    - char: 蚁
+      simplified: 蚁
+      traditional: 蟻
+      pinyin: yǐ
+      hsk: "6"
+      detailed_analysis: true
+      meaning_in_context: ant
+      compounds:
+        - simplified: 蚂蚁
+          pinyin: mǎyǐ
+          meaning: ant
+        - simplified: 蚁群
+          pinyin: yǐqún
+          meaning: ant colony
+        - simplified: 白蚁
+          pinyin: báiyǐ
+          meaning: termite
+        - simplified: 蚁穴
+          pinyin: yǐxué
+          meaning: anthill
+      etymology: |
+        Phono-semantic compound. The traditional form 蟻 consists of the radical 虫 (insect) and the phonetic component 義 (yì, "righteousness"). 
+        The insect radical indicates it is an insect. The simplified form 蚁 uses the phonetic component 义 (yì), the simplified form of 義. 
+        The character specifically denotes ants — small, industrious social insects.
+    - char: 上
+      simplified: 上
+      traditional: 上
+      pinyin: shàng
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: to climb, to ascend, on top of
+      compounds:
+        - simplified: 上面
+          pinyin: shàngmiàn
+          meaning: above, on top
+        - simplified: 上车
+          pinyin: shàngchē
+          meaning: to get on a vehicle
+        - simplified: 上山
+          pinyin: shàngshān
+          meaning: to climb a mountain
+        - simplified: 上班
+          pinyin: shàngbān
+          meaning: to go to work
+      etymology: |
+        Indicative character. The ancient form depicted a horizontal line with a shorter line above it, indicating "above" or "up." 
+        The original meaning is "up, above, top." Extended to mean "to ascend, to climb" — moving upward. 
+        In the dish name, 上 means "climbing" — the ants are climbing the tree.
+    - char: 树
+      simplified: 树
+      traditional: 樹
+      pinyin: shù
+      hsk: "2"
+      detailed_analysis: true
+      meaning_in_context: tree
+      compounds:
+        - simplified: 树木
+          pinyin: shùmù
+          meaning: trees
+        - simplified: 树叶
+          pinyin: shùyè
+          meaning: leaf
+        - simplified: 树林
+          pinyin: shùlín
+          meaning: forest, woods
+        - simplified: 果树
+          pinyin: guǒshù
+          meaning: fruit tree
+      etymology: |
+        Phono-semantic compound. The traditional form 樹 consists of the radical 木 (wood, tree) and the phonetic component 壴 (zhù, "drum"). 
+        The wood radical indicates it is a tree or woody plant. The original meaning is "tree." 
+        The simplified form 树 uses the radical 木 (wood) and the phonetic component 对 (duì, "toward"). 
+        In the dish name, 树 (tree) metaphorically refers to the glass noodles (粉丝), which resemble tree branches.
+  etymology_note: |
+    The dish name 蚂蚁上树 (ants climbing a tree) is a classic example of Chinese culinary poetry — turning a simple home-style dish into a vivid, imaginative image.
+    
+    **The Story Behind the Name:**
+    
+    Several folk legends explain the origin of this name. One popular story involves Dou E (窦娥), the heroine of a famous Yuan dynasty opera. According to legend, Dou E was a poor young woman caring for her sick mother-in-law. With little money and only a small piece of pork, she minced it finely and stir-fried it with glass noodles. The tiny bits of dark minced meat clinging to the translucent noodles looked like ants climbing tree branches. Her mother-in-law loved the dish and asked its name; Dou E replied, "Ants climbing a tree."
+    
+    **The Visual Metaphor:**
+    - The glass noodles (粉丝, fěnsī) = tree branches — translucent, long, delicate
+    - The minced pork (肉末, ròumò) = ants — tiny, dark bits that "cling" to the noodles
+    
+    **Culinary Notes:**
+    The dish is a staple of Sichuan home cooking. Key characteristics:
+    - Uses fermented bean paste (豆瓣酱, dòubànjiàng) for depth
+    - Often includes ginger, garlic, scallions, and chili
+    - The noodles should absorb the sauce while remaining separate
+    - Proper execution ensures the "ants" stay on the "branches" — the minced pork clings to the noodles
+    
+    **Cultural Significance:**
+    蚂蚁上树 represents the creativity of Chinese home cooking — turning humble ingredients (pork, noodles, simple seasonings) into a dish with a memorable name and satisfying flavor. It's often served as part of a multi-dish family meal and is beloved for being both economical and delicious. The name itself has become so iconic that it's often used as a cultural reference point when discussing creative dish names in Chinese cuisine.

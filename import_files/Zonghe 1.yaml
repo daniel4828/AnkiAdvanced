@@ -1,0 +1,973 @@
+# Comprehensive Vocabulary YAML File
+# All entries from the conversation session (starting from 反正)
+
+- type: word
+  date: "03/27"
+  simplified: 反正
+  traditional: 反正
+  pinyin: fǎnzhèng
+  english: anyway / anyhow / in any case / regardless / to turn to the opposite side
+  hsk: "4"
+  register: spoken_neutral
+  note: |
+    A versatile adverb meaning "regardless" or "in any case." Indicates that a situation or outcome is certain regardless of other factors. Often used to emphasize that something is true no matter what happens, or to dismiss other considerations. Can also function as a verb meaning "to convert" or "to come over to the other side" (e.g., in politics).
+    
+    **Common Expressions:**
+    - 不管...反正... — no matter..., anyway...
+    - 反正也没有别的事 (fǎnzhèng yě méiyǒu bié de shì) — since there's nothing else anyway
+    - 反正我不管 (fǎnzhèng wǒ bùguǎn) — I don't care anyway
+    - 反正一样 (fǎnzhèng yīyàng) — it's the same anyway
+    
+    **Cultural Note:**
+    The compound 反 combines 反 (opposite, reverse) and 正 (correct, upright). Originally, as a verb, 反正 meant "to return to the correct side" or "to flip to the right side." This meaning survives in contexts like 反正投降 (to defect and surrender).
+    
+    As an adverb in modern usage, 反正 carries the sense of "no matter which side (opposite or correct) — the result is the same." It dismisses alternative possibilities and emphasizes that regardless of what happens, the outcome or truth remains unchanged. This usage likely developed from the idea that when considering both "opposite" (反) and "correct" (正), one's conclusion holds true in either case.
+    
+    In spoken Chinese, 反正 is frequently used to:
+    - Provide a conclusive statement that ends discussion
+    - Justify a decision despite alternatives
+    - Indicate resignation or certainty about a situation
+  examples:
+    - zh: 不管你去不去，反正我是一定要去的。
+      pinyin: Bùguǎn nǐ qù bù qù, fǎnzhèng wǒ shì yīdìng yào qù de.
+      english: Whether you go or not, I'm definitely going anyway.
+    - zh: 反正也没有别的事，我们就一起吃饭吧。
+      pinyin: Fǎnzhèng yě méiyǒu bié de shì, wǒmen jiù yīqǐ chīfàn ba.
+      english: Since there's nothing else to do anyway, let's eat together.
+    - zh: 他说的话反正我是不信。
+      pinyin: Tā shuō de huà fǎnzhèng wǒ shì bù xìn.
+      english: Anyway, I don't believe what he says.
+    - zh: 反正我已经尽力了，结果如何无所谓。
+      pinyin: Fǎnzhèng wǒ yǐjīng jìnlì le, jiéguǒ rúhé wúsuǒwèi.
+      english: I've done my best anyway, so it doesn't matter what the outcome is.
+    - zh: 敌军将领在最后时刻反正投降。
+      pinyin: Díjūn jiànglǐng zài zuìhòu shíkè fǎnzhèng tóuxiáng.
+      english: The enemy general switched sides and surrendered at the last moment.
+  synonyms:
+    - word: 无论如何
+      pinyin: wúlùn rúhé
+      meaning: no matter what, regardless
+    - word: 不管怎样
+      pinyin: bùguǎn zěnyàng
+      meaning: anyway, no matter what
+  characters:
+    - char: 反
+      simplified: 反
+      traditional: 反
+      pinyin: fǎn
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: opposite, contrary, on the contrary; to reverse
+      compounds:
+        - simplified: 相反
+          pinyin: xiāngfǎn
+          meaning: opposite, contrary
+        - simplified: 反对
+          pinyin: fǎnduì
+          meaning: to oppose
+        - simplified: 反复
+          pinyin: fǎnfù
+          meaning: repeatedly, to repeat
+        - simplified: 反而
+          pinyin: fǎn'ér
+          meaning: on the contrary
+      etymology: |
+        Indicative character. The oracle bone script depicted a hand pushing against or turning over an object.
+        The original meaning is "to overturn, to turn over." Extended to mean "contrary, opposite, against."
+    - char: 正
+      simplified: 正
+      traditional: 正
+      pinyin: zhèng
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: correct, proper, just; the right side; anyway (in compounds)
+      compounds:
+        - simplified: 正确
+          pinyin: zhèngquè
+          meaning: correct, right
+        - simplified: 正常
+          pinyin: zhèngcháng
+          meaning: normal
+        - simplified: 正是
+          pinyin: zhèngshì
+          meaning: precisely, exactly
+        - simplified: 正面
+          pinyin: zhèngmiàn
+          meaning: front side, positive side
+      etymology: |
+        Indicative character. The oracle bone script depicted a foot pointing toward a target or a city, meaning "to march toward, to go straight."
+        The original meaning is "straight, upright, correct." Extended to mean "proper, just, main."
+
+- type: word
+  date: "03/27"
+  simplified: 便是
+  traditional: 便是
+  pinyin: biànshì
+  english: (literary) that is / namely / just is / exactly is / even if / even though
+  hsk: "5"
+  register: literary
+  note: |
+    A classical/literary conjunction and copula meaning "that is," "namely," or "exactly is." In modern usage, it appears primarily in formal writing, classical-style prose, period dramas, or poetic contexts. Can also express concession ("even if") when used with 虽 (suī). More emphatic than the simple copula 是 (shì).
+    
+    **Common Expressions:**
+    - 那便是 (nà biànshì) — that is exactly
+    - 若是...便是... — if... then...
+    - 虽...便是... — even though... still...
+    - 人生便是如此 (rénshēng biànshì rúcǐ) — such is life
+    
+    **Cultural Note:**
+    The compound 便是 combines the emphatic adverb 便 (just, exactly) with the copula 是 (to be), creating a more emphatic, formal, or literary version of 就是 (jiùshì).
+    
+    **Classical vs. Modern Usage:**
+    - 便是 is common in classical Chinese, literary texts, period dramas, and formal speeches
+    - 就是 is the modern colloquial equivalent used in everyday conversation
+    
+    **Grammatical Functions:**
+    1. **Emphatic copula** — "exactly is," "that is": 人生便是如此。 (Such is life.)
+    2. **Even if / even though** (often paired with 虽): 便是刀山火海，也不退缩。 (Even a mountain of swords and sea of flames won't make me retreat.)
+    3. **In literary conditional structures**: 你若去，我便去。 (If you go, then I'll go.)
+    
+    **Famous Examples:**
+    - In the novel "Dream of the Red Chamber" (红楼梦): 这便是了 (That's exactly it.)
+    - In martial arts novels: 便是天王老子来了，我也不怕! (Even if the Jade Emperor himself comes, I won't be afraid!)
+  examples:
+    - zh: 天涯若比邻，相逢便是缘。
+      pinyin: Tiānyá ruò bǐlín, xiāngféng biànshì yuán.
+      english: Even at the ends of the earth, it feels like next door; meeting is fate itself.
+    - zh: 人生最大的幸福，便是与所爱之人相守。
+      pinyin: Rénshēng zuìdà de xìngfú, biànshì yǔ suǒ ài zhī rén xiāngshǒu.
+      english: The greatest happiness in life is to grow old with the one you love.
+    - zh: 你若不弃，我便是天涯海角也追随。
+      pinyin: Nǐ ruò bù qì, wǒ biànshì tiānyá hǎijiǎo yě zhuīsuí.
+      english: If you don't abandon me, even to the ends of the earth I will follow.
+    - zh: 虽是小错，便是不该。
+      pinyin: Suī shì xiǎo cuò, biànshì bùgāi.
+      english: Even though it's a small mistake, it still shouldn't have happened.
+  synonyms:
+    - word: 就是
+      pinyin: jiùshì
+      meaning: exactly is, precisely (less formal)
+    - word: 即是
+      pinyin: jíshì
+      meaning: that is, namely (literary)
+  characters:
+    - char: 便
+      simplified: 便
+      traditional: 便
+      pinyin: biàn
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: then, thereupon, just, even if
+      compounds:
+        - simplified: 方便
+          pinyin: fāngbiàn
+          meaning: convenient
+        - simplified: 即便
+          pinyin: jíbiàn
+          meaning: even if, even though
+        - simplified: 随便
+          pinyin: suíbiàn
+          meaning: casual, random, anyway
+        - simplified: 便条
+          pinyin: biàntiáo
+          meaning: note, memo
+      etymology: |
+        Phono-semantic compound. Consists of the radical 亻 (person) and the phonetic component 更 (gèng, "to change, more").
+        The original meaning was "skilled, adept." Extended to mean "convenient, easy." Later grammaticalized as a conjunction and adverb meaning "then, thereupon, just."
+    - char: 是
+      simplified: 是
+      traditional: 是
+      pinyin: shì
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: to be, is, are, exactly
+      compounds:
+        - simplified: 但是
+          pinyin: dànshì
+          meaning: but, however
+        - simplified: 还是
+          pinyin: háishì
+          meaning: still, nevertheless
+        - simplified: 就是
+          pinyin: jiùshì
+          meaning: exactly is, precisely
+        - simplified: 是否
+          pinyin: shìfǒu
+          meaning: whether or not
+      etymology: |
+        Phono-semantic compound. The oracle bone script depicted a combination of 日 (sun) and 正 (straight, upright).
+        The original meaning was "straight, correct, right." Extended to mean "to be correct, truth." By the Han dynasty, it had grammaticalized into the copula "to be."
+
+- type: chengyu
+  simplified: 虚虚实实
+  traditional: 虛虛實實
+  pinyin: xū xū shí shí
+  english: the intermingling of truth and falsehood / the interplay of reality and illusion / using deception and reality strategically
+  hsk: "6"
+  date: "03/27"
+  register: literary
+  note: |
+    Describes a situation where truth and falsehood, reality and illusion, are intertwined. Often used in military strategy, deception tactics, or situations where appearances are misleading. Originates from ancient Chinese military philosophy, particularly Sun Tzu's "The Art of War."
+    
+    **Common Expressions:**
+    - 虚虚实实，真真假假 — truth and falsehood intermingled, reality and illusion mixed together
+    - 虚则实之，实则虚之 — when weak, appear strong; when strong, appear weak (from Sun Tzu)
+    
+    **Cultural Note:**
+    This chengyu originates from ancient Chinese military strategy, most famously articulated in Sun Tzu's "The Art of War" (孙子兵法): 
+    "故善战者，致人而不致于人... 虚则实之，实则虚之" — "Therefore the skilled commander moves the enemy and is not moved by the enemy... When weak, appear strong; when strong, appear weak."
+    
+    The concept of 虚 (emptiness/weakness/false) and 实 (fullness/strength/real) is central to Chinese strategic thought. By alternating between showing strength and weakness, truth and falsehood, a commander keeps the enemy confused and uncertain. The reduplicated form 虚虚实实 emphasizes the continuous, dynamic interplay between these opposites — a constant shifting between deception and reality to maintain the strategic advantage.
+    
+    Over time, the phrase expanded beyond military contexts to describe any situation where truth and falsehood are deliberately or naturally intertwined — in business, politics, storytelling, or everyday life where appearances can't be trusted.
+  examples:
+    - zh: 战场上的虚虚实实，让敌人摸不清我方实力。
+      pinyin: Zhànchǎng shàng de xū xū shí shí, ràng dírén mō bù qīng wǒfāng shílì.
+      english: The intermingling of truth and deception on the battlefield made it impossible for the enemy to gauge our true strength.
+    - zh: 他的讲话虚虚实实，没人知道哪句是真的。
+      pinyin: Tā de jiǎnghuà xū xū shí shí, méi rén zhīdào nǎ jù shì zhēn de.
+      english: His speech mixed truth with lies; no one knew which sentences were true.
+    - zh: 做生意要懂得虚虚实实的策略，既要有诚信，也要有保留。
+      pinyin: Zuò shēngyì yào dǒngde xū xū shí shí de cèlüè, jì yào yǒu chéngxìn, yě yào yǒu bǎoliú.
+      english: In business, you need to understand the strategy of mixing truth with deception — you need both honesty and discretion.
+    - zh: 小说情节虚虚实实，让人分不清是历史还是虚构。
+      pinyin: Xiǎoshuō qíngjié xū xū shí shí, ràng rén fēn bù qīng shì lìshǐ háishì xūgòu.
+      english: The novel's plot blends fact and fiction so skillfully that it's hard to tell what's history and what's invented.
+  synonyms:
+    - word: 真真假假
+      pinyin: zhēn zhēn jiǎ jiǎ
+      meaning: truth interwoven with falsehood
+  word_analyses:
+    - type: word
+      simplified: 虚
+      traditional: 虛
+      pinyin: xū
+      english: empty / false / unreal / weak / humble
+      hsk: "4"
+      characters:
+        - char: 虚
+          simplified: 虚
+          traditional: 虛
+          pinyin: xū
+          hsk: "4"
+          detailed_analysis: true
+          meaning_in_context: false, unreal, deceptive
+          compounds:
+            - simplified: 虚假
+              pinyin: xūjiǎ
+              meaning: false, fake
+            - simplified: 谦虚
+              pinyin: qiānxū
+              meaning: humble, modest
+            - simplified: 虚弱
+              pinyin: xūruò
+              meaning: weak, feeble
+            - simplified: 空虚
+              pinyin: kōngxū
+              meaning: empty, hollow
+          etymology: |
+            Phono-semantic compound. The traditional form 虛 consists of the radical 虍 (tiger) and the phonetic component 丘 (qiū, "hill").
+            The tiger radical originally depicted a tiger's stripes. The original meaning was "large hill" or "ruin," extended to "empty, void."
+    - type: word
+      simplified: 实
+      traditional: 實
+      pinyin: shí
+      english: real / true / solid / full / actual
+      hsk: "3"
+      characters:
+        - char: 实
+          simplified: 实
+          traditional: 實
+          pinyin: shí
+          hsk: "3"
+          detailed_analysis: true
+          meaning_in_context: real, true, solid
+          compounds:
+            - simplified: 实际
+              pinyin: shíjì
+              meaning: actual, reality, practical
+            - simplified: 实在
+              pinyin: shízài
+              meaning: really, indeed, genuine
+            - simplified: 真实
+              pinyin: zhēnshí
+              meaning: true, authentic
+            - simplified: 实力
+              pinyin: shílì
+              meaning: strength, actual power
+          etymology: |
+            Phono-semantic compound. The traditional form 實 consists of the radical 宀 (roof) and the phonetic component 貫 (guàn, "string of coins").
+            The roof radical indicates a house. Together they mean "a house filled with goods" → "full, abundant." Extended to mean "real, true."
+
+- type: expression
+  date: "03/27"
+  simplified: 吹牛大王
+  traditional: 吹牛大王
+  pinyin: chuīniú dàwáng
+  english: the king of boasting / the greatest braggart / Baron Munchausen
+  hsk: "6"
+  register: spoken
+  note: |
+    A colloquial term meaning "the king of boasting" or "the greatest braggart." 吹牛 (to boast) + 大王 (great king). Used to describe someone who exaggerates wildly or tells tall tales. Also refers to the literary character Baron Munchausen (known as 吹牛大王 in Chinese translations).
+    
+    **Common Expressions:**
+    - 吹牛 (chuīniú) — to boast, to brag (literally "to blow up an ox hide")
+    - 吹牛皮 (chuī niúpí) — same meaning, more colloquial
+    - 吹牛不打草稿 (chuīniú bù dǎ cǎogǎo) — "to brag without drafting" — to lie or exaggerate without preparation
+    - 吹牛大王历险记 (Chuīniú Dàwáng Lìxiǎnjì) — The Adventures of Baron Munchausen (book title)
+    
+    **Cultural Note:**
+    The origin of 吹牛 comes from a traditional folk practice. In ancient times, people would inflate ox hides (牛皮) to use as rafts for crossing rivers. Inflating an ox hide was extremely difficult and required great lung power — so someone who claimed they could "blow up an ox hide" was considered a braggart. Thus, 吹牛 became synonymous with boasting or exaggerating.
+    
+    Adding 大王 (great king) intensifies the meaning — a "king of braggarts" is someone whose boasting is legendary. The term is used humorously rather than as a harsh insult, often among friends teasing each other about exaggerated stories.
+    
+    In Chinese translations of European literature, Baron Munchausen (the famous fictional German nobleman known for telling outrageous tall tales) is consistently translated as 吹牛大王 (Chuīniú Dàwáng), making the term instantly recognizable to Chinese readers.
+  examples:
+    - zh: 他说自己能飞上天，真是个吹牛大王！
+      pinyin: Tā shuō zìjǐ néng fēi shàng tiān, zhēnshi gè chuīniú dàwáng!
+      english: He says he can fly to the sky — what a king of braggarts!
+    - zh: 别听他瞎扯，他就是个吹牛大王。
+      pinyin: Bié tīng tā xiāchě, tā jiùshì gè chuīniú dàwáng.
+      english: Don't listen to his nonsense; he's just a king of boasting.
+    - zh: 小时候最爱看《吹牛大王历险记》。
+      pinyin: Xiǎoshíhou zuì ài kàn "Chuīniú Dàwáng Lìxiǎnjì".
+      english: When I was little, I loved reading The Adventures of Baron Munchausen.
+    - zh: 他吹牛不打草稿，什么离谱的话都说得出来。
+      pinyin: Tā chuīniú bù dǎ cǎogǎo, shénme lípǔ de huà dōu shuō de chūlái.
+      english: He lies without even drafting — he can say anything, no matter how outrageous.
+  synonyms:
+    - word: 牛皮大王
+      pinyin: niúpí dàwáng
+      meaning: the king of ox hide (same meaning)
+  characters:
+    - char: 吹
+      simplified: 吹
+      traditional: 吹
+      pinyin: chuī
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: to blow, to boast
+      compounds:
+        - simplified: 吹风
+          pinyin: chuīfēng
+          meaning: to blow wind; hair dryer
+        - simplified: 吹牛
+          pinyin: chuīniú
+          meaning: to boast, to brag
+        - simplified: 吹捧
+          pinyin: chuīpěng
+          meaning: to flatter, to laud
+        - simplified: 吹嘘
+          pinyin: chuīxū
+          meaning: to boast, to brag
+      etymology: |
+        Phono-semantic compound. Consists of the radical 口 (mouth) and the phonetic component 欠 (qiàn, "to yawn, to owe").
+        The mouth radical indicates the action involves exhaling through the mouth. The original meaning is "to blow."
+    - char: 牛
+      simplified: 牛
+      traditional: 牛
+      pinyin: niú
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: ox, cow; (in slang) awesome, impressive
+      compounds:
+        - simplified: 牛奶
+          pinyin: niúnǎi
+          meaning: milk
+        - simplified: 牛肉
+          pinyin: niúròu
+          meaning: beef
+        - simplified: 吹牛
+          pinyin: chuīniú
+          meaning: to boast, to brag
+        - simplified: 牛人
+          pinyin: niúrén
+          meaning: awesome person (slang)
+      etymology: |
+        Pictographic. The oracle bone script depicted the head of an ox with horns. The original meaning is "ox, cattle."
+    - char: 大
+      simplified: 大
+      traditional: 大
+      pinyin: dà
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: great, big, king
+      compounds:
+        - simplified: 大人
+          pinyin: dàrén
+          meaning: adult; (archaic) your excellency
+        - simplified: 大王
+          pinyin: dàwáng
+          meaning: great king, monarch
+        - simplified: 大学
+          pinyin: dàxué
+          meaning: university
+      etymology: |
+        Pictographic. The oracle bone script depicted a person standing with arms and legs outstretched, representing "big, great."
+    - char: 王
+      simplified: 王
+      traditional: 王
+      pinyin: wáng
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: king, ruler
+      compounds:
+        - simplified: 国王
+          pinyin: guówáng
+          meaning: king
+        - simplified: 王子
+          pinyin: wángzǐ
+          meaning: prince
+        - simplified: 王后
+          pinyin: wánghòu
+          meaning: queen
+      etymology: |
+        Pictographic. The oracle bone script depicted an axe blade — a symbol of authority. The original meaning is "king, ruler."
+
+- type: word
+  date: "03/27"
+  simplified: 钓鱼
+  traditional: 釣魚
+  pinyin: diàoyú
+  english: to fish / fishing / angling
+  hsk: "4"
+  register: neutral
+  note: |
+    A common verb meaning "to fish" or "angling." Used literally for fishing as a leisure activity or profession. Also appears in figurative expressions and modern slang for scams (phishing).
+    
+    **Common Expressions:**
+    - 钓鱼竿 (diàoyúgān) — fishing rod
+    - 钓鱼岛 (Diàoyú Dǎo) — Diaoyu Islands / Senkaku Islands
+    - 钓鱼执法 (diàoyú zhífǎ) — entrapment (law enforcement)
+    - 钓鱼邮件 (diàoyú yóujiàn) — phishing email
+    - 姜太公钓鱼——愿者上钩 (Jiāng Tàigōng diàoyú — yuàn zhě shàng gōu) — "Jiang Taigong fishes — only those willing take the bait"
+    
+    **Cultural Note:**
+    Fishing has long been associated with leisure, patience, and philosophy in Chinese culture. The famous idiom "姜太公钓鱼——愿者上钩" comes from a legend about Jiang Ziya (姜子牙), a strategist who used a straight hook without bait while fishing, attracting the attention of King Wen of Zhou. This became a metaphor for waiting for the right opportunity or willing participants.
+    
+    In modern internet slang, 钓鱼 refers to "trolling" or "baiting" — posting provocative content to lure others into arguments. It also commonly refers to "phishing" scams (钓鱼网站 — phishing websites) in cybersecurity contexts.
+    
+    The phrase 钓鱼执法 — "fishing law enforcement" — is a controversial term describing entrapment where authorities induce someone to commit a crime they otherwise wouldn't.
+  examples:
+    - zh: 周末我们经常去河边钓鱼。
+      pinyin: Zhōumò wǒmen jīngcháng qù hébiān diàoyú.
+      english: We often go fishing by the river on weekends.
+    - zh: 他钓了一下午，一条鱼也没钓到。
+      pinyin: Tā diàole yī xiàwǔ, yī tiáo yú yě méi diàodào.
+      english: He fished all afternoon and didn't catch a single fish.
+    - zh: 网上有很多钓鱼网站，要小心。
+      pinyin: Wǎngshàng yǒu hěnduō diàoyú wǎngzhàn, yào xiǎoxīn.
+      english: There are many phishing websites online; be careful.
+    - zh: 姜太公钓鱼，愿者上钩。
+      pinyin: Jiāng Tàigōng diàoyú, yuàn zhě shàng gōu.
+      english: Jiang Taigong fishes — only those willing take the bait.
+  measure_word:
+    - simplified: 次
+      pinyin: cì
+      meaning: time (fishing trip)
+    - simplified: 根
+      pinyin: gēn
+      meaning: fishing rod
+  synonyms:
+    - word: 垂钓
+      pinyin: chuídiào
+      meaning: angling (literary)
+  characters:
+    - char: 钓
+      simplified: 钓
+      traditional: 釣
+      pinyin: diào
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: to fish, to angle
+      compounds:
+        - simplified: 钓鱼
+          pinyin: diàoyú
+          meaning: to fish
+        - simplified: 钓竿
+          pinyin: diàogān
+          meaning: fishing rod
+        - simplified: 钓饵
+          pinyin: diào'ěr
+          meaning: bait
+      etymology: |
+        Phono-semantic compound. The traditional form 釣 consists of the radical 金 (metal) and the phonetic component 勺 (sháo, "spoon").
+        The metal radical indicates the tool was originally made of metal. The original meaning is "to fish."
+    - char: 鱼
+      simplified: 鱼
+      traditional: 魚
+      pinyin: yú
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: fish
+      compounds:
+        - simplified: 钓鱼
+          pinyin: diàoyú
+          meaning: to fish
+        - simplified: 金鱼
+          pinyin: jīnyú
+          meaning: goldfish
+        - simplified: 鱼缸
+          pinyin: yúgāng
+          meaning: fish tank
+      etymology: |
+        Pictographic. The oracle bone script depicted a fish with head, body, fins, and scales.
+
+- type: word
+  date: "03/27"
+  simplified: 小看
+  traditional: 小看
+  pinyin: xiǎokàn
+  english: to underestimate / to look down on / to belittle
+  hsk: "5"
+  register: spoken
+  note: |
+    A colloquial verb meaning "to underestimate" or "to look down on someone." 小 (small) + 看 (to look) — literally "to see as small." Used when someone underestimates another's abilities, worth, or potential.
+    
+    **Common Expressions:**
+    - 别小看人 (bié xiǎokàn rén) — don't underestimate people / don't look down on others
+    - 小看他了 (xiǎokàn tā le) — underestimated him
+    - 可别小看这个问题 (kě bié xiǎokàn zhège wèntí) — don't underestimate this problem
+    - 小看不得 (xiǎokàn bùdé) — cannot afford to underestimate / should not be looked down upon
+    
+    **Cultural Note:**
+    The concept of 小看 reflects a cultural value of not judging based on appearances. Chinese proverbs and idioms often warn against underestimating others:
+    - 人不可貌相 (rén bùkě màoxiàng) — you can't judge a person by appearance
+    - 高手在民间 (gāoshǒu zài mínjiān) — masters often appear among ordinary people
+    
+    小看 implies a slight against someone's abilities or status. It is commonly used in negative constructions (别小看, 不能小看, 不可小看) as a warning against underestimation. The opposite concept is 高看 (gāokàn — to think highly of).
+    
+    In social contexts, being told "别小看我" (don't underestimate me) is a mild challenge, asserting that one is capable despite appearances. In competitive contexts (games, sports, business), 小看对手 (underestimating the opponent) is considered a fatal mistake.
+  examples:
+    - zh: 别小看他，他虽然年轻，但很有经验。
+      pinyin: Bié xiǎokàn tā, tā suīrán niánqīng, dàn hěn yǒu jīngyàn.
+      english: Don't underestimate him. Though he's young, he's very experienced.
+    - zh: 我当初小看了这个项目的难度，现在后悔了。
+      pinyin: Wǒ dāngchū xiǎokànle zhège xiàngmù de nándù, xiànzài hòuhuǐ le.
+      english: I underestimated the difficulty of this project back then, and now I regret it.
+    - zh: 你太谦虚了，不要小看自己的能力。
+      pinyin: Nǐ tài qiānxū le, bùyào xiǎokàn zìjǐ de nénglì.
+      english: You're too modest; don't underestimate your own abilities.
+    - zh: 这个对手不可小看，他们刚刚赢了上届冠军。
+      pinyin: Zhège duìshǒu bùkě xiǎokàn, tāmen gānggāng yíngle shàngjiè guànjūn.
+      english: This opponent shouldn't be underestimated; they just beat last year's champion.
+  synonyms:
+    - word: 低估
+      pinyin: dīgū
+      meaning: to underestimate (more formal)
+    - word: 轻视
+      pinyin: qīngshì
+      meaning: to despise, to look down on
+  antonyms:
+    - word: 重视
+      pinyin: zhòngshì
+      meaning: to value, to take seriously
+    - word: 高看
+      pinyin: gāokàn
+      meaning: to think highly of
+  characters:
+    - char: 小
+      simplified: 小
+      traditional: 小
+      pinyin: xiǎo
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: small, to belittle
+      compounds:
+        - simplified: 小心
+          pinyin: xiǎoxīn
+          meaning: careful, cautious
+        - simplified: 小孩
+          pinyin: xiǎohái
+          meaning: child
+        - simplified: 大小
+          pinyin: dàxiǎo
+          meaning: size
+      etymology: |
+        Pictographic. The oracle bone script depicted three small dots, representing small particles or grains. The original meaning is "small, little."
+    - char: 看
+      simplified: 看
+      traditional: 看
+      pinyin: kàn
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: to look, to regard
+      compounds:
+        - simplified: 看见
+          pinyin: kànjiàn
+          meaning: to see
+        - simplified: 看书
+          pinyin: kànshū
+          meaning: to read
+        - simplified: 看法
+          pinyin: kànfǎ
+          meaning: opinion, view
+      etymology: |
+        Phono-semantic compound. Consists of the radical 目 (eye) and the phonetic component 手 (shǒu, "hand") placed above. The original meaning is "to look, to see."
+
+- type: word
+  date: "03/27"
+  simplified: 撞车
+  traditional: 撞車
+  pinyin: zhuàngchē
+  english: car crash / collision / (figurative) schedule conflict / to clash (of appointments or events)
+  hsk: "5"
+  register: spoken
+  note: |
+    Literally "to crash cars," used for vehicle collisions. Figuratively, it means scheduling conflicts where two appointments or events occur at the same time, or when creative works have overlapping/identical ideas.
+    
+    **Common Expressions:**
+    - 时间撞车 (shíjiān zhuàngchē) — schedule conflict
+    - 行程撞车 (xíngchéng zhuàngchē) — itinerary conflict
+    - 两个会议撞车了 (liǎng gè huìyì zhuàngchē le) — two meetings conflict
+    - 创意撞车 (chuàngyì zhuàngchē) — creative ideas overlapping
+    - 撞期 (zhuàngqī) — dates conflict
+    
+    **Cultural Note:**
+    撞车 is a vivid metaphor drawn from traffic accidents. In busy modern life, scheduling conflicts are commonly described as 时间撞车. The term is neutral and can refer to:
+    - Appointment conflicts: 我的两个会撞车了 (Two of my meetings collided)
+    - Event clashes: 两个电影节撞车了 (Two film festivals clash)
+    - Creative overlap: 他的新片和我的构思撞车了 (His new film overlapped with my idea)
+    
+    In creative industries (film, writing, product design), 撞车 describes the awkward situation where two people independently come up with the same idea at the same time, or a creator accidentally produces something too similar to an existing work.
+    
+    Related expressions:
+    - 撞时间 (zhuàng shíjiān) — to conflict in time
+    - 撞日子 (zhuàng rìzi) — to conflict on a date
+  examples:
+    - zh: 明天下午两个会议撞车了，我得改一个。
+      pinyin: Míngtiān xiàwǔ liǎng gè huìyì zhuàngchē le, wǒ děi gǎi yī gè.
+      english: Two meetings collided tomorrow afternoon; I have to reschedule one.
+    - zh: 他的婚礼和我出差的时间撞车了。
+      pinyin: Tā de hūnlǐ hé wǒ chūchāi de shíjiān zhuàngchē le.
+      english: His wedding conflicts with my business trip.
+    - zh: 这两个电影上映日期撞车了，都在国庆档。
+      pinyin: Zhè liǎng gè diànyǐng shàngyìng rìqī zhuàngchē le, dōu zài guóqìng dàng.
+      english: These two movies have clashing release dates — both are in the National Day slot.
+    - zh: 小心开车，前面有车撞车了。
+      pinyin: Xiǎoxīn kāichē, qiánmiàn yǒu chē zhuàngchē le.
+      english: Drive carefully; there's been a car crash up ahead.
+  synonyms:
+    - word: 冲突
+      pinyin: chōngtū
+      meaning: conflict (formal)
+    - word: 重叠
+      pinyin: chóngdié
+      meaning: to overlap
+    - word: 撞期
+      pinyin: zhuàngqī
+      meaning: dates conflict
+  characters:
+    - char: 撞
+      simplified: 撞
+      traditional: 撞
+      pinyin: zhuàng
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: to collide, to bump into, to run into
+      compounds:
+        - simplified: 撞车
+          pinyin: zhuàngchē
+          meaning: car crash; schedule conflict
+        - simplified: 撞倒
+          pinyin: zhuàngdǎo
+          meaning: to knock over
+        - simplified: 碰撞
+          pinyin: pèngzhuàng
+          meaning: to collide, collision
+      etymology: |
+        Phono-semantic compound. Consists of the radical 扌 (hand) and the phonetic component 童 (tóng, "child"). The original meaning is "to strike, to bump into."
+    - char: 车
+      simplified: 车
+      traditional: 車
+      pinyin: chē
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: car, vehicle
+      compounds:
+        - simplified: 汽车
+          pinyin: qìchē
+          meaning: car, automobile
+        - simplified: 火车
+          pinyin: huǒchē
+          meaning: train
+        - simplified: 自行车
+          pinyin: zìxíngchē
+          meaning: bicycle
+      etymology: |
+        Pictographic. The traditional form 車 depicted a chariot with two wheels and an axle. The simplified form 车 is a cursive simplification.
+
+- type: word
+  date: "03/27"
+  simplified: 平行
+  traditional: 平行
+  pinyin: píngxíng
+  english: parallel / simultaneous / concurrent
+  hsk: "5"
+  register: neutral
+  note: |
+    Used for both spatial and temporal parallelism. Spatially: lines, roads, or objects that run parallel. Temporally: events, processes, or tasks that occur simultaneously or independently.
+    
+    **Common Expressions:**
+    - 平行线 (píngxíngxiàn) — parallel lines
+    - 平行世界 (píngxíng shìjiè) — parallel world
+    - 平行发展 (píngxíng fāzhǎn) — parallel development
+    - 平行进行 (píngxíng jìnxíng) — to proceed in parallel
+    
+    **Cultural Note:**
+    平行 has two distinct usage contexts:
+    
+    **Spatial** (geometry, layout):
+    - 这两条路是平行的 (These two roads are parallel)
+    - 平行停车 (píngxíng tíngchē) — parallel parking
+    
+    **Temporal** (simultaneous, concurrent):
+    - 两个项目平行进行 (Two projects are running in parallel)
+    - 平行处理 (píngxíng chǔlǐ) — parallel processing
+    
+    For temporal "parallel" with a stronger sense of "running alongside simultaneously," 并行 (bìngxíng) is also common:
+    - 并行不悖 (bìngxíng bùbèi) — to run in parallel without conflict
+    - 两者可以并行 (liǎngzhě kěyǐ bìngxíng) — the two can coexist/run in parallel
+    
+    The distinction:
+    - 平行 focuses on the concept of being parallel (like lines never meeting)
+    - 并行 emphasizes "running together simultaneously"
+  examples:
+    - zh: 这两条铁路线是平行的，永远不会相交。
+      pinyin: Zhè liǎng tiáo tiělù xiàn shì píngxíng de, yǒngyuǎn bù huì xiāngjiāo.
+      english: These two railway lines are parallel and will never meet.
+    - zh: 两个会议平行进行，分别在两个会议室。
+      pinyin: Liǎng gè huìyì píngxíng jìnxíng, fēnbié zài liǎng gè huìyìshì.
+      english: The two meetings are running in parallel, in two different meeting rooms.
+    - zh: 他在平行世界里过着另一种人生。
+      pinyin: Tā zài píngxíng shìjiè lǐ guòzhe lìng yī zhǒng rénshēng.
+      english: In a parallel world, he lives a different life.
+    - zh: 这两个方案可以平行推进，互不干扰。
+      pinyin: Zhè liǎng gè fāng'àn kěyǐ píngxíng tuījìn, hù bù gānrǎo.
+      english: These two plans can be advanced in parallel without interfering with each other.
+  synonyms:
+    - word: 并行
+      pinyin: bìngxíng
+      meaning: to run in parallel, to coexist
+    - word: 同时
+      pinyin: tóngshí
+      meaning: simultaneously
+  characters:
+    - char: 平
+      simplified: 平
+      traditional: 平
+      pinyin: píng
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: flat, level, equal, parallel
+      compounds:
+        - simplified: 平等
+          pinyin: píngděng
+          meaning: equal, equality
+        - simplified: 平常
+          pinyin: píngcháng
+          meaning: ordinary, usual
+        - simplified: 平衡
+          pinyin: pínghéng
+          meaning: balance
+      etymology: |
+        Indicative character. The oracle bone script depicted water flowing over a flat surface — indicating "level, flat."
+    - char: 行
+      simplified: 行
+      traditional: 行
+      pinyin: xíng
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: to go, to move, to proceed
+      compounds:
+        - simplified: 行走
+          pinyin: xíngzǒu
+          meaning: to walk
+        - simplified: 行动
+          pinyin: xíngdòng
+          meaning: action
+        - simplified: 进行
+          pinyin: jìnxíng
+          meaning: to proceed, to carry out
+      etymology: |
+        Pictographic. The oracle bone script depicted a crossroads or intersection. The original meaning is "road, path." Extended to "to go, to move, to proceed."
+
+- type: grammar
+  name: 一面...一面...
+  level: "4-5"
+  structure: 一面 + Verb Phrase 1 + 一面 + Verb Phrase 2
+  meaning: while doing A, also doing B / simultaneously / at the same time
+  usage: |
+    Used to indicate that two actions are happening simultaneously. Can be used with single verbs or longer phrases. More formal/literary than 一边...一边..., which is the common colloquial equivalent.
+  examples:
+    - zh: 他一面开车，一面听音乐。
+      pinyin: Tā yīmiàn kāichē, yīmiàn tīng yīnyuè.
+      de: Er fährt Auto und hört gleichzeitig Musik.
+      english: He drives while listening to music.
+    - zh: 她一面流泪，一面诉说着过去的往事。
+      pinyin: Tā yīmiàn liúlèi, yīmiàn sùshuōzhe guòqù de wǎngshì.
+      de: Sie weinte, während sie von vergangenen Erlebnissen erzählte.
+      english: She wept while recounting stories of the past.
+    - zh: 我们一面喝茶，一面聊天，不知不觉过了两个小时。
+      pinyin: Wǒmen yīmiàn hē chá, yīmiàn liáotiān, bùzhī bùjué guòle liǎng gè xiǎoshí.
+      de: Wir tranken Tee und plauderten, und ohne es zu merken vergingen zwei Stunden.
+      english: We drank tea and chatted, and before we knew it, two hours had passed.
+  common_patterns:
+    - pattern: 一面 + [Verb Phrase 1] + 一面 + [Verb Phrase 2]
+      meaning: doing A and B simultaneously
+      example: 一面吃饭一面看手机
+    - pattern: 一面...一面... (with same subject)
+      meaning: the same person does two things at once
+      example: 他一面向我道歉，一面偷偷地笑
+  grammar_notes: |
+    **Comparison: 一面...一面... vs 一边...一边...**
+    
+    | Feature | 一面...一面... | 一边...一边... |
+    |---------|----------------|----------------|
+    | Register | Formal, literary | Colloquial, everyday |
+    | Frequency | Less common in speech | Very common in speech |
+    | Style | Elegant, classical feel | Neutral, natural |
+    
+    **Usage Notes:**
+    - The two actions usually share the same subject
+    - Both parts are typically parallel in structure (verb + object)
+    - Can be shortened to just 一面 in some contexts: 他一面说，一面笑 (He talked while laughing)
+    
+    **Related Structure:**
+    - 另一方面 (lìng yīmiàn) — on the other hand / the other aspect
+    - 一面之词 (yīmiàn zhī cí) — one-sided statement
+
+- type: grammar
+  name: 何况
+  level: "4-5"
+  structure: Clause 1 + 何况 + Clause 2
+  meaning: let alone / not to mention / moreover
+  usage: |
+    Used to introduce a further, more compelling reason or to emphasize that if one situation is true, then another is even more obviously true. Often used in rhetorical questions. Similar to "let alone" or "much less" in English.
+  examples:
+    - zh: 连大人都不明白，何况小孩子呢？
+      pinyin: Lián dàrén dōu bù míngbái, hékuàng xiǎoháizi ne?
+      de: Selbst Erwachsene verstehen es nicht, geschweige denn Kinder.
+      english: Even adults don't understand it, let alone children.
+    - zh: 她平时连楼梯都爬不动，何况爬山呢。
+      pinyin: Tā píngshí lián lóutī dōu pá bù dòng, hékuàng pá shān ne.
+      de: Normalerweise schafft sie nicht einmal Treppen, geschweige denn einen Berg zu besteigen.
+      english: She can't even climb stairs normally, let alone climb a mountain.
+    - zh: 今天是周一，大家都很忙，何况还下着雨。
+      pinyin: Jīntiān shì zhōuyī, dàjiā dōu hěn máng, hékuàng hái xiàzhe yǔ.
+      de: Heute ist Montag, alle sind beschäftigt, und dazu regnet es noch.
+      english: Today is Monday, everyone is busy, and on top of that it's raining.
+  common_patterns:
+    - pattern: 连 + A + 都/也 + 不/没 + Verb，何况 + B + 呢？
+      meaning: Even A doesn't/can't (verb), let alone B
+      example: 连他都不会，何况我呢？
+    - pattern: Clause 1，何况 + Clause 2 (without 呢)
+      meaning: Moreover / on top of that
+      example: 路很远，何况天也晚了
+  grammar_notes: |
+    **Comparison: 何况 vs 况且**
+    
+    | Feature | 何况 | 况且 |
+    |---------|------|------|
+    | Meaning | "let alone" (escalating logic) | "moreover / besides" (adding reasons) |
+    | Structure | Often used with 连...都... | Typically introduces an additional point |
+    | Tone | Rhetorical, emphatic | Explanatory, additive |
+    | Question form | Frequently ends with 呢 | Rarely used in questions |
+    
+    **Examples of distinction:**
+    - 何况 (let alone): 我都没去过，何况你？ (I haven't even been there, let alone you?)
+    - 况且 (moreover): 我没去过，况且我也没有时间。 (I haven't been there, and besides, I don't have time.)
+    
+    **Related Expressions:**
+    - 更不用说 (gèng bùyòng shuō) — not to mention / let alone (even more emphatic)
+    - 别说...就连... (bié shuō... jiù lián...) — not to mention... even...
+
+- type: word
+  date: "03/27"
+  simplified: 表演
+  traditional: 表演
+  pinyin: biǎoyǎn
+  english: to perform / to act / performance / acting
+  hsk: "4"
+  register: neutral
+  note: |
+    The most common word for acting or performing on stage, film, or in front of an audience. Covers theater, film, television, and live performances. Can be used as both a verb (to perform) and a noun (a performance).
+    
+    **Common Expressions:**
+    - 表演节目 (biǎoyǎn jiémù) — to perform a program / act
+    - 表演艺术 (biǎoyǎn yìshù) — performing arts
+    - 表演者 (biǎoyǎnzhě) — performer
+    - 精彩表演 (jīngcǎi biǎoyǎn) — wonderful performance
+    - 即兴表演 (jíxìng biǎoyǎn) — improvisation / impromptu performance
+    
+    **Cultural Note:**
+    Chinese performing arts have a rich tradition spanning opera (京剧 Beijing opera), regional operas, and modern theater. 表演 is the standard term for any kind of staged performance, whether amateur or professional.
+    
+    **Related Terms:**
+    - 演出 (yǎnchū) — to perform / performance (emphasizes the event/show)
+    - 演戏 (yǎnxì) — to act / to play a role (more colloquial, also "to pretend")
+    - 扮演 (bànyǎn) — to play the role of (specific character)
+  examples:
+    - zh: 她在电影里表演得非常出色。
+      pinyin: Tā zài diànyǐng lǐ biǎoyǎn de fēicháng chūsè.
+      english: She acted excellently in the movie.
+    - zh: 孩子们在舞台上表演了一个话剧。
+      pinyin: Háizimen zài wǔtái shàng biǎoyǎnle yī gè huàjù.
+      english: The children performed a play on stage.
+    - zh: 他的魔术表演让观众惊叹不已。
+      pinyin: Tā de móshù biǎoyǎn ràng guānzhòng jīngtàn bùyǐ.
+      english: His magic performance left the audience in awe.
+    - zh: 别表演了，我知道你根本不想去。
+      pinyin: Bié biǎoyǎn le, wǒ zhīdào nǐ gēnběn bù xiǎng qù.
+      english: Stop acting; I know you don't want to go at all.
+  synonyms:
+    - word: 演出
+      pinyin: yǎnchū
+      meaning: to perform / performance (emphasizes the show/event)
+    - word: 演戏
+      pinyin: yǎnxì
+      meaning: to act / to play a role (colloquial)
+    - word: 扮演
+      pinyin: bànyǎn
+      meaning: to play the role of
+  characters:
+    - char: 表
+      simplified: 表
+      traditional: 表
+      pinyin: biǎo
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: to show, to express, to display
+      compounds:
+        - simplified: 表现
+          pinyin: biǎoxiàn
+          meaning: to show, performance
+        - simplified: 表达
+          pinyin: biǎodá
+          meaning: to express
+        - simplified: 表示
+          pinyin: biǎoshì
+          meaning: to express, to indicate
+      etymology: |
+        Phono-semantic compound. Consists of the radical 衣 (clothing) and the phonetic component 毛 (máo, "hair").
+        The original meaning was "outer garment" — something worn on the outside. Extended to mean "outside, exterior," then "to show, to display."
+    - char: 演
+      simplified: 演
+      traditional: 演
+      pinyin: yǎn
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: to perform, to act, to develop
+      compounds:
+        - simplified: 演员
+          pinyin: yǎnyuán
+          meaning: actor, performer
+        - simplified: 演出
+          pinyin: yǎnchū
+          meaning: to perform, performance
+        - simplified: 演讲
+          pinyin: yǎnjiǎng
+          meaning: to give a speech
+      etymology: |
+        Phono-semantic compound. Consists of the radical 氵 (water) and the phonetic component 寅 (yín).
+        The original meaning was "to flow, to extend." Extended to mean "to develop, to unfold," then "to perform, to act."

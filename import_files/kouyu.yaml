@@ -1,0 +1,1837 @@
+# Comprehensive Vocabulary YAML File
+# Entries from 合理 onwards (with French translations)
+
+- type: word
+  date: "03/27"
+  simplified: 合理
+  traditional: 合理
+  pinyin: hélǐ
+  english: reasonable / rational / logical / fair / equitable
+  hsk: "4"
+  register: neutral
+  note: |
+    An adjective meaning "reasonable," "logical," or "fair." Used to describe arguments, prices, arrangements, or any situation that conforms to logic or fairness.
+    
+    **Common Expressions:**
+    - 合理价格 (hélǐ jiàgé) — reasonable price
+    - 合理解释 (hélǐ jiěshì) — reasonable explanation
+    - 合理分配 (hélǐ fēnpèi) — fair distribution
+    - 合情合理 (héqíng hélǐ) — fair and reasonable (idiom)
+    - 不合理 (bù hélǐ) — unreasonable
+    
+    **Cultural Note:**
+    合理 combines 合 (to fit, to conform) and 理 (logic, principle, reason). Together they mean "conforming to reason" — something that makes logical sense or is justifiable.
+    
+    In everyday conversation, 合理 is used in many contexts:
+    - Business: discussing prices, contracts, terms
+    - Law: evaluating whether a claim or action is justified
+    - Academia: assessing logical arguments
+    - Daily life: justifying decisions or arrangements
+    
+    The opposite is 不合理 (unreasonable). The idiom 合情合理 (héqíng hélǐ) — "conforming to emotion and reason" — describes something that is both emotionally appropriate and logically sound, considered the ideal balance in Chinese culture.
+  examples:
+    - zh: 这个价格很合理，我决定买了。
+      pinyin: Zhège jiàgé hěn hélǐ, wǒ juédìng mǎi le.
+      english: This price is very reasonable; I've decided to buy it.
+      de: Dieser Preis ist sehr angemessen; ich habe beschlossen, ihn zu kaufen.
+      fr: Ce prix est très raisonnable ; j'ai décidé de l'acheter.
+    - zh: 他的要求合情合理，我们应该接受。
+      pinyin: Tā de yāoqiú héqíng hélǐ, wǒmen yīnggāi jiēshòu.
+      english: His request is fair and reasonable; we should accept it.
+      de: Seine Bitte ist fair und vernünftig; wir sollten sie annehmen.
+      fr: Sa demande est juste et raisonnable ; nous devrions l'accepter.
+    - zh: 这个方案虽然合理，但执行起来有难度。
+      pinyin: Zhège fāng'àn suīrán hélǐ, dàn zhíxíng qǐlái yǒu nándù.
+      english: Although this plan is reasonable, it's difficult to implement.
+      de: Obwohl dieser Plan vernünftig ist, ist er schwer umzusetzen.
+      fr: Bien que ce plan soit raisonnable, il est difficile à mettre en œuvre.
+  synonyms:
+    - word: 公道
+      pinyin: gōngdao
+      meaning: fair, just
+    - word: 理性
+      pinyin: lǐxìng
+      meaning: rational
+  antonyms:
+    - word: 不合理
+      pinyin: bù hélǐ
+      meaning: unreasonable
+  characters:
+    - char: 合
+      simplified: 合
+      traditional: 合
+      pinyin: hé
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: to fit, to conform to, to match
+      compounds:
+        - simplified: 合作
+          pinyin: hézuò
+          meaning: to cooperate
+        - simplified: 合适
+          pinyin: héshì
+          meaning: suitable
+        - simplified: 合理
+          pinyin: hélǐ
+          meaning: reasonable
+      etymology: |
+        Pictographic. The oracle bone script depicted a lid covering a container, representing "to close, to join, to unite." Extended to mean "to conform to, to fit."
+    - char: 理
+      simplified: 理
+      traditional: 理
+      pinyin: lǐ
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: logic, reason, principle
+      compounds:
+        - simplified: 道理
+          pinyin: dàolǐ
+          meaning: reason, principle
+        - simplified: 理由
+          pinyin: lǐyóu
+          meaning: reason
+        - simplified: 合理
+          pinyin: hélǐ
+          meaning: reasonable
+      etymology: |
+        Phono-semantic compound. Consists of radical 王 (jade) and phonetic 里 (lǐ). Original meaning was "to cut jade following its veins." Extended to mean "pattern, order, principle, reason."
+
+- type: word
+  date: "03/27"
+  simplified: 多元化
+  traditional: 多元化
+  pinyin: duōyuánhuà
+  english: diversification / diversity / pluralism
+  hsk: "6"
+  register: formal_written
+  note: |
+    A noun meaning "diversification" or "diversity." Refers to the process of becoming more varied or having multiple elements, sources, or perspectives. Commonly used in business, culture, education, and social contexts.
+    
+    **Common Expressions:**
+    - 多元化社会 (duōyuánhuà shèhuì) — diverse society
+    - 文化多元化 (wénhuà duōyuánhuà) — cultural diversity
+    - 经济多元化 (jīngjì duōyuánhuà) — economic diversification
+    - 多元化发展 (duōyuánhuà fāzhǎn) — diversified development
+    
+    **Cultural Note:**
+    多元化 is a modern term that has gained prominence since the late 20th century. It combines 多元 (multiple elements) + 化 (-ization). The suffix 化 is highly productive in modern Chinese.
+    
+    In business contexts, 多元化经营 (diversified operations) is a common corporate strategy. In cultural discourse, 文化多元化 refers to the coexistence of different ethnic groups and traditions. The term 生态文明 (ecological civilization) incorporates similar concepts of balance and diversity.
+  examples:
+    - zh: 这家公司通过多元化经营降低了风险。
+      pinyin: Zhè jiā gōngsī tōngguò duōyuánhuà jīngyíng jiàngdīle fēngxiǎn.
+      english: This company reduced risk through diversified operations.
+      de: Dieses Unternehmen reduzierte das Risiko durch diversifizierte Geschäftstätigkeiten.
+      fr: Cette entreprise a réduit les risques grâce à des opérations diversifiées.
+    - zh: 文化多元化有助于促进不同民族之间的理解。
+      pinyin: Wénhuà duōyuánhuà yǒuzhù yú cùjìn bùtóng mínzú zhī jiān de lǐjiě.
+      english: Cultural diversity helps promote understanding between different ethnic groups.
+      de: Kulturelle Vielfalt fördert das Verständnis zwischen verschiedenen ethnischen Gruppen.
+      fr: La diversité culturelle favorise la compréhension entre différents groupes ethniques.
+  characters:
+    - char: 多
+      simplified: 多
+      traditional: 多
+      pinyin: duō
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: many, multiple
+      compounds:
+        - simplified: 多少
+          pinyin: duōshǎo
+          meaning: how many
+        - simplified: 多元
+          pinyin: duōyuán
+          meaning: multiple sources
+      etymology: |
+        Indicative character. Oracle bone script depicted two 夕 (evening) characters stacked, meaning "many evenings" → "much, many."
+    - char: 元
+      simplified: 元
+      traditional: 元
+      pinyin: yuán
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: element, source
+      compounds:
+        - simplified: 元素
+          pinyin: yuánsù
+          meaning: element
+        - simplified: 多元
+          pinyin: duōyuán
+          meaning: multiple sources
+      etymology: |
+        Pictographic. Oracle bone script depicted a person with a prominent head, meaning "head." Extended to mean "chief, primary, origin."
+    - char: 化
+      simplified: 化
+      traditional: 化
+      pinyin: huà
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: -ization, to change into
+      compounds:
+        - simplified: 变化
+          pinyin: biànhuà
+          meaning: change
+        - simplified: 文化
+          pinyin: wénhuà
+          meaning: culture
+      etymology: |
+        Phono-semantic compound. Consists of radical 亻 (person) and phonetic 匕 (bǐ). Original meaning is "to transform, to change."
+
+- type: word
+  date: "03/27"
+  simplified: 风格
+  traditional: 風格
+  pinyin: fēnggé
+  english: style / manner / characteristic style
+  hsk: "5"
+  register: neutral
+  note: |
+    A noun meaning "style" in the broad sense — used for artistic style, personal style, architectural style, writing style, etc. Refers to the distinctive features that characterize something or someone.
+    
+    **Common Expressions:**
+    - 艺术风格 (yìshù fēnggé) — artistic style
+    - 建筑风格 (jiànzhù fēnggé) — architectural style
+    - 个人风格 (gèrén fēnggé) — personal style
+    - 写作风格 (xiězuò fēnggé) — writing style
+    - 风格独特 (fēnggé dútè) — unique style
+    
+    **Cultural Note:**
+    风格 combines 风 (wind, air) and 格 (pattern, frame, standard). Together, they create the idea of a "wind pattern" — the distinctive manner or characteristic way something is done.
+    
+    In art and design, it describes movements and individual artists. In literature, it refers to an author's distinctive writing. In personal contexts, it describes how a person dresses, behaves, or expresses themselves.
+  examples:
+    - zh: 这位设计师的建筑风格非常独特。
+      pinyin: Zhè wèi shèjìshī de jiànzhù fēnggé fēicháng dútè.
+      english: This architect's style is very unique.
+      de: Der Stil dieses Architekten ist sehr einzigartig.
+      fr: Le style de cet architecte est très unique.
+    - zh: 他的写作风格简洁明快，很受读者欢迎。
+      pinyin: Tā de xiězuò fēnggé jiǎnjié míngkuài, hěn shòu dúzhě huānyíng.
+      english: His writing style is concise and lively, very popular with readers.
+      de: Sein Schreibstil ist prägnant und lebendig, sehr beliebt bei Lesern.
+      fr: Son style d'écriture est concis et vivant, très apprécié des lecteurs.
+  characters:
+    - char: 风
+      simplified: 风
+      traditional: 風
+      pinyin: fēng
+      hsk: "2"
+      detailed_analysis: true
+      meaning_in_context: style, manner
+      compounds:
+        - simplified: 风景
+          pinyin: fēngjǐng
+          meaning: scenery
+        - simplified: 风格
+          pinyin: fēnggé
+          meaning: style
+      etymology: |
+        Pictographic. Traditional form 風 depicted a flying bird with wind lines. Original meaning is "wind." Extended to mean "manner, style."
+    - char: 格
+      simplified: 格
+      traditional: 格
+      pinyin: gé
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: pattern, standard, style
+      compounds:
+        - simplified: 格式
+          pinyin: géshì
+          meaning: format
+        - simplified: 性格
+          pinyin: xìnggé
+          meaning: personality
+      etymology: |
+        Phono-semantic compound. Consists of radical 木 (wood) and phonetic 各 (gè). Original meaning is "grid of a wooden frame." Extended to mean "pattern, standard."
+
+- type: word
+  date: "03/27"
+  simplified: 盈利
+  traditional: 盈利
+  pinyin: yínglì
+  english: profit / to profit / profitable
+  hsk: "5"
+  register: neutral
+  note: |
+    A noun and verb meaning "profit" or "to make a profit." Used in business, finance, and economics to describe financial gain after expenses.
+    
+    **Common Expressions:**
+    - 盈利能力 (yínglì nénglì) — profitability
+    - 盈利模式 (yínglì móshì) — profit model
+    - 盈利增长 (yínglì zēngzhǎng) — profit growth
+    - 扭亏为盈 (niǔ kuī wéi yíng) — to turn losses into profits
+    - 非盈利机构 (fēi yínglì jīgòu) — non-profit organization
+    
+    **Cultural Note:**
+    盈利 combines 盈 (full, abundant, surplus) and 利 (profit, benefit). The term has become increasingly important in China's modern market economy.
+    
+    Important distinction:
+    - 盈利 (yínglì) — profit (the result)
+    - 营利 (yínglì) — to seek profit (the activity)
+    - 非盈利机构 vs 非营利机构 — both used for non-profit organizations
+  examples:
+    - zh: 这家公司连续三年实现盈利。
+      pinyin: Zhè jiā gōngsī liánxù sān nián shíxiàn yínglì.
+      english: This company has achieved profitability for three consecutive years.
+      de: Dieses Unternehmen erzielt seit drei Jahren in Folge Gewinne.
+      fr: Cette entreprise a réalisé des bénéfices pendant trois années consécutives.
+    - zh: 他们的盈利模式很清晰，主要靠广告收入。
+      pinyin: Tāmen de yínglì móshì hěn qīngxī, zhǔyào kào guǎnggào shōurù.
+      english: Their profit model is very clear; it mainly relies on advertising revenue.
+      de: Ihr Geschäftsmodell ist sehr klar; es basiert hauptsächlich auf Werbeeinnahmen.
+      fr: Leur modèle de rentabilité est très clair ; il repose principalement sur les revenus publicitaires.
+  characters:
+    - char: 盈
+      simplified: 盈
+      traditional: 盈
+      pinyin: yíng
+      hsk: "6"
+      detailed_analysis: true
+      meaning_in_context: full, abundant, surplus
+      compounds:
+        - simplified: 盈利
+          pinyin: yínglì
+          meaning: profit
+        - simplified: 盈余
+          pinyin: yíngyú
+          meaning: surplus
+      etymology: |
+        Phono-semantic compound. Consists of radical 皿 (vessel) and phonetic 夃 (gǔ). Original meaning is "to fill a vessel to the brim."
+    - char: 利
+      simplified: 利
+      traditional: 利
+      pinyin: lì
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: profit, benefit
+      compounds:
+        - simplified: 利益
+          pinyin: lìyì
+          meaning: benefit
+        - simplified: 利润
+          pinyin: lìrùn
+          meaning: profit
+      etymology: |
+        Phono-semantic compound. Consists of radical 刂 (knife) and phonetic 禾 (hé). Original meaning was "sharp." Extended to mean "advantage, benefit."
+
+- type: word
+  date: "03/27"
+  simplified: 渠道
+  traditional: 渠道
+  pinyin: qúdào
+  english: channel / canal / (figurative) distribution channel / means / medium
+  hsk: "5"
+  register: neutral
+  note: |
+    A noun meaning "channel" in both literal and figurative senses. Literally: a man-made canal. Figuratively: a means, medium, or route through which something flows — information, goods, resources, communication.
+    
+    **Common Expressions:**
+    - 销售渠道 (xiāoshòu qúdào) — sales channel
+    - 分销渠道 (fēnxiāo qúdào) — distribution channel
+    - 沟通渠道 (gōutōng qúdào) — communication channel
+    - 官方渠道 (guānfāng qúdào) — official channel
+    - 正规渠道 (zhèngguī qúdào) — legitimate channel
+    - 渠道畅通 (qúdào chàngtōng) — smooth/unimpeded channel
+    
+    **Cultural Note:**
+    渠道 combines 渠 (canal, ditch) and 道 (path, road). The literal meaning is an artificial water channel. This physical image naturally extends to modern business and communication contexts.
+    
+    In business, it refers to distribution and sales channels. In communication, it refers to how information flows. In government contexts, it refers to official procedures and access.
+  examples:
+    - zh: 我们需要开拓新的销售渠道。
+      pinyin: Wǒmen xūyào kāituò xīn de xiāoshòu qúdào.
+      english: We need to develop new sales channels.
+      de: Wir müssen neue Vertriebskanäle erschließen.
+      fr: Nous devons développer de nouveaux canaux de vente.
+    - zh: 请通过官方渠道获取最新信息。
+      pinyin: Qǐng tōngguò guānfāng qúdào huòqǔ zuìxīn xìnxī.
+      english: Please obtain the latest information through official channels.
+      de: Bitte beziehen Sie die neuesten Informationen über offizielle Kanäle.
+      fr: Veuillez obtenir les dernières informations par les canaux officiels.
+  characters:
+    - char: 渠
+      simplified: 渠
+      traditional: 渠
+      pinyin: qú
+      hsk: "6"
+      detailed_analysis: true
+      meaning_in_context: canal, channel
+      compounds:
+        - simplified: 渠道
+          pinyin: qúdào
+          meaning: channel
+        - simplified: 水渠
+          pinyin: shuǐqú
+          meaning: water channel
+      etymology: |
+        Phono-semantic compound. Consists of radical 木 (wood) and phonetic 巨 (jù). Original meaning was "wooden water pipe." Extended to mean "canal."
+    - char: 道
+      simplified: 道
+      traditional: 道
+      pinyin: dào
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: path, road, way
+      compounds:
+        - simplified: 道路
+          pinyin: dàolù
+          meaning: road
+        - simplified: 道理
+          pinyin: dàolǐ
+          meaning: reason
+      etymology: |
+        Phono-semantic compound. Consists of radical 辶 (walk) and phonetic 首 (shǒu). Original meaning is "to lead, to guide." Extended to mean "path, road."
+
+- type: word
+  date: "03/27"
+  simplified: 线上
+  traditional: 線上
+  pinyin: xiànshàng
+  english: online / on the internet / on the platform
+  hsk: "4"
+  register: neutral
+  note: |
+    A term meaning "online" or "on the internet." Literally "on the line" — referring to being connected to a network or platform. The counterpart is 线下 (offline).
+    
+    **Common Expressions:**
+    - 线上购物 (xiànshàng gòuwù) — online shopping
+    - 线上课程 (xiànshàng kèchéng) — online courses
+    - 线上支付 (xiànshàng zhīfù) — online payment
+    - 线上会议 (xiànshàng huìyì) — online meeting
+    - 线上平台 (xiànshàng píngtái) — online platform
+    
+    **Cultural Note:**
+    线上 emerged with the rise of the internet. 线 (line) metaphorically represents the network connection. The pair 线上/线下 became especially prominent with e-commerce, education, and remote work. O2O (Online to Offline) business models emphasize 线上线下融合 (online-offline integration).
+  examples:
+    - zh: 越来越多的人喜欢线上购物。
+      pinyin: Yuèláiyuè duō de rén xǐhuān xiànshàng gòuwù.
+      english: More and more people like online shopping.
+      de: Immer mehr Menschen mögen Online-Shopping.
+      fr: De plus en plus de gens aiment les achats en ligne.
+    - zh: 这家公司同时提供线上和线下服务。
+      pinyin: Zhè jiā gōngsī tóngshí tígōng xiànshàng hé xiànxià fúwù.
+      english: This company provides both online and offline services.
+      de: Dieses Unternehmen bietet sowohl Online- als auch Offline-Dienste an.
+      fr: Cette entreprise propose à la fois des services en ligne et hors ligne.
+  characters:
+    - char: 线
+      simplified: 线
+      traditional: 線
+      pinyin: xiàn
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: line, network
+      compounds:
+        - simplified: 线路
+          pinyin: xiànlù
+          meaning: line, route
+        - simplified: 在线
+          pinyin: zàixiàn
+          meaning: online
+      etymology: |
+        Phono-semantic compound. Traditional form 線 consists of radical 糸 (silk) and phonetic 泉 (quán). Original meaning is "thread, silk thread."
+    - char: 上
+      simplified: 上
+      traditional: 上
+      pinyin: shàng
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: on, above
+      compounds:
+        - simplified: 上面
+          pinyin: shàngmiàn
+          meaning: above
+        - simplified: 上网
+          pinyin: shàngwǎng
+          meaning: to go online
+      etymology: |
+        Indicative character. Ancient form depicted a horizontal line with a shorter line above it, indicating "above."
+
+- type: word
+  date: "03/27"
+  simplified: 线下
+  traditional: 線下
+  pinyin: xiànxià
+  english: offline / in person / physical (as opposed to online)
+  hsk: "4"
+  register: neutral
+  note: |
+    A term meaning "offline" or "in the physical world." Literally "under the line" — referring to activities that happen in person or in physical spaces rather than online.
+    
+    **Common Expressions:**
+    - 线下活动 (xiànxià huódòng) — offline events
+    - 线下门店 (xiànxià méndiàn) — physical stores
+    - 线下体验 (xiànxià tǐyàn) — offline experience
+    - 线下教学 (xiànxià jiàoxué) — in-person teaching
+    - 线下交流 (xiànxià jiāoliú) — face-to-face communication
+    
+    **Cultural Note:**
+    线下 emerged as the counterpart to 线上. 下 (under) contrasts with 上 (on/above). In China's e-commerce ecosystem, 线下实体店 (offline physical stores) complement online platforms. After the pandemic, the distinction between 线上 and 线下 became significant in work, education, and social contexts.
+  examples:
+    - zh: 我们下周有一个线下见面会，欢迎大家参加。
+      pinyin: Wǒmen xià zhōu yǒu yī gè xiànxià jiànmiànhuì, huānyíng dàjiā cānjiā.
+      english: We have an in-person meetup next week; everyone is welcome to attend.
+      de: Wir haben nächste Woche ein persönliches Treffen; alle sind willkommen.
+      fr: Nous avons une rencontre en personne la semaine prochaine ; tous sont invités.
+    - zh: 这个品牌既有线上店铺，也有线下实体店。
+      pinyin: Zhège pǐnpái jì yǒu xiànshàng diànpù, yě yǒu xiànxià shítǐ diàn.
+      english: This brand has both online stores and physical brick-and-mortar stores.
+      de: Diese Marke hat sowohl Online-Shops als auch physische Geschäfte.
+      fr: Cette marque a à la fois des boutiques en ligne et des magasins physiques.
+  characters:
+    - char: 线
+      simplified: 线
+      traditional: 線
+      pinyin: xiàn
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: line, network
+      compounds:
+        - simplified: 线路
+          pinyin: xiànlù
+          meaning: line, route
+        - simplified: 在线
+          pinyin: zàixiàn
+          meaning: online
+      etymology: |
+        Phono-semantic compound. Traditional form 線 consists of radical 糸 (silk) and phonetic 泉 (quán). Original meaning is "thread."
+    - char: 下
+      simplified: 下
+      traditional: 下
+      pinyin: xià
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: under, below
+      compounds:
+        - simplified: 下面
+          pinyin: xiàmiàn
+          meaning: below
+        - simplified: 下载
+          pinyin: xiàzài
+          meaning: to download
+      etymology: |
+        Indicative character. Ancient form depicted a horizontal line with a shorter line below it, indicating "below."
+
+- type: word
+  date: "03/27"
+  simplified: 拓宽
+  traditional: 拓寬
+  pinyin: tuòkuān
+  english: to broaden / to widen / to expand
+  hsk: "6"
+  register: formal_written
+  note: |
+    A verb meaning "to broaden" or "to widen." Used both literally (for roads, paths) and figuratively (for channels, opportunities, knowledge, horizons).
+    
+    **Common Expressions:**
+    - 拓宽道路 (tuòkuān dàolù) — to widen a road
+    - 拓宽渠道 (tuòkuān qúdào) — to expand channels
+    - 拓宽视野 (tuòkuān shìyě) — to broaden one's horizons
+    - 拓宽知识面 (tuòkuān zhīshi miàn) — to broaden one's knowledge
+    - 拓宽市场 (tuòkuān shìchǎng) — to expand the market
+    - 拓宽思路 (tuòkuān sīlù) — to broaden one's thinking
+    
+    **Cultural Note:**
+    拓宽 combines 拓 (to open up, to expand) and 宽 (wide, broad). Used for infrastructure (widening roads), business (expanding sales channels, markets), and personal development (broadening horizons, knowledge, networks).
+  examples:
+    - zh: 公司正在努力拓宽海外市场。
+      pinyin: Gōngsī zhèngzài nǔlì tuòkuān hǎiwài shìchǎng.
+      english: The company is working hard to expand overseas markets.
+      de: Das Unternehmen arbeitet hart daran, die Überseemärkte zu erweitern.
+      fr: L'entreprise travaille dur pour étendre les marchés étrangers.
+    - zh: 旅行可以拓宽视野，增长见识。
+      pinyin: Lǚxíng kěyǐ tuòkuān shìyě, zēngzhǎng jiànshi.
+      english: Travel can broaden one's horizons and increase knowledge.
+      de: Reisen kann den Horizont erweitern und das Wissen vergrößern.
+      fr: Les voyages peuvent élargir les horizons et accroître les connaissances.
+  characters:
+    - char: 拓
+      simplified: 拓
+      traditional: 拓
+      pinyin: tuò
+      hsk: "6"
+      detailed_analysis: true
+      meaning_in_context: to open up, to expand
+      compounds:
+        - simplified: 开拓
+          pinyin: kāituò
+          meaning: to open up, to develop
+        - simplified: 拓展
+          pinyin: tuòzhǎn
+          meaning: to expand, to extend
+      etymology: |
+        Phono-semantic compound. Consists of radical 扌 (hand) and phonetic 石 (shí). Original meaning is "to extend, to open up."
+    - char: 宽
+      simplified: 宽
+      traditional: 寬
+      pinyin: kuān
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: wide, broad
+      compounds:
+        - simplified: 宽阔
+          pinyin: kuānkuò
+          meaning: wide, broad
+        - simplified: 宽容
+          pinyin: kuānróng
+          meaning: tolerant, forgiving
+      etymology: |
+        Phono-semantic compound. Traditional form 寬 consists of radical 宀 (roof) and phonetic 萈 (huán). Original meaning is "wide, spacious."
+
+- type: word
+  date: "03/27"
+  simplified: 客观
+  traditional: 客觀
+  pinyin: kèguān
+  english: objective / impartial / (philosophy) objective reality
+  hsk: "5"
+  register: formal_written
+  note: |
+    An adjective meaning "objective" — based on facts rather than personal feelings or opinions. Used in academic, professional, and philosophical contexts.
+    
+    **Common Expressions:**
+    - 客观事实 (kèguān shìshí) — objective fact
+    - 客观存在 (kèguān cúnzài) — objective existence
+    - 客观条件 (kèguān tiáojiàn) — objective conditions
+    - 客观分析 (kèguān fēnxī) — objective analysis
+    - 客观评价 (kèguān píngjià) — objective evaluation
+    
+    **Cultural Note:**
+    客观 combines 客 (guest, outsider) and 观 (to view). Literally "outsider's perspective" — someone not personally involved sees without bias.
+    
+    In Chinese philosophy and Marxist theory, 客观 (objective) is paired with 主观 (subjective). This distinction is fundamental:
+    - 客观: things that exist independently of human consciousness
+    - 主观: personal consciousness, opinions, and perceptions
+  examples:
+    - zh: 我们要客观地分析这个问题，不能带个人感情。
+      pinyin: Wǒmen yào kèguān de fēnxī zhège wèntí, bùnéng dài gèrén gǎnqíng.
+      english: We need to analyze this problem objectively, without bringing in personal feelings.
+      de: Wir müssen dieses Problem objektiv analysieren, ohne persönliche Gefühle einzubringen.
+      fr: Nous devons analyser ce problème objectivement, sans y mêler nos sentiments personnels.
+    - zh: 这是一个客观事实，无法否认。
+      pinyin: Zhè shì yī gè kèguān shìshí, wúfǎ fǒurèn.
+      english: This is an objective fact that cannot be denied.
+      de: Dies ist eine objektive Tatsache, die nicht geleugnet werden kann.
+      fr: C'est un fait objectif qui ne peut être nié.
+  characters:
+    - char: 客
+      simplified: 客
+      traditional: 客
+      pinyin: kè
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: guest, outsider, objective
+      compounds:
+        - simplified: 客人
+          pinyin: kèrén
+          meaning: guest
+        - simplified: 客观
+          pinyin: kèguān
+          meaning: objective
+      etymology: |
+        Phono-semantic compound. Consists of radical 宀 (roof) and phonetic 各 (gè). Original meaning is "visitor, guest."
+    - char: 观
+      simplified: 观
+      traditional: 觀
+      pinyin: guān
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: to view, perspective
+      compounds:
+        - simplified: 观点
+          pinyin: guāndiǎn
+          meaning: viewpoint
+        - simplified: 观察
+          pinyin: guānchá
+          meaning: to observe
+      etymology: |
+        Phono-semantic compound. Traditional form 觀 consists of radical 見 (to see) and phonetic 雚 (guàn). Original meaning is "to observe."
+
+- type: word
+  date: "03/27"
+  simplified: 显露
+  traditional: 顯露
+  pinyin: xiǎnlù
+  english: to appear / to become visible / to reveal / to show
+  hsk: "6"
+  register: formal_written
+  note: |
+    A verb meaning "to appear," "to become visible," or "to reveal." Used for abstract things (talent, potential, emotions) that become apparent or manifest themselves.
+    
+    **Common Expressions:**
+    - 显露才能 (xiǎnlù cáinéng) — to display one's talent
+    - 显露头角 (xiǎnlù tóujiǎo) — to show one's prominence
+    - 显露本性 (xiǎnlù běnxìng) — to reveal one's true nature
+    - 显露端倪 (xiǎnlù duānní) — to show signs
+    - 显露无疑 (xiǎnlù wúyí) — to be clearly revealed
+    
+    **Cultural Note:**
+    显露 combines 显 (to be apparent) and 露 (to reveal). Used for personal qualities (talents, abilities), signs (problems emerging), and situations (tensions becoming visible).
+    
+    Important distinction:
+    - 显露 suggests something becoming naturally visible or emerging
+    - 表现 suggests actively demonstrating or performing
+  examples:
+    - zh: 他在比赛中显露了非凡的才能。
+      pinyin: Tā zài bǐsài zhōng xiǎnlùle fēifán de cáinéng.
+      english: He displayed extraordinary talent in the competition.
+      de: Er zeigte im Wettkampf außergewöhnliches Talent.
+      fr: Il a montré un talent extraordinaire lors de la compétition.
+    - zh: 问题渐渐显露出来，需要及时解决。
+      pinyin: Wèntí jiànjiàn xiǎnlù chūlái, xūyào jíshí jiějué.
+      english: Problems are gradually emerging and need to be addressed promptly.
+      de: Probleme treten allmählich zutage und müssen rechtzeitig gelöst werden.
+      fr: Les problèmes émergent progressivement et doivent être résolus rapidement.
+  characters:
+    - char: 显
+      simplified: 显
+      traditional: 顯
+      pinyin: xiǎn
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: apparent, visible
+      compounds:
+        - simplified: 显示
+          pinyin: xiǎnshì
+          meaning: to display
+        - simplified: 明显
+          pinyin: míngxiǎn
+          meaning: obvious
+      etymology: |
+        Phono-semantic compound. Traditional form 顯 consists of radical 頁 (head) and phonetic 灥 (quán). Original meaning is "prominent, conspicuous."
+    - char: 露
+      simplified: 露
+      traditional: 露
+      pinyin: lù
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: to reveal, to expose
+      compounds:
+        - simplified: 暴露
+          pinyin: bàolù
+          meaning: to expose
+        - simplified: 流露
+          pinyin: liúlù
+          meaning: to reveal (feelings)
+      etymology: |
+        Phono-semantic compound. Consists of radical 雨 (rain) and phonetic 路 (lù). Original meaning is "dew." Extended to mean "to reveal."
+
+- type: word
+  date: "03/27"
+  simplified: 才华
+  traditional: 才華
+  pinyin: cáihuá
+  english: talent / ability / brilliance / literary or artistic talent
+  hsk: "5"
+  register: formal_written
+  note: |
+    A noun meaning "talent," especially in literary, artistic, or intellectual fields. Refers to outstanding natural ability, creativity, or brilliance.
+    
+    **Common Expressions:**
+    - 才华横溢 (cáihuá héngyì) — brimming with talent
+    - 才华出众 (cáihuá chūzhòng) — outstanding talent
+    - 展示才华 (zhǎnshì cáihuá) — to display one's talent
+    - 施展才华 (shīzhǎn cáihuá) — to put one's talent to use
+    - 才华过人 (cáihuá guòrén) — superior talent
+    
+    **Cultural Note:**
+    才华 combines 才 (ability, talent) and 华 (brilliance, flower). Together they suggest "brilliant talent" — not just ability, but the flowering of that ability.
+    
+    Important distinction:
+    - 才华: natural brilliance, especially in arts/literature
+    - 才能: ability/capability (broader, more practical)
+    - 天赋: inborn talent/gift (natural endowment)
+  examples:
+    - zh: 他是一位才华横溢的年轻作家。
+      pinyin: Tā shì yī wèi cáihuá héngyì de niánqīng zuòjiā.
+      english: He is an exceptionally talented young writer.
+      de: Er ist ein außergewöhnlich talentierter junger Schriftsteller.
+      fr: C'est un jeune écrivain extrêmement talentueux.
+    - zh: 她的音乐才华很早就显露出来。
+      pinyin: Tā de yīnyuè cáihuá hěn zǎo jiù xiǎnlù chūlái.
+      english: Her musical talent became apparent at an early age.
+      de: Ihr musikalisches Talent zeigte sich schon früh.
+      fr: Son talent musical s'est manifesté dès son plus jeune âge.
+  characters:
+    - char: 才
+      simplified: 才
+      traditional: 才
+      pinyin: cái
+      hsk: "2"
+      detailed_analysis: true
+      meaning_in_context: talent, ability
+      compounds:
+        - simplified: 才能
+          pinyin: cáinéng
+          meaning: ability
+        - simplified: 天才
+          pinyin: tiāncái
+          meaning: genius
+      etymology: |
+        Pictographic. Oracle bone script depicted a sprouting plant, representing "beginning." Extended to mean "ability, talent."
+    - char: 华
+      simplified: 华
+      traditional: 華
+      pinyin: huá
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: brilliance, splendor
+      compounds:
+        - simplified: 华丽
+          pinyin: huálì
+          meaning: gorgeous
+        - simplified: 精华
+          pinyin: jīnghuá
+          meaning: essence
+      etymology: |
+        Pictographic. Traditional form 華 depicted a flowering plant. Original meaning is "flower." Extended to mean "magnificent, brilliant."
+
+- type: word
+  date: "03/27"
+  simplified: 偏爱
+  traditional: 偏愛
+  pinyin: piān'ài
+  english: to favor / to prefer / partiality / favoritism
+  hsk: "5"
+  register: spoken_neutral
+  note: |
+    A verb and noun meaning "to favor" or "to have a preference for." Indicates a biased preference toward someone or something over others.
+    
+    **Common Expressions:**
+    - 偏爱某人 (piān'ài mǒurén) — to favor someone
+    - 对...有偏爱 (duì... yǒu piān'ài) — to have a preference for
+    - 受到偏爱 (shòudào piān'ài) — to receive preferential treatment
+    - 父母不能偏爱某一个孩子 (fùmǔ bùnéng piān'ài mǒu yī gè háizi) — parents should not favor one child
+    
+    **Cultural Note:**
+    偏爱 combines 偏 (biased, leaning) and 爱 (love, affection). Used for personal preferences (neutral) or unfair favoritism (negative).
+    
+    Important distinction:
+    - 偏爱: to favor; carries emotional weight (love-based)
+    - 偏好: preference; more neutral, for things/activities
+    - 偏心: partiality; negative connotation (unfair)
+  examples:
+    - zh: 他偏爱蓝色，衣柜里大部分都是蓝色衣服。
+      pinyin: Tā piān'ài lánsè, yīguì lǐ dà bùfèn dōu shì lánsè yīfu.
+      english: He prefers blue; most of the clothes in his wardrobe are blue.
+      de: Er bevorzugt Blau; die meisten Kleider in seinem Schrank sind blau.
+      fr: Il préfère le bleu ; la plupart des vêtements dans sa garde-robe sont bleus.
+    - zh: 老师不应该偏爱某些学生，这样对其他学生不公平。
+      pinyin: Lǎoshī bù yīnggāi piān'ài mǒuxiē xuéshēng, zhèyàng duì qítā xuéshēng bù gōngpíng.
+      english: Teachers should not favor certain students; this is unfair to other students.
+      de: Lehrer sollten keine Schüler bevorzugen; das ist unfair gegenüber anderen Schülern.
+      fr: Les enseignants ne devraient pas favoriser certains élèves ; c'est injuste envers les autres.
+  characters:
+    - char: 偏
+      simplified: 偏
+      traditional: 偏
+      pinyin: piān
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: biased, inclined
+      compounds:
+        - simplified: 偏见
+          pinyin: piānjiàn
+          meaning: prejudice
+        - simplified: 偏向
+          pinyin: piānxiàng
+          meaning: to lean towards
+      etymology: |
+        Phono-semantic compound. Consists of radical 亻 (person) and phonetic 扁 (biǎn). Original meaning is "to incline, to lean to one side."
+    - char: 爱
+      simplified: 爱
+      traditional: 愛
+      pinyin: ài
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: love, affection
+      compounds:
+        - simplified: 爱情
+          pinyin: àiqíng
+          meaning: romantic love
+        - simplified: 爱好
+          pinyin: àihào
+          meaning: hobby
+      etymology: |
+        Phono-semantic compound. Traditional form 愛 consists of radical 心 (heart) and phonetic 旡 (jì). Original meaning is "to love, to cherish."
+
+- type: word
+  date: "03/27"
+  simplified: 天赋
+  traditional: 天賦
+  pinyin: tiānfù
+  english: talent / gift / natural endowment / innate ability
+  hsk: "5"
+  register: formal_written
+  note: |
+    A noun meaning "natural talent" or "inborn gift." Refers to abilities that a person is born with, rather than acquired through learning or practice.
+    
+    **Common Expressions:**
+    - 天赋异禀 (tiānfù yìbǐng) — exceptionally gifted
+    - 天赋才华 (tiānfù cáihuá) — natural talent
+    - 有天赋 (yǒu tiānfù) — to have talent
+    - 艺术天赋 (yìshù tiānfù) — artistic talent
+    - 音乐天赋 (yīnyuè tiānfù) — musical talent
+    
+    **Cultural Note:**
+    天赋 combines 天 (heaven, nature) and 赋 (to bestow). Literally "bestowed by heaven" — abilities given by nature.
+    
+    Chinese culture values both 天赋 and 勤奋 (diligence). The idiom 天道酬勤 (heaven rewards hard work) emphasizes effort, while 天赋 acknowledges natural gifts.
+  examples:
+    - zh: 她在音乐方面很有天赋，五岁就开始学钢琴。
+      pinyin: Tā zài yīnyuè fāngmiàn hěn yǒu tiānfù, wǔ suì jiù kāishǐ xué gāngqín.
+      english: She has great musical talent; she started learning piano at age five.
+      de: Sie hat großes musikalisches Talent; sie begann im Alter von fünf Jahren Klavier zu lernen.
+      fr: Elle a un grand talent musical ; elle a commencé à apprendre le piano à cinq ans.
+    - zh: 天赋固然重要，但后天的努力同样不可或缺。
+      pinyin: Tiānfù gùrán zhòngyào, dàn hòutiān de nǔlì tóngyàng bùkě huòquē.
+      english: Talent is certainly important, but hard work is equally indispensable.
+      de: Talent ist sicherlich wichtig, aber harte Arbeit ist ebenso unverzichtbar.
+      fr: Le talent est certainement important, mais le travail acharné est tout aussi indispensable.
+  characters:
+    - char: 天
+      simplified: 天
+      traditional: 天
+      pinyin: tiān
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: heaven, nature, natural
+      compounds:
+        - simplified: 天空
+          pinyin: tiānkōng
+          meaning: sky
+        - simplified: 天然
+          pinyin: tiānrán
+          meaning: natural
+      etymology: |
+        Indicative character. Oracle bone script depicted a person with a large head, representing "top." Extended to mean "sky, heaven, nature."
+    - char: 赋
+      simplified: 赋
+      traditional: 賦
+      pinyin: fù
+      hsk: "6"
+      detailed_analysis: true
+      meaning_in_context: to bestow, to endow
+      compounds:
+        - simplified: 赋予
+          pinyin: fùyǔ
+          meaning: to bestow
+        - simplified: 天赋
+          pinyin: tiānfù
+          meaning: natural talent
+      etymology: |
+        Phono-semantic compound. Traditional form 賦 consists of radical 貝 (shellfish) and phonetic 武 (wǔ). Original meaning was "tax." Extended to mean "to bestow."
+
+- type: word
+  date: "03/27"
+  simplified: 截止
+  traditional: 截止
+  pinyin: jiézhǐ
+  english: to close / to stop / to end / deadline
+  hsk: "5"
+  register: formal_written
+  note: |
+    A verb meaning "to close," "to stop," primarily used for deadlines, application periods, and time-limited events.
+    
+    **Common Expressions:**
+    - 截止日期 (jiézhǐ rìqī) — deadline
+    - 报名截止 (bàomíng jiézhǐ) — registration closed
+    - 申请截止 (shēnqǐng jiézhǐ) — application deadline
+    - 截止到 (jiézhǐ dào) — by (a certain time)
+    - 截止目前 (jiézhǐ mùqián) — up to now
+    
+    **Cultural Note:**
+    截止 combines 截 (to cut off) and 止 (to stop). Important grammar: 截止 is not transitive. Do not say "截止报名" — instead "报名截止" (subject + 截止).
+    
+    Important distinction:
+    - 截止: refers to a deadline or end point
+    - 截至: "as of" a specific time (indicates status up to a point)
+  examples:
+    - zh: 报名截止日期是本周五，请抓紧时间。
+      pinyin: Bàomíng jiézhǐ rìqī shì běn zhōu wǔ, qǐng zhuājǐn shíjiān.
+      english: The registration deadline is this Friday; please hurry.
+      de: Die Anmeldefrist ist diesen Freitag; bitte beeilen Sie sich.
+      fr: La date limite d'inscription est ce vendredi ; veuillez vous dépêcher.
+    - zh: 截止到目前，已经有超过一千人提交了申请。
+      pinyin: Jiézhǐ dào mùqián, yǐjīng yǒu chāoguò yī qiān rén tíjiāole shēnqǐng.
+      english: As of now, over a thousand people have submitted applications.
+      de: Bis jetzt haben über tausend Menschen Bewerbungen eingereicht.
+      fr: À ce jour, plus d'un millier de personnes ont soumis leur candidature.
+  characters:
+    - char: 截
+      simplified: 截
+      traditional: 截
+      pinyin: jié
+      hsk: "6"
+      detailed_analysis: true
+      meaning_in_context: to cut off, to stop
+      compounds:
+        - simplified: 截止
+          pinyin: jiézhǐ
+          meaning: deadline
+        - simplified: 拦截
+          pinyin: lánjié
+          meaning: to intercept
+      etymology: |
+        Phono-semantic compound. Consists of radical 戈 (spear) and phonetic 隹 (zhuī). Original meaning is "to cut off, to sever."
+    - char: 止
+      simplified: 止
+      traditional: 止
+      pinyin: zhǐ
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: to stop, to cease
+      compounds:
+        - simplified: 停止
+          pinyin: tíngzhǐ
+          meaning: to stop
+        - simplified: 禁止
+          pinyin: jìnzhǐ
+          meaning: to prohibit
+      etymology: |
+        Pictographic. Oracle bone script depicted a foot, representing "to stop, to halt."
+
+- type: word
+  date: "03/27"
+  simplified: 急剧
+  traditional: 急劇
+  pinyin: jíjù
+  english: rapid / sharp / sudden / dramatic (of change)
+  hsk: "6"
+  register: formal_written
+  note: |
+    An adverb/adjective meaning "rapid," "sharp," or "sudden." Used to describe changes that happen quickly and dramatically.
+    
+    **Common Expressions:**
+    - 急剧增长 (jíjù zēngzhǎng) — rapid growth
+    - 急剧下降 (jíjù xiàjiàng) — sharp decline
+    - 急剧变化 (jíjù biànhuà) — dramatic change
+    - 急剧恶化 (jíjù èhuà) — rapid deterioration
+    - 急剧上升 (jíjù shàngshēng) — sharp rise
+    
+    **Cultural Note:**
+    急剧 combines 急 (urgent, rapid) and 剧 (intense, severe). Used in economics, environment, health, and social contexts.
+  examples:
+    - zh: 最近几个月，油价急剧上涨。
+      pinyin: Zuìjìn jǐ gè yuè, yóujià jíjù shàngzhǎng.
+      english: In recent months, oil prices have risen sharply.
+      de: In den letzten Monaten sind die Ölpreise stark gestiegen.
+      fr: Ces derniers mois, les prix du pétrole ont fortement augmenté.
+    - zh: 随着气温急剧下降，感冒患者明显增多。
+      pinyin: Suízhe qìwēn jíjù xiàjiàng, gǎnmào huànzhě míngxiǎn zēngduō.
+      english: As temperatures drop sharply, the number of cold patients has increased significantly.
+      de: Mit dem starken Temperaturabfall hat die Zahl der Erkältungspatienten deutlich zugenommen.
+      fr: Avec la chute brutale des températures, le nombre de patients enrhumés a considérablement augmenté.
+  characters:
+    - char: 急
+      simplified: 急
+      traditional: 急
+      pinyin: jí
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: urgent, rapid
+      compounds:
+        - simplified: 急忙
+          pinyin: jímáng
+          meaning: hurriedly
+        - simplified: 紧急
+          pinyin: jǐnjí
+          meaning: urgent
+      etymology: |
+        Phono-semantic compound. Consists of radical 心 (heart) and phonetic 及 (jí). Original meaning is "anxious, worried."
+    - char: 剧
+      simplified: 剧
+      traditional: 劇
+      pinyin: jù
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: intense, severe
+      compounds:
+        - simplified: 剧烈
+          pinyin: jùliè
+          meaning: intense, violent
+        - simplified: 剧场
+          pinyin: jùchǎng
+          meaning: theater
+      etymology: |
+        Phono-semantic compound. Traditional form 劇 consists of radical 刀 (knife) and phonetic 豦 (jù). Original meaning is "intense, severe."
+
+- type: word
+  date: "03/27"
+  simplified: 加剧
+  traditional: 加劇
+  pinyin: jiājù
+  english: to intensify / to aggravate / to exacerbate
+  hsk: "6"
+  register: formal_written
+  note: |
+    A verb meaning "to intensify," "to aggravate," or "to worsen." Used for negative developments — conflicts, tensions, diseases, crises.
+    
+    **Common Expressions:**
+    - 加剧矛盾 (jiājù máodùn) — to intensify contradictions
+    - 加剧紧张 (jiājù jǐnzhāng) — to heighten tension
+    - 加剧冲突 (jiājù chōngtū) — to escalate conflict
+    - 加剧恶化 (jiājù èhuà) — to worsen
+    - 加剧病情 (jiājù bìngqíng) — to worsen an illness
+    
+    **Cultural Note:**
+    加剧 combines 加 (to add) and 剧 (intense). It is a transitive verb that takes a direct object.
+    
+    Important distinction:
+    - 加剧: to intensify (focuses on the action causing worsening)
+    - 恶化: to worsen (focuses on the state becoming worse)
+  examples:
+    - zh: 这次事件进一步加剧了双方的矛盾。
+      pinyin: Zhè cì shìjiàn jìnyībù jiājùle shuāngfāng de máodùn.
+      english: This incident further intensified the conflict between the two sides.
+      de: Dieser Vorfall verschärfte den Konflikt zwischen den beiden Seiten weiter.
+      fr: Cet incident a encore intensifié le conflit entre les deux parties.
+    - zh: 过度劳累会加剧病情，一定要注意休息。
+      pinyin: Guòdù láolèi huì jiājù bìngqíng, yīdìng yào zhùyì xiūxi.
+      english: Overwork can worsen the condition; you must pay attention to rest.
+      de: Überarbeitung kann den Zustand verschlimmern; achten Sie unbedingt auf Ruhe.
+      fr: Le surmenage peut aggraver l'état ; il faut absolument faire attention au repos.
+  characters:
+    - char: 加
+      simplified: 加
+      traditional: 加
+      pinyin: jiā
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: to add, to increase
+      compounds:
+        - simplified: 增加
+          pinyin: zēngjiā
+          meaning: to increase
+        - simplified: 加强
+          pinyin: jiāqiáng
+          meaning: to strengthen
+      etymology: |
+        Phono-semantic compound. Consists of radical 力 (strength) and phonetic 口 (kǒu). Original meaning is "to add."
+    - char: 剧
+      simplified: 剧
+      traditional: 劇
+      pinyin: jù
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: intense, severe
+      compounds:
+        - simplified: 剧烈
+          pinyin: jùliè
+          meaning: intense
+        - simplified: 加剧
+          pinyin: jiājù
+          meaning: to intensify
+      etymology: |
+        Phono-semantic compound. Traditional form 劇 consists of radical 刀 (knife) and phonetic 豦 (jù). Original meaning is "intense, severe."
+
+- type: word
+  date: "03/27"
+  simplified: 生态
+  traditional: 生態
+  pinyin: shēngtài
+  english: ecology / ecosystem / (figurative) environment / ecosystem (business, social, etc.)
+  hsk: "5"
+  register: formal_written
+  note: |
+    A noun meaning "ecology" in the scientific sense, and "ecosystem" in a broader figurative sense.
+    
+    **Common Expressions:**
+    - 生态环境 (shēngtài huánjìng) — ecological environment
+    - 生态系统 (shēngtài xìtǒng) — ecosystem
+    - 生态平衡 (shēngtài pínghéng) — ecological balance
+    - 生态保护 (shēngtài bǎohù) — ecological protection
+    - 商业生态 (shāngyè shēngtài) — business ecosystem
+    
+    **Cultural Note:**
+    生态 combines 生 (life) and 态 (state). Originally from biology, it now extends to business, technology, and social contexts.
+    
+    In Chinese policy, 生态文明 (ecological civilization) is a key term promoting sustainable development and harmony between humans and nature.
+  examples:
+    - zh: 保护生态环境是我们每个人的责任。
+      pinyin: Bǎohù shēngtài huánjìng shì wǒmen měi gè rén de zérèn.
+      english: Protecting the ecological environment is the responsibility of every one of us.
+      de: Den ökologischen Umwelt zu schützen ist die Verantwortung eines jeden von uns.
+      fr: Protéger l'environnement écologique est la responsabilité de chacun d'entre nous.
+    - zh: 这个地区的生态系统非常脆弱，需要特别保护。
+      pinyin: Zhège dìqū de shēngtài xìtǒng fēicháng cuìruò, xūyào tèbié bǎohù.
+      english: The ecosystem of this region is very fragile and requires special protection.
+      de: Das Ökosystem dieser Region ist sehr fragil und bedarf besonderen Schutzes.
+      fr: L'écosystème de cette région est très fragile et nécessite une protection particulière.
+  characters:
+    - char: 生
+      simplified: 生
+      traditional: 生
+      pinyin: shēng
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: life, living
+      compounds:
+        - simplified: 生命
+          pinyin: shēngmìng
+          meaning: life
+        - simplified: 生活
+          pinyin: shēnghuó
+          meaning: life, livelihood
+      etymology: |
+        Pictographic. Oracle bone script depicted a sprouting plant, representing "to grow, to live."
+    - char: 态
+      simplified: 态
+      traditional: 態
+      pinyin: tài
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: state, condition
+      compounds:
+        - simplified: 状态
+          pinyin: zhuàngtài
+          meaning: state, condition
+        - simplified: 态度
+          pinyin: tàidù
+          meaning: attitude
+      etymology: |
+        Phono-semantic compound. Traditional form 態 consists of radical 心 (heart) and phonetic 能 (néng). Original meaning is "state, condition."
+
+- type: word
+  date: "03/27"
+  simplified: 摞
+  traditional: 摞
+  pinyin: luò
+  english: to pile up / to stack / (noun) a pile / a stack
+  hsk: "6"
+  register: spoken
+  note: |
+    A verb and measure word meaning "to pile up" or "a stack/pile." Used for flat objects that can be stacked — books, papers, bowls, plates, bricks.
+    
+    **Common Expressions:**
+    - 一摞书 (yī luò shū) — a stack of books
+    - 一摞碗 (yī luò wǎn) — a stack of bowls
+    - 一摞盘子 (yī luò pánzi) — a stack of plates
+    - 摞起来 (luò qǐlai) — to stack up
+    - 摞得整整齐齐 (luò de zhěngzhěngqíqí) — stacked neatly
+    
+    **Cultural Note:**
+    摞 has the hand radical 扌, indicating the action involves hands, and the phonetic component 累 (lèi, "to accumulate").
+    
+    Important distinction:
+    - 摞: neat stack of flat objects
+    - 堆: pile (can be messy, any shape)
+    - 叠: to fold; classifier for layers
+  examples:
+    - zh: 书桌上摞着一摞厚厚的书。
+      pinyin: Shūzhuō shàng luòzhe yī luò hòuhòu de shū.
+      english: There is a stack of thick books on the desk.
+      de: Auf dem Schreibtisch liegt ein Stapel dicker Bücher.
+      fr: Il y a une pile de livres épais sur le bureau.
+    - zh: 他把盘子摞得整整齐齐放进柜子里。
+      pinyin: Tā bǎ pánzi luò de zhěngzhěngqíqí fàngjìn guìzi lǐ.
+      english: He stacked the plates neatly and put them into the cabinet.
+      de: Er stapelte die Teller ordentlich und stellte sie in den Schrank.
+      fr: Il a empilé les assiettes bien droit et les a mises dans le placard.
+  measure_word:
+    - simplified: 摞
+      pinyin: luò
+      meaning: stack / pile
+  characters:
+    - char: 摞
+      simplified: 摞
+      traditional: 摞
+      pinyin: luò
+      hsk: "6"
+      detailed_analysis: true
+      meaning_in_context: to stack, a pile
+      compounds:
+        - simplified: 摞放
+          pinyin: luòfàng
+          meaning: to stack and place
+      etymology: |
+        Phono-semantic compound. Consists of radical 扌 (hand) and phonetic 累 (lèi). Original meaning is "to pile up, to stack."
+
+- type: word
+  date: "03/27"
+  simplified: 足以
+  traditional: 足以
+  pinyin: zúyǐ
+  english: sufficient to / enough to / can be used to
+  hsk: "5"
+  register: formal_written
+  note: |
+    A formal adverb meaning "sufficient to" or "enough to." Indicates that a certain condition, quality, or amount is adequate to produce a particular result.
+    
+    **Common Expressions:**
+    - 足以证明 (zúyǐ zhèngmíng) — sufficient to prove
+    - 足以说明 (zúyǐ shuōmíng) — enough to show
+    - 足以应对 (zúyǐ yìngduì) — sufficient to handle
+    - 足以媲美 (zúyǐ pìměi) — enough to rival
+    - 足以致命 (zúyǐ zhìmìng) — enough to be fatal
+    
+    **Cultural Note:**
+    足以 combines 足 (enough) and 以 (in order to). This construction is common in classical Chinese and remains prevalent in formal modern writing.
+    
+    Important distinction:
+    - 足以: formal, used before verbs to indicate "sufficient to (do something)"
+    - 足够: can be adjective or verb
+  examples:
+    - zh: 他的努力足以让他取得优异的成绩。
+      pinyin: Tā de nǔlì zúyǐ ràng tā qǔdé yōuyì de chéngjì.
+      english: His hard work is sufficient to enable him to achieve excellent results.
+      de: Seine harte Arbeit ist ausreichend, um ihm hervorragende Ergebnisse zu ermöglichen.
+      fr: Son travail acharné est suffisant pour lui permettre d'obtenir d'excellents résultats.
+    - zh: 这些证据足以证明他的清白。
+      pinyin: Zhèxiē zhèngjù zúyǐ zhèngmíng tā de qīngbái.
+      english: This evidence is sufficient to prove his innocence.
+      de: Diese Beweise sind ausreichend, um seine Unschuld zu beweisen.
+      fr: Ces preuves sont suffisantes pour prouver son innocence.
+  characters:
+    - char: 足
+      simplified: 足
+      traditional: 足
+      pinyin: zú
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: enough, sufficient
+      compounds:
+        - simplified: 足够
+          pinyin: zúgòu
+          meaning: enough
+        - simplified: 满足
+          pinyin: mǎnzú
+          meaning: to satisfy
+      etymology: |
+        Pictographic. Oracle bone script depicted a foot. Extended to mean "enough, sufficient."
+    - char: 以
+      simplified: 以
+      traditional: 以
+      pinyin: yǐ
+      hsk: "2"
+      detailed_analysis: true
+      meaning_in_context: in order to, by means of
+      compounds:
+        - simplified: 以为
+          pinyin: yǐwéi
+          meaning: to think
+        - simplified: 所以
+          pinyin: suǒyǐ
+          meaning: therefore
+      etymology: |
+        Pictographic. Oracle bone script depicted a plow. Original meaning is "to use, to employ."
+
+- type: word
+  date: "03/27"
+  simplified: 适当
+  traditional: 適當
+  pinyin: shìdàng
+  english: appropriate / suitable / proper / adequate
+  hsk: "5"
+  register: neutral
+  note: |
+    An adjective meaning "appropriate," "suitable," or "proper." Used to describe actions, measures, arrangements, or conditions that fit a particular situation.
+    
+    **Common Expressions:**
+    - 适当的时候 (shìdàng de shíhou) — at the appropriate time
+    - 适当的措施 (shìdàng de cuòshī) — appropriate measures
+    - 适当的安排 (shìdàng de ānpái) — proper arrangement
+    - 适当处理 (shìdàng chǔlǐ) — to handle appropriately
+    - 适当调整 (shìdàng tiáozhěng) — to adjust appropriately
+    
+    **Cultural Note:**
+    适当 combines 适 (to fit) and 当 (proper). Emphasizes a perfect fit between action and situation.
+    
+    Important distinction:
+    - 适当: appropriate in a formal, situational sense
+    - 合适: suitable, fitting (for people, things, personal preferences)
+  examples:
+    - zh: 在适当的时候，我会告诉你真相。
+      pinyin: Zài shìdàng de shíhou, wǒ huì gàosu nǐ zhēnxiàng.
+      english: I will tell you the truth at the appropriate time.
+      de: Ich werde dir zur passenden Zeit die Wahrheit sagen.
+      fr: Je te dirai la vérité au moment opportun.
+    - zh: 公司正在采取适当措施解决这个问题。
+      pinyin: Gōngsī zhèngzài cǎiqǔ shìdàng cuòshī jiějué zhège wèntí.
+      english: The company is taking appropriate measures to solve this problem.
+      de: Das Unternehmen ergreift geeignete Maßnahmen, um dieses Problem zu lösen.
+      fr: L'entreprise prend des mesures appropriées pour résoudre ce problème.
+  characters:
+    - char: 适
+      simplified: 适
+      traditional: 適
+      pinyin: shì
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: to fit, to suit
+      compounds:
+        - simplified: 适合
+          pinyin: shìhé
+          meaning: to suit
+        - simplified: 适应
+          pinyin: shìyìng
+          meaning: to adapt
+      etymology: |
+        Phono-semantic compound. Traditional form 適 consists of radical 辶 (walk) and phonetic 啇 (dí). Original meaning is "to go toward." Extended to mean "to fit."
+    - char: 当
+      simplified: 当
+      traditional: 當
+      pinyin: dàng
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: proper, appropriate
+      compounds:
+        - simplified: 恰当
+          pinyin: qiàdàng
+          meaning: appropriate
+        - simplified: 妥当
+          pinyin: tuǒdang
+          meaning: proper
+      etymology: |
+        Phono-semantic compound. Traditional form 當 consists of radical 田 (field) and phonetic 尚 (shàng). Original meaning is "to match, to be equal to."
+
+- type: word
+  date: "03/27"
+  simplified: 成效
+  traditional: 成效
+  pinyin: chéngxiào
+  english: result / effect / effectiveness / achievement
+  hsk: "5"
+  register: formal_written
+  note: |
+    A noun meaning "result," "effect," or "effectiveness." Refers to positive outcomes resulting from effort, measures, or policies.
+    
+    **Common Expressions:**
+    - 取得成效 (qǔdé chéngxiào) — to achieve results
+    - 成效显著 (chéngxiào xiǎnzhù) — remarkable results
+    - 成效明显 (chéngxiào míngxiǎn) — obvious results
+    - 初显成效 (chū xiǎn chéngxiào) — beginning to show results
+    - 治理成效 (zhìlǐ chéngxiào) — governance effectiveness
+    
+    **Cultural Note:**
+    成效 combines 成 (to achieve) and 效 (effect). Used frequently in government, business, and education contexts to evaluate success.
+    
+    Important distinction:
+    - 成效: positive results from deliberate efforts
+    - 效果: effect, result (neutral)
+    - 成果: achievement (more concrete)
+  examples:
+    - zh: 经过一年的努力，改革取得了显著成效。
+      pinyin: Jīngguò yī nián de nǔlì, gǎigé qǔdéle xiǎnzhù chéngxiào.
+      english: After a year of effort, the reforms have achieved remarkable results.
+      de: Nach einem Jahr Anstrengung haben die Reformen bemerkenswerte Ergebnisse erzielt.
+      fr: Après un an d'efforts, les réformes ont obtenu des résultats remarquables.
+    - zh: 这项新政策成效明显，得到了群众的支持。
+      pinyin: Zhè xiàng xīn zhèngcè chéngxiào míngxiǎn, dédàole qúnzhòng de zhīchí.
+      english: This new policy has shown obvious results and gained public support.
+      de: Diese neue Politik zeigt deutliche Ergebnisse und hat die Unterstützung der Bevölkerung gewonnen.
+      fr: Cette nouvelle politique a donné des résultats évidents et a obtenu le soutien de la population.
+  characters:
+    - char: 成
+      simplified: 成
+      traditional: 成
+      pinyin: chéng
+      hsk: "2"
+      detailed_analysis: true
+      meaning_in_context: to achieve, result
+      compounds:
+        - simplified: 成功
+          pinyin: chénggōng
+          meaning: success
+        - simplified: 成果
+          pinyin: chéngguǒ
+          meaning: achievement
+      etymology: |
+        Phono-semantic compound. Consists of radical 戈 (spear) and phonetic 丁 (dīng). Original meaning is "to complete, to accomplish."
+    - char: 效
+      simplified: 效
+      traditional: 效
+      pinyin: xiào
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: effect, result
+      compounds:
+        - simplified: 效果
+          pinyin: xiàoguǒ
+          meaning: effect
+        - simplified: 效率
+          pinyin: xiàolǜ
+          meaning: efficiency
+      etymology: |
+        Phono-semantic compound. Consists of radical 攵 (action) and phonetic 交 (jiāo). Original meaning is "to imitate." Extended to mean "effect, result."
+
+- type: word
+  date: "03/27"
+  simplified: 显著
+  traditional: 顯著
+  pinyin: xiǎnzhù
+  english: remarkable / notable / significant / striking
+  hsk: "5"
+  register: formal_written
+  note: |
+    An adjective meaning "remarkable," "significant," or "striking." Used to describe changes, differences, achievements, or characteristics that are clearly noticeable and important.
+    
+    **Common Expressions:**
+    - 显著提高 (xiǎnzhù tígāo) — to significantly improve
+    - 显著变化 (xiǎnzhù biànhuà) — significant change
+    - 显著差异 (xiǎnzhù chāyì) — notable difference
+    - 显著成果 (xiǎnzhù chéngguǒ) — remarkable results
+    - 显著成效 (xiǎnzhù chéngxiào) — remarkable effectiveness
+    
+    **Cultural Note:**
+    显著 combines 显 (apparent) and 著 (outstanding). Used in academic, scientific, and professional contexts.
+    
+    Important distinction:
+    - 显著: emphasizes importance and significance; more formal
+    - 明显: emphasizes being clearly visible; more colloquial
+  examples:
+    - zh: 近年来，中国的经济取得了显著的增长。
+      pinyin: Jìnnián lái, Zhōngguó de jīngjì qǔdéle xiǎnzhù de zēngzhǎng.
+      english: In recent years, China's economy has achieved remarkable growth.
+      de: In den letzten Jahren hat Chinas Wirtschaft ein bemerkenswertes Wachstum erzielt.
+      fr: Ces dernières années, l'économie chinoise a connu une croissance remarquable.
+    - zh: 这个地区的空气质量显著改善。
+      pinyin: Zhège dìqū de kōngqì zhìliàng xiǎnzhù gǎishàn.
+      english: The air quality in this region has significantly improved.
+      de: Die Luftqualität in dieser Region hat sich deutlich verbessert.
+      fr: La qualité de l'air dans cette région s'est considérablement améliorée.
+  characters:
+    - char: 显
+      simplified: 显
+      traditional: 顯
+      pinyin: xiǎn
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: apparent, visible
+      compounds:
+        - simplified: 显示
+          pinyin: xiǎnshì
+          meaning: to display
+        - simplified: 明显
+          pinyin: míngxiǎn
+          meaning: obvious
+      etymology: |
+        Phono-semantic compound. Traditional form 顯 consists of radical 頁 (head) and phonetic 灥 (quán). Original meaning is "prominent, conspicuous."
+    - char: 著
+      simplified: 著
+      traditional: 著
+      pinyin: zhù
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: outstanding, notable
+      compounds:
+        - simplified: 著名
+          pinyin: zhùmíng
+          meaning: famous
+        - simplified: 著作
+          pinyin: zhùzuò
+          meaning: work, writing
+      etymology: |
+        Phono-semantic compound. Consists of radical 艹 (grass) and phonetic 者 (zhě). Original meaning is "to manifest, to show."
+
+- type: chengyu
+  simplified: 一朝一夕
+  traditional: 一朝一夕
+  pinyin: yī zhāo yī xī
+  english: in one morning and one evening / overnight / in a short period of time
+  hsk: "6"
+  register: literary
+  note: |
+    A chengyu meaning "in one day" or "overnight." Used in negative constructions to emphasize that something cannot be accomplished quickly.
+    
+    **Common Expressions:**
+    - 不是一朝一夕的事 (bùshì yī zhāo yī xī de shì) — is not something that can be done overnight
+    - 非一朝一夕之功 (fēi yī zhāo yī xī zhī gōng) — not the work of a single day
+    - 绝非一朝一夕所能成就 (jué fēi yī zhāo yī xī suǒ néng chéngjiù) — cannot be accomplished overnight
+    
+    **Cultural Note:**
+    一朝一夕 combines 朝 (morning) and 夕 (evening) — a full day. Almost always used in negative constructions with 非 (fēi) or 不 (bù) to emphasize long-term effort.
+    
+    Related idioms:
+    - 日积月累 (rìjī yuèlèi) — to accumulate over time
+    - 水滴石穿 (shuǐdī shíchuān) — constant dripping wears away the stone
+  examples:
+    - zh: 学好中文不是一朝一夕的事，需要长期坚持。
+      pinyin: Xué hǎo Zhōngwén bùshì yī zhāo yī xī de shì, xūyào chángqī jiānchí.
+      english: Learning Chinese well is not something that can be done overnight; it requires long-term persistence.
+      de: Chinesisch gut zu lernen ist keine Sache von einem Tag; es erfordert langfristiges Durchhaltevermögen.
+      fr: Bien apprendre le chinois n'est pas l'affaire d'un jour ; cela demande une persévérance à long terme.
+    - zh: 任何事业的成功，都非一朝一夕之功。
+      pinyin: Rènhé shìyè de chénggōng, dōu fēi yī zhāo yī xī zhī gōng.
+      english: The success of any undertaking is not the work of a single day.
+      de: Der Erfolg eines jeden Unternehmens ist nicht das Werk eines einzigen Tages.
+      fr: Le succès de toute entreprise n'est pas l'œuvre d'un seul jour.
+  characters:
+    - char: 一
+      simplified: 一
+      traditional: 一
+      pinyin: yī
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: one
+      etymology: |
+        Indicative character. Oracle bone script depicted a single horizontal stroke.
+    - char: 朝
+      simplified: 朝
+      traditional: 朝
+      pinyin: zhāo
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: morning
+      compounds:
+        - simplified: 朝阳
+          pinyin: zhāoyáng
+          meaning: morning sun
+        - simplified: 朝夕
+          pinyin: zhāoxī
+          meaning: morning and evening
+      etymology: |
+        Phono-semantic compound. Consists of radical 月 (moon) and phonetic 早 (zǎo). Original meaning is "morning."
+    - char: 夕
+      simplified: 夕
+      traditional: 夕
+      pinyin: xī
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: evening
+      compounds:
+        - simplified: 夕阳
+          pinyin: xīyáng
+          meaning: setting sun
+        - simplified: 除夕
+          pinyin: chúxī
+          meaning: New Year's Eve
+      etymology: |
+        Pictographic. Oracle bone script depicted a crescent moon, representing "evening."
+
+- type: chengyu
+  simplified: 同心协力
+  traditional: 同心協力
+  pinyin: tóng xīn xié lì
+  english: to work together with one heart / to make concerted efforts / to unite efforts
+  hsk: "5"
+  register: formal_written
+  note: |
+    A chengyu meaning "to work together with one heart" or "to unite efforts." Emphasizes unity of purpose and combined strength.
+    
+    **Common Expressions:**
+    - 同心协力，共渡难关 (tóngxīn xiélì, gòng dù nánguān) — work together to overcome difficulties
+    - 同心协力，共创辉煌 (tóngxīn xiélì, gòng chuàng huīhuáng) — work together to create brilliance
+    - 同心协力，众志成城 (tóngxīn xiélì, zhòngzhì chéngchéng) — united efforts make a fortress
+    
+    **Cultural Note:**
+    同心协力 combines 同 (same), 心 (heart), 协 (to cooperate), and 力 (strength). Highly valued in Chinese culture where collective effort is emphasized.
+    
+    Important distinction:
+    - 同心协力: emphasizes "same heart" (unity of purpose)
+    - 齐心协力: emphasizes "together" (coordination)
+  examples:
+    - zh: 只有大家同心协力，才能完成这项艰巨的任务。
+      pinyin: Zhǐyǒu dàjiā tóngxīn xiélì, cáinéng wánchéng zhè xiàng jiānjù de rènwu.
+      english: Only when everyone works together can we complete this arduous task.
+      de: Nur wenn alle gemeinsam an einem Strang ziehen, können wir diese schwierige Aufgabe bewältigen.
+      fr: Ce n'est que lorsque tout le monde travaille ensemble que nous pouvons accomplir cette tâche ardue.
+    - zh: 面对疫情，全国人民同心协力，共渡难关。
+      pinyin: Miànduì yìqíng, quánguó rénmín tóngxīn xiélì, gòng dù nánguān.
+      english: Facing the pandemic, people across the country united their efforts to overcome the crisis.
+      de: Angesichts der Pandemie haben die Menschen im ganzen Land ihre Kräfte vereint, um die Krise zu überwinden.
+      fr: Face à la pandémie, les gens de tout le pays ont uni leurs efforts pour surmonter la crise.
+  characters:
+    - char: 同
+      simplified: 同
+      traditional: 同
+      pinyin: tóng
+      hsk: "2"
+      detailed_analysis: true
+      meaning_in_context: same, together
+      compounds:
+        - simplified: 相同
+          pinyin: xiāngtóng
+          meaning: identical
+        - simplified: 共同
+          pinyin: gòngtóng
+          meaning: common
+      etymology: |
+        Phono-semantic compound. Consists of radical 口 (mouth) and phonetic 一. Original meaning is "to assemble."
+    - char: 心
+      simplified: 心
+      traditional: 心
+      pinyin: xīn
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: heart, mind
+      compounds:
+        - simplified: 心情
+          pinyin: xīnqíng
+          meaning: mood
+        - simplified: 心理
+          pinyin: xīnlǐ
+          meaning: psychology
+      etymology: |
+        Pictographic. Oracle bone script depicted a heart with chambers.
+    - char: 协
+      simplified: 协
+      traditional: 協
+      pinyin: xié
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: to cooperate
+      compounds:
+        - simplified: 协助
+          pinyin: xiézhù
+          meaning: to assist
+        - simplified: 协调
+          pinyin: xiétiáo
+          meaning: to coordinate
+      etymology: |
+        Phono-semantic compound. Traditional form 協 consists of radical 十 (ten) and three 力 (strength) components, depicting multiple forces working together.
+    - char: 力
+      simplified: 力
+      traditional: 力
+      pinyin: lì
+      hsk: "2"
+      detailed_analysis: true
+      meaning_in_context: strength, effort
+      compounds:
+        - simplified: 力量
+          pinyin: lìliàng
+          meaning: strength
+        - simplified: 努力
+          pinyin: nǔlì
+          meaning: effort
+      etymology: |
+        Pictographic. Oracle bone script depicted a plow or a strong arm.
+
+- type: word
+  date: "03/27"
+  simplified: 家务
+  traditional: 家務
+  pinyin: jiāwù
+  english: housework / household chores / domestic duties
+  hsk: "4"
+  register: neutral
+  note: |
+    A noun meaning "housework" or "household chores." Refers to daily tasks required to maintain a home.
+    
+    **Common Expressions:**
+    - 做家务 (zuò jiāwù) — to do housework
+    - 家务活 (jiāwùhuó) — household chores (colloquial)
+    - 分担家务 (fēndān jiāwù) — to share housework
+    - 家务劳动 (jiāwù láodòng) — domestic labor
+    - 家务助理 (jiāwù zhùlǐ) — domestic helper
+    
+    **Cultural Note:**
+    家务 combines 家 (home) and 务 (affair, duty). Traditional Chinese culture assigned housework primarily to women, but modern society increasingly emphasizes sharing domestic duties.
+    
+    Important distinction:
+    - 家务: household chores (physical tasks)
+    - 家务事: can also mean family matters (sometimes including conflicts)
+  examples:
+    - zh: 周末我在家做家务，打扫卫生、洗衣服。
+      pinyin: Zhōumò wǒ zài jiā zuò jiāwù, dǎsǎo wèishēng, xǐ yīfu.
+      english: I do housework at home on weekends — cleaning and doing laundry.
+      de: Am Wochenende mache ich zu Hause Hausarbeit — putzen und Wäsche waschen.
+      fr: Le week-end, je fais le ménage à la maison — nettoyer et faire la lessive.
+    - zh: 夫妻之间应该共同分担家务，不能只让一个人做。
+      pinyin: Fūqī zhī jiān yīnggāi gòngtóng fēndān jiāwù, bùnéng zhǐ ràng yī gè rén zuò.
+      english: Husband and wife should share housework; one person shouldn't be the only one doing it.
+      de: Ehepartner sollten sich die Hausarbeit teilen; nicht nur einer sollte sie machen.
+      fr: Les époux devraient partager les tâches ménagères ; ce n'est pas à une seule personne de tout faire.
+  characters:
+    - char: 家
+      simplified: 家
+      traditional: 家
+      pinyin: jiā
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: home, family
+      compounds:
+        - simplified: 家庭
+          pinyin: jiātíng
+          meaning: family
+        - simplified: 家人
+          pinyin: jiārén
+          meaning: family members
+      etymology: |
+        Phono-semantic compound. Consists of radical 宀 (roof) and phonetic 豕 (shǐ). Original meaning is "home, household."
+    - char: 务
+      simplified: 务
+      traditional: 務
+      pinyin: wù
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: affair, duty, task
+      compounds:
+        - simplified: 任务
+          pinyin: rènwu
+          meaning: task
+        - simplified: 服务
+          pinyin: fúwù
+          meaning: service
+      etymology: |
+        Phono-semantic compound. Traditional form 務 consists of radical 力 (strength) and phonetic 敄 (wù). Original meaning is "to devote effort to."
+
+- type: word
+  date: "03/27"
+  simplified: 语素
+  traditional: 語素
+  pinyin: yǔsù
+  english: morpheme / minimal meaningful unit in language
+  hsk: "6"
+  register: formal_written
+  note: |
+    A noun meaning "morpheme" — the smallest grammatical unit in a language that carries meaning. Used in linguistics, language education, and Chinese language studies.
+    
+    **Common Expressions:**
+    - 自由语素 (zìyóu yǔsù) — free morpheme
+    - 黏着语素 (niánzhuó yǔsù) — bound morpheme
+    - 词根语素 (cígēn yǔsù) — root morpheme
+    - 语素分析 (yǔsù fēnxī) — morphemic analysis
+    
+    **Cultural Note:**
+    语素 combines 语 (language) and 素 (element). In Chinese linguistics, the concept is important because Chinese characters often represent morphemes, but the mapping is not always one-to-one.
+    
+    Important distinction:
+    - 语素: smallest meaningful unit
+    - 词: word
+    - 字: character (written)
+  examples:
+    - zh: 语素是语言中最小的音义结合单位。
+      pinyin: Yǔsù shì yǔyán zhōng zuì xiǎo de yīn yì jiéhé dānwèi.
+      english: A morpheme is the smallest unit in language that combines sound and meaning.
+      de: Ein Morphem ist die kleinste Einheit in der Sprache, die Laut und Bedeutung verbindet.
+      fr: Un morphème est la plus petite unité linguistique qui combine un son et un sens.
+    - zh: 在汉语中，大多数语素都是单音节的。
+      pinyin: Zài Hànyǔ zhōng, dàduōshù yǔsù dōu shì dān yīnjié de.
+      english: In Chinese, most morphemes are monosyllabic.
+      de: Im Chinesischen sind die meisten Morpheme einsilbig.
+      fr: En chinois, la plupart des morphèmes sont monosyllabiques.
+  characters:
+    - char: 语
+      simplified: 语
+      traditional: 語
+      pinyin: yǔ
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: language
+      compounds:
+        - simplified: 语言
+          pinyin: yǔyán
+          meaning: language
+        - simplified: 词语
+          pinyin: cíyǔ
+          meaning: word
+      etymology: |
+        Phono-semantic compound. Traditional form 語 consists of radical 言 (speech) and phonetic 吾 (wú). Original meaning is "to speak."
+    - char: 素
+      simplified: 素
+      traditional: 素
+      pinyin: sù
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: element, fundamental component
+      compounds:
+        - simplified: 元素
+          pinyin: yuánsù
+          meaning: element
+        - simplified: 因素
+          pinyin: yīnsù
+          meaning: factor
+      etymology: |
+        Phono-semantic compound. Consists of radical 糸 (silk) and phonetic 耒 (lěi). Original meaning is "white silk." Extended to mean "basic, fundamental."
