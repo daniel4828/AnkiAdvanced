@@ -9,6 +9,7 @@ let story       = null;   // story dict with sentences[]
 let sentence    = null;   // current sentence from story (may be null)
 let wordDetails = null;   // full word data: examples + characters
 let _currentWordId = null; // word ID open in word-detail view
+let _prevView = null;      // view we came from before opening word-detail
 let userInput   = '';     // creating category: what the user typed
 let browseWords  = [];   // all words from /api/browse-words
 let browseAll    = [];   // kept for legacy (unused by new browse)
@@ -16,7 +17,7 @@ let _browseSort  = 'pinyin-asc';
 let _browseSelected = new Set();  // selected word IDs (multiselect)
 let _browseDecks = [];            // flat deck list for move dropdown
 let optDeckId    = null; // deck whose options modal is open
-const collapsed  = new Set();  // parent deck IDs that are collapsed
+const collapsed  = new Set(JSON.parse(localStorage.getItem('collapsedDecks') || '[]'));  // parent deck IDs that are collapsed
 let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
 
 // ── Prompt modal ────────────────────────────────────────────────────────────
@@ -380,6 +381,7 @@ function toggleDeck(deckId) {
   } else {
     collapsed.add(deckId);
   }
+  localStorage.setItem('collapsedDecks', JSON.stringify([...collapsed]));
   if (_cachedDecks) {
     const scrollEl = document.querySelector('main');
     const scrollY = scrollEl ? scrollEl.scrollTop : 0;
@@ -877,6 +879,9 @@ function _hanziRow(h) {
 
 // ── Word Detail ───────────────────────────────────────────────────────────────
 async function openWordDetail(wordId) {
+  // Capture which view we're coming from so we can go back to it
+  const views = ['review', 'browse', 'hanzi-detail', 'word-detail', 'stats', 'done', 'decks'];
+  _prevView = views.find(v => document.getElementById(`view-${v}`)?.style.display !== 'none') || null;
   _currentWordId = wordId;
   setLoading('Loading word…');
   try {
@@ -884,6 +889,8 @@ async function openWordDetail(wordId) {
     word.cards = await api('GET', `/api/words/${wordId}/cards`);
     renderWordDetail(word);
     showView('word-detail');
+    const backBtn = document.getElementById('wd-back-review-btn');
+    if (backBtn) backBtn.style.display = _prevView === 'review' ? 'block' : 'none';
   } catch (e) {
     showError('Failed to load word: ' + e.message);
     showView('browse');
@@ -936,10 +943,7 @@ function renderWordDetail(word) {
         ${meanHtml}${ctx}${etym}
       </div>`;
     }).join('');
-    charsEl.innerHTML =
-      `<div class="wd-section-head section-toggle" onclick="toggleSection('wd-chars-body')">` +
-        `<span id="wd-chars-body-arrow">▶</span> Characters</div>` +
-      `<div id="wd-chars-body" class="wd-section-body" style="display:none">${rows}</div>`;
+    charsEl.innerHTML = rows;
   } else {
     charsEl.innerHTML = '';
   }
@@ -975,12 +979,26 @@ function renderWordDetail(word) {
   const mwEl = document.getElementById('wd-measure-section');
   if (word.measure_words?.length) {
     const items = word.measure_words.map(m =>
-      `<span class="wd-mw-item" title="${m.meaning || ''}">${m.measure_zh}` +
+      `<span class="wd-mw-item">${m.measure_zh}` +
       (m.pinyin ? ` <span class="wd-rel-pin">${m.pinyin}</span>` : '') +
+      (m.meaning ? ` <span class="wd-mw-meaning">${m.meaning}</span>` : '') +
       `</span>`).join('');
     mwEl.innerHTML = `<div class="wd-rel-group"><span class="wd-rel-label">量词</span>${items}</div>`;
   } else {
     mwEl.innerHTML = '';
+  }
+
+  // Notes section
+  const notesEl = document.getElementById('wd-notes-section');
+  if (notesEl) {
+    if (word.notes) {
+      notesEl.innerHTML =
+        `<div class="wd-section-head section-toggle" onclick="toggleSection('wd-notes-body')">` +
+          `<span id="wd-notes-body-arrow">▶</span> Notes</div>` +
+        `<div id="wd-notes-body" class="wd-section-body notes-body" style="display:none">${word.notes}</div>`;
+    } else {
+      notesEl.innerHTML = '';
+    }
   }
 
   // Examples section
@@ -1789,8 +1807,9 @@ function loadCard(c, counts) {
   fetch(`/api/word/${c.word_id}`)
     .then(r => r.ok ? r.json() : null)
     .then(d => {
+      if (!d) return;
       wordDetails = d;
-      // If back is already showing (user flipped before fetch completed), re-render
+      // If back is already showing (user flipped before fetch completed), re-render with full data
       if (document.getElementById('side-back').style.display !== 'none') {
         // Re-render interactive word-zh now that components are available
         const nt = wordDetails?.note_type || card.note_type;
@@ -1802,6 +1821,8 @@ function loadCard(c, counts) {
         renderVocabDetail();
         renderNotesSection();
         _callRenderWordAnalysis();
+        // MOST IMPORTANT: Re-render category row with actual card data
+        renderReviewCatRow();
       }
     })
     .catch(() => {});
@@ -1959,6 +1980,7 @@ function revealAnswer() {
   renderVocabDetail();
   renderNotesSection();
   _callRenderWordAnalysis();
+  renderReviewCatRow();
 
   // Auto-play audio on reveal for all categories
   playSentence();
@@ -2056,6 +2078,38 @@ function hideWordTip() {
   }, 80);
 }
 
+// ── Category suspension row on review card back ──────────────────────────────
+function renderReviewCatRow() {
+  const el = document.getElementById('review-cat-row');
+  if (!el) return;
+  const cards = wordDetails?.cards;
+  if (!cards?.length) { el.innerHTML = ''; return; }
+  const CATS = ['reading', 'listening', 'creating'];
+  const LABELS = { reading: 'Reading', listening: 'Listening', creating: 'Creating' };
+  const html = CATS.map(cat => {
+    const c = cards.find(c => c.category === cat && !c.deleted_at);
+    if (!c) return '';
+    const isCurrent = cat === category;
+    const isSusp = c.state === 'suspended';
+    const cls = isSusp ? 'rcat-btn rcat-susp' : 'rcat-btn rcat-active';
+    const title = isSusp ? `Activate ${LABELS[cat]}` : `Suspend ${LABELS[cat]}`;
+    const label = isCurrent ? `<strong>${LABELS[cat]}</strong>` : LABELS[cat];
+    return `<button class="${cls}" onclick="toggleReviewCat(${c.id})" type="button" title="${title}">${label}</button>`;
+  }).join('');
+  el.innerHTML = html;
+}
+
+async function toggleReviewCat(cardId) {
+  try {
+    await api('POST', `/api/cards/${cardId}/suspend`);
+    const updated = await api('GET', `/api/words/${card.word_id}/cards`);
+    if (wordDetails) wordDetails.cards = updated;
+    renderReviewCatRow();
+  } catch (e) {
+    showError('Failed: ' + e.message);
+  }
+}
+
 function renderVocabDetail() {
   // Examples
   const examples = wordDetails?.examples || [];
@@ -2137,8 +2191,9 @@ function renderWordAnalysis() {
     const mw = comp.measure_words || [];
     if (mw.length) {
       const items = mw.map(m =>
-        `<span class="wa-mw-item" title="${m.meaning || ''}">${m.measure_zh}` +
+        `<span class="wa-mw-item">${m.measure_zh}` +
         (m.pinyin ? ` <span class="wa-mw-pin">${m.pinyin}</span>` : '') +
+        (m.meaning ? ` <span class="wa-mw-meaning">${m.meaning}</span>` : '') +
         `</span>`
       ).join('');
       mwHtml = `<div class="wa-measure-row"><span class="wa-rel-label">量词</span>${items}</div>`;
@@ -2155,11 +2210,14 @@ function renderWordAnalysis() {
         if (c.pinyin)             right += `<span class="wa-char-pin">${c.pinyin}</span>`;
         if (c.meaning_in_context) right += `<span class="wa-char-ctx">${c.meaning_in_context}</span>`;
         if (c.compounds?.length) {
-          const cps = c.compounds.map(cp =>
-            `<span class="wa-compound-item" title="${cp.meaning || ''}">${cp.compound_zh}` +
-            (cp.pinyin ? ` <span class="wa-compound-pin">${cp.pinyin}</span>` : '') +
-            `</span>`
-          ).join('');
+          const cps = c.compounds.map(cp => {
+            const highlightedZh = (cp.compound_zh || '').split('').map(ch =>
+              ch === c.char ? `<span class="wa-compound-hl">${ch}</span>` : ch
+            ).join('');
+            return `<span class="wa-compound-item" title="${cp.meaning || ''}">${highlightedZh}` +
+              (cp.pinyin ? ` <span class="wa-compound-pin">${cp.pinyin}</span>` : '') +
+              `</span>`;
+          }).join('');
           right += `<div class="wa-compounds">${cps}</div>`;
         }
         if (c.etymology) right += `<div class="wa-char-etym">${c.etymology}</div>`;
@@ -2185,10 +2243,7 @@ function renderWordAnalysis() {
       `</div>`;
   }).join('');
 
-  section.innerHTML =
-    `<div class="section-label section-toggle" onclick="toggleSection('wa-section-body')">` +
-      `<span id="wa-section-body-arrow">▼</span> Word Analysis</div>` +
-    `<div id="wa-section-body" class="wa-list">${wordCards}</div>`;
+  section.innerHTML = `<div class="wa-list">${wordCards}</div>`;
 }
 
 function _callRenderWordAnalysis() {
@@ -2685,7 +2740,7 @@ async function _doRegenerateStory(topic, maxHsk, model) {
 // ── Back to decks ────────────────────────────────────────────────────────────
 function goBack() {
   if (document.getElementById('view-word-detail').style.display !== 'none') {
-    showView('browse');
+    showView(_prevView === 'review' ? 'review' : 'browse');
     return;
   }
   if (document.getElementById('view-hanzi-detail').style.display !== 'none') {
@@ -3611,6 +3666,15 @@ document.addEventListener('keydown', e => {
   if (e.key === 'R' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
     if (!inInput) { e.preventDefault(); restartServer(); }
     return;
+  }
+
+  // Enter in word-detail → back to review (if opened from review)
+  if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.altKey && !inInput && !_hasOpenModal()) {
+    if (document.getElementById('view-word-detail')?.style.display !== 'none' && _prevView === 'review') {
+      e.preventDefault();
+      goBack();
+      return;
+    }
   }
 
   if (!inInput && !_hasOpenModal()) {

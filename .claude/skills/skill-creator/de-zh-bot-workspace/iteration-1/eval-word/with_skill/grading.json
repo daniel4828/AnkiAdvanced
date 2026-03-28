@@ -1,0 +1,14 @@
+{
+  "eval_id": 0,
+  "eval_name": "word-entry-chinese-input",
+  "assertions": [
+    {"text": "Entry uses type: word", "passed": true, "evidence": "Line 1: '- type: word'"},
+    {"text": "hsk field is a quoted single digit", "passed": true, "evidence": "Line 7: 'hsk: \"6\"'"},
+    {"text": "All examples have zh, pinyin, english, and de fields", "passed": true, "evidence": "All 4 examples (lines 22–37) include zh, pinyin, english, de"},
+    {"text": "Character blocks include simplified: field", "passed": true, "evidence": "All 5 chars have 'simplified:' (lines 41, 58, 78, 97, 115)"},
+    {"text": "Output is only YAML, no prose explanation before or after", "passed": true, "evidence": "File starts directly with '- type: word', no surrounding text"},
+    {"text": "word type uses note: not explanations:", "passed": true, "evidence": "Line 9: 'note: |' — no explanations: field present"}
+  ],
+  "pass_rate": 1.0,
+  "notes": "Perfect output. All assertions pass. Traditional forms correctly omitted where identical (可, 展), included where different (续→續, 发→發). Etymology prose is clean."
+}

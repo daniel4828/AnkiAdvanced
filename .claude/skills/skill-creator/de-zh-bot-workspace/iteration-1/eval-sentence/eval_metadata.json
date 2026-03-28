@@ -1,0 +1,13 @@
+{
+  "eval_id": 1,
+  "eval_name": "sentence-entry-german-input",
+  "prompt": "Ich habe Heimweh nach meiner Familie.",
+  "assertions": [
+    {"text": "Entry uses type: sentence", "passed": null, "evidence": ""},
+    {"text": "source_de field included since input was German", "passed": null, "evidence": ""},
+    {"text": "sentence type uses explanations: not top-level note:", "passed": null, "evidence": ""},
+    {"text": "word_analyses included with key vocab", "passed": null, "evidence": ""},
+    {"text": "All examples have zh, pinyin, english, and de fields", "passed": null, "evidence": ""},
+    {"text": "Output is only YAML, no prose explanation", "passed": null, "evidence": ""}
+  ]
+}

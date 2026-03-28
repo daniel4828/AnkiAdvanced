@@ -1,0 +1,119 @@
+{
+  "skill_name": "de-zh-bot",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "可持续发展",
+      "expected_output": "A type: word YAML entry for 可持续发展 with all required fields including examples with zh/pinyin/english/de, character analysis with simplified field, and note with usage info.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "correct_type_word",
+          "description": "Entry uses type: word (not vocabulary or other)",
+          "check": "output contains 'type: word'"
+        },
+        {
+          "name": "hsk_quoted_single_digit",
+          "description": "hsk field is a quoted single digit like \"5\" not \"5-6\" or unquoted",
+          "check": "hsk field matches pattern hsk: \"[1-6]\""
+        },
+        {
+          "name": "examples_have_four_fields",
+          "description": "All examples have zh, pinyin, english, and de fields",
+          "check": "each example block contains zh:, pinyin:, english:, de:"
+        },
+        {
+          "name": "simplified_inside_char_block",
+          "description": "Character blocks include simplified: field",
+          "check": "character entries contain simplified: field"
+        },
+        {
+          "name": "no_extra_text",
+          "description": "Output is only YAML, no prose explanation before or after",
+          "check": "response is only a fenced yaml block with no surrounding text"
+        },
+        {
+          "name": "note_field_used_not_explanations",
+          "description": "word type uses note: not explanations:",
+          "check": "output contains 'note: |' and does not contain 'explanations:'"
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "Ich habe Heimweh nach meiner Familie.",
+      "expected_output": "A type: sentence YAML entry with source_de, simplified, traditional, pinyin, english, explanations, grammar_structures, similar_sentences, and word_analyses for key vocabulary.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "correct_type_sentence",
+          "description": "Entry uses type: sentence",
+          "check": "output contains 'type: sentence'"
+        },
+        {
+          "name": "has_source_de",
+          "description": "source_de field included since input was German",
+          "check": "output contains 'source_de:'"
+        },
+        {
+          "name": "uses_explanations_not_note",
+          "description": "sentence type uses explanations: not note:",
+          "check": "output contains 'explanations:' and not a top-level 'note:'"
+        },
+        {
+          "name": "has_word_analyses",
+          "description": "word_analyses included with key vocab (heimweh = 想家 or 乡愁)",
+          "check": "output contains 'word_analyses:'"
+        },
+        {
+          "name": "examples_have_four_fields",
+          "description": "All examples have zh, pinyin, english, and de fields",
+          "check": "each example block contains zh:, pinyin:, english:, de:"
+        },
+        {
+          "name": "no_extra_text",
+          "description": "Output is only YAML, no prose explanation",
+          "check": "response is only a fenced yaml block"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "马到成功",
+      "expected_output": "A type: chengyu YAML entry with note, examples (4 fields each), synonyms, antonyms, and word_analyses for component words 马, 到, 成, 功.",
+      "files": [],
+      "assertions": [
+        {
+          "name": "correct_type_chengyu",
+          "description": "Entry uses type: chengyu",
+          "check": "output contains 'type: chengyu'"
+        },
+        {
+          "name": "has_word_analyses",
+          "description": "word_analyses included for component words",
+          "check": "output contains 'word_analyses:'"
+        },
+        {
+          "name": "has_synonyms",
+          "description": "synonyms field included",
+          "check": "output contains 'synonyms:'"
+        },
+        {
+          "name": "examples_have_four_fields",
+          "description": "All examples have zh, pinyin, english, and de fields",
+          "check": "each example block contains zh:, pinyin:, english:, de:"
+        },
+        {
+          "name": "no_extra_text",
+          "description": "Output is only YAML, no prose explanation",
+          "check": "response is only a fenced yaml block"
+        },
+        {
+          "name": "uses_note_not_explanations",
+          "description": "chengyu type uses note: not explanations:",
+          "check": "output contains 'note: |' and no top-level 'explanations:'"
+        }
+      ]
+    }
+  ]
+}

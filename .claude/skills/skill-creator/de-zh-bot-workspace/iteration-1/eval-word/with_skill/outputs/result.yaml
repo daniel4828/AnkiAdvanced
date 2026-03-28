@@ -1,0 +1,131 @@
+- type: word
+  date: "03/28"
+  simplified: 可持续发展
+  traditional: 可持續發展
+  pinyin: kě chíxù fāzhǎn
+  english: sustainable development
+  hsk: "6"
+  register: formal_written
+  note: |
+    可持续发展 refers to development that meets present needs without compromising the ability of future generations to meet their own needs. It is the standard Chinese rendering of the UN concept "sustainable development" and appears widely in government policy, academic writing, and environmental discourse.
+
+    The phrase breaks down as: 可 (kě, capable of / -able) + 持续 (chíxù, continuous, sustained) + 发展 (fāzhǎn, development). Together they form a compound noun/verb phrase meaning "development that can be sustained."
+
+    **Common Expressions:**
+    - 可持续发展战略 (kě chíxù fāzhǎn zhànlüè) — sustainable development strategy
+    - 可持续发展目标 (kě chíxù fāzhǎn mùbiāo) — Sustainable Development Goals (SDGs)
+    - 绿色可持续发展 (lǜsè kě chíxù fāzhǎn) — green sustainable development
+    - 实现可持续发展 (shíxiàn kě chíxù fāzhǎn) — to achieve sustainable development
+    - 推动可持续发展 (tuīdòng kě chíxù fāzhǎn) — to promote sustainable development
+
+  examples:
+    - zh: 保护环境与推动经济增长并不矛盾，两者都是实现可持续发展的必要条件。
+      pinyin: Bǎohù huánjìng yǔ tuīdòng jīngjì zēngzhǎng bìng bù máodùn, liǎngzhě dōu shì shíxiàn kě chíxù fāzhǎn de bìyào tiáojiàn.
+      english: Protecting the environment and promoting economic growth are not contradictory — both are necessary conditions for achieving sustainable development.
+      de: Umweltschutz und Wirtschaftswachstum sind kein Widerspruch — beides sind notwendige Voraussetzungen für eine nachhaltige Entwicklung.
+    - zh: 联合国提出了十七项可持续发展目标，涵盖消除贫困、气候行动等多个领域。
+      pinyin: Liánhéguó tíchūle shíqī xiàng kě chíxù fāzhǎn mùbiāo, hángài xiāochú pínkùn, qìhòu xíngdòng děng duō gè lǐngyù.
+      english: The United Nations has put forward seventeen Sustainable Development Goals, covering areas such as poverty eradication and climate action.
+      de: Die Vereinten Nationen haben siebzehn Ziele für nachhaltige Entwicklung aufgestellt, die Bereiche wie Armutsbekämpfung und Klimaschutz abdecken.
+    - zh: 这座城市通过发展清洁能源，走上了可持续发展的道路。
+      pinyin: Zhè zuò chéngshì tōngguò fāzhǎn qīngjié néngyuán, zǒu shàngle kě chíxù fāzhǎn de dàolù.
+      english: This city has embarked on the path of sustainable development by investing in clean energy.
+      de: Diese Stadt hat durch die Förderung sauberer Energien den Weg der nachhaltigen Entwicklung eingeschlagen.
+    - zh: 企业的长远利益与可持续发展的理念高度吻合。
+      pinyin: Qǐyè de chángyuǎn lìyì yǔ kě chíxù fāzhǎn de lǐniàn gāodù wěnhé.
+      english: The long-term interests of businesses are highly aligned with the concept of sustainable development.
+      de: Die langfristigen Interessen von Unternehmen decken sich weitgehend mit dem Konzept der nachhaltigen Entwicklung.
+
+  characters:
+    - char: 可
+      simplified: 可
+      pinyin: kě
+      hsk: "1"
+      detailed_analysis: false
+      meaning_in_context: can, able to, -able (suffix giving possibility)
+      compounds:
+        - simplified: 可以
+          pinyin: kěyǐ
+          meaning: can, may
+        - simplified: 可能
+          pinyin: kěnéng
+          meaning: possible, maybe
+        - simplified: 可持续
+          pinyin: kě chíxù
+          meaning: sustainable
+
+    - char: 持
+      simplified: 持
+      pinyin: chí
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: to hold, to maintain, to sustain
+      compounds:
+        - simplified: 持续
+          pinyin: chíxù
+          meaning: to continue, sustained, ongoing
+        - simplified: 坚持
+          pinyin: jiānchí
+          meaning: to persist, to insist
+        - simplified: 支持
+          pinyin: zhīchí
+          meaning: to support
+      etymology: |
+        Phono-semantic compound. The left component is 扌(hand radical, a simplified form of 手), indicating the semantic field of hand actions. The right component 寺 (sì, temple) serves as the phonetic component, approximating the sound chí. The original meaning was "to hold in the hand," which extended to the abstract senses of "to maintain," "to sustain," and "to keep going." This semantic extension is common in Chinese: physical holding → abstract sustaining.
+
+    - char: 续
+      simplified: 续
+      traditional: 續
+      pinyin: xù
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: to continue, to follow on
+      compounds:
+        - simplified: 继续
+          pinyin: jìxù
+          meaning: to continue
+        - simplified: 持续
+          pinyin: chíxù
+          meaning: sustained, continuous
+        - simplified: 连续
+          pinyin: liánxù
+          meaning: consecutive, continuous
+      etymology: |
+        Phono-semantic compound. The left component is 纟(silk/thread radical, simplified from 糸), indicating connection or continuity — threads linking together. The right component 卖 (mài) approximates the phonetic element in the traditional form 續, where 賣 carried the sound. The core meaning is "to link on," "to continue from where something left off," like joining threads together. This naturally evolved into the abstract sense of continuation in time.
+
+    - char: 发
+      simplified: 发
+      traditional: 發
+      pinyin: fā
+      hsk: "1"
+      detailed_analysis: false
+      meaning_in_context: to develop, to emit, to send out
+      compounds:
+        - simplified: 发展
+          pinyin: fāzhǎn
+          meaning: development, to develop
+        - simplified: 发现
+          pinyin: fāxiàn
+          meaning: to discover
+        - simplified: 发生
+          pinyin: fāshēng
+          meaning: to happen, to occur
+
+    - char: 展
+      simplified: 展
+      pinyin: zhǎn
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: to expand, to unfold, to develop
+      compounds:
+        - simplified: 发展
+          pinyin: fāzhǎn
+          meaning: development, to develop
+        - simplified: 展示
+          pinyin: zhǎnshì
+          meaning: to display, to showcase
+        - simplified: 展览
+          pinyin: zhǎnlǎn
+          meaning: exhibition
+      etymology: |
+        The character 展 depicts a figure bending or stretching. The bottom component 共 (gǒng, to hold with both hands) and the upper strokes together suggest the act of spreading something out. Oracle bone and bronze inscriptions show a figure with outstretched limbs. The core meaning is "to unfold" or "to spread out," which extended to "to develop" and "to exhibit." In compound 发展, 展 adds the dimension of unfolding outward — growth that spreads and expands.

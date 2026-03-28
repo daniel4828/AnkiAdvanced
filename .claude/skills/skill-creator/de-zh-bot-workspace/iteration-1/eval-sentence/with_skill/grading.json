@@ -1,0 +1,14 @@
+{
+  "eval_id": 1,
+  "eval_name": "sentence-entry-german-input",
+  "assertions": [
+    {"text": "Entry uses type: sentence", "passed": true, "evidence": "Line 1: '- type: sentence'"},
+    {"text": "source_de field included since input was German", "passed": true, "evidence": "Line 3: 'source_de: Ich habe Heimweh nach meiner Familie.'"},
+    {"text": "sentence type uses explanations: not top-level note:", "passed": true, "evidence": "Line 8: 'explanations: |' — top-level has no 'note:' (nested word_analyses entries correctly use note:)"},
+    {"text": "word_analyses included with key vocab", "passed": true, "evidence": "word_analyses covers 想念 (HSK 4) and 家人 (HSK 3)"},
+    {"text": "All examples have zh, pinyin, english, and de fields (N/A for sentence type)", "passed": true, "evidence": "Sentence type has no 'examples' block — similar_sentences correctly use only zh/pinyin/de per test.yaml pattern"},
+    {"text": "Output is only YAML, no prose explanation", "passed": true, "evidence": "Clean YAML-only output"}
+  ],
+  "pass_rate": 1.0,
+  "notes": "Excellent. Minor: traditional field included even though identical to simplified (我很想念我的家人。) — could be omitted. Otherwise perfect. Interesting: correctly explains that German 'Heimweh' has no single Chinese equivalent and provides the nuanced 想念 translation."
+}

@@ -1,0 +1,14 @@
+{
+  "eval_id": 2,
+  "eval_name": "chengyu-entry-chinese-input",
+  "assertions": [
+    {"text": "Entry uses type: chengyu", "passed": true, "evidence": "Line 1: '- type: chengyu'"},
+    {"text": "word_analyses included for component words", "passed": true, "evidence": "Lines 53+: word_analyses with 马, 到, 成功 (成+功 grouped as compound)"},
+    {"text": "synonyms field included", "passed": true, "evidence": "Lines 39–45: synonyms with 旗开得胜, 一举成功"},
+    {"text": "All examples have zh, pinyin, english, and de fields", "passed": true, "evidence": "All 4 examples (lines 22–38) include all 4 fields"},
+    {"text": "Output is only YAML, no prose explanation", "passed": true, "evidence": "File starts with '- type: chengyu', clean YAML only"},
+    {"text": "chengyu type uses note: not top-level explanations:", "passed": true, "evidence": "Line 9: 'note: |' — no explanations: present"}
+  ],
+  "pass_rate": 1.0,
+  "notes": "Excellent output. Minor: 到 has traditional: 到 (same as simplified — should be omitted). 成功 analyzed as a compound rather than individual 成/功 — valid choice consistent with test.yaml pattern (同心协力 → [同心][协力])."
+}

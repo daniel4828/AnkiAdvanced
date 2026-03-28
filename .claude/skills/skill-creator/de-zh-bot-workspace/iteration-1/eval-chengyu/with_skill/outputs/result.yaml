@@ -1,0 +1,165 @@
+- type: chengyu
+  date: "03/28"
+  simplified: 马到成功
+  traditional: 馬到成功
+  pinyin: mǎ dào chéng gōng
+  english: immediate success / victory the moment the horse arrives
+  hsk: "5"
+  register: neutral
+  note: |
+    马到成功 describes achieving instant, effortless success as soon as one begins an endeavor.
+    Literally "the horse arrives and success follows," it evokes the image of a cavalry charge
+    that wins the moment it reaches the enemy. Used to wish someone success at the start of a
+    new venture — a job, exam, competition, or project.
+
+    **Common Expressions:**
+    - 祝你马到成功 (zhù nǐ mǎ dào chéng gōng) — wishing you immediate success
+    - 马到成功，旗开得胜 — may the horse arrive and succeed, may the flag unfurl and triumph (paired victory blessing)
+
+    **Important Distinction:**
+    马到成功 vs 一帆风顺: Both express good wishes, but 马到成功 emphasizes swift, decisive
+    success, while 一帆风顺 (yīfān fēngshùn) stresses a smooth, unobstructed journey throughout.
+  examples:
+    - zh: 明天就是比赛了，祝你马到成功！
+      pinyin: Míngtiān jiù shì bǐsài le, zhù nǐ mǎ dào chéng gōng!
+      english: The competition is tomorrow — wishing you immediate success!
+      de: Morgen ist der Wettkampf — ich wünsche dir vollen Erfolg auf Anhieb!
+    - zh: 他准备充分，一上台就表现出色，真是马到成功。
+      pinyin: Tā zhǔnbèi chōngfèn, yī shàng tái jiù biǎoxiàn chūsè, zhēnshi mǎ dào chéng gōng.
+      english: He was well prepared and performed brilliantly the moment he stepped on stage — truly a swift success.
+      de: Er war gut vorbereitet und glänzte sofort auf der Bühne — ein echter Blitzerfolg.
+    - zh: 新公司刚开业就接到大单，马到成功，令人羡慕。
+      pinyin: Xīn gōngsī gāng kāiyè jiù jiēdào dà dān, mǎ dào chéng gōng, lìng rén xiànmù.
+      english: The new company landed a big order right at its opening — instant success that everyone envied.
+      de: Das neue Unternehmen erhielt gleich bei der Eröffnung einen Großauftrag — ein beneidenswerter Soforterfolg.
+    - zh: 祝你在新工作中马到成功，大展宏图！
+      pinyin: Zhù nǐ zài xīn gōngzuò zhōng mǎ dào chéng gōng, dà zhǎn hóng tú!
+      english: May you achieve immediate success in your new job and realize your grand ambitions!
+      de: Mögest du in deiner neuen Stelle sofort erfolgreich sein und deine großen Pläne verwirklichen!
+  synonyms:
+    - word: 旗开得胜
+      pinyin: qíkāi dé shèng
+      meaning: to win as soon as the flag unfurls; instant victory
+    - word: 一举成功
+      pinyin: yījǔ chénggōng
+      meaning: to succeed at the first attempt
+  antonyms:
+    - word: 屡战屡败
+      pinyin: lǚ zhàn lǚ bài
+      meaning: to lose battle after battle; repeated failure
+    - word: 功败垂成
+      pinyin: gōng bài chuí chéng
+      meaning: to fail at the last moment; to fall short of success
+  word_analyses:
+    - type: word
+      simplified: 马
+      traditional: 馬
+      pinyin: mǎ
+      english: horse
+      hsk: "1"
+      characters:
+        - char: 马
+          simplified: 马
+          traditional: 馬
+          pinyin: mǎ
+          hsk: "1"
+          detailed_analysis: false
+          meaning_in_context: horse (symbol of speed and military power)
+          compounds:
+            - simplified: 马上
+              pinyin: mǎshàng
+              meaning: immediately, right away
+            - simplified: 赛马
+              pinyin: sàimǎ
+              meaning: horse racing
+            - simplified: 马路
+              pinyin: mǎlù
+              meaning: road, street
+          etymology: |
+            Pictograph of a horse in profile, showing the animal's head, mane, body, and legs.
+            The traditional form 馬 more clearly depicts the horse's four legs and flowing mane.
+            The simplified 马 is a reduced cursive form. As a radical it appears in many animal
+            and motion-related characters such as 骑 (to ride) and 驾 (to drive).
+    - type: word
+      simplified: 到
+      traditional: 到
+      pinyin: dào
+      english: to arrive, to reach
+      hsk: "1"
+      characters:
+        - char: 到
+          simplified: 到
+          traditional: 到
+          pinyin: dào
+          hsk: "1"
+          detailed_analysis: false
+          meaning_in_context: to arrive, indicating the moment of reaching a goal
+          compounds:
+            - simplified: 到达
+              pinyin: dàodá
+              meaning: to arrive, to reach (a destination)
+            - simplified: 做到
+              pinyin: zuòdào
+              meaning: to accomplish, to achieve
+            - simplified: 想到
+              pinyin: xiǎngdào
+              meaning: to think of, to realize
+          etymology: |
+            Phono-semantic compound: the left part 至 (zhì, "to reach, to arrive") provides the
+            meaning, while 刀 (dāo, "knife") acts loosely as a phonetic hint. The core sense of
+            arriving or reaching a point in space or time has been stable since early classical
+            Chinese. In chengyu it frequently marks the culminating moment of an action.
+    - type: word
+      simplified: 成功
+      traditional: 成功
+      pinyin: chénggōng
+      english: success, to succeed
+      hsk: "3"
+      characters:
+        - char: 成
+          simplified: 成
+          traditional: 成
+          pinyin: chéng
+          hsk: "3"
+          detailed_analysis: true
+          meaning_in_context: to achieve, to accomplish
+          compounds:
+            - simplified: 完成
+              pinyin: wánchéng
+              meaning: to complete, to finish
+            - simplified: 成就
+              pinyin: chéngjiù
+              meaning: achievement, accomplishment
+            - simplified: 成功
+              pinyin: chénggōng
+              meaning: success
+          etymology: |
+            Phono-semantic compound with the weapon radical 戌 (xū) providing a phonetic hint
+            and an early sense of "to accomplish by force or effort." Oracle bone inscriptions
+            show a halbert-like form suggesting completing a task through decisive action.
+            The meaning broadened from "to accomplish a military objective" to "to complete or
+            achieve" anything. It is now an extremely productive morpheme in words relating to
+            achievement and completion.
+        - char: 功
+          simplified: 功
+          traditional: 功
+          pinyin: gōng
+          hsk: "3"
+          detailed_analysis: true
+          meaning_in_context: merit, achievement, success
+          compounds:
+            - simplified: 功夫
+              pinyin: gōngfu
+              meaning: skill, effort; kung fu
+            - simplified: 成功
+              pinyin: chénggōng
+              meaning: success
+            - simplified: 功劳
+              pinyin: gōngláo
+              meaning: contribution, meritorious service
+          etymology: |
+            Composed of 工 (gōng, "work, labor") and 力 (lì, "strength, effort"). The character
+            thus literally means "the strength put into work," i.e., effort that yields merit or
+            results. In classical texts it refers to military merit and meritorious service;
+            in modern Chinese it generalizes to achievement and success. As the second syllable
+            of 成功, it reinforces the sense of accomplishment earned through effort.
