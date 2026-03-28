@@ -1,3 +1,37 @@
+// ── Markdown renderer (notes field) ─────────────────────────────────────────
+function renderMarkdown(text) {
+  if (!text) return '';
+  // Escape HTML first
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  // Bold: **text**
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Italic: *text* (single asterisk, not matched by bold)
+  html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+  // Split into lines for block-level processing
+  const lines = html.split('\n');
+  const out = [];
+  let inList = false;
+  for (const line of lines) {
+    const li = line.match(/^[-*]\s+(.*)/);
+    if (li) {
+      if (!inList) { out.push('<ul>'); inList = true; }
+      out.push(`<li>${li[1]}</li>`);
+    } else {
+      if (inList) { out.push('</ul>'); inList = false; }
+      if (line.trim() === '') {
+        out.push('<br>');
+      } else {
+        out.push(`<p>${line}</p>`);
+      }
+    }
+  }
+  if (inList) out.push('</ul>');
+  return out.join('');
+}
+
 // ── State ──────────────────────────────────────────────────────────────────
 let deckId      = null;
 let rootDeckId      = null;   // set when studying all categories (mixed mode)
@@ -995,7 +1029,7 @@ function renderWordDetail(word) {
       notesEl.innerHTML =
         `<div class="wd-section-head section-toggle" onclick="toggleSection('wd-notes-body')">` +
           `<span id="wd-notes-body-arrow">▶</span> Notes</div>` +
-        `<div id="wd-notes-body" class="wd-section-body notes-body" style="display:none">${word.notes}</div>`;
+        `<div id="wd-notes-body" class="wd-section-body notes-body" style="display:none">${renderMarkdown(word.notes)}</div>`;
     } else {
       notesEl.innerHTML = '';
     }
@@ -1782,10 +1816,9 @@ function loadCard(c, counts) {
     counter.style.display = 'none';
   }
 
-  // Update card type badge (note type + category)
+  // Update card type badge (note type only — category shown by circles)
   const noteLabel = { vocabulary: 'Word', sentence: 'Sentence', chengyu: '成语', expression: '表达' }[card.note_type] || card.note_type;
-  const catLetter = { reading: 'R', listening: 'L', creating: 'C' }[category] || category;
-  document.getElementById('card-type-badge').textContent = `${noteLabel} · ${catLetter}`;
+  document.getElementById('card-type-badge').textContent = noteLabel;
 
   // HSK badge — always visible; "HSK -" when unknown (click to AI-fill)
   const hskBadge = document.getElementById('card-hsk-badge');
@@ -1802,6 +1835,9 @@ function loadCard(c, counts) {
   closeEditCard();
   closeStoryModal();
   document.getElementById('story-btn').style.display = 'none';
+  document.getElementById('review-card-menu').style.display = 'none';
+  const reviewSuspendBtn = document.getElementById('review-suspend-btn');
+  if (reviewSuspendBtn) reviewSuspendBtn.textContent = (c.state === 'suspended') ? 'Unsuspend' : 'Suspend';
 
   // Preload full word details for the back side (local DB — near-instant)
   fetch(`/api/word/${c.word_id}`)
@@ -2091,10 +2127,10 @@ function renderReviewCatRow() {
     if (!c) return '';
     const isCurrent = cat === category;
     const isSusp = c.state === 'suspended';
-    const cls = isSusp ? 'rcat-btn rcat-susp' : 'rcat-btn rcat-active';
+    const cls = ['rcat-btn', isSusp ? 'rcat-susp' : 'rcat-active', isCurrent ? 'rcat-current' : ''].join(' ').trim();
     const title = isSusp ? `Activate ${LABELS[cat]}` : `Suspend ${LABELS[cat]}`;
-    const label = isCurrent ? `<strong>${LABELS[cat]}</strong>` : LABELS[cat];
-    return `<button class="${cls}" onclick="toggleReviewCat(${c.id})" type="button" title="${title}">${label}</button>`;
+    const letter = LABELS[cat][0];
+    return `<button class="${cls}" onclick="toggleReviewCat(${c.id})" type="button" title="${title}">${letter}</button>`;
   }).join('');
   el.innerHTML = html;
 }
@@ -2138,7 +2174,7 @@ function renderNotesSection() {
     section.innerHTML =
       `<div class="section-label section-toggle" onclick="toggleSection('notes-section-body')">` +
         `<span id="notes-section-body-arrow">▶</span> Notes</div>` +
-      `<div id="notes-section-body" class="notes-body" style="display:none">${card.notes}</div>`;
+      `<div id="notes-section-body" class="notes-body" style="display:none">${renderMarkdown(card.notes)}</div>`;
     section.style.display = 'block';
   } else {
     section.innerHTML = '';
@@ -2214,8 +2250,9 @@ function renderWordAnalysis() {
             const highlightedZh = (cp.compound_zh || '').split('').map(ch =>
               ch === c.char ? `<span class="wa-compound-hl">${ch}</span>` : ch
             ).join('');
-            return `<span class="wa-compound-item" title="${cp.meaning || ''}">${highlightedZh}` +
+            return `<span class="wa-compound-item">${highlightedZh}` +
               (cp.pinyin ? ` <span class="wa-compound-pin">${cp.pinyin}</span>` : '') +
+              (cp.meaning ? ` <span class="wa-compound-meaning">${cp.meaning}</span>` : '') +
               `</span>`;
           }).join('');
           right += `<div class="wa-compounds">${cps}</div>`;
@@ -2243,7 +2280,10 @@ function renderWordAnalysis() {
       `</div>`;
   }).join('');
 
-  section.innerHTML = `<div class="wa-list">${wordCards}</div>`;
+  section.innerHTML =
+    `<div class="section-label section-toggle" onclick="toggleSection('wa-section-body')">` +
+      `<span id="wa-section-body-arrow">▼</span> Word Analysis</div>` +
+    `<div id="wa-section-body" class="wa-list">${wordCards}</div>`;
 }
 
 function _callRenderWordAnalysis() {
@@ -2584,9 +2624,48 @@ function toggleEditCardMenu(e) {
   menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
 }
 
+function toggleReviewCardMenu(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('review-card-menu');
+  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+async function reviewCardAction(action) {
+  if (!card) return;
+  document.getElementById('review-card-menu').style.display = 'none';
+  const cardId = card.id;
+  try {
+    if (action === 'delete') {
+      await api('DELETE', `/api/cards/${cardId}`);
+    } else {
+      await api('POST', `/api/cards/${cardId}/${action}`);
+    }
+    let nextData;
+    if (unfinishedMode) {
+      nextData = await api('GET', '/api/today-unfinished');
+    } else if (rootDeckId) {
+      nextData = await api('GET', `/api/today-mixed/${rootDeckId}`);
+    } else {
+      nextData = await api('GET', `/api/today/${deckId}/${category}`);
+    }
+    if (!nextData.card) {
+      rootDeckId = null;
+      unfinishedMode = false;
+      showView('done');
+      return;
+    }
+    if (unfinishedMode || rootDeckId) category = nextData.card.category;
+    loadCard(nextData.card, nextData.counts);
+  } catch (e) {
+    showError(`Action failed: ${e.message}`);
+  }
+}
+
 document.addEventListener('click', () => {
   const menu = document.getElementById('edit-card-menu');
   if (menu) menu.style.display = 'none';
+  const rmenu = document.getElementById('review-card-menu');
+  if (rmenu) rmenu.style.display = 'none';
 });
 
 async function editModalCardAction(action) {
@@ -3740,6 +3819,32 @@ document.addEventListener('keydown', e => {
       e.preventDefault();
       undoReview();
     }
+  } else if (backVisible && e.key === 'e') {
+    e.preventDefault();
+    toggleSection('ex-section-body');
+    if (document.getElementById('ex-section-body')?.style.display !== 'none')
+      document.getElementById('examples-section')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } else if (backVisible && e.key === 'n') {
+    e.preventDefault();
+    toggleSection('notes-section-body');
+    if (document.getElementById('notes-section-body')?.style.display !== 'none')
+      document.getElementById('notes-section')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } else if (backVisible && e.key === 'w') {
+    e.preventDefault();
+    toggleSection('wa-section-body');
+    if (document.getElementById('wa-section-body')?.style.display !== 'none')
+      document.getElementById('word-analysis-section')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  } else if (backVisible && e.key === 'c') {
+    e.preventDefault();
+    const charLists = document.querySelectorAll('.wa-chars-list');
+    if (!charLists.length) return;
+    const opening = charLists[0].style.display === 'none';
+    charLists.forEach(el => {
+      const arrow = document.getElementById(el.id + '-arrow');
+      el.style.display = opening ? 'block' : 'none';
+      if (arrow) arrow.textContent = opening ? '▼' : '▶';
+    });
+    if (opening) charLists[charLists.length - 1].scrollIntoView({ behavior: 'smooth', block: 'end' });
   }
 });
 

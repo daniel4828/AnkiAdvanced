@@ -414,6 +414,50 @@ main.browse-open {
 }
 .edit-card-btn:hover { border-color: var(--primary); color: var(--primary); }
 
+/* ── Review category suspension row ─────────────────────────────────────── */
+#review-cat-row {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 14px;
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+}
+.rcat-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  transition: opacity 0.1s;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0;
+}
+.rcat-active { background: none; color: var(--text); border-color: var(--primary); }
+.rcat-susp   { background: none; color: var(--muted); border-color: var(--border); }
+.rcat-current {
+  width: 44px;
+  height: 44px;
+  font-size: 17px;
+  font-weight: 800;
+  border-width: 3px;
+}
+.rcat-btn:hover { opacity: 0.7; }
+
+#review-cat-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 12px 0;
+}
+
+
 #edit-modal-overlay {
   position: fixed;
   inset: 0;
@@ -507,9 +551,12 @@ main.browse-open {
   font-size: 14px;
   color: var(--text);
   line-height: 1.6;
-  white-space: pre-wrap;
   padding: 8px 0 4px;
 }
+.notes-body p { margin: 0 0 4px; }
+.notes-body ul { margin: 4px 0 4px 18px; padding: 0; }
+.notes-body li { margin-bottom: 2px; }
+.notes-body br { display: block; margin: 4px 0; content: ''; }
 
 .section-label {
   font-size: 10px;
@@ -721,7 +768,7 @@ main.browse-open {
 .char-row-link:hover { background: var(--bg); }
 .char-row-zh-col { display: flex; flex-direction: column; align-items: center; min-width: 32px; }
 .char-row-zh    { font-size: 26px; font-weight: 700; }
-.char-row-trad  { font-size: 14px; color: var(--muted); line-height: 1.2; }
+.char-row-trad  { font-size: 26px; font-weight: 700; color: var(--muted); line-height: 1.2; }
 .char-row-right { display: flex; flex-direction: column; gap: 2px; }
 .char-row-pin   { font-size: 13px; color: var(--muted); }
 .char-row-info  { font-size: 13px; color: var(--text); line-height: 1.4; }
@@ -790,7 +837,7 @@ main.browse-open {
 .wa-char-row:last-child { border-bottom: none; }
 .wa-char-zh-col { display: inline-flex; flex-direction: column; align-items: center; flex-shrink: 0; }
 .wa-char-zh  { font-size: 22px; }
-.wa-char-trad { font-size: 12px; color: var(--muted); line-height: 1.2; }
+.wa-char-trad { font-size: 22px; font-weight: 700; color: var(--muted); line-height: 1.2; }
 .wa-char-right {
   display: flex;
   flex-direction: column;
@@ -816,7 +863,6 @@ main.browse-open {
 .wa-browse-link:hover { text-decoration-color: var(--primary); color: var(--primary); }
 .wa-word-extra {
   padding: 4px 12px 6px;
-  border-top: 1px solid var(--border);
   background: var(--surface);
 }
 .wa-measure-row {
@@ -841,6 +887,7 @@ main.browse-open {
   color: var(--text);
 }
 .wa-mw-pin { font-size: 12px; color: var(--muted); }
+.wa-mw-meaning { font-size: 12px; color: var(--muted); }
 .wa-chars-toggle {
   font-size: 10px;
   font-weight: 700;
@@ -848,7 +895,6 @@ main.browse-open {
   letter-spacing: 0.8px;
   color: var(--muted);
   padding: 6px 12px;
-  border-top: 1px solid var(--border);
 }
 .wa-compounds {
   display: flex;
@@ -865,6 +911,8 @@ main.browse-open {
   cursor: default;
 }
 .wa-compound-pin { font-size: 11px; color: var(--muted); }
+.wa-compound-meaning { font-size: 11px; color: var(--muted); font-style: italic; }
+.wa-compound-hl { text-decoration: underline; }
 
 /* ── Creating: front input ───────────────────────────── */
 .sentence-en-front {
@@ -1663,6 +1711,17 @@ main.browse-open {
   font-size: 14px;
   color: var(--text);
 }
+.wd-mw-meaning { font-size: 12px; color: var(--muted); }
+.wd-back-review-btn {
+  margin-top: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  cursor: pointer;
+}
 
 /* Collapsible sections */
 .wd-section-head {
@@ -1696,7 +1755,7 @@ main.browse-open {
 .wd-char-link:hover { background: var(--bg); }
 .wd-char-zh-col  { display: inline-flex; flex-direction: column; align-items: center; min-width: 28px; }
 .wd-char-zh      { font-size: 22px; font-weight: 700; }
-.wd-char-trad    { font-size: 12px; color: var(--muted); line-height: 1.2; }
+.wd-char-trad    { font-size: 22px; font-weight: 700; color: var(--muted); line-height: 1.2; }
 .wd-char-pin     { font-size: 13px; color: var(--muted); }
 .wd-char-meaning { font-size: 13px; color: var(--text); }
 .wd-ctx      { font-size: 13px; color: var(--text); flex: 1; }

@@ -48,6 +48,14 @@
           <button id="card-hsk-badge" class="card-hsk-badge" onclick="enrichCard()" title="Ask AI to fill HSK level &amp; character data" style="display:none"></button>
           <button id="back-meta-play-btn" class="play-icon-btn play-icon-sm" onclick="playSentence()" style="display:none" title="Play audio">🔊</button>
           <div id="card-type-badge"></div>
+          <div class="wd-card-menu-wrap" id="review-card-menu-wrap">
+            <button class="wd-menu-btn" onclick="toggleReviewCardMenu(event)">⋯</button>
+            <div class="wd-card-menu" id="review-card-menu" style="display:none">
+              <button class="wd-menu-item" onclick="reviewCardAction('bury')">Bury until tomorrow</button>
+              <button class="wd-menu-item" id="review-suspend-btn" onclick="reviewCardAction('suspend')">Suspend</button>
+              <button class="wd-menu-item wd-menu-item-danger" onclick="reviewCardAction('delete')">Delete card</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -70,6 +78,9 @@
 
       <!-- Back: sentence → ratings → full vocab detail -->
       <div id="side-back" style="display:none">
+
+        <!-- Category circles (top of back) -->
+        <div id="review-cat-row"></div>
 
         <!-- Creating only: answer comparison -->
         <div class="answer-compare" id="creating-answer-section" style="display:none">
@@ -207,11 +218,13 @@
       </div>
       <div class="wd-def-zh" id="wd-def-zh" style="display:none"></div>
       <button class="wd-edit-btn" id="wd-edit-btn">Edit</button>
+      <button class="wd-back-review-btn" id="wd-back-review-btn" style="display:none" onclick="goBack()">← Review</button>
     </div>
     <div id="wd-chars-section"></div>
     <div id="wd-relations-section"></div>
     <div id="wd-measure-section"></div>
     <div id="wd-examples-section"></div>
+    <div id="wd-notes-section"></div>
     <div id="wd-components-section"></div>
     <div id="wd-cards-section"></div>
   </div>
