@@ -1,6 +1,7 @@
 # YAML 导入格式说明
 
-> **这是 YAML 词汇文件的唯一事实来源。** AI 生成工具（`de-dict-yaml` skill）和手动编写均应遵循此格式。
+> **这是 YAML 词汇文件的唯一事实来源。** AI 生成工具（`de-zh-bot` skill）和手动编写均应遵循此格式。
+> `test.yaml` 是经过验证的规范示例——格式有疑问时以它为准。
 
 ---
 
@@ -27,7 +28,8 @@
 | `traditional` | — | 繁体中文（如与简体相同可省略） |
 | `pinyin` | ✅ | 拼音（带声调） |
 | `english` | ✅ | 英文释义 |
-| `hsk` | — | HSK 等级，只能填写 `"1"` 到 `"6"` 之一 |
+| `german` | ✅ | 德文释义 |
+| `hsk` | — | HSK 等级，只能填写 `"1"` 到 `"6"` 之一（带引号的单个数字） |
 | `date` | — | 添加日期，格式 `"MM/DD"` |
 
 ---
@@ -39,71 +41,61 @@
 ```yaml
 - type: word
   date: "03/26"
-  simplified: 绝望
-  traditional: 絕望
-  pinyin: juéwàng
-  english: desperate / hopeless
+  simplified: 生态
+  traditional: 生態             # 与简体相同时省略
+  pinyin: shēngtài
+  english: ecology / ecosystem
+  german: Ökologie / Ökosystem
   hsk: "5"
-  register: spoken       # 可选：spoken | written | both
-  note: |                # 可选：使用说明或备注
-
-  synonyms:              # 近义词（可选）
-    - word: 拼命
-      pinyin: pīnmìng
-      meaning: verzweifelt, mit letzter Kraft
-
-  antonyms:              # 反义词（可选）
-    - word: 希望
-      pinyin: xīwàng
-      meaning: Hoffnung
-
-  measure_word:          # 量词（可选，仅名词适用）
+  register: formal_written      # 可选：见下方 register 值说明
+  measure_word:                 # 可选，仅名词适用
     - simplified: 种
       pinyin: zhǒng
-      meaning: kind, type
+      meaning: kind or type (for ecosystems)
+    - simplified: 个
+      pinyin: gè
+      meaning: general classifier in figurative contexts
+  note: |                       # 可选：英文使用说明与备注
+    A noun meaning "ecology"...
 
-  examples:              # 例句（建议 2–3 个）
-    - zh: 他对未来感到绝望。
-      pinyin: Tā duì wèilái gǎndào juéwàng.
-      de: Er ist verzweifelt über die Zukunft.
+    **Common Expressions:**
+    - 生态环境 (shēngtài huánjìng) — ecological environment
 
-  characters:            # 汉字分析（可选）
-    - char: 绝
-      traditional: 絕
-      pinyin: jué
-      hsk: "5"
-      detailed_analysis: true    # false = 只存储基本信息
-      meaning_in_context: hoffnungslos
-      other_meanings:
-        - "断绝，切断"
-        - "极，非常"
+  examples:                     # 建议 2–4 个，每个例句含 4 个字段
+    - zh: 保护生态环境是我们每个人的责任。
+      pinyin: Bǎohù shēngtài huánjìng shì wǒmen měi gè rén de zérèn.
+      english: Protecting the ecological environment is the responsibility of every one of us.
+      de: Den ökologischen Umwelt zu schützen ist die Verantwortung eines jeden von uns.
+
+  characters:                   # 汉字分析（可选）
+    - char: 生
+      simplified: 生            # 必须包含，即使与 char 相同
+      traditional: 生           # 与简体相同时省略
+      pinyin: shēng
+      hsk: "1"
+      detailed_analysis: true  # HSK 3+ 为 true；HSK 1–2 为 false
+      meaning_in_context: life, living
       compounds:
-        - simplified: 绝对
-          pinyin: juéduì
-          meaning: absolut
+        - simplified: 生命
+          pinyin: shēngmìng
+          meaning: life
+        - simplified: 生活
+          pinyin: shēnghuó
+          meaning: life, livelihood
       etymology: |
-        Das traditionelle Zeichen 絕 ...
+        纯散文，不含列表。说明：部首、声符（表音字）、甲骨文/金文来源（如有）、意义演变。
 ```
 
 ### register 字段值
 
 | 值 | 含义 |
 |----|------|
-| `spoken` | 口语（日常对话） |
-| `written` | 书面语（正式文章） |
-| `both` | 口语和书面语均适用 |
-| _(空)_ | 不指定 |
-
-### Recommended Register Values
-
-| Value | Meaning | Example |
-|------|------|------|
-| `spoken_colloquial` | 口语，umgangssprachlich，Alltag | 啥, 搞定, 靠谱 |
-| `spoken_neutral` | 中性口语，neutral im Alltag | 吃, 去, 好 |
-| `neutral` | 通用，sowohl muendlich als auch schriftlich | 但是, 因为, 所以 |
-| `formal_written` | 书面语，formelle Schriftsprache | 所, 其, 予以, 鉴于 |
-| `literary` | 文言，klassisch/literarisch | 之, 者, 亦, 乃 |
-| `slang` | 俚语，Jugendsprache，Slang | 躺平, 摆烂, 社死 |
+| `spoken_colloquial` | 口语，umgangssprachlich |
+| `spoken_neutral` | 中性口语 |
+| `neutral` | 通用（口语+书面均适用） |
+| `formal_written` | 书面语，正式文章 |
+| `literary` | 文言，klassisch/literarisch |
+| `slang` | 俚语，Jugendsprache |
 
 ---
 
@@ -112,61 +104,72 @@
 ```yaml
 - type: sentence
   date: "03/26"
-  source_de: Wir verlernen, wie man selbst Essen macht.
-  simplified: 我们在忘记如何自己做饭。
-  traditional: 我們在忘記如何自己做飯。
-  pinyin: Wǒmen zài wàngjì rúhé zìjǐ zuòfàn.
-  english: We are forgetting how to cook for ourselves.
-  hsk: "4"
-  note: |                # 可选：语法或翻译说明（自由文本）
-    ...
+  source_de: Ich werde dir zur passenden Zeit die Wahrheit sagen.  # 德文输入时包含
+  simplified: 在适当的时候，我会告诉你真相。
+  traditional: 在適當的時候，我會告訴你真相。
+  pinyin: Zài shìdàng de shíhou, wǒ huì gàosu nǐ zhēnxiàng.
+  english: I will tell you the truth at the appropriate time.
+  hsk: "5"
+  explanations: |              # 语法与词汇说明（英文），sentence 类型专用
+    这句话使用了时间状语从句...
 
-  grammar_structures:    # 语法结构（可选，存入 entry_grammar_structures 表）
-    - structure: 忘记如何 + 动词
-      explanation: "忘记"表示遗忘，"如何"表示方式
-      example: 忘记如何自己做饭
+    - 在适当的时候 (zài shìdàng de shíhou) — at the appropriate time
+    - 告诉 (gàosu) — to tell
 
-  similar_sentences:     # 类似句子（可选，存为 example_type=similar）
-    - zh: 年轻人正在忘记如何自己做饭。
-      pinyin: Niánqīng rén zhèngzài wàngjì ...
-      de: Junge Menschen vergessen, wie man kocht.
+  grammar_structures:          # 语法结构（可选）
+    - structure: 在 + 时间状语 + 主语 + 会 + 动词 + 宾语
+      explanation: 在适当的时候 is a time adverbial at sentence start.
+      example: 在适当的时候，我会告诉你。
 
-  word_analyses:         # 词语分析（见下方说明）
+  similar_sentences:           # 类似句子（可选）
+    - zh: 在合适的时机，我会告诉你。
+      pinyin: Zài héshì de shíjī, wǒ huì gàosu nǐ.
+      de: Ich werde es dir beim passenden Anlass sagen.
+
+  word_analyses:               # 句中关键词分析（见下方说明）
     - type: word
-      simplified: 忘记
-      pinyin: wàngjì
-      english: to forget
-      characters:
-        - char: 忘
-          ...
+      simplified: 适当
+      ...
 ```
 
 ---
 
 ## 类型：`chengyu` / `expression`（成语 / 惯用表达）
 
-成语和惯用表达与 `word` 类型结构相同，但：
-- 无需 `synonyms` / `antonyms`（一般不设）
-- 需要 `word_analyses`（解释各组成词语）
+两者格式相同，与 `word` 类型结构一致，另加：
+- `synonyms` / `antonyms`（带 `word`、`pinyin`、`meaning`，chengyu 必填，expression 可选）
+- `word_analyses`（解释各组成词语）
+
+**类型区分：**
+- `chengyu`：经典四字成语，有文言出处（如 同心协力、马到成功）
+- `expression`：多词短语、固定搭配、口语表达——不是单个词语，也不是完整句子，也不是四字成语（如 说话的方式、愛上了、感到有責任、我快饿死了）
 
 ```yaml
 - type: chengyu
-  simplified: 以次充好
-  traditional: 以次充好
-  pinyin: yǐ cì chōng hǎo
-  english: to pass off inferior goods as high-quality ones
-  hsk: "6"
+  simplified: 同心协力
+  traditional: 同心協力
+  pinyin: tóng xīn xié lì
+  english: to work together with one heart
+  hsk: "5"
+  register: formal_written
   note: |
     ...
   examples:
-    - zh: 这家商店以次充好，欺骗消费者。
-      ...
-  characters:
-    - char: 以
-      ...
+    - zh: 只有大家同心协力，才能完成这项艰巨的任务。
+      pinyin: Zhǐyǒu dàjiā tóngxīn xiélì, cáinéng wánchéng zhè xiàng jiānjù de rènwu.
+      english: Only when everyone works together can we complete this arduous task.
+      de: Nur wenn alle gemeinsam an einem Strang ziehen, können wir diese Aufgabe bewältigen.
+  synonyms:
+    - word: 齐心协力
+      pinyin: qíxīn xiélì
+      meaning: to work together with one heart
+  antonyms:
+    - word: 一盘散沙
+      pinyin: yīpán sǎnshā
+      meaning: a sheet of loose sand (disorganized)
   word_analyses:
     - type: word
-      simplified: 以次
+      simplified: 同心
       ...
 ```
 
@@ -174,7 +177,7 @@
 
 ## 类型：`grammar`（语法点，仅展示不导入）
 
-> ⚠️ `grammar` 类型**不会被导入**到数据库，导入器会静默跳过。它仅作为学习参考文档使用。
+> ⚠️ `grammar` 类型**不会被导入**到数据库，导入器会静默跳过。
 
 ```yaml
 - type: grammar
@@ -200,26 +203,31 @@
 
 `word_analyses` 用于 `sentence` / `chengyu` / `expression` 类型，解释组成词语。
 
-每个分析条目有两种形式：
-
 ### 形式 1：完整词语（`type: word`）
 
 ```yaml
 word_analyses:
   - type: word
-    simplified: 忘记
-    traditional: 忘記
-    pinyin: wàngjì
-    english: to forget
-    hsk: "4"
-    examples:
-      - zh: 我忘记了他的名字。
-        pinyin: Wǒ wàngjì le tā de míngzì.
-        de: Ich habe seinen Namen vergessen.
+    simplified: 适当
+    traditional: 適當
+    pinyin: shìdàng
+    english: appropriate, suitable
+    hsk: "5"
     characters:
-      - char: 忘
+      - char: 适
+        simplified: 适
+        traditional: 適
+        pinyin: shì
+        hsk: "4"
         detailed_analysis: true
-        ...
+        meaning_in_context: to fit, to suit
+        compounds:
+          - simplified: 适合
+            pinyin: shìhé
+            meaning: to suit, to fit
+        etymology: |
+          Phono-semantic compound. Traditional form 適 consists of radical 辶 (walk)
+          and phonetic 啇 (dí). Original meaning is "to go toward," extended to "to fit."
 ```
 
 ### 形式 2：单字（`char_only`）
@@ -235,13 +243,45 @@ word_analyses:
 
 ---
 
+## 语言规则
+
+| 字段 | 语言 |
+|------|------|
+| `note` | **德语** |
+| `explanations`（sentence 类型） | **德语** |
+| `etymology` | **德语** |
+| `meaning_in_context` | **德语** |
+| `compounds[].meaning` | **德语** |
+| `examples[].english` | 英语 |
+| `examples[].de` | 德语 |
+| `similar_sentences[].de` | 德语 |
+| `synonyms/antonyms[].meaning` | 德语 |
+| `measure_word[].meaning` | 德语 |
+| `grammar_structures[].explanation` | 德语 |
+
+---
+
+## 关键字段规则
+
+| 字段 | 规则 |
+|------|------|
+| `hsk` | 始终为带引号的单个数字：`"1"` `"2"` `"3"` `"4"` `"5"` `"6"` |
+| `traditional` | 仅在与 `simplified` 不同时包含（词条级和字符块级均适用） |
+| 字符块内的 `simplified` | 始终包含，即使与 `char` 相同 |
+| `detailed_analysis` | HSK 3+ 为 `true`；HSK 1–2 为 `false` |
+| `etymology` | 始终使用 `\|` 块标量，纯散文——内部不含列表——**德语** |
+| `examples` | 始终包含全部 4 个字段：`zh`、`pinyin`、`english`、`de` |
+| `note` vs `explanations` | `word`/`chengyu`/`expression` 用 `note`；`sentence` 用 `explanations` |
+
+---
+
 ## 向后兼容性
 
 | 旧字段/值 | 当前支持 | 说明 |
 |-----------|----------|------|
 | `type: vocabulary` | ✅ | 等同于 `type: word` |
 | `measure_word` | ✅ | 量词列表键名 |
-| `explanations` | ✅ | sentence 类型旧字段，现统一写入 `entries.notes` |
+| `explanations` | ✅ | sentence 类型字段，写入 `entries.notes` |
 | `source_de` | ✅ | 存入 `entries.source_sentence` |
 | `definition_zh` | ✅ | 存入 `entries.definition_zh` |
 
@@ -254,11 +294,11 @@ word_analyses:
 | `simplified` | `entries.word_zh` |
 | `english` | `entries.definition` |
 | `register` | `entries.register` |
-| `note` | `entries.notes`（通用用法备注，适用所有类型；sentence 类型的 `explanations` 字段向后兼容，也写入此列） |
+| `note` / `explanations` | `entries.notes` |
 | `synonyms` / `antonyms` | `entry_relations` |
-| `measure_word` | `entry_measure_words`（顶层词条及 word_analyses 子词均适用） |
+| `measure_word` | `entry_measure_words` |
 | `examples` | `entry_examples` (type=`example`) |
 | `similar_sentences` | `entry_examples` (type=`similar`) |
 | `grammar_structures` | `entry_grammar_structures` |
 | `characters` | `entry_characters` → `characters` → `character_compounds` |
-| `word_analyses` | `entry_components` + 递归导入子词语（含汉字与量词） |
+| `word_analyses` | `entry_components` + 递归导入子词语 |
