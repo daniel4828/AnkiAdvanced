@@ -3,6 +3,7 @@
     "allow": [
       "Edit",
       "Bash(sqlite3:*)",
+      "Bash(sed *)",
       "Bash(sqlite3 data/srs.db:*)",
       "Bash(python3:*)",
       "Bash(git status:*)",
