@@ -1777,11 +1777,12 @@ function loadCard(c, counts) {
   // If no match, leave sentence null — renderSentence() will show just the word.
   sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
 
-  // In unfinished mode: story may be from a different deck/category.
+  // In unfinished mode or mixed mode: story may be from a different deck/category.
   // Async-load the correct story and update the display when it arrives.
-  if (!sentence && unfinishedMode) {
+  if (!sentence && (unfinishedMode || rootDeckId)) {
     const snap = c;
-    fetch(`/api/story/${c.deck_id}/${c.category}`)
+    const storyDeckId = unfinishedMode ? c.deck_id : rootDeckId;
+    fetch(`/api/story/${storyDeckId}/${c.category}`)
       .then(r => r.ok ? r.json() : null)
       .then(s => {
         if (card !== snap || !s?.sentences) return;
