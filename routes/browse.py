@@ -115,7 +115,21 @@ def regenerate_hanzi_info(char_id: int):
 
 @router.put("/api/hanzi/{char_id}")
 def update_hanzi(char_id: int, body: dict):
-    database.update_character(char_id, body)
+    # compounds is handled via character_compounds table, not the JSON column
+    compounds_raw = body.pop("compounds", None)
+    if body:
+        database.update_character(char_id, body)
+    if compounds_raw is not None:
+        try:
+            compounds_list = _json.loads(compounds_raw) if isinstance(compounds_raw, str) else compounds_raw
+            if isinstance(compounds_list, list):
+                conn = database.get_db()
+                conn.execute("DELETE FROM character_compounds WHERE char_id = ?", (char_id,))
+                conn.commit()
+                conn.close()
+                database.upsert_character_compounds(char_id, compounds_list)
+        except Exception:
+            pass
     char = database.get_character_by_id(char_id)
     char["words"] = database.get_words_for_character(char_id)
     return char
@@ -179,6 +193,17 @@ def bulk_move(body: dict):
         raise HTTPException(status_code=400, detail="deck_id required")
     count = database.bulk_move_cards_by_words(body.get("word_ids", []), deck_id)
     return {"ok": True, "count": count}
+
+
+@router.post("/api/entries/{entry_id}/add-to-deck")
+def add_entry_to_deck(entry_id: int, body: dict):
+    deck_id = body.get("deck_id")
+    if not deck_id:
+        raise HTTPException(status_code=400, detail="deck_id required")
+    result = database.add_entry_to_deck(entry_id, deck_id)
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
 
 
 @router.get("/api/browse")

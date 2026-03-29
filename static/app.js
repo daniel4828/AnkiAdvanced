@@ -1,3 +1,37 @@
+// ── Markdown renderer (notes field) ─────────────────────────────────────────
+function renderMarkdown(text) {
+  if (!text) return '';
+  // Escape HTML first
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  // Bold: **text**
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Italic: *text* (single asterisk, not matched by bold)
+  html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+  // Split into lines for block-level processing
+  const lines = html.split('\n');
+  const out = [];
+  let inList = false;
+  for (const line of lines) {
+    const li = line.match(/^[-*]\s+(.*)/);
+    if (li) {
+      if (!inList) { out.push('<ul>'); inList = true; }
+      out.push(`<li>${li[1]}</li>`);
+    } else {
+      if (inList) { out.push('</ul>'); inList = false; }
+      if (line.trim() === '') {
+        out.push('<br>');
+      } else {
+        out.push(`<p>${line}</p>`);
+      }
+    }
+  }
+  if (inList) out.push('</ul>');
+  return out.join('');
+}
+
 // ── State ──────────────────────────────────────────────────────────────────
 let deckId      = null;
 let rootDeckId      = null;   // set when studying all categories (mixed mode)
@@ -9,6 +43,7 @@ let story       = null;   // story dict with sentences[]
 let sentence    = null;   // current sentence from story (may be null)
 let wordDetails = null;   // full word data: examples + characters
 let _currentWordId = null; // word ID open in word-detail view
+let _prevView = null;      // view we came from before opening word-detail
 let userInput   = '';     // creating category: what the user typed
 let browseWords  = [];   // all words from /api/browse-words
 let browseAll    = [];   // kept for legacy (unused by new browse)
@@ -16,7 +51,7 @@ let _browseSort  = 'pinyin-asc';
 let _browseSelected = new Set();  // selected word IDs (multiselect)
 let _browseDecks = [];            // flat deck list for move dropdown
 let optDeckId    = null; // deck whose options modal is open
-const collapsed  = new Set();  // parent deck IDs that are collapsed
+const collapsed  = new Set(JSON.parse(localStorage.getItem('collapsedDecks') || '[]'));  // parent deck IDs that are collapsed
 let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
 
 // ── Prompt modal ────────────────────────────────────────────────────────────
@@ -107,6 +142,48 @@ function showView(name) {
 function setLoading(msg) {
   document.getElementById('loading-msg').textContent = msg || 'Loading…';
   showView('loading');
+}
+
+function _clearLoadingSub() {
+  const sub = document.getElementById('loading-sub');
+  if (sub) { sub.textContent = ''; sub.className = ''; }
+}
+
+// Start cycling through generation phase messages.
+// Returns a cleanup function that stops the cycling.
+function _startGenerationPhases() {
+  const phases = ['Calling AI model…', 'Writing to database…'];
+  let i = 0;
+  _clearLoadingSub();
+  const timer = setInterval(() => {
+    const sub = document.getElementById('loading-sub');
+    if (sub && i < phases.length) { sub.textContent = phases[i++]; }
+    else clearInterval(timer);
+  }, 4000);
+  return () => clearInterval(timer);
+}
+
+function _showLoadingSuccess(msg) {
+  const el = document.getElementById('loading-msg');
+  const sub = document.getElementById('loading-sub');
+  const spinner = document.getElementById('loading-spinner');
+  if (el) el.textContent = msg || 'Done!';
+  if (sub) { sub.textContent = ''; sub.className = ''; }
+  if (spinner) spinner.style.visibility = 'hidden';
+}
+
+function _showLoadingError(msg) {
+  const el = document.getElementById('loading-msg');
+  const sub = document.getElementById('loading-sub');
+  const spinner = document.getElementById('loading-spinner');
+  if (el) el.textContent = 'Generation failed';
+  if (sub) { sub.textContent = msg; sub.className = 'error'; }
+  if (spinner) spinner.style.visibility = 'hidden';
+}
+
+function _resetLoadingSpinner() {
+  const spinner = document.getElementById('loading-spinner');
+  if (spinner) spinner.style.visibility = '';
 }
 
 function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
@@ -206,10 +283,11 @@ function buildCategoryButtons(deck) {
 function renderDecks(decks) {
   const navRow = `
     <div class="nav-row">
-      <button class="nav-btn" onclick="openBrowse()">Browse Cards</button>
+      <button class="nav-btn" onclick="openBrowse()" title="Shortcut: B">Browse Cards</button>
       <button class="nav-btn" onclick="openStats()">Stats</button>
       <button class="nav-btn" onclick="openCostModal()">API Costs</button>
-      <button class="nav-btn" onclick="openImportModal()">Import</button>
+      <button class="nav-btn" onclick="openImportModal()" title="Shortcut: Command+I">Import</button>
+      <button class="nav-btn" onclick="openQuickAddCard()" title="Shortcut: A">Add Card</button>
       <button class="nav-btn" onclick="createDeck()">New Deck</button>
       <button class="nav-btn" onclick="openTrash()">Trash</button>
     </div>`;
@@ -337,6 +415,7 @@ function toggleDeck(deckId) {
   } else {
     collapsed.add(deckId);
   }
+  localStorage.setItem('collapsedDecks', JSON.stringify([...collapsed]));
   if (_cachedDecks) {
     const scrollEl = document.querySelector('main');
     const scrollY = scrollEl ? scrollEl.scrollTop : 0;
@@ -446,12 +525,32 @@ async function createDeck() {
   }
 }
 
+async function openQuickAddCard() {
+  const defaultDeck = (document.getElementById('import-deck-path')?.value || '').trim();
+  const deckPath = await showPrompt('Deck path for new card (use :: to nest)', defaultDeck);
+  if (!deckPath || !deckPath.trim()) return;
+
+  const yamlTemplate = [
+    'type: word',
+    'simplified: ',
+    'traditional: ',
+    'pinyin: ',
+    'hsk: 1',
+    'translations:',
+    '  en: ',
+    '  zh-CN: ',
+  ].join('\n');
+
+  openYamlEdit('Add card', yamlTemplate, deckPath.trim(), -1);
+}
+
 // ── Browse ───────────────────────────────────────────────────────────────────
 let _browseSearchTimer = null;
-let _browseMode   = 'notes';   // 'notes' | 'hanzi'
-let _browseFilter = 'all';     // note_type or 'all'; for hanzi mode: 'all'
-let _browseDeckId = null;      // deck filter (notes mode only)
-let _allHanzi     = [];        // cache
+let _browseMode       = 'notes';   // 'notes' | 'hanzi'
+let _browseFilter     = 'all';     // note_type or 'all'; for hanzi mode: 'all'
+let _browseCardStatus = 'all';     // 'all' | 'learning' | 'reference'
+let _browseDeckId     = null;      // deck filter (notes mode only)
+let _allHanzi         = [];        // cache
 
 function _sortWords(words) {
   const sorted = [...words];
@@ -477,6 +576,8 @@ function _filteredBrowseWords() {
   let words = browseWords;
   if (_browseFilter !== 'all') words = words.filter(w => w.note_type === _browseFilter);
   if (_browseDeckId !== null) words = words.filter(w => w.cards.some(c => c.deck_id === _browseDeckId));
+  if (_browseCardStatus === 'learning')   words = words.filter(w => w.cards.length > 0);
+  if (_browseCardStatus === 'reference')  words = words.filter(w => w.cards.length === 0);
   return words;
 }
 
@@ -494,6 +595,17 @@ function setBrowseFilter(mode, filter) {
   _updateBrowseActionBar();
   if (mode === 'hanzi') renderHanziList(_allHanzi);
   else renderBrowseWords(_filteredBrowseWords());
+}
+
+function setBrowseStatusFilter(status) {
+  _browseCardStatus = status;
+  document.querySelectorAll('.bs-status-item').forEach(el => el.classList.remove('bs-active'));
+  const btn = document.getElementById(`bss-${status}`);
+  if (btn) btn.classList.add('bs-active');
+  document.getElementById('browse-search').value = '';
+  _browseSelected.clear();
+  _updateBrowseActionBar();
+  if (_browseMode === 'notes') renderBrowseWords(_filteredBrowseWords());
 }
 
 function setBrowseDeckFilter(deckId) {
@@ -525,11 +637,15 @@ async function openBrowse() {
     _allHanzi = hanzi;
     _browseDecks = _flattenDecks(deckTree);
     _browseSelected.clear();
+    _browseCardStatus = 'all';
     showView('browse');
     document.getElementById('browse-search').value = '';
     document.getElementById('browse-sort').value = _browseSort;
     _renderBrowseSidebar();
     _updateBrowseActionBar();
+    document.querySelectorAll('.bs-status-item').forEach(el => el.classList.remove('bs-active'));
+    const bssAll = document.getElementById('bss-all');
+    if (bssAll) bssAll.classList.add('bs-active');
     setBrowseFilter('notes', 'all');
   } catch (e) {
     showError('Browse failed: ' + e.message);
@@ -578,14 +694,20 @@ function onBrowseSearch(val) {
 }
 
 function _wordRow(w) {
-  const dots = ['listening', 'reading', 'creating'].map(cat => {
-    const c = w.cards.find(c => c.category === cat);
-    return c
-      ? `<span class="bw-dot bw-dot-${c.state}" title="${cat}: ${c.state}"></span>`
-      : `<span class="bw-dot bw-dot-none" title="${cat}: —"></span>`;
-  }).join('');
   const def = (w.definition || '').slice(0, 60) + ((w.definition || '').length > 60 ? '…' : '');
   const sel = _browseSelected.has(w.id) ? ' bw-row-selected' : '';
+  let rightHtml;
+  if (w.cards.length === 0) {
+    rightHtml = `<span class="bw-reference-tag">参考</span>
+      <button class="bw-add-btn" onclick="openAddToDeckModal(event,${w.id})" title="添加到牌组">＋ 添加</button>`;
+  } else {
+    rightHtml = ['listening', 'reading', 'creating'].map(cat => {
+      const c = w.cards.find(c => c.category === cat);
+      return c
+        ? `<span class="bw-dot bw-dot-${c.state}" title="${cat}: ${c.state}"></span>`
+        : `<span class="bw-dot bw-dot-none" title="${cat}: —"></span>`;
+    }).join('');
+  }
   return `
     <div class="bw-row${sel}" data-word-id="${w.id}" onclick="onBrowseRowClick(event,${w.id})">
       <div class="bw-left">
@@ -595,7 +717,7 @@ function _wordRow(w) {
       <div class="bw-mid">
         <span class="bw-def">${def}</span>
       </div>
-      <div class="bw-right">${dots}</div>
+      <div class="bw-right">${rightHtml}</div>
     </div>`;
 }
 
@@ -685,8 +807,39 @@ async function _browseReload() {
   browseWords = await api('GET', '/api/browse-words');
   _browseSelected.clear();
   _updateBrowseActionBar();
+  _renderBrowseSidebar();
   if (q) onBrowseSearch(q);
   else renderBrowseWords(_filteredBrowseWords());
+}
+
+// ── Add to deck modal ─────────────────────────────────────────────────────────
+let _addToDeckEntryId = null;
+
+function openAddToDeckModal(e, entryId) {
+  e.stopPropagation();
+  _addToDeckEntryId = entryId;
+  const select = document.getElementById('add-to-deck-select');
+  const parentDecks = _browseDecks.filter(d => !d.category && !d.virtual);
+  if (!parentDecks.length) { showError('No decks available'); return; }
+  select.innerHTML = parentDecks.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+  document.getElementById('add-to-deck-modal-overlay').style.display = '';
+  document.getElementById('add-to-deck-modal').style.display = '';
+}
+
+function closeAddToDeckModal() {
+  document.getElementById('add-to-deck-modal-overlay').style.display = 'none';
+  document.getElementById('add-to-deck-modal').style.display = 'none';
+  _addToDeckEntryId = null;
+}
+
+async function confirmAddToDeck() {
+  const deckId = parseInt(document.getElementById('add-to-deck-select').value);
+  if (!deckId || !_addToDeckEntryId) return;
+  try {
+    await api('POST', `/api/entries/${_addToDeckEntryId}/add-to-deck`, { deck_id: deckId });
+    closeAddToDeckModal();
+    await _browseReload();
+  } catch (e) { showError('Failed to add to deck: ' + e.message); }
 }
 
 function renderBrowseWords(words) {
@@ -760,6 +913,9 @@ function _hanziRow(h) {
 
 // ── Word Detail ───────────────────────────────────────────────────────────────
 async function openWordDetail(wordId) {
+  // Capture which view we're coming from so we can go back to it
+  const views = ['review', 'browse', 'hanzi-detail', 'word-detail', 'stats', 'done', 'decks'];
+  _prevView = views.find(v => document.getElementById(`view-${v}`)?.style.display !== 'none') || null;
   _currentWordId = wordId;
   setLoading('Loading word…');
   try {
@@ -767,6 +923,8 @@ async function openWordDetail(wordId) {
     word.cards = await api('GET', `/api/words/${wordId}/cards`);
     renderWordDetail(word);
     showView('word-detail');
+    const backBtn = document.getElementById('wd-back-review-btn');
+    if (backBtn) backBtn.style.display = _prevView === 'review' ? 'block' : 'none';
   } catch (e) {
     showError('Failed to load word: ' + e.message);
     showView('browse');
@@ -781,6 +939,18 @@ function renderWordDetail(word) {
   const posEl = document.getElementById('wd-pos');
   posEl.textContent = word.pos || '';
   posEl.style.display = word.pos ? 'inline-block' : 'none';
+  const regEl = document.getElementById('wd-register');
+  const regLabels = {
+    spoken: '口语', written: '书面语', both: '通用',
+    spoken_colloquial: '口语俚语', spoken_neutral: '中性口语',
+    neutral: '通用', formal_written: '正式书面语', literary: '文学语体'
+  };
+  if (word.register) {
+    regEl.textContent = regLabels[word.register] || word.register;
+    regEl.style.display = 'inline-block';
+  } else {
+    regEl.style.display = 'none';
+  }
   const defZhEl = document.getElementById('wd-def-zh');
   defZhEl.textContent = word.definition_zh || '';
   defZhEl.style.display = word.definition_zh ? 'block' : 'none';
@@ -798,18 +968,71 @@ function renderWordDetail(word) {
       const meanHtml = meanings ? `<span class="wd-char-meaning">${meanings}</span>` : '';
       const pinEsc = pin.replace(/'/g, "\\'");
       const charEsc = char.replace(/'/g, "\\'");
+      const tradHtml = (wc.traditional && wc.traditional !== char)
+        ? `<span class="wd-char-trad">${wc.traditional}</span>`
+        : '';
       return `<div class="wd-char-row wd-char-link" onclick="openHanziRegenModal(${wc.char_id},'${charEsc}','${pinEsc}')">
-        <span class="wd-char-zh">${char}</span>
+        <span class="wd-char-zh-col"><span class="wd-char-zh">${char}</span>${tradHtml}</span>
         <span class="wd-char-pin">${pin}</span>
         ${meanHtml}${ctx}${etym}
       </div>`;
     }).join('');
-    charsEl.innerHTML =
-      `<div class="wd-section-head section-toggle" onclick="toggleSection('wd-chars-body')">` +
-        `<span id="wd-chars-body-arrow">▶</span> Characters</div>` +
-      `<div id="wd-chars-body" class="wd-section-body" style="display:none">${rows}</div>`;
+    charsEl.innerHTML = rows;
   } else {
     charsEl.innerHTML = '';
+  }
+
+  // Synonyms / antonyms section
+  const relEl = document.getElementById('wd-relations-section');
+  const synonyms = (word.relations || []).filter(r => r.relation_type === 'synonym');
+  const antonyms = (word.relations || []).filter(r => r.relation_type === 'antonym');
+  if (synonyms.length || antonyms.length) {
+    let html = '';
+    if (synonyms.length) {
+      html += `<div class="wd-rel-group"><span class="wd-rel-label">近义词</span>`;
+      html += synonyms.map(r =>
+        `<span class="wd-rel-item" title="${r.related_de || ''}">${r.related_zh}` +
+        (r.related_pinyin ? ` <span class="wd-rel-pin">${r.related_pinyin}</span>` : '') +
+        `</span>`).join('');
+      html += `</div>`;
+    }
+    if (antonyms.length) {
+      html += `<div class="wd-rel-group"><span class="wd-rel-label">反义词</span>`;
+      html += antonyms.map(r =>
+        `<span class="wd-rel-item" title="${r.related_de || ''}">${r.related_zh}` +
+        (r.related_pinyin ? ` <span class="wd-rel-pin">${r.related_pinyin}</span>` : '') +
+        `</span>`).join('');
+      html += `</div>`;
+    }
+    relEl.innerHTML = html;
+  } else {
+    relEl.innerHTML = '';
+  }
+
+  // Measure words (量词) section
+  const mwEl = document.getElementById('wd-measure-section');
+  if (word.measure_words?.length) {
+    const items = word.measure_words.map(m =>
+      `<span class="wd-mw-item">${m.measure_zh}` +
+      (m.pinyin ? ` <span class="wd-rel-pin">${m.pinyin}</span>` : '') +
+      (m.meaning ? ` <span class="wd-mw-meaning">${m.meaning}</span>` : '') +
+      `</span>`).join('');
+    mwEl.innerHTML = `<div class="wd-rel-group"><span class="wd-rel-label">量词</span>${items}</div>`;
+  } else {
+    mwEl.innerHTML = '';
+  }
+
+  // Notes section
+  const notesEl = document.getElementById('wd-notes-section');
+  if (notesEl) {
+    if (word.notes) {
+      notesEl.innerHTML =
+        `<div class="wd-section-head section-toggle" onclick="toggleSection('wd-notes-body')">` +
+          `<span id="wd-notes-body-arrow">▶</span> Notes</div>` +
+        `<div id="wd-notes-body" class="wd-section-body notes-body" style="display:none">${renderMarkdown(word.notes)}</div>`;
+    } else {
+      notesEl.innerHTML = '';
+    }
   }
 
   // Examples section
@@ -994,12 +1217,15 @@ function renderHanziDetail(h) {
       <div class="wd-section-body"><div class="wd-etym">${h.etymology}</div></div>`;
   }
 
-  let compounds = [];
-  try { compounds = h.compounds ? JSON.parse(h.compounds) : []; } catch {}
+  const compounds = Array.isArray(h.compounds) ? h.compounds : [];
   if (compounds.length) {
     bodyHtml += `<div class="wd-section-head">Compounds</div>
       <div class="wd-section-body"><div class="hd-compounds">` +
-      compounds.map(c => `<span class="hd-compound">${c}</span>`).join('') +
+      compounds.map(c => {
+        const zh = c.compound_zh || c.simplified || String(c);
+        const tip = c.meaning ? ` title="${c.meaning}"` : '';
+        return `<span class="hd-compound"${tip}>${zh}</span>`;
+      }).join('') +
       `</div></div>`;
   }
 
@@ -1025,7 +1251,9 @@ function openHanziEditModal(h) {
   document.getElementById('hedit-trad').value      = h.traditional || '';
   document.getElementById('hedit-hsk').value       = h.hsk_level != null ? h.hsk_level : '';
   document.getElementById('hedit-etym').value      = h.etymology  || '';
-  document.getElementById('hedit-compounds').value = h.compounds  || '';
+  document.getElementById('hedit-compounds').value = Array.isArray(h.compounds)
+    ? JSON.stringify(h.compounds, null, 2)
+    : (h.compounds || '');
   document.getElementById('hanzi-edit-modal-overlay').style.display = '';
   document.getElementById('hanzi-edit-modal').style.display         = '';
 }
@@ -1354,13 +1582,16 @@ async function startReview(id, cat, name, noStory = false) {
 }
 
 async function _doStartReview(topic, maxHsk, model) {
-  setLoading('Generating your story…');
+  setLoading('Generating story…');
+  _resetLoadingSpinner();
+  const stopPhases = _startGenerationPhases();
   try {
     const storyUrl = `/api/story/${deckId}/${category}` + _storyParams(topic, maxHsk, model);
     const [todayData, storyData] = await Promise.all([
       api('GET', `/api/today/${deckId}/${category}`),
       api('GET', storyUrl),
     ]);
+    stopPhases();
 
     story = await _resolveStory(storyData, deckId, category, topic, maxHsk);
 
@@ -1369,7 +1600,8 @@ async function _doStartReview(topic, maxHsk, model) {
       return;
     }
 
-    document.getElementById('loading-msg').textContent = 'Loading audio…';
+    _showLoadingSuccess('Story ready! Loading audio…');
+    _resetLoadingSpinner();
     try {
       await fetch(`/api/preload-session/${deckId}/${category}`, { method: 'POST' });
     } catch (_) {}
@@ -1377,6 +1609,9 @@ async function _doStartReview(topic, maxHsk, model) {
     showView('review');
     loadCard(todayData.card, todayData.counts);
   } catch (e) {
+    stopPhases();
+    _showLoadingError(e.message);
+    await new Promise(r => setTimeout(r, 2000));
     showError('Failed to start session: ' + e.message);
     showView('decks');
   }
@@ -1427,6 +1662,8 @@ async function startReviewMixed(id, name, noStory = false) {
 
 async function _doStartReviewMixed(topic, maxHsk, model, noStory = false) {
   setLoading(noStory ? 'Loading…' : 'Generating stories…');
+  _resetLoadingSpinner();
+  const stopPhases = noStory ? () => {} : _startGenerationPhases();
   try {
     const todayData = await api('GET', `/api/today-mixed/${rootDeckId}`);
     if (!todayData.card) {
@@ -1447,6 +1684,7 @@ async function _doStartReviewMixed(topic, maxHsk, model, noStory = false) {
       }
     }
 
+    stopPhases();
     document.getElementById('loading-msg').textContent = 'Loading audio…';
     try {
       await fetch(`/api/preload-session/${rootDeckId}/${category}`, { method: 'POST' });
@@ -1455,6 +1693,9 @@ async function _doStartReviewMixed(topic, maxHsk, model, noStory = false) {
     showView('review');
     loadCard(todayData.card, todayData.counts);
   } catch (e) {
+    stopPhases();
+    _showLoadingError(e.message);
+    await new Promise(r => setTimeout(r, 2000));
     showError('Failed to start session: ' + e.message);
     rootDeckId = null;
     showView('decks');
@@ -1575,10 +1816,9 @@ function loadCard(c, counts) {
     counter.style.display = 'none';
   }
 
-  // Update card type badge (note type + category)
+  // Update card type badge (note type only — category shown by circles)
   const noteLabel = { vocabulary: 'Word', sentence: 'Sentence', chengyu: '成语', expression: '表达' }[card.note_type] || card.note_type;
-  const catLetter = { reading: 'R', listening: 'L', creating: 'C' }[category] || category;
-  document.getElementById('card-type-badge').textContent = `${noteLabel} · ${catLetter}`;
+  document.getElementById('card-type-badge').textContent = noteLabel;
 
   // HSK badge — always visible; "HSK -" when unknown (click to AI-fill)
   const hskBadge = document.getElementById('card-hsk-badge');
@@ -1595,13 +1835,17 @@ function loadCard(c, counts) {
   closeEditCard();
   closeStoryModal();
   document.getElementById('story-btn').style.display = 'none';
+  document.getElementById('review-card-menu').style.display = 'none';
+  const reviewSuspendBtn = document.getElementById('review-suspend-btn');
+  if (reviewSuspendBtn) reviewSuspendBtn.textContent = (c.state === 'suspended') ? 'Unsuspend' : 'Suspend';
 
   // Preload full word details for the back side (local DB — near-instant)
   fetch(`/api/word/${c.word_id}`)
     .then(r => r.ok ? r.json() : null)
     .then(d => {
+      if (!d) return;
       wordDetails = d;
-      // If back is already showing (user flipped before fetch completed), re-render
+      // If back is already showing (user flipped before fetch completed), re-render with full data
       if (document.getElementById('side-back').style.display !== 'none') {
         // Re-render interactive word-zh now that components are available
         const nt = wordDetails?.note_type || card.note_type;
@@ -1613,6 +1857,8 @@ function loadCard(c, counts) {
         renderVocabDetail();
         renderNotesSection();
         _callRenderWordAnalysis();
+        // MOST IMPORTANT: Re-render category row with actual card data
+        renderReviewCatRow();
       }
     })
     .catch(() => {});
@@ -1770,6 +2016,7 @@ function revealAnswer() {
   renderVocabDetail();
   renderNotesSection();
   _callRenderWordAnalysis();
+  renderReviewCatRow();
 
   // Auto-play audio on reveal for all categories
   playSentence();
@@ -1867,32 +2114,39 @@ function hideWordTip() {
   }, 80);
 }
 
-function renderVocabDetail() {
-  // Characters
-  const chars = wordDetails?.characters || [];
-  const charSection = document.getElementById('char-section');
-  if (chars.length > 0) {
-    const rows = chars.map(c => {
-      let right = '';
-      if (c.pinyin)             right += `<div class="char-row-pin">${c.pinyin}</div>`;
-      let meanings = '';
-      try { meanings = c.other_meanings ? JSON.parse(c.other_meanings).join(', ') : ''; } catch {}
-      if (meanings)             right += `<div class="char-row-info">${meanings}</div>`;
-      if (c.meaning_in_context) right += `<div class="char-row-info">${c.meaning_in_context}</div>`;
-      if (c.etymology)          right += `<div class="char-row-etym">${c.etymology}</div>`;
-      const charEsc = (c.char || '').replace(/'/g, "\\'");
-      const pinEsc  = (c.pinyin || '').replace(/'/g, "\\'");
-      return `<div class="char-row char-row-link" onclick="openHanziRegenModal(${c.char_id},'${charEsc}','${pinEsc}',true)">` +
-        `<div class="char-row-zh">${c.char}</div><div class="char-row-right">${right}</div></div>`;
-    }).join('');
-    charSection.innerHTML =
-      `<div class="section-label section-toggle" onclick="toggleSection('char-section-body')">` +
-        `<span id="char-section-body-arrow">▶</span> Characters</div>` +
-      `<div id="char-section-body" style="display:none">${rows}</div>`;
-  } else {
-    charSection.innerHTML = '';
-  }
+// ── Category suspension row on review card back ──────────────────────────────
+function renderReviewCatRow() {
+  const el = document.getElementById('review-cat-row');
+  if (!el) return;
+  const cards = wordDetails?.cards;
+  if (!cards?.length) { el.innerHTML = ''; return; }
+  const CATS = ['reading', 'listening', 'creating'];
+  const LABELS = { reading: 'Reading', listening: 'Listening', creating: 'Creating' };
+  const html = CATS.map(cat => {
+    const c = cards.find(c => c.category === cat && !c.deleted_at);
+    if (!c) return '';
+    const isCurrent = cat === category;
+    const isSusp = c.state === 'suspended';
+    const cls = ['rcat-btn', isSusp ? 'rcat-susp' : 'rcat-active', isCurrent ? 'rcat-current' : ''].join(' ').trim();
+    const title = isSusp ? `Activate ${LABELS[cat]}` : `Suspend ${LABELS[cat]}`;
+    const letter = LABELS[cat][0];
+    return `<button class="${cls}" onclick="toggleReviewCat(${c.id})" type="button" title="${title}">${letter}</button>`;
+  }).join('');
+  el.innerHTML = html;
+}
 
+async function toggleReviewCat(cardId) {
+  try {
+    await api('POST', `/api/cards/${cardId}/suspend`);
+    const updated = await api('GET', `/api/words/${card.word_id}/cards`);
+    if (wordDetails) wordDetails.cards = updated;
+    renderReviewCatRow();
+  } catch (e) {
+    showError('Failed: ' + e.message);
+  }
+}
+
+function renderVocabDetail() {
   // Examples
   const examples = wordDetails?.examples || [];
   const exSection = document.getElementById('examples-section');
@@ -1920,22 +2174,7 @@ function renderNotesSection() {
     section.innerHTML =
       `<div class="section-label section-toggle" onclick="toggleSection('notes-section-body')">` +
         `<span id="notes-section-body-arrow">▶</span> Notes</div>` +
-      `<div id="notes-section-body" class="notes-body" style="display:none">${card.notes}</div>`;
-    section.style.display = 'block';
-  } else {
-    section.innerHTML = '';
-    section.style.display = 'none';
-  }
-}
-
-function renderGrammarNotesSection() {
-  const section = document.getElementById('grammar-notes-section');
-  const grammar = wordDetails?.grammar_notes || card?.grammar_notes;
-  if (grammar) {
-    section.innerHTML =
-      `<div class="section-label section-toggle" onclick="toggleSection('grammar-notes-body')">` +
-        `<span id="grammar-notes-body-arrow">▶</span> Grammar</div>` +
-      `<div id="grammar-notes-body" class="notes-body" style="display:none">${grammar}</div>`;
+      `<div id="notes-section-body" class="notes-body" style="display:none">${renderMarkdown(card.notes)}</div>`;
     section.style.display = 'block';
   } else {
     section.innerHTML = '';
@@ -1947,58 +2186,107 @@ function renderWordAnalysis() {
   const section = document.getElementById('word-analysis-section');
   const nt = wordDetails?.note_type || card?.note_type;
   const isMultiWord = nt === 'sentence' || nt === 'chengyu' || nt === 'expression';
-  const components = wordDetails?.components || [];
 
-  if (!isMultiWord || components.length === 0) {
+  // Build word groups for all note types
+  let wordGroups = [];
+  if (isMultiWord) {
+    wordGroups = wordDetails?.components || [];
+  } else if (wordDetails) {
+    // Single word: one group = the word itself
+    wordGroups = [{
+      id: wordDetails.id,
+      word_zh:      wordDetails.word_zh  || card?.word_zh,
+      pinyin:       wordDetails.pinyin   || card?.pinyin,
+      hsk_level:    wordDetails.hsk_level || card?.hsk_level,
+      definition:   wordDetails.definition || card?.definition,
+      measure_words: wordDetails.measure_words || [],
+      characters:   wordDetails.characters || [],
+    }];
+  }
+
+  if (wordGroups.length === 0) {
     section.innerHTML = '';
     return;
   }
 
-  const expanded = false;
+  const wordCards = wordGroups.map((comp, idx) => {
+    const wid = comp.id;
+    const bodyId = `wa-body-${idx}`;
 
-  const wordCards = components.map((comp, idx) => {
-    const isCharOnly = !comp.definition && !comp.pos;
-    let header = `<span class="wa-word-zh">${comp.word_zh || ''}</span>`;
-    if (comp.pinyin) header += `<span class="wa-word-pin">${comp.pinyin}</span>`;
-    if (!isCharOnly) {
-      if (comp.hsk_level) header += `<span class="wa-hsk-badge">HSK ${comp.hsk_level}</span>`;
-      if (comp.definition) header += `<span class="wa-word-def">${comp.definition}</span>`;
+    // Header: word (clickable to Browse) + pinyin + HSK + definition
+    const zhSpan = wid
+      ? `<span class="wa-word-zh wa-browse-link" onclick="openWordDetail(${wid})">${comp.word_zh || ''}</span>`
+      : `<span class="wa-word-zh">${comp.word_zh || ''}</span>`;
+    let header = zhSpan;
+    if (comp.pinyin)    header += `<span class="wa-word-pin">${comp.pinyin}</span>`;
+    if (comp.hsk_level) header += `<span class="wa-hsk-badge">HSK ${comp.hsk_level}</span>`;
+    if (comp.definition) header += `<span class="wa-word-def">${comp.definition}</span>`;
+
+    // Measure words row
+    let mwHtml = '';
+    const mw = comp.measure_words || [];
+    if (mw.length) {
+      const items = mw.map(m =>
+        `<span class="wa-mw-item">${m.measure_zh}` +
+        (m.pinyin ? ` <span class="wa-mw-pin">${m.pinyin}</span>` : '') +
+        (m.meaning ? ` <span class="wa-mw-meaning">${m.meaning}</span>` : '') +
+        `</span>`
+      ).join('');
+      mwHtml = `<div class="wa-measure-row"><span class="wa-rel-label">量词</span>${items}</div>`;
     }
 
-    let body = '';
-    if (!isCharOnly && comp.characters?.length) {
-      body = comp.characters.map(c => {
+    // Characters body (collapsed sub-toggle)
+    const chars = comp.characters || [];
+    let charBody = '';
+    if (chars.length) {
+      charBody = chars.map(c => {
+        const charEsc = (c.char || '').replace(/'/g, "\\'");
+        const pinEsc  = (c.pinyin || '').replace(/'/g, "\\'");
         let right = '';
         if (c.pinyin)             right += `<span class="wa-char-pin">${c.pinyin}</span>`;
         if (c.meaning_in_context) right += `<span class="wa-char-ctx">${c.meaning_in_context}</span>`;
-        if (c.etymology)          right += `<div class="wa-char-etym">${c.etymology}</div>`;
-        return `<div class="wa-char-row">` +
-          `<span class="wa-char-zh">${c.char}</span>` +
+        if (c.compounds?.length) {
+          const cps = c.compounds.map(cp => {
+            const highlightedZh = (cp.compound_zh || '').split('').map(ch =>
+              ch === c.char ? `<span class="wa-compound-hl">${ch}</span>` : ch
+            ).join('');
+            return `<span class="wa-compound-item">${highlightedZh}` +
+              (cp.pinyin ? ` <span class="wa-compound-pin">${cp.pinyin}</span>` : '') +
+              (cp.meaning ? ` <span class="wa-compound-meaning">${cp.meaning}</span>` : '') +
+              `</span>`;
+          }).join('');
+          right += `<div class="wa-compounds">${cps}</div>`;
+        }
+        if (c.etymology) right += `<div class="wa-char-etym">${c.etymology}</div>`;
+        const tradHtml = (c.traditional && c.traditional !== c.char)
+          ? `<span class="wa-char-trad">${c.traditional}</span>`
+          : '';
+        return `<div class="wa-char-row" onclick="openHanziRegenModal(${c.char_id},'${charEsc}','${pinEsc}',true)">` +
+          `<span class="wa-char-zh-col"><span class="wa-char-zh">${c.char}</span>${tradHtml}</span>` +
           `<div class="wa-char-right">${right}</div>` +
           `</div>`;
       }).join('');
     }
 
-    const cardId = `wa-card-${idx}`;
-    const bodyId = `wa-body-${idx}`;
-    const hasChars = body.length > 0;
-    return `<div class="wa-word-card" id="${cardId}">` +
-      `<div class="wa-word-header${hasChars ? ' wa-word-header-toggle' : ''}"` +
-        (hasChars ? ` onclick="toggleSection('${bodyId}')"` : '') + `>` +
-        header +
-        (hasChars ? `<span class="wa-toggle-arrow" id="${bodyId}-arrow">${expanded ? '▼' : '▶'}</span>` : '') +
-      `</div>` +
-      (hasChars ? `<div id="${bodyId}" class="wa-chars-list" style="display:${expanded ? 'block' : 'none'}">${body}</div>` : '') +
+    const hasChars = charBody.length > 0;
+    return `<div class="wa-word-card">` +
+      `<div class="wa-word-header">${header}</div>` +
+      (mwHtml ? `<div class="wa-word-extra">${mwHtml}</div>` : '') +
+      (hasChars
+        ? `<div class="wa-chars-toggle section-toggle" onclick="toggleSection('${bodyId}')">` +
+            `<span id="${bodyId}-arrow">▶</span> Characters</div>` +
+          `<div id="${bodyId}" class="wa-chars-list" style="display:none">${charBody}</div>`
+        : '') +
       `</div>`;
   }).join('');
 
   section.innerHTML =
-    `<div class="section-label">Word Analysis</div>` +
-    `<div class="wa-list">${wordCards}</div>`;
+    `<div class="section-label section-toggle" onclick="toggleSection('wa-section-body')">` +
+      `<span id="wa-section-body-arrow">▼</span> Word Analysis</div>` +
+    `<div id="wa-section-body" class="wa-list">${wordCards}</div>`;
 }
 
 function _callRenderWordAnalysis() {
-  renderGrammarNotesSection();
   renderWordAnalysis();
 }
 
@@ -2336,9 +2624,48 @@ function toggleEditCardMenu(e) {
   menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
 }
 
+function toggleReviewCardMenu(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('review-card-menu');
+  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+async function reviewCardAction(action) {
+  if (!card) return;
+  document.getElementById('review-card-menu').style.display = 'none';
+  const cardId = card.id;
+  try {
+    if (action === 'delete') {
+      await api('DELETE', `/api/cards/${cardId}`);
+    } else {
+      await api('POST', `/api/cards/${cardId}/${action}`);
+    }
+    let nextData;
+    if (unfinishedMode) {
+      nextData = await api('GET', '/api/today-unfinished');
+    } else if (rootDeckId) {
+      nextData = await api('GET', `/api/today-mixed/${rootDeckId}`);
+    } else {
+      nextData = await api('GET', `/api/today/${deckId}/${category}`);
+    }
+    if (!nextData.card) {
+      rootDeckId = null;
+      unfinishedMode = false;
+      showView('done');
+      return;
+    }
+    if (unfinishedMode || rootDeckId) category = nextData.card.category;
+    loadCard(nextData.card, nextData.counts);
+  } catch (e) {
+    showError(`Action failed: ${e.message}`);
+  }
+}
+
 document.addEventListener('click', () => {
   const menu = document.getElementById('edit-card-menu');
   if (menu) menu.style.display = 'none';
+  const rmenu = document.getElementById('review-card-menu');
+  if (rmenu) rmenu.style.display = 'none';
 });
 
 async function editModalCardAction(action) {
@@ -2465,16 +2792,25 @@ async function regenerateStory() {
 
 async function _doRegenerateStory(topic, maxHsk, model) {
   setLoading('Regenerating story…');
+  _resetLoadingSpinner();
+  const stopPhases = _startGenerationPhases();
   try {
     const storyData = await api('POST', `/api/story/${deckId}/${category}/regenerate` + _storyParams(topic, maxHsk, model));
+    stopPhases();
     story = await _resolveStory(storyData, deckId, category, topic, maxHsk);
     sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
+    _showLoadingSuccess('Story regenerated!');
+    _resetLoadingSpinner();
     try {
       await fetch(`/api/preload-session/${deckId}/${category}`, { method: 'POST' });
     } catch (_) {}
+    await new Promise(r => setTimeout(r, 600));
     showView('review');
     showFront();
   } catch (e) {
+    stopPhases();
+    _showLoadingError(e.message);
+    await new Promise(r => setTimeout(r, 2000));
     showError('Regenerate failed: ' + e.message);
     showView('review');
   }
@@ -2483,7 +2819,7 @@ async function _doRegenerateStory(topic, maxHsk, model) {
 // ── Back to decks ────────────────────────────────────────────────────────────
 function goBack() {
   if (document.getElementById('view-word-detail').style.display !== 'none') {
-    showView('browse');
+    showView(_prevView === 'review' ? 'review' : 'browse');
     return;
   }
   if (document.getElementById('view-hanzi-detail').style.display !== 'none') {
@@ -3363,9 +3699,39 @@ async function restartServer() {
   setTimeout(poll, 600);
 }
 
+function _isVisible(id) {
+  const el = document.getElementById(id);
+  return !!el && getComputedStyle(el).display !== 'none';
+}
+
+function _isEditableFocusTarget(el) {
+  if (!el) return false;
+  const tag = el.tagName;
+  const editable = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+  if (!editable) return false;
+  const style = getComputedStyle(el);
+  return style.display !== 'none' && style.visibility !== 'hidden';
+}
+
+function _hasOpenModal() {
+  const modalIds = [
+    'modal-overlay',
+    'edit-modal-overlay',
+    'story-modal-overlay',
+    'import-modal-overlay',
+    'yaml-edit-overlay',
+    'prompt-modal-overlay',
+    'trash-modal-overlay',
+    'story-error-overlay',
+    'hanzi-regen-modal-overlay',
+    'hanzi-edit-modal-overlay',
+    'conflict-modal-overlay',
+  ];
+  return modalIds.some(_isVisible);
+}
+
 document.addEventListener('keydown', e => {
-  const tag = document.activeElement?.tagName;
-  const inInput = tag === 'INPUT' || tag === 'TEXTAREA';
+  const inInput = _isEditableFocusTarget(document.activeElement);
 
   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
     const editModal = document.getElementById('edit-modal');
@@ -3379,6 +3745,43 @@ document.addEventListener('keydown', e => {
   if (e.key === 'R' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
     if (!inInput) { e.preventDefault(); restartServer(); }
     return;
+  }
+
+  // Enter in word-detail → back to review (if opened from review)
+  if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.altKey && !inInput && !_hasOpenModal()) {
+    if (document.getElementById('view-word-detail')?.style.display !== 'none' && _prevView === 'review') {
+      e.preventDefault();
+      goBack();
+      return;
+    }
+  }
+
+  if (!inInput && !_hasOpenModal()) {
+    const code = e.code;
+
+    if ((e.metaKey || e.ctrlKey) && code === 'KeyI' && !e.altKey) {
+      e.preventDefault();
+      openImportModal();
+      return;
+    }
+
+    if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+      if (code === 'KeyD') {
+        e.preventDefault();
+        goBack();
+        return;
+      }
+      if (code === 'KeyB') {
+        e.preventDefault();
+        openBrowse();
+        return;
+      }
+      if (code === 'KeyA') {
+        e.preventDefault();
+        openQuickAddCard();
+        return;
+      }
+    }
   }
 
   if (inInput || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -3416,6 +3819,32 @@ document.addEventListener('keydown', e => {
       e.preventDefault();
       undoReview();
     }
+  } else if (backVisible && e.key === 'e') {
+    e.preventDefault();
+    toggleSection('ex-section-body');
+    if (document.getElementById('ex-section-body')?.style.display !== 'none')
+      document.getElementById('examples-section')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } else if (backVisible && e.key === 'n') {
+    e.preventDefault();
+    toggleSection('notes-section-body');
+    if (document.getElementById('notes-section-body')?.style.display !== 'none')
+      document.getElementById('notes-section')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } else if (backVisible && e.key === 'w') {
+    e.preventDefault();
+    toggleSection('wa-section-body');
+    if (document.getElementById('wa-section-body')?.style.display !== 'none')
+      document.getElementById('word-analysis-section')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  } else if (backVisible && e.key === 'c') {
+    e.preventDefault();
+    const charLists = document.querySelectorAll('.wa-chars-list');
+    if (!charLists.length) return;
+    const opening = charLists[0].style.display === 'none';
+    charLists.forEach(el => {
+      const arrow = document.getElementById(el.id + '-arrow');
+      el.style.display = opening ? 'block' : 'none';
+      if (arrow) arrow.textContent = opening ? '▼' : '▶';
+    });
+    if (opening) charLists[charLists.length - 1].scrollIntoView({ behavior: 'smooth', block: 'end' });
   }
 });
 

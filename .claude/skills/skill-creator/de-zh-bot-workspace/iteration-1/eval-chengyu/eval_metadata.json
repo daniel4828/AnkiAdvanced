@@ -1,0 +1,13 @@
+{
+  "eval_id": 2,
+  "eval_name": "chengyu-entry-chinese-input",
+  "prompt": "马到成功",
+  "assertions": [
+    {"text": "Entry uses type: chengyu", "passed": null, "evidence": ""},
+    {"text": "word_analyses included for component words", "passed": null, "evidence": ""},
+    {"text": "synonyms field included", "passed": null, "evidence": ""},
+    {"text": "All examples have zh, pinyin, english, and de fields", "passed": null, "evidence": ""},
+    {"text": "Output is only YAML, no prose explanation", "passed": null, "evidence": ""},
+    {"text": "chengyu type uses note: not top-level explanations:", "passed": null, "evidence": ""}
+  ]
+}

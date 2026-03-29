@@ -97,6 +97,9 @@ main.browse-open {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 #loading-msg { font-size: 15px; }
+#loading-sub { font-size: 12px; color: var(--muted); margin-top: 6px; min-height: 18px; }
+#loading-sub.error { color: #b91c1c; }
+.spinner.hidden { display: none; }
 
 /* ── Error banner ────────────────────────────────────── */
 #error-banner {
@@ -411,6 +414,50 @@ main.browse-open {
 }
 .edit-card-btn:hover { border-color: var(--primary); color: var(--primary); }
 
+/* ── Review category suspension row ─────────────────────────────────────── */
+#review-cat-row {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 14px;
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+}
+.rcat-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  transition: opacity 0.1s;
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0;
+}
+.rcat-active { background: none; color: var(--text); border-color: var(--primary); }
+.rcat-susp   { background: none; color: var(--muted); border-color: var(--border); }
+.rcat-current {
+  width: 44px;
+  height: 44px;
+  font-size: 17px;
+  font-weight: 800;
+  border-width: 3px;
+}
+.rcat-btn:hover { opacity: 0.7; }
+
+#review-cat-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 12px 0;
+}
+
+
 #edit-modal-overlay {
   position: fixed;
   inset: 0;
@@ -504,9 +551,12 @@ main.browse-open {
   font-size: 14px;
   color: var(--text);
   line-height: 1.6;
-  white-space: pre-wrap;
   padding: 8px 0 4px;
 }
+.notes-body p { margin: 0 0 4px; }
+.notes-body ul { margin: 4px 0 4px 18px; padding: 0; }
+.notes-body li { margin-bottom: 2px; }
+.notes-body br { display: block; margin: 4px 0; content: ''; }
 
 .section-label {
   font-size: 10px;
@@ -716,7 +766,9 @@ main.browse-open {
 .char-row:last-child { border-bottom: none; }
 .char-row-link  { cursor: pointer; }
 .char-row-link:hover { background: var(--bg); }
-.char-row-zh    { font-size: 26px; font-weight: 700; min-width: 32px; }
+.char-row-zh-col { display: flex; flex-direction: column; align-items: center; min-width: 32px; }
+.char-row-zh    { font-size: 26px; font-weight: 700; }
+.char-row-trad  { font-size: 26px; font-weight: 700; color: var(--muted); line-height: 1.2; }
 .char-row-right { display: flex; flex-direction: column; gap: 2px; }
 .char-row-pin   { font-size: 13px; color: var(--muted); }
 .char-row-info  { font-size: 13px; color: var(--text); line-height: 1.4; }
@@ -783,7 +835,9 @@ main.browse-open {
   padding: 7px 0;
 }
 .wa-char-row:last-child { border-bottom: none; }
-.wa-char-zh  { font-size: 22px; flex-shrink: 0; }
+.wa-char-zh-col { display: inline-flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+.wa-char-zh  { font-size: 22px; }
+.wa-char-trad { font-size: 22px; font-weight: 700; color: var(--muted); line-height: 1.2; }
 .wa-char-right {
   display: flex;
   flex-direction: column;
@@ -800,6 +854,65 @@ main.browse-open {
   white-space: pre-wrap;
   margin-top: 2px;
 }
+.wa-browse-link {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 3px;
+}
+.wa-browse-link:hover { text-decoration-color: var(--primary); color: var(--primary); }
+.wa-word-extra {
+  padding: 4px 12px 6px;
+  background: var(--surface);
+}
+.wa-measure-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.wa-rel-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  min-width: 32px;
+}
+.wa-mw-item {
+  background: var(--bg);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 14px;
+  color: var(--text);
+}
+.wa-mw-pin { font-size: 12px; color: var(--muted); }
+.wa-mw-meaning { font-size: 12px; color: var(--muted); }
+.wa-chars-toggle {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+  padding: 6px 12px;
+}
+.wa-compounds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 3px;
+}
+.wa-compound-item {
+  background: var(--bg);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: default;
+}
+.wa-compound-pin { font-size: 11px; color: var(--muted); }
+.wa-compound-meaning { font-size: 11px; color: var(--muted); font-style: italic; }
+.wa-compound-hl { text-decoration: underline; }
 
 /* ── Creating: front input ───────────────────────────── */
 .sentence-en-front {
@@ -1083,11 +1196,12 @@ main.browse-open {
 /* ── Nav row (deck list top) ─────────────────────────── */
 .nav-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 18px;
 }
 .nav-btn {
-  flex: 1;
+  flex: 1 1 120px;
   padding: 10px 8px;
   border: 1.5px solid var(--border);
   border-radius: 10px;
@@ -1100,6 +1214,13 @@ main.browse-open {
   transition: border-color 0.15s, color 0.15s;
 }
 .nav-btn:hover { border-color: var(--primary); color: var(--primary); }
+.nav-shortcuts-help {
+  width: 100%;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 2px 2px 0;
+}
 
 /* ── Deck card gear button ───────────────────────────── */
 .deck-header {
@@ -1191,7 +1312,7 @@ main.browse-open {
   color: var(--muted);
   padding: 8px 16px 4px;
 }
-.bs-item, .bs-deck-item {
+.bs-item, .bs-deck-item, .bs-status-item {
   display: block;
   width: 100%;
   background: none;
@@ -1203,8 +1324,8 @@ main.browse-open {
   cursor: pointer;
   border-radius: 0;
 }
-.bs-item:hover, .bs-deck-item:hover { background: var(--bg); }
-.bs-item.bs-active, .bs-deck-item.bs-active {
+.bs-item:hover, .bs-deck-item:hover, .bs-status-item:hover { background: var(--bg); }
+.bs-item.bs-active, .bs-deck-item.bs-active, .bs-status-item.bs-active {
   background: #dbeafe;
   color: var(--primary);
   font-weight: 600;
@@ -1410,6 +1531,29 @@ main.browse-open {
 .bw-row-selected { background: #eff6ff !important; }
 .bw-row-selected:hover { background: #dbeafe !important; }
 
+.bw-reference-tag {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-right: 6px;
+}
+.bw-add-btn {
+  font-size: 11px;
+  background: none;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  border-radius: 4px;
+  padding: 2px 7px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.bw-add-btn:hover { background: #dbeafe; }
+
 /* ── Browse action bar ─────────────────────────────── */
 #browse-action-bar {
   display: none;
@@ -1523,6 +1667,61 @@ main.browse-open {
 }
 .wd-def    { font-size: 16px; color: var(--text); }
 .wd-def-zh { font-size: 14px; color: var(--muted); margin-top: 4px; }
+.word-register {
+  display: inline-block;
+  font-size: 11px;
+  background: #e8f4e8;
+  color: #2e7d32;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  margin-left: 4px;
+}
+.wd-rel-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.wd-rel-group:last-child { border-bottom: none; }
+.wd-rel-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  min-width: 44px;
+}
+.wd-rel-item {
+  background: var(--bg);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 14px;
+  color: var(--text);
+  cursor: default;
+}
+.wd-rel-pin { font-size: 12px; color: var(--muted); }
+.wd-mw-item {
+  background: var(--bg);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 14px;
+  color: var(--text);
+}
+.wd-mw-meaning { font-size: 12px; color: var(--muted); }
+.wd-back-review-btn {
+  margin-top: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  cursor: pointer;
+}
 
 /* Collapsible sections */
 .wd-section-head {
@@ -1554,7 +1753,9 @@ main.browse-open {
 .wd-char-row:last-child { border-bottom: none; }
 .wd-char-link { cursor: pointer; }
 .wd-char-link:hover { background: var(--bg); }
-.wd-char-zh  { font-size: 22px; font-weight: 700; min-width: 28px; }
+.wd-char-zh-col  { display: inline-flex; flex-direction: column; align-items: center; min-width: 28px; }
+.wd-char-zh      { font-size: 22px; font-weight: 700; }
+.wd-char-trad    { font-size: 22px; font-weight: 700; color: var(--muted); line-height: 1.2; }
 .wd-char-pin     { font-size: 13px; color: var(--muted); }
 .wd-char-meaning { font-size: 13px; color: var(--text); }
 .wd-ctx      { font-size: 13px; color: var(--text); flex: 1; }

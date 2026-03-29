@@ -18,22 +18,119 @@ def get_db() -> sqlite3.Connection:
     return conn
 
 
+def _existing_tables(conn) -> set:
+    return {r["name"] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'"
+    ).fetchall()}
+
+
 def init_db() -> None:
     os.makedirs("data", exist_ok=True)
     with open(SCHEMA_PATH, "r") as f:
         schema = f.read()
     conn = get_db()
+
+    # ── Phase 1: rename legacy tables BEFORE running schema.sql ────────────────
+    # (schema.sql uses CREATE TABLE IF NOT EXISTS, so pre-existing tables survive)
+    existing = _existing_tables(conn)
+
+    _TABLE_RENAMES = [
+        ("words",             "entries"),
+        ("word_examples",     "entry_examples"),
+        ("word_characters",   "entry_characters"),
+        ("word_measure_words","entry_measure_words"),
+        ("word_relations",    "entry_relations"),
+        ("note_components",   "entry_components"),
+        ("sentences",         "story_sentences"),
+    ]
+    for old, new in _TABLE_RENAMES:
+        if old in existing and new not in existing:
+            conn.execute(f"ALTER TABLE {old} RENAME TO {new}")
+    conn.commit()
+
+    # ── Phase 2: run schema.sql (creates any tables that don't exist yet) ───────
     conn.executescript(schema)
     conn.commit()
 
-    # Migrations for existing databases
-    cols = {r["name"] for r in conn.execute("PRAGMA table_info(words)").fetchall()}
+    # ── Phase 3: column migrations on existing databases ────────────────────────
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(entries)").fetchall()}
     if "notes" not in cols:
-        conn.execute("ALTER TABLE words ADD COLUMN notes TEXT")
+        conn.execute("ALTER TABLE entries ADD COLUMN notes TEXT")
     if "note_type" not in cols:
         conn.execute(
-            "ALTER TABLE words ADD COLUMN note_type TEXT NOT NULL DEFAULT 'vocabulary'"
+            "ALTER TABLE entries ADD COLUMN note_type TEXT NOT NULL DEFAULT 'vocabulary'"
         )
+    if "register" not in cols:
+        conn.execute("ALTER TABLE entries ADD COLUMN register TEXT CHECK(register IN ('spoken', 'written', 'both', 'spoken_colloquial', 'spoken_neutral', 'neutral', 'formal_written', 'literary'))")
+    else:
+        # Fix old 3-value CHECK constraint → 6-value (SQLite requires table recreation)
+        entries_sql = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='entries'"
+        ).fetchone()["sql"]
+        if entries_sql and "spoken_neutral" not in entries_sql:
+            # SQLite FK tracking: renaming 'entries' makes child tables reference the
+            # renamed name.  Instead: create new table, copy data, drop old, rename new.
+            col_names = [r["name"] for r in conn.execute("PRAGMA table_info(entries)").fetchall()]
+            cols_csv = ", ".join(col_names)
+            conn.execute("PRAGMA foreign_keys = OFF")
+            conn.commit()
+            conn.execute("""CREATE TABLE _entries_new (
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    word_zh         TEXT NOT NULL UNIQUE,
+                    pinyin          TEXT,
+                    definition      TEXT,
+                    pos             TEXT,
+                    hsk_level       INTEGER,
+                    traditional     TEXT,
+                    definition_zh   TEXT,
+                    date_added      TEXT NOT NULL DEFAULT (datetime('now')),
+                    source          TEXT NOT NULL DEFAULT 'kouyu',
+                    notes           TEXT,
+                    note_type       TEXT NOT NULL DEFAULT 'vocabulary',
+                    source_sentence TEXT,
+                    grammar_notes   TEXT,
+                    register        TEXT CHECK(register IN ('spoken', 'written', 'both', 'spoken_colloquial', 'spoken_neutral', 'neutral', 'formal_written', 'literary'))
+                )""")
+            conn.execute(f"INSERT INTO _entries_new ({cols_csv}) SELECT {cols_csv} FROM entries")
+            conn.execute("DROP TABLE entries")
+            conn.execute("ALTER TABLE _entries_new RENAME TO entries")
+            conn.execute("PRAGMA foreign_keys = ON")
+            conn.commit()
+
+    if "date_yaml" not in cols:
+        conn.execute("ALTER TABLE entries ADD COLUMN date_yaml TEXT")
+
+    ex_cols = {r["name"] for r in conn.execute("PRAGMA table_info(entry_examples)").fetchall()}
+    if "example_type" not in ex_cols:
+        conn.execute("ALTER TABLE entry_examples ADD COLUMN example_type TEXT NOT NULL DEFAULT 'example'")
+    if "example_en" not in ex_cols:
+        conn.execute("ALTER TABLE entry_examples ADD COLUMN example_en TEXT")
+
+    # Remove duplicate examples (keep lowest id per word+text pair)
+    conn.execute("""DELETE FROM entry_examples WHERE id NOT IN (
+        SELECT MIN(id) FROM entry_examples GROUP BY word_id, example_zh
+    )""")
+
+    # Migrate compounds from JSON column → character_compounds relational table
+    import json as _json_local
+    chars_with_json = conn.execute(
+        "SELECT id, compounds FROM characters WHERE compounds IS NOT NULL AND compounds != ''"
+    ).fetchall()
+    for ch in chars_with_json:
+        try:
+            clist = _json_local.loads(ch["compounds"])
+            for pos, c in enumerate(clist):
+                zh = (c.get("simplified") or c.get("zh") or c.get("compound") or "").strip()
+                if zh:
+                    conn.execute(
+                        """INSERT OR IGNORE INTO character_compounds
+                           (char_id, compound_zh, pinyin, meaning, position)
+                           VALUES (?, ?, ?, ?, ?)""",
+                        (ch["id"], zh, c.get("pinyin"), c.get("meaning"), pos),
+                    )
+        except Exception:
+            pass
+
     conn.execute("""CREATE TABLE IF NOT EXISTS api_call_log (
         id            INTEGER PRIMARY KEY AUTOINCREMENT,
         called_at     TEXT NOT NULL DEFAULT (datetime('now')),
@@ -42,13 +139,7 @@ def init_db() -> None:
         output_tokens INTEGER NOT NULL,
         purpose       TEXT NOT NULL DEFAULT 'story'
     )""")
-    conn.execute("""CREATE TABLE IF NOT EXISTS note_components (
-        id       INTEGER PRIMARY KEY AUTOINCREMENT,
-        note_id  INTEGER NOT NULL REFERENCES words(id) ON DELETE CASCADE,
-        word_id  INTEGER NOT NULL REFERENCES words(id) ON DELETE CASCADE,
-        position INTEGER NOT NULL,
-        UNIQUE(note_id, word_id)
-    )""")
+
     deck_cols = {r["name"] for r in conn.execute("PRAGMA table_info(decks)").fetchall()}
     if "deleted_at" not in deck_cols:
         conn.execute("ALTER TABLE decks ADD COLUMN deleted_at TEXT")
@@ -83,6 +174,7 @@ def init_db() -> None:
                 bury_interday_siblings = bury_siblings""")
     if "bury_quick_mode" not in preset_cols:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN bury_quick_mode TEXT NOT NULL DEFAULT 'all'")
+
     conn.commit()
 
     # Ensure presets + default deck exist
@@ -153,7 +245,7 @@ def _migrate_sentences_deck(conn: sqlite3.Connection, all_id: int,
     sentences_deck_ids = set(leaf.values())
     rows = conn.execute(
         """SELECT c.id, c.category FROM cards c
-           JOIN words w ON w.id = c.word_id
+           JOIN entries w ON w.id = c.word_id
            WHERE w.note_type = 'sentence'
              AND c.deck_id NOT IN ({})""".format(",".join("?" * len(sentences_deck_ids))),
         list(sentences_deck_ids),
@@ -456,7 +548,7 @@ def get_cards_in_trash_deck(deck_id: int) -> list[dict]:
     rows = conn.execute(
         """SELECT c.id, c.category, c.state, w.word_zh, w.pinyin
            FROM cards c
-           JOIN words w ON w.id = c.word_id
+           JOIN entries w ON w.id = c.word_id
            WHERE c.deck_id = ? AND c.deleted_at IS NULL
            ORDER BY c.category, w.word_zh""",
         (deck_id,),
@@ -606,43 +698,58 @@ def get_or_create_deck_path(path: str) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Words
+# Entries
 # ---------------------------------------------------------------------------
 
 def insert_word(word: dict) -> int:
-    """INSERT OR IGNORE. Returns the word id whether inserted or already existed."""
+    """INSERT OR IGNORE. Returns the word id whether inserted or already existed.
+    For existing entries, also backfills notes and date_yaml if previously empty."""
     conn = get_db()
     conn.execute(
-        """INSERT OR IGNORE INTO words
+        """INSERT OR IGNORE INTO entries
            (word_zh, pinyin, definition, pos, hsk_level,
             traditional, definition_zh, source, note_type,
-            source_sentence, grammar_notes)
+            notes, date_yaml, source_sentence, grammar_notes, register)
            VALUES (:word_zh, :pinyin, :definition, :pos, :hsk_level,
                    :traditional, :definition_zh, :source, :note_type,
-                   :source_sentence, :grammar_notes)""",
+                   :notes, :date_yaml, :source_sentence, :grammar_notes, :register)""",
         {
             **word,
             "note_type":       word.get("note_type", "vocabulary"),
+            "notes":           word.get("notes"),
+            "date_yaml":       word.get("date_yaml"),
             "source_sentence": word.get("source_sentence"),
             "grammar_notes":   word.get("grammar_notes"),
+            "register":        word.get("register"),
         },
     )
+    # Backfill notes / date_yaml for entries that existed before these fields were added
+    if word.get("notes"):
+        conn.execute(
+            "UPDATE entries SET notes = ? WHERE word_zh = ? AND (notes IS NULL OR notes = '')",
+            (word["notes"], word["word_zh"]),
+        )
+    if word.get("date_yaml"):
+        conn.execute(
+            "UPDATE entries SET date_yaml = ? WHERE word_zh = ? AND date_yaml IS NULL",
+            (word["date_yaml"], word["word_zh"]),
+        )
     conn.commit()
-    row = conn.execute("SELECT id FROM words WHERE word_zh = ?", (word["word_zh"],)).fetchone()
+    row = conn.execute("SELECT id FROM entries WHERE word_zh = ?", (word["word_zh"],)).fetchone()
     conn.close()
     return row["id"]
 
 
 def get_word(word_id: int) -> dict | None:
     conn = get_db()
-    row = conn.execute("SELECT * FROM words WHERE id = ?", (word_id,)).fetchone()
+    row = conn.execute("SELECT * FROM entries WHERE id = ?", (word_id,)).fetchone()
     conn.close()
     return dict(row) if row else None
 
 
 def get_word_by_zh(word_zh: str) -> dict | None:
     conn = get_db()
-    row = conn.execute("SELECT * FROM words WHERE word_zh = ?", (word_zh,)).fetchone()
+    row = conn.execute("SELECT * FROM entries WHERE word_zh = ?", (word_zh,)).fetchone()
     conn.close()
     return dict(row) if row else None
 
@@ -651,7 +758,7 @@ def get_words_in_deck(deck_id: int) -> list[dict]:
     """Words that have at least one card in this deck."""
     conn = get_db()
     rows = conn.execute(
-        """SELECT DISTINCT w.* FROM words w
+        """SELECT DISTINCT w.* FROM entries w
            JOIN cards c ON c.word_id = w.id
            WHERE c.deck_id = ?""",
         (deck_id,),
@@ -661,12 +768,14 @@ def get_words_in_deck(deck_id: int) -> list[dict]:
 
 
 def get_word_full(word_id: int) -> dict | None:
-    """Returns word + examples + characters + components (for sentences/chengyu)."""
+    """Returns word + examples + characters + measure_words + relations + components."""
     word = get_word(word_id)
     if not word:
         return None
     word["examples"] = get_word_examples(word_id)
     word["characters"] = get_word_characters(word_id)
+    word["measure_words"] = get_word_measure_words(word_id)
+    word["relations"] = get_word_relations(word_id)
     word["components"] = get_note_components(word_id)
     return word
 
@@ -684,7 +793,7 @@ def update_word(word_id: int, word: dict) -> None:
     """Update mutable fields of an existing word row."""
     conn = get_db()
     conn.execute(
-        """UPDATE words SET
+        """UPDATE entries SET
                pinyin=:pinyin, definition=:definition, pos=:pos, hsk_level=:hsk_level,
                traditional=:traditional, definition_zh=:definition_zh,
                source_sentence=:source_sentence, grammar_notes=:grammar_notes
@@ -703,7 +812,7 @@ def update_word(word_id: int, word: dict) -> None:
 def insert_note_component(note_id: int, word_id: int, position: int) -> None:
     conn = get_db()
     conn.execute(
-        "INSERT OR IGNORE INTO note_components (note_id, word_id, position) VALUES (?, ?, ?)",
+        "INSERT OR IGNORE INTO entry_components (note_id, word_id, position) VALUES (?, ?, ?)",
         (note_id, word_id, position),
     )
     conn.commit()
@@ -715,8 +824,8 @@ def get_note_components(note_id: int) -> list[dict]:
     conn = get_db()
     rows = conn.execute(
         """SELECT nc.position, w.*
-           FROM note_components nc
-           JOIN words w ON w.id = nc.word_id
+           FROM entry_components nc
+           JOIN entries w ON w.id = nc.word_id
            WHERE nc.note_id = ?
            ORDER BY nc.position""",
         (note_id,),
@@ -727,6 +836,7 @@ def get_note_components(note_id: int) -> list[dict]:
         comp = dict(row)
         comp["characters"] = get_word_characters(comp["id"])
         comp["examples"] = get_word_examples(comp["id"])
+        comp["measure_words"] = get_word_measure_words(comp["id"])
         components.append(comp)
     return components
 
@@ -737,14 +847,23 @@ def get_note_components(note_id: int) -> list[dict]:
 
 def insert_word_example(word_id: int, example_zh: str,
                         example_pinyin: str | None,
+                        example_en: str | None,
                         example_de: str | None,
-                        position: int) -> int:
+                        position: int,
+                        example_type: str = "example") -> int:
     conn = get_db()
+    existing = conn.execute(
+        "SELECT id FROM entry_examples WHERE word_id = ? AND example_zh = ?",
+        (word_id, example_zh),
+    ).fetchone()
+    if existing:
+        conn.close()
+        return existing["id"]
     cur = conn.execute(
-        """INSERT INTO word_examples
-           (word_id, example_zh, example_pinyin, example_de, position)
-           VALUES (?, ?, ?, ?, ?)""",
-        (word_id, example_zh, example_pinyin, example_de, position),
+        """INSERT INTO entry_examples
+           (word_id, example_zh, example_pinyin, example_en, example_de, position, example_type)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (word_id, example_zh, example_pinyin, example_en, example_de, position, example_type),
     )
     conn.commit()
     ex_id = cur.lastrowid
@@ -752,11 +871,175 @@ def insert_word_example(word_id: int, example_zh: str,
     return ex_id
 
 
+def insert_word_measure_word(word_id: int, measure_zh: str,
+                             pinyin: str | None,
+                             meaning: str | None,
+                             position: int) -> None:
+    conn = get_db()
+    conn.execute(
+        """INSERT OR IGNORE INTO entry_measure_words
+           (word_id, measure_zh, pinyin, meaning, position)
+           VALUES (?, ?, ?, ?, ?)""",
+        (word_id, measure_zh, pinyin, meaning, position),
+    )
+    conn.commit()
+    conn.close()
+
+
+def insert_word_relation(word_id: int, related_zh: str,
+                         related_pinyin: str | None,
+                         related_de: str | None,
+                         relation_type: str) -> None:
+    """relation_type: 'synonym' or 'antonym'"""
+    conn = get_db()
+    conn.execute(
+        """INSERT OR IGNORE INTO entry_relations
+           (word_id, related_zh, related_pinyin, related_de, relation_type)
+           VALUES (?, ?, ?, ?, ?)""",
+        (word_id, related_zh, related_pinyin, related_de, relation_type),
+    )
+    conn.commit()
+    conn.close()
+
+
 def get_word_examples(word_id: int) -> list[dict]:
     conn = get_db()
     rows = conn.execute(
-        "SELECT * FROM word_examples WHERE word_id = ? ORDER BY position",
+        "SELECT * FROM entry_examples WHERE word_id = ? ORDER BY position",
         (word_id,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_word_measure_words(word_id: int) -> list[dict]:
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM entry_measure_words WHERE word_id = ? ORDER BY position",
+        (word_id,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_word_relations(word_id: int) -> list[dict]:
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM entry_relations WHERE word_id = ? ORDER BY relation_type, id",
+        (word_id,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def insert_grammar_structure(word_id: int, structure: str, explanation: str | None,
+                              example_zh: str | None, position: int) -> None:
+    conn = get_db()
+    conn.execute(
+        """INSERT INTO entry_grammar_structures (word_id, structure, explanation, example_zh, position)
+           VALUES (?, ?, ?, ?, ?)""",
+        (word_id, structure, explanation, example_zh, position),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_word_grammar_structures(word_id: int) -> list[dict]:
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM entry_grammar_structures WHERE word_id = ? ORDER BY position",
+        (word_id,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# Grammar points  (type: grammar — reference only, no SRS cards)
+# ---------------------------------------------------------------------------
+
+def insert_grammar_point(name: str, level: str | None, structure: str | None,
+                         meaning: str | None, usage: str | None,
+                         cultural_note: str | None) -> int:
+    """Insert a grammar_points row (INSERT OR IGNORE). Returns the row id."""
+    conn = get_db()
+    conn.execute(
+        """INSERT OR IGNORE INTO grammar_points
+           (name, level, structure, meaning, usage, cultural_note)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (name, level, structure, meaning, usage, cultural_note),
+    )
+    conn.commit()
+    row = conn.execute(
+        "SELECT id FROM grammar_points WHERE name = ?", (name,)
+    ).fetchone()
+    conn.close()
+    return row["id"]
+
+
+def insert_grammar_example(grammar_id: int, example_zh: str, pinyin: str | None,
+                           example_de: str | None, structure: str | None,
+                           position: int) -> None:
+    conn = get_db()
+    conn.execute(
+        """INSERT INTO grammar_examples
+           (grammar_id, example_zh, pinyin, example_de, structure, position)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (grammar_id, example_zh, pinyin, example_de, structure, position),
+    )
+    conn.commit()
+    conn.close()
+
+
+def insert_grammar_pattern(grammar_id: int, pattern: str, meaning: str | None,
+                           example: str | None, position: int) -> None:
+    conn = get_db()
+    conn.execute(
+        """INSERT INTO grammar_patterns (grammar_id, pattern, meaning, example, position)
+           VALUES (?, ?, ?, ?, ?)""",
+        (grammar_id, pattern, meaning, example, position),
+    )
+    conn.commit()
+    conn.close()
+
+
+def insert_grammar_comparison(grammar_id: int, title: str | None,
+                              explanation: str | None, position: int) -> None:
+    conn = get_db()
+    conn.execute(
+        """INSERT INTO grammar_comparisons (grammar_id, title, explanation, position)
+           VALUES (?, ?, ?, ?)""",
+        (grammar_id, title, explanation, position),
+    )
+    conn.commit()
+    conn.close()
+
+
+def insert_grammar_expression(grammar_id: int, expression: str,
+                              meaning: str | None, position: int) -> None:
+    conn = get_db()
+    conn.execute(
+        """INSERT INTO grammar_expressions (grammar_id, expression, meaning, position)
+           VALUES (?, ?, ?, ?)""",
+        (grammar_id, expression, meaning, position),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_grammar_point_by_name(name: str) -> dict | None:
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM grammar_points WHERE name = ?", (name,)
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_all_grammar_points() -> list[dict]:
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM grammar_points ORDER BY name"
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -771,16 +1054,14 @@ def upsert_character(char: dict) -> int:
     conn = get_db()
     conn.execute(
         """INSERT INTO characters
-           (char, traditional, pinyin, hsk_level, etymology, other_meanings, compounds)
-           VALUES (:char, :traditional, :pinyin, :hsk_level,
-                   :etymology, :other_meanings, :compounds)
+           (char, traditional, pinyin, hsk_level, etymology, other_meanings)
+           VALUES (:char, :traditional, :pinyin, :hsk_level, :etymology, :other_meanings)
            ON CONFLICT(char) DO UPDATE SET
                traditional    = excluded.traditional,
                pinyin         = excluded.pinyin,
                hsk_level      = excluded.hsk_level,
                etymology      = COALESCE(excluded.etymology, etymology),
-               other_meanings = COALESCE(excluded.other_meanings, other_meanings),
-               compounds      = COALESCE(excluded.compounds, compounds)""",
+               other_meanings = COALESCE(excluded.other_meanings, other_meanings)""",
         char,
     )
     conn.commit()
@@ -799,8 +1080,17 @@ def get_character(char: str) -> dict | None:
 def get_character_by_id(char_id: int) -> dict | None:
     conn = get_db()
     row = conn.execute("SELECT * FROM characters WHERE id = ?", (char_id,)).fetchone()
+    if not row:
+        conn.close()
+        return None
+    d = dict(row)
+    comp_rows = conn.execute(
+        "SELECT compound_zh, pinyin, meaning FROM character_compounds WHERE char_id = ? ORDER BY position",
+        (char_id,),
+    ).fetchall()
+    d["compounds"] = [dict(c) for c in comp_rows]
     conn.close()
-    return dict(row) if row else None
+    return d
 
 
 def get_all_characters() -> list[dict]:
@@ -816,8 +1106,8 @@ def get_words_for_character(char_id: int) -> list[dict]:
     conn = get_db()
     rows = conn.execute(
         """SELECT w.id, w.word_zh, w.pinyin, w.definition, w.pos
-           FROM word_characters wc
-           JOIN words w ON w.id = wc.word_id
+           FROM entry_characters wc
+           JOIN entries w ON w.id = wc.word_id
            WHERE wc.char_id = ?
            ORDER BY w.word_zh""",
         (char_id,),
@@ -827,7 +1117,7 @@ def get_words_for_character(char_id: int) -> list[dict]:
 
 
 def update_character(char_id: int, fields: dict) -> None:
-    allowed = {"pinyin", "etymology", "other_meanings", "compounds", "traditional", "hsk_level"}
+    allowed = {"pinyin", "etymology", "other_meanings", "traditional", "hsk_level"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return
@@ -838,12 +1128,36 @@ def update_character(char_id: int, fields: dict) -> None:
     conn.close()
 
 
+def upsert_character_compounds(char_id: int, compounds: list[dict]) -> None:
+    """Insert or update normalised compound rows for a character.
+
+    Each compound dict should have keys: zh (required), pinyin, meaning.
+    Existing rows for this char_id are replaced on conflict (zh).
+    """
+    conn = get_db()
+    for pos, c in enumerate(compounds):
+        zh = (c.get("simplified") or c.get("zh") or c.get("compound") or "").strip()
+        if not zh:
+            continue
+        conn.execute(
+            """INSERT INTO character_compounds (char_id, compound_zh, pinyin, meaning, position)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(char_id, compound_zh) DO UPDATE SET
+                   pinyin   = excluded.pinyin,
+                   meaning  = excluded.meaning,
+                   position = excluded.position""",
+            (char_id, zh, c.get("pinyin"), c.get("meaning") or c.get("de"), pos),
+        )
+    conn.commit()
+    conn.close()
+
+
 def insert_word_character(word_id: int, char_id: int,
                           position: int,
                           meaning_in_context: str | None) -> None:
     conn = get_db()
     conn.execute(
-        """INSERT OR IGNORE INTO word_characters
+        """INSERT OR IGNORE INTO entry_characters
            (word_id, char_id, position, meaning_in_context)
            VALUES (?, ?, ?, ?)""",
         (word_id, char_id, position, meaning_in_context),
@@ -853,20 +1167,31 @@ def insert_word_character(word_id: int, char_id: int,
 
 
 def get_word_characters(word_id: int) -> list[dict]:
-    """Returns characters in position order, joined with full character details."""
+    """Returns characters in position order, joined with full character details.
+    Compounds are fetched from the character_compounds relational table."""
     conn = get_db()
     rows = conn.execute(
         """SELECT wc.position, wc.meaning_in_context,
                   c.id as char_id, c.char, c.traditional, c.pinyin,
-                  c.hsk_level, c.etymology, c.other_meanings, c.compounds
-           FROM word_characters wc
+                  c.hsk_level, c.etymology, c.other_meanings
+           FROM entry_characters wc
            JOIN characters c ON c.id = wc.char_id
            WHERE wc.word_id = ?
            ORDER BY wc.position""",
         (word_id,),
     ).fetchall()
+    result = []
+    for row in rows:
+        d = dict(row)
+        comp_rows = conn.execute(
+            """SELECT compound_zh, pinyin, meaning FROM character_compounds
+               WHERE char_id = ? ORDER BY position""",
+            (d["char_id"],),
+        ).fetchall()
+        d["compounds"] = [dict(c) for c in comp_rows]
+        result.append(d)
     conn.close()
-    return [dict(r) for r in rows]
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -896,13 +1221,13 @@ def get_card(card_id: int) -> dict | None:
     row = conn.execute(
         """SELECT c.*,
                   w.word_zh, w.pinyin, w.definition, w.pos, w.hsk_level,
-                  w.traditional, w.definition_zh, w.note_type,
+                  w.traditional, w.definition_zh, w.note_type, w.notes,
                   p.learning_steps, p.graduating_interval, p.easy_interval,
                   p.relearning_steps, p.minimum_interval,
                   p.leech_threshold, p.leech_action,
                   p.new_per_day, p.reviews_per_day
            FROM cards c
-           JOIN words w ON w.id = c.word_id
+           JOIN entries w ON w.id = c.word_id
            JOIN decks d ON d.id = c.deck_id
            JOIN deck_presets p ON p.id = d.preset_id
            WHERE c.id = ?""",
@@ -1029,7 +1354,7 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
                   w.hsk_level, w.traditional, w.definition_zh,
                   w.note_type, w.source_sentence, w.notes
            FROM cards c
-           JOIN words w ON w.id = c.word_id
+           JOIN entries w ON w.id = c.word_id
            WHERE c.deck_id = ?
              AND c.category = ?
              AND c.state != 'suspended'
@@ -1204,7 +1529,7 @@ def update_word(word_id: int, fields: dict) -> None:
         return
     conn = get_db()
     sets = ", ".join(f"{k}=?" for k in updates)
-    conn.execute(f"UPDATE words SET {sets} WHERE id=?", (*updates.values(), word_id))
+    conn.execute(f"UPDATE entries SET {sets} WHERE id=?", (*updates.values(), word_id))
     conn.commit()
     conn.close()
 
@@ -1540,7 +1865,7 @@ def get_creating_all_suspended(deck_id: int) -> bool:
         """SELECT COUNT(*) as total,
                   SUM(CASE WHEN c.state = 'suspended' THEN 1 ELSE 0 END) as suspended_count
            FROM cards c
-           JOIN words w ON w.id = c.word_id
+           JOIN entries w ON w.id = c.word_id
            WHERE c.deck_id = ? AND c.category = 'creating'
              AND c.deleted_at IS NULL
              AND w.note_type != 'sentence'""",
@@ -1563,7 +1888,7 @@ def toggle_deck_creating_suspension(deck_id: int) -> dict:
     conn = get_db()
     rows = conn.execute(
         """SELECT c.id, c.state FROM cards c
-           JOIN words w ON w.id = c.word_id
+           JOIN entries w ON w.id = c.word_id
            WHERE c.deck_id = ? AND c.category = 'creating'
              AND c.deleted_at IS NULL
              AND w.note_type != 'sentence'""",
@@ -1576,7 +1901,7 @@ def toggle_deck_creating_suspension(deck_id: int) -> dict:
             """UPDATE cards SET state='suspended'
                WHERE deck_id = ? AND category = 'creating'
                  AND deleted_at IS NULL AND state = 'new'
-                 AND word_id IN (SELECT id FROM words WHERE note_type != 'sentence')""",
+                 AND word_id IN (SELECT id FROM entries WHERE note_type != 'sentence')""",
             (deck_id,),
         )
         all_suspended = True
@@ -1585,7 +1910,7 @@ def toggle_deck_creating_suspension(deck_id: int) -> dict:
             """UPDATE cards SET state='new'
                WHERE deck_id = ? AND category = 'creating'
                  AND deleted_at IS NULL AND state = 'suspended'
-                 AND word_id IN (SELECT id FROM words WHERE note_type != 'sentence')""",
+                 AND word_id IN (SELECT id FROM entries WHERE note_type != 'sentence')""",
             (deck_id,),
         )
         all_suspended = False
@@ -1602,7 +1927,7 @@ def get_category_all_suspended(deck_id: int, category: str) -> bool:
         """SELECT COUNT(*) as total,
                   SUM(CASE WHEN c.state = 'suspended' THEN 1 ELSE 0 END) as suspended_count
            FROM cards c
-           JOIN words w ON w.id = c.word_id
+           JOIN entries w ON w.id = c.word_id
            WHERE c.deck_id = ? AND c.category = ?
              AND c.deleted_at IS NULL
              AND w.note_type != 'sentence'""",
@@ -1619,7 +1944,7 @@ def toggle_category_suspension(deck_id: int, category: str) -> dict:
     conn = get_db()
     rows = conn.execute(
         """SELECT c.id, c.state FROM cards c
-           JOIN words w ON w.id = c.word_id
+           JOIN entries w ON w.id = c.word_id
            WHERE c.deck_id = ? AND c.category = ?
              AND c.deleted_at IS NULL
              AND w.note_type != 'sentence'""",
@@ -1631,7 +1956,7 @@ def toggle_category_suspension(deck_id: int, category: str) -> dict:
             """UPDATE cards SET state='suspended'
                WHERE deck_id = ? AND category = ?
                  AND deleted_at IS NULL AND state != 'suspended'
-                 AND word_id IN (SELECT id FROM words WHERE note_type != 'sentence')""",
+                 AND word_id IN (SELECT id FROM entries WHERE note_type != 'sentence')""",
             (deck_id, category),
         )
         all_suspended = True
@@ -1640,7 +1965,7 @@ def toggle_category_suspension(deck_id: int, category: str) -> dict:
             """UPDATE cards SET state='new'
                WHERE deck_id = ? AND category = ?
                  AND deleted_at IS NULL AND state = 'suspended'
-                 AND word_id IN (SELECT id FROM words WHERE note_type != 'sentence')""",
+                 AND word_id IN (SELECT id FROM entries WHERE note_type != 'sentence')""",
             (deck_id, category),
         )
         all_suspended = False
@@ -1661,7 +1986,7 @@ def get_deck_all_suspended(deck_id: int) -> bool:
            SELECT COUNT(*) as total,
                   SUM(CASE WHEN c.state = 'suspended' THEN 1 ELSE 0 END) as suspended_count
            FROM cards c
-           JOIN words w ON w.id = c.word_id
+           JOIN entries w ON w.id = c.word_id
            JOIN descendants des ON c.deck_id = des.id
            WHERE c.deleted_at IS NULL
              AND w.note_type != 'sentence'""",
@@ -1689,7 +2014,7 @@ def toggle_deck_all_suspension(deck_id: int) -> dict:
     placeholders = ",".join("?" * len(deck_ids))
     active_row = conn.execute(
         f"""SELECT COUNT(*) as cnt FROM cards c
-            JOIN words w ON w.id = c.word_id
+            JOIN entries w ON w.id = c.word_id
             WHERE c.deck_id IN ({placeholders})
               AND c.state != 'suspended'
               AND c.deleted_at IS NULL
@@ -1703,7 +2028,7 @@ def toggle_deck_all_suspension(deck_id: int) -> dict:
                 WHERE deck_id IN ({placeholders})
                   AND state != 'suspended'
                   AND deleted_at IS NULL
-                  AND word_id IN (SELECT id FROM words WHERE note_type != 'sentence')""",
+                  AND word_id IN (SELECT id FROM entries WHERE note_type != 'sentence')""",
             deck_ids,
         )
     else:
@@ -1712,7 +2037,7 @@ def toggle_deck_all_suspension(deck_id: int) -> dict:
                 WHERE deck_id IN ({placeholders})
                   AND state = 'suspended'
                   AND deleted_at IS NULL
-                  AND word_id IN (SELECT id FROM words WHERE note_type != 'sentence')""",
+                  AND word_id IN (SELECT id FROM entries WHERE note_type != 'sentence')""",
             deck_ids,
         )
     conn.commit()
@@ -1721,16 +2046,15 @@ def toggle_deck_all_suspension(deck_id: int) -> dict:
 
 
 def get_words_for_browse() -> list[dict]:
-    """Return all words that have cards, with embedded card states per category."""
+    """Return all entries (with or without cards), with embedded card states per category."""
     sql = """
         SELECT w.id, w.word_zh, w.pinyin, w.definition, w.pos, w.hsk_level, w.note_type,
                c.id as card_id, c.category, c.state, c.interval, c.ease,
                c.due, c.lapses, c.step_index, c.deck_id,
                d.name as deck_name
-        FROM words w
-        JOIN cards c ON c.word_id = w.id
-        JOIN decks d ON d.id = c.deck_id
-        WHERE c.deleted_at IS NULL
+        FROM entries w
+        LEFT JOIN cards c ON c.word_id = w.id AND c.deleted_at IS NULL
+        LEFT JOIN decks d ON d.id = c.deck_id
         ORDER BY w.word_zh, c.category
     """
     conn = get_db()
@@ -1751,39 +2075,37 @@ def get_words_for_browse() -> list[dict]:
                 "note_type": r["note_type"],
                 "cards": [],
             }
-        words[wid]["cards"].append({
-            "id": r["card_id"],
-            "category": r["category"],
-            "state": r["state"],
-            "interval": r["interval"],
-            "ease": r["ease"],
-            "due": r["due"],
-            "lapses": r["lapses"],
-            "step_index": r["step_index"],
-            "deck_id": r["deck_id"],
-            "deck_name": r["deck_name"],
-        })
+        if r["card_id"] is not None:
+            words[wid]["cards"].append({
+                "id": r["card_id"],
+                "category": r["category"],
+                "state": r["state"],
+                "interval": r["interval"],
+                "ease": r["ease"],
+                "due": r["due"],
+                "lapses": r["lapses"],
+                "step_index": r["step_index"],
+                "deck_id": r["deck_id"],
+                "deck_name": r["deck_name"],
+            })
     return list(words.values())
 
 
 def search_words(q: str) -> dict:
-    """Return word IDs split into primary (word/def match) and secondary (example/notes match)."""
+    """Return word IDs split into primary (word/def match) and secondary (example/notes match).
+    Includes reference entries (no cards) so Browse search works across the full knowledge base."""
     like = f"%{q}%"
     conn = get_db()
     primary_ids = {r["id"] for r in conn.execute(
-        """SELECT DISTINCT w.id FROM words w
-           JOIN cards c ON c.word_id = w.id
-           WHERE c.deleted_at IS NULL
-             AND (w.word_zh LIKE ? OR w.pinyin LIKE ?
+        """SELECT DISTINCT w.id FROM entries w
+           WHERE (w.word_zh LIKE ? OR w.pinyin LIKE ?
               OR w.definition LIKE ? OR w.definition_zh LIKE ?)""",
         (like, like, like, like),
     ).fetchall()}
     secondary_ids = {r["id"] for r in conn.execute(
-        """SELECT DISTINCT w.id FROM words w
-           JOIN cards c ON c.word_id = w.id
-           LEFT JOIN word_examples we ON we.word_id = w.id
-           WHERE c.deleted_at IS NULL
-             AND (we.example_zh LIKE ? OR we.example_de LIKE ? OR w.notes LIKE ?)""",
+        """SELECT DISTINCT w.id FROM entries w
+           LEFT JOIN entry_examples we ON we.word_id = w.id
+           WHERE (we.example_zh LIKE ? OR we.example_de LIKE ? OR w.notes LIKE ?)""",
         (like, like, like),
     ).fetchall()} - primary_ids
     conn.close()
@@ -1852,7 +2174,7 @@ def get_trashed_cards() -> list[dict]:
         """SELECT c.*, w.word_zh, w.pinyin,
                   d.name as deck_name, p.name as parent_deck_name
            FROM cards c
-           JOIN words w ON w.id = c.word_id
+           JOIN entries w ON w.id = c.word_id
            JOIN decks d ON d.id = c.deck_id
            LEFT JOIN decks p ON p.id = d.parent_id
            WHERE c.deleted_at IS NOT NULL
@@ -1939,7 +2261,7 @@ def bulk_delete_cards_by_words(word_ids: list[int]) -> int:
         return 0
     conn = get_db()
     ph = ','.join('?' * len(word_ids))
-    cur = conn.execute(f"DELETE FROM words WHERE id IN ({ph})", word_ids)
+    cur = conn.execute(f"DELETE FROM entries WHERE id IN ({ph})", word_ids)
     conn.commit()
     conn.close()
     return cur.rowcount
@@ -1948,7 +2270,7 @@ def bulk_delete_cards_by_words(word_ids: list[int]) -> int:
 def delete_word(word_id: int) -> None:
     """Hard-delete a single word and all its related data."""
     conn = get_db()
-    conn.execute("DELETE FROM words WHERE id = ?", (word_id,))
+    conn.execute("DELETE FROM entries WHERE id = ?", (word_id,))
     conn.commit()
     conn.close()
 
@@ -1965,6 +2287,28 @@ def bulk_move_cards_by_words(word_ids: list[int], deck_id: int) -> int:
     conn.commit()
     conn.close()
     return cur.rowcount
+
+
+def add_entry_to_deck(entry_id: int, parent_deck_id: int) -> dict:
+    """Create cards in all category leaf-decks under parent_deck_id for a reference entry."""
+    conn = get_db()
+    leaf_decks = conn.execute(
+        "SELECT id, category FROM decks WHERE parent_id = ? AND category IS NOT NULL AND deleted_at IS NULL",
+        (parent_deck_id,),
+    ).fetchall()
+    if not leaf_decks:
+        conn.close()
+        return {"created": 0, "error": "No category decks found under this parent"}
+    created = 0
+    for ld in leaf_decks:
+        cur = conn.execute(
+            "INSERT OR IGNORE INTO cards (word_id, deck_id, category, state) VALUES (?, ?, ?, 'new')",
+            (entry_id, ld["id"], ld["category"]),
+        )
+        created += cur.rowcount
+    conn.commit()
+    conn.close()
+    return {"created": created}
 
 
 def get_all_cards_for_browse(filters: dict | None = None) -> list[dict]:
@@ -1989,7 +2333,7 @@ def get_all_cards_for_browse(filters: dict | None = None) -> list[dict]:
     sql = f"""SELECT c.*, w.word_zh, w.pinyin, w.definition, w.pos,
                      w.hsk_level, d.name as deck_name
               FROM cards c
-              JOIN words w ON w.id = c.word_id
+              JOIN entries w ON w.id = c.word_id
               JOIN decks d ON d.id = c.deck_id
               WHERE {' AND '.join(where)}
               ORDER BY w.word_zh"""
@@ -2076,7 +2420,7 @@ def create_story(date_str: str, category: str, deck_id: int,
     story_id = cur.lastrowid
     for s in sentences:
         conn.execute(
-            """INSERT INTO sentences (story_id, word_id, position, sentence_zh, sentence_en)
+            """INSERT INTO story_sentences (story_id, word_id, position, sentence_zh, sentence_en)
                VALUES (?, ?, ?, ?, ?)""",
             (story_id, s["word_id"], s["position"], s["sentence_zh"], s["sentence_en"]),
         )
@@ -2088,7 +2432,7 @@ def create_story(date_str: str, category: str, deck_id: int,
 def get_sentence_for_word(story_id: int, word_id: int) -> dict | None:
     conn = get_db()
     row = conn.execute(
-        "SELECT * FROM sentences WHERE story_id = ? AND word_id = ?",
+        "SELECT * FROM story_sentences WHERE story_id = ? AND word_id = ?",
         (story_id, word_id),
     ).fetchone()
     conn.close()
@@ -2099,7 +2443,7 @@ def get_story_sentences(story_id: int) -> list[dict]:
     conn = get_db()
     rows = conn.execute(
         """SELECT s.*, w.word_zh
-           FROM sentences s JOIN words w ON w.id = s.word_id
+           FROM story_sentences s JOIN entries w ON w.id = s.word_id
            WHERE s.story_id = ? ORDER BY s.position""",
         (story_id,),
     ).fetchall()
@@ -2125,7 +2469,7 @@ def get_stats(deck_id: int | None = None) -> dict:
             [deck_id],
         ).fetchone()[0]
     else:
-        total_words = conn.execute("SELECT COUNT(*) FROM words").fetchone()[0]
+        total_words = conn.execute("SELECT COUNT(*) FROM entries").fetchone()[0]
 
     reviews_today = conn.execute(
         f"""SELECT COUNT(*) FROM review_log rl

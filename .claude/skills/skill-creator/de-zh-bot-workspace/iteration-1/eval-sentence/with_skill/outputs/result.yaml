@@ -1,0 +1,118 @@
+- type: sentence
+  date: "03/28"
+  source_de: Ich habe Heimweh nach meiner Familie.
+  simplified: 我很想念我的家人。
+  traditional: 我很想念我的家人。
+  pinyin: Wǒ hěn xiǎngniàn wǒ de jiārén.
+  english: I am homesick for my family. / I miss my family very much.
+  hsk: "3"
+  explanations: |
+    This sentence expresses homesickness and longing for one's family. The German "Heimweh haben nach" (to be homesick for) is rendered naturally in Chinese using 想念 (xiǎngniàn), which captures both "to miss" and the emotional longing of homesickness.
+
+    Key vocabulary:
+    - 想念 (xiǎngniàn) — to miss, to long for; stronger and more formal than 想
+    - 家人 (jiārén) — family members, one's family
+    - 很 (hěn) — very; used here as an intensifier to convey the depth of feeling
+
+    Note: Chinese does not have a single direct equivalent of "Heimweh" (homesickness). The concept is typically expressed as 思乡 (sīxiāng — longing for home/hometown) or 想家 (xiǎng jiā — to miss home). When the focus is on missing people (family), 想念 is the most natural choice.
+  grammar_structures:
+    - structure: 主语 + 很 + 想念 + 宾语
+      explanation: 很 (very) intensifies the verb 想念. In Chinese, 很 frequently precedes stative verbs and emotional verbs to indicate degree, similar to English "very much."
+      example: 我很想念你。
+    - structure: 想念 + 人/地方
+      explanation: 想念 takes a person or place as its object. For missing a place (homesickness proper), use 想念家乡 or 思念故乡.
+      example: 她很想念故乡的风景。
+  similar_sentences:
+    - zh: 我很思念家乡。
+      pinyin: Wǒ hěn sīniàn jiāxiāng.
+      de: Ich habe sehr Heimweh nach meiner Heimat.
+    - zh: 在外面久了，难免会想家。
+      pinyin: Zài wàimiàn jiǔ le, nánmiǎn huì xiǎng jiā.
+      de: Nach einer langen Zeit in der Fremde vermisst man unweigerlich sein Zuhause.
+  word_analyses:
+    - type: word
+      simplified: 想念
+      pinyin: xiǎngniàn
+      english: to miss, to long for, to yearn for
+      hsk: "4"
+      note: |
+        想念 expresses deep emotional longing for a person, place, or time. It is more formal and literary than the colloquial 想 (xiǎng) used alone. Often used for missing people one is separated from.
+
+        **Common Expressions:**
+        - 想念家人 (xiǎngniàn jiārén) — to miss one's family
+        - 想念故乡 (xiǎngniàn gùxiāng) — to miss one's hometown
+        - 日夜想念 (rìyè xiǎngniàn) — to miss day and night
+      characters:
+        - char: 想
+          simplified: 想
+          pinyin: xiǎng
+          hsk: "2"
+          detailed_analysis: false
+          meaning_in_context: to think of, to miss
+          compounds:
+            - simplified: 想念
+              pinyin: xiǎngniàn
+              meaning: to miss, to long for
+            - simplified: 思想
+              pinyin: sīxiǎng
+              meaning: thought, ideology
+        - char: 念
+          simplified: 念
+          pinyin: niàn
+          hsk: "4"
+          detailed_analysis: true
+          meaning_in_context: to think of, to miss, to read aloud
+          compounds:
+            - simplified: 念书
+              pinyin: niànshū
+              meaning: to study, to read books
+            - simplified: 纪念
+              pinyin: jìniàn
+              meaning: to commemorate, memory
+            - simplified: 信念
+              pinyin: xìnniàn
+              meaning: belief, conviction
+          etymology: |
+            念 is composed of 今 (jīn, "now/present") on top and 心 (xīn, "heart/mind") on the bottom,
+            forming a phono-semantic compound where 今 suggests the pronunciation and 心 indicates the
+            emotional domain. The original meaning was "to recite, to read aloud," and extended to
+            "to keep in mind, to think about, to miss." The idea of holding something in the heart
+            in the present moment captures both the act of recitation and emotional longing.
+    - type: word
+      simplified: 家人
+      pinyin: jiārén
+      english: family members, one's family
+      hsk: "3"
+      note: |
+        家人 refers collectively to one's family members. It is slightly more formal than 家里人 (jiāli rén) used in colloquial speech. Interchangeable with 家庭成员 in formal contexts.
+
+        **Common Expressions:**
+        - 家人团聚 (jiārén tuánjù) — family reunion
+        - 陪伴家人 (péibàn jiārén) — to accompany / spend time with family
+      characters:
+        - char: 家
+          simplified: 家
+          pinyin: jiā
+          hsk: "1"
+          detailed_analysis: false
+          meaning_in_context: home, family
+          compounds:
+            - simplified: 家人
+              pinyin: jiārén
+              meaning: family members
+            - simplified: 家乡
+              pinyin: jiāxiāng
+              meaning: hometown
+        - char: 人
+          simplified: 人
+          pinyin: rén
+          hsk: "1"
+          detailed_analysis: false
+          meaning_in_context: person, people
+          compounds:
+            - simplified: 家人
+              pinyin: jiārén
+              meaning: family members
+            - simplified: 个人
+              pinyin: gèrén
+              meaning: individual, personal

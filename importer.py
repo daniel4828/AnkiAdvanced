@@ -12,9 +12,11 @@ logger = logging.getLogger(__name__)
 # Maps YAML entry `type` → DB `note_type`. Unknown types are skipped.
 NOTE_TYPE_MAP = {
     "vocabulary": "vocabulary",
+    "word":       "vocabulary",   # new canonical name for vocabulary
     "sentence":   "sentence",
     "chengyu":    "chengyu",
     "expression": "expression",
+    "grammar":    "grammar",      # reference only — stored in grammar_points, no cards
 }
 
 _HANZI_RE = re.compile(r'[\u4e00-\u9fff\u3400-\u4dbf]')
@@ -177,6 +179,19 @@ def preview_yaml_content(content: str) -> dict:
             })
             continue
 
+        # Grammar entries: show as reference (no duplicate check needed)
+        if note_type == "grammar":
+            name = (entry.get("name") or "(no name)").strip()
+            summary["ok"] += 1
+            result_entries.append({
+                "simplified": name, "note_type": "grammar",
+                "english": entry.get("meaning", ""),
+                "hsk": entry.get("level", ""),
+                "status": "ok", "reason": None,
+                "raw_yaml": yaml.dump(entry, allow_unicode=True, default_flow_style=False, sort_keys=False).strip(),
+            })
+            continue
+
         word_zh = entry.get("simplified", "").strip()
         if not word_zh:
             summary["invalid"] += 1
@@ -293,8 +308,11 @@ def _build_word_dict(entry: dict, source: str, note_type: str = "vocabulary") ->
         "definition_zh":   entry.get("definition_zh"),
         "source":          source,
         "note_type":       note_type,
+        "notes":           entry.get("note") or entry.get("explanations"),
+        "date_yaml":       entry.get("date"),
         "source_sentence": entry.get("source_de"),
-        "grammar_notes":   entry.get("grammar_de"),
+        "grammar_notes":   None,
+        "register":        entry.get("register"),  # spoken | written | both
     }
 
 
@@ -315,8 +333,7 @@ def _process_characters(entry: dict, word_id: int) -> None:
             "etymology":      char_entry.get("etymology") if detailed else None,
             "other_meanings": json.dumps(other_meanings, ensure_ascii=False)
                               if other_meanings else None,
-            "compounds":      json.dumps(compounds_raw, ensure_ascii=False)
-                              if compounds_raw else None,
+            # compounds: written to character_compounds table below, NOT as JSON
         }
         char_id = database.upsert_character(char_dict)
         database.insert_word_character(
@@ -325,6 +342,115 @@ def _process_characters(entry: dict, word_id: int) -> None:
             position=pos,
             meaning_in_context=char_entry.get("meaning_in_context") if detailed else None,
         )
+        if compounds_raw and isinstance(compounds_raw, list):
+            database.upsert_character_compounds(char_id, compounds_raw)
+
+
+def _process_measure_words(entry: dict, word_id: int) -> None:
+    """Insert measure words (量词) from an entry's `measure_word` list."""
+    for pos, mw in enumerate(entry.get("measure_word") or []):
+        measure_zh = (mw.get("simplified") or "").strip()
+        if not measure_zh:
+            continue
+        database.insert_word_measure_word(
+            word_id=word_id,
+            measure_zh=measure_zh,
+            pinyin=mw.get("pinyin"),
+            meaning=mw.get("meaning"),
+            position=pos,
+        )
+
+
+def _process_grammar_structures(entry: dict, word_id: int) -> None:
+    """Insert grammar_structures from a sentence entry."""
+    for pos, gs in enumerate(entry.get("grammar_structures") or []):
+        structure = (gs.get("structure") or "").strip()
+        if not structure:
+            continue
+        database.insert_grammar_structure(
+            word_id=word_id,
+            structure=structure,
+            explanation=gs.get("explanation"),
+            example_zh=gs.get("example"),
+            position=pos,
+        )
+
+
+def _process_word_relations(entry: dict, word_id: int) -> None:
+    """Insert synonyms and antonyms from an entry's `synonyms`/`antonyms` lists."""
+    for rel_type, key in (("synonym", "synonyms"), ("antonym", "antonyms")):
+        for item in (entry.get(key) or []):
+            # Accept both `simplified:` (old) and `word:` (new format) as the hanzi field
+            related_zh = (item.get("simplified") or item.get("word") or "").strip()
+            if not related_zh:
+                continue
+            database.insert_word_relation(
+                word_id=word_id,
+                related_zh=related_zh,
+                related_pinyin=item.get("pinyin"),
+                related_de=item.get("de") or item.get("meaning"),
+                relation_type=rel_type,
+            )
+
+
+def _import_grammar_entry(entry: dict, label: str) -> bool:
+    """Store a grammar-type entry in grammar_points + sub-tables. Returns True on success."""
+    name = (entry.get("name") or "").strip()
+    if not name:
+        logger.warning("SKIP %s: grammar entry missing 'name' field", label)
+        return False
+
+    grammar_id = database.insert_grammar_point(
+        name=name,
+        level=entry.get("level"),
+        structure=entry.get("structure"),
+        meaning=entry.get("meaning"),
+        usage=entry.get("usage"),
+        cultural_note=entry.get("cultural_note"),
+    )
+
+    for i, ex in enumerate(entry.get("examples") or []):
+        zh = (ex.get("zh") or "").strip()
+        if zh:
+            database.insert_grammar_example(
+                grammar_id=grammar_id,
+                example_zh=zh,
+                pinyin=ex.get("pinyin"),
+                example_de=ex.get("de"),
+                structure=ex.get("structure"),
+                position=i,
+            )
+
+    for i, pat in enumerate(entry.get("common_patterns") or []):
+        pattern = (pat.get("pattern") or "").strip()
+        if pattern:
+            database.insert_grammar_pattern(
+                grammar_id=grammar_id,
+                pattern=pattern,
+                meaning=pat.get("meaning"),
+                example=pat.get("example"),
+                position=i,
+            )
+
+    for i, cmp in enumerate(entry.get("comparisons") or []):
+        database.insert_grammar_comparison(
+            grammar_id=grammar_id,
+            title=cmp.get("title"),
+            explanation=cmp.get("explanation"),
+            position=i,
+        )
+
+    for i, expr in enumerate(entry.get("fixed_expressions") or []):
+        expression = (expr.get("expression") or "").strip()
+        if expression:
+            database.insert_grammar_expression(
+                grammar_id=grammar_id,
+                expression=expression,
+                meaning=expr.get("meaning"),
+                position=i,
+            )
+
+    return True
 
 
 def _process_char_only_component(analysis: dict, note_word_id: int,
@@ -369,6 +495,7 @@ def _process_component(analysis: dict, note_word_id: int, position: int,
         database.update_word(comp_word_id, merged)
 
     _process_characters(analysis, comp_word_id)
+    _process_measure_words(analysis, comp_word_id)
 
     # Store examples if present
     for i, ex in enumerate(analysis.get("examples") or []):
@@ -376,6 +503,7 @@ def _process_component(analysis: dict, note_word_id: int, position: int,
             word_id=comp_word_id,
             example_zh=ex.get("zh", ""),
             example_pinyin=ex.get("pinyin"),
+            example_en=ex.get("english"),
             example_de=ex.get("de"),
             position=i,
         )
@@ -416,6 +544,14 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
 
         if note_type is None:
             logger.debug("SKIP %s: unknown type %r", label, yaml_type)
+            continue
+
+        # Grammar entries go to grammar_points table, not entries — no cards created
+        if note_type == "grammar":
+            if _import_grammar_entry(entry, label):
+                imported += 1
+            else:
+                skipped_invalid += 1
             continue
 
         word_zh = entry.get("simplified", "").strip()
@@ -487,12 +623,42 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
                 word_id=word_id,
                 example_zh=ex.get("zh", ""),
                 example_pinyin=ex.get("pinyin"),
+                example_en=ex.get("english"),
                 example_de=ex.get("de"),
                 position=i,
+                example_type="example",
             )
 
-        # Characters
-        _process_characters(entry, word_id)
+        # Similar sentences (sentence entries only)
+        if note_type == "sentence":
+            for i, ss in enumerate(entry.get("similar_sentences") or []):
+                zh = (ss.get("zh") or "").strip()
+                if not zh:
+                    continue
+                database.insert_word_example(
+                    word_id=word_id,
+                    example_zh=zh,
+                    example_pinyin=ss.get("pinyin"),
+                    example_en=ss.get("english"),
+                    example_de=ss.get("de"),
+                    position=i,
+                    example_type="similar",
+                )
+
+        # Characters — only for vocabulary; expression/chengyu/sentence
+        # attach characters via word_analyses sub-words, not the main entry
+        if note_type == "vocabulary":
+            _process_characters(entry, word_id)
+
+        # Measure words (量词)
+        _process_measure_words(entry, word_id)
+
+        # Synonyms / antonyms
+        _process_word_relations(entry, word_id)
+
+        # Grammar structures (sentence entries)
+        if note_type == "sentence":
+            _process_grammar_structures(entry, word_id)
 
         # Component word_analyses (sentences / chengyu / expressions)
         for pos, analysis in enumerate(entry.get("word_analyses") or []):

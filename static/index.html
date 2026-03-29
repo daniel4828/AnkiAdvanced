@@ -19,8 +19,9 @@
 
   <!-- Loading -->
   <div id="view-loading">
-    <div class="spinner"></div>
+    <div class="spinner" id="loading-spinner"></div>
     <div id="loading-msg">Loading…</div>
+    <div id="loading-sub"></div>
   </div>
 
   <!-- Deck list -->
@@ -47,6 +48,14 @@
           <button id="card-hsk-badge" class="card-hsk-badge" onclick="enrichCard()" title="Ask AI to fill HSK level &amp; character data" style="display:none"></button>
           <button id="back-meta-play-btn" class="play-icon-btn play-icon-sm" onclick="playSentence()" style="display:none" title="Play audio">🔊</button>
           <div id="card-type-badge"></div>
+          <div class="wd-card-menu-wrap" id="review-card-menu-wrap">
+            <button class="wd-menu-btn" onclick="toggleReviewCardMenu(event)">⋯</button>
+            <div class="wd-card-menu" id="review-card-menu" style="display:none">
+              <button class="wd-menu-item" onclick="reviewCardAction('bury')">Bury until tomorrow</button>
+              <button class="wd-menu-item" id="review-suspend-btn" onclick="reviewCardAction('suspend')">Suspend</button>
+              <button class="wd-menu-item wd-menu-item-danger" onclick="reviewCardAction('delete')">Delete card</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -69,6 +78,9 @@
 
       <!-- Back: sentence → ratings → full vocab detail -->
       <div id="side-back" style="display:none">
+
+        <!-- Category circles (top of back) -->
+        <div id="review-cat-row"></div>
 
         <!-- Creating only: answer comparison -->
         <div class="answer-compare" id="creating-answer-section" style="display:none">
@@ -112,15 +124,11 @@
           <div class="word-pin" id="word-pin"></div>
           <div class="word-pos-row"><span class="word-pos" id="word-pos"></span></div>
           <div class="word-def" id="word-def"></div>
-          <!-- Example sentences — populated by JS -->
-          <div id="examples-section"></div>
-          <!-- Characters breakdown — populated by JS -->
-          <div id="char-section"></div>
-          <!-- Grammar notes — populated by JS, hidden when empty -->
-          <div id="grammar-notes-section"></div>
           <!-- Notes — populated by JS, hidden when empty -->
           <div id="notes-section"></div>
-          <!-- Word Analysis (sentences / chengyu / expressions) — populated by JS -->
+          <!-- Example sentences — populated by JS -->
+          <div id="examples-section"></div>
+          <!-- Word Analysis — populated by JS, open by default -->
           <div id="word-analysis-section"></div>
           <button class="edit-card-btn" id="edit-card-btn" onclick="openEditCard()">Edit card</button>
         </div>
@@ -149,6 +157,12 @@
         <button class="bs-item" id="bsf-vocabulary" onclick="setBrowseFilter('notes','vocabulary')">Words</button>
         <button class="bs-item" id="bsf-sentence"   onclick="setBrowseFilter('notes','sentence')">Sentences</button>
         <button class="bs-item" id="bsf-chengyu"    onclick="setBrowseFilter('notes','chengyu')">Chengyu</button>
+      </div>
+      <div class="bs-section">
+        <div class="bs-section-head">Status</div>
+        <button class="bs-status-item bs-active" id="bss-all"       onclick="setBrowseStatusFilter('all')">All Entries</button>
+        <button class="bs-status-item" id="bss-learning"  onclick="setBrowseStatusFilter('learning')">Learning</button>
+        <button class="bs-status-item" id="bss-reference" onclick="setBrowseStatusFilter('reference')">Reference</button>
       </div>
       <div class="bs-section">
         <div class="bs-section-head">Hanzi</div>
@@ -199,13 +213,18 @@
       <div class="wd-pinyin" id="wd-pinyin"></div>
       <div class="wd-pos-def-row">
         <span class="word-pos" id="wd-pos" style="display:none"></span>
+        <span class="word-register" id="wd-register" style="display:none"></span>
         <span class="wd-def" id="wd-def"></span>
       </div>
       <div class="wd-def-zh" id="wd-def-zh" style="display:none"></div>
       <button class="wd-edit-btn" id="wd-edit-btn">Edit</button>
+      <button class="wd-back-review-btn" id="wd-back-review-btn" style="display:none" onclick="goBack()">← Review</button>
     </div>
     <div id="wd-chars-section"></div>
+    <div id="wd-relations-section"></div>
+    <div id="wd-measure-section"></div>
     <div id="wd-examples-section"></div>
+    <div id="wd-notes-section"></div>
     <div id="wd-components-section"></div>
     <div id="wd-cards-section"></div>
   </div>
@@ -674,6 +693,22 @@
   </div>
   <button class="story-play-all-btn" id="story-play-all-btn" onclick="toggleFullStory()">▶ Play full story</button>
   <div id="story-modal-body"></div>
+</div>
+
+<!-- Add to deck modal -->
+<div id="add-to-deck-modal-overlay" onclick="closeAddToDeckModal()" style="display:none"></div>
+<div id="add-to-deck-modal" style="display:none">
+  <div class="edit-modal-header">
+    <span class="edit-modal-title">添加到牌组</span>
+    <button class="edit-modal-close" onclick="closeAddToDeckModal()">✕</button>
+  </div>
+  <div class="edit-card-fields">
+    <select id="add-to-deck-select" class="edit-input" style="width:100%;margin-bottom:12px"></select>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="edit-card-btn" onclick="closeAddToDeckModal()">Cancel</button>
+      <button class="edit-card-btn" style="border-color:var(--primary);color:var(--primary)" onclick="confirmAddToDeck()">Add</button>
+    </div>
+  </div>
 </div>
 
 <!-- Deck picker dropdown — must be a direct body child to escape modal transform stacking context -->
