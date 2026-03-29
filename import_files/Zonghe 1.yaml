@@ -7,6 +7,7 @@
   traditional: 反正
   pinyin: fǎnzhèng
   english: anyway / anyhow / in any case / regardless / to turn to the opposite side
+  german: anyway / anyhow / in any case / regardless / to turn to the opposite side
   hsk: "4"
   register: spoken_neutral
   note: |
@@ -104,6 +105,7 @@
   traditional: 便是
   pinyin: biànshì
   english: (literary) that is / namely / just is / exactly is / even if / even though
+  german: (literary) that is / namely / just is / exactly is / even if / even though
   hsk: "5"
   register: literary
   note: |
@@ -203,6 +205,7 @@
   traditional: 虛虛實實
   pinyin: xū xū shí shí
   english: the intermingling of truth and falsehood / the interplay of reality and illusion / using deception and reality strategically
+  german: the intermingling of truth and falsehood / the interplay of reality and illusion / using deception and reality strategically
   hsk: "6"
   date: "03/27"
   register: literary
@@ -305,8 +308,9 @@
   traditional: 吹牛大王
   pinyin: chuīniú dàwáng
   english: the king of boasting / the greatest braggart / Baron Munchausen
+  german: the king of boasting / the greatest braggart / Baron Munchausen
   hsk: "6"
-  register: spoken
+  register: spoken_neutral
   note: |
     A colloquial term meaning "the king of boasting" or "the greatest braggart." 吹牛 (to boast) + 大王 (great king). Used to describe someone who exaggerates wildly or tells tall tales. Also refers to the literary character Baron Munchausen (known as 吹牛大王 in Chinese translations).
     
@@ -430,6 +434,7 @@
   traditional: 釣魚
   pinyin: diàoyú
   english: to fish / fishing / angling
+  german: to fish / fishing / angling
   hsk: "4"
   register: neutral
   note: |
@@ -519,8 +524,9 @@
   traditional: 小看
   pinyin: xiǎokàn
   english: to underestimate / to look down on / to belittle
+  german: to underestimate / to look down on / to belittle
   hsk: "5"
-  register: spoken
+  register: spoken_neutral
   note: |
     A colloquial verb meaning "to underestimate" or "to look down on someone." 小 (small) + 看 (to look) — literally "to see as small." Used when someone underestimates another's abilities, worth, or potential.
     
@@ -611,8 +617,9 @@
   traditional: 撞車
   pinyin: zhuàngchē
   english: car crash / collision / (figurative) schedule conflict / to clash (of appointments or events)
+  german: car crash / collision / (figurative) schedule conflict / to clash (of appointments or events)
   hsk: "5"
-  register: spoken
+  register: spoken_neutral
   note: |
     Literally "to crash cars," used for vehicle collisions. Figuratively, it means scheduling conflicts where two appointments or events occur at the same time, or when creative works have overlapping/identical ideas.
     
@@ -703,6 +710,7 @@
   traditional: 平行
   pinyin: píngxíng
   english: parallel / simultaneous / concurrent
+  german: parallel / simultaneous / concurrent
   hsk: "5"
   register: neutral
   note: |
@@ -888,6 +896,7 @@
   traditional: 表演
   pinyin: biǎoyǎn
   english: to perform / to act / performance / acting
+  german: to perform / to act / performance / acting
   hsk: "4"
   register: neutral
   note: |

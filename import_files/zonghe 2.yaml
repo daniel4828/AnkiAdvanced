@@ -1,11 +1,9 @@
-# Comprehensive Vocabulary YAML File
-# All entries from the conversation session
-
 - type: chengyu
   simplified: 受宠若惊
   traditional: 受寵若驚
   pinyin: shòu chǒng ruò jīng
   english: to be overwhelmed by favor / to be overwhelmed by unexpected kindness
+  german: to be overwhelmed by favor / to be overwhelmed by unexpected kindness
   hsk: "6"
   date: "03/27"
   note: |
@@ -138,8 +136,9 @@
   traditional: 賓主
   pinyin: bīnzhǔ
   english: guest and host / host and guest
+  german: guest and host / host and guest
   hsk: "5"
-  register: both
+  register: neutral
   note: |
     Refers to the relationship between a host and their guests. Often used in social contexts, business meetings, or formal occasions.
   examples:
@@ -213,8 +212,9 @@
   traditional: 名堂
   pinyin: míngtang
   english: result / achievement / reason / what lies behind something / trick / variety
+  german: result / achievement / reason / what lies behind something / trick / variety
   hsk: "5"
-  register: spoken
+  register: spoken_neutral
   note: |
     A versatile colloquial word with several meanings:
     1. Result or achievement (usually in questions or negatives)
@@ -249,7 +249,6 @@
       pinyin: míng
       hsk: "1"
       detailed_analysis: true
-      meaning_in_context: "name, reputation, (in this compound: indication, \"something\")"
       compounds:
         - simplified: 名字
           pinyin: míngzi
@@ -301,8 +300,9 @@
   traditional: 乖乖
   pinyin: guāiguāi
   english: well-behaved / obedient / (interjection) oh my! / good heavens! / dear me!
+  german: well-behaved / obedient / (interjection) oh my! / good heavens! / dear me!
   hsk: "5"
-  register: spoken
+  register: spoken_neutral
   note: |
     A versatile colloquial word with two main uses:
     1. As an adjective: describes a child or person as obedient, well-behaved, cute
@@ -362,8 +362,9 @@
   traditional: 鯊魚
   pinyin: shāyú
   english: shark
+  german: shark
   hsk: "5"
-  register: both
+  register: neutral
   note: |
     Refers to any shark species. Often used in contexts related to marine life, cuisine (shark fin), or metaphorically to describe a predatory person or entity.
   examples:
@@ -441,8 +442,9 @@
   traditional: 肉鬆
   pinyin: ròusōng
   english: pork floss / meat floss / dried meat fibers
+  german: pork floss / meat floss / dried meat fibers
   hsk: "5"
-  register: both
+  register: neutral
   note: |
     A popular Chinese food product made by simmering pork (or other meat) in soy sauce and spices, then drying and shredding until it becomes fluffy, fibrous strands. Commonly used as a topping for congee, rice, steamed buns, or in pastries.
   examples:
@@ -521,8 +523,9 @@
   traditional: 唬
   pinyin: hǔ
   english: to bluff / to intimidate / to scare / to fool
+  german: to bluff / to intimidate / to scare / to fool
   hsk: "6"
-  register: spoken
+  register: spoken_neutral
   note: |
     A colloquial verb meaning to bluff, threaten, or intimidate someone. Often used in reduplicated form 唬人 (to bluff people) or in the phrase 唬住 (to successfully intimidate/scare someone into submission). It implies deception or exaggeration to frighten or control someone.
   examples:
@@ -579,6 +582,7 @@
   traditional: 胡說八道
   pinyin: hú shuō bā dào
   english: to talk nonsense / to speak irresponsibly / sheer nonsense
+  german: to talk nonsense / to speak irresponsibly / sheer nonsense
   hsk: "5"
   date: "03/27"
   note: |
@@ -723,6 +727,7 @@
   traditional: 虛虛實實
   pinyin: xū xū shí shí
   english: the intermingling of truth and falsehood / the interplay of reality and illusion / using deception and reality strategically
+  german: the intermingling of truth and falsehood / the interplay of reality and illusion / using deception and reality strategically
   hsk: "6"
   date: "03/27"
   note: |
@@ -827,6 +832,7 @@
   traditional: 從實招來
   pinyin: cóng shí zhāo lái
   english: to confess the truth / to tell the truth under interrogation
+  german: to confess the truth / to tell the truth under interrogation
   hsk: "6"
   date: "03/27"
   note: |
@@ -978,8 +984,9 @@
   traditional: 悲壯
   pinyin: bēizhuàng
   english: solemn and stirring / tragic and heroic / moving and heroic
+  german: solemn and stirring / tragic and heroic / moving and heroic
   hsk: "6"
-  register: written
+  register: formal_written
   note: |
     Describes a scene, event, or death that is both tragic and heroic — evoking a mix of sorrow and admiration. Often used for sacrifices, battles, or moments of noble struggle that end in tragedy but inspire awe. Combines 悲 (sorrow, grief) and 壮 (heroic, grand, powerful).
   examples:
@@ -1068,8 +1075,9 @@
   traditional: 筍
   pinyin: sǔn
   english: bamboo shoot
+  german: bamboo shoot
   hsk: "6"
-  register: both
+  register: neutral
   note: |
     Refers to the edible young shoot of bamboo, a common ingredient in Chinese cuisine. Can be eaten fresh, dried, or pickled. 
     Also appears in idioms and colloquial expressions. Often paired with 竹 (bamboo) or used in compound words like 春笋 (spring bamboo shoots).
@@ -1132,8 +1140,9 @@
   traditional: 白
   pinyin: bái
   english: (in this usage) to glare at / to give a dirty look / to stare coldly
+  german: (in this usage) to glare at / to give a dirty look / to stare coldly
   hsk: "1"
-  register: spoken
+  register: spoken_neutral
   note: |
     When used as a verb with 了一眼, 白 means "to glare at" or "to give someone a dirty look." 
     The full construction is 白了一眼 (báile yī yǎn) — "glanced with the whites of the eyes." 
@@ -1197,8 +1206,9 @@
   traditional: 世面
   pinyin: shìmiàn
   english: the world / society / the ways of the world / worldly experience
+  german: the world / society / the ways of the world / worldly experience
   hsk: "6"
-  register: spoken
+  register: spoken_neutral
   note: |
     Refers to the broader world, society, or life outside one's immediate experience. Often used in phrases like 见世面 (to see the world, to gain experience) or 没见过世面 (inexperienced, naive). Carries the idea of having exposure to different people, places, and situations.
   examples:
@@ -1291,6 +1301,7 @@
   traditional: 含情脈脈
   pinyin: hán qíng mò mò
   english: (of eyes) full of affection / gazing tenderly / brimming with unspoken love
+  german: (of eyes) full of affection / gazing tenderly / brimming with unspoken love
   hsk: "6"
   date: "03/27"
   note: |
@@ -1423,6 +1434,7 @@
   traditional: 文火
   pinyin: wénhuǒ
   english: low heat / slow fire / gentle flame (cooking term)
+  german: low heat / slow fire / gentle flame (cooking term)
   hsk: "6"
   register: neutral
   note: |
@@ -1535,6 +1547,7 @@
   traditional: 蠟炬
   pinyin: làjù
   english: candle / wax torch
+  german: candle / wax torch
   hsk: "6"
   register: literary
   note: |
@@ -1635,6 +1648,7 @@
   traditional: 功勞
   pinyin: gōngláo
   english: contribution / merit / credit / service
+  german: contribution / merit / credit / service
   hsk: "5"
   register: neutral
   note: |
@@ -1736,6 +1750,7 @@
   traditional: 橡皮筋
   pinyin: xiàngpíjīn
   english: rubber band / elastic band
+  german: rubber band / elastic band
   hsk: "5"
   register: spoken_neutral
   note: |
@@ -1863,6 +1878,7 @@
   traditional: 灰姑娘
   pinyin: huī gūniang
   english: Cinderella
+  german: Cinderella
   hsk: "5"
   register: spoken_neutral
   note: |
@@ -1989,6 +2005,7 @@
   traditional: 螞蟻上樹
   pinyin: mǎyǐ shàng shù
   english: ants climbing a tree / a Sichuanese dish of glass noodles stir-fried with minced pork
+  german: ants climbing a tree / a Sichuanese dish of glass noodles stir-fried with minced pork
   hsk: "6"
   register: spoken_neutral
   note: |

@@ -7,6 +7,7 @@
   traditional: 合理
   pinyin: hélǐ
   english: reasonable / rational / logical / fair / equitable
+  german: reasonable / rational / logical / fair / equitable
   hsk: "4"
   register: neutral
   note: |
@@ -34,17 +35,14 @@
       pinyin: Zhège jiàgé hěn hélǐ, wǒ juédìng mǎi le.
       english: This price is very reasonable; I've decided to buy it.
       de: Dieser Preis ist sehr angemessen; ich habe beschlossen, ihn zu kaufen.
-      fr: Ce prix est très raisonnable ; j'ai décidé de l'acheter.
     - zh: 他的要求合情合理，我们应该接受。
       pinyin: Tā de yāoqiú héqíng hélǐ, wǒmen yīnggāi jiēshòu.
       english: His request is fair and reasonable; we should accept it.
       de: Seine Bitte ist fair und vernünftig; wir sollten sie annehmen.
-      fr: Sa demande est juste et raisonnable ; nous devrions l'accepter.
     - zh: 这个方案虽然合理，但执行起来有难度。
       pinyin: Zhège fāng'àn suīrán hélǐ, dàn zhíxíng qǐlái yǒu nándù.
       english: Although this plan is reasonable, it's difficult to implement.
       de: Obwohl dieser Plan vernünftig ist, ist er schwer umzusetzen.
-      fr: Bien que ce plan soit raisonnable, il est difficile à mettre en œuvre.
   synonyms:
     - word: 公道
       pinyin: gōngdao
@@ -102,6 +100,7 @@
   traditional: 多元化
   pinyin: duōyuánhuà
   english: diversification / diversity / pluralism
+  german: diversification / diversity / pluralism
   hsk: "6"
   register: formal_written
   note: |
@@ -122,12 +121,10 @@
       pinyin: Zhè jiā gōngsī tōngguò duōyuánhuà jīngyíng jiàngdīle fēngxiǎn.
       english: This company reduced risk through diversified operations.
       de: Dieses Unternehmen reduzierte das Risiko durch diversifizierte Geschäftstätigkeiten.
-      fr: Cette entreprise a réduit les risques grâce à des opérations diversifiées.
     - zh: 文化多元化有助于促进不同民族之间的理解。
       pinyin: Wénhuà duōyuánhuà yǒuzhù yú cùjìn bùtóng mínzú zhī jiān de lǐjiě.
       english: Cultural diversity helps promote understanding between different ethnic groups.
       de: Kulturelle Vielfalt fördert das Verständnis zwischen verschiedenen ethnischen Gruppen.
-      fr: La diversité culturelle favorise la compréhension entre différents groupes ethniques.
   characters:
     - char: 多
       simplified: 多
@@ -184,6 +181,7 @@
   traditional: 風格
   pinyin: fēnggé
   english: style / manner / characteristic style
+  german: style / manner / characteristic style
   hsk: "5"
   register: neutral
   note: |
@@ -205,12 +203,10 @@
       pinyin: Zhè wèi shèjìshī de jiànzhù fēnggé fēicháng dútè.
       english: This architect's style is very unique.
       de: Der Stil dieses Architekten ist sehr einzigartig.
-      fr: Le style de cet architecte est très unique.
     - zh: 他的写作风格简洁明快，很受读者欢迎。
       pinyin: Tā de xiězuò fēnggé jiǎnjié míngkuài, hěn shòu dúzhě huānyíng.
       english: His writing style is concise and lively, very popular with readers.
       de: Sein Schreibstil ist prägnant und lebendig, sehr beliebt bei Lesern.
-      fr: Son style d'écriture est concis et vivant, très apprécié des lecteurs.
   characters:
     - char: 风
       simplified: 风
@@ -251,6 +247,7 @@
   traditional: 盈利
   pinyin: yínglì
   english: profit / to profit / profitable
+  german: profit / to profit / profitable
   hsk: "5"
   register: neutral
   note: |
@@ -275,12 +272,10 @@
       pinyin: Zhè jiā gōngsī liánxù sān nián shíxiàn yínglì.
       english: This company has achieved profitability for three consecutive years.
       de: Dieses Unternehmen erzielt seit drei Jahren in Folge Gewinne.
-      fr: Cette entreprise a réalisé des bénéfices pendant trois années consécutives.
     - zh: 他们的盈利模式很清晰，主要靠广告收入。
       pinyin: Tāmen de yínglì móshì hěn qīngxī, zhǔyào kào guǎnggào shōurù.
       english: Their profit model is very clear; it mainly relies on advertising revenue.
       de: Ihr Geschäftsmodell ist sehr klar; es basiert hauptsächlich auf Werbeeinnahmen.
-      fr: Leur modèle de rentabilité est très clair ; il repose principalement sur les revenus publicitaires.
   characters:
     - char: 盈
       simplified: 盈
@@ -321,6 +316,7 @@
   traditional: 渠道
   pinyin: qúdào
   english: channel / canal / (figurative) distribution channel / means / medium
+  german: channel / canal / (figurative) distribution channel / means / medium
   hsk: "5"
   register: neutral
   note: |
@@ -343,12 +339,10 @@
       pinyin: Wǒmen xūyào kāituò xīn de xiāoshòu qúdào.
       english: We need to develop new sales channels.
       de: Wir müssen neue Vertriebskanäle erschließen.
-      fr: Nous devons développer de nouveaux canaux de vente.
     - zh: 请通过官方渠道获取最新信息。
       pinyin: Qǐng tōngguò guānfāng qúdào huòqǔ zuìxīn xìnxī.
       english: Please obtain the latest information through official channels.
       de: Bitte beziehen Sie die neuesten Informationen über offizielle Kanäle.
-      fr: Veuillez obtenir les dernières informations par les canaux officiels.
   characters:
     - char: 渠
       simplified: 渠
@@ -389,6 +383,7 @@
   traditional: 線上
   pinyin: xiànshàng
   english: online / on the internet / on the platform
+  german: online / on the internet / on the platform
   hsk: "4"
   register: neutral
   note: |
@@ -408,12 +403,10 @@
       pinyin: Yuèláiyuè duō de rén xǐhuān xiànshàng gòuwù.
       english: More and more people like online shopping.
       de: Immer mehr Menschen mögen Online-Shopping.
-      fr: De plus en plus de gens aiment les achats en ligne.
     - zh: 这家公司同时提供线上和线下服务。
       pinyin: Zhè jiā gōngsī tóngshí tígōng xiànshàng hé xiànxià fúwù.
       english: This company provides both online and offline services.
       de: Dieses Unternehmen bietet sowohl Online- als auch Offline-Dienste an.
-      fr: Cette entreprise propose à la fois des services en ligne et hors ligne.
   characters:
     - char: 线
       simplified: 线
@@ -454,6 +447,7 @@
   traditional: 線下
   pinyin: xiànxià
   english: offline / in person / physical (as opposed to online)
+  german: offline / in person / physical (as opposed to online)
   hsk: "4"
   register: neutral
   note: |
@@ -473,12 +467,10 @@
       pinyin: Wǒmen xià zhōu yǒu yī gè xiànxià jiànmiànhuì, huānyíng dàjiā cānjiā.
       english: We have an in-person meetup next week; everyone is welcome to attend.
       de: Wir haben nächste Woche ein persönliches Treffen; alle sind willkommen.
-      fr: Nous avons une rencontre en personne la semaine prochaine ; tous sont invités.
     - zh: 这个品牌既有线上店铺，也有线下实体店。
       pinyin: Zhège pǐnpái jì yǒu xiànshàng diànpù, yě yǒu xiànxià shítǐ diàn.
       english: This brand has both online stores and physical brick-and-mortar stores.
       de: Diese Marke hat sowohl Online-Shops als auch physische Geschäfte.
-      fr: Cette marque a à la fois des boutiques en ligne et des magasins physiques.
   characters:
     - char: 线
       simplified: 线
@@ -519,6 +511,7 @@
   traditional: 拓寬
   pinyin: tuòkuān
   english: to broaden / to widen / to expand
+  german: to broaden / to widen / to expand
   hsk: "6"
   register: formal_written
   note: |
@@ -539,12 +532,10 @@
       pinyin: Gōngsī zhèngzài nǔlì tuòkuān hǎiwài shìchǎng.
       english: The company is working hard to expand overseas markets.
       de: Das Unternehmen arbeitet hart daran, die Überseemärkte zu erweitern.
-      fr: L'entreprise travaille dur pour étendre les marchés étrangers.
     - zh: 旅行可以拓宽视野，增长见识。
       pinyin: Lǚxíng kěyǐ tuòkuān shìyě, zēngzhǎng jiànshi.
       english: Travel can broaden one's horizons and increase knowledge.
       de: Reisen kann den Horizont erweitern und das Wissen vergrößern.
-      fr: Les voyages peuvent élargir les horizons et accroître les connaissances.
   characters:
     - char: 拓
       simplified: 拓
@@ -585,6 +576,7 @@
   traditional: 客觀
   pinyin: kèguān
   english: objective / impartial / (philosophy) objective reality
+  german: objective / impartial / (philosophy) objective reality
   hsk: "5"
   register: formal_written
   note: |
@@ -608,12 +600,10 @@
       pinyin: Wǒmen yào kèguān de fēnxī zhège wèntí, bùnéng dài gèrén gǎnqíng.
       english: We need to analyze this problem objectively, without bringing in personal feelings.
       de: Wir müssen dieses Problem objektiv analysieren, ohne persönliche Gefühle einzubringen.
-      fr: Nous devons analyser ce problème objectivement, sans y mêler nos sentiments personnels.
     - zh: 这是一个客观事实，无法否认。
       pinyin: Zhè shì yī gè kèguān shìshí, wúfǎ fǒurèn.
       english: This is an objective fact that cannot be denied.
       de: Dies ist eine objektive Tatsache, die nicht geleugnet werden kann.
-      fr: C'est un fait objectif qui ne peut être nié.
   characters:
     - char: 客
       simplified: 客
@@ -654,6 +644,7 @@
   traditional: 顯露
   pinyin: xiǎnlù
   english: to appear / to become visible / to reveal / to show
+  german: to appear / to become visible / to reveal / to show
   hsk: "6"
   register: formal_written
   note: |
@@ -677,12 +668,10 @@
       pinyin: Tā zài bǐsài zhōng xiǎnlùle fēifán de cáinéng.
       english: He displayed extraordinary talent in the competition.
       de: Er zeigte im Wettkampf außergewöhnliches Talent.
-      fr: Il a montré un talent extraordinaire lors de la compétition.
     - zh: 问题渐渐显露出来，需要及时解决。
       pinyin: Wèntí jiànjiàn xiǎnlù chūlái, xūyào jíshí jiějué.
       english: Problems are gradually emerging and need to be addressed promptly.
       de: Probleme treten allmählich zutage und müssen rechtzeitig gelöst werden.
-      fr: Les problèmes émergent progressivement et doivent être résolus rapidement.
   characters:
     - char: 显
       simplified: 显
@@ -723,6 +712,7 @@
   traditional: 才華
   pinyin: cáihuá
   english: talent / ability / brilliance / literary or artistic talent
+  german: talent / ability / brilliance / literary or artistic talent
   hsk: "5"
   register: formal_written
   note: |
@@ -747,12 +737,10 @@
       pinyin: Tā shì yī wèi cáihuá héngyì de niánqīng zuòjiā.
       english: He is an exceptionally talented young writer.
       de: Er ist ein außergewöhnlich talentierter junger Schriftsteller.
-      fr: C'est un jeune écrivain extrêmement talentueux.
     - zh: 她的音乐才华很早就显露出来。
       pinyin: Tā de yīnyuè cáihuá hěn zǎo jiù xiǎnlù chūlái.
       english: Her musical talent became apparent at an early age.
       de: Ihr musikalisches Talent zeigte sich schon früh.
-      fr: Son talent musical s'est manifesté dès son plus jeune âge.
   characters:
     - char: 才
       simplified: 才
@@ -793,6 +781,7 @@
   traditional: 偏愛
   pinyin: piān'ài
   english: to favor / to prefer / partiality / favoritism
+  german: to favor / to prefer / partiality / favoritism
   hsk: "5"
   register: spoken_neutral
   note: |
@@ -816,12 +805,10 @@
       pinyin: Tā piān'ài lánsè, yīguì lǐ dà bùfèn dōu shì lánsè yīfu.
       english: He prefers blue; most of the clothes in his wardrobe are blue.
       de: Er bevorzugt Blau; die meisten Kleider in seinem Schrank sind blau.
-      fr: Il préfère le bleu ; la plupart des vêtements dans sa garde-robe sont bleus.
     - zh: 老师不应该偏爱某些学生，这样对其他学生不公平。
       pinyin: Lǎoshī bù yīnggāi piān'ài mǒuxiē xuéshēng, zhèyàng duì qítā xuéshēng bù gōngpíng.
       english: Teachers should not favor certain students; this is unfair to other students.
       de: Lehrer sollten keine Schüler bevorzugen; das ist unfair gegenüber anderen Schülern.
-      fr: Les enseignants ne devraient pas favoriser certains élèves ; c'est injuste envers les autres.
   characters:
     - char: 偏
       simplified: 偏
@@ -862,6 +849,7 @@
   traditional: 天賦
   pinyin: tiānfù
   english: talent / gift / natural endowment / innate ability
+  german: talent / gift / natural endowment / innate ability
   hsk: "5"
   register: formal_written
   note: |
@@ -883,12 +871,10 @@
       pinyin: Tā zài yīnyuè fāngmiàn hěn yǒu tiānfù, wǔ suì jiù kāishǐ xué gāngqín.
       english: She has great musical talent; she started learning piano at age five.
       de: Sie hat großes musikalisches Talent; sie begann im Alter von fünf Jahren Klavier zu lernen.
-      fr: Elle a un grand talent musical ; elle a commencé à apprendre le piano à cinq ans.
     - zh: 天赋固然重要，但后天的努力同样不可或缺。
       pinyin: Tiānfù gùrán zhòngyào, dàn hòutiān de nǔlì tóngyàng bùkě huòquē.
       english: Talent is certainly important, but hard work is equally indispensable.
       de: Talent ist sicherlich wichtig, aber harte Arbeit ist ebenso unverzichtbar.
-      fr: Le talent est certainement important, mais le travail acharné est tout aussi indispensable.
   characters:
     - char: 天
       simplified: 天
@@ -929,6 +915,7 @@
   traditional: 截止
   pinyin: jiézhǐ
   english: to close / to stop / to end / deadline
+  german: to close / to stop / to end / deadline
   hsk: "5"
   register: formal_written
   note: |
@@ -952,12 +939,10 @@
       pinyin: Bàomíng jiézhǐ rìqī shì běn zhōu wǔ, qǐng zhuājǐn shíjiān.
       english: The registration deadline is this Friday; please hurry.
       de: Die Anmeldefrist ist diesen Freitag; bitte beeilen Sie sich.
-      fr: La date limite d'inscription est ce vendredi ; veuillez vous dépêcher.
     - zh: 截止到目前，已经有超过一千人提交了申请。
       pinyin: Jiézhǐ dào mùqián, yǐjīng yǒu chāoguò yī qiān rén tíjiāole shēnqǐng.
       english: As of now, over a thousand people have submitted applications.
       de: Bis jetzt haben über tausend Menschen Bewerbungen eingereicht.
-      fr: À ce jour, plus d'un millier de personnes ont soumis leur candidature.
   characters:
     - char: 截
       simplified: 截
@@ -998,6 +983,7 @@
   traditional: 急劇
   pinyin: jíjù
   english: rapid / sharp / sudden / dramatic (of change)
+  german: rapid / sharp / sudden / dramatic (of change)
   hsk: "6"
   register: formal_written
   note: |
@@ -1017,12 +1003,10 @@
       pinyin: Zuìjìn jǐ gè yuè, yóujià jíjù shàngzhǎng.
       english: In recent months, oil prices have risen sharply.
       de: In den letzten Monaten sind die Ölpreise stark gestiegen.
-      fr: Ces derniers mois, les prix du pétrole ont fortement augmenté.
     - zh: 随着气温急剧下降，感冒患者明显增多。
       pinyin: Suízhe qìwēn jíjù xiàjiàng, gǎnmào huànzhě míngxiǎn zēngduō.
       english: As temperatures drop sharply, the number of cold patients has increased significantly.
       de: Mit dem starken Temperaturabfall hat die Zahl der Erkältungspatienten deutlich zugenommen.
-      fr: Avec la chute brutale des températures, le nombre de patients enrhumés a considérablement augmenté.
   characters:
     - char: 急
       simplified: 急
@@ -1063,6 +1047,7 @@
   traditional: 加劇
   pinyin: jiājù
   english: to intensify / to aggravate / to exacerbate
+  german: to intensify / to aggravate / to exacerbate
   hsk: "6"
   register: formal_written
   note: |
@@ -1086,12 +1071,10 @@
       pinyin: Zhè cì shìjiàn jìnyībù jiājùle shuāngfāng de máodùn.
       english: This incident further intensified the conflict between the two sides.
       de: Dieser Vorfall verschärfte den Konflikt zwischen den beiden Seiten weiter.
-      fr: Cet incident a encore intensifié le conflit entre les deux parties.
     - zh: 过度劳累会加剧病情，一定要注意休息。
       pinyin: Guòdù láolèi huì jiājù bìngqíng, yīdìng yào zhùyì xiūxi.
       english: Overwork can worsen the condition; you must pay attention to rest.
       de: Überarbeitung kann den Zustand verschlimmern; achten Sie unbedingt auf Ruhe.
-      fr: Le surmenage peut aggraver l'état ; il faut absolument faire attention au repos.
   characters:
     - char: 加
       simplified: 加
@@ -1132,6 +1115,7 @@
   traditional: 生態
   pinyin: shēngtài
   english: ecology / ecosystem / (figurative) environment / ecosystem (business, social, etc.)
+  german: ecology / ecosystem / (figurative) environment / ecosystem (business, social, etc.)
   hsk: "5"
   register: formal_written
   note: |
@@ -1153,12 +1137,10 @@
       pinyin: Bǎohù shēngtài huánjìng shì wǒmen měi gè rén de zérèn.
       english: Protecting the ecological environment is the responsibility of every one of us.
       de: Den ökologischen Umwelt zu schützen ist die Verantwortung eines jeden von uns.
-      fr: Protéger l'environnement écologique est la responsabilité de chacun d'entre nous.
     - zh: 这个地区的生态系统非常脆弱，需要特别保护。
       pinyin: Zhège dìqū de shēngtài xìtǒng fēicháng cuìruò, xūyào tèbié bǎohù.
       english: The ecosystem of this region is very fragile and requires special protection.
       de: Das Ökosystem dieser Region ist sehr fragil und bedarf besonderen Schutzes.
-      fr: L'écosystème de cette région est très fragile et nécessite une protection particulière.
   characters:
     - char: 生
       simplified: 生
@@ -1199,8 +1181,9 @@
   traditional: 摞
   pinyin: luò
   english: to pile up / to stack / (noun) a pile / a stack
+  german: to pile up / to stack / (noun) a pile / a stack
   hsk: "6"
-  register: spoken
+  register: spoken_neutral
   note: |
     A verb and measure word meaning "to pile up" or "a stack/pile." Used for flat objects that can be stacked — books, papers, bowls, plates, bricks.
     
@@ -1223,12 +1206,10 @@
       pinyin: Shūzhuō shàng luòzhe yī luò hòuhòu de shū.
       english: There is a stack of thick books on the desk.
       de: Auf dem Schreibtisch liegt ein Stapel dicker Bücher.
-      fr: Il y a une pile de livres épais sur le bureau.
     - zh: 他把盘子摞得整整齐齐放进柜子里。
       pinyin: Tā bǎ pánzi luò de zhěngzhěngqíqí fàngjìn guìzi lǐ.
       english: He stacked the plates neatly and put them into the cabinet.
       de: Er stapelte die Teller ordentlich und stellte sie in den Schrank.
-      fr: Il a empilé les assiettes bien droit et les a mises dans le placard.
   measure_word:
     - simplified: 摞
       pinyin: luò
@@ -1254,6 +1235,7 @@
   traditional: 足以
   pinyin: zúyǐ
   english: sufficient to / enough to / can be used to
+  german: sufficient to / enough to / can be used to
   hsk: "5"
   register: formal_written
   note: |
@@ -1277,12 +1259,10 @@
       pinyin: Tā de nǔlì zúyǐ ràng tā qǔdé yōuyì de chéngjì.
       english: His hard work is sufficient to enable him to achieve excellent results.
       de: Seine harte Arbeit ist ausreichend, um ihm hervorragende Ergebnisse zu ermöglichen.
-      fr: Son travail acharné est suffisant pour lui permettre d'obtenir d'excellents résultats.
     - zh: 这些证据足以证明他的清白。
       pinyin: Zhèxiē zhèngjù zúyǐ zhèngmíng tā de qīngbái.
       english: This evidence is sufficient to prove his innocence.
       de: Diese Beweise sind ausreichend, um seine Unschuld zu beweisen.
-      fr: Ces preuves sont suffisantes pour prouver son innocence.
   characters:
     - char: 足
       simplified: 足
@@ -1323,6 +1303,7 @@
   traditional: 適當
   pinyin: shìdàng
   english: appropriate / suitable / proper / adequate
+  german: appropriate / suitable / proper / adequate
   hsk: "5"
   register: neutral
   note: |
@@ -1346,12 +1327,10 @@
       pinyin: Zài shìdàng de shíhou, wǒ huì gàosu nǐ zhēnxiàng.
       english: I will tell you the truth at the appropriate time.
       de: Ich werde dir zur passenden Zeit die Wahrheit sagen.
-      fr: Je te dirai la vérité au moment opportun.
     - zh: 公司正在采取适当措施解决这个问题。
       pinyin: Gōngsī zhèngzài cǎiqǔ shìdàng cuòshī jiějué zhège wèntí.
       english: The company is taking appropriate measures to solve this problem.
       de: Das Unternehmen ergreift geeignete Maßnahmen, um dieses Problem zu lösen.
-      fr: L'entreprise prend des mesures appropriées pour résoudre ce problème.
   characters:
     - char: 适
       simplified: 适
@@ -1392,6 +1371,7 @@
   traditional: 成效
   pinyin: chéngxiào
   english: result / effect / effectiveness / achievement
+  german: result / effect / effectiveness / achievement
   hsk: "5"
   register: formal_written
   note: |
@@ -1416,12 +1396,10 @@
       pinyin: Jīngguò yī nián de nǔlì, gǎigé qǔdéle xiǎnzhù chéngxiào.
       english: After a year of effort, the reforms have achieved remarkable results.
       de: Nach einem Jahr Anstrengung haben die Reformen bemerkenswerte Ergebnisse erzielt.
-      fr: Après un an d'efforts, les réformes ont obtenu des résultats remarquables.
     - zh: 这项新政策成效明显，得到了群众的支持。
       pinyin: Zhè xiàng xīn zhèngcè chéngxiào míngxiǎn, dédàole qúnzhòng de zhīchí.
       english: This new policy has shown obvious results and gained public support.
       de: Diese neue Politik zeigt deutliche Ergebnisse und hat die Unterstützung der Bevölkerung gewonnen.
-      fr: Cette nouvelle politique a donné des résultats évidents et a obtenu le soutien de la population.
   characters:
     - char: 成
       simplified: 成
@@ -1462,6 +1440,7 @@
   traditional: 顯著
   pinyin: xiǎnzhù
   english: remarkable / notable / significant / striking
+  german: remarkable / notable / significant / striking
   hsk: "5"
   register: formal_written
   note: |
@@ -1485,12 +1464,10 @@
       pinyin: Jìnnián lái, Zhōngguó de jīngjì qǔdéle xiǎnzhù de zēngzhǎng.
       english: In recent years, China's economy has achieved remarkable growth.
       de: In den letzten Jahren hat Chinas Wirtschaft ein bemerkenswertes Wachstum erzielt.
-      fr: Ces dernières années, l'économie chinoise a connu une croissance remarquable.
     - zh: 这个地区的空气质量显著改善。
       pinyin: Zhège dìqū de kōngqì zhìliàng xiǎnzhù gǎishàn.
       english: The air quality in this region has significantly improved.
       de: Die Luftqualität in dieser Region hat sich deutlich verbessert.
-      fr: La qualité de l'air dans cette région s'est considérablement améliorée.
   characters:
     - char: 显
       simplified: 显
@@ -1530,6 +1507,7 @@
   traditional: 一朝一夕
   pinyin: yī zhāo yī xī
   english: in one morning and one evening / overnight / in a short period of time
+  german: in one morning and one evening / overnight / in a short period of time
   hsk: "6"
   register: literary
   note: |
@@ -1551,12 +1529,10 @@
       pinyin: Xué hǎo Zhōngwén bùshì yī zhāo yī xī de shì, xūyào chángqī jiānchí.
       english: Learning Chinese well is not something that can be done overnight; it requires long-term persistence.
       de: Chinesisch gut zu lernen ist keine Sache von einem Tag; es erfordert langfristiges Durchhaltevermögen.
-      fr: Bien apprendre le chinois n'est pas l'affaire d'un jour ; cela demande une persévérance à long terme.
     - zh: 任何事业的成功，都非一朝一夕之功。
       pinyin: Rènhé shìyè de chénggōng, dōu fēi yī zhāo yī xī zhī gōng.
       english: The success of any undertaking is not the work of a single day.
       de: Der Erfolg eines jeden Unternehmens ist nicht das Werk eines einzigen Tages.
-      fr: Le succès de toute entreprise n'est pas l'œuvre d'un seul jour.
   characters:
     - char: 一
       simplified: 一
@@ -1605,6 +1581,7 @@
   traditional: 同心協力
   pinyin: tóng xīn xié lì
   english: to work together with one heart / to make concerted efforts / to unite efforts
+  german: to work together with one heart / to make concerted efforts / to unite efforts
   hsk: "5"
   register: formal_written
   note: |
@@ -1626,12 +1603,10 @@
       pinyin: Zhǐyǒu dàjiā tóngxīn xiélì, cáinéng wánchéng zhè xiàng jiānjù de rènwu.
       english: Only when everyone works together can we complete this arduous task.
       de: Nur wenn alle gemeinsam an einem Strang ziehen, können wir diese schwierige Aufgabe bewältigen.
-      fr: Ce n'est que lorsque tout le monde travaille ensemble que nous pouvons accomplir cette tâche ardue.
     - zh: 面对疫情，全国人民同心协力，共渡难关。
       pinyin: Miànduì yìqíng, quánguó rénmín tóngxīn xiélì, gòng dù nánguān.
       english: Facing the pandemic, people across the country united their efforts to overcome the crisis.
       de: Angesichts der Pandemie haben die Menschen im ganzen Land ihre Kräfte vereint, um die Krise zu überwinden.
-      fr: Face à la pandémie, les gens de tout le pays ont uni leurs efforts pour surmonter la crise.
   characters:
     - char: 同
       simplified: 同
@@ -1704,6 +1679,7 @@
   traditional: 家務
   pinyin: jiāwù
   english: housework / household chores / domestic duties
+  german: housework / household chores / domestic duties
   hsk: "4"
   register: neutral
   note: |
@@ -1727,12 +1703,10 @@
       pinyin: Zhōumò wǒ zài jiā zuò jiāwù, dǎsǎo wèishēng, xǐ yīfu.
       english: I do housework at home on weekends — cleaning and doing laundry.
       de: Am Wochenende mache ich zu Hause Hausarbeit — putzen und Wäsche waschen.
-      fr: Le week-end, je fais le ménage à la maison — nettoyer et faire la lessive.
     - zh: 夫妻之间应该共同分担家务，不能只让一个人做。
       pinyin: Fūqī zhī jiān yīnggāi gòngtóng fēndān jiāwù, bùnéng zhǐ ràng yī gè rén zuò.
       english: Husband and wife should share housework; one person shouldn't be the only one doing it.
       de: Ehepartner sollten sich die Hausarbeit teilen; nicht nur einer sollte sie machen.
-      fr: Les époux devraient partager les tâches ménagères ; ce n'est pas à une seule personne de tout faire.
   characters:
     - char: 家
       simplified: 家
@@ -1773,6 +1747,7 @@
   traditional: 語素
   pinyin: yǔsù
   english: morpheme / minimal meaningful unit in language
+  german: morpheme / minimal meaningful unit in language
   hsk: "6"
   register: formal_written
   note: |
@@ -1796,12 +1771,10 @@
       pinyin: Yǔsù shì yǔyán zhōng zuì xiǎo de yīn yì jiéhé dānwèi.
       english: A morpheme is the smallest unit in language that combines sound and meaning.
       de: Ein Morphem ist die kleinste Einheit in der Sprache, die Laut und Bedeutung verbindet.
-      fr: Un morphème est la plus petite unité linguistique qui combine un son et un sens.
     - zh: 在汉语中，大多数语素都是单音节的。
       pinyin: Zài Hànyǔ zhōng, dàduōshù yǔsù dōu shì dān yīnjié de.
       english: In Chinese, most morphemes are monosyllabic.
       de: Im Chinesischen sind die meisten Morpheme einsilbig.
-      fr: En chinois, la plupart des morphèmes sont monosyllabiques.
   characters:
     - char: 语
       simplified: 语
