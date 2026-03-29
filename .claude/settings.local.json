@@ -98,7 +98,8 @@
       "Bash(mkdir -p /Users/daniel/Documents/AnkiAdvanced/.claude/skills/skill-creator/de-zh-bot-workspace/iteration-1/eval-sentence/without_skill/outputs)",
       "Bash(mkdir -p /Users/daniel/Documents/AnkiAdvanced/.claude/skills/skill-creator/de-zh-bot-workspace/iteration-1/eval-chengyu/with_skill/outputs)",
       "Skill(commit-commands:commit-push-pr)",
-      "Skill(commit-commands:commit-push-pr:*)"
+      "Skill(commit-commands:commit-push-pr:*)",
+      "Bash(python:*)"
     ]
   }
 }

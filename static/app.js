@@ -1681,9 +1681,12 @@ async function _doStartReviewMixed(topic, maxHsk, model, noStory = false) {
       try {
         story = await api('GET', `/api/story/${rootDeckId}/${category}` + _storyParams(topic, maxHsk, model));
       } catch (_) {}
-      // Fire story generation for the other categories in the background
+      // Fire story generation for the other categories in the background,
+      // then preload TTS so audio is ready when the category switches.
       for (const cat of ['listening', 'reading', 'creating'].filter(c => c !== category)) {
-        fetch(`/api/story/${rootDeckId}/${cat}` + _storyParams(topic, maxHsk, model)).catch(() => {});
+        fetch(`/api/story/${rootDeckId}/${cat}` + _storyParams(topic, maxHsk, model))
+          .then(() => fetch(`/api/preload-session/${rootDeckId}/${cat}`, { method: 'POST' }))
+          .catch(() => {});
       }
     }
 
@@ -1789,6 +1792,8 @@ function loadCard(c, counts) {
       .then(r => r.ok ? r.json() : null)
       .then(s => {
         if (card !== snap) return;
+        // Preload TTS for the newly-loaded category (no-op if already cached)
+        fetch(`/api/preload-session/${storyDeckId}/${c.category}`, { method: 'POST' }).catch(() => {});
         if (s?.sentences) {
           story    = s;
           sentence = story.sentences.find(s => s.word_id === card.word_id) || null;
