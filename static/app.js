@@ -954,6 +954,9 @@ function renderWordDetail(word) {
   const defZhEl = document.getElementById('wd-def-zh');
   defZhEl.textContent = word.definition_zh || '';
   defZhEl.style.display = word.definition_zh ? 'block' : 'none';
+  const defDeEl = document.getElementById('wd-def-de');
+  defDeEl.textContent = word.definition_de ? `🇩🇪 ${word.definition_de}` : '';
+  defDeEl.style.display = word.definition_de ? 'block' : 'none';
 
   // Characters section — each hanzi is clickable
   const charsEl = document.getElementById('wd-chars-section');
@@ -2023,6 +2026,9 @@ function revealAnswer() {
   wordPinEl.textContent = isSentenceNote ? '' : (card.pinyin || '');
   wordPinEl.style.display = isSentenceNote ? 'none' : '';
   document.getElementById('word-def').textContent = card.definition || '';
+  const wordDefDeEl = document.getElementById('word-def-de');
+  wordDefDeEl.textContent = card.definition_de ? `🇩🇪 ${card.definition_de}` : '';
+  wordDefDeEl.style.display = card.definition_de ? 'block' : 'none';
 
   const posEl = document.getElementById('word-pos');
   posEl.textContent   = card.pos || '';
@@ -2607,6 +2613,7 @@ function _openEditModal(wordObj) {
   document.getElementById('edit-pos').value           = wordObj.pos           || '';
   document.getElementById('edit-traditional').value   = wordObj.traditional   || '';
   document.getElementById('edit-definition-zh').value = wordObj.definition_zh || '';
+  document.getElementById('edit-definition-de').value = wordObj.definition_de || '';
   document.getElementById('edit-notes').value         = wordObj.notes         || '';
   // Show card action menu only when opened during active review
   const menuWrap = document.getElementById('edit-card-menu-wrap');
@@ -2727,6 +2734,7 @@ async function saveEditCard() {
     pos:           document.getElementById('edit-pos').value.trim(),
     traditional:   document.getElementById('edit-traditional').value.trim(),
     definition_zh: document.getElementById('edit-definition-zh').value.trim(),
+    definition_de: document.getElementById('edit-definition-de').value.trim(),
     notes:         document.getElementById('edit-notes').value.trim(),
   };
   try {
@@ -2740,11 +2748,15 @@ async function saveEditCard() {
         word_zh: updated.word_zh, pinyin: updated.pinyin,
         definition: updated.definition, pos: updated.pos,
         traditional: updated.traditional, definition_zh: updated.definition_zh,
+        definition_de: updated.definition_de,
         notes: updated.notes,
       });
       document.getElementById('word-zh').textContent  = updated.word_zh || '';
       document.getElementById('word-pin').textContent = updated.pinyin  || '';
       document.getElementById('word-def').textContent = updated.definition || '';
+      const wordDefDeEl2 = document.getElementById('word-def-de');
+      wordDefDeEl2.textContent = updated.definition_de ? `🇩🇪 ${updated.definition_de}` : '';
+      wordDefDeEl2.style.display = updated.definition_de ? 'block' : 'none';
       const posEl = document.getElementById('word-pos');
       posEl.textContent   = updated.pos || '';
       posEl.style.display = updated.pos ? 'inline-block' : 'none';

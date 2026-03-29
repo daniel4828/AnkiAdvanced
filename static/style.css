@@ -398,6 +398,7 @@ main.browse-open {
 }
 .word-pos-row { text-align: center; margin: 2px 0; }
 .word-def  { font-size: 16px; color: var(--text); text-align: center; margin-bottom: 4px; }
+.word-def-de { font-size: 14px; color: var(--muted); text-align: center; margin-bottom: 4px; }
 
 /* ── Edit card ───────────────────────────────────────── */
 .edit-card-btn {
@@ -1667,6 +1668,7 @@ main.browse-open {
 }
 .wd-def    { font-size: 16px; color: var(--text); }
 .wd-def-zh { font-size: 14px; color: var(--muted); margin-top: 4px; }
+.wd-def-de { font-size: 14px; color: var(--muted); margin-top: 2px; }
 .word-register {
   display: inline-block;
   font-size: 11px;

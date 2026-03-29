@@ -118,6 +118,7 @@ CREATE TABLE IF NOT EXISTS entries (
     notes           TEXT,           -- usage notes / explanations from YAML `note` field
     source_sentence TEXT,           -- original source-language sentence (e.g. German) for sentence notes
     grammar_notes   TEXT,           -- grammar explanation (e.g. grammar_de from YAML)
+    definition_de   TEXT,           -- German translation / definition
     note_type       TEXT NOT NULL DEFAULT 'vocabulary',
                         -- vocabulary | sentence | chengyu | expression | grammar
     register        TEXT CHECK(register IN ('spoken', 'written', 'both', 'spoken_colloquial', 'spoken_neutral', 'neutral', 'formal_written', 'literary'))

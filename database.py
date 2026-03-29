@@ -99,6 +99,8 @@ def init_db() -> None:
 
     if "date_yaml" not in cols:
         conn.execute("ALTER TABLE entries ADD COLUMN date_yaml TEXT")
+    if "definition_de" not in cols:
+        conn.execute("ALTER TABLE entries ADD COLUMN definition_de TEXT")
 
     ex_cols = {r["name"] for r in conn.execute("PRAGMA table_info(entry_examples)").fetchall()}
     if "example_type" not in ex_cols:
@@ -709,10 +711,10 @@ def insert_word(word: dict) -> int:
         """INSERT OR IGNORE INTO entries
            (word_zh, pinyin, definition, pos, hsk_level,
             traditional, definition_zh, source, note_type,
-            notes, date_yaml, source_sentence, grammar_notes, register)
+            notes, date_yaml, source_sentence, grammar_notes, register, definition_de)
            VALUES (:word_zh, :pinyin, :definition, :pos, :hsk_level,
                    :traditional, :definition_zh, :source, :note_type,
-                   :notes, :date_yaml, :source_sentence, :grammar_notes, :register)""",
+                   :notes, :date_yaml, :source_sentence, :grammar_notes, :register, :definition_de)""",
         {
             **word,
             "note_type":       word.get("note_type", "vocabulary"),
@@ -721,6 +723,7 @@ def insert_word(word: dict) -> int:
             "source_sentence": word.get("source_sentence"),
             "grammar_notes":   word.get("grammar_notes"),
             "register":        word.get("register"),
+            "definition_de":   word.get("definition_de"),
         },
     )
     # Backfill notes / date_yaml for entries that existed before these fields were added
@@ -796,13 +799,15 @@ def update_word(word_id: int, word: dict) -> None:
         """UPDATE entries SET
                pinyin=:pinyin, definition=:definition, pos=:pos, hsk_level=:hsk_level,
                traditional=:traditional, definition_zh=:definition_zh,
-               source_sentence=:source_sentence, grammar_notes=:grammar_notes
+               source_sentence=:source_sentence, grammar_notes=:grammar_notes,
+               definition_de=:definition_de
            WHERE id=:id""",
         {
             **word,
             "id":              word_id,
             "source_sentence": word.get("source_sentence"),
             "grammar_notes":   word.get("grammar_notes"),
+            "definition_de":   word.get("definition_de"),
         },
     )
     conn.commit()
@@ -1221,7 +1226,7 @@ def get_card(card_id: int) -> dict | None:
     row = conn.execute(
         """SELECT c.*,
                   w.word_zh, w.pinyin, w.definition, w.pos, w.hsk_level,
-                  w.traditional, w.definition_zh, w.note_type, w.notes,
+                  w.traditional, w.definition_zh, w.note_type, w.notes, w.definition_de,
                   p.learning_steps, p.graduating_interval, p.easy_interval,
                   p.relearning_steps, p.minimum_interval,
                   p.leech_threshold, p.leech_action,
@@ -1352,7 +1357,7 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
     rows = conn.execute(
         """SELECT c.*, w.word_zh, w.pinyin, w.definition, w.pos,
                   w.hsk_level, w.traditional, w.definition_zh,
-                  w.note_type, w.source_sentence, w.notes
+                  w.note_type, w.source_sentence, w.notes, w.definition_de
            FROM cards c
            JOIN entries w ON w.id = c.word_id
            WHERE c.deck_id = ?
@@ -1523,7 +1528,7 @@ def count_due(deck_id: int, category: str) -> dict:
 
 
 def update_word(word_id: int, fields: dict) -> None:
-    allowed = {"word_zh", "pinyin", "definition", "pos", "traditional", "definition_zh", "notes", "hsk_level"}
+    allowed = {"word_zh", "pinyin", "definition", "pos", "traditional", "definition_zh", "notes", "hsk_level", "definition_de"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return
@@ -2048,7 +2053,7 @@ def toggle_deck_all_suspension(deck_id: int) -> dict:
 def get_words_for_browse() -> list[dict]:
     """Return all entries (with or without cards), with embedded card states per category."""
     sql = """
-        SELECT w.id, w.word_zh, w.pinyin, w.definition, w.pos, w.hsk_level, w.note_type,
+        SELECT w.id, w.word_zh, w.pinyin, w.definition, w.definition_de, w.pos, w.hsk_level, w.note_type,
                c.id as card_id, c.category, c.state, c.interval, c.ease,
                c.due, c.lapses, c.step_index, c.deck_id,
                d.name as deck_name
@@ -2070,6 +2075,7 @@ def get_words_for_browse() -> list[dict]:
                 "word_zh": r["word_zh"],
                 "pinyin": r["pinyin"],
                 "definition": r["definition"],
+                "definition_de": r["definition_de"],
                 "pos": r["pos"],
                 "hsk_level": r["hsk_level"],
                 "note_type": r["note_type"],
@@ -2099,8 +2105,9 @@ def search_words(q: str) -> dict:
     primary_ids = {r["id"] for r in conn.execute(
         """SELECT DISTINCT w.id FROM entries w
            WHERE (w.word_zh LIKE ? OR w.pinyin LIKE ?
-              OR w.definition LIKE ? OR w.definition_zh LIKE ?)""",
-        (like, like, like, like),
+              OR w.definition LIKE ? OR w.definition_zh LIKE ?
+              OR w.definition_de LIKE ?)""",
+        (like, like, like, like, like),
     ).fetchall()}
     secondary_ids = {r["id"] for r in conn.execute(
         """SELECT DISTINCT w.id FROM entries w
@@ -2330,7 +2337,7 @@ def get_all_cards_for_browse(filters: dict | None = None) -> list[dict]:
             q = f"%{filters['search_text']}%"
             params.extend([q, q, q])
 
-    sql = f"""SELECT c.*, w.word_zh, w.pinyin, w.definition, w.pos,
+    sql = f"""SELECT c.*, w.word_zh, w.pinyin, w.definition, w.definition_de, w.pos,
                      w.hsk_level, d.name as deck_name
               FROM cards c
               JOIN entries w ON w.id = c.word_id
