@@ -25,9 +25,9 @@
 |---|------|------|
 | R1 | **永远不要直接推送到 `main`** | 所有工作必须通过 PR |
 | R2 | **每个功能都需要一个 Issue** | 先创建 Issue，再开始写代码；Issue/PR/提交信息全部用中文 |
-| R3 | **永远不要创建或合并 PR** | Daniel 亲自创建 PR、审核并合并 —— Claude 只提供命令供 Daniel 运行 |
+| R3 | **永远不要合并 PR** | Claude 可以创建 Issue、分支、提交、PR —— 但合并（hébìng - merge）只由 Daniel 在 GitHub 上操作 |
 | R4 | **用中文回答 Daniel** | 见"语言指令"部分 |
-| R5 | **引导 Daniel 执行 Git 步骤，不要替代他** | 给命令，让他自己运行 |
+| R5 | **Claude 自己执行 Git/gh 步骤** | Claude 直接运行 `gh issue create`、`git checkout -b`、`gh pr create` 等命令，无需等待 Daniel |
 | R6 | **CLAUDE.md 是唯一事实来源** | 所有架构决策都在这里记录 |
 | R7 | **任何新代理都能接手** | 每个 Issue/PR 必须自给自足，不依赖聊天记录 |
 | R8 | **开始任务前必须先查看 Issue** | 运行 `gh issue view <编号>` 读取完整背景，不得依赖用户口头描述 |
@@ -156,29 +156,24 @@ Closes #43
 
 ## Claude 对 Git 工作流的态度（tàidù - attitude）
 
-**Daniel 应该亲自（qīnzì - himself）操作 Git 工作流的每一步。**
+**Claude 负责执行所有 Git/gh 命令，Daniel 只负责最后在 GitHub 上合并 PR。**
 
 Claude 的角色是：
-- **引导（yǐndǎo - guide）**，而不是替代（tìdài - replace）
-- 提醒 Daniel 下一步该做什么，但由 Daniel 自己执行（zhíxíng - execute）
-- 如果 Daniel 跳过步骤（比如没有创建议题就开始写代码），Claude 应该温和地（wēnhé de - gently）指出来
+- **直接执行（zhíjiē zhíxíng - directly execute）** git 和 gh 命令，无需等待 Daniel 确认
+- 按顺序完成完整工作流：创建议题 → 创建分支 → 写代码 → 提交 → 推送 → 开 PR
+- 完成后通知 Daniel："PR 已开好，请在 GitHub 上审核并合并"
 
 具体来说（jùtǐ lái shuō - specifically）：
 
 | 步骤 | Claude 的做法 |
 |------|--------------|
-| 创建议题 | 提醒 Daniel 运行 `gh issue create ...`，给出命令但不自动执行 |
-| 创建分支 | 提示正确的分支名格式，但让 Daniel 运行 `git checkout -b ...` |
-| 提交 | 在合适的时机提醒 Daniel 提交，建议提交信息 |
-| 开 PR | 提供 `gh pr create` 命令，让 Daniel 执行 —— Claude 永远不创建 PR |
-| 合并 | 永远不要自动合并 —— 始终等待 Daniel 在 GitHub 上批准并合并 |
+| 创建议题 | 直接运行 `gh issue create ...` |
+| 创建分支 | 直接运行 `git checkout -b feat/XX-name` |
+| 提交 | 每完成一个逻辑单元就直接提交 |
+| 开 PR | 直接运行 `gh pr create ...` |
+| 合并 | **永远不合并** —— 等待 Daniel 在 GitHub 上审核并点击 Merge |
 
-> **关键原则（yuánzé - principle）：PR 的创建和合并完全由 Daniel 本人（běnrén - himself）负责。Claude 只给命令，Daniel 自己执行。**
-
-**当 Daniel 问"下一步做什么？"时，Claude 应该用工作流的语言回答：**
-> "下一步：为这个功能创建一个 Issue，然后从 main 创建分支。你想用什么标题？"
-
-不要直接说"我来帮你创建分支"——而是说"你可以运行：`git checkout main && git pull && git checkout -b feat/XX-name`"。
+> **关键原则（yuánzé - principle）：Daniel 只需要做一件事 —— 在 GitHub 上合并 PR。其余所有步骤由 Claude 自动完成。**
 
 ---
 
