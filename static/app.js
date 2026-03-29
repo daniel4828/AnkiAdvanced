@@ -1785,27 +1785,40 @@ function loadCard(c, counts) {
     fetch(`/api/story/${storyDeckId}/${c.category}`)
       .then(r => r.ok ? r.json() : null)
       .then(s => {
-        if (card !== snap || !s?.sentences) return;
-        story    = s;
-        sentence = story.sentences.find(s => s.word_id === card.word_id) || null;
-        if (!sentence) return;
-        const counter = document.getElementById('sentence-counter');
-        counter.textContent = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
-        counter.style.display = 'block';
-        const isListening = category === 'listening';
-        const isCreating  = category === 'creating';
-        if (!isListening && !isCreating) {
-          const sentFront = document.getElementById('sentence-front');
-          if (sentFront.style.display !== 'none') sentFront.innerHTML = renderSentence();
+        if (card !== snap) return;
+        if (s?.sentences) {
+          story    = s;
+          sentence = story.sentences.find(s => s.word_id === card.word_id) || null;
+          if (sentence) {
+            const counter = document.getElementById('sentence-counter');
+            counter.textContent = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
+            counter.style.display = 'block';
+            const isListening = category === 'listening';
+            const isCreating  = category === 'creating';
+            if (!isListening && !isCreating) {
+              const sentFront = document.getElementById('sentence-front');
+              if (sentFront.style.display !== 'none') sentFront.innerHTML = renderSentence();
+            }
+            if (isCreating) {
+              const inp = document.getElementById('sentence-en-front');
+              if (inp.style.display !== 'none') inp.textContent = sentence.sentence_en || '';
+            }
+            if (story.sentences.length > 1) {
+              document.getElementById('story-btn').style.display = 'block';
+            }
+          }
         }
-        if (isCreating) {
-          const inp = document.getElementById('sentence-en-front');
-          if (inp.style.display !== 'none') inp.textContent = sentence.sentence_en || '';
+        // Auto-play deferred from loadCard: play now that story is loaded
+        if (snap.category === 'listening' && document.getElementById('side-back').style.display === 'none') {
+          playSentence();
         }
-        if (story.sentences.length > 1) {
-          document.getElementById('story-btn').style.display = 'block';
+      }).catch(() => {
+        // On fetch error, still play audio (falls back to word_zh)
+        if (card === snap && snap.category === 'listening' &&
+            document.getElementById('side-back').style.display === 'none') {
+          playSentence();
         }
-      }).catch(() => {});
+      });
   }
 
   // Update sentence position counter
@@ -1866,9 +1879,14 @@ function loadCard(c, counts) {
 
   showFront();
 
-  // Auto-play audio for the listening category
+  // Auto-play audio for the listening category.
+  // If sentence is missing and a story fetch is in flight, defer to the fetch callback above.
   if (category === 'listening') {
-    playSentence();
+    if (!sentence && (unfinishedMode || rootDeckId)) {
+      // Deferred — fetch callback will call playSentence() once story is loaded
+    } else {
+      playSentence();
+    }
   }
 }
 
