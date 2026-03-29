@@ -124,6 +124,7 @@
           <div class="word-pin" id="word-pin"></div>
           <div class="word-pos-row"><span class="word-pos" id="word-pos"></span></div>
           <div class="word-def" id="word-def"></div>
+          <div class="word-def-de" id="word-def-de" style="display:none"></div>
           <!-- Notes — populated by JS, hidden when empty -->
           <div id="notes-section"></div>
           <!-- Example sentences — populated by JS -->
@@ -217,6 +218,7 @@
         <span class="wd-def" id="wd-def"></span>
       </div>
       <div class="wd-def-zh" id="wd-def-zh" style="display:none"></div>
+      <div class="wd-def-de" id="wd-def-de" style="display:none"></div>
       <button class="wd-edit-btn" id="wd-edit-btn">Edit</button>
       <button class="wd-back-review-btn" id="wd-back-review-btn" style="display:none" onclick="goBack()">← Review</button>
     </div>
@@ -388,6 +390,7 @@
     <label class="edit-label">Part of speech<input class="edit-input" id="edit-pos" type="text"></label>
     <label class="edit-label">Traditional<input class="edit-input" id="edit-traditional" type="text" lang="zh"></label>
     <label class="edit-label">Chinese definition<input class="edit-input" id="edit-definition-zh" type="text" lang="zh"></label>
+    <label class="edit-label">German definition<input class="edit-input" id="edit-definition-de" type="text"></label>
     <label class="edit-label">Notes<textarea class="edit-input edit-notes" id="edit-notes" rows="3"></textarea></label>
   </div>
   <div class="edit-card-actions">

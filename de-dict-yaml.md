@@ -121,6 +121,7 @@ Append entries using the schema below. Field names, indentation, and block scala
     traditional: 一流                      # omit if identical to simplified
     pinyin: yī liú
     english: first-class / top-notch
+    german: erstklassig / spitzenklasse   # German translation (optional)
     hsk: "5-6"                            # always a string
     note: |                               # optional, for usage notes
       ...
@@ -188,6 +189,7 @@ Append entries using the schema below. Field names, indentation, and block scala
 | `traditional` | Omit from character block if identical to simplified |
 | `etymology` | Always `|` block scalar, prose only — no bullet points inside |
 | `note` | Add for important usage/register notes |
+| `german` | German translation / definition (vocabulary and sentence entries) |
 | `grammar_de` | Sentences only, always `|` block scalar, always in German |
 
 ---
