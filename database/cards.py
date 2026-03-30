@@ -33,6 +33,7 @@ def get_card(card_id: int) -> dict | None:
         """SELECT c.*,
                   w.word_zh, w.pinyin, w.definition, w.pos, w.hsk_level,
                   w.traditional, w.definition_zh, w.note_type, w.notes, w.definition_de,
+                  d.name AS deck_name,
                   p.learning_steps, p.graduating_interval, p.easy_interval,
                   p.relearning_steps, p.minimum_interval,
                   p.leech_threshold, p.leech_action,

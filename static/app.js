@@ -1901,6 +1901,15 @@ function loadCard(c, counts) {
   const noteLabel = { vocabulary: 'Word', sentence: 'Sentence', chengyu: '成语', expression: '表达' }[card.note_type] || card.note_type;
   document.getElementById('card-type-badge').textContent = noteLabel;
 
+  // Deck name badge
+  const deckBadge = document.getElementById('card-deck-badge');
+  if (card.deck_name) {
+    deckBadge.textContent = card.deck_name;
+    deckBadge.style.display = 'inline-block';
+  } else {
+    deckBadge.style.display = 'none';
+  }
+
   // HSK badge — always visible; "HSK -" when unknown (click to AI-fill)
   const hskBadge = document.getElementById('card-hsk-badge');
   hskBadge.textContent = card.hsk_level ? `HSK ${card.hsk_level}` : 'HSK -';
