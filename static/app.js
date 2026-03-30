@@ -1761,6 +1761,7 @@ async function _doStartReviewUnfinished(topic, maxHsk, model) {
 function loadCard(c, counts) {
   card = c;
   wordDetails = null;
+  renderReviewCatRow(); // clear circles immediately when new card loads
 
   // In unfinished mode each card may belong to a different deck/category
   if (unfinishedMode) {
@@ -1904,6 +1905,7 @@ function showFront() {
   const isCreating   = category === 'creating';
   const isSentence   = card.note_type === 'sentence';
 
+  document.getElementById('review-cat-row').innerHTML = '';
   document.getElementById('side-front').style.display = 'flex';
   document.getElementById('side-front').style.flexDirection = 'column';
   document.getElementById('side-front').style.gap = '16px';
@@ -2155,7 +2157,7 @@ function renderReviewCatRow() {
   const html = CATS.map(cat => {
     const c = cards.find(c => c.category === cat && !c.deleted_at);
     if (!c) return '';
-    const isCurrent = cat === category;
+    const isCurrent = cat === card?.category;
     const isSusp = c.state === 'suspended';
     const cls = ['rcat-btn', isSusp ? 'rcat-susp' : 'rcat-active', isCurrent ? 'rcat-current' : ''].join(' ').trim();
     const title = isSusp ? `Activate ${LABELS[cat]}` : `Suspend ${LABELS[cat]}`;
