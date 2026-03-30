@@ -213,13 +213,13 @@ Return ONLY valid JSON, no explanation, no markdown:
         return {"etymology": "", "translation": ""}
 
 
-_ENRICH_MODEL = "claude-haiku-4-5-20251001"
+_ENRICH_MODEL = "glm-4-flash"
 
 
 def enrich_word(word: dict, characters: list[dict], model: str = DEFAULT_MODEL) -> dict:
     """
     Determine HSK level for a word and fill missing character data (etymology, other_meanings).
-    Always uses Claude Haiku (free tier) — the model parameter is ignored.
+    Always uses GLM-4-Flash (free tier) — the model parameter is ignored.
     Only requests data for fields that are currently empty.
     Returns: {hsk_level: int|None, characters: [{char, etymology, other_meanings}]}
     """
