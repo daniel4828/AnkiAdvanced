@@ -1681,9 +1681,12 @@ async function _doStartReviewMixed(topic, maxHsk, model, noStory = false) {
       try {
         story = await api('GET', `/api/story/${rootDeckId}/${category}` + _storyParams(topic, maxHsk, model));
       } catch (_) {}
-      // Fire story generation for the other categories in the background
+      // Fire story generation for the other categories in the background,
+      // then preload TTS so audio is ready when the category switches.
       for (const cat of ['listening', 'reading', 'creating'].filter(c => c !== category)) {
-        fetch(`/api/story/${rootDeckId}/${cat}` + _storyParams(topic, maxHsk, model)).catch(() => {});
+        fetch(`/api/story/${rootDeckId}/${cat}` + _storyParams(topic, maxHsk, model))
+          .then(() => fetch(`/api/preload-session/${rootDeckId}/${cat}`, { method: 'POST' }))
+          .catch(() => {});
       }
     }
 
@@ -1758,6 +1761,7 @@ async function _doStartReviewUnfinished(topic, maxHsk, model) {
 function loadCard(c, counts) {
   card = c;
   wordDetails = null;
+  renderReviewCatRow(); // clear circles immediately when new card loads
 
   // In unfinished mode each card may belong to a different deck/category
   if (unfinishedMode) {
@@ -1789,6 +1793,8 @@ function loadCard(c, counts) {
       .then(r => r.ok ? r.json() : null)
       .then(s => {
         if (card !== snap) return;
+        // Preload TTS for the newly-loaded category (no-op if already cached)
+        fetch(`/api/preload-session/${storyDeckId}/${c.category}`, { method: 'POST' }).catch(() => {});
         if (s?.sentences) {
           story    = s;
           sentence = story.sentences.find(s => s.word_id === card.word_id) || null;
@@ -1899,6 +1905,7 @@ function showFront() {
   const isCreating   = category === 'creating';
   const isSentence   = card.note_type === 'sentence';
 
+  document.getElementById('review-cat-row').innerHTML = '';
   document.getElementById('side-front').style.display = 'flex';
   document.getElementById('side-front').style.flexDirection = 'column';
   document.getElementById('side-front').style.gap = '16px';
@@ -2150,7 +2157,7 @@ function renderReviewCatRow() {
   const html = CATS.map(cat => {
     const c = cards.find(c => c.category === cat && !c.deleted_at);
     if (!c) return '';
-    const isCurrent = cat === category;
+    const isCurrent = cat === card?.category;
     const isSusp = c.state === 'suspended';
     const cls = ['rcat-btn', isSusp ? 'rcat-susp' : 'rcat-active', isCurrent ? 'rcat-current' : ''].join(' ').trim();
     const title = isSusp ? `Activate ${LABELS[cat]}` : `Suspend ${LABELS[cat]}`;

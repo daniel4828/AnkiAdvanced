@@ -41,9 +41,10 @@
 
     <div class="review-card" id="review-card">
 
-      <!-- Card meta row: sentence position (left) + right group -->
+      <!-- Card meta row: sentence position (left) + category circles (centre) + right group -->
       <div class="card-meta-row">
         <div id="sentence-counter"></div>
+        <div id="review-cat-row"></div>
         <div class="card-meta-right">
           <button id="card-hsk-badge" class="card-hsk-badge" onclick="enrichCard()" title="Ask AI to fill HSK level &amp; character data" style="display:none"></button>
           <button id="back-meta-play-btn" class="play-icon-btn play-icon-sm" onclick="playSentence()" style="display:none" title="Play audio">🔊</button>
@@ -78,9 +79,6 @@
 
       <!-- Back: sentence → ratings → full vocab detail -->
       <div id="side-back" style="display:none">
-
-        <!-- Category circles (top of back) -->
-        <div id="review-cat-row"></div>
 
         <!-- Creating only: answer comparison -->
         <div class="answer-compare" id="creating-answer-section" style="display:none">
