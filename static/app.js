@@ -321,13 +321,21 @@ function renderDecks(decks) {
 
   if (allDeck) {
     const safeName = 'All';
+    const allBuryMode  = allDeck.bury_mode || 'all';
+    const allBuryIcon  = allBuryMode === 'all' ? '⛓' : allBuryMode === 'none' ? '⊘' : '≡';
+    const allBuryClass = `bury-btn bury-${allBuryMode}`;
+    const allBuryTitle = allBuryMode === 'all'  ? 'Bury siblings: All (click for None)'
+                       : allBuryMode === 'none' ? 'Bury siblings: None (click for Custom)'
+                       :                          'Bury siblings: Custom (click for All)';
     filteredHtml += `
       <div class="tree-row tree-parent">
         <span class="tree-toggle"></span>
         <span class="tree-name" onclick="startReviewMixed(${allDeck.id},'${safeName}')" style="cursor:pointer">All</span>
         <span class="deck-counts"><span class="n-new">${(allDeck.counts||{}).new||0}</span><span class="n-lrn">${(allDeck.counts||{}).learning||0}</span><span class="n-rev">${(allDeck.counts||{}).review||0}</span></span>
+        <button class="${allBuryClass}" onclick="event.stopPropagation();toggleBury(${allDeck.id})" title="${allBuryTitle}">${allBuryIcon}</button>
         <div class="deck-menu-wrap">
-          <button class="gear-btn" onclick="event.stopPropagation();openOptions(${allDeck.id})" title="Deck options">⚙</button>
+          <button class="deck-susp-btn ${allDeck.deck_all_suspended ? 'deck-all-suspended' : ''}" onclick="event.stopPropagation();toggleDeckAllSuspension(${allDeck.id})" title="${allDeck.deck_all_suspended ? 'Unsuspend all cards' : 'Suspend all cards'}">${allDeck.deck_all_suspended ? '▶' : '⏸'}</button>
+          <button class="gear-btn" onclick="event.stopPropagation();toggleDeckMenu(event,${allDeck.id},'${safeName}',false)" title="Deck options">⚙</button>
         </div>
         <div class="cat-pills-row">${buildCategoryButtons(allDeck)}</div>
       </div>`;
