@@ -213,9 +213,13 @@ Return ONLY valid JSON, no explanation, no markdown:
         return {"etymology": "", "translation": ""}
 
 
+_ENRICH_MODEL = "deepseek-chat"
+
+
 def enrich_word(word: dict, characters: list[dict], model: str = DEFAULT_MODEL) -> dict:
     """
     Determine HSK level for a word and fill missing character data (etymology, other_meanings).
+    Always uses DeepSeek — the model parameter is ignored.
     Only requests data for fields that are currently empty.
     Returns: {hsk_level: int|None, characters: [{char, etymology, other_meanings}]}
     """
@@ -257,7 +261,7 @@ Return ONLY valid JSON, no explanation, no markdown:
   ]
 }}"""
 
-    raw = _call_api(model, [{"role": "user", "content": prompt}], max_tokens=800,
+    raw = _call_api(_ENRICH_MODEL, [{"role": "user", "content": prompt}], max_tokens=800,
                     purpose=f"enrich:{word['word_zh']}")
 
     json_match = re.search(r'\{.*\}', raw, re.DOTALL)
