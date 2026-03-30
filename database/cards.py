@@ -721,14 +721,20 @@ def toggle_deck_creating_suspension(deck_id: int) -> dict:
 
 
 def get_category_all_suspended(deck_id: int, category: str) -> bool:
-    """Return True if all non-sentence cards of given category in the deck are suspended."""
+    """Return True if all non-sentence cards of given category in deck and all descendants are suspended."""
     conn = get_db()
     row = conn.execute(
-        """SELECT COUNT(*) as total,
+        """WITH RECURSIVE descendants AS (
+             SELECT id FROM decks WHERE id = ?
+             UNION ALL
+             SELECT d.id FROM decks d JOIN descendants p ON d.parent_id = p.id
+           )
+           SELECT COUNT(*) as total,
                   SUM(CASE WHEN c.state = 'suspended' THEN 1 ELSE 0 END) as suspended_count
            FROM cards c
            JOIN entries w ON w.id = c.word_id
-           WHERE c.deck_id = ? AND c.category = ?
+           JOIN descendants des ON c.deck_id = des.id
+           WHERE c.category = ?
              AND c.deleted_at IS NULL
              AND w.note_type != 'sentence'""",
         (deck_id, category),
@@ -740,38 +746,53 @@ def get_category_all_suspended(deck_id: int, category: str) -> bool:
 
 
 def toggle_category_suspension(deck_id: int, category: str) -> dict:
-    """Toggle all non-sentence cards of given category in a deck between suspended and active."""
+    """Toggle all non-sentence cards of given category in a deck and all descendants."""
     conn = get_db()
-    rows = conn.execute(
-        """SELECT c.id, c.state FROM cards c
-           JOIN entries w ON w.id = c.word_id
-           WHERE c.deck_id = ? AND c.category = ?
-             AND c.deleted_at IS NULL
-             AND w.note_type != 'sentence'""",
-        (deck_id, category),
+    deck_rows = conn.execute(
+        """WITH RECURSIVE descendants AS (
+             SELECT id FROM decks WHERE id = ?
+             UNION ALL
+             SELECT d.id FROM decks d JOIN descendants p ON d.parent_id = p.id
+           )
+           SELECT id FROM descendants""",
+        (deck_id,),
     ).fetchall()
-    has_active = any(r["state"] != "suspended" for r in rows)
+    deck_ids = [r["id"] for r in deck_rows]
+    placeholders = ",".join("?" * len(deck_ids))
+    active_row = conn.execute(
+        f"""SELECT COUNT(*) as cnt FROM cards c
+            JOIN entries w ON w.id = c.word_id
+            WHERE c.deck_id IN ({placeholders})
+              AND c.category = ?
+              AND c.state != 'suspended'
+              AND c.deleted_at IS NULL
+              AND w.note_type != 'sentence'""",
+        deck_ids + [category],
+    ).fetchone()
+    has_active = active_row["cnt"] > 0
     if has_active:
         conn.execute(
-            """UPDATE cards SET state='suspended'
-               WHERE deck_id = ? AND category = ?
-                 AND deleted_at IS NULL AND state != 'suspended'
-                 AND word_id IN (SELECT id FROM entries WHERE note_type != 'sentence')""",
-            (deck_id, category),
+            f"""UPDATE cards SET state='suspended'
+                WHERE deck_id IN ({placeholders})
+                  AND category = ?
+                  AND state != 'suspended'
+                  AND deleted_at IS NULL
+                  AND word_id IN (SELECT id FROM entries WHERE note_type != 'sentence')""",
+            deck_ids + [category],
         )
-        all_suspended = True
     else:
         conn.execute(
-            """UPDATE cards SET state='new'
-               WHERE deck_id = ? AND category = ?
-                 AND deleted_at IS NULL AND state = 'suspended'
-                 AND word_id IN (SELECT id FROM entries WHERE note_type != 'sentence')""",
-            (deck_id, category),
+            f"""UPDATE cards SET state='new'
+                WHERE deck_id IN ({placeholders})
+                  AND category = ?
+                  AND state = 'suspended'
+                  AND deleted_at IS NULL
+                  AND word_id IN (SELECT id FROM entries WHERE note_type != 'sentence')""",
+            deck_ids + [category],
         )
-        all_suspended = False
     conn.commit()
     conn.close()
-    return {"all_suspended": all_suspended}
+    return {"all_suspended": not has_active}
 
 
 def get_deck_all_suspended(deck_id: int) -> bool:
