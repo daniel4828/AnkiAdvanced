@@ -1624,7 +1624,7 @@ function _storyParams(topic, maxHsk, model) {
   const p = new URLSearchParams();
   if (topic)                              p.set('topic', topic);
   if (maxHsk !== 2)                       p.set('max_hsk', maxHsk);
-  if (model && model !== 'claude-haiku-4-5-20251001') p.set('model', model);
+  if (model && model !== 'deepseek-chat') p.set('model', model);
   const s = p.toString();
   return s ? '?' + s : '';
 }
