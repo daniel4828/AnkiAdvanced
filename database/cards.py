@@ -30,10 +30,20 @@ def get_card(card_id: int) -> dict | None:
     """Joined with word, deck, and preset — everything srs.py needs."""
     conn = get_db()
     row = conn.execute(
-        """SELECT c.*,
+        """WITH RECURSIVE ancestors(id, name, parent_id, depth) AS (
+               SELECT id, name, parent_id, 0 FROM decks WHERE id = (
+                   SELECT deck_id FROM cards WHERE id = ?
+               )
+               UNION ALL
+               SELECT d.id, d.name, d.parent_id, a.depth + 1
+               FROM decks d JOIN ancestors a ON d.id = a.parent_id
+           )
+           SELECT c.*,
                   w.word_zh, w.pinyin, w.definition, w.pos, w.hsk_level,
                   w.traditional, w.definition_zh, w.note_type, w.notes, w.definition_de,
                   d.name AS deck_name,
+                  (SELECT group_concat(name, ' › ')
+                   FROM (SELECT name FROM ancestors ORDER BY depth DESC)) AS deck_path,
                   p.learning_steps, p.graduating_interval, p.easy_interval,
                   p.relearning_steps, p.minimum_interval,
                   p.leech_threshold, p.leech_action,
@@ -43,7 +53,7 @@ def get_card(card_id: int) -> dict | None:
            JOIN decks d ON d.id = c.deck_id
            JOIN deck_presets p ON p.id = d.preset_id
            WHERE c.id = ?""",
-        (card_id,),
+        (card_id, card_id),
     ).fetchone()
     conn.close()
     return dict(row) if row else None
@@ -461,14 +471,13 @@ def get_next_card_any_cat(root_deck_id: int) -> dict | None:
 
 
 def count_due_any_cat(root_deck_id: int) -> dict:
-    """Total due counts across all categories under root_deck_id."""
+    """Deduplicated due counts across all categories under root_deck_id.
+
+    Each word is counted once (in its highest-priority category), matching
+    the deduplication logic used for parent-deck badges on the main page.
+    """
     leaf_pairs = _leaf_decks_with_category(root_deck_id)
-    total = {"new": 0, "learning": 0, "review": 0}
-    for deck_id, cat in leaf_pairs:
-        c = count_due(deck_id, cat)
-        for k in total:
-            total[k] += c[k]
-    return total
+    return count_due_deduped(leaf_pairs)
 
 
 def get_due_cards_multi(deck_ids: list[int], category: str, *, sibling_suppression: bool = False) -> list[dict]:

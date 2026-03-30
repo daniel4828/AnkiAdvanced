@@ -1901,13 +1901,13 @@ function loadCard(c, counts) {
   const noteLabel = { vocabulary: 'Word', sentence: 'Sentence', chengyu: '成语', expression: '表达' }[card.note_type] || card.note_type;
   document.getElementById('card-type-badge').textContent = noteLabel;
 
-  // Deck name badge
-  const deckBadge = document.getElementById('card-deck-badge');
-  if (card.deck_name) {
-    deckBadge.textContent = card.deck_name;
-    deckBadge.style.display = 'inline-block';
+  // Deck path bar
+  const deckPath = document.getElementById('card-deck-path');
+  if (card.deck_path) {
+    deckPath.textContent = card.deck_path;
+    deckPath.style.display = 'block';
   } else {
-    deckBadge.style.display = 'none';
+    deckPath.style.display = 'none';
   }
 
   // HSK badge — always visible; "HSK -" when unknown (click to AI-fill)
@@ -1917,9 +1917,11 @@ function loadCard(c, counts) {
   hskBadge.disabled = false;
   hskBadge.style.display = 'inline';
 
-  // Reset pinyin toggle
-  document.getElementById('pinyin-row').style.display = 'none';
-  document.getElementById('pinyin-btn').classList.remove('active');
+  // Reset pinyin (clear content + hide revealed state)
+  const _pr = document.getElementById('pinyin-row');
+  _pr.innerHTML = '';
+  _pr.dataset.loadedFor = '';
+  _pr.classList.remove('pinyin-revealed');
 
   // Close modals if open
   closeEditCard();
@@ -2056,6 +2058,10 @@ function revealAnswer() {
   document.getElementById('side-back').style.flexDirection = 'column';
   document.getElementById('side-back').style.gap = '16px';
   document.getElementById('back-meta-play-btn').style.display = isCreating ? 'none' : 'flex';
+
+  // Pre-load pinyin in background (shown blurred until p is pressed)
+  const _pinyinText = sentence?.sentence_zh || card?.word_zh;
+  if (_pinyinText) _loadPinyinRow(_pinyinText);
 
   const isSentenceNote = card.note_type === 'sentence';
 
@@ -2447,16 +2453,9 @@ async function undoReview() {
 // ── Pinyin toggle ────────────────────────────────────────────────────────────
 let pinyinCache = {};
 
-async function togglePinyin() {
+async function _loadPinyinRow(text) {
   const row = document.getElementById('pinyin-row');
-  const btn = document.getElementById('pinyin-btn');
-  if (row.style.display !== 'none') {
-    row.style.display = 'none';
-    btn.classList.remove('active');
-    return;
-  }
-  const text = sentence?.sentence_zh || card?.word_zh;
-  if (!text) return;
+  if (!text || row.dataset.loadedFor === text) return;
   if (!pinyinCache[text]) {
     try {
       const data = await api('GET', `/api/pinyin?text=${encodeURIComponent(text)}`);
@@ -2476,8 +2475,15 @@ async function togglePinyin() {
              `<span class="py-syl">${py}</span>`+
            `</span>`;
   }).join('');
-  row.style.display = 'flex';
-  btn.classList.add('active');
+  row.dataset.loadedFor = text;
+}
+
+async function togglePinyin() {
+  const row = document.getElementById('pinyin-row');
+  const text = sentence?.sentence_zh || card?.word_zh;
+  if (!text) return;
+  await _loadPinyinRow(text);
+  row.classList.toggle('pinyin-revealed');
 }
 
 // ── Story error modal ─────────────────────────────────────────────────────────
@@ -3911,6 +3917,12 @@ document.addEventListener('keydown', e => {
   if (e.key === 'r') {
     e.preventDefault();
     playSentence();
+  } else if (e.key === 'p') {
+    e.preventDefault();
+    togglePinyin();
+  } else if (e.key === 's') {
+    e.preventDefault();
+    document.getElementById('sentence-front')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } else if (e.key === ' ') {
     e.preventDefault();
     if (!backVisible) revealAnswer();
