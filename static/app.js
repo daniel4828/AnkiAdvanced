@@ -251,7 +251,11 @@ function countHtml(c) {
 
 // Build 3 inline pills (L/R/C) for any deck. Uses direct cat leaves if present, else aggregates.
 function buildCategoryButtons(deck) {
-  const CATS   = ['listening', 'reading', 'creating'];
+  const DEFAULT_ORDER = ['listening', 'reading', 'creating'];
+  const orderStr = deck.category_order || 'listening,reading,creating';
+  const ordered = orderStr.split(',').map(s => s.trim()).filter(s => DEFAULT_ORDER.includes(s));
+  // Ensure all 3 categories present (in case of corrupt/partial value)
+  const CATS = [...ordered, ...DEFAULT_ORDER.filter(c => !ordered.includes(c))];
   const LABELS = { listening: 'L', reading: 'R', creating: 'C' };
   const catLeaves = getCategoryLeaves(deck);
   const safeName  = deck.name.replace(/'/g, "\\'");
@@ -317,11 +321,22 @@ function renderDecks(decks) {
 
   if (allDeck) {
     const safeName = 'All';
+    const allBuryMode  = allDeck.bury_mode || 'all';
+    const allBuryIcon  = allBuryMode === 'all' ? '⛓' : allBuryMode === 'none' ? '⊘' : '≡';
+    const allBuryClass = `bury-btn bury-${allBuryMode}`;
+    const allBuryTitle = allBuryMode === 'all'  ? 'Bury siblings: All (click for None)'
+                       : allBuryMode === 'none' ? 'Bury siblings: None (click for Custom)'
+                       :                          'Bury siblings: Custom (click for All)';
     filteredHtml += `
       <div class="tree-row tree-parent">
         <span class="tree-toggle"></span>
         <span class="tree-name" onclick="startReviewMixed(${allDeck.id},'${safeName}')" style="cursor:pointer">All</span>
         <span class="deck-counts"><span class="n-new">${(allDeck.counts||{}).new||0}</span><span class="n-lrn">${(allDeck.counts||{}).learning||0}</span><span class="n-rev">${(allDeck.counts||{}).review||0}</span></span>
+        <button class="${allBuryClass}" onclick="event.stopPropagation();toggleBury(${allDeck.id})" title="${allBuryTitle}">${allBuryIcon}</button>
+        <div class="deck-menu-wrap">
+          <button class="deck-susp-btn ${allDeck.deck_all_suspended ? 'deck-all-suspended' : ''}" onclick="event.stopPropagation();toggleDeckAllSuspension(${allDeck.id})" title="${allDeck.deck_all_suspended ? 'Unsuspend all cards' : 'Suspend all cards'}">${allDeck.deck_all_suspended ? '▶' : '⏸'}</button>
+          <button class="gear-btn" onclick="event.stopPropagation();toggleDeckMenu(event,${allDeck.id},'${safeName}',false)" title="Deck options">⚙</button>
+        </div>
         <div class="cat-pills-row">${buildCategoryButtons(allDeck)}</div>
       </div>`;
   }
@@ -456,6 +471,7 @@ function toggleDeckMenu(e, id, safeName, filtered = false) {
   if (filtered) {
     menu.innerHTML = `
       <button onclick="closeDeckMenu();openBrowseForDeck(${id})">Browse</button>
+      <button onclick="closeDeckMenu();openOptions(${id})">Options</button>
       <button onclick="closeDeckMenu();clearDeckCards(${id},'${safeName}')">Clear all cards</button>
     `;
   } else {
@@ -1400,6 +1416,43 @@ function renderStats(data) {
 // ── Options modal ─────────────────────────────────────────────────────────────
 let allPresets = [];
 
+const CAT_LABELS = { listening: 'L – Listening', reading: 'R – Reading', creating: 'C – Creating' };
+
+function _setCategoryOrderUI(order) {
+  const list = document.getElementById('opt-cat-order-list');
+  if (!list) return;
+  list.innerHTML = '';
+  order.forEach((cat, i) => {
+    const li = document.createElement('li');
+    li.dataset.cat = cat;
+    li.innerHTML = `<span class="cat-order-label">${CAT_LABELS[cat] || cat}</span>
+      <span class="cat-order-btns">
+        <button type="button" onclick="_moveCatOrder(this,-1)" ${i === 0 ? 'disabled' : ''}>▲</button>
+        <button type="button" onclick="_moveCatOrder(this,1)"  ${i === order.length - 1 ? 'disabled' : ''}>▼</button>
+      </span>`;
+    list.appendChild(li);
+  });
+}
+
+function _moveCatOrder(btn, dir) {
+  const li = btn.closest('li');
+  const list = li.parentElement;
+  const items = [...list.children];
+  const idx = items.indexOf(li);
+  const swapIdx = idx + dir;
+  if (swapIdx < 0 || swapIdx >= items.length) return;
+  if (dir === -1) list.insertBefore(li, items[swapIdx]);
+  else list.insertBefore(items[swapIdx], li);
+  const newOrder = [...list.children].map(el => el.dataset.cat);
+  _setCategoryOrderUI(newOrder);
+}
+
+function _getCategoryOrderUI() {
+  const list = document.getElementById('opt-cat-order-list');
+  if (!list) return 'listening,reading,creating';
+  return [...list.children].map(el => el.dataset.cat).join(',');
+}
+
 function loadPresetFields(preset) {
   document.getElementById('opt-new-per-day').value     = preset.new_per_day;
   document.getElementById('opt-reviews-per-day').value = preset.reviews_per_day;
@@ -1416,6 +1469,10 @@ function loadPresetFields(preset) {
   document.getElementById('opt-bury-new').checked      = !!preset.bury_new_siblings;
   document.getElementById('opt-bury-review').checked   = !!preset.bury_review_siblings;
   document.getElementById('opt-bury-interday').checked = !!preset.bury_interday_siblings;
+
+  // Category order
+  const order = (preset.category_order || 'listening,reading,creating').split(',').map(s => s.trim());
+  _setCategoryOrderUI(order);
   const btnDef = document.getElementById('btn-set-default');
   btnDef.textContent = preset.is_default ? '✓ Already default' : 'Set as default';
   btnDef.disabled = !!preset.is_default;
@@ -1526,6 +1583,7 @@ async function saveOptions() {
     bury_new_siblings:      document.getElementById('opt-bury-new').checked      ? 1 : 0,
     bury_review_siblings:   document.getElementById('opt-bury-review').checked   ? 1 : 0,
     bury_interday_siblings: document.getElementById('opt-bury-interday').checked ? 1 : 0,
+    category_order: _getCategoryOrderUI(),
   };
   // Warn if a story for today already exists — order settings change would cause mismatch
   if (story !== null) {
@@ -1843,6 +1901,15 @@ function loadCard(c, counts) {
   const noteLabel = { vocabulary: 'Word', sentence: 'Sentence', chengyu: '成语', expression: '表达' }[card.note_type] || card.note_type;
   document.getElementById('card-type-badge').textContent = noteLabel;
 
+  // Deck path bar
+  const deckPath = document.getElementById('card-deck-path');
+  if (card.deck_path) {
+    deckPath.textContent = card.deck_path;
+    deckPath.style.display = 'block';
+  } else {
+    deckPath.style.display = 'none';
+  }
+
   // HSK badge — always visible; "HSK -" when unknown (click to AI-fill)
   const hskBadge = document.getElementById('card-hsk-badge');
   hskBadge.textContent = card.hsk_level ? `HSK ${card.hsk_level}` : 'HSK -';
@@ -1850,9 +1917,11 @@ function loadCard(c, counts) {
   hskBadge.disabled = false;
   hskBadge.style.display = 'inline';
 
-  // Reset pinyin toggle
-  document.getElementById('pinyin-row').style.display = 'none';
-  document.getElementById('pinyin-btn').classList.remove('active');
+  // Reset pinyin (clear content + hide revealed state)
+  const _pr = document.getElementById('pinyin-row');
+  _pr.innerHTML = '';
+  _pr.dataset.loadedFor = '';
+  _pr.classList.remove('pinyin-revealed');
 
   // Close modals if open
   closeEditCard();
@@ -1989,6 +2058,10 @@ function revealAnswer() {
   document.getElementById('side-back').style.flexDirection = 'column';
   document.getElementById('side-back').style.gap = '16px';
   document.getElementById('back-meta-play-btn').style.display = isCreating ? 'none' : 'flex';
+
+  // Pre-load pinyin in background (shown blurred until p is pressed)
+  const _pinyinText = sentence?.sentence_zh || card?.word_zh;
+  if (_pinyinText) _loadPinyinRow(_pinyinText);
 
   const isSentenceNote = card.note_type === 'sentence';
 
@@ -2380,16 +2453,9 @@ async function undoReview() {
 // ── Pinyin toggle ────────────────────────────────────────────────────────────
 let pinyinCache = {};
 
-async function togglePinyin() {
+async function _loadPinyinRow(text) {
   const row = document.getElementById('pinyin-row');
-  const btn = document.getElementById('pinyin-btn');
-  if (row.style.display !== 'none') {
-    row.style.display = 'none';
-    btn.classList.remove('active');
-    return;
-  }
-  const text = sentence?.sentence_zh || card?.word_zh;
-  if (!text) return;
+  if (!text || row.dataset.loadedFor === text) return;
   if (!pinyinCache[text]) {
     try {
       const data = await api('GET', `/api/pinyin?text=${encodeURIComponent(text)}`);
@@ -2409,8 +2475,15 @@ async function togglePinyin() {
              `<span class="py-syl">${py}</span>`+
            `</span>`;
   }).join('');
-  row.style.display = 'flex';
-  btn.classList.add('active');
+  row.dataset.loadedFor = text;
+}
+
+async function togglePinyin() {
+  const row = document.getElementById('pinyin-row');
+  const text = sentence?.sentence_zh || card?.word_zh;
+  if (!text) return;
+  await _loadPinyinRow(text);
+  row.classList.toggle('pinyin-revealed');
 }
 
 // ── Story error modal ─────────────────────────────────────────────────────────
@@ -3844,6 +3917,12 @@ document.addEventListener('keydown', e => {
   if (e.key === 'r') {
     e.preventDefault();
     playSentence();
+  } else if (e.key === 'p') {
+    e.preventDefault();
+    togglePinyin();
+  } else if (e.key === 's') {
+    e.preventDefault();
+    document.getElementById('sentence-front')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } else if (e.key === ' ') {
     e.preventDefault();
     if (!backVisible) revealAnswer();

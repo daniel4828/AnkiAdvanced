@@ -176,6 +176,8 @@ def init_db() -> None:
                 bury_interday_siblings = bury_siblings""")
     if "bury_quick_mode" not in preset_cols:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN bury_quick_mode TEXT NOT NULL DEFAULT 'all'")
+    if "category_order" not in preset_cols:
+        conn.execute("ALTER TABLE deck_presets ADD COLUMN category_order TEXT NOT NULL DEFAULT 'listening,reading,creating'")
 
     conn.commit()
 

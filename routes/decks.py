@@ -62,6 +62,7 @@ def get_decks():
         pid = deck.get("preset_id")
         p = presets.get(pid, {})
         deck["bury_mode"] = p.get("bury_quick_mode", "all")
+        deck["category_order"] = p.get("category_order", "listening,reading,creating")
     unfinished = database.count_unfinished()
     if unfinished["learning"] > 0:
         tree.insert(0, {

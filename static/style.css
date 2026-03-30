@@ -212,6 +212,18 @@ main.browse-open {
   letter-spacing: 0.5px;
   opacity: 0.7;
 }
+.card-deck-path {
+  width: 100%;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  padding: 4px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--muted) 15%, transparent);
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .card-hsk-badge {
   font-size: 10px;
   font-weight: 700;
@@ -750,6 +762,15 @@ main.browse-open {
   gap: 2px 6px;
   font-size: 14px;
   justify-content: center;
+  filter: blur(4px);
+  opacity: 0.35;
+  transition: filter 0.2s ease, opacity 0.2s ease;
+  user-select: none;
+}
+.pinyin-row.pinyin-revealed {
+  filter: none;
+  opacity: 1;
+  user-select: text;
 }
 .py-char {
   display: flex;
@@ -2549,3 +2570,23 @@ select.opt-input {
 .cf-compare-val:hover { border-color: var(--border); color: var(--text); }
 .cf-compare-val.cf-active { background: rgba(41,128,185,0.15); border-color: #2980b9; color: var(--text); }
 .cf-field-input { width: 100%; box-sizing: border-box; font-size: 12px; }
+
+/* ── Category order list in options modal ────────────────────────────────── */
+.cat-order-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 4px; flex: 1;
+}
+.cat-order-list li {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--card-bg); border: 1px solid var(--border);
+  border-radius: 5px; padding: 4px 8px; font-size: 12px;
+}
+.cat-order-label { flex: 1; }
+.cat-order-btns { display: flex; gap: 4px; }
+.cat-order-btns button {
+  background: none; border: 1px solid var(--border); border-radius: 3px;
+  padding: 1px 5px; cursor: pointer; font-size: 10px; color: var(--muted);
+  line-height: 1.4;
+}
+.cat-order-btns button:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+.cat-order-btns button:disabled { opacity: 0.3; cursor: default; }
