@@ -2549,3 +2549,23 @@ select.opt-input {
 .cf-compare-val:hover { border-color: var(--border); color: var(--text); }
 .cf-compare-val.cf-active { background: rgba(41,128,185,0.15); border-color: #2980b9; color: var(--text); }
 .cf-field-input { width: 100%; box-sizing: border-box; font-size: 12px; }
+
+/* ── Category order list in options modal ────────────────────────────────── */
+.cat-order-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 4px; flex: 1;
+}
+.cat-order-list li {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--card-bg); border: 1px solid var(--border);
+  border-radius: 5px; padding: 4px 8px; font-size: 12px;
+}
+.cat-order-label { flex: 1; }
+.cat-order-btns { display: flex; gap: 4px; }
+.cat-order-btns button {
+  background: none; border: 1px solid var(--border); border-radius: 3px;
+  padding: 1px 5px; cursor: pointer; font-size: 10px; color: var(--muted);
+  line-height: 1.4;
+}
+.cat-order-btns button:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+.cat-order-btns button:disabled { opacity: 0.3; cursor: default; }

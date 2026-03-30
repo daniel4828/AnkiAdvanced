@@ -82,7 +82,10 @@ CREATE TABLE IF NOT EXISTS deck_presets (
     --   'none'   = bury no siblings
     --   'custom' = use bury_new/review/interday_siblings individually
     bury_quick_mode         TEXT NOT NULL DEFAULT 'all'
-                                CHECK(bury_quick_mode IN ('all', 'none', 'custom'))
+                                CHECK(bury_quick_mode IN ('all', 'none', 'custom')),
+
+    -- Order of L/R/C category pills shown in the deck list
+    category_order          TEXT NOT NULL DEFAULT 'listening,reading,creating'
 );
 
 -- ---------------------------------------------------------------------------

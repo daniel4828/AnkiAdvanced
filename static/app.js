@@ -251,7 +251,11 @@ function countHtml(c) {
 
 // Build 3 inline pills (L/R/C) for any deck. Uses direct cat leaves if present, else aggregates.
 function buildCategoryButtons(deck) {
-  const CATS   = ['listening', 'reading', 'creating'];
+  const DEFAULT_ORDER = ['listening', 'reading', 'creating'];
+  const orderStr = deck.category_order || 'listening,reading,creating';
+  const ordered = orderStr.split(',').map(s => s.trim()).filter(s => DEFAULT_ORDER.includes(s));
+  // Ensure all 3 categories present (in case of corrupt/partial value)
+  const CATS = [...ordered, ...DEFAULT_ORDER.filter(c => !ordered.includes(c))];
   const LABELS = { listening: 'L', reading: 'R', creating: 'C' };
   const catLeaves = getCategoryLeaves(deck);
   const safeName  = deck.name.replace(/'/g, "\\'");
@@ -322,6 +326,9 @@ function renderDecks(decks) {
         <span class="tree-toggle"></span>
         <span class="tree-name" onclick="startReviewMixed(${allDeck.id},'${safeName}')" style="cursor:pointer">All</span>
         <span class="deck-counts"><span class="n-new">${(allDeck.counts||{}).new||0}</span><span class="n-lrn">${(allDeck.counts||{}).learning||0}</span><span class="n-rev">${(allDeck.counts||{}).review||0}</span></span>
+        <div class="deck-menu-wrap">
+          <button class="gear-btn" onclick="event.stopPropagation();openOptions(${allDeck.id})" title="Deck options">⚙</button>
+        </div>
         <div class="cat-pills-row">${buildCategoryButtons(allDeck)}</div>
       </div>`;
   }
@@ -456,6 +463,7 @@ function toggleDeckMenu(e, id, safeName, filtered = false) {
   if (filtered) {
     menu.innerHTML = `
       <button onclick="closeDeckMenu();openBrowseForDeck(${id})">Browse</button>
+      <button onclick="closeDeckMenu();openOptions(${id})">Options</button>
       <button onclick="closeDeckMenu();clearDeckCards(${id},'${safeName}')">Clear all cards</button>
     `;
   } else {
@@ -1400,6 +1408,43 @@ function renderStats(data) {
 // ── Options modal ─────────────────────────────────────────────────────────────
 let allPresets = [];
 
+const CAT_LABELS = { listening: 'L – Listening', reading: 'R – Reading', creating: 'C – Creating' };
+
+function _setCategoryOrderUI(order) {
+  const list = document.getElementById('opt-cat-order-list');
+  if (!list) return;
+  list.innerHTML = '';
+  order.forEach((cat, i) => {
+    const li = document.createElement('li');
+    li.dataset.cat = cat;
+    li.innerHTML = `<span class="cat-order-label">${CAT_LABELS[cat] || cat}</span>
+      <span class="cat-order-btns">
+        <button type="button" onclick="_moveCatOrder(this,-1)" ${i === 0 ? 'disabled' : ''}>▲</button>
+        <button type="button" onclick="_moveCatOrder(this,1)"  ${i === order.length - 1 ? 'disabled' : ''}>▼</button>
+      </span>`;
+    list.appendChild(li);
+  });
+}
+
+function _moveCatOrder(btn, dir) {
+  const li = btn.closest('li');
+  const list = li.parentElement;
+  const items = [...list.children];
+  const idx = items.indexOf(li);
+  const swapIdx = idx + dir;
+  if (swapIdx < 0 || swapIdx >= items.length) return;
+  if (dir === -1) list.insertBefore(li, items[swapIdx]);
+  else list.insertBefore(items[swapIdx], li);
+  const newOrder = [...list.children].map(el => el.dataset.cat);
+  _setCategoryOrderUI(newOrder);
+}
+
+function _getCategoryOrderUI() {
+  const list = document.getElementById('opt-cat-order-list');
+  if (!list) return 'listening,reading,creating';
+  return [...list.children].map(el => el.dataset.cat).join(',');
+}
+
 function loadPresetFields(preset) {
   document.getElementById('opt-new-per-day').value     = preset.new_per_day;
   document.getElementById('opt-reviews-per-day').value = preset.reviews_per_day;
@@ -1416,6 +1461,10 @@ function loadPresetFields(preset) {
   document.getElementById('opt-bury-new').checked      = !!preset.bury_new_siblings;
   document.getElementById('opt-bury-review').checked   = !!preset.bury_review_siblings;
   document.getElementById('opt-bury-interday').checked = !!preset.bury_interday_siblings;
+
+  // Category order
+  const order = (preset.category_order || 'listening,reading,creating').split(',').map(s => s.trim());
+  _setCategoryOrderUI(order);
   const btnDef = document.getElementById('btn-set-default');
   btnDef.textContent = preset.is_default ? '✓ Already default' : 'Set as default';
   btnDef.disabled = !!preset.is_default;
@@ -1526,6 +1575,7 @@ async function saveOptions() {
     bury_new_siblings:      document.getElementById('opt-bury-new').checked      ? 1 : 0,
     bury_review_siblings:   document.getElementById('opt-bury-review').checked   ? 1 : 0,
     bury_interday_siblings: document.getElementById('opt-bury-interday').checked ? 1 : 0,
+    category_order: _getCategoryOrderUI(),
   };
   // Warn if a story for today already exists — order settings change would cause mismatch
   if (story !== null) {
