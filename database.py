@@ -792,28 +792,6 @@ def word_has_cards(word_id: int) -> bool:
     return row is not None
 
 
-def update_word(word_id: int, word: dict) -> None:
-    """Update mutable fields of an existing word row."""
-    conn = get_db()
-    conn.execute(
-        """UPDATE entries SET
-               pinyin=:pinyin, definition=:definition, pos=:pos, hsk_level=:hsk_level,
-               traditional=:traditional, definition_zh=:definition_zh,
-               source_sentence=:source_sentence, grammar_notes=:grammar_notes,
-               definition_de=:definition_de
-           WHERE id=:id""",
-        {
-            **word,
-            "id":              word_id,
-            "source_sentence": word.get("source_sentence"),
-            "grammar_notes":   word.get("grammar_notes"),
-            "definition_de":   word.get("definition_de"),
-        },
-    )
-    conn.commit()
-    conn.close()
-
-
 def insert_note_component(note_id: int, word_id: int, position: int) -> None:
     conn = get_db()
     conn.execute(
@@ -1849,20 +1827,6 @@ def get_sibling_cards(card_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def suspend_card(card_id: int) -> None:
-    conn = get_db()
-    conn.execute("UPDATE cards SET state='suspended' WHERE id=?", (card_id,))
-    conn.commit()
-    conn.close()
-
-
-def unsuspend_card(card_id: int) -> None:
-    conn = get_db()
-    conn.execute("UPDATE cards SET state='new' WHERE id=? AND state='suspended'", (card_id,))
-    conn.commit()
-    conn.close()
-
-
 def get_creating_all_suspended(deck_id: int) -> bool:
     """Return True if all non-sentence creating cards in the deck are suspended (and at least one exists)."""
     conn = get_db()
@@ -2142,7 +2106,15 @@ def get_cards_for_word(word_id: int) -> list[dict]:
     return result
 
 
-def suspend_card(card_id: int) -> dict:
+def suspend_card(card_id: int) -> None:
+    """Unconditionally suspend a card (used by leech detection)."""
+    conn = get_db()
+    conn.execute("UPDATE cards SET state='suspended' WHERE id=?", (card_id,))
+    conn.commit()
+    conn.close()
+
+
+def toggle_card_suspension(card_id: int) -> dict:
     """Toggle a card between suspended and new."""
     conn = get_db()
     cur = conn.execute("SELECT state FROM cards WHERE id=?", (card_id,)).fetchone()

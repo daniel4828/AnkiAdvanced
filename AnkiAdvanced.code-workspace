@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "AnkiAdvanced",
+			"path": "."
+		}
+	],
+	"settings": {
+		"chat.tools.terminal.autoApprove": {
+			"gh": true
+		}
+	}
+}
