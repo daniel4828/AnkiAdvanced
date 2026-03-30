@@ -1,6 +1,6 @@
 import sqlite3
 from datetime import date, datetime
-from .core import get_db
+from .core import get_db, anki_today
 
 
 # ---------------------------------------------------------------------------
@@ -8,7 +8,7 @@ from .core import get_db
 # ---------------------------------------------------------------------------
 
 def get_stats(deck_id: int | None = None) -> dict:
-    today = date.today().isoformat()
+    today = anki_today().isoformat()
     conn = get_db()
 
     deck_filter = "AND c.deck_id = ?" if deck_id else ""
@@ -139,7 +139,7 @@ def _calc_streak(conn: sqlite3.Connection, deck_id: int | None) -> int:
     if not rows:
         return 0
     streak = 0
-    today = date.today()
+    today = anki_today()
     for i, row in enumerate(rows):
         expected = (today - __import__("datetime").timedelta(days=i)).isoformat()
         if row["d"] == expected:

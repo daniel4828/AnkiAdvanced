@@ -1,6 +1,6 @@
 import sqlite3
 from datetime import date, datetime
-from .core import get_db
+from .core import get_db, anki_today
 from .presets import get_preset_for_deck
 from .decks import get_deck
 
@@ -162,7 +162,7 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
     import random
     from itertools import groupby
 
-    today = date.today().isoformat()
+    today = anki_today().isoformat()
     now = datetime.now().isoformat(timespec="seconds")
     conn = get_db()
 
@@ -295,7 +295,7 @@ def get_next_card(deck_id: int, category: str) -> dict | None:
         return None
 
     # Reorder by story sentence position if a story exists for today
-    today = date.today().isoformat()
+    today = anki_today().isoformat()
     # Import here to avoid circular import at module level
     from .stories import get_active_story, get_story_sentences
     story = get_active_story(today, category, deck_id)
@@ -311,7 +311,7 @@ def get_next_card(deck_id: int, category: str) -> dict | None:
 
 def count_due(deck_id: int, category: str) -> dict:
     """Returns {new, learning, review} counts for deck badge display."""
-    today = date.today().isoformat()
+    today = anki_today().isoformat()
     now = datetime.now().isoformat(timespec="seconds")
     preset = get_preset_for_deck(deck_id)
     new_limit = preset["new_per_day"]
@@ -374,7 +374,7 @@ def update_card(card_id: int, *, state: str, due: str,
 
 def bury_card(card_id: int) -> None:
     """Bury a card until tomorrow (hidden for the rest of today)."""
-    today = date.today().isoformat()
+    today = anki_today().isoformat()
     conn = get_db()
     conn.execute("UPDATE cards SET buried_until = ? WHERE id = ?", (today, card_id))
     conn.commit()
@@ -451,7 +451,7 @@ def get_next_card_any_cat(root_deck_id: int) -> dict | None:
         return None
 
     # Reorder by story sentence position (same as get_next_card for single-cat)
-    today = date.today().isoformat()
+    today = anki_today().isoformat()
     from .stories import get_active_story, get_story_sentences
     story_pos: dict = {}
     for deck_id, cat in leaf_pairs:
@@ -521,7 +521,7 @@ def count_due_deduped(leaf_pairs: list[tuple[int, str]]) -> dict:
     if not leaf_pairs:
         return {"new": 0, "learning": 0, "review": 0}
 
-    today = date.today().isoformat()
+    today = anki_today().isoformat()
     now = datetime.now().isoformat(timespec="seconds")
     conn = get_db()
 
@@ -642,7 +642,7 @@ def bury_siblings(word_id: int, reviewed_category: str, *,
         states.extend(["'learning'", "'relearn'"])
     if not states:
         return
-    today = date.today().isoformat()
+    today = anki_today().isoformat()
     conn = get_db()
     conn.execute(
         f"UPDATE cards SET buried_until = ? WHERE word_id = ? AND category != ?"

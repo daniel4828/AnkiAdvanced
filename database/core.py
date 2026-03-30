@@ -1,10 +1,24 @@
 import json
 import os
 import sqlite3
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 DB_PATH = os.environ.get("DB_PATH", "data/srs.db")
 SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "..", "schema.sql")
+
+DAY_CUTOFF_HOUR = 4  # New day starts at 4am, like Anki
+
+
+def anki_today() -> date:
+    """Return today's date using 4am as the day boundary (like Anki).
+
+    Between midnight and 3:59am, returns yesterday's date so that late-night
+    review sessions still count as the previous calendar day.
+    """
+    now = datetime.now()
+    if now.hour < DAY_CUTOFF_HOUR:
+        return (now - timedelta(days=1)).date()
+    return now.date()
 
 
 # ---------------------------------------------------------------------------
