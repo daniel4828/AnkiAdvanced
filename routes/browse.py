@@ -147,7 +147,7 @@ def get_word_cards(word_id: int):
 
 @router.post("/api/cards/{card_id}/suspend")
 def toggle_suspend(card_id: int):
-    return database.suspend_card(card_id)
+    return database.toggle_card_suspension(card_id)
 
 
 @router.post("/api/cards/{card_id}/reset")
