@@ -2986,6 +2986,7 @@ function _importRenderTable() {
     const susp     = cfg.suspended || IMPORT_DEFAULT_SUSPENDED;
     const deckVal  = cfg.deck_path || '';
     const isInvalid = e.status === 'invalid';
+    const isB = deckVal === '__deckB__';
 
     const rowClass = isInvalid ? 'import-row-invalid' : (!include ? 'import-row-excluded' : '');
 
@@ -3018,27 +3019,63 @@ function _importRenderTable() {
           onclick="openYamlEditFromBtn(this)">Edit</button>` : ''}
       </td>
       <td style="color:var(--clr-muted,#888);font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_ea(e.english || '')}">${e.english || ''}</td>
-      <td style="color:var(--clr-muted,#888);font-size:11px">${NOTE_TYPE_LABEL[e.note_type] || e.note_type}</td>
-      <td style="color:var(--clr-muted,#888);font-size:11px">${e.hsk || ''}</td>
-      <td>${statusSpan}</td>
       <td>${suspBtn('listening')}</td>
       <td>${suspBtn('reading')}</td>
       <td>${suspBtn('creating')}</td>
       <td>
-        <select class="import-row-deck-select"
-          onchange="importSetCardDeck(${_ea(JSON.stringify(e.simplified))}, this.value)"
-          ${(!include || isInvalid) ? 'disabled' : ''}>
-          ${deckOptHtml}
-        </select>
+        <div class="import-deck-cell">
+          <button class="import-deck-b-badge${isB ? ' active' : ''}"
+            onclick="event.stopPropagation();importToggleDeckB(${_ea(JSON.stringify(e.simplified))})"
+            title="${isB ? 'Remove Deck B — use default' : 'Assign to Deck B'}"
+            ${(!include || isInvalid || !_deckBPath) ? 'disabled' : ''}>B</button>
+          <select class="import-row-deck-select"
+            onchange="importSetCardDeck(${_ea(JSON.stringify(e.simplified))}, this.value)"
+            ${(!include || isInvalid || isB) ? 'disabled' : ''}>
+            ${deckOptHtml}
+          </select>
+        </div>
       </td>
+      <td style="color:var(--clr-muted,#888);font-size:11px">${NOTE_TYPE_LABEL[e.note_type] || e.note_type}</td>
+      <td style="color:var(--clr-muted,#888);font-size:11px">${e.hsk || ''}</td>
+      <td>${statusSpan}</td>
     </tr>`;
   }).join('');
 
-  // Set selected deck value for each row's <select>
+  // Set selected deck value for each row's <select> (skip B-assigned rows)
   tbody.querySelectorAll('select.import-row-deck-select').forEach((sel, i) => {
     const e = _previewEntries[i];
     if (!e) return;
-    sel.value = (_cardConfigs[e.simplified] || {}).deck_path || '';
+    const dp = (_cardConfigs[e.simplified] || {}).deck_path || '';
+    sel.value = dp === '__deckB__' ? '' : dp;
+  });
+}
+
+let _resizeHandlesInited = false;
+function _initImportColResize() {
+  if (_resizeHandlesInited) return;
+  _resizeHandlesInited = true;
+  // Remove any leftover handles from a previous open
+  document.querySelectorAll('.import-table .col-resize-handle').forEach(h => h.remove());
+  document.querySelectorAll('.import-table thead th').forEach(th => {
+    const handle = document.createElement('div');
+    handle.className = 'col-resize-handle';
+    th.appendChild(handle);
+    let startX, startW;
+    handle.addEventListener('mousedown', e => {
+      startX = e.pageX;
+      startW = th.offsetWidth;
+      handle.classList.add('resizing');
+      const onMove = e2 => { th.style.minWidth = Math.max(30, startW + e2.pageX - startX) + 'px'; };
+      const onUp = () => {
+        handle.classList.remove('resizing');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      e.preventDefault();
+      e.stopPropagation();
+    });
   });
 }
 
@@ -3135,6 +3172,11 @@ function closeImportModal() {
   document.getElementById('import-modal').style.display = 'none';
   const btn = document.getElementById('import-submit-btn');
   btn.onclick = doImport;
+  _resizeHandlesInited = false;
+  _deckBPath = null;
+  document.getElementById('import-deck-b-path').value = '';
+  document.getElementById('deck-b-new-badge').style.display = 'none';
+  document.getElementById('deck-b-picker-dropdown').style.display = 'none';
 }
 
 function onImportFileChange() {
@@ -3238,6 +3280,7 @@ async function previewImport(yamlContent) {
 
     _importRenderTable();
     document.getElementById('import-preview').style.display = 'block';
+    _initImportColResize();
 
     // Conflict resolution
     if (data.conflicts && data.conflicts.length > 0) {
@@ -3352,7 +3395,12 @@ async function _doUploadImport() {
   const cardConfigsMap = {};
   _previewEntries.forEach(e => {
     const cfg = _cardConfigs[e.simplified];
-    if (cfg) cardConfigsMap[e.simplified] = cfg;
+    if (cfg) {
+      cardConfigsMap[e.simplified] = {
+        ...cfg,
+        deck_path: cfg.deck_path === '__deckB__' ? (_deckBPath || null) : cfg.deck_path
+      };
+    }
   });
 
   const form = new FormData();
@@ -3980,6 +4028,8 @@ document.addEventListener('keydown', e => {
 // ── Deck picker ───────────────────────────────────────────────────────────────
 
 let _deckPickerActiveIdx = -1;
+let _deckBPickerActiveIdx = -1;
+let _deckBPath = null;
 
 function _deckPathHtml(path) {
   return path.split('::').map(s => `<span>${s}</span>`).join('<span class="deck-picker-sep"> :: </span>');
@@ -4076,7 +4126,109 @@ document.addEventListener('click', e => {
   if (picker && dd && !picker.contains(e.target) && !dd.contains(e.target)) {
     dd.style.display = 'none';
   }
+  const pickerB = document.getElementById('deck-b-picker');
+  const ddB = document.getElementById('deck-b-picker-dropdown');
+  if (pickerB && ddB && !pickerB.contains(e.target) && !ddB.contains(e.target)) {
+    ddB.style.display = 'none';
+  }
 });
+
+// ── Deck B picker ─────────────────────────────────────────────────────────────
+
+function _renderDeckBDropdown(suggestions, query) {
+  const dd = document.getElementById('deck-b-picker-dropdown');
+  if (!dd) return;
+  const isNew = !!query && !suggestions.some(s => s.toLowerCase() === query.toLowerCase());
+  document.getElementById('deck-b-new-badge').style.display = (isNew && query) ? '' : 'none';
+  _deckBPickerActiveIdx = -1;
+  let html = suggestions.map((s, i) =>
+    `<div class="deck-picker-option" data-idx="${i}" onclick="deckBPickerSelect('${s.replace(/'/g, "\\'")}')">${_deckPathHtml(s)}</div>`
+  ).join('');
+  if (!html && !isNew) html = '<div class="deck-picker-empty">No existing decks</div>';
+  if (isNew && query) {
+    html += `<div class="deck-picker-create" onclick="deckBPickerSelect('${query.replace(/'/g, "\\'")}')">+ Create ${_deckPathHtml(query)}</div>`;
+  }
+  dd.innerHTML = html;
+  const show = !!(suggestions.length || isNew || !query);
+  dd.style.display = show ? 'block' : 'none';
+  if (show) _positionDeckBDropdown();
+}
+
+function _positionDeckBDropdown() {
+  const input = document.getElementById('import-deck-b-path');
+  const dd = document.getElementById('deck-b-picker-dropdown');
+  if (!input || !dd) return;
+  const r = input.getBoundingClientRect();
+  const ddH = Math.min(220, dd.scrollHeight);
+  const spaceAbove = r.top;
+  const spaceBelow = window.innerHeight - r.bottom;
+  dd.style.width = r.width + 'px';
+  dd.style.left = r.left + 'px';
+  if (spaceAbove >= ddH + 8 || spaceAbove > spaceBelow) {
+    dd.style.bottom = (window.innerHeight - r.top + 4) + 'px';
+    dd.style.top = 'auto';
+  } else {
+    dd.style.top = (r.bottom + 4) + 'px';
+    dd.style.bottom = 'auto';
+  }
+}
+
+function deckBPickerOpen() {
+  const q = document.getElementById('import-deck-b-path').value.trim();
+  const filtered = (window._deckSuggestions || []).filter(s => !q || s.toLowerCase().includes(q.toLowerCase()));
+  _renderDeckBDropdown(filtered, q);
+}
+
+function deckBPickerFilter() {
+  const q = document.getElementById('import-deck-b-path').value.trim();
+  const filtered = (window._deckSuggestions || []).filter(s => !q || s.toLowerCase().includes(q.toLowerCase()));
+  _renderDeckBDropdown(filtered, q);
+}
+
+function deckBPickerSelect(path) {
+  document.getElementById('import-deck-b-path').value = path;
+  document.getElementById('deck-b-picker-dropdown').style.display = 'none';
+  const isNew = !(window._deckSuggestions || []).some(s => s.toLowerCase() === path.toLowerCase());
+  document.getElementById('deck-b-new-badge').style.display = (isNew && path) ? '' : 'none';
+  _deckBPath = path || null;
+  _importRenderTable();
+}
+
+function deckBPickerKey(e) {
+  const dd = document.getElementById('deck-b-picker-dropdown');
+  if (!dd) return;
+  if (dd.style.display === 'none') {
+    if (e.key === 'ArrowDown') { e.preventDefault(); deckBPickerOpen(); }
+    return;
+  }
+  const opts = dd.querySelectorAll('.deck-picker-option, .deck-picker-create');
+  if (e.key === 'Escape') { dd.style.display = 'none'; return; }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _deckBPickerActiveIdx = Math.min(_deckBPickerActiveIdx + 1, opts.length - 1);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _deckBPickerActiveIdx = Math.max(_deckBPickerActiveIdx - 1, -1);
+  } else if (e.key === 'Enter' && _deckBPickerActiveIdx >= 0) {
+    e.preventDefault();
+    opts[_deckBPickerActiveIdx].click();
+    return;
+  } else { return; }
+  opts.forEach((o, i) => o.classList.toggle('active', i === _deckBPickerActiveIdx));
+  if (_deckBPickerActiveIdx >= 0) opts[_deckBPickerActiveIdx].scrollIntoView({ block: 'nearest' });
+}
+
+function importApplyDeckB() {
+  _deckBPath = document.getElementById('import-deck-b-path').value.trim() || null;
+  _importRenderTable();
+}
+
+function importToggleDeckB(wordZh) {
+  const cfg = _cardConfigs[wordZh] || {};
+  const isB = cfg.deck_path === '__deckB__';
+  _cardConfigs[wordZh] = { ...cfg, deck_path: isB ? null : '__deckB__' };
+  _importRenderTable();
+}
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 loadDecks();
