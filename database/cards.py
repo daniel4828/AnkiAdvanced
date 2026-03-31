@@ -40,7 +40,7 @@ def get_card(card_id: int) -> dict | None:
            )
            SELECT c.*,
                   w.word_zh, w.pinyin, w.definition, w.pos, w.hsk_level,
-                  w.traditional, w.definition_zh, w.note_type, w.notes, w.definition_de,
+                  w.traditional, w.definition_zh, w.note_type, w.notes, w.definition_de, w.register,
                   d.name AS deck_name,
                   (SELECT group_concat(name, ' › ')
                    FROM (SELECT name FROM ancestors ORDER BY depth DESC)) AS deck_path,
@@ -174,7 +174,7 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
     rows = conn.execute(
         """SELECT c.*, w.word_zh, w.pinyin, w.definition, w.pos,
                   w.hsk_level, w.traditional, w.definition_zh,
-                  w.note_type, w.source_sentence, w.notes, w.definition_de
+                  w.note_type, w.source_sentence, w.notes, w.definition_de, w.register
            FROM cards c
            JOIN entries w ON w.id = c.word_id
            WHERE c.deck_id = ?
