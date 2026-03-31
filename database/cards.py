@@ -450,6 +450,11 @@ def get_next_card_any_cat(root_deck_id: int) -> dict | None:
     if not all_cards:
         return None
 
+    # Build category order index from root deck's preset
+    preset = get_preset_for_deck(root_deck_id)
+    order_str = preset.get("category_order", "listening,reading,creating")
+    cat_order = {c.strip(): i for i, c in enumerate(order_str.split(","))}
+
     # Reorder by story sentence position (same as get_next_card for single-cat)
     today = anki_today().isoformat()
     from .stories import get_active_story, get_story_sentences
@@ -464,6 +469,7 @@ def get_next_card_any_cat(root_deck_id: int) -> dict | None:
     all_cards.sort(key=lambda c: (
         0 if c["state"] in ("learning", "relearn") else
         1 if c["state"] == "review" else 2,
+        cat_order.get(c["category"], 99),
         story_pos.get(c["word_id"], NO_POS),
         c["due"],
     ))
