@@ -99,7 +99,13 @@
       "Bash(mkdir -p /Users/daniel/Documents/AnkiAdvanced/.claude/skills/skill-creator/de-zh-bot-workspace/iteration-1/eval-chengyu/with_skill/outputs)",
       "Skill(commit-commands:commit-push-pr)",
       "Skill(commit-commands:commit-push-pr:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(wc:*)",
+      "Bash(git restore:*)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(p\\) for p in d if ''''serena'''' in str\\(p\\).lower\\(\\)]\")",
+      "Bash(rm -rf /Users/daniel/.claude/plugins/cache/claude-plugins-official/serena)",
+      "Bash(rm -rf /Users/daniel/Documents/AnkiAdvanced/.serena)",
+      "Skill(commit-commands:commit)"
     ]
   }
 }

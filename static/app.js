@@ -3844,6 +3844,15 @@ function _hasOpenModal() {
 document.addEventListener('keydown', e => {
   const inInput = _isEditableFocusTarget(document.activeElement);
 
+  if (e.key === 'Escape') {
+    const storyOverlay = document.getElementById('story-modal-overlay');
+    if (storyOverlay && storyOverlay.style.display !== 'none') {
+      e.preventDefault();
+      closeStoryModal();
+      return;
+    }
+  }
+
   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
     const editModal = document.getElementById('edit-modal');
     if (editModal && editModal.style.display !== 'none') {
