@@ -493,6 +493,19 @@
       </div>
     </div>
 
+    <div id="import-deck-b-section">
+      <div class="deck-picker-label">
+        <span>Deck B</span>
+        <span class="deck-picker-new-badge" id="deck-b-new-badge" style="display:none">New</span>
+      </div>
+      <div class="deck-picker" id="deck-b-picker">
+        <input class="edit-input deck-picker-input" id="import-deck-b-path" type="text"
+               placeholder="optional — cards with B badge go here" autocomplete="off"
+               oninput="deckBPickerFilter()" onfocus="deckBPickerOpen()" onkeydown="deckBPickerKey(event)"
+               onchange="importApplyDeckB()">
+      </div>
+    </div>
+
     <!-- Hidden file input kept for YAML-editor preview flow -->
     <input id="import-file" type="file" accept=".yaml,.yml"
            onchange="onImportFileChange()" style="display:none">
@@ -521,15 +534,15 @@
           <thead>
             <tr>
               <th style="width:36px">+/−</th>
-              <th>Word</th>
-              <th>Translation</th>
-              <th style="width:56px">Type</th>
-              <th style="width:44px">HSK</th>
-              <th style="width:44px">Status</th>
+              <th style="width:90px">Word</th>
+              <th style="width:120px">Translation</th>
               <th style="width:44px" title="Listening suspended">Listen</th>
               <th style="width:44px" title="Reading suspended">Read</th>
               <th style="width:44px" title="Creating suspended">Create</th>
-              <th>Deck</th>
+              <th style="width:65px">Deck</th>
+              <th style="width:56px">Type</th>
+              <th style="width:44px">HSK</th>
+              <th style="width:44px">Status</th>
             </tr>
           </thead>
           <tbody id="import-table-body"></tbody>
@@ -720,5 +733,6 @@
 
 <!-- Deck picker dropdown — must be a direct body child to escape modal transform stacking context -->
 <div class="deck-picker-dropdown" id="deck-picker-dropdown" style="display:none"></div>
+<div class="deck-picker-dropdown" id="deck-b-picker-dropdown" style="display:none"></div>
 </body>
 </html>

@@ -2443,14 +2443,29 @@ select.opt-input {
 }
 
 /* ── Import modal – wide layout & table ─────────────────────────────────── */
-.import-modal-wide {
+#import-modal.import-modal-wide {
   width: min(1100px, 96vw);
   max-height: 90vh;
+}
+.col-resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  cursor: col-resize;
+  user-select: none;
+  z-index: 2;
+}
+.col-resize-handle:hover, .col-resize-handle.resizing {
+  background: var(--primary);
+  opacity: 0.4;
 }
 .import-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  table-layout: fixed;
 }
 .import-table th {
   text-align: left;
@@ -2468,6 +2483,7 @@ select.opt-input {
   padding: 3px 6px;
   border-bottom: 1px solid rgba(255,255,255,0.04);
   vertical-align: middle;
+  overflow: hidden;
 }
 .import-table tr.import-row-excluded td {
   opacity: 0.35;
@@ -2503,14 +2519,43 @@ select.opt-input {
   cursor: pointer;
 }
 .import-batch-btn:hover { background: rgba(255,255,255,0.06); }
+.import-deck-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.import-deck-b-badge {
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  z-index: 1;
+  flex-shrink: 0;
+}
+.import-deck-b-badge:disabled { opacity: 0.25; cursor: default; }
+.import-deck-b-badge.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.import-deck-b-badge:not(:disabled):not(.active):hover { border-color: var(--primary); color: var(--primary); }
 .import-row-deck-select {
   font-size: 12px;
   background: var(--card);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 2px 4px;
-  max-width: 140px;
+  padding: 2px 4px 2px 20px;
+  width: 100%;
+  max-width: 100%;
 }
 
 /* ── Conflict resolution modal ───────────────────────────────────────── */
