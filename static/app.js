@@ -1741,7 +1741,10 @@ async function _doStartReviewMixed(topic, maxHsk, model, noStory = false) {
       } catch (_) {}
       // Fire story generation for the other categories in the background,
       // then preload TTS so audio is ready when the category switches.
-      for (const cat of ['listening', 'reading', 'creating'].filter(c => c !== category)) {
+      // Use the deck's configured category_order so preloading follows the same priority.
+      const _deckForOrder = (() => { const flat = []; const w = ns => ns.forEach(n => { flat.push(n); w(n.children || []); }); if (_cachedDecks) w(_cachedDecks); return flat.find(d => d.id === rootDeckId); })();
+      const _catOrder = (_deckForOrder?.category_order || 'listening,reading,creating').split(',').map(s => s.trim());
+      for (const cat of _catOrder.filter(c => c !== category)) {
         fetch(`/api/story/${rootDeckId}/${cat}` + _storyParams(topic, maxHsk, model))
           .then(() => fetch(`/api/preload-session/${rootDeckId}/${cat}`, { method: 'POST' }))
           .catch(() => {});
