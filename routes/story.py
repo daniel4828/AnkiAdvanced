@@ -1,5 +1,4 @@
 import logging
-from datetime import date
 
 import database
 import ai
@@ -61,7 +60,7 @@ def get_story(deck_id: int, category: str,
     if database.is_sentences_deck(deck_id):
         return None
 
-    today = date.today().isoformat()
+    today = database.anki_today().isoformat()
     # Only use cached story if no custom options were provided
     if not topic and max_hsk == 2 and not model:
         story = database.get_active_story(today, category, deck_id)
@@ -121,7 +120,7 @@ def regenerate_story(deck_id: int, category: str,
     if DISABLE_AI:
         return None
     chosen_model = _validated_model(model)
-    today = date.today().isoformat()
+    today = database.anki_today().isoformat()
     cards = _get_cards_for_story(deck_id, category)
     logger.info("regen  deck=%d cat=%s due_cards=%d topic=%r max_hsk=%d model=%s",
                 deck_id, category, len(cards), topic, max_hsk, chosen_model)
@@ -169,7 +168,7 @@ def story_count(deck_id: int, category: str):
     """Return sentence count and whether a cached story already exists today."""
     if database.is_sentences_deck(deck_id):
         return {"count": 0, "has_story": False}
-    today = date.today().isoformat()
+    today = database.anki_today().isoformat()
     has_story = database.get_active_story(today, category, deck_id) is not None
     cards = _get_cards_for_story(deck_id, category)
     return {"count": len(cards), "has_story": has_story}
@@ -210,7 +209,7 @@ def preload(text: str):
 
 @router.post("/api/preload-session/{deck_id}/{category}")
 async def preload_session(deck_id: int, category: str):
-    today = date.today().isoformat()
+    today = database.anki_today().isoformat()
     story = database.get_active_story(today, category, deck_id)
     if story:
         sentences = database.get_story_sentences(story["id"])

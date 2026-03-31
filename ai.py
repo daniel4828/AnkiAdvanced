@@ -116,7 +116,6 @@ Rules:
 - Exactly {len(cards)} sentences total
 - For items marked [USE AS-IS]: use that text verbatim as sentence_zh — only provide an English translation
 - For all other items: write a sentence that naturally contains the target word
-- Each generated sentence must be ≤20 Chinese characters
 - Use proper Chinese punctuation — include commas（，）where natural pauses occur
 - Use only HSK 1-{max_hsk} vocabulary for non-target words
 {topic_line}- The sentences must form a coherent narrative with the same recurring characters

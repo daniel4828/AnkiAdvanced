@@ -1,5 +1,5 @@
 import math
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 import database
 
@@ -109,7 +109,7 @@ def next_learning_due(steps: list[int], step_index: int) -> str:
 
 def next_review_due(interval: int) -> str:
     """Returns ISO date = today + interval days."""
-    return (date.today() + timedelta(days=interval)).isoformat()
+    return (database.anki_today() + timedelta(days=interval)).isoformat()
 
 
 def calc_review(interval: int, ease: float,
