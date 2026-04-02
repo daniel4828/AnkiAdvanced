@@ -129,8 +129,11 @@ Rules:
     logger.info("[%s] generate_story: %d 张卡片", model, len(cards))
     logger.debug("Prompt:\n%s", prompt)
 
-    # 150 tokens per sentence is generous; add 200 for overhead/fences
+    # 150 tokens per sentence is generous; add 200 for overhead/fences.
+    # DeepSeek and other OpenAI-compatible providers cap at 8192.
     max_tokens = len(cards) * 150 + 200
+    if not model.startswith("claude-"):
+        max_tokens = min(max_tokens, 8192)
 
     missing_hint = ""
     for attempt in range(3):
