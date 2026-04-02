@@ -2117,6 +2117,19 @@ function revealAnswer() {
   posEl.textContent   = card.pos || '';
   posEl.style.display = card.pos ? 'inline-block' : 'none';
 
+  const regEl = document.getElementById('word-register');
+  const regLabels = {
+    spoken: '口语', written: '书面语', both: '通用',
+    spoken_colloquial: '口语俚语', spoken_neutral: '中性口语',
+    neutral: '通用', formal_written: '正式书面语', literary: '文学语体'
+  };
+  if (card.register) {
+    regEl.textContent = regLabels[card.register] || card.register;
+    regEl.style.display = 'inline-block';
+  } else {
+    regEl.style.display = 'none';
+  }
+
   // Re-enable rating buttons
   document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
 
