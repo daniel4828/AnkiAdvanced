@@ -60,7 +60,7 @@
 
 - 开始任何重要工作之前先创建一个议题
 - **议题标题和描述用中文写**
-- 议题有**标签（biāoqiān - labels）**：`feature`、`bug`、`database`、`frontend`、`backend`
+- 议题有**标签（biāoqiān - labels）**，全部使用中文名：`新功能`、`程序错误`、`数据库`、`前端`、`后端`、`ai`、`设计`、`文档`
 - 议题按**里程碑（lǐchéngbēi - milestone）**分组（如"Recovery Sprint"）
 - 开 PR 时，始终引用（yǐnyòng - reference）议题：`Closes #42`
   这会在 PR 合并时自动关闭议题。

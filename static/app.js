@@ -2110,7 +2110,7 @@ function revealAnswer() {
   wordPinEl.style.display = isSentenceNote ? 'none' : '';
   document.getElementById('word-def').textContent = card.definition || '';
   const wordDefDeEl = document.getElementById('word-def-de');
-  wordDefDeEl.textContent = card.definition_de ? `🇩🇪 ${card.definition_de}` : '';
+  wordDefDeEl.textContent = card.definition_de || '';
   wordDefDeEl.style.display = card.definition_de ? 'block' : 'none';
 
   const posEl = document.getElementById('word-pos');
@@ -2851,7 +2851,7 @@ async function saveEditCard() {
       document.getElementById('word-pin').textContent = updated.pinyin  || '';
       document.getElementById('word-def').textContent = updated.definition || '';
       const wordDefDeEl2 = document.getElementById('word-def-de');
-      wordDefDeEl2.textContent = updated.definition_de ? `🇩🇪 ${updated.definition_de}` : '';
+      wordDefDeEl2.textContent = updated.definition_de || '';
       wordDefDeEl2.style.display = updated.definition_de ? 'block' : 'none';
       const posEl = document.getElementById('word-pos');
       posEl.textContent   = updated.pos || '';
