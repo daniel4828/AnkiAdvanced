@@ -115,10 +115,14 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
         rating_label, updated["due"], ivl_str,
         updated["ease"], updated["lapses"],
     )
-    next_word = next_card["word_zh"] if next_card else "（无）"
+    cat_totals = {
+        c: sum(database.count_due(deck_id, c).values())
+        for c in ("listening", "reading", "creating")
+    }
     logger.info(
-        "Queue: %d lrn  %d rev  %d new  │ next: %s",
-        counts["learning"], counts["review"], counts["new"], next_word,
+        "Queue: %d lrn  %d rev  %d new  │ 听=%d  读=%d  创=%d",
+        counts["learning"], counts["review"], counts["new"],
+        cat_totals["listening"], cat_totals["reading"], cat_totals["creating"],
     )
     if updated.get("state") == "suspended":
         logger.warning(
