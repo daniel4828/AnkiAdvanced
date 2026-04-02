@@ -28,12 +28,67 @@ import importer
 # Logging — set LOG_LEVEL=DEBUG in .env for verbose output
 # ---------------------------------------------------------------------------
 
-logging.basicConfig(
-    level=os.environ.get("LOG_LEVEL", "INFO").upper(),
-    format="%(asctime)s [%(levelname)-5s] %(name)s: %(message)s",
-    datefmt="%H:%M:%S",
-    stream=sys.stderr,
-)
+def _make_formatter() -> logging.Formatter:
+    if not sys.stderr.isatty():
+        return logging.Formatter(
+            "%(asctime)s [%(levelname)-5s] %(name)s: %(message)s",
+            datefmt="%H:%M:%S",
+        )
+
+    R = "\033[0m"
+    DIM = "\033[2m"
+    BOLD = "\033[1m"
+
+    LEVEL_COLOR = {
+        "DEBUG":    "\033[96m",    # bright cyan
+        "INFO":     "\033[92m",    # bright green
+        "WARNING":  "\033[93m",    # yellow
+        "ERROR":    "\033[91m",    # bright red
+        "CRITICAL": "\033[1;91m",  # bold red
+    }
+    LOGGER_COLOR = {
+        "main":           "\033[34m",   # blue
+        "routes.review":  "\033[1;96m", # bold cyan
+        "routes.story":   "\033[35m",   # magenta
+        "ai":             "\033[33m",   # orange/yellow
+        "tts":            "\033[36m",   # cyan
+        "importer":       "\033[37m",   # white
+    }
+    METHOD_COLOR = {
+        "POST":   "\033[34m",    # blue
+        "GET":    "\033[32m",    # green
+        "PUT":    "\033[33m",    # yellow
+        "DELETE": "\033[31m",    # red
+        "PATCH":  "\033[35m",    # magenta
+    }
+
+    class _ColorFmt(logging.Formatter):
+        def format(self, record: logging.LogRecord) -> str:
+            ts = f"{DIM}{self.formatTime(record, '%H:%M:%S')}{R}"
+            msg = record.getMessage()
+            parts = msg.split()
+
+            # HTTP request lines — compact and dim
+            if record.name == "main" and parts and parts[0] in METHOD_COLOR:
+                mc = METHOD_COLOR[parts[0]]
+                method = f"{mc}{BOLD}{parts[0]}{R}"
+                rest = f"{DIM}{' '.join(parts[1:])}{R}"
+                return f"{ts}  {method} {rest}"
+
+            lc = LEVEL_COLOR.get(record.levelname, "")
+            level = f"{lc}[{record.levelname:<5}]{R}"
+            nc = LOGGER_COLOR.get(record.name, DIM)
+            short = record.name.split(".")[-1]
+            name = f"{nc}{short}{R}"
+            return f"{ts} {level} {name}: {msg}"
+
+    return _ColorFmt(datefmt="%H:%M:%S")
+
+
+_handler = logging.StreamHandler(sys.stderr)
+_handler.setFormatter(_make_formatter())
+logging.root.setLevel(os.environ.get("LOG_LEVEL", "INFO").upper())
+logging.root.addHandler(_handler)
 logger = logging.getLogger("main")
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
