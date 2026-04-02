@@ -35,6 +35,7 @@ logging.basicConfig(
     stream=sys.stderr,
 )
 logger = logging.getLogger("main")
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 # ---------------------------------------------------------------------------
