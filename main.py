@@ -93,8 +93,9 @@ def main():
 # ---------------------------------------------------------------------------
 
 try:
+    import time
     from contextlib import asynccontextmanager
-    from fastapi import FastAPI
+    from fastapi import FastAPI, Request
     from fastapi.staticfiles import StaticFiles
     from fastapi.responses import FileResponse
     import uvicorn
@@ -118,6 +119,20 @@ try:
             logger.info("[dev] DB and TTS cache cleared on exit.")
 
     app = FastAPI(title="AnkiAdvanced", lifespan=lifespan)
+
+    @app.middleware("http")
+    async def log_requests(request: Request, call_next):
+        start = time.time()
+        response = await call_next(request)
+        ms = round((time.time() - start) * 1000)
+        if request.method != "GET" or response.status_code >= 400:
+            params = dict(request.query_params)
+            readable = {k: (v[:30] + "…" if len(v) > 30 else v) for k, v in params.items()}
+            param_str = f"  {readable}" if readable else ""
+            logger.info("%s %s%s → %d  (%dms)",
+                        request.method, request.url.path, param_str,
+                        response.status_code, ms)
+        return response
 
     if os.path.exists("static"):
         app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -156,7 +171,7 @@ if __name__ == "__main__":
         import uvicorn
         database.init_db()
         database.purge_old_trash()
-        uvicorn.run(app, host="0.0.0.0", port=8000)
+        uvicorn.run(app, host="0.0.0.0", port=8000, access_log=False)
     else:
         print("Install fastapi and uvicorn to run the web server.")
         print("Usage: python main.py import | status [--deck NAME]")
