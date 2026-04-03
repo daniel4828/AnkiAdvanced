@@ -53,15 +53,6 @@ let _browseDecks = [];            // flat deck list for move dropdown
 let optDeckId    = null; // deck whose options modal is open
 const collapsed  = new Set(JSON.parse(localStorage.getItem('collapsedDecks') || '[]'));  // parent deck IDs that are collapsed
 let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
-let _currentPromptText = null; // story prompt_text for the current card
-
-// ── Story prompt popover ─────────────────────────────────────────────────────
-function togglePromptPopover() {
-  const popover = document.getElementById('prompt-popover');
-  if (!_currentPromptText) return;
-  popover.style.display = popover.style.display === 'none' ? 'block' : 'none';
-}
-
 // ── Prompt modal ────────────────────────────────────────────────────────────
 let _promptResolve = null;
 function showPrompt(title, defaultValue = '') {
@@ -1871,12 +1862,12 @@ function loadCard(c, counts) {
             const counter = document.getElementById('sentence-counter');
             counter.textContent = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
             counter.style.display = 'block';
-            _currentPromptText = story.prompt_text || null;
-            const popover = document.getElementById('prompt-popover');
-            if (_currentPromptText) {
-              popover.textContent = _currentPromptText;
+            const promptLine = document.getElementById('story-prompt-line');
+            if (story.prompt_text) {
+              promptLine.textContent = story.prompt_text;
+              promptLine.style.display = 'block';
             } else {
-              popover.style.display = 'none';
+              promptLine.style.display = 'none';
             }
             const isListening = category === 'listening';
             const isCreating  = category === 'creating';
@@ -1911,13 +1902,16 @@ function loadCard(c, counts) {
   if (sentence && story?.sentences?.length) {
     counter.textContent = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
     counter.style.display = 'block';
-    _currentPromptText = story.prompt_text || null;
-    const popover = document.getElementById('prompt-popover');
-    if (!_currentPromptText) popover.style.display = 'none';
+    const promptLine2 = document.getElementById('story-prompt-line');
+    if (story?.prompt_text) {
+      promptLine2.textContent = story.prompt_text;
+      promptLine2.style.display = 'block';
+    } else {
+      promptLine2.style.display = 'none';
+    }
   } else {
     counter.style.display = 'none';
-    _currentPromptText = null;
-    document.getElementById('prompt-popover').style.display = 'none';
+    document.getElementById('story-prompt-line').style.display = 'none';
   }
 
   // Update card type badge (note type only — category shown by circles)
