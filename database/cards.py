@@ -321,7 +321,7 @@ def count_due(deck_id: int, category: str) -> dict:
     new_remaining = max(0, new_limit - new_done_today)
 
     rows = conn.execute(
-        """SELECT c.word_id, c.state FROM cards c
+        """SELECT c.word_id, c.state, c.due FROM cards c
            WHERE c.deck_id = ? AND c.category = ?
              AND c.state != 'suspended'
              AND c.deleted_at IS NULL
@@ -338,11 +338,22 @@ def count_due(deck_id: int, category: str) -> dict:
     review   = sum(1 for r in rows if r["state"] == "review")
     new_avail = sum(1 for r in rows if r["state"] == "new")
 
+    learning_future = conn.execute(
+        """SELECT COUNT(*) FROM cards
+           WHERE deck_id = ? AND category = ?
+             AND state IN ('learning', 'relearn')
+             AND due > ?
+             AND deleted_at IS NULL
+             AND (buried_until IS NULL OR buried_until < ?)""",
+        (deck_id, category, now, today),
+    ).fetchone()[0]
+
     conn.close()
     return {
         "new": min(new_avail, new_remaining),
         "learning": learning,
         "review": review,
+        "learning_future": learning_future,
     }
 
 
@@ -484,6 +495,19 @@ def count_due_any_cat(root_deck_id: int) -> dict:
     """
     leaf_pairs = _leaf_decks_with_category(root_deck_id)
     return count_due_deduped(leaf_pairs)
+
+
+def count_due_by_category(root_deck_id: int) -> dict:
+    """Per-category {new, learning, review} counts for mixed review display."""
+    leaf_pairs = _leaf_decks_with_category(root_deck_id)
+    result: dict[str, dict[str, int]] = {}
+    for deck_id, category in leaf_pairs:
+        c = count_due(deck_id, category)
+        if category not in result:
+            result[category] = {"new": 0, "learning": 0, "review": 0}
+        for k in ("new", "learning", "review"):
+            result[category][k] += c[k]
+    return result
 
 
 def get_due_cards_multi(deck_ids: list[int], category: str, *, sibling_suppression: bool = False) -> list[dict]:

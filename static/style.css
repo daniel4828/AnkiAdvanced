@@ -168,6 +168,9 @@ main.browse-open {
   margin-bottom: 18px;
 }
 .counts-row b { font-weight: 700; }
+.cnt-cat-sep { color: var(--border); }
+.cnt-cat { font-size: 12px; color: var(--muted); }
+.cnt-cat b { font-weight: 700; }
 
 /* The main card */
 .review-card {

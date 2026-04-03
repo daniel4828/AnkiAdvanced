@@ -1834,6 +1834,21 @@ function loadCard(c, counts) {
   document.getElementById('cnt-lrn').textContent = counts.learning;
   document.getElementById('cnt-rev').textContent = counts.review;
 
+  // Per-category breakdown (mixed/all mode only)
+  const byCatEl = document.getElementById('cnt-by-cat');
+  if (counts.by_cat && byCatEl) {
+    byCatEl.style.display = 'flex';
+    const catMap = {r: 'reading', l: 'listening', c: 'creating'};
+    for (const [prefix, cat] of Object.entries(catMap)) {
+      const cc = counts.by_cat[cat] || {new: 0, learning: 0, review: 0};
+      document.getElementById(`cnt-${prefix}-new`).textContent = cc.new;
+      document.getElementById(`cnt-${prefix}-lrn`).textContent = cc.learning;
+      document.getElementById(`cnt-${prefix}-rev`).textContent = cc.review;
+    }
+  } else if (byCatEl) {
+    byCatEl.style.display = 'none';
+  }
+
   // Set interval labels on rating buttons (e.g. "1m", "10m", "4d")
   const iv = card.intervals || {};
   [1, 2, 3, 4].forEach(r => {
