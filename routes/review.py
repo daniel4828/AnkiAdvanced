@@ -103,11 +103,32 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
         next_card = database.get_card(next_card["id"])
         next_card["intervals"] = srs.preview_intervals(next_card)
 
-    rating_label = {1: "Again", 2: "Hard", 3: "Good", 4: "Easy"}.get(rating, rating)
-    logger.info("review %s → %s (%s)  due=%s  next=%s  queue: %d lrn %d rev %d new",
-                card_before["word_zh"], updated["state"], rating_label,
-                updated["due"], next_card["word_zh"] if next_card else "—",
-                counts["learning"], counts["review"], counts["new"])
+    rating_label = {1: "Again", 2: "Hard", 3: "Good", 4: "Easy"}.get(rating, str(rating))
+    ivl = updated["interval"]
+    ivl_str = f"{ivl}d" if ivl >= 1 else f"{round(ivl * 1440)}m"
+    pinyin = card_before.get("pinyin", "")
+    pinyin_part = f" ({pinyin})" if pinyin else ""
+    logger.info(
+        "Card #%d %s%s  %s → %s  %s  due=%s  ivl=%s  ease=%.2f  lapses=%d",
+        card_before["id"], card_before["word_zh"], pinyin_part,
+        card_before["state"], updated["state"],
+        rating_label, updated["due"], ivl_str,
+        updated["ease"], updated["lapses"],
+    )
+    cat_totals = {
+        c: sum(database.count_due(deck_id, c).values())
+        for c in ("listening", "reading", "creating")
+    }
+    logger.info(
+        "Queue: %d lrn  %d rev  %d new  │ 听=%d  读=%d  创=%d",
+        counts["learning"], counts["review"], counts["new"],
+        cat_totals["listening"], cat_totals["reading"], cat_totals["creating"],
+    )
+    if updated.get("state") == "suspended":
+        logger.warning(
+            "Card #%d %s SUSPENDED (lapses=%d)",
+            card_before["id"], card_before["word_zh"], updated["lapses"],
+        )
     return {"next_card": next_card, "counts": counts}
 
 
