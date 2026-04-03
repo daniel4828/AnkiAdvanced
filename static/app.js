@@ -248,6 +248,18 @@ function countHtml(c) {
   return `<span class="n-new">${c.new}</span> <span class="n-lrn">${c.learning}</span> <span class="n-rev">${c.review}</span>`;
 }
 
+function buildCatCountsInline(deck) {
+  const DEFAULT_ORDER = ['listening', 'reading', 'creating'];
+  const orderStr = deck.category_order || 'listening,reading,creating';
+  const ordered = orderStr.split(',').map(s => s.trim()).filter(s => DEFAULT_ORDER.includes(s));
+  const CATS = [...ordered, ...DEFAULT_ORDER.filter(c => !ordered.includes(c))];
+  const ZH = { listening: '听', reading: '读', creating: '创' };
+  return CATS.map(cat => {
+    const cc = aggregateCounts(deck, cat);
+    return `<span class="deck-cat-inline"><span class="deck-cat-zh">${ZH[cat]}</span> <span class="n-new">${cc.new}</span>·<span class="n-lrn">${cc.learning}</span>·<span class="n-rev">${cc.review}</span></span>`;
+  }).join('');
+}
+
 // Build 3 inline pills (L/R/C) for any deck. Uses direct cat leaves if present, else aggregates.
 function buildCategoryButtons(deck) {
   const DEFAULT_ORDER = ['listening', 'reading', 'creating'];
@@ -330,7 +342,7 @@ function renderDecks(decks) {
       <div class="tree-row tree-parent">
         <span class="tree-toggle"></span>
         <span class="tree-name" onclick="startReviewMixed(${allDeck.id},'${safeName}')" style="cursor:pointer">All</span>
-        <span class="deck-counts"><span class="n-new">${(allDeck.counts||{}).new||0}</span><span class="n-lrn">${(allDeck.counts||{}).learning||0}</span><span class="n-rev">${(allDeck.counts||{}).review||0}</span></span>
+        <span class="deck-counts"><span class="n-new">${(allDeck.counts||{}).new||0}</span><span class="n-lrn">${(allDeck.counts||{}).learning||0}</span><span class="n-rev">${(allDeck.counts||{}).review||0}</span><span class="deck-cat-sep">|</span>${buildCatCountsInline(allDeck)}</span>
         <button class="${allBuryClass}" onclick="event.stopPropagation();toggleBury(${allDeck.id})" title="${allBuryTitle}">${allBuryIcon}</button>
         <div class="deck-menu-wrap">
           <button class="deck-susp-btn ${allDeck.deck_all_suspended ? 'deck-all-suspended' : ''}" onclick="event.stopPropagation();toggleDeckAllSuspension(${allDeck.id})" title="${allDeck.deck_all_suspended ? 'Unsuspend all cards' : 'Suspend all cards'}">${allDeck.deck_all_suspended ? '▶' : '⏸'}</button>
@@ -372,7 +384,7 @@ function renderDeckRows(decks, depth) {
     const toggleIcon = hasStructChildren ? (isCollapsed ? '▶' : '▼') : '';
     const safeName  = deck.name.replace(/'/g, "\\'");
     const c = deck.counts || { new: 0, learning: 0, review: 0 };
-    const deckCounts = `<span class="deck-counts"><span class="n-new">${c.new}</span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span></span>`;
+    const deckCounts = `<span class="deck-counts"><span class="n-new">${c.new}</span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span><span class="deck-cat-sep">|</span>${buildCatCountsInline(deck)}</span>`;
 
     const buryMode   = deck.bury_mode || 'all';
     const buryIcon   = buryMode === 'all' ? '⛓' : buryMode === 'none' ? '⊘' : '≡';
