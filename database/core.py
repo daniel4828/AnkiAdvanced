@@ -159,6 +159,8 @@ def init_db() -> None:
     story_cols = {r["name"] for r in conn.execute("PRAGMA table_info(stories)").fetchall()}
     if "prompt_text" not in story_cols:
         conn.execute("ALTER TABLE stories ADD COLUMN prompt_text TEXT")
+    if "topic" not in story_cols:
+        conn.execute("ALTER TABLE stories ADD COLUMN topic TEXT")
 
     deck_cols = {r["name"] for r in conn.execute("PRAGMA table_info(decks)").fetchall()}
     if "deleted_at" not in deck_cols:

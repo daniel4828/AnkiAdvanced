@@ -43,12 +43,13 @@ def get_latest_story(deck_id: int, category: str) -> dict | None:
 
 
 def create_story(date_str: str, category: str, deck_id: int,
-                 sentences: list[dict], prompt_text: str | None = None) -> int:
+                 sentences: list[dict], prompt_text: str | None = None,
+                 topic: str | None = None) -> int:
     """Always inserts a new story row. Returns story_id."""
     conn = get_db()
     cur = conn.execute(
-        "INSERT INTO stories (date, category, deck_id, prompt_text) VALUES (?, ?, ?, ?)",
-        (date_str, category, deck_id, prompt_text),
+        "INSERT INTO stories (date, category, deck_id, prompt_text, topic) VALUES (?, ?, ?, ?, ?)",
+        (date_str, category, deck_id, prompt_text, topic),
     )
     story_id = cur.lastrowid
     for s in sentences:

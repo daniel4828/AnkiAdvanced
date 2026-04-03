@@ -88,7 +88,7 @@ def get_story(deck_id: int, category: str,
                                                            model=chosen_model)
                 for i, s in enumerate(sentences):
                     s["position"] = i
-                database.create_story(today, category, deck_id, sentences, prompt_text)
+                database.create_story(today, category, deck_id, sentences, prompt_text, topic)
                 story = database.get_active_story(today, category, deck_id)
                 last_error = None
                 break
@@ -133,7 +133,7 @@ def regenerate_story(deck_id: int, category: str,
                                                        model=chosen_model)
             for i, s in enumerate(sentences):
                 s["position"] = i
-            database.create_story(today, category, deck_id, sentences, prompt_text)
+            database.create_story(today, category, deck_id, sentences, prompt_text, topic)
             story = database.get_active_story(today, category, deck_id)
             last_error = None
             break

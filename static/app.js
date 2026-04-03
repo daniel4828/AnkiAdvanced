@@ -1862,12 +1862,12 @@ function loadCard(c, counts) {
             const counter = document.getElementById('sentence-counter');
             counter.textContent = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
             counter.style.display = 'block';
-            const promptLine = document.getElementById('story-prompt-line');
-            if (story.prompt_text) {
-              promptLine.textContent = story.prompt_text;
-              promptLine.style.display = 'block';
+            const topicLine = document.getElementById('story-topic-line');
+            if (story.topic) {
+              topicLine.textContent = `Topic: ${story.topic}`;
+              topicLine.style.display = 'block';
             } else {
-              promptLine.style.display = 'none';
+              topicLine.style.display = 'none';
             }
             const isListening = category === 'listening';
             const isCreating  = category === 'creating';
@@ -1902,16 +1902,16 @@ function loadCard(c, counts) {
   if (sentence && story?.sentences?.length) {
     counter.textContent = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
     counter.style.display = 'block';
-    const promptLine2 = document.getElementById('story-prompt-line');
-    if (story?.prompt_text) {
-      promptLine2.textContent = story.prompt_text;
-      promptLine2.style.display = 'block';
+    const topicLine2 = document.getElementById('story-topic-line');
+    if (story?.topic) {
+      topicLine2.textContent = `Topic: ${story.topic}`;
+      topicLine2.style.display = 'block';
     } else {
-      promptLine2.style.display = 'none';
+      topicLine2.style.display = 'none';
     }
   } else {
     counter.style.display = 'none';
-    document.getElementById('story-prompt-line').style.display = 'none';
+    document.getElementById('story-topic-line').style.display = 'none';
   }
 
   // Update card type badge (note type only — category shown by circles)
