@@ -185,6 +185,7 @@ main.browse-open {
   display: flex;
   align-items: center;
   min-height: 14px;
+  position: relative;
 }
 .card-meta-row > #sentence-counter {
   flex: 1;
@@ -204,6 +205,29 @@ main.browse-open {
   font-weight: 600;
   color: var(--muted);
   letter-spacing: 0.4px;
+  user-select: none;
+}
+#sentence-counter:hover {
+  color: var(--accent);
+}
+#prompt-popover {
+  position: absolute;
+  top: 36px;
+  left: 0;
+  z-index: 200;
+  background: var(--surface, #1e1e1e);
+  border: 1px solid var(--border, #333);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 520px;
+  max-height: 360px;
+  overflow-y: auto;
+  color: var(--text, #ccc);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
 }
 #card-type-badge {
   font-size: 10px;

@@ -53,6 +53,14 @@ let _browseDecks = [];            // flat deck list for move dropdown
 let optDeckId    = null; // deck whose options modal is open
 const collapsed  = new Set(JSON.parse(localStorage.getItem('collapsedDecks') || '[]'));  // parent deck IDs that are collapsed
 let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
+let _currentPromptText = null; // story prompt_text for the current card
+
+// ── Story prompt popover ─────────────────────────────────────────────────────
+function togglePromptPopover() {
+  const popover = document.getElementById('prompt-popover');
+  if (!_currentPromptText) return;
+  popover.style.display = popover.style.display === 'none' ? 'block' : 'none';
+}
 
 // ── Prompt modal ────────────────────────────────────────────────────────────
 let _promptResolve = null;
@@ -1629,7 +1637,7 @@ async function startReview(id, cat, name, noStory = false) {
       api('GET', `/api/story/${deckId}/${category}/count`),
       api('GET', `/api/today/${deckId}/${category}`),
     ]);
-    const learning = todayCounts?.counts?.learning || 0;
+    const learning = todayCounts?.counts?.learning_future || 0;
     if (has_story || count === 0) {
       await _doStartReview(null, 2);
     } else {
@@ -1706,7 +1714,7 @@ async function startReviewMixed(id, name, noStory = false) {
     }
     const c = todayData.counts;
     const total = (c.new || 0) + (c.learning || 0) + (c.review || 0);
-    const learning = c.learning || 0;
+    const learning = c.learning_future || 0;
     const firstCat = todayData.card.category;
     const { has_story } = await api('GET', `/api/story/${id}/${firstCat}/count`);
     if (has_story) {
@@ -1863,6 +1871,13 @@ function loadCard(c, counts) {
             const counter = document.getElementById('sentence-counter');
             counter.textContent = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
             counter.style.display = 'block';
+            _currentPromptText = story.prompt_text || null;
+            const popover = document.getElementById('prompt-popover');
+            if (_currentPromptText) {
+              popover.textContent = _currentPromptText;
+            } else {
+              popover.style.display = 'none';
+            }
             const isListening = category === 'listening';
             const isCreating  = category === 'creating';
             if (!isListening && !isCreating) {
@@ -1896,8 +1911,13 @@ function loadCard(c, counts) {
   if (sentence && story?.sentences?.length) {
     counter.textContent = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
     counter.style.display = 'block';
+    _currentPromptText = story.prompt_text || null;
+    const popover = document.getElementById('prompt-popover');
+    if (!_currentPromptText) popover.style.display = 'none';
   } else {
     counter.style.display = 'none';
+    _currentPromptText = null;
+    document.getElementById('prompt-popover').style.display = 'none';
   }
 
   // Update card type badge (note type only — category shown by circles)
@@ -2907,7 +2927,7 @@ async function regenerateStory() {
   try {
     if (deckId && category) {
       const todayCounts = await api('GET', `/api/today/${deckId}/${category}`);
-      learning = todayCounts?.counts?.learning || 0;
+      learning = todayCounts?.counts?.learning_future || 0;
     }
   } catch (_) {}
   try {
