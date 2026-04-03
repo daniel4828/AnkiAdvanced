@@ -53,6 +53,7 @@ def _make_formatter() -> logging.Formatter:
         "ai":             "\033[33m",   # orange/yellow
         "tts":            "\033[36m",   # cyan
         "importer":       "\033[37m",   # white
+        "ui":             "\033[95m",   # bright magenta
     }
     METHOD_COLOR = {
         "POST":   "\033[34m",    # blue
@@ -176,11 +177,15 @@ try:
 
     app = FastAPI(title="AnkiAdvanced", lifespan=lifespan)
 
+    ui_logger = logging.getLogger("ui")
+
     @app.middleware("http")
     async def log_requests(request: Request, call_next):
         start = time.time()
         response = await call_next(request)
         ms = round((time.time() - start) * 1000)
+        if request.url.path == "/api/log":
+            return response
         if request.method != "GET" or response.status_code >= 400:
             params = dict(request.query_params)
             readable = {k: (v[:30] + "…" if len(v) > 30 else v) for k, v in params.items()}
@@ -205,6 +210,16 @@ try:
 
     import threading
     import time
+
+    from pydantic import BaseModel
+
+    class LogBody(BaseModel):
+        action: str
+
+    @app.post("/api/log")
+    def log_ui_action(body: LogBody):
+        ui_logger.info("点击 → %s", body.action)
+        return {"ok": True}
 
     @app.post("/api/restart")
     def restart_server():

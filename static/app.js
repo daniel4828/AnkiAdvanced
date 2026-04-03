@@ -4243,5 +4243,65 @@ function importToggleDeckB(wordZh) {
   _importRenderTable();
 }
 
+// ── UI Click Logger ───────────────────────────────────────────────────────────
+const _UI_ACTION_MAP = {
+  startReviewMixed:         '开始复习牌组',
+  startReviewUnfinished:    '开始复习未完成卡片',
+  openBrowse:               '打开浏览',
+  openBrowseForDeck:        '浏览牌组卡片',
+  openStats:                '打开统计',
+  openCostModal:            '打开 API 费用',
+  openImportModal:          '打开导入',
+  openQuickAddCard:         '快速添加卡片',
+  createDeck:               '新建牌组',
+  openTrash:                '打开垃圾桶',
+  toggleBury:               '切换埋葬',
+  toggleDeckAllSuspension:  '切换暂停所有卡片',
+  toggleDeckMenu:           '打开牌组菜单',
+  renameDeck:               '重命名牌组',
+  deleteDeck:               '删除牌组',
+  clearDeckCards:           '清空牌组卡片',
+  openOptions:              '打开牌组选项',
+  toggleDeck:               '折叠/展开牌组',
+  openWordDetail:           '查看词语详情',
+  openHanziDetail:          '查看汉字详情',
+  onBrowseRowClick:         '点击浏览行',
+  openAddToDeckModal:       '添加到牌组',
+  setBrowseDeckFilter:      '筛选牌组',
+  cardAction:               '卡片操作',
+  toggleCardMenu:           '卡片菜单',
+  openHanziRegenModal:      '汉字重新生成',
+  openWordEditModal:        '编辑词语',
+  openHanziEditModal:       '编辑汉字',
+  toggleSection:            '折叠/展开区块',
+  toggleReviewCat:          '切换复习类别',
+  _moveCatOrder:            '调整类别顺序',
+  confirmPromptModal:       '确认对话框',
+  cancelPromptModal:        '取消对话框',
+  closeDeckMenu:            '关闭牌组菜单',
+};
+
+document.addEventListener('click', function(e) {
+  const el = e.target.closest('[onclick], button, a');
+  if (!el) return;
+
+  const onclickAttr = el.getAttribute('onclick') || '';
+  const fnMatch = onclickAttr.match(/^(?:event\.stopPropagation\(\);)?(\w+)/);
+  const fnName = fnMatch ? fnMatch[1] : '';
+
+  const label = _UI_ACTION_MAP[fnName]
+    || (el.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 30)
+    || fnName
+    || el.tagName;
+
+  const extra = fnName && !_UI_ACTION_MAP[fnName] ? '' : fnName ? ` [${fnName}]` : '';
+  const action = `${label}${extra}`;
+  fetch('/api/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action }),
+  }).catch(() => {});
+}, true);
+
 // ── Boot ─────────────────────────────────────────────────────────────────────
 loadDecks();
