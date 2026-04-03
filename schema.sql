@@ -271,7 +271,8 @@ CREATE TABLE IF NOT EXISTS stories (
     date            TEXT NOT NULL,  -- YYYY-MM-DD
     category        TEXT NOT NULL CHECK(category IN ('listening', 'reading', 'creating')),
     deck_id         INTEGER NOT NULL REFERENCES decks(id) ON DELETE CASCADE,
-    generated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+    generated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    prompt_text     TEXT          -- full AI prompt used to generate this story (NULL for legacy rows)
     -- NO unique constraint: multiple stories per (date, category, deck) allowed
     -- active story = latest generated_at
     -- stories are NEVER auto-deleted

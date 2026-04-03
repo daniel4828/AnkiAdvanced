@@ -75,7 +75,7 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str) -> str:
 # ---------------------------------------------------------------------------
 
 def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2,
-                   model: str = DEFAULT_MODEL) -> list[dict]:
+                   model: str = DEFAULT_MODEL) -> tuple[list[dict], str]:
     """
     Generate a short Mandarin story, one sentence per card.
 
@@ -83,11 +83,13 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
     topic:   optional theme/setting to guide the story
     max_hsk: maximum HSK level for non-target background vocabulary (1-6)
     model:   model ID to use for generation
-    Returns: list of {word_id, sentence_zh, sentence_en} — same length as cards.
-    Returns [] immediately if cards is empty (no API call made).
+    Returns: (sentences, prompt_text)
+      sentences: list of {word_id, sentence_zh, sentence_en} — same length as cards.
+      prompt_text: the full prompt string sent to the AI.
+    Returns ([], "") immediately if cards is empty (no API call made).
     """
     if not cards:
-        return []
+        return [], ""
 
     def _is_sentence(word_zh: str) -> bool:
         return word_zh.endswith(('。', '！', '？', '!', '?'))
@@ -174,7 +176,7 @@ Rules:
                         continue
                     logger.info("generate_story: success — %d sentences (attempt %d)",
                                 len(result), attempt + 1)
-                    return result
+                    return result, prompt
                 else:
                     logger.warning("generate_story: count mismatch — got %d, need %d",
                                    len(result), len(cards))
@@ -182,7 +184,7 @@ Rules:
             logger.error("generate_story: JSON parse error: %s", e)
 
     logger.warning("generate_story: falling back to placeholder sentences")
-    return _fallback_sentences(cards)
+    return _fallback_sentences(cards), prompt
 
 
 def generate_character_info(char: str, pinyin: str, model: str = DEFAULT_MODEL) -> dict:
