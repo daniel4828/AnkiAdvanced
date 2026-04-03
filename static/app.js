@@ -2957,6 +2957,19 @@ async function _doRegenerateStory(topic, maxHsk, model) {
     sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
     _showLoadingSuccess('Story regenerated!');
     _resetLoadingSpinner();
+    // Update sentence counter + topic line immediately
+    const counter = document.getElementById('sentence-counter');
+    const topicLine = document.getElementById('story-topic-line');
+    if (sentence && story?.sentences?.length) {
+      counter.textContent = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
+      counter.style.display = 'block';
+      if (story.topic) {
+        topicLine.textContent = `Topic: ${story.topic}`;
+        topicLine.style.display = 'block';
+      } else {
+        topicLine.style.display = 'none';
+      }
+    }
     try {
       await fetch(`/api/preload-session/${deckId}/${category}`, { method: 'POST' });
     } catch (_) {}
