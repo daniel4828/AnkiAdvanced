@@ -53,6 +53,18 @@ let _browseDecks = [];            // flat deck list for move dropdown
 let optDeckId    = null; // deck whose options modal is open
 const collapsed  = new Set(JSON.parse(localStorage.getItem('collapsedDecks') || '[]'));  // parent deck IDs that are collapsed
 let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
+// ── Story info row (Sentence x/y · Topic) ───────────────────────────────────
+function _updateStoryInfoRow() {
+  const row = document.getElementById('story-info-row');
+  if (sentence && story?.sentences?.length) {
+    const pos = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
+    row.textContent = story.topic ? `${pos}  ·  ${story.topic}` : pos;
+    row.style.display = 'block';
+  } else {
+    row.style.display = 'none';
+  }
+}
+
 // ── Prompt modal ────────────────────────────────────────────────────────────
 let _promptResolve = null;
 function showPrompt(title, defaultValue = '') {
@@ -248,17 +260,6 @@ function countHtml(c) {
   return `<span class="n-new">${c.new}</span> <span class="n-lrn">${c.learning}</span> <span class="n-rev">${c.review}</span>`;
 }
 
-function buildCatCountsInline(deck) {
-  const DEFAULT_ORDER = ['listening', 'reading', 'creating'];
-  const orderStr = deck.category_order || 'listening,reading,creating';
-  const ordered = orderStr.split(',').map(s => s.trim()).filter(s => DEFAULT_ORDER.includes(s));
-  const CATS = [...ordered, ...DEFAULT_ORDER.filter(c => !ordered.includes(c))];
-  const ZH = { listening: '听', reading: '读', creating: '创' };
-  return CATS.map(cat => {
-    const cc = aggregateCounts(deck, cat);
-    return `<span class="deck-cat-inline"><span class="deck-cat-zh">${ZH[cat]}</span> <span class="n-new">${cc.new}</span>·<span class="n-lrn">${cc.learning}</span>·<span class="n-rev">${cc.review}</span></span>`;
-  }).join('');
-}
 
 // Build 3 inline pills (L/R/C) for any deck. Uses direct cat leaves if present, else aggregates.
 function buildCategoryButtons(deck) {
@@ -342,7 +343,7 @@ function renderDecks(decks) {
       <div class="tree-row tree-parent">
         <span class="tree-toggle"></span>
         <span class="tree-name" onclick="startReviewMixed(${allDeck.id},'${safeName}')" style="cursor:pointer">All</span>
-        <span class="deck-counts"><span class="n-new">${(allDeck.counts||{}).new||0}</span><span class="n-lrn">${(allDeck.counts||{}).learning||0}</span><span class="n-rev">${(allDeck.counts||{}).review||0}</span><span class="deck-cat-sep">|</span>${buildCatCountsInline(allDeck)}</span>
+        <span class="deck-counts"><span class="n-new">${(allDeck.counts||{}).new||0}</span><span class="n-lrn">${(allDeck.counts||{}).learning||0}</span><span class="n-rev">${(allDeck.counts||{}).review||0}</span></span>
         <button class="${allBuryClass}" onclick="event.stopPropagation();toggleBury(${allDeck.id})" title="${allBuryTitle}">${allBuryIcon}</button>
         <div class="deck-menu-wrap">
           <button class="deck-susp-btn ${allDeck.deck_all_suspended ? 'deck-all-suspended' : ''}" onclick="event.stopPropagation();toggleDeckAllSuspension(${allDeck.id})" title="${allDeck.deck_all_suspended ? 'Unsuspend all cards' : 'Suspend all cards'}">${allDeck.deck_all_suspended ? '▶' : '⏸'}</button>
@@ -384,7 +385,7 @@ function renderDeckRows(decks, depth) {
     const toggleIcon = hasStructChildren ? (isCollapsed ? '▶' : '▼') : '';
     const safeName  = deck.name.replace(/'/g, "\\'");
     const c = deck.counts || { new: 0, learning: 0, review: 0 };
-    const deckCounts = `<span class="deck-counts"><span class="n-new">${c.new}</span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span><span class="deck-cat-sep">|</span>${buildCatCountsInline(deck)}</span>`;
+    const deckCounts = `<span class="deck-counts"><span class="n-new">${c.new}</span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span></span>`;
 
     const buryMode   = deck.bury_mode || 'all';
     const buryIcon   = buryMode === 'all' ? '⛓' : buryMode === 'none' ? '⊘' : '≡';
@@ -1886,16 +1887,7 @@ function loadCard(c, counts) {
           story    = s;
           sentence = story.sentences.find(s => s.word_id === card.word_id) || null;
           if (sentence) {
-            const counter = document.getElementById('sentence-counter');
-            counter.textContent = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
-            counter.style.display = 'block';
-            const topicLine = document.getElementById('story-topic-line');
-            if (story.topic) {
-              topicLine.textContent = `Topic: ${story.topic}`;
-              topicLine.style.display = 'block';
-            } else {
-              topicLine.style.display = 'none';
-            }
+            _updateStoryInfoRow();
             const isListening = category === 'listening';
             const isCreating  = category === 'creating';
             if (!isListening && !isCreating) {
@@ -1905,9 +1897,6 @@ function loadCard(c, counts) {
             if (isCreating) {
               const inp = document.getElementById('sentence-en-front');
               if (inp.style.display !== 'none') inp.textContent = sentence.sentence_en || '';
-            }
-            if (story.sentences.length > 1) {
-              document.getElementById('story-btn').style.display = 'block';
             }
           }
         }
@@ -1924,22 +1913,8 @@ function loadCard(c, counts) {
       });
   }
 
-  // Update sentence position counter
-  const counter = document.getElementById('sentence-counter');
-  if (sentence && story?.sentences?.length) {
-    counter.textContent = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
-    counter.style.display = 'block';
-    const topicLine2 = document.getElementById('story-topic-line');
-    if (story?.topic) {
-      topicLine2.textContent = `Topic: ${story.topic}`;
-      topicLine2.style.display = 'block';
-    } else {
-      topicLine2.style.display = 'none';
-    }
-  } else {
-    counter.style.display = 'none';
-    document.getElementById('story-topic-line').style.display = 'none';
-  }
+  // Update story info row (sentence counter + topic)
+  _updateStoryInfoRow();
 
   // Update card type badge (note type only — category shown by circles)
   const noteLabel = { vocabulary: 'Word', sentence: 'Sentence', chengyu: '成语', expression: '表达' }[card.note_type] || card.note_type;
@@ -1970,7 +1945,6 @@ function loadCard(c, counts) {
   // Close modals if open
   closeEditCard();
   closeStoryModal();
-  document.getElementById('story-btn').style.display = 'none';
   document.getElementById('review-card-menu').style.display = 'none';
   const reviewSuspendBtn = document.getElementById('review-suspend-btn');
   if (reviewSuspendBtn) reviewSuspendBtn.textContent = (c.state === 'suspended') ? 'Unsuspend' : 'Suspend';
@@ -2136,8 +2110,6 @@ function revealAnswer() {
   document.getElementById('sentence-en').textContent = isSentenceNote
     ? (card.definition || '')
     : (sentence?.sentence_en || '');
-  document.getElementById('story-btn').style.display =
-    (!isSentenceNote && story?.sentences?.length > 1) ? 'block' : 'none';
   const noteType = wordDetails?.note_type || card.note_type;
   const wordZhEl = document.getElementById('word-zh');
   const isMultiWord = noteType === 'sentence' || noteType === 'chengyu' || noteType === 'expression';
@@ -2969,19 +2941,7 @@ async function _doRegenerateStory(topic, maxHsk, model) {
     sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
     _showLoadingSuccess('Story regenerated!');
     _resetLoadingSpinner();
-    // Update sentence counter + topic line immediately
-    const counter = document.getElementById('sentence-counter');
-    const topicLine = document.getElementById('story-topic-line');
-    if (sentence && story?.sentences?.length) {
-      counter.textContent = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
-      counter.style.display = 'block';
-      if (story.topic) {
-        topicLine.textContent = `Topic: ${story.topic}`;
-        topicLine.style.display = 'block';
-      } else {
-        topicLine.style.display = 'none';
-      }
-    }
+    _updateStoryInfoRow();
     try {
       await fetch(`/api/preload-session/${deckId}/${category}`, { method: 'POST' });
     } catch (_) {}
