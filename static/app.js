@@ -2450,7 +2450,6 @@ async function rate(rating) {
     if (!result.next_card) {
       rootDeckId = null;
       unfinishedMode = false;
-      document.getElementById('done-undo-btn').disabled = false;
       showView('done');
       return;
     }
@@ -2467,7 +2466,6 @@ async function rate(rating) {
 async function undoReview() {
   try {
     const result = await api('POST', '/api/review/undo');
-    document.getElementById('done-undo-btn').disabled = true;
     showView('review');
     loadCard(result.card, result.counts);
     // Show the back of the card so the user can re-rate
@@ -2689,6 +2687,16 @@ async function toggleFullStory() {
   if (!story?.sentences?.length) return;
   _storyPlaying = true;
   const btn = document.getElementById('story-play-all-btn');
+
+  // Ensure all sentences are cached before starting playback
+  btn.textContent = '⏳ Loading audio…';
+  const storyDeckId = rootDeckId || deckId;
+  try {
+    await api('POST', `/api/preload-session/${storyDeckId}/${category}`);
+  } catch (_) {}
+
+  if (!_storyPlaying) return; // user pressed stop while loading
+
   btn.textContent = '■ Stop';
   try {
     await api('POST', '/api/speak-multi', { texts: story.sentences.map(s => s.sentence_zh) });
@@ -2700,7 +2708,8 @@ async function toggleFullStory() {
 function stopFullStory() {
   if (!_storyPlaying) return;
   _storyPlaying = false;
-  document.getElementById('story-play-all-btn').textContent = '▶ Play full story';
+  const btn = document.getElementById('story-play-all-btn');
+  if (btn) btn.textContent = '▶ Play full story';
   api('POST', '/api/speak-stop').catch(() => {});
 }
 
@@ -3984,16 +3993,6 @@ document.addEventListener('keydown', e => {
 
   if (inInput || e.ctrlKey || e.metaKey || e.altKey) return;
 
-  // Allow 'z' to undo from the done view too
-  if (e.key === 'z') {
-    const doneView = document.getElementById('view-done');
-    const doneUndoBtn = document.getElementById('done-undo-btn');
-    if (doneView?.style.display !== 'none' && doneUndoBtn && !doneUndoBtn.disabled) {
-      e.preventDefault();
-      undoReview();
-      return;
-    }
-  }
 
   // Only handle review shortcuts when the review view is active
   const reviewView = document.getElementById('view-review');

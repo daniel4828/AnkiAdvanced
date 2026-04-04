@@ -103,13 +103,20 @@ def speak_sync(text: str) -> None:
 
 
 def speak_multi(texts: list[str]) -> None:
-    """Play a list of texts sequentially, stopping if stop() is called."""
+    """Play a list of texts sequentially with minimal gap between sentences."""
     global _stop_requested
     _stop_requested = False
+    asyncio.run(_play_multi(texts))
+
+
+async def _play_multi(texts: list[str]) -> None:
+    """Pre-cache all sentences in parallel, then play sequentially."""
+    global _stop_requested
+    await preload_all_async(texts)
     for text in texts:
         if _stop_requested:
             break
-        asyncio.run(_play(text))
+        await _play(text)
 
 
 def stop() -> None:
