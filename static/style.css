@@ -636,20 +636,6 @@ main.browse-open {
   padding: 6px 0;
   border-bottom: 1px solid var(--border);
 }
-.story-btn {
-  display: block;
-  margin: 6px auto 0;
-  background: none;
-  border: 1.5px solid var(--border);
-  border-radius: 8px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--muted);
-  padding: 3px 10px;
-  cursor: pointer;
-  transition: border-color 0.12s, color 0.12s;
-}
-.story-btn:hover { border-color: var(--primary); color: var(--primary); }
 
 /* ── Story setup modal ───────────────────────────────── */
 #setup-modal-overlay {
