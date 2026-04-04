@@ -165,11 +165,11 @@
   <!-- Done -->
   <div id="view-done">
     <div class="icon">🎉</div>
-    <h2>All done!</h2>
-    <p>No more cards due right now.</p>
-    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-      <button id="done-undo-btn" class="btn-secondary" onclick="undoReview()" disabled>↩ Undo</button>
-      <button class="btn-primary" onclick="goBack()">Back to Decks</button>
+    <h2>全部完成！</h2>
+    <p>暂时没有需要复习的卡片了。</p>
+    <div style="display:flex;flex-direction:column;gap:12px;align-items:center">
+      <button id="done-story-btn" class="btn-primary" onclick="openStoryModal()">View Full Story</button>
+      <button class="btn-secondary" onclick="goBack()">Back to Decks</button>
     </div>
   </div>
 
@@ -246,13 +246,13 @@
       <button class="wd-edit-btn" id="wd-edit-btn">Edit</button>
       <button class="wd-back-review-btn" id="wd-back-review-btn" style="display:none" onclick="goBack()">← Review</button>
     </div>
-    <div id="wd-chars-section"></div>
-    <div id="wd-relations-section"></div>
-    <div id="wd-measure-section"></div>
-    <div id="wd-examples-section"></div>
-    <div id="wd-notes-section"></div>
-    <div id="wd-components-section"></div>
-    <div id="wd-cards-section"></div>
+    <div class="wd-body">
+      <div id="wd-relations-section"></div>
+      <div id="wd-notes-section"></div>
+      <div id="wd-examples-section"></div>
+      <div id="wd-word-analysis-section"></div>
+      <div id="wd-cards-section"></div>
+    </div>
   </div>
 
   <!-- Hanzi Detail -->
@@ -758,5 +758,6 @@
 <!-- Deck picker dropdown — must be a direct body child to escape modal transform stacking context -->
 <div class="deck-picker-dropdown" id="deck-picker-dropdown" style="display:none"></div>
 <div class="deck-picker-dropdown" id="deck-b-picker-dropdown" style="display:none"></div>
+<div class="deck-picker-dropdown" id="wd-deck-picker-dd" style="display:none"></div>
 </body>
 </html>

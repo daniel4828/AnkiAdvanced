@@ -186,6 +186,17 @@ def bulk_delete(body: dict):
     return {"ok": True, "count": count}
 
 
+@router.post("/api/cards/{card_id}/move")
+def move_card(card_id: int, body: dict):
+    deck_id = body.get("deck_id")
+    if not deck_id:
+        raise HTTPException(status_code=400, detail="deck_id required")
+    ok = database.move_card_to_deck(card_id, deck_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Card not found")
+    return {"ok": True}
+
+
 @router.post("/api/cards/bulk-move")
 def bulk_move(body: dict):
     deck_id = body.get("deck_id")

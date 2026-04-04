@@ -26,6 +26,17 @@ def insert_card(word_id: int, category: str, deck_id: int,
     return row["id"]
 
 
+def move_card_to_deck(card_id: int, deck_id: int) -> bool:
+    conn = get_db()
+    cur = conn.execute(
+        "UPDATE cards SET deck_id=? WHERE id=? AND deleted_at IS NULL",
+        (deck_id, card_id),
+    )
+    conn.commit()
+    conn.close()
+    return cur.rowcount > 0
+
+
 def get_card(card_id: int) -> dict | None:
     """Joined with word, deck, and preset — everything srs.py needs."""
     conn = get_db()
