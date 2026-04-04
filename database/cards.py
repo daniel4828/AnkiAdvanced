@@ -42,8 +42,20 @@ def get_card(card_id: int) -> dict | None:
                   w.word_zh, w.pinyin, w.definition, w.pos, w.hsk_level,
                   w.traditional, w.definition_zh, w.note_type, w.notes, w.definition_de, w.register,
                   d.name AS deck_name,
-                  (SELECT group_concat(name, ' › ')
-                   FROM (SELECT name FROM ancestors ORDER BY depth DESC)) AS deck_path,
+                  CASE WHEN d.category IS NOT NULL THEN
+                    (SELECT group_concat(name, ' › ')
+                     FROM (SELECT name FROM ancestors WHERE depth > 0 ORDER BY depth DESC))
+                    || ' · ' ||
+                    CASE c.category
+                      WHEN 'listening' THEN 'Listening'
+                      WHEN 'reading'   THEN 'Reading'
+                      WHEN 'creating'  THEN 'Creating'
+                      ELSE c.category
+                    END
+                  ELSE
+                    (SELECT group_concat(name, ' › ')
+                     FROM (SELECT name FROM ancestors ORDER BY depth DESC))
+                  END AS deck_path,
                   p.learning_steps, p.graduating_interval, p.easy_interval,
                   p.relearning_steps, p.minimum_interval,
                   p.leech_threshold, p.leech_action,
@@ -321,7 +333,7 @@ def count_due(deck_id: int, category: str) -> dict:
     new_remaining = max(0, new_limit - new_done_today)
 
     rows = conn.execute(
-        """SELECT c.word_id, c.state FROM cards c
+        """SELECT c.word_id, c.state, c.due FROM cards c
            WHERE c.deck_id = ? AND c.category = ?
              AND c.state != 'suspended'
              AND c.deleted_at IS NULL
@@ -338,11 +350,22 @@ def count_due(deck_id: int, category: str) -> dict:
     review   = sum(1 for r in rows if r["state"] == "review")
     new_avail = sum(1 for r in rows if r["state"] == "new")
 
+    learning_future = conn.execute(
+        """SELECT COUNT(*) FROM cards
+           WHERE deck_id = ? AND category = ?
+             AND state IN ('learning', 'relearn')
+             AND due > ?
+             AND deleted_at IS NULL
+             AND (buried_until IS NULL OR buried_until < ?)""",
+        (deck_id, category, now, today),
+    ).fetchone()[0]
+
     conn.close()
     return {
         "new": min(new_avail, new_remaining),
         "learning": learning,
         "review": review,
+        "learning_future": learning_future,
     }
 
 
@@ -424,6 +447,14 @@ def get_descendant_leaf_deck_ids(deck_id: int, category: str | None = None) -> l
     return result
 
 
+def get_parent_deck_id(deck_id: int) -> int | None:
+    """Return the parent deck ID for a given deck, or None if it's a root deck."""
+    conn = get_db()
+    row = conn.execute("SELECT parent_id FROM decks WHERE id = ?", (deck_id,)).fetchone()
+    conn.close()
+    return row["parent_id"] if row else None
+
+
 def _leaf_decks_with_category(root_deck_id: int) -> list[tuple[int, str]]:
     """Return [(deck_id, category)] for all category leaves under root_deck_id."""
     all_leaf_ids = get_descendant_leaf_deck_ids(root_deck_id)
@@ -484,6 +515,19 @@ def count_due_any_cat(root_deck_id: int) -> dict:
     """
     leaf_pairs = _leaf_decks_with_category(root_deck_id)
     return count_due_deduped(leaf_pairs)
+
+
+def count_due_by_category(root_deck_id: int) -> dict:
+    """Per-category {new, learning, review} counts for mixed review display."""
+    leaf_pairs = _leaf_decks_with_category(root_deck_id)
+    result: dict[str, dict[str, int]] = {}
+    for deck_id, category in leaf_pairs:
+        c = count_due(deck_id, category)
+        if category not in result:
+            result[category] = {"new": 0, "learning": 0, "review": 0}
+        for k in ("new", "learning", "review"):
+            result[category][k] += c[k]
+    return result
 
 
 def get_due_cards_multi(deck_ids: list[int], category: str, *, sibling_suppression: bool = False) -> list[dict]:

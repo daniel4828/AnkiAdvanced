@@ -163,11 +163,46 @@ main.browse-open {
 
 .counts-row {
   display: flex;
-  gap: 14px;
-  font-size: 13px;
+  gap: 16px;
+  align-items: center;
   margin-bottom: 18px;
 }
-.counts-row b { font-weight: 700; }
+.cnt-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.cnt-item b {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
+.cnt-label {
+  font-size: 11px;
+  color: var(--muted);
+}
+#cnt-by-cat {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding-left: 14px;
+  border-left: 1px solid var(--border);
+}
+.cnt-cat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.cnt-cat-zh {
+  font-size: 10px;
+  color: var(--muted);
+}
+.cnt-cat-nums {
+  font-size: 11px;
+}
+.cnt-cat-nums b { font-weight: 700; }
 
 /* The main card */
 .review-card {
@@ -186,9 +221,6 @@ main.browse-open {
   align-items: center;
   min-height: 14px;
 }
-.card-meta-row > #sentence-counter {
-  flex: 1;
-}
 .card-meta-row > #review-cat-row {
   flex: 0;
 }
@@ -199,11 +231,16 @@ main.browse-open {
   justify-content: flex-end;
   gap: 6px;
 }
-#sentence-counter {
+#story-info-row {
   font-size: 11px;
   font-weight: 600;
   color: var(--muted);
   letter-spacing: 0.4px;
+  cursor: pointer;
+  user-select: none;
+}
+#story-info-row:hover {
+  color: var(--accent);
 }
 #card-type-badge {
   font-size: 10px;
@@ -599,20 +636,6 @@ main.browse-open {
   padding: 6px 0;
   border-bottom: 1px solid var(--border);
 }
-.story-btn {
-  display: block;
-  margin: 6px auto 0;
-  background: none;
-  border: 1.5px solid var(--border);
-  border-radius: 8px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--muted);
-  padding: 3px 10px;
-  cursor: pointer;
-  transition: border-color 0.12s, color 0.12s;
-}
-.story-btn:hover { border-color: var(--primary); color: var(--primary); }
 
 /* ── Story setup modal ───────────────────────────────── */
 #setup-modal-overlay {
@@ -1089,6 +1112,7 @@ main.browse-open {
 .deck-counts {
   display: flex;
   gap: 5px;
+  align-items: center;
   margin-left: auto;
   font-size: 12px;
   font-weight: 700;

@@ -24,6 +24,8 @@ def get_today(deck_id: int, category: str):
     if card:
         card = database.get_card(card["id"])
         card["intervals"] = srs.preview_intervals(card)
+    parent_id = database.get_parent_deck_id(deck_id)
+    counts["by_cat"] = database.count_due_by_category(parent_id or deck_id)
     return {"card": card, "counts": counts}
 
 
@@ -47,6 +49,7 @@ def get_today_mixed(deck_id: int):
         card = database.get_card(card["id"])
         card["intervals"] = srs.preview_intervals(card)
     counts = database.count_due_any_cat(deck_id)
+    counts["by_cat"] = database.count_due_by_category(deck_id)
     return {"card": card, "counts": counts}
 
 
@@ -91,13 +94,17 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
     elif root_deck_id:
         next_card = database.get_next_card_any_cat(root_deck_id)
         counts    = database.count_due_any_cat(root_deck_id)
+        counts["by_cat"] = database.count_due_by_category(root_deck_id)
     elif parent_deck_id:
         ids       = leaf_ids(parent_deck_id, cat)
         next_card = database.get_next_card_multi(ids, cat)
         counts    = database.count_due_multi(ids, cat)
+        counts["by_cat"] = database.count_due_by_category(parent_deck_id)
     else:
         next_card = database.get_next_card(deck_id, cat)
         counts    = database.count_due(deck_id, cat)
+        parent_id = database.get_parent_deck_id(deck_id)
+        counts["by_cat"] = database.count_due_by_category(parent_id or deck_id)
 
     if next_card:
         next_card = database.get_card(next_card["id"])

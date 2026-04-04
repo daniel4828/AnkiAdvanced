@@ -53,6 +53,17 @@ let _browseDecks = [];            // flat deck list for move dropdown
 let optDeckId    = null; // deck whose options modal is open
 const collapsed  = new Set(JSON.parse(localStorage.getItem('collapsedDecks') || '[]'));  // parent deck IDs that are collapsed
 let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
+// ── Story info row (Sentence x/y · Topic) ───────────────────────────────────
+function _updateStoryInfoRow() {
+  const row = document.getElementById('story-info-row');
+  if (sentence && story?.sentences?.length) {
+    const pos = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
+    row.textContent = story.topic ? `${pos}  ·  ${story.topic}` : pos;
+    row.style.display = 'block';
+  } else {
+    row.style.display = 'none';
+  }
+}
 
 // ── Prompt modal ────────────────────────────────────────────────────────────
 let _promptResolve = null;
@@ -248,6 +259,7 @@ function aggregateCounts(deck, category) {
 function countHtml(c) {
   return `<span class="n-new">${c.new}</span> <span class="n-lrn">${c.learning}</span> <span class="n-rev">${c.review}</span>`;
 }
+
 
 // Build 3 inline pills (L/R/C) for any deck. Uses direct cat leaves if present, else aggregates.
 function buildCategoryButtons(deck) {
@@ -1629,7 +1641,7 @@ async function startReview(id, cat, name, noStory = false) {
       api('GET', `/api/story/${deckId}/${category}/count`),
       api('GET', `/api/today/${deckId}/${category}`),
     ]);
-    const learning = todayCounts?.counts?.learning || 0;
+    const learning = todayCounts?.counts?.learning_future || 0;
     if (has_story || count === 0) {
       await _doStartReview(null, 2);
     } else {
@@ -1706,7 +1718,7 @@ async function startReviewMixed(id, name, noStory = false) {
     }
     const c = todayData.counts;
     const total = (c.new || 0) + (c.learning || 0) + (c.review || 0);
-    const learning = c.learning || 0;
+    const learning = c.learning_future || 0;
     const firstCat = todayData.card.category;
     const { has_story } = await api('GET', `/api/story/${id}/${firstCat}/count`);
     if (has_story) {
@@ -1835,6 +1847,21 @@ function loadCard(c, counts) {
   document.getElementById('cnt-lrn').textContent = counts.learning;
   document.getElementById('cnt-rev').textContent = counts.review;
 
+  // Per-category breakdown (mixed/all mode only)
+  const byCatEl = document.getElementById('cnt-by-cat');
+  if (counts.by_cat && byCatEl) {
+    byCatEl.style.display = 'flex';
+    const catMap = {r: 'reading', l: 'listening', c: 'creating'};
+    for (const [prefix, cat] of Object.entries(catMap)) {
+      const cc = counts.by_cat[cat] || {new: 0, learning: 0, review: 0};
+      document.getElementById(`cnt-${prefix}-new`).textContent = cc.new;
+      document.getElementById(`cnt-${prefix}-lrn`).textContent = cc.learning;
+      document.getElementById(`cnt-${prefix}-rev`).textContent = cc.review;
+    }
+  } else if (byCatEl) {
+    byCatEl.style.display = 'none';
+  }
+
   // Set interval labels on rating buttons (e.g. "1m", "10m", "4d")
   const iv = card.intervals || {};
   [1, 2, 3, 4].forEach(r => {
@@ -1860,9 +1887,7 @@ function loadCard(c, counts) {
           story    = s;
           sentence = story.sentences.find(s => s.word_id === card.word_id) || null;
           if (sentence) {
-            const counter = document.getElementById('sentence-counter');
-            counter.textContent = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
-            counter.style.display = 'block';
+            _updateStoryInfoRow();
             const isListening = category === 'listening';
             const isCreating  = category === 'creating';
             if (!isListening && !isCreating) {
@@ -1872,9 +1897,6 @@ function loadCard(c, counts) {
             if (isCreating) {
               const inp = document.getElementById('sentence-en-front');
               if (inp.style.display !== 'none') inp.textContent = sentence.sentence_en || '';
-            }
-            if (story.sentences.length > 1) {
-              document.getElementById('story-btn').style.display = 'block';
             }
           }
         }
@@ -1891,14 +1913,8 @@ function loadCard(c, counts) {
       });
   }
 
-  // Update sentence position counter
-  const counter = document.getElementById('sentence-counter');
-  if (sentence && story?.sentences?.length) {
-    counter.textContent = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
-    counter.style.display = 'block';
-  } else {
-    counter.style.display = 'none';
-  }
+  // Update story info row (sentence counter + topic)
+  _updateStoryInfoRow();
 
   // Update card type badge (note type only — category shown by circles)
   const noteLabel = { vocabulary: 'Word', sentence: 'Sentence', chengyu: '成语', expression: '表达' }[card.note_type] || card.note_type;
@@ -1929,7 +1945,6 @@ function loadCard(c, counts) {
   // Close modals if open
   closeEditCard();
   closeStoryModal();
-  document.getElementById('story-btn').style.display = 'none';
   document.getElementById('review-card-menu').style.display = 'none';
   const reviewSuspendBtn = document.getElementById('review-suspend-btn');
   if (reviewSuspendBtn) reviewSuspendBtn.textContent = (c.state === 'suspended') ? 'Unsuspend' : 'Suspend';
@@ -2095,8 +2110,6 @@ function revealAnswer() {
   document.getElementById('sentence-en').textContent = isSentenceNote
     ? (card.definition || '')
     : (sentence?.sentence_en || '');
-  document.getElementById('story-btn').style.display =
-    (!isSentenceNote && story?.sentences?.length > 1) ? 'block' : 'none';
   const noteType = wordDetails?.note_type || card.note_type;
   const wordZhEl = document.getElementById('word-zh');
   const isMultiWord = noteType === 'sentence' || noteType === 'chengyu' || noteType === 'expression';
@@ -2437,7 +2450,6 @@ async function rate(rating) {
     if (!result.next_card) {
       rootDeckId = null;
       unfinishedMode = false;
-      document.getElementById('done-undo-btn').disabled = false;
       showView('done');
       return;
     }
@@ -2454,7 +2466,6 @@ async function rate(rating) {
 async function undoReview() {
   try {
     const result = await api('POST', '/api/review/undo');
-    document.getElementById('done-undo-btn').disabled = true;
     showView('review');
     loadCard(result.card, result.counts);
     // Show the back of the card so the user can re-rate
@@ -2676,6 +2687,16 @@ async function toggleFullStory() {
   if (!story?.sentences?.length) return;
   _storyPlaying = true;
   const btn = document.getElementById('story-play-all-btn');
+
+  // Ensure all sentences are cached before starting playback
+  btn.textContent = '⏳ Loading audio…';
+  const storyDeckId = rootDeckId || deckId;
+  try {
+    await api('POST', `/api/preload-session/${storyDeckId}/${category}`);
+  } catch (_) {}
+
+  if (!_storyPlaying) return; // user pressed stop while loading
+
   btn.textContent = '■ Stop';
   try {
     await api('POST', '/api/speak-multi', { texts: story.sentences.map(s => s.sentence_zh) });
@@ -2687,7 +2708,8 @@ async function toggleFullStory() {
 function stopFullStory() {
   if (!_storyPlaying) return;
   _storyPlaying = false;
-  document.getElementById('story-play-all-btn').textContent = '▶ Play full story';
+  const btn = document.getElementById('story-play-all-btn');
+  if (btn) btn.textContent = '▶ Play full story';
   api('POST', '/api/speak-stop').catch(() => {});
 }
 
@@ -2907,7 +2929,7 @@ async function regenerateStory() {
   try {
     if (deckId && category) {
       const todayCounts = await api('GET', `/api/today/${deckId}/${category}`);
-      learning = todayCounts?.counts?.learning || 0;
+      learning = todayCounts?.counts?.learning_future || 0;
     }
   } catch (_) {}
   try {
@@ -2928,6 +2950,7 @@ async function _doRegenerateStory(topic, maxHsk, model) {
     sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
     _showLoadingSuccess('Story regenerated!');
     _resetLoadingSpinner();
+    _updateStoryInfoRow();
     try {
       await fetch(`/api/preload-session/${deckId}/${category}`, { method: 'POST' });
     } catch (_) {}
@@ -3970,16 +3993,6 @@ document.addEventListener('keydown', e => {
 
   if (inInput || e.ctrlKey || e.metaKey || e.altKey) return;
 
-  // Allow 'z' to undo from the done view too
-  if (e.key === 'z') {
-    const doneView = document.getElementById('view-done');
-    const doneUndoBtn = document.getElementById('done-undo-btn');
-    if (doneView?.style.display !== 'none' && doneUndoBtn && !doneUndoBtn.disabled) {
-      e.preventDefault();
-      undoReview();
-      return;
-    }
-  }
 
   // Only handle review shortcuts when the review view is active
   const reviewView = document.getElementById('view-review');

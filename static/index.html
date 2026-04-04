@@ -30,12 +30,35 @@
   <!-- Review -->
   <div id="view-review">
     <div class="counts-row">
-      <span><b id="cnt-new" class="n-new">0</b> new</span>
-      <span><b id="cnt-lrn" class="n-lrn">0</b> learning</span>
-      <span><b id="cnt-rev" class="n-rev">0</b> review</span>
-      <div style="display:flex;gap:6px;margin-left:auto">
+      <div class="cnt-item">
+        <b id="cnt-new" class="n-new">0</b>
+        <span class="cnt-label">new</span>
+      </div>
+      <div class="cnt-item">
+        <b id="cnt-lrn" class="n-lrn">0</b>
+        <span class="cnt-label">learning</span>
+      </div>
+      <div class="cnt-item">
+        <b id="cnt-rev" class="n-rev">0</b>
+        <span class="cnt-label">review</span>
+      </div>
+      <div id="cnt-by-cat" style="display:none">
+        <div class="cnt-cat-item">
+          <span class="cnt-cat-zh">读</span>
+          <span class="cnt-cat-nums"><b id="cnt-r-new" class="n-new">0</b>·<b id="cnt-r-lrn" class="n-lrn">0</b>·<b id="cnt-r-rev" class="n-rev">0</b></span>
+        </div>
+        <div class="cnt-cat-item">
+          <span class="cnt-cat-zh">听</span>
+          <span class="cnt-cat-nums"><b id="cnt-l-new" class="n-new">0</b>·<b id="cnt-l-lrn" class="n-lrn">0</b>·<b id="cnt-l-rev" class="n-rev">0</b></span>
+        </div>
+        <div class="cnt-cat-item">
+          <span class="cnt-cat-zh">创</span>
+          <span class="cnt-cat-nums"><b id="cnt-c-new" class="n-new">0</b>·<b id="cnt-c-lrn" class="n-lrn">0</b>·<b id="cnt-c-rev" class="n-rev">0</b></span>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-left:auto;align-items:center">
         <button class="undo-btn" id="undo-btn" onclick="undoReview()" title="Undo last rating [Z]" disabled>↩ Undo</button>
-        <button class="regen-btn" onclick="regenerateStory()" title="Regenerate story">Regenerate story ↺</button>
+        <button class="regen-btn" onclick="regenerateStory()" title="Regenerate story">Regen ↺</button>
       </div>
     </div>
 
@@ -44,10 +67,12 @@
       <!-- Deck path bar: full-width breadcrumb above meta row -->
       <div id="card-deck-path" class="card-deck-path" style="display:none"></div>
 
-      <!-- Card meta row: sentence position (left) + category circles (centre) + right group -->
+      <!-- Story info row: sentence count + topic (clickable → full story) -->
+      <div id="story-info-row" style="display:none" onclick="openStoryModal()" title="View full story"></div>
+
+      <!-- Card meta row: category circles (centre) + right group -->
       <div class="card-meta-row">
-        <div id="sentence-counter"></div>
-        <div id="review-cat-row"></div>
+        <div id="review-cat-row" style="flex:1"></div>
         <div class="card-meta-right">
           <button id="card-hsk-badge" class="card-hsk-badge" onclick="enrichCard()" title="Ask AI to fill HSK level &amp; character data" style="display:none"></button>
           <button id="back-meta-play-btn" class="play-icon-btn play-icon-sm" onclick="playSentence()" style="display:none" title="Play audio">🔊</button>
@@ -108,7 +133,6 @@
         <div class="pinyin-row" id="pinyin-row"></div>
         <!-- English translation of the sentence -->
         <div class="sentence-en" id="sentence-en"></div>
-        <button class="story-btn" id="story-btn" onclick="openStoryModal()" style="display:none">View full story</button>
 
         <!-- 3. Rating buttons (immediately visible after flip) -->
         <div class="rating-row" id="rating-row">
