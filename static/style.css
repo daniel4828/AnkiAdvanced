@@ -1895,6 +1895,48 @@ main.browse-open {
 .wd-menu-item.wd-menu-item-active { color: var(--primary); font-weight: 600; }
 .wd-menu-item.wd-menu-item-danger { color: #dc2626; }
 .wd-menu-item.wd-menu-item-danger:hover { background: #fef2f2; }
+.bs-deck-arrow {
+  display: inline-block;
+  width: 14px;
+  font-size: 10px;
+  color: var(--text-muted, #888);
+}
+.bs-deck-arrow-leaf { opacity: 0; }
+.wd-cards-head { display: flex; align-items: center; justify-content: space-between; }
+.wd-move-all-btn {
+  font-size: 0.78rem;
+  padding: 2px 8px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-muted, #666);
+}
+.wd-move-all-btn:hover { background: var(--bg); color: var(--primary); }
+.wd-move-all-panel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0 6px;
+}
+.wd-move-all-panel select {
+  flex: 1;
+  font-size: 0.85rem;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.wd-move-all-panel button {
+  font-size: 0.8rem;
+  padding: 3px 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.wd-move-all-panel button:first-of-type { background: var(--primary); color: #fff; }
+.wd-move-all-panel button:first-of-type:hover { opacity: 0.85; }
+.wd-move-all-panel button:last-of-type { background: var(--bg); color: var(--text); }
+
 .wd-move-panel {
   display: flex;
   align-items: center;

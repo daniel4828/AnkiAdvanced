@@ -51,6 +51,8 @@ let browseAll    = [];   // kept for legacy (unused by new browse)
 let _browseSort  = 'pinyin-asc';
 let _browseSelected = new Set();  // selected word IDs (multiselect)
 let _browseDecks = [];            // flat deck list for move dropdown
+let _browseDeckTree = [];         // top-level user decks (children of All) for sidebar tree
+let _browseDeckExpanded = new Set(); // deck IDs expanded in sidebar tree
 let optDeckId    = null; // deck whose options modal is open
 const collapsed  = new Set(JSON.parse(localStorage.getItem('collapsedDecks') || '[]'));  // parent deck IDs that are collapsed
 let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
@@ -711,6 +713,10 @@ async function openBrowse() {
     browseWords = words;
     _allHanzi = hanzi;
     _browseDecks = _flattenDecks(deckTree);
+    // Top-level user decks: children of the "All" virtual root
+    const _allRoot = deckTree.find(d => d.virtual && d.id !== 'unfinished');
+    _browseDeckTree = _allRoot ? (_allRoot.children || []) : deckTree.filter(d => !d.virtual);
+    _browseDeckExpanded = new Set();
     _browseSelected.clear();
     _browseCardStatus = 'all';
     showView('browse');
@@ -740,21 +746,51 @@ function _flattenDecks(tree) {
   return result;
 }
 
+function _hasExpandableChildren(deck) {
+  return (deck.children || []).some(c => !c.category && !c.virtual);
+}
+
+function _renderDeckTreeNode(deck, depth) {
+  const isExpanded = _browseDeckExpanded.has(deck.id);
+  const hasKids = _hasExpandableChildren(deck);
+  const isActive = _browseDeckId === deck.id;
+  const indent = 16 + depth * 14;
+
+  const arrow = hasKids
+    ? `<span class="bs-deck-arrow">${isExpanded ? '▾' : '▸'}</span>`
+    : `<span class="bs-deck-arrow bs-deck-arrow-leaf"></span>`;
+
+  const onclick = hasKids
+    ? `toggleBrowseDeckExpand(${deck.id})`
+    : `setBrowseDeckFilter(${deck.id})`;
+
+  let html = `<button class="bs-deck-item${isActive ? ' bs-active' : ''}" data-id="${deck.id}"
+    style="padding-left:${indent}px" onclick="${onclick}">${arrow}${deck.name}</button>`;
+
+  if (isExpanded && hasKids) {
+    const kids = (deck.children || [])
+      .filter(c => !c.category && !c.virtual)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    html += kids.map(c => _renderDeckTreeNode(c, depth + 1)).join('');
+  }
+  return html;
+}
+
 function _renderBrowseSidebar() {
   const container = document.getElementById('browse-deck-tree');
-  // Get parent decks (no category) that have at least one word with cards
-  const usedDeckIds = new Set(browseWords.flatMap(w => w.cards.map(c => c.deck_id)));
-  const parentDecks = _browseDecks
-    .filter(d => !d.category && !d.virtual && d.children?.length)
-    .filter(d => {
-      const leafIds = _leafDeckIds(d.id);
-      return [...leafIds].some(id => usedDeckIds.has(id));
-    })
+  const topLevel = _browseDeckTree
+    .filter(d => !d.category && !d.virtual)
     .sort((a, b) => a.name.localeCompare(b.name));
-  const active = _browseDeckId;
-  container.innerHTML = parentDecks.map(d =>
-    `<button class="bs-deck-item${active === d.id ? ' bs-active' : ''}" data-id="${d.id}" onclick="setBrowseDeckFilter(${d.id})">${d.name}</button>`
-  ).join('');
+  container.innerHTML = topLevel.map(d => _renderDeckTreeNode(d, 0)).join('');
+}
+
+function toggleBrowseDeckExpand(deckId) {
+  if (_browseDeckExpanded.has(deckId)) {
+    _browseDeckExpanded.delete(deckId);
+  } else {
+    _browseDeckExpanded.add(deckId);
+  }
+  _renderBrowseSidebar();
 }
 
 function onBrowseSearch(val) {
@@ -1201,7 +1237,16 @@ function renderWordDetailCards(cards, wordId) {
         </div>
       </div>`;
   }).join('');
-  el.innerHTML = `<div class="wd-section-head">Cards</div><div class="wd-cards-list">${rows}</div>`;
+  el.innerHTML = `<div class="wd-section-head wd-cards-head">
+    <span>Cards</span>
+    <button class="wd-move-all-btn" onclick="openMoveAllCardsPanel(${wordId})">Move all…</button>
+  </div>
+  <div class="wd-move-all-panel" id="wd-move-all-${wordId}" style="display:none" onclick="event.stopPropagation()">
+    <select id="wd-move-all-sel-${wordId}"></select>
+    <button onclick="applyMoveAllCards(${wordId})">Apply</button>
+    <button onclick="document.getElementById('wd-move-all-${wordId}').style.display='none'">✕</button>
+  </div>
+  <div class="wd-cards-list">${rows}</div>`;
 }
 
 function toggleCardMenu(cardId, e) {
@@ -1227,6 +1272,34 @@ async function cardAction(cardId, action, wordId) {
     renderWordDetailCards(word.cards || [], wordId);
   } catch (e) {
     showError(`Action failed: ${e.message}`);
+  }
+}
+
+function openMoveAllCardsPanel(wordId) {
+  const panel = document.getElementById(`wd-move-all-${wordId}`);
+  if (!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'flex';
+  if (!isOpen) {
+    const sel = document.getElementById(`wd-move-all-sel-${wordId}`);
+    sel.innerHTML = _browseDecks
+      .filter(d => !d.virtual)
+      .map(d => `<option value="${d.id}">${d.name}</option>`)
+      .join('');
+  }
+}
+
+async function applyMoveAllCards(wordId) {
+  const panel = document.getElementById(`wd-move-all-${wordId}`);
+  const deck_id = parseInt(document.getElementById(`wd-move-all-sel-${wordId}`).value);
+  panel.style.display = 'none';
+  try {
+    await api('POST', '/api/cards/bulk-move', { word_ids: [wordId], deck_id });
+    const word = await api('GET', `/api/word/${wordId}`);
+    word.cards = await api('GET', `/api/words/${wordId}/cards`);
+    renderWordDetailCards(word.cards || [], wordId);
+  } catch (e) {
+    showError(`Move failed: ${e.message}`);
   }
 }
 
