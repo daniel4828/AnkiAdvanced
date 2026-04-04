@@ -394,13 +394,14 @@ function renderDecks(decks) {
 }
 
 function renderDeckRows(decks, depth) {
-  return decks.map(deck => {
+  const sorted = [...decks].sort((a, b) => a.name.localeCompare(b.name));
+  return sorted.map(deck => {
     // Category leaf decks are consumed as pills — not rendered as rows
     if (deck.category && (!deck.children || deck.children.length === 0)) return '';
 
-    const structChildren = (deck.children || []).filter(
-      c => !(c.category && (!c.children || c.children.length === 0))
-    );
+    const structChildren = (deck.children || [])
+      .filter(c => !(c.category && (!c.children || c.children.length === 0)))
+      .sort((a, b) => a.name.localeCompare(b.name));
     const hasStructChildren = structChildren.length > 0;
     const isCollapsed = collapsed.has(deck.id);
     const indent = depth * 18;
