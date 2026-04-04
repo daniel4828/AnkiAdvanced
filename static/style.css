@@ -1893,6 +1893,30 @@ main.browse-open {
 .wd-menu-item.wd-menu-item-active { color: var(--primary); font-weight: 600; }
 .wd-menu-item.wd-menu-item-danger { color: #dc2626; }
 .wd-menu-item.wd-menu-item-danger:hover { background: #fef2f2; }
+.wd-move-panel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 4px 0;
+}
+.wd-move-panel select {
+  flex: 1;
+  font-size: 0.85rem;
+  padding: 2px 4px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.wd-move-panel button {
+  font-size: 0.8rem;
+  padding: 3px 8px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.wd-move-panel button:hover { opacity: 0.85; }
 
 /* ── Stats view ──────────────────────────────────────── */
 #view-stats { display: none; }

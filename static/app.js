@@ -1149,8 +1149,13 @@ function renderWordDetailCards(cards, wordId) {
                       onclick="cardAction(${c.id}, 'suspend', ${wordId})">
                 ${isSuspended ? 'Unsuspend' : 'Suspend'}
               </button>
+              <button class="wd-menu-item" onclick="openMoveCardPanel(${c.id}, event)">Move to deck…</button>
               <button class="wd-menu-item wd-menu-item-danger"
                       onclick="cardAction(${c.id}, 'reset', ${wordId})">Reset to new</button>
+            </div>
+            <div class="wd-move-panel" id="wd-move-${c.id}" style="display:none" onclick="event.stopPropagation()">
+              <select id="wd-move-sel-${c.id}"></select>
+              <button onclick="applyMoveCard(${c.id}, ${wordId})">Apply</button>
             </div>
           </div>
         </div>
@@ -1176,6 +1181,7 @@ function toggleCardMenu(cardId, e) {
 
 function closeAllCardMenus() {
   document.querySelectorAll('.wd-card-menu').forEach(m => m.style.display = 'none');
+  document.querySelectorAll('.wd-move-panel').forEach(p => p.style.display = 'none');
 }
 
 document.addEventListener('click', closeAllCardMenus);
@@ -1188,6 +1194,34 @@ async function cardAction(cardId, action, wordId) {
     renderWordDetailCards(word.cards || [], wordId);
   } catch (e) {
     showError(`Action failed: ${e.message}`);
+  }
+}
+
+function openMoveCardPanel(cardId, e) {
+  e.stopPropagation();
+  closeAllCardMenus();
+  const panel = document.getElementById(`wd-move-${cardId}`);
+  const isOpen = panel.style.display !== 'none';
+  document.querySelectorAll('.wd-move-panel').forEach(p => p.style.display = 'none');
+  if (isOpen) return;
+  const sel = document.getElementById(`wd-move-sel-${cardId}`);
+  sel.innerHTML = _browseDecks
+    .filter(d => !d.virtual)
+    .map(d => `<option value="${d.id}">${d.name}</option>`)
+    .join('');
+  panel.style.display = 'flex';
+}
+
+async function applyMoveCard(cardId, wordId) {
+  const deck_id = parseInt(document.getElementById(`wd-move-sel-${cardId}`).value);
+  document.getElementById(`wd-move-${cardId}`).style.display = 'none';
+  try {
+    await api('POST', `/api/cards/${cardId}/move`, { deck_id });
+    const word = await api('GET', `/api/word/${wordId}`);
+    word.cards = await api('GET', `/api/words/${wordId}/cards`);
+    renderWordDetailCards(word.cards || [], wordId);
+  } catch (e) {
+    showError(`Move failed: ${e.message}`);
   }
 }
 
