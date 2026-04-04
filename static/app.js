@@ -817,8 +817,7 @@ function _wordRow(w) {
   const sel = _browseSelected.has(w.id) ? ' bw-row-selected' : '';
   let rightHtml;
   if (w.cards.length === 0) {
-    rightHtml = `<span class="bw-reference-tag">参考</span>
-      <button class="bw-add-btn" onclick="openAddToDeckModal(event,${w.id})" title="添加到牌组">＋ 添加</button>`;
+    rightHtml = `<button class="bw-add-btn" onclick="openAddToDeckModal(event,${w.id})" title="添加到牌组">＋ 添加</button>`;
   } else {
     const CAT_LETTER = { listening: 'L', reading: 'R', creating: 'C' };
     rightHtml = ['listening', 'reading', 'creating'].map(cat => {
@@ -1035,6 +1034,18 @@ function _hanziRow(h) {
 }
 
 // ── Word Detail ───────────────────────────────────────────────────────────────
+async function openWordByZh(zh) {
+  let word = browseWords.find(w => w.word_zh === zh);
+  if (word) { openWordDetail(word.id); return; }
+  try {
+    const all = await api('GET', '/api/browse-words');
+    browseWords = all;
+    const found = all.find(w => w.word_zh === zh);
+    if (found) openWordDetail(found.id);
+    else showError(`"${zh}" not found`);
+  } catch (e) { showError(e.message); }
+}
+
 async function openWordDetail(wordId) {
   // Capture which view we're coming from so we can go back to it
   const views = ['review', 'browse', 'hanzi-detail', 'word-detail', 'stats', 'done', 'decks'];
@@ -1081,119 +1092,39 @@ function renderWordDetail(word) {
   defDeEl.textContent = word.definition_de ? `🇩🇪 ${word.definition_de}` : '';
   defDeEl.style.display = word.definition_de ? 'block' : 'none';
 
-  // Characters section — each hanzi is clickable
-  const charsEl = document.getElementById('wd-chars-section');
-  if (word.characters?.length) {
-    const rows = word.characters.map(wc => {
-      const char = wc.char || '';
-      const pin  = wc.pinyin || '';
-      const ctx  = wc.meaning_in_context ? `<span class="wd-ctx">${wc.meaning_in_context}</span>` : '';
-      const etym = wc.etymology ? `<div class="wd-etym">${wc.etymology}</div>` : '';
-      let meanings = '';
-      try { meanings = wc.other_meanings ? JSON.parse(wc.other_meanings).join(', ') : ''; } catch {}
-      const meanHtml = meanings ? `<span class="wd-char-meaning">${meanings}</span>` : '';
-      const pinEsc = pin.replace(/'/g, "\\'");
-      const charEsc = char.replace(/'/g, "\\'");
-      const tradHtml = (wc.traditional && wc.traditional !== char)
-        ? `<span class="wd-char-trad">${wc.traditional}</span>`
-        : '';
-      return `<div class="wd-char-row wd-char-link" onclick="openHanziRegenModal(${wc.char_id},'${charEsc}','${pinEsc}')">
-        <span class="wd-char-zh-col"><span class="wd-char-zh">${char}</span>${tradHtml}</span>
-        <span class="wd-char-pin">${pin}</span>
-        ${meanHtml}${ctx}${etym}
-      </div>`;
-    }).join('');
-    charsEl.innerHTML = rows;
-  } else {
-    charsEl.innerHTML = '';
-  }
-
-  // Synonyms / antonyms section
+  // Synonyms / antonyms section — collapsible, clickable
   const relEl = document.getElementById('wd-relations-section');
   const synonyms = (word.relations || []).filter(r => r.relation_type === 'synonym');
   const antonyms = (word.relations || []).filter(r => r.relation_type === 'antonym');
   if (synonyms.length || antonyms.length) {
-    let html = '';
+    const _relItem = r =>
+      `<span class="wd-rel-item wd-rel-link" title="${r.related_de || ''}"
+        onclick="openWordByZh(${_ea(JSON.stringify(r.related_zh))})">${r.related_zh}` +
+      (r.related_pinyin ? ` <span class="wd-rel-pin">${r.related_pinyin}</span>` : '') +
+      `</span>`;
+    let inner = '';
     if (synonyms.length) {
-      html += `<div class="wd-rel-group"><span class="wd-rel-label">近义词</span>`;
-      html += synonyms.map(r =>
-        `<span class="wd-rel-item" title="${r.related_de || ''}">${r.related_zh}` +
-        (r.related_pinyin ? ` <span class="wd-rel-pin">${r.related_pinyin}</span>` : '') +
-        `</span>`).join('');
-      html += `</div>`;
+      inner += `<div class="wd-rel-group"><span class="wd-rel-label">近义词</span>`;
+      inner += synonyms.map(_relItem).join('');
+      inner += `</div>`;
     }
     if (antonyms.length) {
-      html += `<div class="wd-rel-group"><span class="wd-rel-label">反义词</span>`;
-      html += antonyms.map(r =>
-        `<span class="wd-rel-item" title="${r.related_de || ''}">${r.related_zh}` +
-        (r.related_pinyin ? ` <span class="wd-rel-pin">${r.related_pinyin}</span>` : '') +
-        `</span>`).join('');
-      html += `</div>`;
+      inner += `<div class="wd-rel-group"><span class="wd-rel-label">反义词</span>`;
+      inner += antonyms.map(_relItem).join('');
+      inner += `</div>`;
     }
-    relEl.innerHTML = html;
+    relEl.innerHTML =
+      `<div class="section-label section-toggle" onclick="toggleSection('wd-relations-body')">` +
+        `<span id="wd-relations-body-arrow">▶</span> Relations</div>` +
+      `<div id="wd-relations-body" style="display:none">${inner}</div>`;
   } else {
     relEl.innerHTML = '';
   }
 
-  // Measure words (量词) section
-  const mwEl = document.getElementById('wd-measure-section');
-  if (word.measure_words?.length) {
-    const items = word.measure_words.map(m =>
-      `<span class="wd-mw-item">${m.measure_zh}` +
-      (m.pinyin ? ` <span class="wd-rel-pin">${m.pinyin}</span>` : '') +
-      (m.meaning ? ` <span class="wd-mw-meaning">${m.meaning}</span>` : '') +
-      `</span>`).join('');
-    mwEl.innerHTML = `<div class="wd-rel-group"><span class="wd-rel-label">量词</span>${items}</div>`;
-  } else {
-    mwEl.innerHTML = '';
-  }
-
-  // Notes section
-  const notesEl = document.getElementById('wd-notes-section');
-  if (notesEl) {
-    if (word.notes) {
-      notesEl.innerHTML =
-        `<div class="wd-section-head section-toggle" onclick="toggleSection('wd-notes-body')">` +
-          `<span id="wd-notes-body-arrow">▶</span> Notes</div>` +
-        `<div id="wd-notes-body" class="wd-section-body notes-body" style="display:none">${renderMarkdown(word.notes)}</div>`;
-    } else {
-      notesEl.innerHTML = '';
-    }
-  }
-
-  // Examples section
-  const exEl = document.getElementById('wd-examples-section');
-  if (word.examples?.length) {
-    const rows = word.examples.map(ex => `
-      <div class="wd-example-row">
-        <div class="wd-ex-zh">${ex.example_zh || ''}</div>
-        ${ex.example_pinyin ? `<div class="wd-ex-pin">${ex.example_pinyin}</div>` : ''}
-        ${ex.example_de ? `<div class="wd-ex-de">${ex.example_de}</div>` : ''}
-      </div>`).join('');
-    exEl.innerHTML =
-      `<div class="wd-section-head section-toggle" onclick="toggleSection('wd-examples-body')">` +
-        `<span id="wd-examples-body-arrow">▶</span> Examples</div>` +
-      `<div id="wd-examples-body" class="wd-section-body" style="display:none">${rows}</div>`;
-  } else {
-    exEl.innerHTML = '';
-  }
-
-  // Component words section (for sentences/chengyu) — clickable
-  const compEl = document.getElementById('wd-components-section');
-  if (word.components?.length) {
-    const rows = word.components.map(comp => `
-      <div class="wd-char-row wd-char-link" onclick="openWordDetail(${comp.id})">
-        <span class="wd-char-zh">${comp.word_zh}</span>
-        <span class="wd-char-pin">${comp.pinyin || ''}</span>
-        <span class="wd-ctx">${comp.definition || ''}</span>
-      </div>`).join('');
-    compEl.innerHTML =
-      `<div class="wd-section-head section-toggle" onclick="toggleSection('wd-comps-body')">` +
-        `<span id="wd-comps-body-arrow">▶</span> Component Words</div>` +
-      `<div id="wd-comps-body" class="wd-section-body" style="display:none">${rows}</div>`;
-  } else {
-    compEl.innerHTML = '';
-  }
+  // Shared sections (notes, examples, word analysis)
+  renderNotesSection(document.getElementById('wd-notes-section'), word.notes);
+  renderVocabDetail(document.getElementById('wd-examples-section'), word.examples);
+  renderWordAnalysis(document.getElementById('wd-word-analysis-section'), word);
 
   // Cards section
   renderWordDetailCards(word.cards || [], word.id);
@@ -1228,7 +1159,8 @@ function renderWordDetailCards(cards, wordId) {
                       onclick="cardAction(${c.id}, 'reset', ${wordId})">Reset to new</button>
             </div>
             <div class="wd-move-panel" id="wd-move-${c.id}" style="display:none" onclick="event.stopPropagation()">
-              <select id="wd-move-sel-${c.id}"></select>
+              <input id="wd-move-inp-${c.id}" class="wd-deck-picker-input" autocomplete="off" placeholder="Deck…"
+                onfocus="wdPickerOpen(this)" oninput="wdPickerFilter(this)" onkeydown="wdPickerKey(event, this)">
               <button onclick="applyMoveCard(${c.id}, ${wordId})">Apply</button>
             </div>
           </div>
@@ -1242,14 +1174,25 @@ function renderWordDetailCards(cards, wordId) {
         </div>
       </div>`;
   }).join('');
+  const CAT_LETTER = { listening: 'L', reading: 'R', creating: 'C' };
+  const circles = ['listening', 'reading', 'creating'].map(cat => {
+    const c = cards.find(c => c.category === cat);
+    const letter = CAT_LETTER[cat];
+    if (!c) return `<button class="rcat-btn bw-rcat-missing" disabled title="${cat}: —">${letter}</button>`;
+    const isSusp = c.state === 'suspended';
+    const cls = `rcat-btn ${isSusp ? 'rcat-susp' : 'rcat-active'}`;
+    const tip = `${cat}: ${c.state} — click to ${isSusp ? 'activate' : 'suspend'}`;
+    return `<button class="${cls}" title="${tip}" onclick="toggleBrowseDotSuspend(event,${c.id},${wordId})">${letter}</button>`;
+  }).join('');
   el.innerHTML = `<div class="wd-section-head wd-cards-head">
-    <span>Cards</span>
+    <span>Cards <span class="wd-cat-circles">${circles}</span></span>
     <button class="wd-move-all-btn" onclick="openMoveAllCardsPanel(${wordId})">Move all…</button>
   </div>
   <div class="wd-move-all-panel" id="wd-move-all-${wordId}" style="display:none" onclick="event.stopPropagation()">
-    <select id="wd-move-all-sel-${wordId}"></select>
+    <input id="wd-move-all-inp-${wordId}" class="wd-deck-picker-input" autocomplete="off" placeholder="Deck…"
+      onfocus="wdPickerOpen(this)" oninput="wdPickerFilter(this)" onkeydown="wdPickerKey(event, this)">
     <button onclick="applyMoveAllCards(${wordId})">Apply</button>
-    <button onclick="document.getElementById('wd-move-all-${wordId}').style.display='none'">✕</button>
+    <button onclick="document.getElementById('wd-move-all-${wordId}').style.display='none';wdPickerClose()">✕</button>
   </div>
   <div class="wd-cards-list">${rows}</div>`;
 }
@@ -1284,21 +1227,22 @@ function openMoveAllCardsPanel(wordId) {
   const panel = document.getElementById(`wd-move-all-${wordId}`);
   if (!panel) return;
   const isOpen = panel.style.display !== 'none';
-  panel.style.display = isOpen ? 'none' : 'flex';
-  if (!isOpen) {
-    const sel = document.getElementById(`wd-move-all-sel-${wordId}`);
-    sel.innerHTML = _browseDecks
-      .filter(d => !d.virtual)
-      .map(d => `<option value="${d.id}">${d.name}</option>`)
-      .join('');
-  }
+  if (isOpen) { panel.style.display = 'none'; wdPickerClose(); return; }
+  panel.style.display = 'flex';
+  const inp = document.getElementById(`wd-move-all-inp-${wordId}`);
+  inp.value = '';
+  inp.focus();
 }
 
 async function applyMoveAllCards(wordId) {
   const panel = document.getElementById(`wd-move-all-${wordId}`);
-  const deck_id = parseInt(document.getElementById(`wd-move-all-sel-${wordId}`).value);
+  const inp = document.getElementById(`wd-move-all-inp-${wordId}`);
+  const path = inp.value.trim();
+  if (!path) return;
   panel.style.display = 'none';
+  wdPickerClose();
   try {
+    const deck_id = await _wdResolveDeck(path);
     await api('POST', '/api/cards/bulk-move', { word_ids: [wordId], deck_id });
     const word = await api('GET', `/api/word/${wordId}`);
     word.cards = await api('GET', `/api/words/${wordId}/cards`);
@@ -1332,21 +1276,23 @@ function openMoveCardPanel(cardId, e) {
   e.stopPropagation();
   closeAllCardMenus();
   const panel = document.getElementById(`wd-move-${cardId}`);
-  const isOpen = panel.style.display !== 'none';
   document.querySelectorAll('.wd-move-panel').forEach(p => p.style.display = 'none');
-  if (isOpen) return;
-  const sel = document.getElementById(`wd-move-sel-${cardId}`);
-  sel.innerHTML = _browseDecks
-    .filter(d => !d.virtual)
-    .map(d => `<option value="${d.id}">${d.name}</option>`)
-    .join('');
+  wdPickerClose();
   panel.style.display = 'flex';
+  const inp = document.getElementById(`wd-move-inp-${cardId}`);
+  inp.value = '';
+  inp.focus();
 }
 
 async function applyMoveCard(cardId, wordId) {
-  const deck_id = parseInt(document.getElementById(`wd-move-sel-${cardId}`).value);
-  document.getElementById(`wd-move-${cardId}`).style.display = 'none';
+  const panel = document.getElementById(`wd-move-${cardId}`);
+  const inp = document.getElementById(`wd-move-inp-${cardId}`);
+  const path = inp.value.trim();
+  if (!path) return;
+  panel.style.display = 'none';
+  wdPickerClose();
   try {
+    const deck_id = await _wdResolveDeck(path);
     await api('POST', `/api/cards/${cardId}/move`, { deck_id });
     const word = await api('GET', `/api/word/${wordId}`);
     word.cards = await api('GET', `/api/words/${wordId}/cards`);
@@ -2469,80 +2415,85 @@ async function toggleReviewCat(cardId) {
   }
 }
 
-function renderVocabDetail() {
-  // Examples
-  const examples = wordDetails?.examples || [];
-  const exSection = document.getElementById('examples-section');
-  if (examples.length > 0) {
-    const items = examples.map(ex => {
-      let html = `<div class="example-item">`;
-      html += `<div class="example-zh">${ex.example_zh || ''}</div>`;
-      if (ex.example_pinyin) html += `<div class="example-pin">${ex.example_pinyin}</div>`;
-      if (ex.example_de)     html += `<div class="example-de">${ex.example_de}</div>`;
-      html += `</div>`;
-      return html;
+function renderVocabDetail(container, examples) {
+  const el = container ?? document.getElementById('examples-section');
+  const items = examples ?? wordDetails?.examples ?? [];
+  const bodyId = el.id + '-body';
+  if (items.length > 0) {
+    const html = items.map(ex => {
+      let h = `<div class="example-item">`;
+      h += `<div class="example-zh">${ex.example_zh || ''}</div>`;
+      if (ex.example_pinyin) h += `<div class="example-pin">${ex.example_pinyin}</div>`;
+      if (ex.example_de)     h += `<div class="example-de">${ex.example_de}</div>`;
+      h += `</div>`;
+      return h;
     }).join('');
-    exSection.innerHTML =
-      `<div class="section-label section-toggle" onclick="toggleSection('ex-section-body')">` +
-        `<span id="ex-section-body-arrow">▶</span> Examples</div>` +
-      `<div id="ex-section-body" style="display:none">${items}</div>`;
+    el.innerHTML =
+      `<div class="section-label section-toggle" onclick="toggleSection('${bodyId}')">` +
+        `<span id="${bodyId}-arrow">▶</span> Examples</div>` +
+      `<div id="${bodyId}" style="display:none">${html}</div>`;
   } else {
-    exSection.innerHTML = '';
+    el.innerHTML = '';
   }
 }
 
-function renderNotesSection() {
-  const section = document.getElementById('notes-section');
-  if (card?.notes) {
-    section.innerHTML =
-      `<div class="section-label section-toggle" onclick="toggleSection('notes-section-body')">` +
-        `<span id="notes-section-body-arrow">▶</span> Notes</div>` +
-      `<div id="notes-section-body" class="notes-body" style="display:none">${renderMarkdown(card.notes)}</div>`;
-    section.style.display = 'block';
+function renderNotesSection(container, notes) {
+  const el = container ?? document.getElementById('notes-section');
+  const text = notes ?? card?.notes;
+  const bodyId = el.id + '-body';
+  if (text) {
+    el.innerHTML =
+      `<div class="section-label section-toggle" onclick="toggleSection('${bodyId}')">` +
+        `<span id="${bodyId}-arrow">▶</span> Notes</div>` +
+      `<div id="${bodyId}" class="notes-body" style="display:none">${renderMarkdown(text)}</div>`;
+    el.style.display = '';
   } else {
-    section.innerHTML = '';
-    section.style.display = 'none';
+    el.innerHTML = '';
+    el.style.display = 'none';
   }
 }
 
-function renderWordAnalysis() {
-  const section = document.getElementById('word-analysis-section');
-  const nt = wordDetails?.note_type || card?.note_type;
+function renderWordAnalysis(container, wordData) {
+  const el = container ?? document.getElementById('word-analysis-section');
+  const wd = wordData ?? wordDetails;
+  const nt = wd?.note_type ?? card?.note_type;
   const isMultiWord = nt === 'sentence' || nt === 'chengyu' || nt === 'expression';
+  const prefix = el.id;
+  const bodyId = prefix + '-body';
 
   // Build word groups for all note types
   let wordGroups = [];
   if (isMultiWord) {
-    wordGroups = wordDetails?.components || [];
-  } else if (wordDetails) {
+    wordGroups = wd?.components || [];
+  } else if (wd) {
     // Single word: one group = the word itself
     wordGroups = [{
-      id: wordDetails.id,
-      word_zh:      wordDetails.word_zh  || card?.word_zh,
-      pinyin:       wordDetails.pinyin   || card?.pinyin,
-      hsk_level:    wordDetails.hsk_level || card?.hsk_level,
-      definition:   wordDetails.definition || card?.definition,
-      measure_words: wordDetails.measure_words || [],
-      characters:   wordDetails.characters || [],
+      id: wd.id,
+      word_zh:       wd.word_zh    || card?.word_zh,
+      pinyin:        wd.pinyin     || card?.pinyin,
+      hsk_level:     wd.hsk_level  || card?.hsk_level,
+      definition:    wd.definition || card?.definition,
+      measure_words: wd.measure_words || [],
+      characters:    wd.characters || [],
     }];
   }
 
   if (wordGroups.length === 0) {
-    section.innerHTML = '';
+    el.innerHTML = '';
     return;
   }
 
   const wordCards = wordGroups.map((comp, idx) => {
     const wid = comp.id;
-    const bodyId = `wa-body-${idx}`;
+    const charBodyId = `${prefix}-wa-${idx}`;
 
     // Header: word (clickable to Browse) + pinyin + HSK + definition
     const zhSpan = wid
       ? `<span class="wa-word-zh wa-browse-link" onclick="openWordDetail(${wid})">${comp.word_zh || ''}</span>`
       : `<span class="wa-word-zh">${comp.word_zh || ''}</span>`;
     let header = zhSpan;
-    if (comp.pinyin)    header += `<span class="wa-word-pin">${comp.pinyin}</span>`;
-    if (comp.hsk_level) header += `<span class="wa-hsk-badge">HSK ${comp.hsk_level}</span>`;
+    if (comp.pinyin)     header += `<span class="wa-word-pin">${comp.pinyin}</span>`;
+    if (comp.hsk_level)  header += `<span class="wa-hsk-badge">HSK ${comp.hsk_level}</span>`;
     if (comp.definition) header += `<span class="wa-word-def">${comp.definition}</span>`;
 
     // Measure words row
@@ -2596,17 +2547,17 @@ function renderWordAnalysis() {
       `<div class="wa-word-header">${header}</div>` +
       (mwHtml ? `<div class="wa-word-extra">${mwHtml}</div>` : '') +
       (hasChars
-        ? `<div class="wa-chars-toggle section-toggle" onclick="toggleSection('${bodyId}')">` +
-            `<span id="${bodyId}-arrow">▶</span> Characters</div>` +
-          `<div id="${bodyId}" class="wa-chars-list" style="display:none">${charBody}</div>`
+        ? `<div class="wa-chars-toggle section-toggle" onclick="toggleSection('${charBodyId}')">` +
+            `<span id="${charBodyId}-arrow">▼</span> Characters</div>` +
+          `<div id="${charBodyId}" class="wa-chars-list">${charBody}</div>`
         : '') +
       `</div>`;
   }).join('');
 
-  section.innerHTML =
-    `<div class="section-label section-toggle" onclick="toggleSection('wa-section-body')">` +
-      `<span id="wa-section-body-arrow">▼</span> Word Analysis</div>` +
-    `<div id="wa-section-body" class="wa-list">${wordCards}</div>`;
+  el.innerHTML =
+    `<div class="section-label section-toggle" onclick="toggleSection('${bodyId}')">` +
+      `<span id="${bodyId}-arrow">▶</span> Word Analysis</div>` +
+    `<div id="${bodyId}" class="wa-list" style="display:none">${wordCards}</div>`;
 }
 
 function _callRenderWordAnalysis() {
@@ -4184,51 +4135,13 @@ document.addEventListener('keydown', e => {
   if (inInput || e.ctrlKey || e.metaKey || e.altKey) return;
 
 
-  // Only handle review shortcuts when the review view is active
-  const reviewView = document.getElementById('view-review');
-  if (!reviewView || reviewView.style.display === 'none') return;
+  const _toggleAndScroll = (bodyId, containerId, block = 'nearest') => {
+    toggleSection(bodyId);
+    if (document.getElementById(bodyId)?.style.display !== 'none')
+      document.getElementById(containerId)?.scrollIntoView({ behavior: 'smooth', block });
+  };
 
-  const backVisible = document.getElementById('side-back')?.style.display === 'flex';
-
-  if (e.key === 'r') {
-    e.preventDefault();
-    playSentence();
-  } else if (e.key === 'p') {
-    e.preventDefault();
-    togglePinyin();
-  } else if (e.key === 's') {
-    e.preventDefault();
-    document.getElementById('sentence-front')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  } else if (e.key === ' ') {
-    e.preventDefault();
-    if (!backVisible) revealAnswer();
-  } else if (['1','2','3','4'].includes(e.key) && backVisible) {
-    e.preventDefault();
-    const btns = document.querySelectorAll('.r-btn');
-    if (btns.length && !btns[0].disabled) rate(Number(e.key));
-  } else if (e.key === 'z') {
-    const undoBtn = document.getElementById('undo-btn');
-    if (undoBtn && !undoBtn.disabled) {
-      e.preventDefault();
-      undoReview();
-    }
-  } else if (backVisible && e.key === 'e') {
-    e.preventDefault();
-    toggleSection('ex-section-body');
-    if (document.getElementById('ex-section-body')?.style.display !== 'none')
-      document.getElementById('examples-section')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  } else if (backVisible && e.key === 'n') {
-    e.preventDefault();
-    toggleSection('notes-section-body');
-    if (document.getElementById('notes-section-body')?.style.display !== 'none')
-      document.getElementById('notes-section')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  } else if (backVisible && e.key === 'w') {
-    e.preventDefault();
-    toggleSection('wa-section-body');
-    if (document.getElementById('wa-section-body')?.style.display !== 'none')
-      document.getElementById('word-analysis-section')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  } else if (backVisible && e.key === 'c') {
-    e.preventDefault();
+  const _toggleAllChars = () => {
     const charLists = document.querySelectorAll('.wa-chars-list');
     if (!charLists.length) return;
     const opening = charLists[0].style.display === 'none';
@@ -4238,6 +4151,177 @@ document.addEventListener('keydown', e => {
       if (arrow) arrow.textContent = opening ? '▼' : '▶';
     });
     if (opening) charLists[charLists.length - 1].scrollIntoView({ behavior: 'smooth', block: 'end' });
+  };
+
+  // Review shortcuts
+  const reviewView = document.getElementById('view-review');
+  if (reviewView && reviewView.style.display !== 'none') {
+    const backVisible = document.getElementById('side-back')?.style.display === 'flex';
+    if (e.key === 'r') {
+      e.preventDefault(); playSentence();
+    } else if (e.key === 'p') {
+      e.preventDefault(); togglePinyin();
+    } else if (e.key === 's') {
+      e.preventDefault();
+      document.getElementById('sentence-front')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (e.key === ' ') {
+      e.preventDefault(); if (!backVisible) revealAnswer();
+    } else if (['1','2','3','4'].includes(e.key) && backVisible) {
+      e.preventDefault();
+      const btns = document.querySelectorAll('.r-btn');
+      if (btns.length && !btns[0].disabled) rate(Number(e.key));
+    } else if (e.key === 'z') {
+      const undoBtn = document.getElementById('undo-btn');
+      if (undoBtn && !undoBtn.disabled) { e.preventDefault(); undoReview(); }
+    } else if (backVisible && e.key === 'e') {
+      e.preventDefault(); _toggleAndScroll('examples-section-body', 'examples-section');
+    } else if (backVisible && e.key === 'n') {
+      e.preventDefault(); _toggleAndScroll('notes-section-body', 'notes-section');
+    } else if (backVisible && e.key === 'w') {
+      e.preventDefault(); _toggleAndScroll('word-analysis-section-body', 'word-analysis-section', 'end');
+    } else if (backVisible && e.key === 'c') {
+      e.preventDefault(); _toggleAllChars();
+    }
+    return;
+  }
+
+  // Word-detail shortcuts
+  const wdView = document.getElementById('view-word-detail');
+  if (wdView && wdView.style.display !== 'none') {
+    if (e.key === 'e') {
+      e.preventDefault(); _toggleAndScroll('wd-examples-section-body', 'wd-examples-section');
+    } else if (e.key === 'n') {
+      e.preventDefault(); _toggleAndScroll('wd-notes-section-body', 'wd-notes-section');
+    } else if (e.key === 'w') {
+      e.preventDefault(); _toggleAndScroll('wd-word-analysis-section-body', 'wd-word-analysis-section', 'end');
+    } else if (e.key === 'c') {
+      e.preventDefault(); _toggleAllChars();
+    } else if (e.key === 'r') {
+      e.preventDefault(); _toggleAndScroll('wd-relations-body', 'wd-relations-section');
+    }
+  }
+});
+
+// ── Word-detail deck picker ───────────────────────────────────────────────────
+
+let _wdPickerActiveInput = null;
+let _wdPickerActiveIdx = -1;
+let _wdDeckSuggestions = []; // [{path, id}]
+
+function _wdBuildSuggestions() {
+  const result = [];
+  function walk(nodes, prefix) {
+    for (const d of nodes) {
+      if (d.virtual || d.category) { if (d.children) walk(d.children, prefix); continue; }
+      const path = prefix ? `${prefix}::${d.name}` : d.name;
+      result.push({ path, id: d.id });
+      if (d.children) walk(d.children, path);
+    }
+  }
+  walk(_browseDeckTree, '');
+  return result;
+}
+
+function _wdRenderDropdown(suggestions, query) {
+  const dd = document.getElementById('wd-deck-picker-dd');
+  if (!dd) return;
+  const isNew = !!query && !suggestions.some(s => s.path.toLowerCase() === query.toLowerCase());
+  _wdPickerActiveIdx = -1;
+  let html = suggestions.map((s, i) =>
+    `<div class="deck-picker-option" data-idx="${i}" onclick="wdPickerSelect('${s.path.replace(/'/g, "\\'")}',${s.id})">${_deckPathHtml(s.path)}</div>`
+  ).join('');
+  if (!html && !isNew) html = '<div class="deck-picker-empty">No existing decks</div>';
+  if (isNew && query) {
+    html += `<div class="deck-picker-create" onclick="wdPickerSelect('${query.replace(/'/g, "\\'")}',null)">+ Create ${_deckPathHtml(query)}</div>`;
+  }
+  dd.innerHTML = html;
+  _wdPositionDropdown();
+  dd.style.display = '';
+}
+
+function _wdPositionDropdown() {
+  const inp = _wdPickerActiveInput;
+  const dd = document.getElementById('wd-deck-picker-dd');
+  if (!inp || !dd) return;
+  const r = inp.getBoundingClientRect();
+  dd.style.width = r.width + 'px';
+  dd.style.left = r.left + 'px';
+  const ddH = Math.min(220, dd.scrollHeight || 220);
+  if (r.bottom + ddH + 4 > window.innerHeight && r.top - ddH - 4 > 0) {
+    dd.style.bottom = (window.innerHeight - r.top + 4) + 'px';
+    dd.style.top = 'auto';
+  } else {
+    dd.style.top = (r.bottom + 4) + 'px';
+    dd.style.bottom = 'auto';
+  }
+}
+
+function wdPickerOpen(inp) {
+  _wdPickerActiveInput = inp;
+  _wdDeckSuggestions = _wdBuildSuggestions();
+  const q = inp.value.trim();
+  const filtered = _wdDeckSuggestions.filter(s => !q || s.path.toLowerCase().includes(q.toLowerCase()));
+  _wdRenderDropdown(filtered, q);
+}
+
+function wdPickerFilter(inp) {
+  _wdPickerActiveInput = inp;
+  if (!_wdDeckSuggestions.length) _wdDeckSuggestions = _wdBuildSuggestions();
+  const q = inp.value.trim();
+  const filtered = _wdDeckSuggestions.filter(s => !q || s.path.toLowerCase().includes(q.toLowerCase()));
+  _wdRenderDropdown(filtered, q);
+}
+
+function wdPickerSelect(path, id) {
+  if (_wdPickerActiveInput) _wdPickerActiveInput.value = path;
+  if (id !== null) _wdPickerActiveInput.dataset.deckId = id;
+  else delete _wdPickerActiveInput.dataset.deckId;
+  document.getElementById('wd-deck-picker-dd').style.display = 'none';
+}
+
+function wdPickerClose() {
+  const dd = document.getElementById('wd-deck-picker-dd');
+  if (dd) dd.style.display = 'none';
+  _wdPickerActiveInput = null;
+}
+
+function wdPickerKey(e, inp) {
+  const dd = document.getElementById('wd-deck-picker-dd');
+  if (!dd || dd.style.display === 'none') {
+    if (e.key === 'ArrowDown') { e.preventDefault(); wdPickerOpen(inp); }
+    return;
+  }
+  const opts = dd.querySelectorAll('.deck-picker-option, .deck-picker-create');
+  if (e.key === 'Escape') { dd.style.display = 'none'; return; }
+  if (e.key === 'ArrowDown') { e.preventDefault(); _wdPickerActiveIdx = Math.min(_wdPickerActiveIdx + 1, opts.length - 1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); _wdPickerActiveIdx = Math.max(_wdPickerActiveIdx - 1, -1); }
+  else if (e.key === 'Enter' && _wdPickerActiveIdx >= 0) { e.preventDefault(); opts[_wdPickerActiveIdx].click(); return; }
+  else { return; }
+  opts.forEach((o, i) => o.classList.toggle('active', i === _wdPickerActiveIdx));
+  if (_wdPickerActiveIdx >= 0) opts[_wdPickerActiveIdx].scrollIntoView({ block: 'nearest' });
+}
+
+async function _wdResolveDeck(path) {
+  // Try to find existing deck by path match
+  if (!_wdDeckSuggestions.length) _wdDeckSuggestions = _wdBuildSuggestions();
+  const found = _wdDeckSuggestions.find(s => s.path.toLowerCase() === path.toLowerCase());
+  if (found) return found.id;
+  // Create new deck via API (supports :: hierarchy)
+  const deck = await api('POST', `/api/decks?name=${encodeURIComponent(path)}`);
+  // Refresh deck data so future operations work
+  const deckTree = await api('GET', '/api/decks');
+  _browseDecks = _flattenDecks(deckTree);
+  const allRoot = deckTree.find(d => d.virtual && d.id !== 'unfinished');
+  _browseDeckTree = allRoot ? (allRoot.children || []) : deckTree.filter(d => !d.virtual);
+  _wdDeckSuggestions = _wdBuildSuggestions();
+  return deck.id;
+}
+
+document.addEventListener('click', e => {
+  const dd = document.getElementById('wd-deck-picker-dd');
+  if (!dd || dd.style.display === 'none') return;
+  if (_wdPickerActiveInput && !_wdPickerActiveInput.contains(e.target) && !dd.contains(e.target)) {
+    dd.style.display = 'none';
   }
 });
 

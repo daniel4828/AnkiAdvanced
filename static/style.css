@@ -1691,6 +1691,15 @@ main.browse-open {
 }
 
 /* ── Word Detail view ────────────────────────────────── */
+.wd-body {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 .wd-header {
   background: var(--card);
   border-radius: var(--radius);
@@ -1760,6 +1769,11 @@ main.browse-open {
   color: var(--text);
   cursor: default;
 }
+.wd-rel-item.wd-rel-link {
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.wd-rel-item.wd-rel-link:hover { background: var(--primary-light, #e8f0fe); color: var(--primary); }
 .wd-rel-pin { font-size: 12px; color: var(--muted); }
 .wd-mw-item {
   background: var(--bg);
@@ -1905,6 +1919,7 @@ main.browse-open {
 }
 .bs-deck-arrow-leaf { opacity: 0; }
 .wd-cards-head { display: flex; align-items: center; justify-content: space-between; }
+.wd-cat-circles { display: inline-flex; gap: 6px; margin-left: 10px; vertical-align: middle; }
 .wd-move-all-btn {
   font-size: 0.78rem;
   padding: 2px 8px;
@@ -1921,13 +1936,18 @@ main.browse-open {
   gap: 6px;
   padding: 4px 0 6px;
 }
-.wd-move-all-panel select {
+.wd-deck-picker-input {
   flex: 1;
   font-size: 0.85rem;
-  padding: 2px 4px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  padding: 4px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--text);
+  outline: none;
+  min-width: 0;
 }
+.wd-deck-picker-input:focus { border-color: var(--primary); }
 .wd-move-all-panel button {
   font-size: 0.8rem;
   padding: 3px 8px;
@@ -1946,13 +1966,7 @@ main.browse-open {
   margin-top: 4px;
   padding: 4px 0;
 }
-.wd-move-panel select {
-  flex: 1;
-  font-size: 0.85rem;
-  padding: 2px 4px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-}
+/* .wd-deck-picker-input shared above */
 .wd-move-panel button {
   font-size: 0.8rem;
   padding: 3px 8px;
