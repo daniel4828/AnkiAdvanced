@@ -819,11 +819,15 @@ function _wordRow(w) {
     rightHtml = `<span class="bw-reference-tag">参考</span>
       <button class="bw-add-btn" onclick="openAddToDeckModal(event,${w.id})" title="添加到牌组">＋ 添加</button>`;
   } else {
+    const CAT_LETTER = { listening: 'L', reading: 'R', creating: 'C' };
     rightHtml = ['listening', 'reading', 'creating'].map(cat => {
       const c = w.cards.find(c => c.category === cat);
-      return c
-        ? `<span class="bw-dot bw-dot-${c.state} bw-dot-clickable" data-card-id="${c.id}" title="${cat}: ${c.state} (click to toggle suspend)" onclick="toggleBrowseDotSuspend(event,${c.id},${w.id})"></span>`
-        : `<span class="bw-dot bw-dot-none" title="${cat}: —"></span>`;
+      const letter = CAT_LETTER[cat];
+      if (!c) return `<button class="rcat-btn bw-rcat-missing" title="${cat}: —" disabled>${letter}</button>`;
+      const isSusp = c.state === 'suspended';
+      const cls = `rcat-btn ${isSusp ? 'rcat-susp' : 'rcat-active'}`;
+      const tip = `${cat}: ${c.state} — click to ${isSusp ? 'activate' : 'suspend'}`;
+      return `<button class="${cls}" title="${tip}" onclick="toggleBrowseDotSuspend(event,${c.id},${w.id})">${letter}</button>`;
     }).join('');
   }
   return `
@@ -1305,8 +1309,8 @@ async function applyMoveAllCards(wordId) {
 
 async function toggleBrowseDotSuspend(e, cardId, wordId) {
   e.stopPropagation();
-  const dot = e.currentTarget;
-  const isSuspended = dot.classList.contains('bw-dot-suspended');
+  const btn = e.currentTarget;
+  const isSuspended = btn.classList.contains('rcat-susp');
   const newState = isSuspended ? 'new' : 'suspended';
   try {
     await api('POST', `/api/cards/${cardId}/suspend`);
@@ -1316,8 +1320,8 @@ async function toggleBrowseDotSuspend(e, cardId, wordId) {
       const card = word.cards.find(c => c.id === cardId);
       if (card) card.state = newState;
     }
-    dot.className = `bw-dot bw-dot-${newState} bw-dot-clickable`;
-    dot.title = dot.title.replace(/: \w+/, `: ${newState}`);
+    btn.className = `rcat-btn ${newState === 'suspended' ? 'rcat-susp' : 'rcat-active'}`;
+    btn.title = btn.title.replace(/— .+$/, `— ${newState === 'suspended' ? 'click to activate' : 'click to suspend'}`);
   } catch (err) {
     showError('Suspend failed: ' + err.message);
   }

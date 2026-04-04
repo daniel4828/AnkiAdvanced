@@ -1581,6 +1581,8 @@ main.browse-open {
 .bw-dot-none      { background: var(--border); }
 .bw-dot-clickable { cursor: pointer; transition: transform 0.1s, opacity 0.1s; }
 .bw-dot-clickable:hover { opacity: 0.7; transform: scale(1.4); }
+.bw-rcat-missing { opacity: 0.18; cursor: default; }
+.bw-right .rcat-btn { width: 22px; height: 22px; font-size: 9px; }
 
 .bw-row-selected { background: #eff6ff !important; }
 .bw-row-selected:hover { background: #dbeafe !important; }
