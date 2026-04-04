@@ -621,10 +621,28 @@ function onBrowseSort(val) {
   else if (q) onBrowseSearch(q); else renderBrowseWords(_filteredBrowseWords());
 }
 
+function _leafDeckIds(deckId) {
+  const deck = _browseDecks.find(d => d.id === deckId);
+  if (!deck) return new Set([deckId]);
+  const ids = new Set();
+  function collect(nodes) {
+    for (const n of nodes) {
+      if (!n.children?.length) ids.add(n.id);
+      else collect(n.children);
+    }
+  }
+  if (deck.children?.length) collect(deck.children);
+  else ids.add(deckId);
+  return ids;
+}
+
 function _filteredBrowseWords() {
   let words = browseWords;
   if (_browseFilter !== 'all') words = words.filter(w => w.note_type === _browseFilter);
-  if (_browseDeckId !== null) words = words.filter(w => w.cards.some(c => c.deck_id === _browseDeckId));
+  if (_browseDeckId !== null) {
+    const leafIds = _leafDeckIds(_browseDeckId);
+    words = words.filter(w => w.cards.some(c => leafIds.has(c.deck_id)));
+  }
   if (_browseCardStatus === 'learning')   words = words.filter(w => w.cards.length > 0);
   if (_browseCardStatus === 'reference')  words = words.filter(w => w.cards.length === 0);
   return words;
@@ -658,6 +676,14 @@ function setBrowseStatusFilter(status) {
 }
 
 function setBrowseDeckFilter(deckId) {
+  if (_browseDeckId === deckId) {
+    _browseDeckId = null;
+    document.querySelectorAll('.bs-deck-item').forEach(el => el.classList.remove('bs-active'));
+    _browseSelected.clear();
+    _updateBrowseActionBar();
+    renderBrowseWords(_filteredBrowseWords());
+    return;
+  }
   _browseMode   = 'notes';
   _browseFilter = 'all';
   _browseDeckId = deckId;
@@ -715,12 +741,19 @@ function _flattenDecks(tree) {
 }
 
 function _renderBrowseSidebar() {
-  // Deck tree in sidebar
   const container = document.getElementById('browse-deck-tree');
-  const allDecks = browseWords.flatMap(w => w.cards.map(c => ({id: c.deck_id, name: c.deck_name})));
-  const uniqueDecks = [...new Map(allDecks.map(d => [d.id, d])).values()];
-  container.innerHTML = uniqueDecks.map(d =>
-    `<button class="bs-deck-item" data-id="${d.id}" onclick="setBrowseDeckFilter(${d.id})">${d.name}</button>`
+  // Get parent decks (no category) that have at least one word with cards
+  const usedDeckIds = new Set(browseWords.flatMap(w => w.cards.map(c => c.deck_id)));
+  const parentDecks = _browseDecks
+    .filter(d => !d.category && !d.virtual && d.children?.length)
+    .filter(d => {
+      const leafIds = _leafDeckIds(d.id);
+      return [...leafIds].some(id => usedDeckIds.has(id));
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const active = _browseDeckId;
+  container.innerHTML = parentDecks.map(d =>
+    `<button class="bs-deck-item${active === d.id ? ' bs-active' : ''}" data-id="${d.id}" onclick="setBrowseDeckFilter(${d.id})">${d.name}</button>`
   ).join('');
 }
 
@@ -753,7 +786,7 @@ function _wordRow(w) {
     rightHtml = ['listening', 'reading', 'creating'].map(cat => {
       const c = w.cards.find(c => c.category === cat);
       return c
-        ? `<span class="bw-dot bw-dot-${c.state}" title="${cat}: ${c.state}"></span>`
+        ? `<span class="bw-dot bw-dot-${c.state} bw-dot-clickable" data-card-id="${c.id}" title="${cat}: ${c.state} (click to toggle suspend)" onclick="toggleBrowseDotSuspend(event,${c.id},${w.id})"></span>`
         : `<span class="bw-dot bw-dot-none" title="${cat}: —"></span>`;
     }).join('');
   }
@@ -1194,6 +1227,26 @@ async function cardAction(cardId, action, wordId) {
     renderWordDetailCards(word.cards || [], wordId);
   } catch (e) {
     showError(`Action failed: ${e.message}`);
+  }
+}
+
+async function toggleBrowseDotSuspend(e, cardId, wordId) {
+  e.stopPropagation();
+  const dot = e.currentTarget;
+  const isSuspended = dot.classList.contains('bw-dot-suspended');
+  const newState = isSuspended ? 'new' : 'suspended';
+  try {
+    await api('POST', `/api/cards/${cardId}/suspend`);
+    // Update in-memory browseWords
+    const word = browseWords.find(w => w.id === wordId);
+    if (word) {
+      const card = word.cards.find(c => c.id === cardId);
+      if (card) card.state = newState;
+    }
+    dot.className = `bw-dot bw-dot-${newState} bw-dot-clickable`;
+    dot.title = dot.title.replace(/: \w+/, `: ${newState}`);
+  } catch (err) {
+    showError('Suspend failed: ' + err.message);
   }
 }
 

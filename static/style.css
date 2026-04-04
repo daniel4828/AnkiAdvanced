@@ -1579,6 +1579,8 @@ main.browse-open {
 .bw-dot-relearn   { background: #f87171; }
 .bw-dot-suspended { background: #cbd5e1; }
 .bw-dot-none      { background: var(--border); }
+.bw-dot-clickable { cursor: pointer; transition: transform 0.1s, opacity 0.1s; }
+.bw-dot-clickable:hover { opacity: 0.7; transform: scale(1.4); }
 
 .bw-row-selected { background: #eff6ff !important; }
 .bw-row-selected:hover { background: #dbeafe !important; }
