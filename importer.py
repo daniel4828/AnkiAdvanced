@@ -6,6 +6,7 @@ import re
 import yaml
 
 import database
+from yaml_fixer import fix_yaml_content
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +98,8 @@ def import_yaml_file(filepath: str, deck_path: list[str]) -> dict:
 
     try:
         with open(filepath, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
+            raw = f.read()
+        data = yaml.safe_load(fix_yaml_content(raw))
     except yaml.YAMLError as e:
         logger.error("YAML parse error in %s: %s", filepath, e)
         err = _format_yaml_error(e, filename=os.path.basename(filepath))
@@ -119,7 +121,7 @@ def import_yaml_content(content: str, parent_deck_id: int,
     custom_fields: {word_zh: {pinyin, definition, traditional}} merged values for "custom" resolutions.
     """
     try:
-        data = yaml.safe_load(content)
+        data = yaml.safe_load(fix_yaml_content(content))
     except yaml.YAMLError as e:
         logger.error("YAML parse error in upload: %s", e)
         return {"imported": 0, "skipped_duplicate": 0, "skipped_invalid": 0,
@@ -148,7 +150,7 @@ def preview_yaml_content(content: str) -> dict:
         }
     """
     try:
-        data = yaml.safe_load(content)
+        data = yaml.safe_load(fix_yaml_content(content))
     except yaml.YAMLError as e:
         return {
             "entries": [], "conflicts": [],
