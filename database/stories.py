@@ -76,10 +76,38 @@ def get_sentence_for_word(story_id: int, word_id: int) -> dict | None:
 def get_story_sentences(story_id: int) -> list[dict]:
     conn = get_db()
     rows = conn.execute(
-        """SELECT s.*, w.word_zh
+        """SELECT s.*, w.word_zh, w.definition
            FROM story_sentences s JOIN entries w ON w.id = s.word_id
            WHERE s.story_id = ? ORDER BY s.position""",
         (story_id,),
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def get_due_cards_unified(deck_id: int) -> list[dict]:
+    """Collect due cards from all 3 categories for a unified story, deduplicated by word_id."""
+    from .cards import get_due_cards, get_due_cards_multi, get_descendant_leaf_deck_ids
+    from .decks import get_deck
+
+    def _leaf_ids(cat: str) -> list[int]:
+        deck = get_deck(deck_id)
+        if deck["category"] is None:
+            return get_descendant_leaf_deck_ids(deck_id, cat)
+        return [deck_id]
+
+    seen: set[int] = set()
+    result: list[dict] = []
+    for cat in ("listening", "reading", "creating"):
+        ids = _leaf_ids(cat)
+        if not ids:
+            continue
+        cards = (get_due_cards_multi(ids, cat) if len(ids) > 1
+                 else get_due_cards(ids[0], cat))
+        for c in cards:
+            if c.get("note_type") == "sentence":
+                continue
+            if c["word_id"] not in seen:
+                seen.add(c["word_id"])
+                result.append(c)
+    return result

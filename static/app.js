@@ -1770,15 +1770,15 @@ async function startReview(id, cat, name, noStory = false) {
       await _doStartReview(null, 2);
       return;
     }
-    const [{ count, has_story }, todayCounts] = await Promise.all([
-      api('GET', `/api/story/${deckId}/${category}/count`),
+    const [{ count, has_story, estimated_tokens }, todayCounts] = await Promise.all([
+      api('GET', `/api/story/${deckId}/unified/count`),
       api('GET', `/api/today/${deckId}/${category}`),
     ]);
     const learning = todayCounts?.counts?.learning_future || 0;
     if (has_story || count === 0) {
       await _doStartReview(null, 2);
     } else {
-      await openStorySetup(count, { learningCount: learning });
+      await openStorySetup(count, { learningCount: learning, estimatedTokens: estimated_tokens });
     }
   } catch (e) {
     showError('Failed to start session: ' + e.message);
@@ -1792,14 +1792,15 @@ async function _doStartReview(topic, maxHsk, model) {
   _resetLoadingSpinner();
   const stopPhases = _startGenerationPhases();
   try {
-    const storyUrl = `/api/story/${deckId}/${category}` + _storyParams(topic, maxHsk, model);
+    const storyDeckId = rootDeckId || deckId;
+    const storyUrl = `/api/story/${storyDeckId}/unified` + _storyParams(topic, maxHsk, model);
     const [todayData, storyData] = await Promise.all([
       api('GET', `/api/today/${deckId}/${category}`),
       api('GET', storyUrl),
     ]);
     stopPhases();
 
-    story = await _resolveStory(storyData, deckId, category, topic, maxHsk);
+    story = await _resolveStory(storyData, storyDeckId, 'unified', topic, maxHsk);
 
     if (!todayData.card) {
       showView('done');
@@ -1854,11 +1855,11 @@ async function startReviewMixed(id, name, noStory = false) {
     const total = (c.new || 0) + (c.learning || 0) + (c.review || 0);
     const learning = c.learning_future || 0;
     const firstCat = todayData.card.category;
-    const { has_story } = await api('GET', `/api/story/${id}/${firstCat}/count`);
+    const { has_story, estimated_tokens } = await api('GET', `/api/story/${id}/unified/count`);
     if (has_story) {
       await _doStartReviewMixed(null, 2);
     } else {
-      openStorySetup(total, { isMixed: true, learningCount: learning });
+      openStorySetup(total, { isMixed: true, learningCount: learning, estimatedTokens: estimated_tokens });
     }
   } catch (e) {
     showError('Failed to start session: ' + e.message);
@@ -1881,20 +1882,11 @@ async function _doStartReviewMixed(topic, maxHsk, model, noStory = false) {
     category = todayData.card.category;
 
     if (!noStory) {
-      // Await story for the first card's category so it's ready when review starts
+      // Load a single unified story covering all categories (1 AI call instead of 3)
       try {
-        story = await api('GET', `/api/story/${rootDeckId}/${category}` + _storyParams(topic, maxHsk, model));
+        story = await api('GET', `/api/story/${rootDeckId}/unified` + _storyParams(topic, maxHsk, model));
       } catch (_) {}
-      // Fire story generation for the other categories in the background,
-      // then preload TTS so audio is ready when the category switches.
-      // Use the deck's configured category_order so preloading follows the same priority.
-      const _deckForOrder = (() => { const flat = []; const w = ns => ns.forEach(n => { flat.push(n); w(n.children || []); }); if (_cachedDecks) w(_cachedDecks); return flat.find(d => d.id === rootDeckId); })();
-      const _catOrder = (_deckForOrder?.category_order || 'listening,reading,creating').split(',').map(s => s.trim());
-      for (const cat of _catOrder.filter(c => c !== category)) {
-        fetch(`/api/story/${rootDeckId}/${cat}` + _storyParams(topic, maxHsk, model))
-          .then(() => fetch(`/api/preload-session/${rootDeckId}/${cat}`, { method: 'POST' }))
-          .catch(() => {});
-      }
+      fetch(`/api/preload-session/${rootDeckId}/unified`, { method: 'POST' }).catch(() => {});
     }
 
     stopPhases();
@@ -1948,14 +1940,11 @@ async function _doStartReviewUnfinished(topic, maxHsk, model) {
     }
     category = todayData.card.category;
     const firstDeckId = todayData.card.deck_id;
-    // Await story for the first card's deck+category, fire the rest in background
+    // Load a single unified story for the first card's deck
     try {
-      story = await api('GET', `/api/story/${firstDeckId}/${category}` + _storyParams(topic, maxHsk, model));
+      story = await api('GET', `/api/story/${firstDeckId}/unified` + _storyParams(topic, maxHsk, model));
     } catch (_) {}
-    for (const { deck_id, category: cat } of combos) {
-      if (deck_id === firstDeckId && cat === category) continue;
-      fetch(`/api/story/${deck_id}/${cat}` + _storyParams(topic, maxHsk, model)).catch(() => {});
-    }
+    fetch(`/api/preload-session/${firstDeckId}/unified`, { method: 'POST' }).catch(() => {});
     showView('review');
     loadCard(todayData.card, todayData.counts);
   } catch (e) {
@@ -2012,12 +2001,11 @@ function loadCard(c, counts) {
   if (!sentence && (unfinishedMode || rootDeckId)) {
     const snap = c;
     const storyDeckId = unfinishedMode ? c.deck_id : rootDeckId;
-    fetch(`/api/story/${storyDeckId}/${c.category}`)
+    fetch(`/api/story/${storyDeckId}/unified`)
       .then(r => r.ok ? r.json() : null)
       .then(s => {
         if (card !== snap) return;
-        // Preload TTS for the newly-loaded category (no-op if already cached)
-        fetch(`/api/preload-session/${storyDeckId}/${c.category}`, { method: 'POST' }).catch(() => {});
+        fetch(`/api/preload-session/${storyDeckId}/unified`, { method: 'POST' }).catch(() => {});
         if (s?.sentences) {
           story    = s;
           sentence = story.sentences.find(s => s.word_id === card.word_id) || null;
@@ -2727,7 +2715,7 @@ let _setupIsRegen = false;
 let _setupIsMixed = false;
 let _setupIsUnfinished = false;
 
-function openStorySetup(sentenceCount, { isMixed = false, isUnfinished = false, learningCount = 0 } = {}) {
+function openStorySetup(sentenceCount, { isMixed = false, isUnfinished = false, learningCount = 0, estimatedTokens = 0 } = {}) {
   _setupIsRegen = !isMixed && !isUnfinished && !!card; // card exists (fresh single-cat) → regenerating
   _setupIsMixed = isMixed;
   _setupIsUnfinished = isUnfinished;
@@ -2739,6 +2727,15 @@ function openStorySetup(sentenceCount, { isMixed = false, isUnfinished = false, 
     warn.style.display = 'block';
   } else {
     warn.style.display = 'none';
+  }
+  const tokenWarn = document.getElementById('setup-token-warning');
+  if (tokenWarn) {
+    if (estimatedTokens > 3000) {
+      tokenWarn.textContent = `⚠ ~${estimatedTokens.toLocaleString()} tokens estimated. This story is large and may be slow or expensive.`;
+      tokenWarn.style.display = 'block';
+    } else {
+      tokenWarn.style.display = 'none';
+    }
   }
   document.getElementById('setup-topic').value = '';
   document.getElementById('setup-hsk-slider').value = 2;
@@ -3085,15 +3082,16 @@ async function _doRegenerateStory(topic, maxHsk, model) {
   _resetLoadingSpinner();
   const stopPhases = _startGenerationPhases();
   try {
-    const storyData = await api('POST', `/api/story/${deckId}/${category}/regenerate` + _storyParams(topic, maxHsk, model));
+    const storyDeckId = rootDeckId || deckId;
+    const storyData = await api('POST', `/api/story/${storyDeckId}/unified/regenerate` + _storyParams(topic, maxHsk, model));
     stopPhases();
-    story = await _resolveStory(storyData, deckId, category, topic, maxHsk);
+    story = await _resolveStory(storyData, storyDeckId, 'unified', topic, maxHsk);
     sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
     _showLoadingSuccess('Story regenerated!');
     _resetLoadingSpinner();
     _updateStoryInfoRow();
     try {
-      await fetch(`/api/preload-session/${deckId}/${category}`, { method: 'POST' });
+      await fetch(`/api/preload-session/${storyDeckId}/unified`, { method: 'POST' });
     } catch (_) {}
     await new Promise(r => setTimeout(r, 600));
     showView('review');

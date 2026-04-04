@@ -115,6 +115,10 @@ def init_db() -> None:
         conn.execute("ALTER TABLE entries ADD COLUMN date_yaml TEXT")
     if "definition_de" not in cols:
         conn.execute("ALTER TABLE entries ADD COLUMN definition_de TEXT")
+    if "source_sentence" not in cols:
+        conn.execute("ALTER TABLE entries ADD COLUMN source_sentence TEXT")
+    if "grammar_notes" not in cols:
+        conn.execute("ALTER TABLE entries ADD COLUMN grammar_notes TEXT")
 
     ex_cols = {r["name"] for r in conn.execute("PRAGMA table_info(entry_examples)").fetchall()}
     if "example_type" not in ex_cols:
@@ -161,6 +165,7 @@ def init_db() -> None:
         conn.execute("ALTER TABLE stories ADD COLUMN prompt_text TEXT")
     if "topic" not in story_cols:
         conn.execute("ALTER TABLE stories ADD COLUMN topic TEXT")
+    _migrate_stories_category(conn)
 
     deck_cols = {r["name"] for r in conn.execute("PRAGMA table_info(decks)").fetchall()}
     if "deleted_at" not in deck_cols:
@@ -257,6 +262,34 @@ def init_db() -> None:
     _migrate_sentences_deck(conn, all_id, preset_id)
     conn.commit()
     conn.close()
+
+
+def _migrate_stories_category(conn: sqlite3.Connection) -> None:
+    """Add 'unified' to stories.category CHECK constraint if not already present."""
+    row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='stories'"
+    ).fetchone()
+    if row and "'unified'" not in (row["sql"] or ""):
+        col_names = [r["name"] for r in conn.execute("PRAGMA table_info(stories)").fetchall()]
+        cols_csv = ", ".join(col_names)
+        conn.executescript(f"""
+            PRAGMA foreign_keys=OFF;
+            CREATE TABLE _stories_new (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                date            TEXT NOT NULL,
+                category        TEXT NOT NULL
+                    CHECK(category IN ('listening', 'reading', 'creating', 'unified')),
+                deck_id         INTEGER NOT NULL REFERENCES decks(id) ON DELETE CASCADE,
+                generated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+                prompt_text     TEXT,
+                topic           TEXT
+            );
+            INSERT INTO _stories_new ({cols_csv}) SELECT {cols_csv} FROM stories;
+            DROP TABLE stories;
+            ALTER TABLE _stories_new RENAME TO stories;
+            PRAGMA foreign_keys=ON;
+        """)
+        conn.commit()
 
 
 def _ensure_sentences_leaf_decks(conn: sqlite3.Connection, all_id: int,

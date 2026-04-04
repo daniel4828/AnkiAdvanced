@@ -23,6 +23,8 @@ def _log_story(story: dict) -> None:
 
 
 def _get_cards_for_story(deck_id: int, category: str) -> list:
+    if category == "unified":
+        return database.get_due_cards_unified(deck_id)
     ids = leaf_ids(deck_id, category)
     if not ids:
         return []
@@ -165,13 +167,17 @@ def get_history_story(deck_id: int, category: str):
 
 @router.get("/api/story/{deck_id}/{category}/count")
 def story_count(deck_id: int, category: str):
-    """Return sentence count and whether a cached story already exists today."""
+    """Return sentence count, whether a cached story exists today, and token estimate."""
     if database.is_sentences_deck(deck_id):
-        return {"count": 0, "has_story": False}
+        return {"count": 0, "has_story": False, "estimated_tokens": 0}
     today = database.anki_today().isoformat()
     has_story = database.get_active_story(today, category, deck_id) is not None
     cards = _get_cards_for_story(deck_id, category)
-    return {"count": len(cards), "has_story": has_story}
+    return {
+        "count": len(cards),
+        "has_story": has_story,
+        "estimated_tokens": ai.estimate_story_tokens(len(cards)),
+    }
 
 
 @router.post("/api/speak")
