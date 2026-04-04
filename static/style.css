@@ -163,14 +163,46 @@ main.browse-open {
 
 .counts-row {
   display: flex;
-  gap: 14px;
-  font-size: 13px;
+  gap: 16px;
+  align-items: center;
   margin-bottom: 18px;
 }
-.counts-row b { font-weight: 700; }
-.cnt-cat-sep { color: var(--border); }
-.cnt-cat { font-size: 12px; color: var(--muted); }
-.cnt-cat b { font-weight: 700; }
+.cnt-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.cnt-item b {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+.cnt-label {
+  font-size: 11px;
+  color: var(--muted);
+}
+#cnt-by-cat {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding-left: 14px;
+  border-left: 1px solid var(--border);
+}
+.cnt-cat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.cnt-cat-zh {
+  font-size: 10px;
+  color: var(--muted);
+}
+.cnt-cat-nums {
+  font-size: 11px;
+}
+.cnt-cat-nums b { font-weight: 700; }
 
 /* The main card */
 .review-card {
