@@ -199,6 +199,19 @@ def init_db() -> None:
     if "category_order" not in preset_cols:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN category_order TEXT NOT NULL DEFAULT 'listening,reading,creating'")
 
+    # Normalize legacy due values: learning/relearn cards whose due datetime
+    # falls on a future Anki day should store just the date (no time component).
+    # This matches the new _smart_due() rule in srs.py.
+    today_str = anki_today().isoformat()
+    conn.execute(
+        """UPDATE cards
+           SET due = substr(due, 1, 10)
+           WHERE state IN ('learning', 'relearn')
+             AND due LIKE '%T%'
+             AND substr(due, 1, 10) > ?""",
+        (today_str,),
+    )
+
     conn.commit()
 
     # Ensure presets + default deck exist
