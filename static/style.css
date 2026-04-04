@@ -2659,3 +2659,18 @@ select.opt-input {
 }
 .cat-order-btns button:hover:not(:disabled) { background: var(--hover); color: var(--text); }
 .cat-order-btns button:disabled { opacity: 0.3; cursor: default; }
+
+/* ── Clapping animation on review completion ─────────────────────────────── */
+.clap-particle {
+  position: fixed;
+  bottom: -60px;
+  font-size: 2rem;
+  pointer-events: none;
+  z-index: 9999;
+  animation: clap-rise var(--dur, 1.8s) ease-out forwards;
+}
+@keyframes clap-rise {
+  0%   { transform: translateY(0) scale(0.6) rotate(var(--tilt, 0deg)); opacity: 1; }
+  60%  { opacity: 1; }
+  100% { transform: translateY(var(--rise, -80vh)) scale(1.1) rotate(var(--tilt, 0deg)); opacity: 0; }
+}

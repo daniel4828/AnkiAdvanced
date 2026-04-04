@@ -44,6 +44,7 @@ let sentence    = null;   // current sentence from story (may be null)
 let wordDetails = null;   // full word data: examples + characters
 let _currentWordId = null; // word ID open in word-detail view
 let _prevView = null;      // view we came from before opening word-detail
+let _sessionReviewedCount = 0; // cards rated this session (for clap animation)
 let userInput   = '';     // creating category: what the user typed
 let browseWords  = [];   // all words from /api/browse-words
 let browseAll    = [];   // kept for legacy (unused by new browse)
@@ -131,7 +132,27 @@ async function api(method, path, body) {
 }
 
 // ── View switcher ──────────────────────────────────────────────────────────
+function _triggerClapAnimation() {
+  const emojis = ['👏', '👏', '👏', '⭐', '✨', '🌟'];
+  const count = 18;
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => {
+      const el = document.createElement('span');
+      el.className = 'clap-particle';
+      el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+      const x = 5 + Math.random() * 90;
+      const rise = 55 + Math.random() * 35;
+      const dur = 1.4 + Math.random() * 0.8;
+      const tilt = (Math.random() - 0.5) * 30;
+      el.style.cssText = `left:${x}vw;--rise:-${rise}vh;--dur:${dur}s;--tilt:${tilt}deg`;
+      document.body.appendChild(el);
+      el.addEventListener('animationend', () => el.remove());
+    }, i * 80);
+  }
+}
+
 function showView(name) {
+  if (name === 'done' && _sessionReviewedCount > 0) _triggerClapAnimation();
   ['loading', 'decks', 'review', 'done', 'browse', 'word-detail', 'hanzi-detail', 'stats'].forEach(v => {
     document.getElementById(`view-${v}`).style.display = 'none';
   });
@@ -1631,6 +1652,7 @@ async function startReview(id, cat, name, noStory = false) {
   deckId   = id;
   category = cat;
   deckName = name;
+  _sessionReviewedCount = 0;
 
   try {
     if (noStory) {
@@ -1705,6 +1727,7 @@ async function startReviewMixed(id, name, noStory = false) {
   deckId     = id;
   deckName   = name;
   story      = null;
+  _sessionReviewedCount = 0;
   try {
     const todayData = await api('GET', `/api/today-mixed/${id}`);
     if (!todayData.card) {
@@ -1785,6 +1808,7 @@ async function _doStartReviewMixed(topic, maxHsk, model, noStory = false) {
 async function startReviewUnfinished() {
   deckName = 'Unfinished Cards';
   story    = null;
+  _sessionReviewedCount = 0;
   try {
     const counts = await api('GET', '/api/today-unfinished');
     if (!counts.card) {
@@ -2447,6 +2471,7 @@ async function rate(rating) {
     else if (rootDeckId) url += `&root_deck_id=${rootDeckId}`;
     else if (deckId) url += `&parent_deck_id=${deckId}`;
     const result = await api('POST', url);
+    _sessionReviewedCount++;
     if (!result.next_card) {
       rootDeckId = null;
       unfinishedMode = false;
@@ -2977,7 +3002,7 @@ function goBack() {
     return;
   }
   card = null; story = null; sentence = null; wordDetails = null; userInput = '';
-  rootDeckId = null; unfinishedMode = false;
+  rootDeckId = null; unfinishedMode = false; _sessionReviewedCount = 0;
   browseWords = []; browseAll = []; _browseSelected.clear();
   loadDecks();
 }
