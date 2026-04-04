@@ -28,9 +28,9 @@ def _get_cards_for_story(deck_id: int, category: str) -> list:
         return []
     # sibling_suppression=True: each word appears only once across all categories
     # (the AI prompt should not receive the same word from both Listening and Reading)
-    cards = (database.get_due_cards_multi(ids, category, for_story=True)
+    cards = (database.get_due_cards_multi(ids, category)
              if len(ids) > 1
-             else database.get_due_cards(ids[0], category, for_story=True))
+             else database.get_due_cards(ids[0], category))
     # Sentence notes are standalone — never embed them in AI-generated stories
     return [c for c in cards if c.get("note_type") != "sentence"]
 

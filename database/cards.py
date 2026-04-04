@@ -169,16 +169,8 @@ def _interleave_cards(base: list, inserts: list) -> list:
     return result
 
 
-def get_due_cards(deck_id: int, category: str, *,
-                  sibling_suppression: bool = False,
-                  for_story: bool = False) -> list[dict]:
-    """All due cards for a category, ordered per preset display-order settings.
-
-    for_story=True: learning/relearn cards are included if their due DATE falls
-    within today's Anki day (ignoring the specific time). This ensures that all
-    cards that will become due today are included in story generation, even if
-    they were not yet due at the moment the story was first generated.
-    """
+def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = False) -> list[dict]:
+    """All due cards for a category, ordered per preset display-order settings."""
     import random
     from itertools import groupby
 
@@ -191,14 +183,8 @@ def get_due_cards(deck_id: int, category: str, *,
     new_done_today = _count_new_introduced_today(conn, deck_id, category, today)
     new_remaining = max(0, new_limit - new_done_today)
 
-    # For story generation, include learning/relearn cards due anywhere today
-    # (compare date portion only). For normal review, only include cards whose
-    # exact due datetime has already passed.
-    learning_due_condition = "substr(c.due, 1, 10) <= ?" if for_story else "c.due <= ?"
-    learning_param = today if for_story else now
-
     rows = conn.execute(
-        f"""SELECT c.*, w.word_zh, w.pinyin, w.definition, w.pos,
+        """SELECT c.*, w.word_zh, w.pinyin, w.definition, w.pos,
                   w.hsk_level, w.traditional, w.definition_zh,
                   w.note_type, w.source_sentence, w.notes, w.definition_de, w.register
            FROM cards c
@@ -209,11 +195,11 @@ def get_due_cards(deck_id: int, category: str, *,
              AND c.deleted_at IS NULL
              AND (c.buried_until IS NULL OR c.buried_until < ?)
              AND (
-               (c.state IN ('learning', 'relearn') AND {learning_due_condition})
+               (c.state IN ('learning', 'relearn') AND c.due <= ?)
                OR (c.state = 'review' AND c.due <= ?)
                OR (c.state = 'new' AND c.due <= ?)
              )""",
-        (deck_id, category, today, learning_param, today, today),
+        (deck_id, category, today, now, today, today),
     ).fetchall()
 
     all_cards = [dict(r) for r in rows]
@@ -544,15 +530,11 @@ def count_due_by_category(root_deck_id: int) -> dict:
     return result
 
 
-def get_due_cards_multi(deck_ids: list[int], category: str, *,
-                        sibling_suppression: bool = False,
-                        for_story: bool = False) -> list[dict]:
+def get_due_cards_multi(deck_ids: list[int], category: str, *, sibling_suppression: bool = False) -> list[dict]:
     """Due cards across multiple decks, merged and priority-sorted."""
     all_cards = []
     for deck_id in deck_ids:
-        all_cards.extend(get_due_cards(deck_id, category,
-                                       sibling_suppression=sibling_suppression,
-                                       for_story=for_story))
+        all_cards.extend(get_due_cards(deck_id, category, sibling_suppression=sibling_suppression))
     all_cards.sort(key=lambda c: (
         0 if c["state"] in ("learning", "relearn") else
         1 if c["state"] == "review" else 2,

@@ -1,5 +1,5 @@
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time as dtime
 
 import database
 
@@ -100,11 +100,35 @@ def _parse_steps(steps_str: str) -> list[int]:
     return result
 
 
+def _smart_due(due_dt: datetime) -> str:
+    """Return a due string for a learning/relearn card.
+
+    If the due datetime falls within today's Anki day (before tomorrow 4 AM),
+    return a full ISO datetime so the card appears at the right minute.
+    If it falls on a future Anki day, return just the ISO date — no specific
+    time is stored or needed, and the date-only string sorts before any
+    same-day datetime in SQL comparisons, so the card is correctly included
+    in story generation and review queries from the start of that day.
+    """
+    next_4am = datetime.combine(
+        database.anki_today() + timedelta(days=1),
+        dtime(database.DAY_CUTOFF_HOUR, 0, 0),
+    )
+    if due_dt >= next_4am:
+        # Determine the Anki day the card will be shown on
+        due_date = (due_dt.date() if due_dt.hour >= database.DAY_CUTOFF_HOUR
+                    else (due_dt - timedelta(days=1)).date())
+        return due_date.isoformat()
+    return due_dt.isoformat(timespec="seconds")
+
+
 def next_learning_due(steps: list[int], step_index: int) -> str:
-    """Returns ISO datetime = now + steps[step_index] minutes."""
-    minutes = steps[step_index]
-    due = datetime.now() + timedelta(minutes=minutes)
-    return due.isoformat(timespec="seconds")
+    """Returns due string for learning/relearn step.
+
+    Same-day due → full ISO datetime. Future Anki day → ISO date only.
+    """
+    due = datetime.now() + timedelta(minutes=steps[step_index])
+    return _smart_due(due)
 
 
 def next_review_due(interval: int) -> str:
@@ -212,8 +236,7 @@ def _handle_learning(card: dict, preset: dict, rating: int) -> dict:
             delay = steps[0] * 1.5
         else:
             delay = steps[idx]
-        due = datetime.now() + timedelta(minutes=delay)
-        c["due"] = due.isoformat(timespec="seconds")
+        c["due"] = _smart_due(datetime.now() + timedelta(minutes=delay))
         return c
 
     # rating == 3: Good — advance step
@@ -280,8 +303,7 @@ def _handle_relearn(card: dict, preset: dict, rating: int) -> dict:
             delay = steps[0] * 1.5
         else:
             delay = steps[idx]
-        due = datetime.now() + timedelta(minutes=delay)
-        c["due"] = due.isoformat(timespec="seconds")
+        c["due"] = _smart_due(datetime.now() + timedelta(minutes=delay))
         return c
 
     idx = c["step_index"]
