@@ -1,0 +1,1060 @@
+- type: word
+  date: "04/04"
+  simplified: 故意
+  traditional: 故意
+  pinyin: gùyì
+  english: deliberately / intentionally / on purpose / willfully
+  german: absichtlich / vorsätzlich / mit Absicht
+  hsk: "5"
+  register: neutral
+  measure_word: []
+  note: |
+    Ein Adverb/Adjektiv, das beschreibt, dass eine Handlung mit Absicht, bewusst oder geplant ausgeführt wird – im Gegensatz zu einem Unfall oder Versehen. 故意 wird sowohl in positiven als auch (häufiger) in negativen Kontexten verwendet.
+
+    **Häufige Ausdrücke:**
+    - 故意做某事 (gùyì zuò mǒushì) — etwas absichtlich tun
+    - 故意伤害 (gùyì shānghài) — vorsätzliche Körperverletzung
+    - 不是故意的 (bùshì gùyì de) — nicht absichtlich / unabsichtlich
+    - 故意隐瞒 (gùyì yǐnmán) — absichtlich verschweigen
+
+    **Wichtige Unterschiede:**
+    - 故意 (gùyì) — absichtlich (betont Vorsatz, bewusste Handlung)
+    - 有意 (yǒuyì) — absichtlich, bewusst (neutraler, auch "geneigt sein")
+    - 存心 (cúnxīn) — absichtlich, vorsätzlich (stärker, oft böswillig)
+
+    **Kulturelle Anmerkung:**
+    故意 setzt sich aus 故 (gù, "absichtlich, bewusst, daher") und 意 (yì, "Absicht, Gedanke") zusammen. Wörtlich: "bewusste Absicht". Im Rechtssystem ist 故意 ein wichtiger Begriff (z. B. 故意杀人 – vorsätzlicher Mord). Im Alltag sagt man oft 我不是故意的 (wǒ bùshì gùyì de) – "Ich habe es nicht absichtlich gemacht".
+  synonyms:
+    - word: 有意
+      pinyin: yǒuyì
+      meaning: absichtlich, bewusst (neutraler)
+    - word: 存心
+      pinyin: cúnxīn
+      meaning: vorsätzlich, absichtlich (stärker, oft negativ)
+    - word: 蓄意
+      pinyin: xùyì
+      meaning: vorsätzlich, geplant (formell, juristisch)
+  antonyms:
+    - word: 无意
+      pinyin: wúyì
+      meaning: unabsichtlich, ohne Absicht
+    - word: 不小心
+      pinyin: bù xiǎoxīn
+      meaning: unvorsichtig, versehentlich
+  examples:
+    - zh: 他不是故意踩你的脚的，别生气了。
+      pinyin: Tā bùshì gùyì cǎi nǐ de jiǎo de, bié shēngqì le.
+      english: He didn't step on your foot on purpose. Don't be angry.
+      de: Er ist dir nicht absichtlich auf den Fuß getreten. Sei nicht böse.
+    - zh: 她故意不理我，因为她在生气。
+      pinyin: Tā gùyì bù lǐ wǒ, yīnwèi tā zài shēngqì.
+      english: She intentionally ignored me because she was angry.
+      de: Sie hat mich absichtlich ignoriert, weil sie wütend war.
+    - zh: 这是故意破坏公共财产的行为。
+      pinyin: Zhè shì gùyì pòhuài gōnggòng cáichǎn de xíngwéi.
+      english: This is an act of willful destruction of public property.
+      de: Dies ist eine vorsätzliche Zerstörung von öffentlichem Eigentum.
+    - zh: 如果你故意撒谎，大家都会对你不信任。
+      pinyin: Rúguǒ nǐ gùyì sāhuǎng, dàjiā dōu huì duì nǐ bù xìnrèn.
+      english: If you lie on purpose, everyone will lose trust in you.
+      de: Wenn du absichtlich lügst, werden dir alle misstrauen.
+  characters:
+    - char: 故
+      simplified: 故
+      traditional: 故
+      pinyin: gù
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: absichtlich, bewusst, daher, Grund
+      compounds:
+        - simplified: 故意
+          pinyin: gùyì
+          meaning: absichtlich
+        - simplified: 原因
+          pinyin: yuányīn
+          meaning: Grund, Ursache (in 缘故)
+        - simplified: 故事
+          pinyin: gùshi
+          meaning: Geschichte
+        - simplified: 故乡
+          pinyin: gùxiāng
+          meaning: Heimat
+      etymology: |
+        Phonosemantische Verbindung. Besteht aus dem Radikal 攵 (Schlag, Handlung) und der phonetischen Komponente 古 (gǔ, "alt"). Die ursprüngliche Bedeutung ist "Grund, Ursache". Später erweitert zu "daher, deshalb" und dann zu "absichtlich, bewusst" (als etwas, das einen Grund hat).
+    - char: 意
+      simplified: 意
+      traditional: 意
+      pinyin: yì
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: Absicht, Gedanke, Bedeutung
+      compounds:
+        - simplified: 意思
+          pinyin: yìsi
+          meaning: Bedeutung, Meinung, Absicht
+        - simplified: 意见
+          pinyin: yìjiàn
+          meaning: Meinung
+        - simplified: 故意
+          pinyin: gùyì
+          meaning: absichtlich
+        - simplified: 注意
+          pinyin: zhùyì
+          meaning: aufpassen, beachten
+      etymology: |
+        Phonosemantische Verbindung. Besteht aus dem Radikal 心 (Herz) und der phonetischen Komponente 音 (yīn, "Klang"). Die ursprüngliche Bedeutung ist "Gedanke im Herzen, Absicht".
+
+- type: word
+  date: "04/04"
+  simplified: 无意识
+  traditional: 無意識
+  pinyin: wú yìshi
+  english: unconscious / unaware / without awareness / involuntary
+  german: unbewusst / unabsichtlich / ohne Bewusstsein / ohne es zu merken
+  hsk: "6"
+  register: neutral
+  measure_word: []
+  note: |
+    Ein Adjektiv, das beschreibt, dass eine Handlung, ein Gedanke oder ein Zustand ohne bewusste Kontrolle oder Wahrnehmung stattfindet. 无意识 kann sowohl medizinisch (bewusstlos) als auch psychologisch (unbewusst, automatisch) verwendet werden.
+
+    **Häufige Ausdrücke:**
+    - 无意识的行为 (wú yìshi de xíngwéi) — unbewusstes Verhalten
+    - 无意识地做某事 (wú yìshi de zuò mǒushì) — etwas unbewusst tun
+    - 完全无意识 (wánquán wú yìshi) — völlig bewusstlos
+    - 集体无意识 (jítǐ wú yìshi) — kollektives Unbewusstes (psychologischer Fachbegriff)
+
+    **Wichtige Unterschiede:**
+    - 无意识 (wú yìshi) — unbewusst, ohne Bewusstsein (Zustand oder Handlung)
+    - 下意识 (xiàyìshi) — unterbewusst, instinktiv (schnelle, automatische Reaktion)
+    - 潜意识 (qiányìshi) — das Unterbewusstsein (psychologisch, tief liegend)
+    - 无意 (wúyì) — unabsichtlich (ohne Absicht, nicht unbedingt unbewusst)
+
+    **Kulturelle Anmerkung:**
+    无意识 setzt sich aus 无 (wú, "ohne") und 意识 (yìshi, "Bewusstsein") zusammen. In der Psychologie ist 无意识 (das Unbewusste) ein wichtiger Begriff, der durch Freud und Jung auch in die chinesische Fachsprache eingeführt wurde. Im Alltag wird es häufiger im Sinne von "unbewusst / ohne es zu merken" verwendet: z. B. 他无意识地摸了摸鼻子 – "Er berührte unbewusst seine Nase".
+  synonyms:
+    - word: 下意识
+      pinyin: xiàyìshi
+      meaning: unterbewusst, instinktiv (automatische Reaktion)
+    - word: 无意
+      pinyin: wúyì
+      meaning: unabsichtlich (ohne Absicht)
+    - word: 不自觉
+      pinyin: bù zìjué
+      meaning: unbewusst, unfreiwillig
+  antonyms:
+    - word: 有意识
+      pinyin: yǒu yìshi
+      meaning: bewusst, absichtlich
+    - word: 故意
+      pinyin: gùyì
+      meaning: absichtlich
+  examples:
+    - zh: 他无意识地哼着歌，自己都没发现。
+      pinyin: Tā wú yìshi de hēngzhe gē, zìjǐ dōu méi fāxiàn.
+      english: He was humming unconsciously, not even noticing it himself.
+      de: Er summte unbewusst vor sich hin, ohne es selbst zu bemerken.
+    - zh: 病人摔倒后短暂失去了意识。
+      pinyin: Bìngrén shuāidǎo hòu duǎnzàn shīqùle yìshi.
+      english: The patient briefly lost consciousness after the fall.
+      de: Der Patient verlor nach dem Sturz kurzzeitig das Bewusstsein.
+    - zh: 这是一种无意识的习惯动作。
+      pinyin: Zhè shì yī zhǒng wú yìshi de xíguàn dòngzuò.
+      english: This is an unconscious habitual action.
+      de: Das ist eine unbewusste Gewohnheitshandlung.
+    - zh: 无意识的偏见会影响我们的判断。
+      pinyin: Wú yìshi de piānjiàn huì yǐngxiǎng wǒmen de pànduàn.
+      english: Unconscious bias can affect our judgment.
+      de: Unbewusste Vorurteile können unser Urteilsvermögen beeinflussen.
+  characters:
+    - char: 无
+      simplified: 无
+      traditional: 無
+      pinyin: wú
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: ohne, nicht haben, nicht
+      compounds:
+        - simplified: 无论
+          pinyin: wúlùn
+          meaning: egal, unabhängig von
+        - simplified: 无限
+          pinyin: wúxiàn
+          meaning: unendlich, grenzenlos
+        - simplified: 无意识
+          pinyin: wú yìshi
+          meaning: unbewusst, ohne Bewusstsein
+      etymology: |
+        Piktogramm. Die traditionelle Form 無 zeigte ursprünglich einen tanzenden Schamanen mit Tierfellen. Später wurde es zur Negationspartikel für "nicht haben, ohne". Die vereinfachte Form 无 ist kalligrafischen Ursprungs.
+    - char: 意
+      simplified: 意
+      traditional: 意
+      pinyin: yì
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: Bewusstsein, Gedanke
+      compounds: []
+      etymology: |
+        Siehe 故意 für die Etymologie von 意.
+    - char: 识
+      simplified: 识
+      traditional: 識
+      pinyin: shi
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: Wissen, Erkennen
+      compounds: []
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 識 besteht aus dem Radikal 言 (Sprache) und der phonetischen Komponente 戠 (zhí). Die ursprüngliche Bedeutung ist "wissen, erkennen".
+
+- type: word
+  date: "04/04"
+  simplified: 触及
+  traditional: 觸及
+  pinyin: chùjí
+  english: to touch / to reach / to involve / to cover (a topic)
+  german: berühren / anrühren / (fig.) ansprechen / sich befassen mit
+  hsk: "6"
+  register: formal_written
+  measure_word: []
+  note: |
+    Ein Verb, das sowohl wörtliches Berühren als auch übertragenes Ansprechen oder Behandeln eines Themas beschreibt. 触及 wird oft in formelleren Kontexten verwendet, besonders in Politik, Recht und Wissenschaft.
+
+    **Häufige Ausdrücke:**
+    - 触及问题 (chùjí wèntí) — ein Problem ansprechen / berühren
+    - 触及底线 (chùjí dǐxiàn) — die rote Linie berühren / überschreiten
+    - 触及灵魂 (chùjí línghún) — die Seele berühren (fig.)
+    - 触及法律 (chùjí fǎlǜ) — das Gesetz berühren / gegen das Gesetz verstoßen
+
+    **Wichtige Unterschiede:**
+    - 触及 (chùjí) — berühren, ansprechen (formeller, oft abstrakt)
+    - 触摸 (chùmō) — berühren, anfassen (konkret, mit der Hand)
+    - 碰 (pèng) — anstoßen, berühren (umgangssprachlich)
+    - 涉及 (shèjí) — betreffen, sich beziehen auf (eher inhaltlich)
+
+    **Kulturelle Anmerkung:**
+    触及 setzt sich aus 触 (chù, "berühren, stoßen") und 及 (jí, "erreichen, bis zu") zusammen. Wörtlich: "berühren und erreichen". In politischen Kontexten wird 触及 oft für heikle Themen verwendet: z. B. 触及敏感话题 – "ein sensibles Thema ansprechen".
+  synonyms:
+    - word: 涉及
+      pinyin: shèjí
+      meaning: betreffen, sich beziehen auf
+    - word: 触摸
+      pinyin: chùmō
+      meaning: berühren (physisch)
+    - word: 碰到
+      pinyin: pèngdào
+      meaning: auf etwas stoßen, berühren (umgangssprachlich)
+  antonyms:
+    - word: 避免
+      pinyin: bìmiǎn
+      meaning: vermeiden
+    - word: 避开
+      pinyin: bìkāi
+      meaning: ausweichen, umgehen
+  examples:
+    - zh: 这个问题触及了很多人关心的利益。
+      pinyin: Zhège wèntí chùjíle hěnduō rén guānxīn de lìyì.
+      english: This issue touches on the interests of many people.
+      de: Dieses Problem berührt die Interessen vieler Menschen.
+    - zh: 他的话直接触及了我的底线。
+      pinyin: Tā de huà zhíjiē chùjíle wǒ de dǐxiàn.
+      english: His words directly touched my bottom line.
+      de: Seine Worte haben direkt meine rote Linie berührt.
+    - zh: 这篇文章触及了当代社会的核心问题。
+      pinyin: Zhè piān wénzhāng chùjíle dāngdài shèhuì de héxīn wèntí.
+      english: This article touches on the core issues of contemporary society.
+      de: Dieser Artikel berührt die Kernprobleme der heutigen Gesellschaft.
+    - zh: 他的手轻轻触及了她的手背。
+      pinyin: Tā de shǒu qīngqīng chùjíle tā de shǒubèi.
+      english: His hand lightly touched the back of her hand.
+      de: Seine Hand berührte leicht ihren Handrücken.
+  characters:
+    - char: 触
+      simplified: 触
+      traditional: 觸
+      pinyin: chù
+      hsk: "6"
+      detailed_analysis: true
+      meaning_in_context: berühren, stoßen, antasten
+      compounds:
+        - simplified: 接触
+          pinyin: jiēchù
+          meaning: Kontakt, berühren
+        - simplified: 触摸
+          pinyin: chùmō
+          meaning: berühren, tasten
+        - simplified: 触动
+          pinyin: chùdòng
+          meaning: berühren, bewegen (emotional)
+        - simplified: 触及
+          pinyin: chùjí
+          meaning: berühren, ansprechen
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 觸 besteht aus dem Radikal 角 (Horn) und der phonetischen Komponente 蜀 (shǔ). Die ursprüngliche Bedeutung ist "mit den Hörnern stoßen" (wie ein Tier). Später erweitert zu "berühren, antasten, in Kontakt kommen".
+    - char: 及
+      simplified: 及
+      traditional: 及
+      pinyin: jí
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: erreichen, bis zu, sowie
+      compounds:
+        - simplified: 及时
+          pinyin: jíshí
+          meaning: rechtzeitig
+        - simplified: 来得及
+          pinyin: láidejí
+          meaning: rechtzeitig schaffen
+        - simplified: 涉及
+          pinyin: shèjí
+          meaning: betreffen, sich beziehen auf
+        - simplified: 触及
+          pinyin: chùjí
+          meaning: berühren, ansprechen
+      etymology: |
+        Ideogramm. Die Orakelknochenschrift zeigte eine Hand (又), die eine Person von hinten erreicht. Die ursprüngliche Bedeutung ist "erreichen, bis zu". Später erweitert zu "sowie, und" (als Konjunktion).
+
+- type: expression
+  date: "04/04"
+  simplified: 说到底
+  traditional: 說到底
+  pinyin: shuō dào dǐ
+  english: at the end of the day / ultimately / when it comes down to it / in the final analysis
+  german: im Grunde genommen / letztendlich / wenn man es auf den Punkt bringt
+  hsk: "6"
+  register: spoken_neutral
+  note: |
+    Ein feststehender Ausdruck, der verwendet wird, um eine Schlussfolgerung oder den Kern einer Sache zu präsentieren. Er leitet oft eine Vereinfachung oder die grundlegende Wahrheit eines komplexen Themas ein.
+
+    **Struktur:**
+    - 说到底 + [Aussage] — Letztendlich / Im Grunde genommen ...
+
+    **Wörtliche Bedeutung:**
+    - 说 (shuō) — sagen, sprechen
+    - 到 (dào) — bis zu, erreichen
+    - 底 (dǐ) — Boden, Grund, Ende
+    - Zusammen: "bis zum Ende / bis auf den Grund sagen"
+
+    **Häufige Verwendungen:**
+    - 说到底，还是... (shuō dào dǐ, háishì...) — Letztendlich geht es um...
+    - 说到底，他只是个孩子 (shuō dào dǐ, tā zhǐshì ge háizi) — Letztendlich ist er nur ein Kind
+
+    **Ähnliche Ausdrücke:**
+    - 归根到底 (guīgēn dàodǐ) — letztendlich, im Grunde genommen (formeller)
+    - 毕竟 (bìjìng) — schließlich, letztendlich (neutraler)
+    - 总之 (zǒngzhī) — kurz gesagt, zusammengefasst
+
+    **Kulturelle Anmerkung:**
+    说到底 ist ein sehr gebräuchlicher Ausdruck in der gesprochenen Sprache und in lockeren Diskussionen. Er signalisiert, dass der Sprecher jetzt den Kern oder die essentielle Wahrheit eines Themas ausdrücken möchte. Der Ausdruck hat eine konfessionelle, oft überzeugende Note.
+  synonyms:
+    - word: 归根到底
+      pinyin: guīgēn dàodǐ
+      meaning: letztendlich, im Grunde genommen (formeller)
+    - word: 毕竟
+      pinyin: bìjìng
+      meaning: schließlich, letztendlich (neutraler)
+    - word: 总之
+      pinyin: zǒngzhī
+      meaning: kurz gesagt, zusammengefasst
+    - word: 本质上
+      pinyin: běnzhì shang
+      meaning: im Wesentlichen
+  antonyms: []
+  examples:
+    - zh: 说到底，这个问题还是钱的问题。
+      pinyin: Shuō dào dǐ, zhège wèntí háishì qián de wèntí.
+      english: At the end of the day, this problem is still about money.
+      de: Im Grunde genommen geht es bei diesem Problem doch um Geld.
+    - zh: 说到底，他只是害怕失败而已。
+      pinyin: Shuō dào dǐ, tā zhǐshì hàipà shībài éryǐ.
+      english: When it comes down to it, he's just afraid of failure.
+      de: Letztendlich hat er nur Angst vor dem Scheitern.
+    - zh: 说到底，每个人都要为自己的选择负责。
+      pinyin: Shuō dào dǐ, měi ge rén dōu yào wèi zìjǐ de xuǎnzé fùzé.
+      english: In the final analysis, everyone must take responsibility for their own choices.
+      de: Letztendlich muss jeder für seine eigenen Entscheidungen Verantwortung übernehmen.
+    - zh: 说到底，幸福很简单，就是知足常乐。
+      pinyin: Shuō dào dǐ, xìngfú hěn jiǎndān, jiùshì zhīzú chánglè.
+      english: At the end of the day, happiness is simple: know contentment and you'll always be happy.
+      de: Im Grunde genommen ist Glück einfach: Wer zufrieden ist, ist immer glücklich.
+  word_analyses:
+    - type: word
+      simplified: 说
+      traditional: 說
+      pinyin: shuō
+      english: to speak, to say
+      hsk: "1"
+      characters:
+        - char: 说
+          simplified: 说
+          traditional: 說
+          pinyin: shuō
+          hsk: "1"
+          detailed_analysis: false
+          meaning_in_context: sagen, sprechen
+          compounds:
+            - simplified: 说话
+              pinyin: shuōhuà
+              meaning: sprechen, reden
+            - simplified: 说明
+              pinyin: shuōmíng
+              meaning: erklären
+          etymology: |
+            Phonosemantische Verbindung. Die traditionelle Form 說 besteht aus dem Radikal 言 (Sprache) und der phonetischen Komponente 兌 (duì). Die ursprüngliche Bedeutung ist "sprechen, erklären".
+    - type: word
+      simplified: 到底
+      traditional: 到底
+      pinyin: dàodǐ
+      english: after all, finally, in the end
+      hsk: "5"
+      characters:
+        - char: 到
+          simplified: 到
+          traditional: 到
+          pinyin: dào
+          hsk: "1"
+          detailed_analysis: false
+          meaning_in_context: erreichen, bis zu
+          compounds:
+            - simplified: 到达
+              pinyin: dàodá
+              meaning: ankommen
+          etymology: |
+            Ideogramm. Ein Pfeil, der ein Ziel erreicht.
+        - char: 底
+          simplified: 底
+          traditional: 底
+          pinyin: dǐ
+          hsk: "5"
+          detailed_analysis: true
+          meaning_in_context: Boden, Grund, Ende
+          compounds:
+            - simplified: 底下
+              pinyin: dǐxia
+              meaning: unten, darunter
+            - simplified: 年底
+              pinyin: niándǐ
+              meaning: Jahresende
+            - simplified: 到底
+              pinyin: dàodǐ
+              meaning: letztendlich, schließlich
+            - simplified: 海底
+              pinyin: hǎidǐ
+              meaning: Meeresboden
+          etymology: |
+            Phonosemantische Verbindung. Besteht aus dem Radikal 广 (Dach, Gebäude) und der phonetischen Komponente 氐 (dī). Die ursprüngliche Bedeutung ist "Boden eines Hauses". Später erweitert zu "Boden, Grund, Ende (räumlich oder zeitlich)".
+
+- type: word
+  date: "04/04"
+  simplified: 忽视
+  traditional: 忽視
+  pinyin: hūshì
+  english: to ignore / to overlook / to neglect / to disregard
+  german: ignorieren / übersehen / vernachlässigen / außer Acht lassen
+  hsk: "5"
+  register: neutral
+  measure_word: []
+  note: |
+    Ein Verb, das beschreibt, dass man etwas nicht beachtet, übersieht oder ihm keine ausreichende Aufmerksamkeit schenkt – oft mit negativen Konsequenzen. 忽视 kann sowohl absichtlich (ignorieren) als auch unabsichtlich (übersehen, vernachlässigen) sein.
+
+    **Häufige Ausdrücke:**
+    - 忽视问题 (hūshì wèntí) — ein Problem ignorieren / übersehen
+    - 忽视细节 (hūshì xìjié) — Details vernachlässigen
+    - 不可忽视 (bùkě hūshì) — nicht zu ignorieren / nicht zu unterschätzen
+    - 长期忽视 (chángqī hūshì) — langfristige Vernachlässigung
+
+    **Wichtige Unterschiede:**
+    - 忽视 (hūshì) — ignorieren, übersehen, vernachlässigen (allgemein)
+    - 忽略 (hūlüè) — vernachlässigen, außer Acht lassen (oft unabsichtlich)
+    - 无视 (wúshì) — ignorieren, missachten (stärker, bewusst)
+    - 轻视 (qīngshì) — geringschätzen, unterschätzen
+
+    **Kulturelle Anmerkung:**
+    忽视 setzt sich aus 忽 (hū, "plötzlich, nachlässig") und 视 (shì, "sehen, betrachten") zusammen. Wörtlich: "nachlässig sehen" oder "flüchtig betrachten". In der Erziehung und Arbeitswelt wird oft betont, dass man wichtige Details nicht 忽视 darf. Die Fähigkeit, nichts Wichtiges zu 忽视, gilt als Zeichen von Gewissenhaftigkeit.
+  synonyms:
+    - word: 忽略
+      pinyin: hūlüè
+      meaning: vernachlässigen, außer Acht lassen (oft unabsichtlich)
+    - word: 无视
+      pinyin: wúshì
+      meaning: ignorieren, missachten (bewusst, stärker)
+    - word: 轻视
+      pinyin: qīngshì
+      meaning: geringschätzen, unterschätzen
+  antonyms:
+    - word: 重视
+      pinyin: zhòngshì
+      meaning: Bedeutung beimessen, schätzen
+    - word: 关注
+      pinyin: guānzhù
+      meaning: beachten, verfolgen
+    - word: 注意
+      pinyin: zhùyì
+      meaning: aufpassen, beachten
+  examples:
+    - zh: 很多家长忽视了孩子的情感需求。
+      pinyin: Hěnduō jiāzhǎng hūshìle háizi de qínggǎn xūqiú.
+      english: Many parents overlook their children's emotional needs.
+      de: Viele Eltern übersehen die emotionalen Bedürfnisse ihrer Kinder.
+    - zh: 健康问题不容忽视。
+      pinyin: Jiànkāng wèntí bùróng hūshì.
+      english: Health issues cannot be ignored.
+      de: Gesundheitsprobleme darf man nicht ignorieren.
+    - zh: 他忽视了所有的警告，结果出了事故。
+      pinyin: Tā hūshìle suǒyǒu de jǐnggào, jiéguǒ chūle shìgù.
+      english: He ignored all the warnings and ended up having an accident.
+      de: Er ignorierte alle Warnungen und hatte schließlich einen Unfall.
+    - zh: 我们不能忽视教育的重要性。
+      pinyin: Wǒmen bùnéng hūshì jiàoyù de zhòngyàoxìng.
+      english: We cannot overlook the importance of education.
+      de: Wir können die Bedeutung von Bildung nicht übersehen.
+  characters:
+    - char: 忽
+      simplified: 忽
+      traditional: 忽
+      pinyin: hū
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: plötzlich, nachlässig, vernachlässigen
+      compounds:
+        - simplified: 忽然
+          pinyin: hūrán
+          meaning: plötzlich
+        - simplified: 忽视
+          pinyin: hūshì
+          meaning: ignorieren, übersehen
+        - simplified: 忽略
+          pinyin: hūlüè
+          meaning: vernachlässigen
+        - simplified: 疏忽
+          pinyin: shūhu
+          meaning: Nachlässigkeit, Versehen
+      etymology: |
+        Phonosemantische Verbindung. Besteht aus dem Radikal 心 (Herz) und der phonetischen Komponente 勿 (wù). Die ursprüngliche Bedeutung ist "nachlässig, unaufmerksam (im Herzen)". Später erweitert zu "plötzlich" (wie ein unerwarteter Gedanke).
+    - char: 视
+      simplified: 视
+      traditional: 視
+      pinyin: shì
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: sehen, betrachten, ansehen als
+      compounds:
+        - simplified: 电视
+          pinyin: diànshì
+          meaning: Fernsehen
+        - simplified: 重视
+          pinyin: zhòngshì
+          meaning: Bedeutung beimessen
+        - simplified: 忽视
+          pinyin: hūshì
+          meaning: ignorieren
+        - simplified: 视线
+          pinyin: shìxiàn
+          meaning: Blickrichtung, Sichtlinie
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 視 besteht aus dem Radikal 見 (sehen) und der phonetischen Komponente 示 (shì). Die ursprüngliche Bedeutung ist "sehen, betrachten". Später erweitert zu "behandeln als, ansehen als".
+
+- type: expression
+  date: "04/04"
+  simplified: 放在心上
+  traditional: 放在心上
+  pinyin: fàng zài xīn shang
+  english: to take to heart / to care about / to take seriously (usually in negative constructions)
+  german: sich zu Herzen nehmen / ernst nehmen / (meist negativ: 别放在心上 – nimm es dir nicht zu Herzen)
+  hsk: "5"
+  register: spoken_neutral
+  note: |
+    Ein Ausdruck, der beschreibt, dass man etwas ernst nimmt, sich darüber Gedanken macht oder es sich zu Herzen nimmt. Die Phrase wird sehr häufig in der Negation verwendet: 别放在心上 (bié fàng zài xīn shang) – "Nimm es dir nicht zu Herzen / Mach dir nichts draus".
+
+    **Struktur:**
+    - 放 (fàng) — legen, stellen
+    - 在 (zài) — in, auf
+    - 心上 (xīn shang) — auf dem Herzen / im Herzen
+    - Wörtlich: "auf das Herz legen"
+
+    **Häufige Verwendungen:**
+    - 别放在心上 (bié fàng zài xīn shang) — Nimm es dir nicht zu Herzen / Mach dir nichts draus
+    - 放在心上 (fàng zài xīn shang) — sich zu Herzen nehmen (positiv oder negativ)
+    - 没放在心上 (méi fàng zài xīn shang) — nicht ernst genommen / keine Gedanken daran verschwendet
+    - 把某事放在心上 (bǎ mǒushì fàng zài xīn shang) — sich etwas sehr zu Herzen nehmen
+
+    **Kulturelle Anmerkung:**
+    In der chinesischen Kultur, die Wert auf Harmonie und "Gesicht wahren" (面子, miànzi) legt, ist 别放在心上 eine sehr wichtige höfliche Floskel. Wenn jemand sich entschuldigt oder einen kleinen Fehler macht, sagt man oft 没关系, 别放在心上 (Méi guānxi, bié fàng zài xīn shang) – "Kein Problem, nimm es dir nicht zu Herzen". Es zeigt Großzügigkeit und hilft, Konflikte zu vermeiden.
+  synonyms:
+    - word: 在意
+      pinyin: zàiyì
+      meaning: Wert legen auf, sich kümmern um
+    - word: 在乎
+      pinyin: zàihu
+      meaning: sich kümmern um, wichtig finden (umgangssprachlich)
+    - word: 当回事
+      pinyin: dàng huí shì
+      meaning: ernst nehmen (umgangssprachlich)
+  antonyms:
+    - word: 不在乎
+      pinyin: bù zàihu
+      meaning: egal sein, sich nichts machen aus
+    - word: 无所谓
+      pinyin: wúsuǒwèi
+      meaning: egal sein
+  examples:
+    - zh: 他只是开个玩笑，你别放在心上。
+      pinyin: Tā zhǐshì kāi ge wánxiào, nǐ bié fàng zài xīn shang.
+      english: He was just joking. Don't take it to heart.
+      de: Er hat nur einen Scherz gemacht. Nimm es dir nicht zu Herzen.
+    - zh: 你的建议我会放在心上的。
+      pinyin: Nǐ de jiànyì wǒ huì fàng zài xīn shang de.
+      english: I will take your advice to heart.
+      de: Ich werde deinen Rat zu Herzen nehmen.
+    - zh: 他根本没把这件事放在心上。
+      pinyin: Tā gēnběn méi bǎ zhè jiàn shì fàng zài xīn shang.
+      english: He didn't take this matter seriously at all.
+      de: Er hat diese Angelegenheit überhaupt nicht ernst genommen.
+    - zh: 别把别人的批评太放在心上。
+      pinyin: Bié bǎ biérén de pīpíng tài fàng zài xīn shang.
+      english: Don't take other people's criticism too much to heart.
+      de: Nimm dir die Kritik anderer nicht zu sehr zu Herzen.
+  word_analyses:
+    - type: word
+      simplified: 放
+      traditional: 放
+      pinyin: fàng
+      english: to put, to place, to release
+      hsk: "3"
+      characters:
+        - char: 放
+          simplified: 放
+          traditional: 放
+          pinyin: fàng
+          hsk: "3"
+          detailed_analysis: true
+          meaning_in_context: legen, stellen, platzieren
+          compounds:
+            - simplified: 放心
+              pinyin: fàngxīn
+              meaning: beruhigt sein, sich keine Sorgen machen
+            - simplified: 放弃
+              pinyin: fàngqì
+              meaning: aufgeben
+            - simplified: 放在
+              pinyin: fàng zài
+              meaning: hinstellen, ablegen
+          etymology: |
+            Phonosemantische Verbindung. Besteht aus dem Radikal 攵 (Schlag, Handlung) und der phonetischen Komponente 方 (fāng). Die ursprüngliche Bedeutung ist "freilassen, loslassen". Später erweitert zu "legen, stellen, platzieren".
+    - type: word
+      simplified: 心
+      traditional: 心
+      pinyin: xīn
+      english: heart, mind
+      hsk: "1"
+      characters:
+        - char: 心
+          simplified: 心
+          traditional: 心
+          pinyin: xīn
+          hsk: "1"
+          detailed_analysis: false
+          meaning_in_context: Herz, Gemüt
+          compounds:
+            - simplified: 心情
+              pinyin: xīnqíng
+              meaning: Stimmung
+            - simplified: 心里
+              pinyin: xīnli
+              meaning: im Herzen
+          etymology: |
+            Piktogramm. Zeigt ein Herz mit Kammern. Die ursprüngliche Bedeutung ist "Herz". Im übertragenen Sinne auch "Gemüt, Seele, Gefühl".
+
+- type: word
+  date: "04/04"
+  simplified: 本身
+  traditional: 本身
+  pinyin: běnshēn
+  english: itself / oneself / per se / in itself / as such
+  german: selbst / an sich / per se / als solches
+  hsk: "5"
+  register: neutral
+  measure_word: []
+  note: |
+    Ein Pronomen/Adverb, das verwendet wird, um die grundlegende, eigenständige Natur einer Sache oder Person zu betonen, unabhängig von anderen Faktoren. 本身 wird nach einem Substantiv oder Pronomen platziert.
+
+    **Struktur:**
+    - [Substantiv/Pronomen] + 本身 — [etwas] selbst / an sich
+    - Wörtlich: "Wurzel-Körper" / "ursprünglicher Körper"
+
+    **Häufige Verwendungen:**
+    - 事情本身 (shìqing běnshēn) — die Sache selbst / an sich
+    - 问题本身 (wèntí běnshēn) — das Problem an sich
+    - 我本身 (wǒ běnshēn) — ich selbst (betont)
+    - 本身就是 (běnshēn jiùshì) — ist an sich schon / ist bereits von sich aus
+
+    **Wichtige Unterschiede:**
+    - 本身 (běnshēn) — selbst, an sich (betont die eigenständige Natur)
+    - 自己 (zìjǐ) — selbst (reflexiv, für Personen)
+    - 亲自 (qīnzì) — persönlich, selbst (Handlung durch die Person selbst)
+    - 自身 (zìshēn) — sich selbst (formeller, oft für abstrakte Dinge)
+
+    **Kulturelle Anmerkung:**
+    本身 setzt sich aus 本 (běn, "Wurzel, ursprünglich") und 身 (shēn, "Körper, Person") zusammen. Wörtlich: "ursprünglicher Körper / die Sache selbst". Der Begriff wird häufig in philosophischen, akademischen und alltäglichen Diskussionen verwendet, um das Wesen einer Sache zu betonen, ohne äußere Einflüsse.
+  synonyms:
+    - word: 自身
+      pinyin: zìshēn
+      meaning: sich selbst, an sich (formeller)
+    - word: 自己
+      pinyin: zìjǐ
+      meaning: selbst (reflexiv, für Personen)
+    - word: 本质上
+      pinyin: běnzhì shang
+      meaning: im Wesentlichen
+  antonyms: []
+  examples:
+    - zh: 这件事本身并不复杂，只是被我们想复杂了。
+      pinyin: Zhè jiàn shì běnshēn bìng bù fùzá, zhǐshì bèi wǒmen xiǎng fùzá le.
+      english: This matter itself is not complicated; we just made it complicated in our minds.
+      de: Die Sache an sich ist nicht kompliziert; wir haben sie nur kompliziert gemacht.
+    - zh: 这个理论本身有问题，需要重新审视。
+      pinyin: Zhège lǐlùn běnshēn yǒu wèntí, xūyào chóngxīn shěnshì.
+      english: This theory itself has problems; it needs to be re-examined.
+      de: Die Theorie an sich hat Probleme; sie muss neu überdacht werden.
+    - zh: 我本身对这件事没有意见。
+      pinyin: Wǒ běnshēn duì zhè jiàn shì méiyǒu yìjiàn.
+      english: I myself have no objection to this matter.
+      de: Ich selbst habe nichts gegen diese Angelegenheit.
+    - zh: 学习本身就是一个不断进步的过程。
+      pinyin: Xuéxí běnshēn jiùshì yī ge bùduàn jìnbù de guòchéng.
+      english: Learning itself is a process of continuous improvement.
+      de: Lernen an sich ist ein Prozess der kontinuierlichen Verbesserung.
+  characters:
+    - char: 本
+      simplified: 本
+      traditional: 本
+      pinyin: běn
+      hsk: "2"
+      detailed_analysis: true
+      meaning_in_context: Wurzel, ursprünglich, selbst
+      compounds:
+        - simplified: 本来
+          pinyin: běnlái
+          meaning: ursprünglich, eigentlich
+        - simplified: 根本
+          pinyin: gēnběn
+          meaning: grundlegend, überhaupt
+        - simplified: 本身
+          pinyin: běnshēn
+          meaning: selbst, an sich
+        - simplified: 本事
+          pinyin: běnshi
+          meaning: Fähigkeit, Können
+      etymology: |
+        Ideogramm. Zeigt einen Baum (木) mit einem Strich an der Wurzel. Die ursprüngliche Bedeutung ist "Wurzel". Später erweitert zu "ursprünglich, grundlegend, selbst, dieses (Buch)".
+    - char: 身
+      simplified: 身
+      traditional: 身
+      pinyin: shēn
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: Körper, Person, selbst
+      compounds:
+        - simplified: 身体
+          pinyin: shēntǐ
+          meaning: Körper, Gesundheit
+        - simplified: 身份
+          pinyin: shēnfèn
+          meaning: Identität
+        - simplified: 本身
+          pinyin: běnshēn
+          meaning: selbst, an sich
+        - simplified: 身边
+          pinyin: shēnbiān
+          meaning: an der Seite, bei sich
+      etymology: |
+        Piktogramm. Die Orakelknochenschrift zeigte einen menschlichen Körper mit Armen, Beinen und einem markanten Bauch. Die ursprüngliche Bedeutung ist "Körper, Rumpf". Später erweitert zu "Person, selbst, Lebenszeit".
+
+- type: word
+  date: "04/04"
+  simplified: 以为
+  traditional: 以為
+  pinyin: yǐwéi
+  english: to mistakenly believe / to think (falsely) / to assume (incorrectly)
+  german: fälschlicherweise glauben / denken (dass etwas der Fall ist, obwohl es nicht stimmt)
+  hsk: "4"
+  register: neutral
+  measure_word: []
+  note: |
+    Ein Verb, das ausdrückt, dass jemand etwas glaubt oder denkt, das sich später als falsch herausstellt. 以为 wird verwendet, um eine falsche Annahme oder ein Missverständnis zu beschreiben. Es ist eines der wichtigsten Verben, um Irrtümer auszudrücken.
+
+    **Struktur:**
+    - 以为 + [Satz] — fälschlicherweise glauben, dass ...
+    - 还以为 (hái yǐwéi) — (immer noch) fälschlich glauben
+
+    **Wichtige Unterschiede:**
+    - 以为 (yǐwéi) — fälschlicherweise glauben (Annahme erweist sich als falsch)
+    - 认为 (rènwéi) — der Meinung sein, glauben (neutral, muss nicht falsch sein)
+    - 觉得 (juéde) — finden, meinen (subjektive Meinung)
+    - 认为 vs 以为: 认为 ist neutral, 以为 impliziert, dass die Annahme falsch war
+
+    **Kulturelle Anmerkung:**
+    以为 setzt sich aus 以 (yǐ, "mit, durch, aufgrund") und 为 (wéi, "tun, sein, halten für") zusammen. Wörtlich: "aufgrund (von etwas) halten für". In der Alltagssprache ist 以为 sehr gebräuchlich, besonders wenn man Missverständnisse oder Fehler eingesteht: z. B. 我以为你知道 (wǒ yǐwéi nǐ zhīdào) – "Ich dachte, du wüsstest es" (aber du wusstest es nicht).
+  synonyms:
+    - word: 误以为
+      pinyin: wù yǐwéi
+      meaning: irrtümlicherweise glauben (stärkerer Irrtum)
+    - word: 错以为
+      pinyin: cuò yǐwéi
+      meaning: falsch glauben (umgangssprachlich)
+  antonyms:
+    - word: 认为
+      pinyin: rènwéi
+      meaning: der Meinung sein (neutral)
+    - word: 知道
+      pinyin: zhīdào
+      meaning: wissen (Tatsache)
+  examples:
+    - zh: 我以为你今天不来了，没想到你来了。
+      pinyin: Wǒ yǐwéi nǐ jīntiān bù lái le, méi xiǎng dào nǐ lái le.
+      english: I thought you weren't coming today. I didn't expect you to come.
+      de: Ich dachte, du kommst heute nicht. Ich hätte nicht gedacht, dass du kommst.
+    - zh: 别以为你什么都知道。
+      pinyin: Bié yǐwéi nǐ shénme dōu zhīdào.
+      english: Don't think you know everything (because you don't).
+      de: Glaub nicht, dass du alles weißt (denn das tust du nicht).
+    - zh: 我还以为你生气了，原来你没有。
+      pinyin: Wǒ hái yǐwéi nǐ shēngqì le, yuánlái nǐ méiyǒu.
+      english: I thought you were angry, but it turns out you weren't.
+      de: Ich dachte, du wärst wütend, aber du warst es gar nicht.
+    - zh: 她以为门锁了，其实没锁。
+      pinyin: Tā yǐwéi mén suǒ le, qíshí méi suǒ.
+      english: She thought the door was locked, but actually it wasn't.
+      de: Sie dachte, die Tür sei abgeschlossen, aber sie war es nicht.
+  characters:
+    - char: 以
+      simplified: 以
+      traditional: 以
+      pinyin: yǐ
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: aufgrund von, mit, durch, um zu
+      compounds:
+        - simplified: 以为
+          pinyin: yǐwéi
+          meaning: fälschlich glauben
+        - simplified: 所以
+          pinyin: suǒyǐ
+          meaning: deshalb, daher
+        - simplified: 以前
+          pinyin: yǐqián
+          meaning: vorher, früher
+        - simplified: 以及
+          pinyin: yǐjí
+          meaning: sowie, und auch
+      etymology: |
+        Piktogramm. Ursprünglich ein Bild einer Sichel oder eines Werkzeugs. Später wurde es zu einer Präposition mit den Bedeutungen "mit, durch, aufgrund von" und dann zu einem Konjunktionspartikel.
+    - char: 为
+      simplified: 为
+      traditional: 爲
+      pinyin: wéi
+      hsk: "2"
+      detailed_analysis: true
+      meaning_in_context: sein, halten für, tun
+      compounds:
+        - simplified: 以为
+          pinyin: yǐwéi
+          meaning: fälschlich glauben
+        - simplified: 认为
+          pinyin: rènwéi
+          meaning: der Meinung sein
+        - simplified: 成为
+          pinyin: chéngwéi
+          meaning: werden zu
+        - simplified: 因为
+          pinyin: yīnwèi
+          meaning: weil
+      etymology: |
+        Piktogramm. Die traditionelle Form 爲 zeigt eine Hand, die einen Elefanten führt, was "tun, handeln" bedeutet. Später erweitert zu "sein, als etwas fungieren, halten für".
+
+- type: word
+  date: "04/04"
+  simplified: 认为
+  traditional: 認為
+  pinyin: rènwéi
+  english: to think / to believe / to be of the opinion that / to consider
+  german: der Meinung sein / glauben / meinen / halten für
+  hsk: "4"
+  register: neutral
+  measure_word: []
+  note: |
+    Ein Verb, das eine subjektive Meinung, Überzeugung oder Einschätzung ausdrückt. Im Gegensatz zu 以为 (das eine falsche Annahme impliziert) ist 认为 neutral – es sagt nichts darüber aus, ob die Meinung richtig oder falsch ist.
+
+    **Struktur:**
+    - 认为 + [Satz] — der Meinung sein, dass ... / glauben, dass ...
+    - 被广泛认为 (bèi guǎngfàn rènwéi) — weithin als ... angesehen werden
+
+    **Wichtige Unterschiede:**
+    - 认为 (rènwéi) — der Meinung sein, glauben (neutral, eigene Überzeugung)
+    - 以为 (yǐwéi) — fälschlicherweise glauben (impliziert Irrtum)
+    - 觉得 (juéde) — finden, meinen (subjektiv, weniger überzeugt)
+    - 以为 vs 认为: Verwende 认为 für neutrale Meinungen, 以为 für falsche Annahmen
+
+    **Kulturelle Anmerkung:**
+    认为 setzt sich aus 认 (rèn, "erkennen, anerkennen") und 为 (wéi, "sein, halten für") zusammen. Wörtlich: "erkennen und halten für". In Diskussionen und Aufsätzen wird 认为 häufig verwendet, um die eigene Position oder Interpretation auszudrücken. In formellen Texten ist 认为 gebräuchlicher als 觉得.
+  synonyms:
+    - word: 觉得
+      pinyin: juéde
+      meaning: finden, meinen (subjektiver, weniger bestimmt)
+    - word: 以为
+      pinyin: yǐwéi
+      meaning: fälschlich glauben (impliziert Irrtum)
+    - word: 相信
+      pinyin: xiāngxìn
+      meaning: glauben, vertrauen (stärker)
+    - word: 主张
+      pinyin: zhǔzhāng
+      meaning: vertreten die Ansicht, plädieren für (formeller)
+  antonyms: []
+  examples:
+    - zh: 我认为学习外语非常重要。
+      pinyin: Wǒ rènwéi xuéxí wàiyǔ fēicháng zhòngyào.
+      english: I think learning a foreign language is very important.
+      de: Ich bin der Meinung, dass das Lernen einer Fremdsprache sehr wichtig ist.
+    - zh: 很多人认为他是一个天才。
+      pinyin: Hěnduō rén rènwéi tā shì yī ge tiāncái.
+      english: Many people consider him a genius.
+      de: Viele Leute halten ihn für ein Genie.
+    - zh: 你认为这个方案可行吗？
+      pinyin: Nǐ rènwéi zhège fāng'àn kěxíng ma?
+      english: Do you think this plan is feasible?
+      de: Glaubst du, dass dieser Plan umsetzbar ist?
+    - zh: 专家认为，气候变化是当前最大的挑战。
+      pinyin: Zhuānjiā rènwéi, qìhòu biànhuà shì dāngqián zuìdà de tiǎozhàn.
+      english: Experts believe that climate change is the biggest challenge at present.
+      de: Experten sind der Meinung, dass der Klimawandel die größte Herausforderung der Gegenwart ist.
+  characters:
+    - char: 认
+      simplified: 认
+      traditional: 認
+      pinyin: rèn
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: erkennen, anerkennen, meinen
+      compounds:
+        - simplified: 认识
+          pinyin: rènshi
+          meaning: kennen, erkennen
+        - simplified: 认为
+          pinyin: rènwéi
+          meaning: der Meinung sein
+        - simplified: 认真
+          pinyin: rènzhēn
+          meaning: ernsthaft
+        - simplified: 承认
+          pinyin: chéngrèn
+          meaning: zugeben, anerkennen
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 認 besteht aus dem Radikal 言 (Sprache) und der phonetischen Komponente 忍 (rěn). Die ursprüngliche Bedeutung ist "erkennen, identifizieren, anerkennen (durch Worte)".
+    - char: 为
+      simplified: 为
+      traditional: 爲
+      pinyin: wéi
+      hsk: "2"
+      detailed_analysis: true
+      meaning_in_context: sein, halten für, tun
+      compounds: []
+      etymology: |
+        Siehe 以为 für die Etymologie von 为.
+
+- type: word
+  date: "04/04"
+  simplified: 否认
+  traditional: 否認
+  pinyin: fǒurèn
+  english: to deny / to repudiate / to disclaim
+  german: leugnen / bestreiten / dementieren / abstreiten
+  hsk: "6"
+  register: formal_written
+  measure_word: []
+  note: |
+    Ein Verb, das das Bestreiten oder Leugnen einer Aussage, Tatsache, Verantwortung oder eines Gerüchts beschreibt. 否认 wird in formelleren Kontexten verwendet, besonders in Nachrichten, Recht und Politik.
+
+    **Häufige Ausdrücke:**
+    - 否认事实 (fǒurèn shìshí) — Tatsachen leugnen
+    - 否认指控 (fǒurèn zhǐkòng) — Anschuldigungen bestreiten
+    - 否认责任 (fǒurèn zérèn) — Verantwortung ablehnen
+    - 无法否认 (wúfǎ fǒurèn) — nicht leugnen können / unbestreitbar
+
+    **Wichtige Unterschiede:**
+    - 否认 (fǒurèn) — leugnen, bestreiten (formell, oft für Tatsachen/Verantwortung)
+    - 否定 (fǒudìng) — verneinen, ablehnen (allgemeiner, auch grammatisch)
+    - 拒绝 (jùjué) — ablehnen, verweigern (Handlung, Angebot)
+    - 反驳 (fǎnbó) — widerlegen, kontern (Argumentativ)
+
+    **Kulturelle Anmerkung:**
+    否认 setzt sich aus 否 (fǒu, "verneinen, nein sagen") und 认 (rèn, "erkennen, anerkennen") zusammen. Wörtlich: "verneinend anerkennen" → "nicht anerkennen". In der öffentlichen Kommunikation (Politik, Wirtschaft) ist 否认 ein häufig verwendetes Wort für Dementis und Richtigstellungen. Ein klassischer Satz ist: 发言人否认了这一传闻 (Fāyánrén fǒurènle zhè yī chuánwén) – "Der Sprecher dementierte dieses Gerücht".
+  synonyms:
+    - word: 否定
+      pinyin: fǒudìng
+      meaning: verneinen, ablehnen (allgemeiner)
+    - word: 驳斥
+      pinyin: bóchì
+      meaning: widerlegen, zurückweisen (stärker)
+    - word: 不承认
+      pinyin: bù chéngrèn
+      meaning: nicht zugeben, nicht anerkennen
+  antonyms:
+    - word: 承认
+      pinyin: chéngrèn
+      meaning: zugeben, anerkennen
+    - word: 确认
+      pinyin: quèrèn
+      meaning: bestätigen
+    - word: 肯定
+      pinyin: kěndìng
+      meaning: bejahen, bestätigen
+  examples:
+    - zh: 他否认自己做过这件事。
+      pinyin: Tā fǒurèn zìjǐ zuòguo zhè jiàn shì.
+      english: He denied having done this.
+      de: Er bestritt, diese Sache getan zu haben.
+    - zh: 公司发言人否认了裁员传闻。
+      pinyin: Gōngsī fāyánrén fǒurènle cáiyuán chuánwén.
+      english: The company spokesperson denied the rumor of layoffs.
+      de: Der Firmensprecher dementierte das Gerücht über Entlassungen.
+    - zh: 他无法否认自己犯了错。
+      pinyin: Tā wúfǎ fǒurèn zìjǐ fànle cuò.
+      english: He cannot deny that he made a mistake.
+      de: Er kann nicht leugnen, dass er einen Fehler gemacht hat.
+    - zh: 面对证据，他不得不承认他之前的否认是错的。
+      pinyin: Miànduì zhèngjù, tā bùdé bù chéngrèn tā zhīqián de fǒurèn shì cuò de.
+      english: Faced with the evidence, he had to admit that his previous denial was wrong.
+      de: Angesichts der Beweise musste er zugeben, dass sein vorheriges Leugnen falsch war.
+  characters:
+    - char: 否
+      simplified: 否
+      traditional: 否
+      pinyin: fǒu
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: verneinen, nein sagen, nicht
+      compounds:
+        - simplified: 是否
+          pinyin: shìfǒu
+          meaning: ob (ja oder nein)
+        - simplified: 否认
+          pinyin: fǒurèn
+          meaning: leugnen, bestreiten
+        - simplified: 否定
+          pinyin: fǒudìng
+          meaning: verneinen, ablehnen
+        - simplified: 否则
+          pinyin: fǒuzé
+          meaning: andernfalls, sonst
+      etymology: |
+        Phonosemantische Verbindung. Die Orakelknochenschrift zeigt einen Mund (口) über einem Pfeil oder einer Barriere. Die ursprüngliche Bedeutung ist "nein sagen, ablehnen, verneinen".
+    - char: 认
+      simplified: 认
+      traditional: 認
+      pinyin: rèn
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: erkennen, anerkennen, zugeben
+      compounds: []
+      etymology: |
+        Siehe 认为 für die Etymologie von 认.

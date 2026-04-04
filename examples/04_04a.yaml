@@ -1,0 +1,3673 @@
+- type: word
+  date: "04/04"
+  simplified: 否则
+  traditional: 否則
+  pinyin: fǒuzé
+  english: otherwise / or else / if not
+  german: andernfalls / sonst / anderenfalls
+  hsk: "4"
+  register: neutral
+  measure_word: []
+  note: |
+    Ein Konjunktionaladverb, das eine negative Konsequenz oder Alternative ausdrückt, falls eine Bedingung nicht erfüllt wird. Wird häufig in Warnungen, Drohungen oder logischen Schlussfolgerungen verwendet.
+
+    **Häufige Strukturen:**
+    - (Bedingung), 否则 + Konsequenz — wenn nicht, dann...
+    - 否则通常 nach einer positiven oder negativen Aussage
+
+    **Wichtige Unterschiede:**
+    - 否则 (fǒuzé) — neutral, vielseitig, auch in formellen Kontexten
+    - 不然 (bùrán) — umgangssprachlicher, weicher
+    - 要不然 (yào bùrán) — sehr umgangssprachlich
+
+    **Kulturelle Anmerkung:**
+    否则 setzt sich aus 否 (fǒu, "verneinen, nicht") und 则 (zé, "dann, Regel") zusammen. Wörtlich: "wenn nicht, dann (folgt die Regel/Konsequenz)".
+  synonyms:
+    - word: 不然
+      pinyin: bùrán
+      meaning: sonst, andernfalls (umgangssprachlich)
+    - word: 要不然
+      pinyin: yào bùrán
+      meaning: wenn nicht, sonst (sehr umgangssprachlich)
+    - word: 若非如此
+      pinyin: ruòfēi rúcǐ
+      meaning: wenn dies nicht der Fall wäre (formell, literarisch)
+  antonyms: []
+  examples:
+    - zh: 请准时到达，否则我们会错过火车。
+      pinyin: Qǐng zhǔnshí dàodá, fǒuzé wǒmen huì cuòguò huǒchē.
+      english: Please arrive on time, otherwise we will miss the train.
+      de: Bitte komm pünktlich an, sonst verpassen wir den Zug.
+    - zh: 你最好现在道歉，否则他会生气的。
+      pinyin: Nǐ zuìhǎo xiànzài dàoqiàn, fǒuzé tā huì shēngqì de.
+      english: You'd better apologize now, or else he will get angry.
+      de: Du entschuldigst dich besser jetzt, sonst wird er wütend.
+    - zh: 努力学习，否则你考试会不及格。
+      pinyin: Nǔlì xuéxí, fǒuzé nǐ kǎoshì huì bù jígé.
+      english: Study hard, otherwise you will fail the exam.
+      de: Lerne fleißig, sonst wirst du die Prüfung nicht bestehen.
+    - zh: 我们必须节约用水，否则将来会有水资源短缺。
+      pinyin: Wǒmen bìxū jiéyuē yòngshuǐ, fǒuzé jiānglái huì yǒu shuǐzīyuán duǎnquē.
+      english: We must save water, otherwise there will be water shortages in the future.
+      de: Wir müssen Wasser sparen, sonst wird es in Zukunft Wasserknappheit geben.
+  characters:
+    - char: 否
+      simplified: 否
+      traditional: 否
+      pinyin: fǒu
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: verneinen, nicht, anders
+      compounds:
+        - simplified: 是否
+          pinyin: shìfǒu
+          meaning: ob (ja oder nein)
+        - simplified: 否认
+          pinyin: fǒurèn
+          meaning: verleugnen, bestreiten
+        - simplified: 否定
+          pinyin: fǒudìng
+          meaning: verneinen, negieren
+        - simplified: 否则
+          pinyin: fǒuzé
+          meaning: andernfalls, sonst
+      etymology: |
+        Phonosemantische Verbindung. Die Orakelknochenschrift zeigt einen Mund (口) über einem Pfeil oder einer Barriere. Die ursprüngliche Bedeutung ist "nein sagen, ablehnen, verneinen". Später erweitert zu "nicht, anders".
+    - char: 则
+      simplified: 则
+      traditional: 則
+      pinyin: zé
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: dann, Regel, Norm, Maßstab
+      compounds:
+        - simplified: 规则
+          pinyin: guīzé
+          meaning: Regel, Vorschrift
+        - simplified: 原则
+          pinyin: yuánzé
+          meaning: Prinzip
+        - simplified: 否则
+          pinyin: fǒuzé
+          meaning: andernfalls, sonst
+        - simplified: 细则
+          pinyin: xìzé
+          meaning: Detailregeln, Durchführungsbestimmungen
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 則 besteht aus dem Radikal 貝 (Muschel, Geld) und der phonetischen Komponente 刀 (Messer). Die ursprüngliche Bedeutung ist "in Metall oder Holz ritzen, um eine Regel oder ein Gesetz festzuhalten". Später erweitert zu "Regel, Norm, Maßstab" und dann zur Konjunktion "dann, in diesem Fall".
+
+- type: expression
+  date: "04/04"
+  simplified: 某个时候
+  traditional: 某個時候
+  pinyin: mǒu gè shíhou
+  english: sometime / at some point (in time)
+  german: irgendwann / zu einem bestimmten, aber ungenannten Zeitpunkt
+  hsk: "4"
+  register: neutral
+  note: |
+    Ein Ausdruck, der einen unbestimmten Zeitpunkt in der Vergangenheit oder Zukunft bezeichnet. Er setzt sich aus 某个 (einem bestimmten, aber ungenannten) und 时候 (Zeitpunkt) zusammen.
+
+    **Häufige Verwendungen:**
+    - 某个时候 + Vergangenheit — für einen unbestimmten Zeitpunkt in der Vergangenheit
+    - 某个时候 + Zukunft — für einen unbestimmten Zeitpunkt in der Zukunft
+    - Kann auch als 某个时间 (mǒu gè shíjiān) verwendet werden, wobei 时间 eher eine Zeitspanne betont
+
+    **Wichtige Unterschiede zu anderen "irgendwann"-Ausdrücken:**
+    - 某个时候 (mǒu gè shíhou) — neutral, kann Vergangenheit oder Zukunft sein
+    - 总有一天 (zǒng yǒu yī tiān) — betont zukünftige Gewissheit ("eines Tages wird es passieren")
+    - 有朝一日 (yǒu zhāo yī rì) — literarisch, oft für zukünftige Hoffnungen oder Bedingungen
+    - 改天 (gǎitiān) — umgangssprachlich für nahe Zukunft ("ein andermal")
+  synonyms:
+    - word: 某个时间
+      pinyin: mǒu gè shíjiān
+      meaning: irgendwann (betont eher Zeitspanne)
+    - word: 某时
+      pinyin: mǒushí
+      meaning: irgendwann (kürzere Form, etwas formeller)
+    - word: 有一天
+      pinyin: yǒu yī tiān
+      meaning: eines Tages (häufig für Zukunft)
+  antonyms: []
+  examples:
+    - zh: 我某个时候在街上见过他，但记不清具体是哪天了。
+      pinyin: Wǒ mǒu gè shíhou zài jiēshàng jiànguò tā, dàn jì bù qīng jùtǐ shì nǎ tiān le.
+      english: I saw him on the street sometime, but I can't remember exactly which day.
+      de: Ich habe ihn irgendwann auf der Straße gesehen, aber ich kann mich nicht genau erinnern, welcher Tag das war.
+    - zh: 我们某个时候应该再见面聊聊。
+      pinyin: Wǒmen mǒu gè shíhou yīnggāi zài jiànmiàn liáo liáo.
+      english: We should meet up sometime to talk.
+      de: Wir sollten uns irgendwann mal treffen und reden.
+    - zh: 某个时候，他突然意识到自己做错了。
+      pinyin: Mǒu gè shíhou, tā túrán yìshi dào zìjǐ zuò cuò le.
+      english: At some point, he suddenly realized that he had made a mistake.
+      de: Irgendwann wurde ihm plötzlich bewusst, dass er einen Fehler gemacht hatte.
+    - zh: 这个决定会在某个时候产生影响。
+      pinyin: Zhège juédìng huì zài mǒu gè shíhou chǎnshēng yǐngxiǎng.
+      english: This decision will have an impact at some point.
+      de: Diese Entscheidung wird sich irgendwann auswirken.
+  word_analyses:
+    - type: word
+      simplified: 某个
+      traditional: 某個
+      pinyin: mǒu gè
+      english: a certain / some (unspecified)
+      hsk: "4"
+      characters:
+        - char: 某
+          simplified: 某
+          traditional: 某
+          pinyin: mǒu
+          hsk: "4"
+          detailed_analysis: true
+          meaning_in_context: ein bestimmter (ungenannter)
+          compounds:
+            - simplified: 某人
+              pinyin: mǒurén
+              meaning: eine gewisse Person, jemand
+            - simplified: 某事
+              pinyin: mǒushì
+              meaning: eine gewisse Sache, etwas
+            - simplified: 某地
+              pinyin: mǒudì
+              meaning: ein gewisser Ort, irgendwo
+            - simplified: 某个
+              pinyin: mǒugè
+              meaning: ein gewisser, ein bestimmter (ungenannter)
+          etymology: |
+            Ursprünglich ein Pronomen mit der Bedeutung "eine unbestimmte Person oder Sache". Die genaue Etymologie ist unklar. Es wird angenommen, dass 某 aus 甘 (süß) und 木 (Baum) besteht. Später wurde es als Platzhalter für eine unbestimmte, aber bestimmbare Person oder Sache standardisiert.
+        - char: 个
+          simplified: 个
+          traditional: 個
+          pinyin: gè
+          hsk: "1"
+          detailed_analysis: false
+          meaning_in_context: allgemeiner Zähler
+          compounds:
+            - simplified: 个人
+              pinyin: gèrén
+              meaning: Person, individuell
+            - simplified: 这个
+              pinyin: zhège
+              meaning: dieser, diese, dieses
+            - simplified: 个别
+              pinyin: gèbié
+              meaning: individuell, einzeln, vereinzelt
+          etymology: |
+            Piktogramm. Die ursprüngliche Form zeigte einen Bambusspross. Später wurde es zum allgemeinen Zähler für Personen und Dinge ohne eigenen spezifischen Zähler.
+    - type: word
+      simplified: 时候
+      traditional: 時候
+      pinyin: shíhou
+      english: time, moment
+      hsk: "2"
+      characters:
+        - char: 时
+          simplified: 时
+          traditional: 時
+          pinyin: shí
+          hsk: "1"
+          detailed_analysis: false
+          meaning_in_context: Zeit
+          compounds:
+            - simplified: 时间
+              pinyin: shíjiān
+              meaning: Zeit
+            - simplified: 时代
+              pinyin: shídài
+              meaning: Zeitalter, Epoche
+          etymology: |
+            Phonosemantische Verbindung. Die traditionelle Form 時 besteht aus dem Radikal 日 (Sonne) und der phonetischen Komponente 寺 (sì). Die ursprüngliche Bedeutung ist "Jahreszeit, Zeit."
+        - char: 候
+          simplified: 候
+          traditional: 候
+          pinyin: hòu
+          hsk: "4"
+          detailed_analysis: false
+          meaning_in_context: Zeit, Zeitraum
+          compounds:
+            - simplified: 时候
+              pinyin: shíhou
+              meaning: Zeit, Moment
+            - simplified: 等候
+              pinyin: děnghòu
+              meaning: warten
+          etymology: |
+            Phonosemantische Verbindung. Besteht aus dem Radikal 亻 (Person) und der phonetischen Komponente 侯 (hóu). Die ursprüngliche Bedeutung ist "warten, beobachten."
+
+- type: word
+  date: "04/04"
+  simplified: 补过
+  traditional: 補過
+  pinyin: bǔguò
+  english: to make amends / to correct a mistake / to make up for (a missed celebration or duty)
+  german: wiedergutmachen / einen Fehler korrigieren / nachholen (eine verpasste Gelegenheit)
+  hsk: "6"
+  register: neutral
+  measure_word: []
+  note: |
+    Ein Verb mit zwei Hauptbedeutungen: (1) einen Fehler wiedergutmachen oder korrigieren, (2) eine verpasste Gelegenheit nachholen (z. B. ein Fest oder eine Handlung). Im Kontext von Festen wie Ostern bedeutet 补过, dass man die Feier zu einem späteren Zeitpunkt nachholt.
+
+    **Häufige Strukturen:**
+    - 补过 + Objekt — z. B. 补过生日 (Geburtstag nachholen)
+    - 一起补过 — gemeinsam nachholen
+    - 将功补过 (Jiāng gōng bǔguò) — Fehler durch Verdienste ausgleichen (Chengyu)
+
+    **Wichtige Unterschiede:**
+    - 补过 (bǔguò) — betont das Nachholen einer verpassten Handlung oder das Korrigieren eines Fehlers
+    - 弥补 (míbǔ) — allgemeiner "ausgleichen, kompensieren"
+    - 补上 (bǔshàng) — umgangssprachlicher für "etwas nachholen"
+
+    **Kulturelle Anmerkung:**
+    补过 setzt sich aus 补 (bǔ, "ergänzen, reparieren") und 过 (guò, "Fehler, vergehen") zusammen. Wörtlich: "einen Fehler reparieren". Das Chengyu 将功补过 (Fehler durch Verdienste ausgleichen) ist sehr gebräuchlich.
+  synonyms:
+    - word: 弥补
+      pinyin: míbǔ
+      meaning: ausgleichen, kompensieren, wiedergutmachen
+    - word: 补偿
+      pinyin: bǔcháng
+      meaning: entschädigen, kompensieren
+    - word: 补上
+      pinyin: bǔshàng
+      meaning: nachholen, ergänzen (umgangssprachlich)
+    - word: 将功补过
+      pinyin: jiāng gōng bǔguò
+      meaning: Fehler durch Verdienste ausgleichen (Chengyu)
+  antonyms:
+    - word: 犯错
+      pinyin: fàncuò
+      meaning: einen Fehler machen
+    - word: 忽视
+      pinyin: hūshì
+      meaning: ignorieren, vernachlässigen
+  examples:
+    - zh: 我们下次见面时一起补过复活节吧。
+      pinyin: Wǒmen xià cì jiànmiàn shí yīqǐ bǔguò Fùhuójié ba.
+      english: Let's celebrate Easter together next time we meet to make up for missing it.
+      de: Lass uns Ostern zusammen nachholen, wenn wir uns das nächste Mal sehen.
+    - zh: 他为了补过自己的错误，主动加班完成了任务。
+      pinyin: Tā wèile bǔguò zìjǐ de cuòwù, zhǔdòng jiābān wánchéng le rènwu.
+      english: To make amends for his mistake, he voluntarily worked overtime to complete the task.
+      de: Um seinen Fehler wiedergutzumachen, hat er freiwillig Überstunden gemacht, um die Aufgabe zu erledigen.
+    - zh: 虽然错过了生日，但朋友们后来帮我补过了。
+      pinyin: Suīrán cuòguò le shēngrì, dàn péngyoumen hòulái bāng wǒ bǔguò le.
+      english: Although I missed my birthday, my friends helped me make up for it later.
+      de: Obwohl ich meinen Geburtstag verpasst habe, haben mir meine Freunde später geholfen, ihn nachzuholen.
+    - zh: 他决定将功补过，主动承担更多责任。
+      pinyin: Tā juédìng jiāng gōng bǔguò, zhǔdòng chéngdān gèng duō zérèn.
+      english: He decided to make up for his mistakes with good deeds and voluntarily took on more responsibility.
+      de: Er beschloss, seine Fehler durch Verdienste auszugleichen, und übernahm freiwillig mehr Verantwortung.
+  characters:
+    - char: 补
+      simplified: 补
+      traditional: 補
+      pinyin: bǔ
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: ergänzen, reparieren, nachholen
+      compounds:
+        - simplified: 补充
+          pinyin: bǔchōng
+          meaning: ergänzen, zusätzlich
+        - simplified: 补贴
+          pinyin: bǔtiē
+          meaning: Zuschuss, subventionieren
+        - simplified: 补习
+          pinyin: bǔxí
+          meaning: Nachhilfe nehmen, zusätzlich lernen
+        - simplified: 补过
+          pinyin: bǔguò
+          meaning: wiedergutmachen, nachholen
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 補 besteht aus dem Radikal 衤 (Kleidung) und der phonetischen Komponente 甫 (fǔ). Die ursprüngliche Bedeutung ist "Kleidung flicken". Später erweitert zu "allgemein reparieren, ergänzen, ersetzen".
+    - char: 过
+      simplified: 过
+      traditional: 過
+      pinyin: guò
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: Fehler, vergehen, überschreiten
+      compounds:
+        - simplified: 过去
+          pinyin: guòqù
+          meaning: Vergangenheit, vorbei
+        - simplified: 过程
+          pinyin: guòchéng
+          meaning: Prozess, Verlauf
+        - simplified: 过分
+          pinyin: guòfèn
+          meaning: übertrieben, übermäßig
+        - simplified: 补过
+          pinyin: bǔguò
+          meaning: wiedergutmachen, nachholen
+        - simplified: 过错
+          pinyin: guòcuò
+          meaning: Fehler, Schuld
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 過 besteht aus dem Radikal 辶 (gehen) und der phonetischen Komponente 咼 (wāi). Die ursprüngliche Bedeutung ist "vorbeigehen, überschreiten". Daraus entwickelte sich die Bedeutung "Fehler" (als etwas, das die Grenze überschreitet).
+
+- type: word
+  date: "04/04"
+  simplified: 拥抱
+  traditional: 擁抱
+  pinyin: yōngbào
+  english: to embrace / to hug / an embrace
+  german: umarmen / Umarmung
+  hsk: "4"
+  register: neutral
+  measure_word:
+    - simplified: 个
+      pinyin: gè
+      meaning: allgemeiner Zähler für eine Umarmung
+  note: |
+    Ein Verb (und Nomen), das sowohl die wörtliche Umarmung einer Person als auch die übertragene Bedeutung des Annehmens oder Begrüßens (z. B. einer Gelegenheit, Veränderung oder Idee) beschreibt.
+
+    **Häufige Ausdrücke:**
+    - 紧紧拥抱 (jǐnjǐn yōngbào) — fest umarmen
+    - 热情拥抱 (rèqíng yōngbào) — herzlich umarmen
+    - 拥抱变化 (yōngbào biànhuà) — Veränderung annehmen / begrüßen
+    - 拥抱机会 (yōngbào jīhuì) — Chancen ergreifen
+
+    **Kulturelle Anmerkung:**
+    In China ist Umarmen im öffentlichen Raum weniger verbreitet als im Westen. Es wird typischerweise zwischen engen Freunden, Familienmitgliedern oder in romantischen Beziehungen praktiziert. Unter Männern ist es seltener als unter Frauen oder in gemischten Gruppen. In der Geschäftswelt ist eine Verbeugung oder ein Händedruck üblicher.
+
+    **Übertragene Bedeutung:**
+    拥抱 wird in Wirtschaft und Technologie häufig metaphorisch verwendet: 拥抱变化 (Veränderung annehmen) ist ein bekannter Slogan, besonders in der Tech-Branche.
+  synonyms:
+    - word: 搂抱
+      pinyin: lǒubào
+      meaning: umarmen, in den Arm nehmen (enger/körperlicher)
+    - word: 怀抱
+      pinyin: huáibào
+      meaning: im Arm halten, umarmen (wärmer, zärtlicher)
+    - word: 抱
+      pinyin: bào
+      meaning: umarmen, halten (kürzer, vielseitiger)
+  antonyms:
+    - word: 推开
+      pinyin: tuīkāi
+      meaning: wegstoßen, wegschubsen
+    - word: 拒绝
+      pinyin: jùjué
+      meaning: ablehnen, zurückweisen
+  examples:
+    - zh: 他们见面时热情地拥抱了彼此。
+      pinyin: Tāmen jiànmiàn shí rèqíng de yōngbàole bǐcǐ.
+      english: They warmly embraced each other when they met.
+      de: Sie umarmten sich herzlich, als sie sich trafen.
+    - zh: 母亲紧紧地拥抱了她的孩子。
+      pinyin: Mǔqīn jǐnjǐn de yōngbàole tā de háizi.
+      english: The mother hugged her child tightly.
+      de: Die Mutter umarmte ihr Kind fest.
+    - zh: 我们要学会拥抱变化，而不是抗拒它。
+      pinyin: Wǒmen yào xuéhuì yōngbào biànhuà, ér bù shì kàngjù tā.
+      english: We need to learn to embrace change, not resist it.
+      de: Wir müssen lernen, Veränderungen anzunehmen, nicht sie zu bekämpfen.
+    - zh: 给他们一个拥抱，胜过千言万语。
+      pinyin: Gěi tāmen yī ge yōngbào, shèngguò qiānyán wànyǔ.
+      english: Giving them a hug is better than a thousand words.
+      de: Eine Umarmung ist besser als tausend Worte.
+  characters:
+    - char: 拥
+      simplified: 拥
+      traditional: 擁
+      pinyin: yōng
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: umarmen, besitzen, haben
+      compounds:
+        - simplified: 拥抱
+          pinyin: yōngbào
+          meaning: umarmen, Umarmung
+        - simplified: 拥有
+          pinyin: yōngyǒu
+          meaning: besitzen, haben
+        - simplified: 拥挤
+          pinyin: yōngjǐ
+          meaning: überfüllt, gedrängt voll
+        - simplified: 拥护
+          pinyin: yōnghù
+          meaning: unterstützen, befürworten
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 擁 besteht aus dem Radikal 扌 (Hand, als 手) und der phonetischen Komponente 雍 (yōng). Die ursprüngliche Bedeutung ist "in den Armen halten, umarmen". Später erweitert zu "besitzen, haben" und "sich versammeln, drängen".
+    - char: 抱
+      simplified: 抱
+      traditional: 抱
+      pinyin: bào
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: umarmen, im Arm halten
+      compounds:
+        - simplified: 拥抱
+          pinyin: yōngbào
+          meaning: umarmen, Umarmung
+        - simplified: 抱抱
+          pinyin: bàobao
+          meaning: Umarmung, Knuddeln (kindlich/zärtlich)
+        - simplified: 抱怨
+          pinyin: bàoyuàn
+          meaning: sich beschweren, beklagen
+        - simplified: 怀抱
+          pinyin: huáibào
+          meaning: Umarmung, Busen, Schoß
+      etymology: |
+        Phonosemantische Verbindung. Besteht aus dem Radikal 扌 (Hand, als 手) und der phonetischen Komponente 包 (bāo, "wickeln, einpacken"). Die ursprüngliche Bedeutung ist "mit den Armen umfassen, an die Brust drücken".
+
+- type: word
+  date: "04/04"
+  simplified: 头像
+  traditional: 頭像
+  pinyin: tóuxiàng
+  english: profile picture / avatar / portrait (of a head)
+  german: Profilbild / Avatar / Porträt (eines Kopfes)
+  hsk: "5"
+  register: neutral
+  measure_word:
+    - simplified: 张
+      pinyin: zhāng
+      meaning: Zähler für Bilder, Fotos
+    - simplified: 个
+      pinyin: gè
+      meaning: allgemeiner Zähler (für digitale Avatare)
+  note: |
+    Ein Nomen, das ein Bild oder eine Darstellung eines Kopfes oder Gesichts bezeichnet, das als Profilbild in sozialen Medien, Messengern oder auf Websites verwendet wird. Die wörtliche Bedeutung ist "Kopfabbildung".
+
+    **Häufige Ausdrücke:**
+    - 更换头像 (gēnghuàn tóuxiàng) — Profilbild ändern
+    - 设置头像 (shèzhì tóuxiàng) — Profilbild einstellen
+    - 默认头像 (mòrèn tóuxiàng) — Standard-Profilbild
+    - 微信头像 (Wēixìn tóuxiàng) — WeChat-Profilbild
+
+    **Wichtige Unterschiede:**
+    - 头像 (tóuxiàng) — das Standardwort für Profilbild/Avatar
+    - 个人照片 (gèrén zhàopiàn) — persönliches Foto (allgemeiner, nicht nur für Profile)
+    - 档案照片 (dàng'àn zhàopiàn) — Profilfoto (formeller, z. B. bei LinkedIn)
+
+    **Kulturelle Anmerkung:**
+    In China ist das Profilbild auf Plattformen wie WeChat, QQ, Weibo und Douyin sehr wichtig. Viele Nutzer wählen Landschaftsbilder, Tiere, Anime-Figuren oder ihre Kinder anstatt ihr eigenes Gesicht aus Datenschutzgründen.
+  synonyms:
+    - word: 头像照片
+      pinyin: tóuxiàng zhàopiàn
+      meaning: Profilbild-Foto
+    - word: 个人头像
+      pinyin: gèrén tóuxiàng
+      meaning: persönlicher Avatar
+    - word: 账户头像
+      pinyin: zhànghù tóuxiàng
+      meaning: Konto-Profilbild
+  antonyms: []
+  examples:
+    - zh: 你的微信头像很可爱，是你家的猫吗？
+      pinyin: Nǐ de Wēixìn tóuxiàng hěn kě'ài, shì nǐ jiā de māo ma?
+      english: Your WeChat profile picture is very cute. Is that your cat?
+      de: Dein WeChat-Profilbild ist sehr süß. Ist das deine Katze?
+    - zh: 我刚刚换了一个新的头像，你觉得怎么样？
+      pinyin: Wǒ gānggāng huànle yī gè xīn de tóuxiàng, nǐ juéde zěnmeyàng?
+      english: I just changed my profile picture. What do you think?
+      de: Ich habe gerade mein Profilbild gewechselt. Was meinst du?
+    - zh: 在社交媒体上使用真实头像可以帮助朋友认出你。
+      pinyin: Zài shèjiāo méitǐ shàng shǐyòng zhēnshí tóuxiàng kěyǐ bāngzhù péngyou rènchū nǐ.
+      english: Using a real profile picture on social media can help friends recognize you.
+      de: Ein echtes Profilbild in sozialen Medien zu verwenden, hilft Freunden, dich zu erkennen.
+    - zh: 他的头像是风景照，看不清楚脸。
+      pinyin: Tā de tóuxiàng shì fēngjǐng zhào, kàn bù qīngchu liǎn.
+      english: His profile picture is a landscape photo, so you can't see his face clearly.
+      de: Sein Profilbild ist ein Landschaftsfoto, man sieht sein Gesicht nicht deutlich.
+  characters:
+    - char: 头
+      simplified: 头
+      traditional: 頭
+      pinyin: tóu
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: Kopf
+      compounds:
+        - simplified: 头发
+          pinyin: tóufa
+          meaning: Haar (Kopfhaar)
+        - simplified: 头脑
+          pinyin: tóunǎo
+          meaning: Kopf, Verstand
+        - simplified: 头疼
+          pinyin: tóuténg
+          meaning: Kopfschmerzen haben
+        - simplified: 头像
+          pinyin: tóuxiàng
+          meaning: Profilbild, Kopfabbildung
+      etymology: |
+        Piktogramm. Die Orakelknochenschrift zeigte einen Kopf mit Haaren. Die ursprüngliche Bedeutung ist "Kopf". Später erweitert zu "Anfang, Ende (räumlich oder zeitlich)", "Stück, Zähler für Tiere".
+    - char: 像
+      simplified: 像
+      traditional: 像
+      pinyin: xiàng
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: Bild, Abbild, Porträt
+      compounds:
+        - simplified: 画像
+          pinyin: huàxiàng
+          meaning: Porträt, Abbild (gemalt)
+        - simplified: 照片
+          pinyin: zhàopiàn
+          meaning: Foto, Fotografie
+        - simplified: 形象
+          pinyin: xíngxiàng
+          meaning: Image, Erscheinungsbild
+        - simplified: 头像
+          pinyin: tóuxiàng
+          meaning: Profilbild, Kopfabbildung
+      etymology: |
+        Phonosemantische Verbindung. Besteht aus dem Radikal 亻 (Mensch) und der phonetischen Komponente 象 (xiàng, "Elefant, Form, Gestalt"). Die ursprüngliche Bedeutung ist "ähnlich sein, gleichen". Später erweitert zu "Bildnis, Porträt, Statue".
+
+- type: word
+  date: "04/04"
+  simplified: 标题
+  traditional: 標題
+  pinyin: biāotí
+  english: title / headline / heading / caption
+  german: Titel / Überschrift / Betreff
+  hsk: "5"
+  register: neutral
+  measure_word:
+    - simplified: 个
+      pinyin: gè
+      meaning: allgemeiner Zähler für Titel
+    - simplified: 行
+      pinyin: háng
+      meaning: Zeile (für eine Zeile Überschrift)
+  note: |
+    Ein Nomen, das den Titel eines Werkes (Buch, Artikel, Lied, Film), eine Überschrift in einem Dokument oder den Betreff einer Nachricht/E-Mail bezeichnet. 标题 ist der gebräuchlichste allgemeine Begriff für "Titel" im Sinne von Überschrift.
+
+    **Häufige Ausdrücke:**
+    - 大标题 (dà biāotí) — Hauptüberschrift, Schlagzeile
+    - 副标题 (fù biāotí) — Untertitel, Nebentitel
+    - 文章标题 (wénzhāng biāotí) — Artikelüberschrift
+    - 邮件标题 (yóujiàn biāotí) — E-Mail-Betreff
+    - 标题党 (biāotídǎng) — Clickbait-Überschriften (wörtl. "Titel-Partei")
+
+    **Wichtige Unterschiede zu anderen "Titel"-Wörtern:**
+    - 标题 (biāotí) — Überschrift, Betreff, Titel eines Werkes (am gebräuchlichsten)
+    - 题目 (tímù) — Titel einer Aufgabe, Prüfungsfrage oder eines Aufsatzes (enger)
+    - 头衔 (tóuxián) — persönlicher Titel (Dr., Professor, König) — für Personen
+    - 名称 (míngchēng) — Name, Bezeichnung (allgemeiner, formeller)
+    - 主题 (zhǔtí) — Thema, Motiv (inhaltlich, nicht als Überschrift)
+  synonyms:
+    - word: 题目
+      pinyin: tímù
+      meaning: Titel (einer Aufgabe/Prüfung)
+    - word: 主题
+      pinyin: zhǔtí
+      meaning: Thema, Motiv
+    - word: 名称
+      pinyin: míngchēng
+      meaning: Name, Bezeichnung
+  antonyms: []
+  examples:
+    - zh: 这篇文章的标题很吸引人。
+      pinyin: Zhè piān wénzhāng de biāotí hěn xīyǐn rén.
+      english: The title of this article is very attractive.
+      de: Der Titel dieses Artikels ist sehr ansprechend.
+    - zh: 请在这封邮件的标题栏写明主题。
+      pinyin: Qǐng zài zhè fēng yóujiàn de biāotí lán xiě míng zhǔtí.
+      english: Please write the subject clearly in the subject line of this email.
+      de: Bitte schreiben Sie den Betreff deutlich in die Betreffzeile dieser E-Mail.
+    - zh: 新闻标题应该简洁明了。
+      pinyin: Xīnwén biāotí yīnggāi jiǎnjié míngliǎo.
+      english: News headlines should be concise and clear.
+      de: Nachrichtenüberschriften sollten prägnant und klar sein.
+    - zh: 这部电影的英文标题是什么？
+      pinyin: Zhè bù diànyǐng de Yīngwén biāotí shì shénme?
+      english: What is the English title of this movie?
+      de: Wie lautet der englische Titel dieses Films?
+  characters:
+    - char: 标
+      simplified: 标
+      traditional: 標
+      pinyin: biāo
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: Zeichen, Kennzeichen, Titel
+      compounds:
+        - simplified: 标题
+          pinyin: biāotí
+          meaning: Titel, Überschrift
+        - simplified: 标准
+          pinyin: biāozhǔn
+          meaning: Standard, Norm
+        - simplified: 标志
+          pinyin: biāozhì
+          meaning: Zeichen, Symbol, Kennzeichen
+        - simplified: 目标
+          pinyin: mùbiāo
+          meaning: Ziel, Zweck
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 標 besteht aus dem Radikal 木 (Baum) und der phonetischen Komponente 票 (piào). Die ursprüngliche Bedeutung ist "junger Baum" oder "Baumspitze". Von der Vorstellung des "Höchsten" oder "Hervorstehenden" entwickelte sich die Bedeutung "Zeichen, Kennzeichen, Titel".
+    - char: 题
+      simplified: 题
+      traditional: 題
+      pinyin: tí
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: Thema, Titel, Frage
+      compounds:
+        - simplified: 题目
+          pinyin: tímù
+          meaning: Titel, Thema, Frage
+        - simplified: 问题
+          pinyin: wèntí
+          meaning: Frage, Problem
+        - simplified: 标题
+          pinyin: biāotí
+          meaning: Titel, Überschrift
+        - simplified: 主题
+          pinyin: zhǔtí
+          meaning: Thema, Motiv
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 題 besteht aus dem Radikal 頁 (Kopf) und der phonetischen Komponente 是 (shì). Die ursprüngliche Bedeutung ist "Stirn" (als Teil des Kopfes). Von der Vorstellung des "hervorstehenden Teils" entwickelte sich die Bedeutung "Thema, Titel, Frage".
+
+- type: word
+  date: "04/04"
+  simplified: 撤销
+  traditional: 撤銷
+  pinyin: chèxiāo
+  english: to revoke / to cancel / to undo / to repeal / to withdraw
+  german: rückgängig machen / widerrufen / aufheben / annullieren / zurückziehen
+  hsk: "6"
+  register: formal_written
+  measure_word: []
+  note: |
+    Ein Verb, das das Aufheben, Annullieren oder Rückgängigmachen einer vorherigen Aktion, Entscheidung, eines Status oder einer Einstellung beschreibt. Wird häufig in administrativen, rechtlichen, technischen und alltäglichen Kontexten verwendet.
+
+    **Häufige Verwendungen:**
+    - 撤销决定 (chèxiāo juédìng) — eine Entscheidung rückgängig machen
+    - 撤销指控 (chèxiāo zhǐkòng) — Anklage fallen lassen / zurückziehen
+    - 撤销许可证 (chèxiāo xǔkězhèng) — eine Lizenz entziehen
+    - 撤销操作 (chèxiāo cāozuò) — eine Aktion rückgängig machen (Software)
+    - 撤销职务 (chèxiāo zhíwù) — jemanden von einer Position abberufen
+
+    **Wichtige Unterschiede zu ähnlichen Wörtern:**
+    - 撤销 (chèxiāo) — formell, starkes "aufheben/annullieren" (Entscheidungen, Rechte, Ämter, Aktionen)
+    - 取消 (qǔxiāo) — neutral, "absagen, streichen" (Termine, Veranstaltungen, Bestellungen)
+    - 废除 (fèichú) — "abschaffen" (Gesetze, Systeme, Traditionen — dauerhaft)
+    - 删除 (shānchú) — "löschen" (Dateien, Texte, Daten)
+    - 还原 (huányuán) — "wiederherstellen, zurücksetzen" (Zustand, Original)
+
+    **Kulturelle Anmerkung:**
+    撤销 setzt sich aus 撤 (chè, "zurückziehen, entfernen") und 销 (xiāo, "annullieren, auflösen") zusammen. Wörtlich: "entfernen und annullieren". Das Wort hat eine offizielle, bürokratische Note und wird oft in Nachrichten, Regierungsdokumenten und formellen Mitteilungen verwendet.
+  synonyms:
+    - word: 取消
+      pinyin: qǔxiāo
+      meaning: absagen, streichen, annullieren (neutraler)
+    - word: 废除
+      pinyin: fèichú
+      meaning: abschaffen, aufheben (Gesetze, Systeme)
+    - word: 撤回
+      pinyin: chèhuí
+      meaning: zurückziehen (Antrag, Aussage, Truppen)
+    - word: 废止
+      pinyin: fèizhǐ
+      meaning: aufheben, annullieren (formell, von Gesetzen/Verträgen)
+  antonyms:
+    - word: 建立
+      pinyin: jiànlì
+      meaning: aufbauen, einrichten
+    - word: 保留
+      pinyin: bǎoliú
+      meaning: behalten, aufbewahren
+    - word: 确认
+      pinyin: quèrèn
+      meaning: bestätigen
+  examples:
+    - zh: 请撤销上一步操作，我点错了。
+      pinyin: Qǐng chèxiāo shàng yī bù cāozuò, wǒ diǎn cuò le.
+      english: Please undo the last step. I clicked the wrong button.
+      de: Bitte mache den letzten Schritt rückgängig. Ich habe falsch geklickt.
+    - zh: 法院决定撤销对他的指控。
+      pinyin: Fǎyuàn juédìng chèxiāo duì tā de zhǐkòng.
+      english: The court decided to drop the charges against him.
+      de: Das Gericht beschloss, die Anklage gegen ihn fallen zu lassen.
+    - zh: 公司撤销了我之前的晋升决定。
+      pinyin: Gōngsī chèxiāo le wǒ zhīqián de jìnshēng juédìng.
+      english: The company revoked my previous promotion decision.
+      de: Die Firma hat meine vorherige Beförderungsentscheidung rückgängig gemacht.
+    - zh: 如果你撤销更改，所有未保存的数据都会丢失。
+      pinyin: Rúguǒ nǐ chèxiāo gēnggǎi, suǒyǒu wèi bǎocún de shùjù dōu huì diūshī.
+      english: If you undo the changes, all unsaved data will be lost.
+      de: Wenn du die Änderungen rückgängig machst, gehen alle nicht gespeicherten Daten verloren.
+    - zh: 政府撤销了这项有争议的法律。
+      pinyin: Zhèngfǔ chèxiāo le zhè xiàng yǒu zhēngyì de fǎlǜ.
+      english: The government repealed this controversial law.
+      de: Die Regierung hat dieses umstrittene Gesetz aufgehoben.
+  characters:
+    - char: 撤
+      simplified: 撤
+      traditional: 撤
+      pinyin: chè
+      hsk: "6"
+      detailed_analysis: true
+      meaning_in_context: zurückziehen, entfernen, abziehen
+      compounds:
+        - simplified: 撤退
+          pinyin: chètuì
+          meaning: sich zurückziehen, evakuieren
+        - simplified: 撤离
+          pinyin: chèlí
+          meaning: abziehen, verlassen (einen Ort)
+        - simplified: 撤回
+          pinyin: chèhuí
+          meaning: zurückziehen (Antrag, Aussage)
+        - simplified: 撤销
+          pinyin: chèxiāo
+          meaning: rückgängig machen, widerrufen
+      etymology: |
+        Phonosemantische Verbindung. Besteht aus dem Radikal 扌 (Hand, als 手) und der phonetischen Komponente 徹 (chè). Die ursprüngliche Bedeutung ist "wegnehmen, entfernen". Später erweitert zu "sich zurückziehen, abziehen (von Truppen), etwas zurücknehmen".
+    - char: 销
+      simplified: 销
+      traditional: 銷
+      pinyin: xiāo
+      hsk: "6"
+      detailed_analysis: true
+      meaning_in_context: annullieren, auflösen, vernichten
+      compounds:
+        - simplified: 销售
+          pinyin: xiāoshòu
+          meaning: verkaufen, Vertrieb
+        - simplified: 销毁
+          pinyin: xiāohuǐ
+          meaning: vernichten, zerstören
+        - simplified: 报销
+          pinyin: bàoxiāo
+          meaning: Spesen abrechnen, etwas erstatten bekommen
+        - simplified: 撤销
+          pinyin: chèxiāo
+          meaning: rückgängig machen, widerrufen
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 銷 besteht aus dem Radikal 釒 (Metall, Gold) und der phonetischen Komponente 肖 (xiāo). Die ursprüngliche Bedeutung ist "Metall schmelzen". Daraus entwickelten sich die Bedeutungen "auflösen, vernichten, annullieren" sowie "verkaufen" (wie "Geld zum Schmelzen bringen").
+
+- type: word
+  date: "04/04"
+  simplified: 类别
+  traditional: 類別
+  pinyin: lèibié
+  english: category / classification / type / class
+  german: Kategorie / Rubrik / Art / Klasse
+  hsk: "5"
+  register: neutral
+  measure_word:
+    - simplified: 个
+      pinyin: gè
+      meaning: allgemeiner Zähler für Kategorien
+    - simplified: 种
+      pinyin: zhǒng
+      meaning: Art, Sorte (für Kategorien als Typen)
+  note: |
+    Ein Nomen, das eine Gruppe oder Klasse von Dingen bezeichnet, die gemeinsame Merkmale teilen. 类别 ist das allgemeinste und gebräuchlichste Wort für "Kategorie" im modernen Chinesisch.
+
+    **Häufige Ausdrücke:**
+    - 产品类别 (chǎnpǐn lèibié) — Produktkategorie
+    - 价格类别 (jiàgé lèibié) — Preiskategorie
+    - 年龄类别 (niánlíng lèibié) — Altersgruppe / Alterskategorie
+    - 属于同一类别 (shǔyú tóng yī lèibié) — zur selben Kategorie gehören
+
+    **Wichtige Unterschiede zu ähnlichen Wörtern:**
+    - 类别 (lèibié) — allgemeine Kategorie (am gebräuchlichsten)
+    - 分类 (fēnlèi) — Klassifizierung, Einteilung (der Vorgang oder das System)
+    - 种类 (zhǒnglèi) — Sorte, Art (betont die Vielfalt der Typen)
+    - 类型 (lèixíng) — Typ, Genre (betont charakteristische Merkmale)
+    - 门类 (ménlèi) — Klasse, Kategorie (formeller, in Wissenschaft/Akademie)
+
+    **Kulturelle Anmerkung:**
+    类别 setzt sich aus 类 (lèi, "Klasse, Art") und 别 (bié, "unterscheiden, Trennung") zusammen. Wörtlich: "Klassenunterscheidung" oder "durch Unterscheidung gebildete Klasse". Das Wort wird in allen formellen und informellen Kontexten verwendet, von E-Commerce bis Wissenschaft.
+  synonyms:
+    - word: 种类
+      pinyin: zhǒnglèi
+      meaning: Sorte, Art, Kategorie (betont Typenvielfalt)
+    - word: 类型
+      pinyin: lèixíng
+      meaning: Typ, Genre, Kategorie (betont charakteristische Merkmale)
+    - word: 分类
+      pinyin: fēnlèi
+      meaning: Klassifizierung, Kategorie (als System)
+    - word: 门类
+      pinyin: ménlèi
+      meaning: Klasse, Kategorie (formell, akademisch)
+  antonyms: []
+  examples:
+    - zh: 这个产品属于哪个类别？
+      pinyin: Zhège chǎnpǐn shǔyú nǎge lèibié?
+      english: Which category does this product belong to?
+      de: Zu welcher Kategorie gehört dieses Produkt?
+    - zh: 请选择您感兴趣的图书类别。
+      pinyin: Qǐng xuǎnzé nín gǎn xìngqù de túshū lèibié.
+      english: Please select the book category you are interested in.
+      de: Bitte wählen Sie die Buchkategorie, die Sie interessiert.
+    - zh: 不同类别的商品有不同的折扣。
+      pinyin: Bùtóng lèibié de shāngpǐn yǒu bùtóng de zhékòu.
+      english: Different categories of products have different discounts.
+      de: Verschiedene Produktkategorien haben unterschiedliche Rabatte.
+    - zh: 这个应用程序将所有联系人按类别分组。
+      pinyin: Zhège yìngyòng chéngxù jiāng suǒyǒu liánxìrén àn lèibié fēnzǔ.
+      english: This app groups all contacts by category.
+      de: Diese App gruppiert alle Kontakte nach Kategorien.
+  characters:
+    - char: 类
+      simplified: 类
+      traditional: 類
+      pinyin: lèi
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: Klasse, Art, Kategorie
+      compounds:
+        - simplified: 类似
+          pinyin: lèisì
+          meaning: ähnlich, vergleichbar
+        - simplified: 种类
+          pinyin: zhǒnglèi
+          meaning: Sorte, Art, Kategorie
+        - simplified: 人类
+          pinyin: rénlèi
+          meaning: Menschheit, Menschen
+        - simplified: 类别
+          pinyin: lèibié
+          meaning: Kategorie, Klassifikation
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 類 besteht aus dem Radikal 頁 (Kopf) und der phonetischen Komponente 米 (mǐ) bzw. 犬 (quǎn). Die ursprüngliche Bedeutung ist "Art, Sorte" im Sinne von "ähnlich sein, gleichen". Der Kopf-Radikal deutet auf Klassifikation durch Erkennung hin.
+    - char: 别
+      simplified: 别
+      traditional: 別
+      pinyin: bié
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: Unterscheidung, Trennung, Unterschied
+      compounds:
+        - simplified: 区别
+          pinyin: qūbié
+          meaning: Unterschied, unterscheiden
+        - simplified: 分别
+          pinyin: fēnbié
+          meaning: jeweils, trennen, Unterschied
+        - simplified: 性别
+          pinyin: xìngbié
+          meaning: Geschlecht
+        - simplified: 类别
+          pinyin: lèibié
+          meaning: Kategorie, Klassifikation
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 別 besteht aus dem Radikal 刂 (Messer) und einer phonetischen Komponente (冎, guǎ). Die ursprüngliche Bedeutung ist "mit einem Messer trennen, zerlegen". Daraus entwickelten sich die Bedeutungen "trennen, unterscheiden, anders, nicht".
+
+- type: word
+  date: "04/04"
+  simplified: 抱怨
+  traditional: 抱怨
+  pinyin: bàoyuàn
+  english: to complain / to grumble / to express dissatisfaction
+  german: sich beschweren / beklagen / reklamieren / meckern
+  hsk: "5"
+  register: neutral
+  measure_word: []
+  note: |
+    Ein Verb (kann auch als Nomen verwendet werden), das das Äußern von Unzufriedenheit, Groll oder Kritik über eine Person, Sache oder Situation beschreibt. 抱怨 hat eine etwas stärkere, emotionalere Konnotation als das neutralere 发牢骚.
+
+    **Häufige Ausdrücke:**
+    - 抱怨某人 (bàoyuàn mǒurén) — sich über jemanden beschweren
+    - 抱怨某事 (bàoyuàn mǒushì) — sich über etwas beschweren
+    - 满腹抱怨 (mǎn fù bàoyuàn) — voller Beschwerden sein (wörtl. "ganzer Bauch voll Beschwerden")
+    - 抱怨连连 (bàoyuàn liánlián) — sich endlos beschweren
+
+    **Wichtige Unterschiede zu ähnlichen Wörtern:**
+    - 抱怨 (bàoyuàn) — allgemeines "sich beschweren", betont Unmut und Groll
+    - 发牢骚 (fā láosāo) — "murren, nörgeln" (neutraler, oft über Kleinigkeiten)
+    - 埋怨 (mányuàn) — "Vorwürfe machen, grollen" (persönlicher, oft gegen eine Person)
+    - 投诉 (tóusù) — "eine offizielle Beschwerde einreichen" (formell)
+    - 诉苦 (sùkǔ) — "sich über sein Leid beklagen" (emotionaler, um Mitgefühl zu suchen)
+
+    **Kulturelle Anmerkung:**
+    抱怨 setzt sich aus 抱 (bào, "in den Armen halten, tragen") und 怨 (yuàn, "Groll, Feindseligkeit") zusammen. Wörtlich: "Groll in sich tragen". In der chinesischen Kultur wird häufiges 抱怨 oft als negativ angesehen, da es die Harmonie (和谐, héxié) stört. Direkte Beschwerden sind weniger üblich als indirekte Andeutungen oder nonverbale Kommunikation.
+  synonyms:
+    - word: 埋怨
+      pinyin: mányuàn
+      meaning: Vorwürfe machen, grollen (persönlicher, gegen Personen)
+    - word: 发牢骚
+      pinyin: fā láosāo
+      meaning: nörgeln, murren (neutraler, über Kleinigkeiten)
+    - word: 诉苦
+      pinyin: sùkǔ
+      meaning: sich über sein Leid beklagen (um Mitgefühl zu suchen)
+  antonyms:
+    - word: 感谢
+      pinyin: gǎnxiè
+      meaning: sich bedanken, dankbar sein
+    - word: 赞赏
+      pinyin: zànshǎng
+      meaning: loben, schätzen
+    - word: 满意
+      pinyin: mǎnyì
+      meaning: zufrieden sein
+  examples:
+    - zh: 他总是抱怨工作太累，却不愿意换工作。
+      pinyin: Tā zǒngshì bàoyuàn gōngzuò tài lèi, què bù yuànyì huàn gōngzuò.
+      english: He always complains that work is too tiring, but he doesn't want to change jobs.
+      de: Er beschwert sich immer, dass die Arbeit zu anstrengend ist, will aber den Job nicht wechseln.
+    - zh: 不要总是抱怨别人，先看看自己有没有问题。
+      pinyin: Bùyào zǒngshì bàoyuàn biérén, xiān kànkan zìjǐ yǒu méiyǒu wèntí.
+      english: Don't always complain about others. First check whether you yourself have any problems.
+      de: Beschwere dich nicht immer über andere. Überprüfe zuerst, ob du selbst Probleme hast.
+    - zh: 客户对产品质量提出了很多抱怨。
+      pinyin: Kèhù duì chǎnpǐn zhìliàng tíchūle hěn duō bàoyuàn.
+      english: Customers made many complaints about product quality.
+      de: Kunden äußerten viele Beschwerden über die Produktqualität.
+    - zh: 她抱怨说房东从来没有修过热水器。
+      pinyin: Tā bàoyuàn shuō fángdōng cónglái méiyǒu xiū guo rèshuǐqì.
+      english: She complained that the landlord had never fixed the water heater.
+      de: Sie beschwerte sich, dass der Vermieter den Warmwasserbereiter nie repariert habe.
+  characters:
+    - char: 抱
+      simplified: 抱
+      traditional: 抱
+      pinyin: bào
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: (im Herzen) tragen, hegen (ein Gefühl)
+      compounds:
+        - simplified: 拥抱
+          pinyin: yōngbào
+          meaning: umarmen, Umarmung
+        - simplified: 怀抱
+          pinyin: huáibào
+          meaning: Umarmung, Schoß; im Herzen tragen
+        - simplified: 抱怨
+          pinyin: bàoyuàn
+          meaning: sich beschweren, beklagen
+        - simplified: 抱病
+          pinyin: bàobìng
+          meaning: krank sein (trotzdem arbeiten gehen)
+      etymology: |
+        Phonosemantische Verbindung. Besteht aus dem Radikal 扌 (Hand, als 手) und der phonetischen Komponente 包 (bāo). Die ursprüngliche Bedeutung ist "mit den Armen umfassen, an die Brust drücken". Daraus entwickelte sich die übertragene Bedeutung "im Herzen tragen, hegen (von Gefühlen wie Groll, Hoffnung)."
+    - char: 怨
+      simplified: 怨
+      traditional: 怨
+      pinyin: yuàn
+      hsk: "6"
+      detailed_analysis: true
+      meaning_in_context: Groll, Feindseligkeit, Unmut, Vorwurf
+      compounds:
+        - simplified: 抱怨
+          pinyin: bàoyuàn
+          meaning: sich beschweren, beklagen
+        - simplified: 怨恨
+          pinyin: yuànhèn
+          meaning: Groll, Feindseligkeit, hassen
+        - simplified: 埋怨
+          pinyin: mányuàn
+          meaning: Vorwürfe machen, grollen
+        - simplified: 怨气
+          pinyin: yuànqì
+          meaning: Groll, Unmut (wörtl. "Groll-Luft")
+        - simplified: 任劳任怨
+          pinyin: rènláo rènyuàn
+          meaning: bereit sein, Mühen und Groll auf sich zu nehmen (Chengyu)
+      etymology: |
+        Phonosemantische Verbindung. Besteht aus dem Radikal 心 (Herz, unten als 心) und der phonetischen Komponente 夗 (yuàn). Die ursprüngliche Bedeutung ist "Groll im Herzen tragen, unzufrieden sein". Während 恨 (hèn) intensiveren Hass ausdrückt, ist 怨 eher leiser, lang anhaltender Groll oder Selbstmitleid.
+
+- type: word
+  date: "04/04"
+  simplified: 文本
+  traditional: 文本
+  pinyin: wénběn
+  english: text / written text / document / version (of a text)
+  german: Text / schriftlicher Wortlaut / Dokument / Fassung (eines Textes)
+  hsk: "5"
+  register: neutral
+  measure_word:
+    - simplified: 个
+      pinyin: gè
+      meaning: allgemeiner Zähler für Texte
+    - simplified: 份
+      pinyin: fèn
+      meaning: Zähler für Dokumente, schriftliche Stücke
+    - simplified: 段
+      pinyin: duàn
+      meaning: Absatz (für einen Textabschnitt)
+  note: |
+    Ein Nomen, das einen schriftlichen Text bezeichnet — von einem einzelnen Satz bis zu einem ganzen Buch oder Dokument. 文本 ist der neutralste und gebräuchlichste Begriff für "Text" im technischen, akademischen und alltäglichen Sinne.
+
+    **Häufige Ausdrücke:**
+    - 原始文本 (yuánshǐ wénběn) — Originaltext, Quelltext
+    - 纯文本 (chún wénběn) — reiner Text (ohne Formatierung)
+    - 文本文档 (wénběn wén dàng) — Textdokument
+    - 文本分析 (wénběn fēnxī) — Textanalyse
+    - 文本编辑器 (wénběn biānjíqì) — Texteditor
+
+    **Wichtige Unterschiede zu ähnlichen Wörtern:**
+    - 文本 (wénběn) — allgemeiner Text, Dokument, Version (neutral, technisch)
+    - 文字 (wénzì) — Schriftzeichen, Geschriebenes (betont die Zeichen selbst)
+    - 文章 (wénzhāng) — Aufsatz, Artikel (literarischer, zusammenhängend)
+    - 正文 (zhèngwén) — Haupttext (im Gegensatz zu Anmerkungen, Anhängen)
+    - 内容 (nèiróng) — Inhalt, Content (allgemeiner, auch nicht-textlich)
+
+    **Kulturelle Anmerkung:**
+    文本 setzt sich aus 文 (wén, "Schrift, Literatur, Kultur") und 本 (běn, "Wurzel, Quelle, Buch") zusammen. Wörtlich: "Wurzel der Schrift" oder "Buch der Schrift". Der Begriff wird besonders in der Linguistik, Literaturwissenschaft und Informatik verwendet. In der Computerterminologie bezeichnet 纯文本 (reiner Text) unformatierten Text im Gegensatz zu Rich Text oder binären Formaten.
+  synonyms:
+    - word: 文稿
+      pinyin: wéngǎo
+      meaning: Manuskript, Textentwurf
+    - word: 文档
+      pinyin: wéndàng
+      meaning: Dokument (auch digital)
+    - word: 正文
+      pinyin: zhèngwén
+      meaning: Haupttext (eines Buches/Dokuments)
+    - word: 内容
+      pinyin: nèiróng
+      meaning: Inhalt (allgemeiner)
+  antonyms: []
+  examples:
+    - zh: 请把这段文本复制到剪贴板里。
+      pinyin: Qǐng bǎ zhè duàn wénběn fùzhì dào jiǎntiēbǎn lǐ.
+      english: Please copy this text to the clipboard.
+      de: Bitte kopiere diesen Text in die Zwischenablage.
+    - zh: 这两个文本版本之间有很大的区别。
+      pinyin: Zhè liǎng ge wénběn bǎnběn zhī jiān yǒu hěn dà de qūbié.
+      english: There is a big difference between these two text versions.
+      de: Es gibt einen großen Unterschied zwischen diesen beiden Textversionen.
+    - zh: 文本分析是文学研究的重要方法。
+      pinyin: Wénběn fēnxī shì wénxué yánjiū de zhòngyào fāngfǎ.
+      english: Text analysis is an important method in literary research.
+      de: Textanalyse ist eine wichtige Methode in der Literaturforschung.
+    - zh: 请用纯文本格式保存这个文件。
+      pinyin: Qǐng yòng chún wénběn géshi bǎocún zhège wénjiàn.
+      english: Please save this file in plain text format.
+      de: Bitte speichere diese Datei im Nur-Text-Format.
+  characters:
+    - char: 文
+      simplified: 文
+      traditional: 文
+      pinyin: wén
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: Schrift, Sprache, Literatur, Kultur
+      compounds:
+        - simplified: 文化
+          pinyin: wénhuà
+          meaning: Kultur
+        - simplified: 文字
+          pinyin: wénzì
+          meaning: Schriftzeichen, Schrift
+        - simplified: 文章
+          pinyin: wénzhāng
+          meaning: Aufsatz, Artikel
+        - simplified: 文本
+          pinyin: wénběn
+          meaning: Text, Dokument
+        - simplified: 中文
+          pinyin: Zhōngwén
+          meaning: Chinesisch (Sprache)
+      etymology: |
+        Piktogramm. Die Orakelknochenschrift zeigte eine Person mit einer Tätowierung oder Verzierung auf der Brust. Die ursprüngliche Bedeutung ist "Muster, Verzierung". Später erweitert zu "Schriftzeichen, Literatur, Kultur" da Schrift als die schönste Verzierung des Menschen galt.
+    - char: 本
+      simplified: 本
+      traditional: 本
+      pinyin: běn
+      hsk: "2"
+      detailed_analysis: true
+      meaning_in_context: Wurzel, Quelle, Buch, Grundlage
+      compounds:
+        - simplified: 书本
+          pinyin: shūběn
+          meaning: Buch (allgemein)
+        - simplified: 根本
+          pinyin: gēnběn
+          meaning: grundlegend, Fundament
+        - simplified: 本来
+          pinyin: běnlái
+          meaning: ursprünglich, eigentlich
+        - simplified: 文本
+          pinyin: wénběn
+          meaning: Text, Dokument
+        - simplified: 版本
+          pinyin: bǎnběn
+          meaning: Version, Edition
+      etymology: |
+        Ideogramm. Die Orakelknochenschrift zeigte einen Baum (木) mit einem horizontalen Strich an der Wurzel, um "Wurzel" zu bezeichnen. Später erweitert zu "Grundlage, Quelle" und dann zu "Buch, Heft" (da Bücher die Wurzel/Quelle des Wissens sind). Der Zähler 本 (für gebundene Bücher) kommt von dieser Bedeutung.
+
+- type: word
+  date: "04/04"
+  simplified: 页面
+  traditional: 頁面
+  pinyin: yèmiàn
+  english: page (of a book, website, or document) / webpage / interface
+  german: Seite / Webseite / Bildschirmseite / Oberfläche
+  hsk: "5"
+  register: neutral
+  measure_word:
+    - simplified: 个
+      pinyin: gè
+      meaning: allgemeiner Zähler für Seiten (besonders Webseiten)
+    - simplified: 张
+      pinyin: zhāng
+      meaning: Zähler für flache Objekte, Papierseiten
+    - simplified: 页
+      pinyin: yè
+      meaning: Zähler für Buchseiten (klassisch)
+  note: |
+    Ein Nomen, das eine Seite bezeichnet — sowohl physisch (Buch, Zeitschrift) als auch digital (Website, App, Dokument). 页面 ist der moderne Standardbegriff für "Webseite" und wird auch für gedruckte Seiten verwendet.
+
+    **Häufige Ausdrücke:**
+    - 主页 (zhǔyè) — Startseite, Homepage
+    - 网页 (wǎngyè) — Webseite (technischer, spezifischer)
+    - 页面加载 (yèmiàn jiāzài) — Seitenladung (Internet)
+    - 页面布局 (yèmiàn bùjú) — Seitenlayout
+    - 当前页面 (dāngqián yèmiàn) — aktuelle Seite
+    - 弹出页面 (tánchū yèmiàn) — Pop-up-Fenster / Pop-up-Seite
+
+    **Wichtige Unterschiede zu ähnlichen Wörtern:**
+    - 页面 (yèmiàn) — Seite (modern, digital und gedruckt) — der gebräuchlichste Begriff
+    - 页 (yè) — Seite (klassischer Zähler für Buchseiten, kürzer)
+    - 网页 (wǎngyè) — Webseite (technisch, spezifisch für Internet)
+    - 主页 (zhǔyè) — Startseite, Homepage
+    - 版面 (bǎnmiàn) — Layout, Format (Druckwesen)
+
+    **Kulturelle Anmerkung:**
+    页面 setzt sich aus 页 (yè, "Seite, Blatt") und 面 (miàn, "Fläche, Seite, Gesicht") zusammen. Wörtlich: "Seitenfläche". Während 页 der klassische Zähler für Buchseiten ist, hat sich 页面 mit dem Aufkommen von Computern und dem Internet als Standardbegriff für "Seite" etabliert — sowohl für gedruckte als auch digitale Seiten.
+  synonyms:
+    - word: 页
+      pinyin: yè
+      meaning: Seite (klassisch, Zähler für Buchseiten)
+    - word: 网页
+      pinyin: wǎngyè
+      meaning: Webseite (technisch, spezifisch für Internet)
+    - word: 主页
+      pinyin: zhǔyè
+      meaning: Startseite, Homepage
+    - word: 版面
+      pinyin: bǎnmiàn
+      meaning: Seitenlayout, Format (Druckwesen)
+  antonyms: []
+  examples:
+    - zh: 请刷新页面，内容没有加载出来。
+      pinyin: Qǐng shuāxīn yèmiàn, nèiróng méiyǒu jiāzài chūlái.
+      english: Please refresh the page. The content didn't load.
+      de: Bitte aktualisiere die Seite. Der Inhalt wurde nicht geladen.
+    - zh: 这个网站的主页面设计得很简洁。
+      pinyin: Zhège wǎngzhàn de zhǔyèmiàn shèjì de hěn jiǎnjié.
+      english: The homepage of this website is designed very simply.
+      de: Die Startseite dieser Website ist sehr schlicht gestaltet.
+    - zh: 请翻到第十页，看页面底部的注释。
+      pinyin: Qǐng fān dào dì shí yè, kàn yèmiàn dǐbù de zhùshì.
+      english: Please turn to page ten and look at the note at the bottom of the page.
+      de: Bitte blättern Sie zu Seite zehn und schauen Sie sich die Anmerkung am unteren Seitenrand an.
+    - zh: 这个页面在手机上显示不正常。
+      pinyin: Zhège yèmiàn zài shǒujī shàng xiǎnshì bù zhèngcháng.
+      english: This page doesn't display correctly on mobile phones.
+      de: Diese Seite wird auf dem Handy nicht richtig angezeigt.
+  characters:
+    - char: 页
+      simplified: 页
+      traditional: 頁
+      pinyin: yè
+      hsk: "2"
+      detailed_analysis: true
+      meaning_in_context: Seite, Blatt
+      compounds:
+        - simplified: 页面
+          pinyin: yèmiàn
+          meaning: Seite, Webseite
+        - simplified: 网页
+          pinyin: wǎngyè
+          meaning: Webseite
+        - simplified: 主页
+          pinyin: zhǔyè
+          meaning: Startseite, Homepage
+        - simplified: 页码
+          pinyin: yèmǎ
+          meaning: Seitenzahl
+        - simplified: 插页
+          pinyin: chāyè
+          meaning: eingelegte Seite, Beilage
+      etymology: |
+        Piktogramm. Die traditionelle Form 頁 zeigt einen Kopf mit markanten Haaren. Die ursprüngliche Bedeutung ist "Kopf". Später wurde dieses Zeichen für die Bedeutung "Seite" entlehnt (vermutlich wegen der Ähnlichkeit mit der Form eines Kopfes oder durch phonetische Entlehnung). Die "Kopf"-Bedeutung lebt in zusammengesetzten Zeichen wie 頭 (tóu, Kopf) oder 領 (lǐng, Kragen, führen) weiter.
+    - char: 面
+      simplified: 面
+      traditional: 面
+      pinyin: miàn
+      hsk: "2"
+      detailed_analysis: true
+      meaning_in_context: Fläche, Seite, Oberfläche
+      compounds:
+        - simplified: 面对
+          pinyin: miànduì
+          meaning: gegenüberstehen, konfrontiert sein mit
+        - simplified: 表面
+          pinyin: biǎomiàn
+          meaning: Oberfläche, Äußeres
+        - simplified: 方面
+          pinyin: fāngmiàn
+          meaning: Aspekt, Seite, Hinsicht
+        - simplified: 页面
+          pinyin: yèmiàn
+          meaning: Seite, Webseite
+        - simplified: 画面
+          pinyin: huàmiàn
+          meaning: Bild, Szene, Rahmen (Bildschirm)
+      etymology: |
+        Piktogramm. Die Orakelknochenschrift zeigte ein Auge umgeben von Gesichtskonturen — ein Gesicht. Die ursprüngliche Bedeutung ist "Gesicht". Später erweitert zu "Oberfläche, Seite, Fläche". Die Bedeutung "Nudeln" (ursprünglich 麵, mit Weizenradikal) wurde später mit der vereinfachten Form 面 zusammengelegt.
+
+- type: word
+  date: "04/04"
+  simplified: 静音
+  traditional: 靜音
+  pinyin: jìngyīn
+  english: mute / silent / to mute / silencing
+  german: stumm / lautlos / Stummschaltung / stummschalten
+  hsk: "5"
+  register: neutral
+  measure_word: []
+  note: |
+    Ein Verb (kann auch als Nomen verwendet werden), das das Ausschalten oder Unterdrücken von Ton beschreibt — sowohl bei elektronischen Geräten als auch in übertragenem Sinne. 静音 ist der moderne Standardbegriff für die "Stummschalten"-Funktion auf Smartphones, Computern und Fernsehern.
+
+    **Häufige Ausdrücke:**
+    - 静音模式 (jìngyīn móshì) — Lautlos-Modus / Stumm-Modus
+    - 静音键 (jìngyīn jiàn) — Stummtaste
+    - 自动静音 (zìdòng jìngyīn) — automatische Stummschaltung
+    - 取消静音 (qǔxiāo jìngyīn) — Stummschaltung aufheben / entstummen
+    - 手机静音 (shǒujī jìngyīn) — Handy auf stumm schalten
+
+    **Wichtige Unterschiede zu ähnlichen Wörtern:**
+    - 静音 (jìngyīn) — stumm / stummschalten (modern, Gerätefunktion)
+    - 无声 (wúshēng) — lautlos, geräuschlos (Zustandsbeschreibung)
+    - 安静 (ānjìng) — ruhig, still (allgemeiner Umgebungszustand)
+    - 消音 (xiāoyīn) — Schalldämpfung, Geräuschunterdrückung (technisch)
+    - 哑 (yǎ) — stumm (für Personen, die nicht sprechen können)
+
+    **Kulturelle Anmerkung:**
+    静音 setzt sich aus 静 (jìng, "still, ruhig") und 音 (yīn, "Klang, Ton, Geräusch") zusammen. Wörtlich: "Ton still machen". Das Wort ist ein Produkt der digitalen Ära und wird in allen chinesischsprachigen Regionen für die Stummschaltungsfunktion von Geräten verwendet. In öffentlichen Verkehrsmitteln, Kinos und Restaurants in China wird oft zu 静音 aufgerufen — als Höflichkeitsformel.
+  synonyms:
+    - word: 无声
+      pinyin: wúshēng
+      meaning: lautlos, geräuschlos (Zustand)
+    - word: 消音
+      pinyin: xiāoyīn
+      meaning: Geräusch unterdrücken, Schalldämpfung (technisch)
+    - word: 沉默
+      pinyin: chénmò
+      meaning: schweigen, still sein (für Personen)
+  antonyms:
+    - word: 有声
+      pinyin: yǒushēng
+      meaning: vertont, mit Ton
+    - word: 响铃
+      pinyin: xiǎnglíng
+      meaning: klingeln, läuten (Klingelton)
+    - word: 音量开
+      pinyin: yīnliàng kāi
+      meaning: Lautstärke an / Ton eingeschaltet
+  examples:
+    - zh: 开会的时候请把手机调成静音模式。
+      pinyin: Kāihuì de shíhou qǐng bǎ shǒujī tiáo chéng jìngyīn móshì.
+      english: Please put your phone on silent mode during the meeting.
+      de: Bitte schalten Sie Ihr Handy während der Besprechung auf stumm.
+    - zh: 我忘了静音，结果在电影院里手机突然响了。
+      pinyin: Wǒ wàngle jìngyīn, jiéguǒ zài diànyǐngyuàn lǐ shǒujī tūrán xiǎng le.
+      english: I forgot to mute my phone, and it suddenly rang in the cinema.
+      de: Ich habe vergessen, mein Handy stummzuschalten, und es klingelte plötzlich im Kino.
+    - zh: 这个视频的背景音乐太吵了，你能静音吗？
+      pinyin: Zhège shìpín de bèijǐng yīnyuè tài chǎo le, nǐ néng jìngyīn ma?
+      english: The background music in this video is too loud. Can you mute it?
+      de: Die Hintergrundmusik in diesem Video ist zu laut. Kannst du sie stummschalten?
+    - zh: 电脑右下角有一个小喇叭图标，点击它可以静音。
+      pinyin: Diànnǎo yòuxià jiǎo yǒu yī ge xiǎo lǎba túbiāo, diǎnjī tā kěyǐ jìngyīn.
+      english: There is a small speaker icon in the bottom right corner of the computer. Click it to mute.
+      de: In der unteren rechten Ecke des Computers befindet sich ein kleines Lautsprechersymbol. Klicke darauf, um stummzuschalten.
+  characters:
+    - char: 静
+      simplified: 静
+      traditional: 靜
+      pinyin: jìng
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: still, ruhig, unbewegt
+      compounds:
+        - simplified: 安静
+          pinyin: ānjìng
+          meaning: ruhig, still
+        - simplified: 平静
+          pinyin: píngjìng
+          meaning: ruhig, gelassen, friedlich
+        - simplified: 冷静
+          pinyin: lěngjìng
+          meaning: ruhig, besonnen, gelassen
+        - simplified: 静音
+          pinyin: jìngyīn
+          meaning: stumm, lautlos, Stummschaltung
+        - simplified: 静止
+          pinyin: jìngzhǐ
+          meaning: stillstehen, unbewegt
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 靜 besteht aus dem Radikal 青 (qīng, "grün/blau, rein") und der phonetischen Komponente 爭 (zhēng, "kämpfen, streiten"). Die ursprüngliche Bedeutung ist "unbewegt, still, ruhig" — im Gegensatz zu kämpferischer Bewegung. Später erweitert zu "gelassen, friedlich".
+    - char: 音
+      simplified: 音
+      traditional: 音
+      pinyin: yīn
+      hsk: "2"
+      detailed_analysis: true
+      meaning_in_context: Klang, Ton, Geräusch
+      compounds:
+        - simplified: 音乐
+          pinyin: yīnyuè
+          meaning: Musik
+        - simplified: 声音
+          pinyin: shēngyīn
+          meaning: Stimme, Geräusch, Klang
+        - simplified: 音量
+          pinyin: yīnliàng
+          meaning: Lautstärke
+        - simplified: 静音
+          pinyin: jìngyīn
+          meaning: stumm, Stummschaltung
+        - simplified: 语音
+          pinyin: yǔyīn
+          meaning: Sprache (Lautsprache), Aussprache
+      etymology: |
+        Ideogramm. Die Orakelknochenschrift zeigte einen Mund, der einen Laut von sich gibt, oder ein Musikinstrument. Die ursprüngliche Bedeutung ist "Klang, Ton, Laut". Im Gegensatz zu 声 (shēng), das eher "Schall, Geräusch, Lautstärke" betont, bezieht sich 音 spezifischer auf musikalische oder qualitativ unterschiedene Töne.
+
+- type: word
+  date: "04/04"
+  simplified: 缩短
+  traditional: 縮短
+  pinyin: suōduǎn
+  english: to shorten / to curtail / to reduce (length, time, distance)
+  german: verkürzen / kürzen / reduzieren (Länge, Zeit, Distanz)
+  hsk: "5"
+  register: neutral
+  measure_word: []
+  note: |
+    Ein Verb, das das Reduzieren von Länge, Dauer, Distanz oder Umfang beschreibt. 缩短 wird sowohl für konkrete (physische Länge) als auch abstrakte (Zeit, Prozesse) Verkürzungen verwendet.
+
+    **Häufige Ausdrücke:**
+    - 缩短时间 (suōduǎn shíjiān) — Zeit verkürzen
+    - 缩短距离 (suōduǎn jùlí) — Distanz verkürzen
+    - 缩短寿命 (suōduǎn shòumìng) — Lebensdauer verkürzen
+    - 缩短差距 (suōduǎn chājù) — den Abstand / die Kluft verringern
+    - 大大缩短 (dàdà suōduǎn) — erheblich / drastisch verkürzen
+
+    **Wichtige Unterschiede zu ähnlichen Wörtern:**
+    - 缩短 (suōduǎn) — verkürzen (Länge, Zeit, Distanz) — breiteste Verwendung
+    - 减少 (jiǎnshǎo) — reduzieren, verringern (Menge, Anzahl)
+    - 缩减 (suōjiǎn) — kürzen, reduzieren (formeller, Budget, Personal)
+    - 截短 (jiéduǎn) — abschneiden, kürzen (konkret, z. B. Haare, Stoff)
+    - 减短 (jiǎnduǎn) — kürzer machen (seltener, meist 缩短)
+
+    **Gegenteil:**
+    - 延长 (yáncháng) — verlängern
+
+    **Kulturelle Anmerkung:**
+    缩短 setzt sich aus 缩 (suō, "schrumpfen, zusammenziehen") und 短 (duǎn, "kurz") zusammen. Wörtlich: "zusammenziehen und kurz machen". In der modernen chinesischen Gesellschaft wird 缩短 oft im Zusammenhang mit Effizienzsteigerung verwendet: 缩短时间 = Zeit sparen, 缩短流程 = Prozesse verschlanken.
+  synonyms:
+    - word: 缩减
+      pinyin: suōjiǎn
+      meaning: kürzen, reduzieren (formeller, Budget, Personal)
+    - word: 减短
+      pinyin: jiǎnduǎn
+      meaning: kürzer machen (seltener)
+    - word: 截短
+      pinyin: jiéduǎn
+      meaning: abschneiden, kürzen (konkret)
+    - word: 缩短距离
+      pinyin: suōduǎn jùlí
+      meaning: Abstand verringern (als Phrase)
+  antonyms:
+    - word: 延长
+      pinyin: yáncháng
+      meaning: verlängern
+    - word: 加长
+      pinyin: jiācháng
+      meaning: verlängern, länger machen
+    - word: 增加
+      pinyin: zēngjiā
+      meaning: erhöhen, vergrößern
+  examples:
+    - zh: 坐高铁可以大大缩短旅行时间。
+      pinyin: Zuò gāotiě kěyǐ dàdà suōduǎn lǚxíng shíjiān.
+      english: Taking the high-speed train can greatly shorten travel time.
+      de: Mit dem Hochgeschwindigkeitszug kann man die Reisezeit erheblich verkürzen.
+    - zh: 新的技术缩短了生产周期。
+      pinyin: Xīn de jìshù suōduǎn le shēngchǎn zhōuqī.
+      english: The new technology shortened the production cycle.
+      de: Die neue Technologie hat den Produktionszyklus verkürzt.
+    - zh: 我们需要想办法缩短两个部门之间的差距。
+      pinyin: Wǒmen xūyào xiǎng bànfǎ suōduǎn liǎng ge bùmén zhī jiān de chājù.
+      english: We need to find ways to narrow the gap between the two departments.
+      de: Wir müssen Wege finden, die Kluft zwischen den beiden Abteilungen zu verringern.
+    - zh: 经常熬夜会缩短寿命。
+      pinyin: Jīngcháng áoyè huì suōduǎn shòumìng.
+      english: Staying up late often can shorten your lifespan.
+      de: Häufiges Aufbleiben bis spät in die Nacht kann die Lebensdauer verkürzen.
+  characters:
+    - char: 缩
+      simplified: 缩
+      traditional: 縮
+      pinyin: suō
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: schrumpfen, zusammenziehen, verkürzen
+      compounds:
+        - simplified: 缩小
+          pinyin: suōxiǎo
+          meaning: verkleinern, reduzieren
+        - simplified: 收缩
+          pinyin: shōusuō
+          meaning: zusammenziehen, schrumpfen
+        - simplified: 缩短
+          pinyin: suōduǎn
+          meaning: verkürzen
+        - simplified: 压缩
+          pinyin: yāsuō
+          meaning: komprimieren, zusammendrücken
+        - simplified: 退缩
+          pinyin: tuìsuō
+          meaning: zurückweichen, sich zurückziehen
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 縮 besteht aus dem Radikal 糸 (Seide, Faden) und der phonetischen Komponente 宿 (sù, "übernachten"). Die ursprüngliche Bedeutung ist "Seide zusammenziehen, aufwickeln". Später erweitert zu "allgemein zusammenziehen, schrumpfen, verkürzen".
+    - char: 短
+      simplified: 短
+      traditional: 短
+      pinyin: duǎn
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: kurz (von Länge, Zeit, Distanz)
+      compounds:
+        - simplified: 长短
+          pinyin: chángduǎn
+          meaning: Länge (wörtl. lang-kurz)
+        - simplified: 短期
+          pinyin: duǎnqī
+          meaning: kurzfristig
+        - simplified: 短暂
+          pinyin: duǎnzàn
+          meaning: kurz (von Zeit), vergänglich
+        - simplified: 缩短
+          pinyin: suōduǎn
+          meaning: verkürzen
+        - simplified: 短处
+          pinyin: duǎnchu
+          meaning: Schwäche, Nachteil (wörtl. "kurze Stelle")
+      etymology: |
+        Phonosemantische Verbindung. Besteht aus dem Radikal 矢 (Pfeil) und der phonetischen Komponente 豆 (dòu, "Bohne"). Die ursprüngliche Bedeutung ist "kurz (im Gegensatz zu lang)". Der Pfeil-Radikal (矢) ist ein Längenmaß (ein Pfeil ist etwa 90 cm lang). 短 bezeichnet eine Länge, die unter diesem Maß liegt. Das Gegenteil ist 长 (cháng, "lang").
+
+- type: word
+  date: "04/04"
+  simplified: 步骤
+  traditional: 步驟
+  pinyin: bùzhòu
+  english: step / procedure / move / stage (in a process)
+  german: Schritt / Verfahrensschritt / Phase (in einem Prozess)
+  hsk: "5"
+  register: neutral
+  measure_word:
+    - simplified: 个
+      pinyin: gè
+      meaning: allgemeiner Zähler für Schritte
+    - simplified: 步
+      pinyin: bù
+      meaning: Zähler für Schritte (wörtlich "Schritt")
+  note: |
+    Ein Nomen, das einen einzelnen Schritt oder eine Phase innerhalb eines größeren Prozesses, Verfahrens oder einer Anleitung beschreibt. 步骤 wird sowohl für konkrete Handlungsabläufe (Kochrezept, Bedienungsanleitung) als auch für abstrakte Prozesse (Entscheidungsfindung, Berechnung) verwendet.
+
+    **Häufige Ausdrücke:**
+    - 操作步骤 (cāozuò bùzhòu) — Bedienungsschritte / Vorgehensweise
+    - 详细步骤 (xiángxì bùzhòu) — detaillierte Schritte
+    - 第一步 / 第二步 (dì yī bù / dì èr bù) — erster Schritt / zweiter Schritt
+    - 按照步骤 (ànzhào bùzhòu) — gemäß den Schritten / Schritt für Schritt
+    - 步骤简单 (bùzhòu jiǎndān) — die Schritte sind einfach
+
+    **Wichtige Unterschiede zu ähnlichen Wörtern:**
+    - 步骤 (bùzhòu) — Schritt (in einem Prozess) — am gebräuchlichsten für Anleitungen
+    - 步 (bù) — Schritt (kürzer, Zähler, auch in 一步)
+    - 过程 (guòchéng) — Prozess, Verlauf (das Ganze, nicht einzelne Schritte)
+    - 程序 (chéngxù) — Verfahren, Programm, Prozedur (formeller, auch Computerprogramm)
+    - 阶段 (jiēduàn) — Phase, Stufe (größere Abschnitte eines Prozesses)
+
+    **Kulturelle Anmerkung:**
+    步骤 setzt sich aus 步 (bù, "Schritt") und 骤 (zhòu, "galoppieren, schnell") zusammen. Wörtlich: "Schritte (wie beim Galoppieren)". Ursprünglich bezog sich 骤 auf das Rennen von Pferden. Die Kombination betont eine Abfolge von Bewegungen oder Handlungen. In der modernen Sprache ist 步骤 der Standardbegriff für "Schritt" in Arbeitsanweisungen, Tutorials und Prozessbeschreibungen.
+  synonyms:
+    - word: 步
+      pinyin: bù
+      meaning: Schritt (kürzere Form)
+    - word: 环节
+      pinyin: huánjié
+      meaning: Glied, Verbindung (in einer Kette von Ereignissen)
+    - word: 阶段
+      pinyin: jiēduàn
+      meaning: Phase, Stufe (größer als ein Schritt)
+    - word: 工序
+      pinyin: gōngxù
+      meaning: Arbeitsschritt, Produktionsschritt (technisch, industriell)
+  antonyms: []
+  examples:
+    - zh: 请按照以下步骤安装软件。
+      pinyin: Qǐng ànzhào yǐxià bùzhòu ānzhuāng ruǎnjiàn.
+      english: Please follow the steps below to install the software.
+      de: Bitte befolgen Sie die folgenden Schritte, um die Software zu installieren.
+    - zh: 这个实验需要五个步骤才能完成。
+      pinyin: Zhège shíyàn xūyào wǔ ge bùzhòu cáinéng wánchéng.
+      english: This experiment requires five steps to complete.
+      de: Dieses Experiment benötigt fünf Schritte, um abgeschlossen zu werden.
+    - zh: 第一步是打开电源，第二步是按启动按钮。
+      pinyin: Dì yī bù shì dǎkāi diànyuán, dì èr bù shì àn qǐdòng ànniǔ.
+      english: The first step is to turn on the power, the second step is to press the start button.
+      de: Der erste Schritt ist das Einschalten der Stromversorgung, der zweite Schritt ist das Drücken der Starttaste.
+    - zh: 你漏掉了一个重要步骤，所以结果不对。
+      pinyin: Nǐ lòudiào le yī ge zhòngyào bùzhòu, suǒyǐ jiéguǒ bù duì.
+      english: You missed an important step, so the result is incorrect.
+      de: Du hast einen wichtigen Schritt ausgelassen, deshalb ist das Ergebnis falsch.
+  characters:
+    - char: 步
+      simplified: 步
+      traditional: 步
+      pinyin: bù
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: Schritt, Gang, Stufe
+      compounds:
+        - simplified: 脚步
+          pinyin: jiǎobù
+          meaning: Fußschritt, Schritt (beim Gehen)
+        - simplified: 散步
+          pinyin: sànbù
+          meaning: spazieren gehen
+        - simplified: 步行
+          pinyin: bùxíng
+          meaning: zu Fuß gehen
+        - simplified: 步骤
+          pinyin: bùzhòu
+          meaning: Schritt (in einem Prozess)
+        - simplified: 进一步
+          pinyin: jìnyībù
+          meaning: weiter, einen Schritt weiter
+      etymology: |
+        Ideogramm. Die Orakelknochenschrift zeigte zwei Füße (止, zhǐ) hintereinander — einen linken und einen rechten Fuß. Die ursprüngliche Bedeutung ist "einen Schritt machen, gehen". Später erweitert zu "Schritt (Maß für Entfernung)", "Phase, Stufe" und als Zähler für Schritte.
+    - char: 骤
+      simplified: 骤
+      traditional: 驟
+      pinyin: zhòu
+      hsk: "6"
+      detailed_analysis: true
+      meaning_in_context: plötzlich, schnell (in 步骤: die Abfolge von Schritten)
+      compounds:
+        - simplified: 步骤
+          pinyin: bùzhòu
+          meaning: Schritt, Verfahrensschritt
+        - simplified: 骤然
+          pinyin: zhòurán
+          meaning: plötzlich, unvermittelt
+        - simplified: 骤变
+          pinyin: zhòubiàn
+          meaning: plötzliche Veränderung
+        - simplified: 狂风骤雨
+          pinyin: kuángfēng zhòuyǔ
+          meaning: heftiger Wind und starker Regen (Chengyu)
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 驟 besteht aus dem Radikal 馬 (Pferd) und der phonetischen Komponente 聚 (jù, "sammeln, versammeln"). Die ursprüngliche Bedeutung ist "galoppieren, schnell rennen (von Pferden)". Daraus entwickelte sich die Bedeutung "plötzlich, schnell". In 步骤 (Schritt) ist die ursprüngliche Bedeutung von 骤 ("schnelle Bewegung") noch spürbar — die Abfolge von schnellen Schritten wie beim Galopp.
+
+- type: expression
+  date: "04/04"
+  simplified: 代我向...问好
+  traditional: 代我向...問好
+  pinyin: dài wǒ xiàng ... wènhǎo
+  english: "Please give my regards to ... / Say hello to ... for me"
+  german: "Richten Sie ... liebe Grüße von mir aus / Grüßen Sie ... von mir"
+  hsk: "4"
+  register: spoken_neutral
+  note: |
+    Ein höflicher Ausdruck, um jemanden zu bitten, einer dritten Person Grüße auszurichten. Die wörtliche Bedeutung ist: "An meiner Stelle (代我) zu ... (向) gute Wünsche ausrichten (问好)."
+
+    **Strukturen:**
+    - 代我向 + [Person] + 问好 — Grüße an [Person] von mir
+    - Kann auch mit Namen oder Verwandtschaftsbezeichnung verwendet werden:
+      - 代我向你妈妈问好 (dài wǒ xiàng nǐ māma wènhǎo) — Grüße an deine Mutter von mir
+      - 代我向李老师问好 (dài wǒ xiàng Lǐ lǎoshī wènhǎo) — Grüße an Frau/Herr Li von mir
+
+    **Ähnliche Ausdrücke:**
+    - 向...问好 (xiàng ... wènhǎo) — direkte Grüße (ohne "von mir")
+    - 请替我问候... (qǐng tì wǒ wènhòu ...) — formeller
+    - 给...带个好 (gěi ... dài ge hǎo) — umgangssprachlich
+
+    **Kulturelle Anmerkung:**
+    Grüße auszurichten ist in der chinesischen Kultur sehr wichtig, besonders wenn man jemanden nicht persönlich treffen kann. 问好 (wènhǎo) bedeutet wörtlich "nach dem Wohlsein fragen" und ist die gebräuchlichste Art, Grüße auszurichten. In formelleren Situationen sagt man eher 代我向...致以问候 (dài wǒ xiàng ... zhìyǐ wènhòu).
+  synonyms:
+    - word: 向...问好
+      pinyin: xiàng ... wènhǎo
+      meaning: Grüße an ... (ohne "von mir")
+    - word: 请替我问候...
+      pinyin: qǐng tì wǒ wènhòu ...
+      meaning: bitte grüßen Sie ... für mich (formeller)
+    - word: 给...带个好
+      pinyin: gěi ... dài ge hǎo
+      meaning: bring ... einen Gruß (umgangssprachlich)
+  antonyms: []
+  examples:
+    - zh: 代我向你的家人问好。
+      pinyin: Dài wǒ xiàng nǐ de jiārén wènhǎo.
+      english: Please give my regards to your family.
+      de: Richten Sie Ihrer Familie liebe Grüße von mir aus.
+    - zh: 见到他时，代我向他问好。
+      pinyin: Jiàndào tā shí, dài wǒ xiàng tā wènhǎo.
+      english: When you see him, say hello to him for me.
+      de: Wenn du ihn siehst, grüße ihn bitte von mir.
+    - zh: 代我向你妈妈问好，我下次再去看她。
+      pinyin: Dài wǒ xiàng nǐ māma wènhǎo, wǒ xià cì zài qù kàn tā.
+      english: Give my regards to your mother. I'll visit her next time.
+      de: Richten Sie Ihrer Mutter liebe Grüße von mir aus. Ich werde sie beim nächsten Mal besuchen.
+    - zh: 如果你给老王打电话，代我向他问好。
+      pinyin: Rúguǒ nǐ gěi Lǎo Wáng dǎ diànhuà, dài wǒ xiàng tā wènhǎo.
+      english: If you call Lao Wang, say hello to him for me.
+      de: Wenn du Lao Wang anrufst, grüße ihn bitte von mir.
+  word_analyses:
+    - type: word
+      simplified: 代
+      traditional: 代
+      pinyin: dài
+      english: to substitute, on behalf of, generation
+      hsk: "4"
+      characters:
+        - char: 代
+          simplified: 代
+          traditional: 代
+          pinyin: dài
+          hsk: "4"
+          detailed_analysis: true
+          meaning_in_context: anstelle von, in Vertretung
+          compounds:
+            - simplified: 代表
+              pinyin: dàibiǎo
+              meaning: vertreten, Repräsentant
+            - simplified: 代替
+              pinyin: dàitì
+              meaning: ersetzen, anstelle von
+            - simplified: 代理
+              pinyin: dàilǐ
+              meaning: als Vertreter handeln, Stellvertreter
+            - simplified: 时代
+              pinyin: shídài
+              meaning: Zeitalter, Epoche
+          etymology: |
+            Phonosemantische Verbindung. Besteht aus dem Radikal 亻 (Mensch) und der phonetischen Komponente 弋 (yì). Die ursprüngliche Bedeutung ist "wechseln, an die Stelle treten". Später erweitert zu "an Stelle von, in Vertretung" sowie "Generation, Zeitalter" (als Menschen, die sich ablösen).
+    - type: word
+      simplified: 问好
+      traditional: 問好
+      pinyin: wènhǎo
+      english: to say hello, to send greetings
+      hsk: "4"
+      characters:
+        - char: 问
+          simplified: 问
+          traditional: 問
+          pinyin: wèn
+          hsk: "1"
+          detailed_analysis: true
+          meaning_in_context: fragen, nach etwas erkundigen
+          compounds:
+            - simplified: 问题
+              pinyin: wèntí
+              meaning: Frage, Problem
+            - simplified: 问候
+              pinyin: wènhòu
+              meaning: grüßen, sich erkundigen
+            - simplified: 问好
+              pinyin: wènhǎo
+              meaning: Grüße ausrichten, "hallo sagen"
+          etymology: |
+            Phonosemantische Verbindung. Die traditionelle Form 問 besteht aus dem Radikal 口 (Mund) und der phonetischen Komponente 門 (mén, "Tür"). Die ursprüngliche Bedeutung ist "durch die Tür rufen, fragen, erkundigen".
+        - char: 好
+          simplified: 好
+          traditional: 好
+          pinyin: hǎo
+          hsk: "1"
+          detailed_analysis: true
+          meaning_in_context: gut, wohl (hier: Wohlsein erfragen)
+          compounds:
+            - simplified: 问好
+              pinyin: wènhǎo
+              meaning: Grüße ausrichten
+            - simplified: 你好
+              pinyin: nǐhǎo
+              meaning: hallo (wörtl. "du gut")
+            - simplified: 友好
+              pinyin: yǒuhǎo
+              meaning: freundlich
+          etymology: |
+            Ideogramm. Besteht aus 女 (Frau) und 子 (Kind). Die ursprüngliche Bedeutung ist "gut, schön, ausgezeichnet" (eine Frau mit einem Kind zu haben war im alten China ein Zeichen von Wohlstand und Glück).
+    - type: word
+      simplified: 向
+      traditional: 向
+      pinyin: xiàng
+      english: toward, to (direction), in the direction of
+      hsk: "3"
+      characters:
+        - char: 向
+          simplified: 向
+          traditional: 向
+          pinyin: xiàng
+          hsk: "3"
+          detailed_analysis: false
+          meaning_in_context: in Richtung, gegenüber (Präposition)
+          compounds:
+            - simplified: 方向
+              pinyin: fāngxiàng
+              meaning: Richtung
+            - simplified: 面向
+              pinyin: miànxiàng
+              meaning: zuwenden, ausgerichtet sein auf
+            - simplified: 向往
+              pinyin: xiàngwǎng
+              meaning: sich sehnen nach
+          etymology: |
+            Ideogramm. Ursprünglich ein Bild eines Hauses mit einem Fenster. Die Bedeutung entwickelte sich von "auf etwas schauen" zu "Richtung, in Richtung zu".
+
+- type: word
+  date: "04/04"
+  simplified: 探索
+  traditional: 探索
+  pinyin: tànsuǒ
+  english: to explore / to probe / to seek / to investigate
+  german: erkunden / erforschen / untersuchen / suchen
+  hsk: "5"
+  register: neutral
+  measure_word: []
+  note: |
+    Ein Verb, das das systematische Suchen, Untersuchen oder Erforschen von etwas Unbekanntem beschreibt – sowohl konkrete (Orte, Gebiete) als auch abstrakte (Wahrheit, Wissen, Möglichkeiten).
+
+    **Häufige Ausdrücke:**
+    - 探索宇宙 (tànsuǒ yǔzhòu) — das Universum erforschen
+    - 探索真理 (tànsuǒ zhēnlǐ) — die Wahrheit suchen / erforschen
+    - 探索未知 (tànsuǒ wèizhī) — das Unbekannte erforschen
+    - 探索精神 (tànsuǒ jīngshén) — Entdeckergeist, Forschergeist
+    - 不断探索 (bùduàn tànsuǒ) — kontinuierlich erforschen / suchen
+
+    **Wichtige Unterschiede zu ähnlichen Wörtern:**
+    - 探索 (tànsuǒ) — erforschen, erkunden (systematisch, tiefergehend)
+    - 探求 (tànqiú) — suchen, erforschen (betont das Streben)
+    - 探寻 (tànxún) — suchen, erkunden (nach etwas Bestimmtem)
+    - 探究 (tànjiū) — untersuchen, erforschen (akademisch, gründlich)
+    - 勘探 (kāntàn) — prospektieren, erkunden (geologisch, Rohstoffe)
+    - 冒险 (màoxiǎn) — Abenteuer erleben, riskieren (betont das Risiko)
+
+    **Kulturelle Anmerkung:**
+    探索 setzt sich aus 探 (tàn, "tasten, untersuchen, erkunden") und 索 (suǒ, "suchen, verlangen, Seil") zusammen. Wörtlich: "ertasten und suchen" – wie jemand, der im Dunkeln tastend nach einem Seil sucht. Der Begriff hat eine positive Konnotation von Neugier, wissenschaftlichem Geist und Fortschrittsstreben. Im modernen China wird 探索 häufig in wissenschaftlichen, technologischen und pädagogischen Kontexten verwendet.
+  synonyms:
+    - word: 探求
+      pinyin: tànqiú
+      meaning: suchen, erforschen (betont das Streben)
+    - word: 探寻
+      pinyin: tànxún
+      meaning: suchen, erkunden (nach etwas Bestimmtem)
+    - word: 探究
+      pinyin: tànjiū
+      meaning: untersuchen, erforschen (akademisch, gründlich)
+    - word: 摸索
+      pinyin: mōsuǒ
+      meaning: tasten, sich vortasten (oft im übertragenen Sinne)
+  antonyms:
+    - word: 放弃
+      pinyin: fàngqì
+      meaning: aufgeben
+    - word: 满足
+      pinyin: mǎnzú
+      meaning: sich zufriedengeben (mit dem Bekannten)
+  examples:
+    - zh: 科学家们不断探索宇宙的奥秘。
+      pinyin: Kēxuéjiāmen bùduàn tànsuǒ yǔzhòu de àomì.
+      english: Scientists continuously explore the mysteries of the universe.
+      de: Wissenschaftler erforschen kontinuierlich die Geheimnisse des Universums.
+    - zh: 我们需要探索新的解决方案。
+      pinyin: Wǒmen xūyào tànsuǒ xīn de jiějué fāng'àn.
+      english: We need to explore new solutions.
+      de: Wir müssen neue Lösungen erkunden.
+    - zh: 孩子们天生就有探索世界的欲望。
+      pinyin: Háizimen tiānshēng jiù yǒu tànsuǒ shìjiè de yùwàng.
+      english: Children are naturally born with the desire to explore the world.
+      de: Kinder haben von Natur aus den Wunsch, die Welt zu erkunden.
+    - zh: 在探索未知领域的道路上，失败是难免的。
+      pinyin: Zài tànsuǒ wèizhī lǐngyù de dàolù shang, shībài shì nánmiǎn de.
+      english: On the path of exploring unknown territory, failure is unavoidable.
+      de: Auf dem Weg der Erforschung unbekannter Gebiete ist Scheitern unvermeidlich.
+  characters:
+    - char: 探
+      simplified: 探
+      traditional: 探
+      pinyin: tàn
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: untersuchen, erkunden, tasten, besuchen
+      compounds:
+        - simplified: 探索
+          pinyin: tànsuǒ
+          meaning: erforschen, erkunden
+        - simplified: 探讨
+          pinyin: tàntǎo
+          meaning: untersuchen, diskutieren (wörtl. "erkunden und diskutieren")
+        - simplified: 探究
+          pinyin: tànjiū
+          meaning: untersuchen, erforschen (akademisch)
+        - simplified: 探亲
+          pinyin: tànqīn
+          meaning: Verwandte besuchen
+        - simplified: 侦探
+          pinyin: zhēntàn
+          meaning: Detektiv (wörtl. "ermittelnder Späher")
+      etymology: |
+        Phonosemantische Verbindung. Besteht aus dem Radikal 扌 (Hand, als 手) und der phonetischen Komponente 罙 (shēn, eine alte Form von 深, "tief"). Die ursprüngliche Bedeutung ist "mit der Hand in etwas Tiefes greifen, tasten". Später erweitert zu "untersuchen, erkunden, erforschen, (nach-)spüren".
+    - char: 索
+      simplified: 索
+      traditional: 索
+      pinyin: suǒ
+      hsk: "6"
+      detailed_analysis: true
+      meaning_in_context: suchen, verlangen, Seil, Kette
+      compounds:
+        - simplified: 探索
+          pinyin: tànsuǒ
+          meaning: erforschen, erkunden
+        - simplified: 搜索
+          pinyin: sōusuǒ
+          meaning: durchsuchen, suchen (wie im Internet)
+        - simplified: 线索
+          pinyin: xiànsuǒ
+          meaning: Spur, Hinweis (wörtl. "Faden-Suche")
+        - simplified: 索取
+          pinyin: suǒqǔ
+          meaning: verlangen, fordern, anfordern
+        - simplified: 绳索
+          pinyin: shéngsuǒ
+          meaning: Seil, Strick
+      etymology: |
+        Ideogramm. Die Orakelknochenschrift zeigte einen geflochtenen oder verdrehten Faden – ein Seil. Die ursprüngliche Bedeutung ist "Seil, Strick". Von der Vorstellung, ein Seil zu spannen oder zu verfolgen, entwickelte sich die Bedeutung "suchen, verlangen, fordern". Heute ist 索 als "suchen" in vielen zusammengesetzten Wörtern erhalten, während die Bedeutung "Seil" noch in 绳索 lebt.
+
+- type: word
+  date: "04/04"
+  simplified: 展示
+  traditional: 展示
+  pinyin: zhǎnshì
+  english: to show / to display / to exhibit / to demonstrate
+  german: zeigen / präsentieren / vorführen / ausstellen
+  hsk: "5"
+  register: neutral
+  measure_word: []
+  note: |
+    Ein Verb, das das Zeigen, Präsentieren oder Ausstellen von etwas beschreibt – sowohl konkrete Gegenstände (in einem Museum, Geschäft) als auch abstrakte Dinge (Fähigkeiten, Ergebnisse, Emotionen).
+
+    **Häufige Ausdrücke:**
+    - 展示才华 (zhǎnshì cáihuá) — sein Talent zeigen
+    - 展示成果 (zhǎnshì chéngguǒ) — Ergebnisse präsentieren
+    - 展示实力 (zhǎnshì shílì) — seine Stärke demonstrieren
+    - 展示柜 (zhǎnshì guì) — Vitrine, Ausstellungsschrank
+    - 充分展示 (chōngfèn zhǎnshì) — voll zur Geltung bringen / umfassend zeigen
+
+    **Wichtige Unterschiede zu ähnlichen Wörtern:**
+    - 展示 (zhǎnshì) — zeigen, präsentieren (am gebräuchlichsten, neutral)
+    - 显示 (xiǎnshì) — anzeigen, sich zeigen (technisch, Bildschirmanzeige)
+    - 展览 (zhǎnlǎn) — ausstellen, Ausstellung (eher für Kunst/Produkte)
+    - 展现 (zhǎnxiàn) — sich zeigen, offenbaren (betont die Entfaltung)
+    - 演示 (yǎnshì) — demonstrieren, vorführen (besonders technische Vorführungen)
+    - 陈列 (chénliè) — auslegen, ausstellen (oft in Schaufenstern)
+
+    **Kulturelle Anmerkung:**
+    展示 setzt sich aus 展 (zhǎn, "ausbreiten, entfalten, öffnen") und 示 (shì, "zeigen, auf etwas hinweisen") zusammen. Wörtlich: "ausbreiten und zeigen". Der Begriff wird in vielen Kontexten verwendet – von Kunstausstellungen über Produktpräsentationen bis hin zum Zeigen von Emotionen oder Fähigkeiten. In der Geschäftswelt ist 展示 ein wichtiger Begriff für Produktpräsentationen und Messen.
+  synonyms:
+    - word: 展现
+      pinyin: zhǎnxiàn
+      meaning: sich zeigen, offenbaren, entfalten (betont den Prozess)
+    - word: 显示
+      pinyin: xiǎnshì
+      meaning: anzeigen, sich zeigen (technisch, Bildschirm)
+    - word: 演示
+      pinyin: yǎnshì
+      meaning: vorführen, demonstrieren (technische Abläufe)
+    - word: 展览
+      pinyin: zhǎnlǎn
+      meaning: ausstellen, Ausstellung (für Kunst/Produkte)
+    - word: 陈列
+      pinyin: chénliè
+      meaning: auslegen, ausstellen (im Schaufenster)
+  antonyms:
+    - word: 隐藏
+      pinyin: yǐncáng
+      meaning: verstecken, verbergen
+    - word: 掩盖
+      pinyin: yǎngài
+      meaning: verdecken, vertuschen
+  examples:
+    - zh: 这个博物馆展示了中国古代的文物。
+      pinyin: Zhège bówùguǎn zhǎnshìle Zhōngguó gǔdài de wénwù.
+      english: This museum displays ancient Chinese cultural relics.
+      de: Dieses Museum zeigt antike chinesische Kulturgüter.
+    - zh: 他在面试中充分展示了自己的能力。
+      pinyin: Tā zài miànshì zhōng chōngfèn zhǎnshìle zìjǐ de nénglì.
+      english: He fully demonstrated his abilities during the interview.
+      de: Er hat im Vorstellungsgespräch seine Fähigkeiten voll zur Geltung gebracht.
+    - zh: 公司将在展会上展示最新产品。
+      pinyin: Gōngsī jiāng zài zhǎnhuì shang zhǎnshì zuìxīn chǎnpǐn.
+      english: The company will showcase its latest products at the exhibition.
+      de: Das Unternehmen wird auf der Messe seine neuesten Produkte präsentieren.
+    - zh: 这张照片展示了城市美丽的夜景。
+      pinyin: Zhè zhāng zhàopiàn zhǎnshìle chéngshì měilì de yèjǐng.
+      english: This photo shows the beautiful night view of the city.
+      de: Dieses Foto zeigt die wunderschöne Nachtansicht der Stadt.
+  characters:
+    - char: 展
+      simplified: 展
+      traditional: 展
+      pinyin: zhǎn
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: ausbreiten, entfalten, öffnen, zeigen
+      compounds:
+        - simplified: 发展
+          pinyin: fāzhǎn
+          meaning: entwickeln, Entwicklung
+        - simplified: 展开
+          pinyin: zhǎnkāi
+          meaning: entfalten, erweitern, beginnen
+        - simplified: 展览
+          pinyin: zhǎnlǎn
+          meaning: Ausstellung (wörtl. "ausbreiten und betrachten")
+        - simplified: 展示
+          pinyin: zhǎnshì
+          meaning: zeigen, präsentieren
+        - simplified: 展望
+          pinyin: zhǎnwàng
+          meaning: in die Zukunft blicken, Aussichten
+      etymology: |
+        Phonosemantische Verbindung. Besteht aus dem Radikal 尸 (Körper, Leichnam) und der phonetischen Komponente 㠭 (zhǎn, eine alte Form). Die ursprüngliche Bedeutung ist "aufdrehen, ausrollen, öffnen" (wie eine Schriftrolle). Später erweitert zu "entfalten, sich entwickeln, ausbreiten".
+    - char: 示
+      simplified: 示
+      traditional: 示
+      pinyin: shì
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: zeigen, auf etwas hinweisen, demonstrieren
+      compounds:
+        - simplified: 展示
+          pinyin: zhǎnshì
+          meaning: zeigen, präsentieren
+        - simplified: 表示
+          pinyin: biǎoshì
+          meaning: ausdrücken, bedeuten, zeigen
+        - simplified: 提示
+          pinyin: tíshì
+          meaning: Hinweis geben, erinnern
+        - simplified: 示意
+          pinyin: shìyì
+          meaning: andeuten, signalisieren
+        - simplified: 示威
+          pinyin: shìwēi
+          meaning: demonstrieren (politisch), Macht zeigen
+      etymology: |
+        Ideogramm. Die Orakelknochenschrift zeigte einen Altartisch (T形) mit einem Stück Fleisch oder Opfergaben darauf. Die ursprüngliche Bedeutung ist "opfern, den Göttern zeigen". Später erweitert zu "zeigen, offenbaren, auf etwas hinweisen". Der Altar-Radikal ist noch in vielen Zeichen erkennbar, die mit Riten oder Zeigen zu tun haben.
+
+- type: word
+  date: "04/04"
+  simplified: 计时器
+  traditional: 計時器
+  pinyin: jìshíqì
+  english: timer / timepiece / stopwatch / timing device
+  german: Timer / Zeitgeber / Stoppuhr / Zeitschaltuhr
+  hsk: "6"
+  register: neutral
+  measure_word:
+    - simplified: 个
+      pinyin: gè
+      meaning: allgemeiner Zähler für Timer
+    - simplified: 台
+      pinyin: tái
+      meaning: Zähler für Geräte/Maschinen (für größere Timer-Geräte)
+  note: |
+    Ein Nomen, das ein Gerät oder eine Funktion bezeichnet, die Zeit misst oder zählt – entweder als Countdown (Countdown-Timer) oder als Stoppuhr (Zeitmessung). 计时器 ist der allgemeinste Begriff für Timer aller Art.
+
+    **Häufige Ausdrücke:**
+    - 设置计时器 (shèzhì jìshíqì) — einen Timer einstellen
+    - 倒计时器 (dào jìshíqì) — Countdown-Timer
+    - 厨房计时器 (chúfáng jìshíqì) — Küchentimer
+    - 计时器功能 (jìshíqì gōngnéng) — Timer-Funktion
+    - 自动计时器 (zìdòng jìshíqì) — automatischer Timer
+
+    **Wichtige Unterschiede zu ähnlichen Wörtern:**
+    - 计时器 (jìshíqì) — Timer, Zeitgeber (allgemeinster Begriff)
+    - 定时器 (dìngshíqì) — Timer (betont das Einstellen einer Zeit, oft programmierbar)
+    - 秒表 (miǎobiǎo) — Stoppuhr (handgehalten, oft im Sport)
+    - 闹钟 (nàozhōng) — Wecker (alarmiert zu einer eingestellten Zeit)
+    - 时钟 (shízhōng) — Uhr, Klocka (allgemeines Zeitmessgerät)
+
+    **Technische Anmerkung:**
+    - 计时器 (jìshíqì) — misst die verstrichene Zeit (Stoppuhr-Funktion)
+    - 定时器 (dìngshíqì) — zählt auf einen bestimmten Zeitpunkt herunter (Countdown)
+
+    **Kulturelle Anmerkung:**
+    计时器 setzt sich aus 计 (jì, "berechnen, zählen"), 时 (shí, "Zeit") und 器 (qì, "Gerät, Apparat") zusammen. Wörtlich: "Zeit-berechnendes Gerät". Das Wort wird sowohl für physische Timer-Geräte als auch für digitale Timer-Funktionen auf Smartphones, Computern und Küchengeräten verwendet.
+  synonyms:
+    - word: 定时器
+      pinyin: dìngshíqì
+      meaning: Timer (Countdown-Timer, programmierbar)
+    - word: 秒表
+      pinyin: miǎobiǎo
+      meaning: Stoppuhr (für Zeitmessung, Sport)
+    - word: 倒计时器
+      pinyin: dào jìshíqì
+      meaning: Countdown-Timer
+  antonyms: []
+  examples:
+    - zh: 请设置一个五分钟的计时器。
+      pinyin: Qǐng shèzhì yī ge wǔ fēnzhōng de jìshíqì.
+      english: Please set a timer for five minutes.
+      de: Bitte stellen Sie einen Timer auf fünf Minuten ein.
+    - zh: 手机上的计时器功能非常实用。
+      pinyin: Shǒujī shang de jìshíqì gōngnéng fēicháng shíyòng.
+      english: The timer function on the phone is very useful.
+      de: Die Timer-Funktion auf dem Handy ist sehr nützlich.
+    - zh: 他用计时器测量跑步时间。
+      pinyin: Tā yòng jìshíqì cèliáng pǎobù shíjiān.
+      english: He uses a stopwatch to measure his running time.
+      de: Er benutzt eine Stoppuhr, um seine Laufzeit zu messen.
+    - zh: 烤箱的计时器响了，蛋糕烤好了。
+      pinyin: Kǎoxiāng de jìshíqì xiǎng le, dàngāo kǎo hǎo le.
+      english: The oven timer went off; the cake is done.
+      de: Der Timer des Backofens klingelte; der Kuchen ist fertig.
+  characters:
+    - char: 计
+      simplified: 计
+      traditional: 計
+      pinyin: jì
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: berechnen, zählen, planen
+      compounds:
+        - simplified: 计算
+          pinyin: jìsuàn
+          meaning: berechnen, rechnen
+        - simplified: 计划
+          pinyin: jìhuà
+          meaning: Plan, planen
+        - simplified: 计时
+          pinyin: jìshí
+          meaning: Zeit messen, Zeit nehmen
+        - simplified: 计时器
+          pinyin: jìshíqì
+          meaning: Timer, Zeitgeber
+        - simplified: 估计
+          pinyin: gūjì
+          meaning: schätzen, einschätzen
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 計 besteht aus dem Radikal 言 (Sprache, Worte) und der phonetischen Komponente 十 (shí, "zehn"). Die ursprüngliche Bedeutung ist "berechnen, zählen, aufzählen" (wörtl. "mit Worten zehn machen" → zusammenzählen). Später erweitert zu "planen, überlegen, Strategie".
+    - char: 时
+      simplified: 时
+      traditional: 時
+      pinyin: shí
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: Zeit
+      compounds:
+        - simplified: 时间
+          pinyin: shíjiān
+          meaning: Zeit
+        - simplified: 时代
+          pinyin: shídài
+          meaning: Zeitalter, Epoche
+        - simplified: 时刻
+          pinyin: shíkè
+          meaning: Zeitpunkt, Moment
+        - simplified: 计时器
+          pinyin: jìshíqì
+          meaning: Timer
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 時 besteht aus dem Radikal 日 (Sonne, Tag) und der phonetischen Komponente 寺 (sì, "Tempel, Büro"). Die ursprüngliche Bedeutung ist "Jahreszeit, Zeit, Epoche".
+    - char: 器
+      simplified: 器
+      traditional: 器
+      pinyin: qì
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: Gerät, Apparat, Instrument
+      compounds:
+        - simplified: 机器
+          pinyin: jīqì
+          meaning: Maschine
+        - simplified: 电器
+          pinyin: diànqì
+          meaning: elektrisches Gerät
+        - simplified: 乐器
+          pinyin: yuèqì
+          meaning: Musikinstrument
+        - simplified: 计时器
+          pinyin: jìshíqì
+          meaning: Timer
+        - simplified: 容器
+          pinyin: róngqì
+          meaning: Behälter
+      etymology: |
+        Ideogramm. Besteht aus vier 口 (Münder) um 犬 (Hund) in der Mitte. Die ursprüngliche Bedeutung ist ein Hund, der die Geräte im Haus bewacht. Später erweitert zu "Gerät, Werkzeug, Instrument, Organ". Das Zeichen betont die Nützlichkeit eines Gegenstands. Auch in 器官 (Qìguān, "Organ") verwendet.
+
+- type: expression
+  date: "04/04"
+  simplified: 那边
+  traditional: 那邊
+  pinyin: nà biān
+  english: over there / that side / there (in that direction/place)
+  german: dort / drüben / auf der anderen Seite / dort drüben
+  hsk: "3"
+  register: neutral
+  note: |
+    Ein Ortsausdruck, der eine Position oder einen Ort bezeichnet, der vom Sprecher entfernt ist. 那边 setzt sich aus 那 (nà, "dort/jene") und 边 (biān, "Seite/Rand") zusammen.
+
+    **Häufige Verwendungen:**
+    - 那边 als Adverb: "dort drüben" (z. B. 他在那边 — Er ist dort drüben)
+    - 在那边 als lokale Präpositionalphrase: "dort drüben"
+    - 那边 + Substantiv: "dort drüben bei ..." (z. B. 那边的人 — die Leute dort drüben)
+
+    **Funktion im Satz „其他人那边怎么样?“ (Qítā rén nà biān zěnmeyàng?)**
+
+    In diesem Satz fungiert 那边 als **lokale Partikel**, die an 其他人 (qítā rén, "die anderen Leute") angehängt wird. Die Konstruktion ist:
+
+    **Person + 那边 + 怎么样?** = "Wie sieht es bei [Person] (dort drüben) aus?"
+
+    Genauer: 其他人那边 bedeutet wörtlich "die andere Seite der anderen Leute" oder "bei den anderen (dort)". Der Ausdruck erfragt den Zustand, die Situation oder das Befinden der anderen Personen an ihrem Ort. Diese Konstruktion ist im gesprochenen Chinesisch sehr gebräuchlich:
+
+    - 你那边怎么样? (Nǐ nà biān zěnmeyàng?) — Wie sieht es bei dir aus? / Wie läuft's bei dir?
+    - 公司那边呢? (Gōngsī nà biān ne?) — Und bei der Firma (dort)?
+    - 家里那边都好吗? (Jiālǐ nà biān dōu hǎo ma?) — Ist alles in Ordnung bei dir zu Hause?
+
+    **Wichtige Unterschiede:**
+    - 那边 (nà biān) — dort drüben (allgemein, entfernt)
+    - 这边 (zhè biān) — hier drüben (nah beim Sprecher)
+    - 那里 (nà lǐ) — dort (allgemeiner Ortspronomen, weniger Richtungsbetonung)
+    - 那儿 (nàr) — dort (umgangssprachliche Kurzform von 那里)
+
+    **Kulturelle Anmerkung:**
+    Im gesprochenen Chinesisch wird 那边 oft metaphorisch verwendet, um nicht nur einen physischen Ort, sondern auch eine "Seite" einer Situation oder Person zu bezeichnen — ähnlich wie im Deutschen "bei jemandem" im Sinne von "bei jemandem zu Hause", "in jemandes Umgebung" oder "was jemanden betrifft".
+  synonyms:
+    - word: 那里
+      pinyin: nà lǐ
+      meaning: dort (allgemeiner, weniger richtungsbetont)
+    - word: 那儿
+      pinyin: nàr
+      meaning: dort (umgangssprachlich, Kurzform)
+    - word: 对面
+      pinyin: duìmiàn
+      meaning: gegenüber, auf der anderen Seite (direkt gegenüber)
+  antonyms:
+    - word: 这边
+      pinyin: zhè biān
+      meaning: hier drüben
+    - word: 这里
+      pinyin: zhè lǐ
+      meaning: hier
+  examples:
+    - zh: 他在那边等你。
+      pinyin: Tā zài nà biān děng nǐ.
+      english: He is waiting for you over there.
+      de: Er wartet dort drüben auf dich.
+    - zh: 你那边怎么样？一切都好吗？
+      pinyin: Nǐ nà biān zěnmeyàng? Yīqiè dōu hǎo ma?
+      english: How are things on your end? Is everything okay?
+      de: Wie sieht es bei dir aus? Ist alles in Ordnung?
+    - zh: 其他人那边怎么样？他们到了吗？
+      pinyin: Qítā rén nà biān zěnmeyàng? Tāmen dào le ma?
+      english: How are things with the others? Have they arrived?
+      de: Wie sieht es bei den anderen aus? Sind sie angekommen?
+    - zh: 我把书放在那边桌子上了。
+      pinyin: Wǒ bǎ shū fàng zài nà biān zhuōzi shang le.
+      english: I put the book on the table over there.
+      de: Ich habe das Buch auf den Tisch dort drüben gelegt.
+  word_analyses:
+    - type: word
+      simplified: 那
+      traditional: 那
+      pinyin: nà
+      english: that / those (demonstrative pronoun)
+      hsk: "1"
+      characters:
+        - char: 那
+          simplified: 那
+          traditional: 那
+          pinyin: nà
+          hsk: "1"
+          detailed_analysis: false
+          meaning_in_context: jene, dort (Demonstrativpronomen für entfernte Dinge)
+          compounds:
+            - simplified: 那里
+              pinyin: nà lǐ
+              meaning: dort
+            - simplified: 那个
+              pinyin: nà ge
+              meaning: jener / jene / jenes
+            - simplified: 那边
+              pinyin: nà biān
+              meaning: dort drüben
+          etymology: |
+            Demonstrativpronomen. Ursprünglich eine Variante von 奈 (nài). Später wurde es zum Standard-Demonstrativpronomen für "jene/dort" im Gegensatz zu 这 (zhè, "diese/hier").
+    - type: word
+      simplified: 边
+      traditional: 邊
+      pinyin: biān
+      english: side / edge / border / margin
+      hsk: "3"
+      characters:
+        - char: 边
+          simplified: 边
+          traditional: 邊
+          pinyin: biān
+          hsk: "3"
+          detailed_analysis: true
+          meaning_in_context: Seite, Rand, Richtung
+          compounds:
+            - simplified: 旁边
+              pinyin: pángbiān
+              meaning: daneben, nebendran
+            - simplified: 这边
+              pinyin: zhè biān
+              meaning: hier drüben
+            - simplified: 那边
+              pinyin: nà biān
+              meaning: dort drüben
+            - simplified: 左边
+              pinyin: zuǒbiān
+              meaning: linke Seite
+            - simplified: 右边
+              pinyin: yòubiān
+              meaning: rechte Seite
+            - simplified: 海边
+              pinyin: hǎibiān
+              meaning: Strand, Meeresküste
+          etymology: |
+            Phonosemantische Verbindung. Die traditionelle Form 邊 besteht aus dem Radikal 辶 (gehen) und der phonetischen Komponente 臱 (mián). Die ursprüngliche Bedeutung ist "Seite, Rand, Grenze, Kante". Später erweitert zu "Richtung, Stelle". In Lokalisationsausdrücken wie 这边/那边 bezeichnet 边 eine ungefähre Richtung oder einen Bereich.
+
+- type: word
+  date: "04/04"
+  simplified: 深烘
+  traditional: 深烘
+  pinyin: shēn hōng
+  english: dark roast (coffee)
+  german: dunkle Röstung (Kaffee)
+  hsk: "6"
+  register: neutral
+  measure_word: []
+  note: |
+    Ein Begriff aus der Kaffeekultur, der eine dunkle Röstung von Kaffeebohnen bezeichnet. 深烘 ist die Kurzform von 深度烘焙 (shēndù hōngbèi, "tiefe/tiefgehende Röstung").
+
+    **Häufige Ausdrücke:**
+    - 深烘咖啡 (shēn hōng kāfēi) — dunkel gerösteter Kaffee
+    - 深烘豆 (shēn hōng dòu) — dunkel geröstete Bohnen
+    - 中烘 (zhōng hōng) — mittlere Röstung
+    - 浅烘 (qiǎn hōng) — helle Röstung
+
+    **Röstgrade im Überblick:**
+    - 浅烘 (qiǎn hōng) — helle Röstung (Light Roast) — säurebetont, fruchtig
+    - 中烘 (zhōng hōng) — mittlere Röstung (Medium Roast) — ausgewogen
+    - 深烘 (shēn hōng) — dunkle Röstung (Dark Roast) — kräftig, bitter, weniger Säure
+
+    **Kulturelle Anmerkung:**
+    In China hat die Kaffeekultur in den letzten Jahrzehnten stark zugenommen, besonders in Großstädten wie Shanghai, Peking und Shenzhen. Während traditionell Tee dominierte, ist Kaffee besonders bei jungen, urbanen Menschen beliebt. Die Terminologie für Röstgrade (浅烘/中烘/深烘) ist aus dem Englischen/Deutschen übernommen und in Cafés und bei Kaffeeliebhabern allgemein verständlich. Viele chinesische Kaffeebrands bieten eigene Röstprofile an.
+
+    **Wortbildung:**
+    深烘 ist eine Abkürzung von 深度烘焙 (shēndù hōngbèi):
+    - 深度 (shēndù) — Tiefe, tiefgehend
+    - 烘焙 (hōngbèi) — rösten, backen (auch für Brot, Kekse)
+  synonyms:
+    - word: 深度烘焙
+      pinyin: shēndù hōngbèi
+      meaning: dunkle Röstung (vollständiger Begriff)
+    - word: 深焙
+      pinyin: shēn bèi
+      meaning: dunkle Röstung (kürzere Variante, seltener)
+    - word: 重烘
+      pinyin: zhòng hōng
+      meaning: schwere/dunkle Röstung (seltener)
+  antonyms:
+    - word: 浅烘
+      pinyin: qiǎn hōng
+      meaning: helle Röstung
+    - word: 中烘
+      pinyin: zhōng hōng
+      meaning: mittlere Röstung
+  examples:
+    - zh: 我比较喜欢深烘咖啡，味道更浓郁。
+      pinyin: Wǒ bǐjiào xǐhuān shēn hōng kāfēi, wèidào gèng nóngyù.
+      english: I prefer dark roast coffee; the flavor is richer.
+      de: Ich mag dunklen Röstkaffee lieber; der Geschmack ist intensiver.
+    - zh: 深烘豆的苦味更明显。
+      pinyin: Shēn hōng dòu de kǔwèi gèng míngxiǎn.
+      english: Dark roast beans have a more pronounced bitterness.
+      de: Dunkel geröstete Bohnen haben eine deutlichere Bitterkeit.
+    - zh: 这家咖啡店专门卖深烘咖啡。
+      pinyin: Zhè jiā kāfēi diàn zhuānmén mài shēn hōng kāfēi.
+      english: This coffee shop specializes in dark roast coffee.
+      de: Dieses Café ist auf dunklen Röstkaffee spezialisiert.
+    - zh: 深烘咖啡的咖啡因含量其实比浅烘低。
+      pinyin: Shēn hōng kāfēi de kāfēiyīn hánliàng qíshí bǐ qiǎn hōng dī.
+      english: Dark roast coffee actually has less caffeine than light roast.
+      de: Dunkler Röstkaffee hat tatsächlich weniger Koffein als heller Röstkaffee.
+  characters:
+    - char: 深
+      simplified: 深
+      traditional: 深
+      pinyin: shēn
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: tief, dunkel (von Farbe)
+      compounds:
+        - simplified: 深度
+          pinyin: shēndù
+          meaning: Tiefe
+        - simplified: 深刻
+          pinyin: shēnkè
+          meaning: tiefgründig
+        - simplified: 深夜
+          pinyin: shēnyè
+          meaning: tiefe Nacht
+        - simplified: 深烘
+          pinyin: shēn hōng
+          meaning: dunkle Röstung
+      etymology: |
+        Phonosemantische Verbindung. Besteht aus dem Radikal 氵 (Wasser) und der phonetischen Komponente 罙 (shēn). Die ursprüngliche Bedeutung ist "tief (wie Wasser)". Später erweitert zu "tief, dunkel (von Farbe), tiefgehend, spät (von Zeit)".
+    - char: 烘
+      simplified: 烘
+      traditional: 烘
+      pinyin: hōng
+      hsk: "6"
+      detailed_analysis: true
+      meaning_in_context: rösten, backen, trocknen
+      compounds:
+        - simplified: 烘焙
+          pinyin: hōngbèi
+          meaning: rösten, backen
+        - simplified: 烘干
+          pinyin: hōnggān
+          meaning: trocknen (durch Wärme)
+        - simplified: 烘烤
+          pinyin: hōngkǎo
+          meaning: rösten, backen, grillen
+        - simplified: 深烘
+          pinyin: shēn hōng
+          meaning: dunkle Röstung
+      etymology: |
+        Phonosemantische Verbindung. Besteht aus dem Radikal 火 (Feuer) und der phonetischen Komponente 共 (gòng, "gemeinsam"). Die ursprüngliche Bedeutung ist "über Feuer rösten, backen, wärmen". Der Feuer-Radikal weist auf die Hitzeeinwirkung hin.
+
+- type: word
+  date: "04/04"
+  simplified: 浓
+  traditional: 濃
+  pinyin: nóng
+  english: thick / dense / strong / rich / concentrated (of liquids, colors, flavors, emotions)
+  german: dickflüssig / stark / kräftig / konzentriert (bei Flüssigkeiten, Farben, Geschmack, Gefühlen)
+  hsk: "5"
+  register: neutral
+  measure_word: []
+  note: |
+    Ein Adjektiv, das eine hohe Konzentration oder Intensität beschreibt – bei Flüssigkeiten (Tee, Suppe, Soße), Farben, Gerüchen, Geschmack, Make-up, Nebel, Akzenten und sogar Emotionen (z. B. 浓情 – tiefe Zuneigung).
+
+    **Häufige Ausdrücke:**
+    - 浓茶 (nóng chá) — starker Tee
+    - 浓汤 (nóng tāng) — dicke/kräftige Suppe
+    - 浓咖啡 (nóng kāfēi) — starker Kaffee
+    - 浓烟 (nóng yān) — dicker Rauch
+    - 浓雾 (nóng wù) — dichter Nebel
+    - 浓妆 (nóng zhuāng) — starkes / dickes Make-up
+    - 浓墨重彩 (nóng mò zhòng cǎi) — mit dicken Farben (auch fig. für übertriebene Darstellung)
+
+    **Verwendung mit 深烘 (dunkle Röstung):**
+    Bei Kaffee beschreibt 浓 die Stärke/Intensität des Geschmacks oder der Flüssigkeit, während 深烘 den Röstgrad der Bohnen angibt. Dunkel gerösteter Kaffee (深烘) ist typischerweise 浓 (stark/kräftig) im Geschmack.
+
+    **Wichtige Unterschiede zu ähnlichen Wörtern:**
+    - 浓 (nóng) — stark, dickflüssig, konzentriert (Geschmack, Farbe, Konsistenz)
+    - 稠 (chóu) — dickflüssig (eher physikalische Viskosität, z. B. Brei)
+    - 厚 (hòu) — dick (Schicht, Blatt, auch fig. für Gastfreundschaft)
+    - 烈 (liè) — stark, heftig (Alkohol, Feuer, Persönlichkeit)
+    - 重 (zhòng) — schwer, stark (Gewicht, auch Geschmack im Sinne von "schwer/üppig")
+    - 浓烈 (nóngliè) — stark und intensiv (verstärkte Form)
+
+    **Kulturelle Anmerkung:**
+    In der chinesischen Küche und Teekultur ist 浓 ein wichtiger Geschmacksindikator. Starker Tee (浓茶) wird oft als belebend angesehen, während manche Menschen empfindlichen Magen haben und 淡茶 (dàn chá, "schwacher Tee") bevorzugen. Das Gegenteil von 浓 ist 淡 (dàn, "schwach, dünn, mild").
+  synonyms:
+    - word: 稠
+      pinyin: chóu
+      meaning: dickflüssig (physikalische Viskosität, z. B. Brei, Porridge)
+    - word: 浓烈
+      pinyin: nóngliè
+      meaning: stark und intensiv (verstärkte Form)
+    - word: 浓厚
+      pinyin: nónghòu
+      meaning: dick, stark, tief (auch für Interesse, Atmosphäre)
+  antonyms:
+    - word: 淡
+      pinyin: dàn
+      meaning: schwach, dünn, mild (Geschmack, Farbe, Tee)
+    - word: 稀
+      pinyin: xī
+      meaning: dünnflüssig, wässrig
+    - word: 浅
+      pinyin: qiǎn
+      meaning: flach, hell (Farbe)
+  examples:
+    - zh: 这杯茶太浓了，能加点水吗？
+      pinyin: Zhè bēi chá tài nóng le, néng jiā diǎn shuǐ ma?
+      english: This tea is too strong. Can you add some water?
+      de: Dieser Tee ist zu stark. Kannst du etwas Wasser hinzufügen?
+    - zh: 深烘咖啡的味道通常比较浓。
+      pinyin: Shēn hōng kāfēi de wèidào tōngcháng bǐjiào nóng.
+      english: Dark roast coffee usually has a stronger flavor.
+      de: Dunkel gerösteter Kaffee hat normalerweise einen stärkeren Geschmack.
+    - zh: 早上喝一杯浓咖啡可以提神。
+      pinyin: Zǎoshang hē yī bēi nóng kāfēi kěyǐ tíshén.
+      english: Drinking a cup of strong coffee in the morning can wake you up.
+      de: Eine Tasse starken Kaffee am Morgen kann dich wach machen.
+    - zh: 今天的雾很浓，开车要小心。
+      pinyin: Jīntiān de wù hěn nóng, kāichē yào xiǎoxīn.
+      english: The fog is very thick today. Be careful driving.
+      de: Der Nebel ist heute sehr dick. Sei vorsichtig beim Fahren.
+    - zh: 她化了浓妆，看起来成熟了很多。
+      pinyin: Tā huàle nóng zhuāng, kàn qǐlái chéngshú le hěnduō.
+      english: She put on heavy makeup and looks much more mature.
+      de: Sie hat sich stark geschminkt und sieht viel reifer aus.
+  characters:
+    - char: 浓
+      simplified: 浓
+      traditional: 濃
+      pinyin: nóng
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: dickflüssig, stark, konzentriert
+      compounds:
+        - simplified: 浓茶
+          pinyin: nóng chá
+          meaning: starker Tee
+        - simplified: 浓汤
+          pinyin: nóng tāng
+          meaning: dicke Suppe, kräftige Brühe
+        - simplified: 浓度
+          pinyin: nóngdù
+          meaning: Konzentration (chemisch, in Flüssigkeiten)
+        - simplified: 浓厚
+          pinyin: nónghòu
+          meaning: dick, stark, tief (auch für Interesse)
+        - simplified: 浓烟
+          pinyin: nóng yān
+          meaning: dichter Rauch
+        - simplified: 浓雾
+          pinyin: nóng wù
+          meaning: dichter Nebel
+        - simplified: 浓郁
+          pinyin: nóngyù
+          meaning: reichhaltig, intensiv (Duft, Geschmack)
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 濃 besteht aus dem Radikal 氵 (Wasser, als 水) und der phonetischen Komponente 農 (nóng, "Bauer, Landwirtschaft"). Die ursprüngliche Bedeutung bezieht sich auf eine "dicke Flüssigkeit" oder eine "hohe Konzentration von etwas in Wasser". Später erweitert zu "stark (von Geschmack, Farbe, Geruch, Emotionen)". Der Radikal 氵 weist auf den Zusammenhang mit Flüssigkeiten hin.
+
+- type: word
+  date: "04/04"
+  simplified: 有空
+  traditional: 有空
+  pinyin: yǒu kòng
+  english: to have free time / to be available / to be free
+  german: Zeit haben / frei sein / verfügbar sein
+  hsk: "4"
+  register: spoken_neutral
+  measure_word: []
+  note: |
+    Ein Verb (Verbalphrase), das beschreibt, dass jemand freie Zeit oder Verfügbarkeit für eine Aktivität hat. 有空 ist die gebräuchlichste und natürlichste Art im gesprochenen Chinesisch zu fragen, ob jemand Zeit hat.
+
+    **Struktur:**
+    - 有空 als Zustandsverb: 我有空 (wǒ yǒu kòng) — Ich habe Zeit / Ich bin frei
+    - Verneinung: 没空 (méi kòng) — keine Zeit haben
+    - Frage: 你有空吗? (nǐ yǒu kòng ma?) — Hast du Zeit?
+
+    **Häufige Ausdrücke:**
+    - 有空吗? (yǒu kòng ma?) — Hast du Zeit?
+    - 我没空 (wǒ méi kòng) — Ich habe keine Zeit
+    - 什么时候有空? (shénme shíhou yǒu kòng?) — Wann hast du Zeit?
+    - 有空再说 (yǒu kòng zài shuō) — Wir reden, wenn du Zeit hast (d. h. später/nicht jetzt)
+
+    **Wichtige Unterschiede:**
+    - 有空 (yǒu kòng) — Zeit haben / frei sein (gesprochen, gebräuchlich)
+    - 有时间 (yǒu shíjiān) — Zeit haben (etwas formeller, allgemeiner)
+    - 空闲 (kòngxián) — frei, unbesetzt (eher adjektivisch, z. B. 空闲时间)
+
+    **Kulturelle Anmerkung:**
+    有空 ist eine Abkürzung von 有空闲时间 (yǒu kòngxián shíjiān, "freie/leere Zeit haben"). 空 (kòng) bedeutet hier "leer, frei, ungenutzt". Die Phrase wird im Alltag ständig verwendet – von der Terminplanung mit Freunden bis zur Terminabsprache mit Kollegen. Die höflichere Version für formelle Anlässe wäre 您什么时候方便? (Nín shénme shíhou fāngbiàn? — "Wann ist es Ihnen recht/bequem?").
+  synonyms:
+    - word: 有时间
+      pinyin: yǒu shíjiān
+      meaning: Zeit haben (etwas formeller)
+    - word: 得空
+      pinyin: dé kòng
+      meaning: Zeit finden, frei werden (regional/umgangssprachlich)
+    - word: 有空闲
+      pinyin: yǒu kòngxián
+      meaning: frei haben, unbesetzt sein
+  antonyms:
+    - word: 没空
+      pinyin: méi kòng
+      meaning: keine Zeit haben
+    - word: 忙着
+      pinyin: mángzhe
+      meaning: beschäftigt sein
+  examples:
+    - zh: 你明天有空吗？我们一起吃午饭吧。
+      pinyin: Nǐ míngtiān yǒu kòng ma? Wǒmen yīqǐ chī wǔfàn ba.
+      english: Are you free tomorrow? Let's have lunch together.
+      de: Hast du morgen Zeit? Lass uns zusammen zu Mittag essen.
+    - zh: 抱歉，我今天没空，改天吧。
+      pinyin: Bàoqiàn, wǒ jīntiān méi kòng, gǎitiān ba.
+      english: Sorry, I don't have time today. Let's do it another day.
+      de: Tut mir leid, ich habe heute keine Zeit. Machen wir es ein andermal.
+    - zh: 你什么时候有空？我想跟你聊聊。
+      pinyin: Nǐ shénme shíhou yǒu kòng? Wǒ xiǎng gēn nǐ liáo liáo.
+      english: When do you have time? I'd like to talk with you.
+      de: Wann hast du Zeit? Ich möchte mit dir reden.
+    - zh: 有空常联系！
+      pinyin: Yǒu kòng cháng liánxì!
+      english: Keep in touch when you have time!
+      de: Melde dich, wenn du Zeit hast!
+  characters:
+    - char: 有
+      simplified: 有
+      traditional: 有
+      pinyin: yǒu
+      hsk: "1"
+      detailed_analysis: false
+      meaning_in_context: haben, besitzen, es gibt
+      compounds:
+        - simplified: 没有
+          pinyin: méiyǒu
+          meaning: nicht haben, es gibt nicht
+        - simplified: 有空
+          pinyin: yǒu kòng
+          meaning: Zeit haben
+        - simplified: 有时
+          pinyin: yǒushí
+          meaning: manchmal
+      etymology: |
+        Ideogramm. Die Orakelknochenschrift zeigte eine Hand (又) mit einem Stück Fleisch (月). Die ursprüngliche Bedeutung ist "haben, besitzen". Später erweitert zu "es gibt, existieren".
+    - char: 空
+      simplified: 空
+      traditional: 空
+      pinyin: kòng
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: leer, frei, ungenutzt (von Zeit)
+      compounds:
+        - simplified: 有空
+          pinyin: yǒu kòng
+          meaning: Zeit haben, frei sein
+        - simplified: 没空
+          pinyin: méi kòng
+          meaning: keine Zeit haben
+        - simplified: 空闲
+          pinyin: kòngxián
+          meaning: frei, unbesetzt, Freizeit
+        - simplified: 空白
+          pinyin: kòngbái
+          meaning: leer, Lücke, Leerraum
+      etymology: |
+        Phonosemantische Verbindung. Besteht aus dem Radikal 穴 (Höhle, Loch) und der phonetischen Komponente 工 (gōng, "Arbeit"). Die ursprüngliche Bedeutung ist "leer, hohl". Ausgesprochen als kōng bedeutet es "leer, hohl, Luft". Ausgesprochen als kòng (4. Ton) bedeutet es "freier Raum, ungenutzte Zeit, eine Lücke lassen" – die Bedeutung, die in 有空 verwendet wird. Die Aussprache kòng spezifiziert die Bedeutung von "leerer Raum/Zeit".
+
+- type: word
+  date: "04/04"
+  simplified: 误会
+  traditional: 誤會
+  pinyin: wùhuì
+  english: misunderstanding / to misunderstand
+  german: Missverständnis / missverstehen
+  hsk: "5"
+  register: neutral
+  measure_word:
+    - simplified: 个
+      pinyin: gè
+      meaning: allgemeiner Zähler für Missverständnisse
+    - simplified: 场
+      pinyin: chǎng
+      meaning: Zähler für Ereignisse/Vorfälle (ein Missverständnis als Vorfall)
+  note: |
+    Ein Wort, das sowohl als Nomen ("Missverständnis") als auch als Verb ("missverstehen") verwendet werden kann. 误会 ist der gebräuchlichste und allgemeinste Begriff für Missverständnisse im zwischenmenschlichen Bereich – von kleinen Alltagsmissverständnissen bis zu ernsteren Konflikten.
+
+    **Häufige Ausdrücke:**
+    - 产生误会 (chǎnshēng wùhuì) — ein Missverständnis entsteht / verursachen
+    - 消除误会 (xiāochú wùhuì) — ein Missverständnis ausräumen / beseitigen
+    - 误会一场 (wùhuì yī chǎng) — ein großes Missverständnis (wörtl. "eine Szene/ein Vorfall von Missverständnis")
+    - 别误会 (bié wùhuì) — Versteh mich nicht falsch! / Kein Missverständnis bitte!
+    - 纯属误会 (chún shǔ wùhuì) — es handelt sich um ein reines Missverständnis
+
+    **Wichtige Unterschiede:**
+    - 误会 (wùhuì) — Missverständnis (zwischen Personen, Alltag, am gebräuchlichsten)
+    - 误解 (wùjiě) — Missverständnis / Fehlinterpretation (formeller, oft für Konzepte/Ideen)
+    - 歧义 (qíyì) — Ambiguität, Mehrdeutigkeit (sprachliche Unklarheit)
+
+    **Kulturelle Anmerkung:**
+    误会 setzt sich aus 误 (wù, "falsch, irrtümlich") und 会 (huì, "verstehen, treffen, sich versammeln") zusammen. Wörtlich: "falsch verstehen / sich irrtümlich treffen". In der chinesischen Kultur, die großen Wert auf Harmonie (和谐, héxié) legt, ist das Ausräumen von Missverständnissen wichtig, um Beziehungen zu bewahren. Die Redewendung 冤家宜解不宜结 (yuānjia yí jiě bù yí jié, "Feindschaft sollte man lösen, nicht weiterführen") gilt auch für Missverständnisse.
+
+    **Typische Konstruktionen:**
+    - 误会 + 了 (Verb + 了) — "habe missverstanden" (z. B. 我误会了 – Ich habe es missverstanden)
+    - 对...有误会 — ein Missverständnis gegenüber jemandem/etwas haben
+    - 误会 + dass-Satz (indirekt, mit 以为 – yǐwéi, "fälschlich denken")
+  synonyms:
+    - word: 误解
+      pinyin: wùjiě
+      meaning: Missverständnis, Fehlinterpretation (formeller, für Ideen/Konzepte)
+    - word: 曲解
+      pinyin: qūjiě
+      meaning: verdrehen, falsch auslegen (bewusst oder unbewusst)
+  antonyms:
+    - word: 理解
+      pinyin: lǐjiě
+      meaning: verstehen, Verständnis
+    - word: 明白
+      pinyin: míngbai
+      meaning: klar verstehen, begreifen
+  examples:
+    - zh: 这是一个误会，我不是那个意思。
+      pinyin: Zhè shì yī ge wùhuì, wǒ bùshì nàge yìsi.
+      english: This is a misunderstanding. That's not what I meant.
+      de: Das ist ein Missverständnis. Das habe ich nicht so gemeint.
+    - zh: 别误会，我只是想帮你。
+      pinyin: Bié wùhuì, wǒ zhǐshì xiǎng bāng nǐ.
+      english: Don't get me wrong. I just want to help you.
+      de: Versteh mich nicht falsch. Ich will dir nur helfen.
+    - zh: 他们之间有一些误会，需要好好谈谈。
+      pinyin: Tāmen zhī jiān yǒu yīxiē wùhuì, xūyào hǎohǎo tán tan.
+      english: There are some misunderstandings between them; they need to have a good talk.
+      de: Zwischen ihnen gibt es einige Missverständnisse; sie müssen sich gut unterhalten.
+    - zh: 对不起，我误会你了。
+      pinyin: Duìbuqǐ, wǒ wùhuì nǐ le.
+      english: Sorry, I misunderstood you.
+      de: Es tut mir leid, ich habe dich missverstanden.
+    - zh: 这个误会终于解开了。
+      pinyin: Zhège wùhuì zhōngyú jiěkāi le.
+      english: This misunderstanding has finally been cleared up.
+      de: Dieses Missverständnis ist endlich ausgeräumt.
+  characters:
+    - char: 误
+      simplified: 误
+      traditional: 誤
+      pinyin: wù
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: falsch, irrtümlich, Fehler
+      compounds:
+        - simplified: 错误
+          pinyin: cuòwù
+          meaning: Fehler, Irrtum
+        - simplified: 误会
+          pinyin: wùhuì
+          meaning: Missverständnis, missverstehen
+        - simplified: 误解
+          pinyin: wùjiě
+          meaning: Missverständnis, Fehlinterpretation
+        - simplified: 延误
+          pinyin: yánwù
+          meaning: verzögern, Verspätung
+        - simplified: 失误
+          pinyin: shīwù
+          meaning: Fehler, Patzer
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 誤 besteht aus dem Radikal 言 (Sprache, Worte) und der phonetischen Komponente 吳 (wú, ein Staat im alten China). Die ursprüngliche Bedeutung ist "falsche Worte sagen, irren". Später erweitert zu "falsch, irrtümlich, einen Fehler machen".
+    - char: 会
+      simplified: 会
+      traditional: 會
+      pinyin: huì
+      hsk: "1"
+      detailed_analysis: true
+      meaning_in_context: verstehen, können, sich treffen
+      compounds:
+        - simplified: 误会
+          pinyin: wùhuì
+          meaning: Missverständnis, missverstehen
+        - simplified: 会议
+          pinyin: huìyì
+          meaning: Besprechung, Konferenz (wörtl. "sich treffen und besprechen")
+        - simplified: 社会
+          pinyin: shèhuì
+          meaning: Gesellschaft (wörtl. "Versammlung der Leute")
+        - simplified: 机会
+          pinyin: jīhuì
+          meaning: Gelegenheit, Chance
+        - simplified: 理解
+          pinyin: lǐjiě
+          meaning: verstehen (mit 理, "Vernunft")
+      etymology: |
+        Ideogramm. Die traditionelle Form 會 zeigt ein Dach (亼) über einer 曾-artigen Struktur, die ursprünglich "sich versammeln" bedeutete. Die ursprüngliche Bedeutung ist "sich treffen, versammeln". Später erweitert zu "können, fähig sein" (als Zusammenkunft von Fähigkeiten) und "verstehen" (als Zusammenkunft von Gedanken). In 误会 kombiniert mit 误 ("falsch") ergibt sich "falsch verstehen".
+
+- type: expression
+  date: "04/04"
+  simplified: 待办事项清单
+  traditional: 待辦事項清單
+  pinyin: dàibàn shìxiàng qīngdān
+  english: to-do list / task list
+  german: To-Do-Liste / Aufgabenliste
+  hsk: "6"
+  register: neutral
+  note: |
+    Eine Nominalphrase, die eine Liste von noch zu erledigenden Aufgaben oder Dingen bezeichnet. 待办事项清单 ist die formelle und vollständige Bezeichnung für eine To-Do-Liste.
+
+    **Kürzere / gebräuchlichere Varianten:**
+    - 待办清单 (dàibàn qīngdān) — To-Do-Liste (kürzer, sehr gebräuchlich)
+    - 任务清单 (rènwu qīngdān) — Aufgabenliste
+    - 日程表 (rìchéngbiǎo) — Zeitplan, Tagesplan (kann auch To-Dos enthalten)
+    - 备忘录 (bèiwànglù) — Merkliste, Notizblock (wörtl. "nicht-vergessen-Notiz")
+
+    **Häufige Ausdrücke:**
+    - 列一份待办事项清单 (liè yī fèn dàibàn shìxiàng qīngdān) — eine To-Do-Liste erstellen / aufstellen
+    - 检查待办清单 (jiǎnchá dàibàn qīngdān) — die To-Do-Liste überprüfen
+    - 完成待办事项 (wánchéng dàibàn shìxiàng) — Aufgaben von der Liste erledigen
+    - 从清单上划掉 (cóng qīngdān shang huádiào) — von der Liste streichen
+
+    **Wortbildung:**
+    - 待办 (dàibàn) — "noch zu erledigen" (wörtl. "erwarten zu tun")
+    - 事项 (shìxiàng) — "Angelegenheit, Punkt, Posten"
+    - 清单 (qīngdān) — "Liste, Aufstellung" (wörtl. "klare Liste")
+
+    **Kulturelle Anmerkung:**
+    Im modernen chinesischen Alltag (besonders im Arbeitsumfeld) sind To-Do-Listen sehr verbreitet. Viele Menschen nutzen Apps wie 钉钉 (Dīngdīng, chinesisches Slack/Teams), WeChat oder spezielle To-Do-Apps. Die kürzere Version 待办清单 ist im täglichen Sprachgebrauch viel häufiger als die vollständige Form. Im Gespräch sagt man oft einfach 我今天的待办 (wǒ jīntiān de dàibàn) – "meine Aufgaben für heute".
+  synonyms:
+    - word: 待办清单
+      pinyin: dàibàn qīngdān
+      meaning: To-Do-Liste (kürzere, gebräuchlichere Form)
+    - word: 任务清单
+      pinyin: rènwu qīngdān
+      meaning: Aufgabenliste
+    - word: 日程表
+      pinyin: rìchéngbiǎo
+      meaning: Zeitplan, Tagesplan
+    - word: 备忘录
+      pinyin: bèiwànglù
+      meaning: Merkliste, Notizblock
+  antonyms: []
+  examples:
+    - zh: 每天早上我都会列一份待办事项清单。
+      pinyin: Měitiān zǎoshang wǒ dōu huì liè yī fèn dàibàn shìxiàng qīngdān.
+      english: Every morning I make a to-do list.
+      de: Jeden Morgen erstelle ich eine To-Do-Liste.
+    - zh: 我的待办清单上还有三件事没做完。
+      pinyin: Wǒ de dàibàn qīngdān shang hái yǒu sān jiàn shì méi zuò wán.
+      english: There are still three things on my to-do list that I haven't finished.
+      de: Auf meiner To-Do-Liste stehen noch drei Dinge, die ich nicht erledigt habe.
+    - zh: 完成一项任务后，就从清单上划掉它。
+      pinyin: Wánchéng yī xiàng rènwu hòu, jiù cóng qīngdān shang huádiào tā.
+      english: After completing a task, cross it off the list.
+      de: Nachdem du eine Aufgabe erledigt hast, streiche sie von der Liste.
+    - zh: 这个App可以帮助你管理待办事项清单。
+      pinyin: Zhège App kěyǐ bāngzhù nǐ guǎnlǐ dàibàn shìxiàng qīngdān.
+      english: This app can help you manage your to-do list.
+      de: Diese App kann dir helfen, deine To-Do-Liste zu verwalten.
+  word_analyses:
+    - type: word
+      simplified: 待办
+      traditional: 待辦
+      pinyin: dàibàn
+      english: to be done / pending
+      hsk: "5"
+      characters:
+        - char: 待
+          simplified: 待
+          traditional: 待
+          pinyin: dài
+          hsk: "4"
+          detailed_analysis: true
+          meaning_in_context: erwarten, warten auf, behandeln
+          compounds:
+            - simplified: 等待
+              pinyin: děngdài
+              meaning: warten, abwarten
+            - simplified: 对待
+              pinyin: duìdài
+              meaning: behandeln, umgehen mit
+            - simplified: 待办
+              pinyin: dàibàn
+              meaning: noch zu erledigen
+            - simplified: 招待
+              pinyin: zhāodài
+              meaning: bewirten, empfangen
+          etymology: |
+            Phonosemantische Verbindung. Besteht aus dem Radikal 彳 (Schritt) und der phonetischen Komponente 寺 (sì, "Tempel"). Die ursprüngliche Bedeutung ist "warten, erwarten". Später erweitert zu "behandeln, bewirten".
+        - char: 办
+          simplified: 办
+          traditional: 辦
+          pinyin: bàn
+          hsk: "3"
+          detailed_analysis: false
+          meaning_in_context: erledigen, tun, handeln
+          compounds:
+            - simplified: 办法
+              pinyin: bànfǎ
+              meaning: Weg, Methode, Lösung
+            - simplified: 办理
+              pinyin: bànlǐ
+              meaning: erledigen, bearbeiten
+            - simplified: 办公室
+              pinyin: bàngōngshì
+              meaning: Büro
+            - simplified: 待办
+              pinyin: dàibàn
+              meaning: noch zu erledigen
+          etymology: |
+            Phonosemantische Verbindung. Die traditionelle Form 辦 besteht aus dem Radikal 辛 (Messer, Verbrechen) und der phonetischen Komponente 辡 (biàn). Die ursprüngliche Bedeutung ist "einen Fall bearbeiten, handeln". Später erweitert zu "erledigen, tun, verwalten".
+    - type: word
+      simplified: 事项
+      traditional: 事項
+      pinyin: shìxiàng
+      english: item, matter, point (in a list)
+      hsk: "5"
+      characters:
+        - char: 事
+          simplified: 事
+          traditional: 事
+          pinyin: shì
+          hsk: "2"
+          detailed_analysis: false
+          meaning_in_context: Angelegenheit, Sache
+          compounds:
+            - simplified: 事情
+              pinyin: shìqing
+              meaning: Sache, Angelegenheit
+            - simplified: 工作
+              pinyin: gōngzuò
+              meaning: Arbeit, Aufgabe
+            - simplified: 事项
+              pinyin: shìxiàng
+              meaning: Punkt, Posten
+          etymology: |
+            Phonosemantische Verbindung. Die ursprüngliche Bedeutung ist "Angelegenheit, Amt, dienen".
+        - char: 项
+          simplified: 项
+          traditional: 項
+          pinyin: xiàng
+          hsk: "4"
+          detailed_analysis: true
+          meaning_in_context: Punkt, Posten, Position (in einer Liste)
+          compounds:
+            - simplified: 项目
+              pinyin: xiàngmù
+              meaning: Projekt, Punkt
+            - simplified: 事项
+              pinyin: shìxiàng
+              meaning: Punkt, Posten
+            - simplified: 选项
+              pinyin: xuǎnxiàng
+              meaning: Option, Auswahl
+            - simplified: 用项
+              pinyin: yòngxiàng
+              meaning: Ausgabenposten
+          etymology: |
+            Phonosemantische Verbindung. Die traditionelle Form 項 besteht aus dem Radikal 頁 (Kopf) und der phonetischen Komponente 工 (gōng, "Arbeit"). Die ursprüngliche Bedeutung ist "Nacken" (der hintere Teil des Kopfes). Von der Vorstellung eines hervorstehenden Teils entwickelte sich die Bedeutung "Posten, Punkt, Kategorie" – etwas, das in einer Liste "hervorsteht".
+    - type: word
+      simplified: 清单
+      traditional: 清單
+      pinyin: qīngdān
+      english: list, inventory, statement
+      hsk: "6"
+      characters:
+        - char: 清
+          simplified: 清
+          traditional: 清
+          pinyin: qīng
+          hsk: "4"
+          detailed_analysis: true
+          meaning_in_context: klar, deutlich, übersichtlich
+          compounds:
+            - simplified: 清楚
+              pinyin: qīngchu
+              meaning: klar, deutlich
+            - simplified: 清单
+              pinyin: qīngdān
+              meaning: Liste, Aufstellung
+            - simplified: 清洁
+              pinyin: qīngjié
+              meaning: sauber, reinigen
+            - simplified: 清洗
+              pinyin: qīngxǐ
+              meaning: reinigen, säubern
+          etymology: |
+            Phonosemantische Verbindung. Besteht aus dem Radikal 氵 (Wasser) und der phonetischen Komponente 青 (qīng, "grün/blau, rein"). Die ursprüngliche Bedeutung ist "klares Wasser". Später erweitert zu "klar, rein, übersichtlich, sauber".
+        - char: 单
+          simplified: 单
+          traditional: 單
+          pinyin: dān
+          hsk: "4"
+          detailed_analysis: true
+          meaning_in_context: Liste, Zettel, Formular
+          compounds:
+            - simplified: 清单
+              pinyin: qīngdān
+              meaning: Liste, Aufstellung
+            - simplified: 菜单
+              pinyin: càidān
+              meaning: Speisekarte
+            - simplified: 名单
+              pinyin: míngdān
+              meaning: Namensliste
+            - simplified: 账单
+              pinyin: zhàngdān
+              meaning: Rechnung, Kontoauszug
+          etymology: |
+            Ideogramm. Die traditionelle Form 單 zeigt ein Jagdnetz oder eine Waffe. Die ursprüngliche Bedeutung ist "einzeln, allein". Von der Vorstellung eines einzelnen Blattes Papier entwickelte sich die Bedeutung "Liste, Zettel, Formular". Heute wird 单 in vielen zusammengesetzten Wörtern für verschiedene Arten von Listen und Formularen verwendet.
+
+- type: word
+  date: "04/04"
+  simplified: 贬低
+  traditional: 貶低
+  pinyin: biǎndī
+  english: to belittle / to disparage / to depreciate / to speak down of
+  german: abwerten / herabsetzen / schlechtmachen / geringschätzen
+  hsk: "6"
+  register: neutral
+  measure_word: []
+  note: |
+    Ein Verb, das beschreibt, jemanden oder etwas herabzusetzen, die Bedeutung oder den Wert einer Person oder Sache absichtlich zu verringern. 贬低 wird im zwischenmenschlichen Kontext verwendet, wenn jemand die Fähigkeiten, Leistungen oder den Wert einer anderen Person kleinredet.
+
+    **Häufige Ausdrücke:**
+    - 贬低别人 (biǎndī biérén) — andere herabsetzen / schlechtmachen
+    - 贬低自己 (biǎndī zìjǐ) — sich selbst herabsetzen (aus Bescheidenheit oder Minderwertigkeit)
+    - 贬低他人的成就 (biǎndī tārén de chéngjiù) — die Leistungen anderer schmälern
+    - 故意贬低 (gùyì biǎndī) — absichtlich herabsetzen
+    - 公开贬低 (gōngkāi biǎndī) — öffentlich herabsetzen / diffamieren
+
+    **Wichtige Unterschiede zu ähnlichen Wörtern:**
+    - 贬低 (biǎndī) — herabsetzen, schlechtmachen (Personen, Leistungen, Wert)
+    - 贬值 (biǎnzhí) — abwerten (Währung, Vermögenswerte – wirtschaftlich)
+    - 贬损 (biǎnsǔn) — verunglimpfen, diffamieren (stärker, oft öffentlich)
+    - 轻视 (qīngshì) — geringschätzen, verachten (Einstellung/Haltung)
+    - 小看 (xiǎokàn) — unterschätzen, gering schätzen (umgangssprachlich)
+
+    **Kulturelle Anmerkung:**
+    贬低 setzt sich aus 贬 (biǎn, "herabsetzen, tadeln") und 低 (dī, "niedrig") zusammen. Wörtlich: "niedrig machen / niedrig bewerten". In der chinesischen Kultur, die Bescheidenheit (谦虚, qiānxū) schätzt, ist es wichtig, andere nicht herabzusetzen. Das Herabsetzen anderer wird als Zeichen von mangelnder Erziehung (没教养, méi jiàoyǎng) angesehen. Konfuzianische Werte betonen Respekt gegenüber anderen und das Vermeiden von übermäßiger Selbstlob, aber auch das Unterlassen von Herabsetzung anderer.
+  synonyms:
+    - word: 贬损
+      pinyin: biǎnsǔn
+      meaning: verunglimpfen, diffamieren, herabsetzen (stärker)
+    - word: 轻视
+      pinyin: qīngshì
+      meaning: geringschätzen, verachten (eher Einstellung)
+    - word: 小看
+      pinyin: xiǎokàn
+      meaning: unterschätzen, gering schätzen (umgangssprachlich)
+    - word: 瞧不起
+      pinyin: qiáo bu qǐ
+      meaning: verachten, nichts halten von (umgangssprachlich)
+  antonyms:
+    - word: 赞扬
+      pinyin: zànyáng
+      meaning: loben, preisen
+    - word: 尊重
+      pinyin: zūnzhòng
+      meaning: respektieren, achten
+    - word: 抬高
+      pinyin: táigāo
+      meaning: erhöhen, hochschätzen
+    - word: 推崇
+      pinyin: tuīchóng
+      meaning: hochschätzen, verehren
+  examples:
+    - zh: 他总喜欢贬低别人来抬高自己。
+      pinyin: Tā zǒng xǐhuān biǎndī biérén lái táigāo zìjǐ.
+      english: He always likes to belittle others to elevate himself.
+      de: Er setzt immer andere herab, um sich selbst zu erhöhen.
+    - zh: 不要因为嫉妒而贬低同事的成就。
+      pinyin: Bùyào yīnwèi jídù ér biǎndī tóngshì de chéngjiù.
+      english: Don't belittle your colleagues' achievements out of jealousy.
+      de: Setze nicht aus Eifersucht die Leistungen deiner Kollegen herab.
+    - zh: 他在会议上公开贬低我的建议。
+      pinyin: Tā zài huìyì shang gōngkāi biǎndī wǒ de jiànyì.
+      english: He publicly disparaged my suggestion at the meeting.
+      de: Er hat meinen Vorschlag in der Besprechung öffentlich herabgesetzt.
+    - zh: 真正的朋友不会贬低你，而是会支持你。
+      pinyin: Zhēnzhèng de péngyou bù huì biǎndī nǐ, ér shì huì zhīchí nǐ.
+      english: True friends won't belittle you; they will support you.
+      de: Wahre Freunde setzen dich nicht herab, sondern unterstützen dich.
+  characters:
+    - char: 贬
+      simplified: 贬
+      traditional: 貶
+      pinyin: biǎn
+      hsk: "6"
+      detailed_analysis: true
+      meaning_in_context: herabsetzen, tadeln, devaluieren
+      compounds:
+        - simplified: 贬低
+          pinyin: biǎndī
+          meaning: herabsetzen, schlechtmachen
+        - simplified: 贬值
+          pinyin: biǎnzhí
+          meaning: abwerten, entwerten (Währung)
+        - simplified: 贬义
+          pinyin: biǎnyì
+          meaning: abwertende Bedeutung (in der Linguistik)
+        - simplified: 贬斥
+          pinyin: biǎnchì
+          meaning: tadeln, kritisieren, ablehnen
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 貶 besteht aus dem Radikal 貝 (Muschel, Geld) und der phonetischen Komponente 乏 (fá, "mangelnd, schwach"). Die ursprüngliche Bedeutung ist "den Wert von Geld/Währung herabsetzen". Später erweitert zu "allgemein herabsetzen, tadeln, kritisieren". Der Radikal 貝 (Muschel → Geld) weist auf die ursprüngliche wirtschaftliche Bedeutung hin.
+    - char: 低
+      simplified: 低
+      traditional: 低
+      pinyin: dī
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: niedrig, tief
+      compounds:
+        - simplified: 降低
+          pinyin: jiàngdī
+          meaning: senken, reduzieren, verringern
+        - simplified: 低头
+          pinyin: dītóu
+          meaning: den Kopf senken, sich unterwerfen
+        - simplified: 低价
+          pinyin: dījià
+          meaning: niedriger Preis
+        - simplified: 低音
+          pinyin: dīyīn
+          meaning: Bass, tiefer Ton
+        - simplified: 贬低
+          pinyin: biǎndī
+          meaning: herabsetzen, schlechtmachen
+      etymology: |
+        Phonosemantische Verbindung. Besteht aus dem Radikal 亻 (Mensch) und der phonetischen Komponente 氐 (dī, "Grund, Basis, tief"). Die ursprüngliche Bedeutung ist "niedrig (im wörtlichen Sinne)". Im Gegensatz zu 高 (gāo, "hoch") bezeichnet 低 eine geringe Höhe, Position oder Intensität. Später erweitert zu "niedrig im Wert oder Status".
+
+- type: expression
+  date: "04/04"
+  simplified: 感到被攻击
+  traditional: 感到被攻擊
+  pinyin: gǎndào bèi gōngjī
+  english: to feel attacked (emotionally) / to feel under attack / to feel offended
+  german: sich angegriffen fühlen (emotional) / sich unter Beschuss fühlen
+  hsk: "5"
+  register: spoken_neutral
+  note: |
+    Eine verbale Phrase, die beschreibt, dass sich jemand emotional angegriffen, kritisiert oder vor den Kopf gestoßen fühlt – auch wenn keine physische Attacke vorliegt. Wird häufig in Alltagsgesprächen, sozialen Medien und psychologischen Kontexten verwendet.
+
+    **Struktur:**
+    - 感到 (gǎndào) — "fühlen, empfinden" (Verb, gibt das Gefühl an)
+    - 被 (bèi) — Passivpartikel ("werden / wird")
+    - 攻击 (gōngjī) — "angreifen, attackieren"
+
+    **Häufige Ausdrücke:**
+    - 感到被攻击 (gǎndào bèi gōngjī) — sich angegriffen fühlen
+    - 我觉得被攻击了 (wǒ juéde bèi gōngjī le) — Ich fühle mich angegriffen
+    - 别觉得被攻击 (bié juéde bèi gōngjī) — Fühl dich nicht angegriffen
+    - 容易感到被攻击 (róngyì gǎndào bèi gōngjī) — leicht angegriffen fühlen
+
+    **Kürzere / umgangssprachliche Varianten:**
+    - 被攻击 (bèi gōngjī) — "angegriffen werden" (kann in kurzen Sätzen 感觉被攻击 heißen)
+    - 觉得被攻击 (juéde bèi gōngjī) — "sich angegriffen fühlen" (mit 觉得 statt 感到)
+
+    **Wichtige Unterschiede:**
+    - 感到被攻击 — sich angegriffen fühlen (emotional, am gebräuchlichsten)
+    - 感到冒犯 (gǎndào màofàn) — sich beleidigt fühlen (betont die Beleidigung)
+    - 觉得被针对 (juéde bèi zhēnduì) — sich angegriffen fühlen im Sinne von "sich ins Visier genommen fühlen"
+
+    **Kulturelle Anmerkung:**
+    In der chinesischen Online-Kultur wird 感到被攻击 häufig in Diskussionen verwendet, besonders in sozialen Medien. Das verwandte Slang-Wort 玻璃心 (bōli xīn, "Glasharz") beschreibt eine Person, die sich schnell angegriffen fühlt oder leicht beleidigt ist. Im professionellen Kontext sagt man oft neutraler 我觉得有点被冒犯 (wǒ juéde yǒudiǎn bèi màofàn, "Ich fühle mich etwas beleidigt").
+  synonyms:
+    - word: 觉得被攻击
+      pinyin: juéde bèi gōngjī
+      meaning: sich angegriffen fühlen (mit 觉得 statt 感到)
+    - word: 感到冒犯
+      pinyin: gǎndào màofàn
+      meaning: sich beleidigt fühlen
+    - word: 觉得被针对
+      pinyin: juéde bèi zhēnduì
+      meaning: sich ins Visier genommen / angegriffen fühlen
+    - word: 玻璃心
+      pinyin: bōli xīn
+      meaning: Glasharz (Slang für schnell beleidigte Person)
+  antonyms:
+    - word: 感到被支持
+      pinyin: gǎndào bèi zhīchí
+      meaning: sich unterstützt fühlen
+    - word: 感到安心
+      pinyin: gǎndào ānxīn
+      meaning: sich sicher/beruhigt fühlen
+    - word: 无所谓
+      pinyin: wúsuǒwèi
+      meaning: egal sein, nicht betroffen sein
+  examples:
+    - zh: 他只是开个玩笑，别感到被攻击。
+      pinyin: Tā zhǐshì kāi ge wánxiào, bié gǎndào bèi gōngjī.
+      english: He was just joking. Don't feel attacked.
+      de: Er hat nur einen Scherz gemacht. Fühl dich nicht angegriffen.
+    - zh: 每当我提出不同意见，她就感到被攻击。
+      pinyin: Měi dāng wǒ tíchū bùtóng yìjiàn, tā jiù gǎndào bèi gōngjī.
+      english: Whenever I express a different opinion, she feels attacked.
+      de: Immer wenn ich eine andere Meinung äußere, fühlt sie sich angegriffen.
+    - zh: 批评并不等于攻击，不要总是感到被攻击。
+      pinyin: Pīpíng bìng bù děngyú gōngjī, bùyào zǒngshì gǎndào bèi gōngjī.
+      english: Criticism is not the same as an attack. Don't always feel attacked.
+      de: Kritik ist nicht gleich ein Angriff. Fühle dich nicht immer angegriffen.
+    - zh: 在讨论中，有些人很容易感到被攻击。
+      pinyin: Zài tǎolùn zhōng, yǒuxiē rén hěn róngyì gǎndào bèi gōngjī.
+      english: In discussions, some people are very easily made to feel attacked.
+      de: In Diskussionen fühlen sich manche Menschen sehr schnell angegriffen.
+  word_analyses:
+    - type: word
+      simplified: 感到
+      traditional: 感到
+      pinyin: gǎndào
+      english: to feel / to sense / to experience (a feeling)
+      hsk: "4"
+      characters:
+        - char: 感
+          simplified: 感
+          traditional: 感
+          pinyin: gǎn
+          hsk: "4"
+          detailed_analysis: true
+          meaning_in_context: fühlen, empfinden, beeindruckt sein
+          compounds:
+            - simplified: 感觉
+              pinyin: gǎnjué
+              meaning: Gefühl, Empfindung, fühlen
+            - simplified: 感到
+              pinyin: gǎndào
+              meaning: fühlen, empfinden
+            - simplified: 感情
+              pinyin: gǎnqíng
+              meaning: Gefühl, Emotion, Zuneigung
+            - simplified: 感谢
+              pinyin: gǎnxiè
+              meaning: danken, dankbar sein
+          etymology: |
+            Phonosemantische Verbindung. Besteht aus dem Radikal 心 (Herz) und der phonetischen Komponente 咸 (xián). Die ursprüngliche Bedeutung ist "das Herz bewegen, beeindrucken". Später erweitert zu "fühlen, empfinden, eine Emotion haben".
+        - char: 到
+          simplified: 到
+          traditional: 到
+          pinyin: dào
+          hsk: "1"
+          detailed_analysis: false
+          meaning_in_context: erreichen, (als Ergebnis-/Zustandspartikel)
+          compounds:
+            - simplified: 到达
+              pinyin: dàodá
+              meaning: ankommen, erreichen
+            - simplified: 得到
+              pinyin: dédào
+              meaning: bekommen, erhalten
+            - simplified: 感到
+              pinyin: gǎndào
+              meaning: fühlen, empfinden (wörtl. "fühlen und erreichen")
+          etymology: |
+            Ideogramm. Ursprünglich ein Pfeil (至), der ein Ziel erreicht. Die Bedeutung ist "ankommen, erreichen". In 感到 (und anderen Verb-到-Konstruktionen) zeigt 到 an, dass die Handlung erfolgreich abgeschlossen wurde oder ein Ergebnis erreicht wurde – "erfolgreich fühlen".
+    - type: word
+      simplified: 被
+      traditional: 被
+      pinyin: bèi
+      english: (passive voice marker) by
+      hsk: "3"
+      characters:
+        - char: 被
+          simplified: 被
+          traditional: 被
+          pinyin: bèi
+          hsk: "3"
+          detailed_analysis: true
+          meaning_in_context: (Passivpartikel) von / durch
+          compounds:
+            - simplified: 被动
+              pinyin: bèidòng
+              meaning: passiv, untätig
+            - simplified: 被告
+              pinyin: bèigào
+              meaning: Angeklagter, Beklagter
+            - simplified: 被害
+              pinyin: bèihài
+              meaning: geschädigt werden, Opfer sein
+            - simplified: 被称为
+              pinyin: bèi chēngwéi
+              meaning: bezeichnet werden als
+          etymology: |
+            Phonosemantische Verbindung. Besteht aus dem Radikal 衤 (Kleidung) und der phonetischen Komponente 皮 (pí, "Haut, Fell"). Die ursprüngliche Bedeutung ist "Bettdecke, Steppdecke" (etwas, das einen bedeckt). Von der Vorstellung des "Bedecktseins" entwickelte sich die Passivbedeutung "von/ durch" – man wird von einer Handlung "bedeckt" oder betroffen. Heute ist 被 der Standard-Passivmarker im modernen Chinesisch.
+    - type: word
+      simplified: 攻击
+      traditional: 攻擊
+      pinyin: gōngjī
+      english: to attack / assault / accusation
+      hsk: "5"
+      characters:
+        - char: 攻
+          simplified: 攻
+          traditional: 攻
+          pinyin: gōng
+          hsk: "5"
+          detailed_analysis: true
+          meaning_in_context: angreifen, bekämpfen
+          compounds:
+            - simplified: 攻击
+              pinyin: gōngjī
+              meaning: angreifen, attackieren
+            - simplified: 进攻
+              pinyin: jìngōng
+              meaning: angreifen, Offensive
+            - simplified: 攻关
+              pinyin: gōngguān
+              meaning: eine schwierige Aufgabe angehen
+            - simplified: 攻破
+              pinyin: gōngpò
+              meaning: durchbrechen, erobern
+          etymology: |
+            Phonosemantische Verbindung. Besteht aus dem Radikal 攵 (Schlag, Handlung) und der phonetischen Komponente 工 (gōng, "Arbeit"). Die ursprüngliche Bedeutung ist "angreifen, attackieren (besonders eine befestigte Stadt)". Der Radikal 攵 zeigt eine handelnde Person mit einem Stock oder einer Waffe.
+        - char: 击
+          simplified: 击
+          traditional: 擊
+          pinyin: jī
+          hsk: "5"
+          detailed_analysis: true
+          meaning_in_context: schlagen, stoßen, angreifen
+          compounds:
+            - simplified: 攻击
+              pinyin: gōngjī
+              meaning: angreifen, attackieren
+            - simplified: 打击
+              pinyin: dǎjī
+              meaning: schlagen, bekämpfen, einen Schlag versetzen
+            - simplified: 冲击
+              pinyin: chōngjī
+              meaning: aufprallen, erschüttern
+            - simplified: 击败
+              pinyin: jībài
+              meaning: besiegen, schlagen
+          etymology: |
+            Phonosemantische Verbindung. Die traditionelle Form 擊 besteht aus dem Radikal 手 (Hand) und der phonetischen Komponente 毄 (jī). Die ursprüngliche Bedeutung ist "schlagen, stoßen, angreifen (mit der Hand oder einer Waffe)". In der modernen Sprache wird 击 in vielen zusammengesetzten Wörtern für verschiedene Arten von Schlägen, Angriffen und Stößen verwendet.
+
+- type: word
+  date: "04/04"
+  simplified: 接着
+  traditional: 接著
+  pinyin: jiēzhe
+  english: then / next / afterwards / to continue / to follow
+  german: dann / anschließend / weiter / fortsetzen / folgen
+  hsk: "4"
+  register: spoken_neutral
+  measure_word: []
+  note: |
+    Ein Wort mit zwei Hauptfunktionen: (1) als Konjunktionaladverb ("dann, anschließend") und (2) als Verb ("weitermachen, fortsetzen"). 接着 wird im gesprochenen Chinesisch sehr häufig verwendet, um eine zeitliche oder logische Abfolge zu markieren.
+
+    **Hauptverwendungen:**
+
+    1. **Als Adverb („dann / anschließend“):**
+       - 接着 + Handlung — dann / danach / anschließend
+       - Betont, dass eine Handlung unmittelbar nach einer anderen folgt.
+
+    2. **Als Verb („weitermachen / fortsetzen“):**
+       - 接着 + machen / tun — weitermachen mit
+       - 接着 + Verb (z. B. 接着说 — weiterreden)
+
+    **Häufige Ausdrücke:**
+    - 接着做 (jiēzhe zuò) — weitermachen mit etwas
+    - 接着说 (jiēzhe shuō) — weiterreden, fortfahren zu sprechen
+    - 接着看 (jiēzhe kàn) — weiterschauen (z. B. einen Film)
+    - 接着来 (jiēzhe lái) — weitermachen, fortfahren (umgangssprachlich)
+    - 紧接着 (jǐnjiēzhe) — unmittelbar danach, kurz darauf
+
+    **Wichtige Unterschiede zu ähnlichen Wörtern:**
+
+    - **Als Adverb („dann“):**
+      - 接着 (jiēzhe) — dann, anschließend (betont enge zeitliche Abfolge, gesprochen)
+      - 然后 (ránhòu) — dann, danach (neutraler, vielseitiger, häufigster)
+      - 之后 (zhīhòu) — danach, später (formeller, größerer Zeitabstand möglich)
+      - 随后 (suíhòu) — kurz darauf, in der Folge (etwas formeller)
+
+    - **Als Verb („weitermachen“):**
+      - 接着 (jiēzhe) — weitermachen (fortsetzen, was unterbrochen war)
+      - 继续 (jìxù) — fortsetzen, weitermachen (allgemeiner, neutraler)
+      - 持续 (chíxù) — andauern, anhalten (für Zustände/Prozesse)
+
+    **Kulturelle Anmerkung:**
+    接着 setzt sich aus 接 (jiē, "verbinden, empfangen, übernehmen") und dem aspektuellen Suffix 着 (zhe, das eine fortlaufende Handlung oder einen Zustand anzeigt) zusammen. Wörtlich: "verbindend (und dann weiter)". Der aspektuelle Partikel 着 verleiht dem Wort den Charakter einer unmittelbar folgenden oder fortgesetzten Handlung. In der Alltagssprache ist 接着 sehr gebräuchlich, während in formelleren Texten eher 然后 oder 随后 verwendet werden.
+  synonyms:
+    - word: 然后
+      pinyin: ránhòu
+      meaning: dann, danach (neutraler, vielseitiger)
+    - word: 继续
+      pinyin: jìxù
+      meaning: fortsetzen, weitermachen (als Verb)
+    - word: 随后
+      pinyin: suíhòu
+      meaning: kurz darauf, anschließend (formeller)
+    - word: 紧接着
+      pinyin: jǐnjiēzhe
+      meaning: unmittelbar danach, kurz darauf
+  antonyms: []
+  examples:
+    - zh: 我先去洗澡，接着吃饭。
+      pinyin: Wǒ xiān qù xǐzǎo, jiēzhe chīfàn.
+      english: I'll take a shower first, then eat.
+      de: Ich dusche zuerst, dann esse ich.
+    - zh: 他说完这句话，接着就离开了房间。
+      pinyin: Tā shuō wán zhè jù huà, jiēzhe jiù líkāi le fángjiān.
+      english: After saying these words, he then left the room.
+      de: Nachdem er diese Worte gesagt hatte, verließ er dann den Raum.
+    - zh: 请接着说，我在听。
+      pinyin: Qǐng jiēzhe shuō, wǒ zài tīng.
+      english: Please continue speaking. I'm listening.
+      de: Bitte sprich weiter. Ich höre zu.
+    - zh: 做完作业以后，接着做什么？
+      pinyin: Zuò wán zuòyè yǐhòu, jiēzhe zuò shénme?
+      english: After finishing homework, what should I do next?
+      de: Nachdem ich die Hausaufgaben gemacht habe, was mache ich dann als Nächstes?
+    - zh: 他停下来喝了一口水，接着又继续讲。
+      pinyin: Tā tíng xiàlái hēle yī kǒu shuǐ, jiēzhe yòu jìxù jiǎng.
+      english: He stopped to take a sip of water, then continued speaking.
+      de: Er hielt an, um einen Schluck Wasser zu trinken, und fuhr dann mit dem Reden fort.
+  characters:
+    - char: 接
+      simplified: 接
+      traditional: 接
+      pinyin: jiē
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: verbinden, empfangen, übernehmen, fortsetzen
+      compounds:
+        - simplified: 接着
+          pinyin: jiēzhe
+          meaning: dann, anschließend, weitermachen
+        - simplified: 接受
+          pinyin: jiēshòu
+          meaning: akzeptieren, annehmen
+        - simplified: 接触
+          pinyin: jiēchù
+          meaning: berühren, Kontakt haben
+        - simplified: 接待
+          pinyin: jiēdài
+          meaning: empfangen, bewirten
+        - simplified: 连接
+          pinyin: liánjiē
+          meaning: verbinden, anschließen
+      etymology: |
+        Phonosemantische Verbindung. Besteht aus dem Radikal 扌 (Hand, als 手) und der phonetischen Komponente 妾 (qiè, "Konkubine"). Die ursprüngliche Bedeutung ist "mit der Hand berühren, in Kontakt kommen". Später erweitert zu "verbinden, empfangen, übernehmen, fortsetzen (wo man aufgehört hat)".
+    - char: 着
+      simplified: 着
+      traditional: 著 (in dieser Funktion auch 着)
+      pinyin: zhe
+      hsk: "3"
+      detailed_analysis: true
+      meaning_in_context: (aspektuelles Suffix für fortlaufende Handlung oder Zustand)
+      compounds:
+        - simplified: 接着
+          pinyin: jiēzhe
+          meaning: dann, anschließend, weitermachen
+        - simplified: 看着
+          pinyin: kànzhe
+          meaning: während man schaut / schauend
+        - simplified: 听着
+          pinyin: tīngzhe
+          meaning: während man zuhört / zuhörend
+        - simplified: 想着
+          pinyin: xiǎngzhe
+          meaning: während man denkt / denkend
+      etymology: |
+        Phonosemantische Verbindung. Die ursprüngliche Form 著 bedeutete "deutlich sichtbar, hervorstechend". Später wurde das Zeichen für verschiedene grammatische Funktionen verwendet, darunter als aspektuelles Suffix 着 (zhe), das eine fortlaufende Handlung oder einen anhaltenden Zustand anzeigt. In 接着 zeigt 着 an, dass das Verb 接 ("verbinden") im Sinne einer fortgesetzten, aufeinanderfolgenden Handlung verstanden wird.
+
+- type: word
+  date: "04/04"
+  simplified: 意识到
+  traditional: 意識到
+  pinyin: yìshi dào
+  english: to realize / to become aware of / to come to understand
+  german: realisieren / sich bewusst werden / erkennen / merken
+  hsk: "5"
+  register: neutral
+  measure_word: []
+  note: |
+    Ein Verb, das beschreibt, dass man sich einer Tatsache, Situation oder eines Gefühls plötzlich oder allmählich bewusst wird. 意识到 ist das gebräuchlichste und allgemeinste Wort für "realisieren" im modernen Chinesisch.
+
+    **Struktur:**
+    - 意识到 + [Satz / Nomen] — realisieren, dass ... / sich etwas bewusst werden
+    - 没有意识到 (méiyǒu yìshi dào) — nicht realisieren / sich nicht bewusst sein
+    - 突然意识到 (tūrán yìshi dào) — plötzlich realisieren
+
+    **Häufige Ausdrücke:**
+    - 意识到问题 (yìshi dào wèntí) — ein Problem erkennen / realisieren
+    - 意识到自己的错误 (yìshi dào zìjǐ de cuòwù) — seinen Fehler einsehen
+    - 意识到重要性 (yìshi dào zhòngyàoxìng) — die Wichtigkeit erkennen
+    - 意识到危险 (yìshi dào wēixiǎn) — die Gefahr erkennen / realisieren
+
+    **Wichtige Unterschiede zu ähnlichen Wörtern:**
+    - 意识到 (yìshi dào) — realisieren, sich bewusst werden (allgemein, häufigste)
+    - 认识到 (rènshi dào) — erkennen, einsehen (kognitiver, oft für Prinzipien/Wahrheiten)
+    - 明白 (míngbai) — verstehen, klar sein (einfacher, umgangssprachlich)
+    - 发觉 (fājué) — bemerken, entdecken (impliziert, etwas zuvor Unbemerktes zu entdecken)
+    - 领悟 (lǐngwù) — begreifen, erfassen (tiefergehende, oft langsame Erkenntnis)
+
+    **Grammatikalische Anmerkung:**
+    意识到 ist ein zusammengesetztes Verb aus 意识 (yìshi, "Bewusstsein") und dem Ergebnispartikel 到 (dào, "erreichen"). Wörtlich: "das Bewusstsein erreichen / etwas ins Bewusstsein gelangen". Der Partikel 到 zeigt an, dass die Handlung des "Bewusstseins" erfolgreich ein Ergebnis erreicht hat – die Erkenntnis ist eingetreten.
+
+    **Kulturelle Anmerkung:**
+    In der chinesischen Alltagssprache wird 意识到 sehr häufig verwendet, besonders in reflektierenden Kontexten ("Ich habe nicht realisiert, dass...") oder in psychologischen/erzieherischen Kontexten ("Es ist wichtig, sich der Konsequenzen bewusst zu sein"). Die kürzere Variante 意识 (ohne 到) wird als Nomen ("Bewusstsein") oder als Verb mit anderer Nuance verwendet (z. B. 意识问题 – "ein Problem bewusst wahrnehmen", etwas literarischer).
+  synonyms:
+    - word: 认识到
+      pinyin: rènshi dào
+      meaning: erkennen, einsehen (kognitiver, für Prinzipien/Wahrheiten)
+    - word: 明白
+      pinyin: míngbai
+      meaning: verstehen, klar sein (umgangssprachlich, einfacher)
+    - word: 发觉
+      pinyin: fājué
+      meaning: bemerken, entdecken (impliziert vorher nicht bemerkt)
+    - word: 体会到
+      pinyin: tǐhuì dào
+      meaning: erfahren, verstehen (durch persönliche Erfahrung)
+  antonyms:
+    - word: 忽视
+      pinyin: hūshì
+      meaning: ignorieren, übersehen
+    - word: 忽略
+      pinyin: hūlüè
+      meaning: vernachlässigen, außer Acht lassen
+    - word:  unaware
+      pinyin: méiyǒu yìshi dào
+      meaning: nicht realisieren, sich nicht bewusst sein
+  examples:
+    - zh: 我突然意识到我忘带钥匙了。
+      pinyin: Wǒ tūrán yìshi dào wǒ wàng dài yàoshi le.
+      english: I suddenly realized that I had forgotten to bring my keys.
+      de: Mir wurde plötzlich bewusst, dass ich meine Schlüssel vergessen hatte.
+    - zh: 他没有意识到问题的严重性。
+      pinyin: Tā méiyǒu yìshi dào wèntí de yánzhòngxìng.
+      english: He didn't realize the seriousness of the problem.
+      de: Er hat die Schwere des Problems nicht erkannt.
+    - zh: 你应该意识到学习中文需要时间和耐心。
+      pinyin: Nǐ yīnggāi yìshi dào xuéxí Zhōngwén xūyào shíjiān hé nàixīn.
+      english: You should realize that learning Chinese takes time and patience.
+      de: Du solltest dir bewusst sein, dass Chinesisch lernen Zeit und Geduld braucht.
+    - zh: 直到她离开，我才意识到她有多重要。
+      pinyin: Zhídào tā líkāi, wǒ cái yìshi dào tā yǒu duō zhòngyào.
+      english: Only after she left did I realize how important she was.
+      de: Erst nachdem sie gegangen war, wurde mir bewusst, wie wichtig sie war.
+    - zh: 越来越多的人意识到环保的重要性。
+      pinyin: Yuèláiyuè duō de rén yìshi dào huánbǎo de zhòngyàoxìng.
+      english: More and more people are realizing the importance of environmental protection.
+      de: Immer mehr Menschen erkennen die Bedeutung des Umweltschutzes.
+  characters:
+    - char: 意
+      simplified: 意
+      traditional: 意
+      pinyin: yì
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: Bewusstsein, Gedanke, Bedeutung, Absicht
+      compounds:
+        - simplified: 意思
+          pinyin: yìsi
+          meaning: Bedeutung, Meinung, Absicht
+        - simplified: 意识
+          pinyin: yìshi
+          meaning: Bewusstsein, sich bewusst sein
+        - simplified: 意见
+          pinyin: yìjiàn
+          meaning: Meinung, Einwand
+        - simplified: 意外
+          pinyin: yìwài
+          meaning: unerwartet, Unfall
+        - simplified: 意义
+          pinyin: yìyì
+          meaning: Bedeutung, Sinn
+      etymology: |
+        Phonosemantische Verbindung. Besteht aus dem Radikal 心 (Herz) und der phonetischen Komponente 音 (yīn, "Klang, Ton"). Die ursprüngliche Bedeutung ist "Gedanke im Herzen, Absicht". Später erweitert zu "Bedeutung, Bewusstsein, Meinung". Der Herz-Radikal weist auf die innere, geistige Natur des Wortes hin.
+    - char: 识
+      simplified: 识
+      traditional: 識
+      pinyin: shi (in 意识 als leichtes "shi" ausgesprochen)
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: Wissen, Erkennen, Bewusstsein
+      compounds:
+        - simplified: 意识
+          pinyin: yìshi
+          meaning: Bewusstsein, sich bewusst sein
+        - simplified: 认识
+          pinyin: rènshi
+          meaning: kennen, erkennen
+        - simplified: 知识
+          pinyin: zhīshi
+          meaning: Wissen
+        - simplified: 常识
+          pinyin: chángshí
+          meaning: Allgemeinwissen
+      etymology: |
+        Phonosemantische Verbindung. Die traditionelle Form 識 besteht aus dem Radikal 言 (Sprache, Worte) und der phonetischen Komponente 戠 (zhí). Die ursprüngliche Bedeutung ist "wissen, erkennen, unterscheiden können". Später erweitert zu "Wissen, Kenntnis, Bewusstsein".
+
+- type: word
+  date: "04/04"
+  simplified: 不尊重
+  traditional: 不尊重
+  pinyin: bù zūnzhòng
+  english: disrespectful / disrespect / to lack respect
+  german: respektlos / Respektlosigkeit / keinen Respekt haben
+  hsk: "5"
+  register: neutral
+  measure_word: []
+  note: |
+    Ein Adjektiv/Substantiv (Negation von 尊重, "Respekt haben"), das beschreibt, dass jemandem der gebührende Respekt fehlt – durch Worte, Taten oder Haltung. 不尊重 ist der allgemeinste und gebräuchlichste Ausdruck für "respektlos" im modernen Chinesisch.
+
+    **Weitere Varianten für "respektlos":**
+    - 无礼 (wúlǐ) — unhöflich, respektlos (stärker, wörtl. "ohne Etikette")
+    - 失礼 (shīlǐ) — unhöflich, taktlos (wörtl. "Etikette verlieren")
+    - 轻蔑 (qīngmiè) — verächtlich, geringschätzig (stärker, für Haltung/Blick)
+    - 不恭 (bù gōng) — respektlos (formell/literarisch, oft in 玩世不恭 – zynisch)
+
+    **Häufige Ausdrücke:**
+    - 不尊重别人 (bù zūnzhòng biérén) — andere nicht respektieren / respektlos gegenüber anderen sein
+    - 对...不尊重 (duì ... bù zūnzhòng) — respektlos gegenüber ... sein
+    - 感到不尊重 (gǎndào bù zūnzhòng) — sich respektlos behandelt fühlen
+    - 一种不尊重 (yī zhǒng bù zūnzhòng) — eine Art von Respektlosigkeit
+
+    **Wichtige Unterschiede:**
+    - 不尊重 (bù zūnzhòng) — respektlos / Respektlosigkeit (allgemein, neutral, häufigster)
+    - 无礼 (wúlǐ) — unhöflich, respektlos (stärker, fokussiert auf Verhalten/Manieren)
+    - 失礼 (shīlǐ) — unhöflich, taktlos (oft für unabsichtliche Fauxpas)
+    - 冒犯 (màofàn) — beleidigend, anstößig (betont die Beleidigung)
+
+    **Kulturelle Anmerkung:**
+    In der chinesischen Kultur, die stark von konfuzianischen Werten wie 尊重长辈 (zūnzhòng zhǎngbèi, "Respekt gegenüber Älteren") geprägt ist, wird Respektlosigkeit als schwerwiegendes soziales Vergehen betrachtet. Besonders respektlos ist es, älteren Menschen, Eltern, Lehrern oder Vorgesetzten gegenüber unhöflich zu sein. Der Ausdruck 没大没小 (méi dà méi xiǎo, "weder groß noch klein kennen") beschreibt respektloses Verhalten gegenüber Älteren oder Vorgesetzten.
+
+    **Grammatik:**
+    - Als Adjektiv: 他很不尊重 – "Er ist sehr respektlos"
+    - Als Nomen: Das ist eine Respektlosigkeit – 这是一种不尊重 (zhè shì yī zhǒng bù zūnzhòng)
+  synonyms:
+    - word: 无礼
+      pinyin: wúlǐ
+      meaning: unhöflich, respektlos (stärker, Verhalten/Manieren)
+    - word: 失礼
+      pinyin: shīlǐ
+      meaning: unhöflich, taktlos (unabsichtliche Fauxpas)
+    - word: 冒犯
+      pinyin: màofàn
+      meaning: beleidigend, anstößig
+    - word: 轻蔑
+      pinyin: qīngmiè
+      meaning: verächtlich, geringschätzig (Haltung/Blick)
+  antonyms:
+    - word: 尊重
+      pinyin: zūnzhòng
+      meaning: respektieren, Respekt
+    - word: 尊敬
+      pinyin: zūnjìng
+      meaning: hochachten, verehren
+    - word: 礼貌
+      pinyin: lǐmào
+      meaning: höflich, Höflichkeit
+  examples:
+    - zh: 你这样说很没礼貌，对老师很不尊重。
+      pinyin: Nǐ zhèyàng shuō hěn méi lǐmào, duì lǎoshī hěn bù zūnzhòng.
+      english: Saying that is very impolite and very disrespectful to the teacher.
+      de: Das zu sagen ist sehr unhöflich und respektlos dem Lehrer gegenüber.
+    - zh: 打断别人说话是一种不尊重的行为。
+      pinyin: Dǎduàn biérén shuōhuà shì yī zhǒng bù zūnzhòng de xíngwéi.
+      english: Interrupting others while they are speaking is a disrespectful behavior.
+      de: Anderen beim Sprechen zu unterbrechen ist ein respektloses Verhalten.
+    - zh: 我觉得你刚才的话对我很不尊重。
+      pinyin: Wǒ juéde nǐ gāngcái de huà duì wǒ hěn bù zūnzhòng.
+      english: I feel that what you just said was very disrespectful to me.
+      de: Ich finde, dass das, was du gerade gesagt hast, mir gegenüber sehr respektlos war.
+    - zh: 在公共场合大声喧哗是对他人的不尊重。
+      pinyin: Zài gōnggòng chǎnghé dàshēng xuānhuá shì duì tārén de bù zūnzhòng.
+      english: Loudly shouting in public places is disrespectful to others.
+      de: In der Öffentlichkeit lautes Geschrei ist respektlos gegenüber anderen.
+  characters:
+    - char: 不
+      simplified: 不
+      traditional: 不
+      pinyin: bù
+      hsk: "1"
+      detailed_analysis: false
+      meaning_in_context: nicht, kein (Negationspartikel)
+      compounds:
+        - simplified: 不好
+          pinyin: bù hǎo
+          meaning: nicht gut
+        - simplified: 不对
+          pinyin: bù duì
+          meaning: nicht richtig, falsch
+        - simplified: 不尊重
+          pinyin: bù zūnzhòng
+          meaning: respektlos, keinen Respekt haben
+      etymology: |
+        Piktogramm. Die Orakelknochenschrift zeigte eine Blütenkelch- oder Vogelform. Später wurde es zur standardisierten Negationspartikel mit der Bedeutung "nicht, nein".
+    - char: 尊
+      simplified: 尊
+      traditional: 尊
+      pinyin: zūn
+      hsk: "5"
+      detailed_analysis: true
+      meaning_in_context: respektieren, ehren, Hochachtung
+      compounds:
+        - simplified: 尊重
+          pinyin: zūnzhòng
+          meaning: respektieren, Respekt haben
+        - simplified: 尊敬
+          pinyin: zūnjìng
+          meaning: hochachten, verehren
+        - simplified: 尊严
+          pinyin: zūnyán
+          meaning: Würde
+        - simplified: 尊贵
+          pinyin: zūnguì
+          meaning: ehrwürdig, edel, angesehen
+      etymology: |
+        Phonosemantische Verbindung. Besteht aus dem Radikal 酋 (ein Gefäß für Wein, symbolisiert Opfergabe) und 寸 (Hand). Die ursprüngliche Bedeutung ist "ein Weingefäß in beiden Händen halten, um es einem Gast als Zeichen der Ehrerbietung darzubringen". Später erweitert zu "respektieren, ehren, Hochachtung erweisen".
+    - char: 重
+      simplified: 重
+      traditional: 重
+      pinyin: zhòng
+      hsk: "4"
+      detailed_analysis: true
+      meaning_in_context: Bedeutung, Gewicht (im übertragenen Sinne: Wichtigkeit)
+      compounds:
+        - simplified: 尊重
+          pinyin: zūnzhòng
+          meaning: respektieren, Respekt haben
+        - simplified: 重要
+          pinyin: zhòngyào
+          meaning: wichtig, bedeutend
+        - simplified: 重视
+          pinyin: zhòngshì
+          meaning: Bedeutung beimessen, schätzen
+        - simplified: 重量
+          pinyin: zhòngliàng
+          meaning: Gewicht
+      etymology: |
+        Ideogramm. Die ursprüngliche Bedeutung ist "schwer (im Gewicht)". Von der Vorstellung, dass wichtige Dinge "schwer wiegen", entwickelte sich die Bedeutung "wichtig, bedeutend, Gewicht habend". In 尊重 kombiniert mit 尊 ("ehren") ergibt sich "Respekt haben" – jemandem die ihm zustehende Wichtigkeit/Bedeutung beimessen.
