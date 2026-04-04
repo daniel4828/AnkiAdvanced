@@ -42,8 +42,20 @@ def get_card(card_id: int) -> dict | None:
                   w.word_zh, w.pinyin, w.definition, w.pos, w.hsk_level,
                   w.traditional, w.definition_zh, w.note_type, w.notes, w.definition_de, w.register,
                   d.name AS deck_name,
-                  (SELECT group_concat(name, ' › ')
-                   FROM (SELECT name FROM ancestors ORDER BY depth DESC)) AS deck_path,
+                  CASE WHEN d.category IS NOT NULL THEN
+                    (SELECT group_concat(name, ' › ')
+                     FROM (SELECT name FROM ancestors WHERE depth > 0 ORDER BY depth DESC))
+                    || ' · ' ||
+                    CASE c.category
+                      WHEN 'listening' THEN 'Listening'
+                      WHEN 'reading'   THEN 'Reading'
+                      WHEN 'creating'  THEN 'Creating'
+                      ELSE c.category
+                    END
+                  ELSE
+                    (SELECT group_concat(name, ' › ')
+                     FROM (SELECT name FROM ancestors ORDER BY depth DESC))
+                  END AS deck_path,
                   p.learning_steps, p.graduating_interval, p.easy_interval,
                   p.relearning_steps, p.minimum_interval,
                   p.leech_threshold, p.leech_action,
@@ -433,6 +445,14 @@ def get_descendant_leaf_deck_ids(deck_id: int, category: str | None = None) -> l
         for kid in kids:
             stack.append(kid)
     return result
+
+
+def get_parent_deck_id(deck_id: int) -> int | None:
+    """Return the parent deck ID for a given deck, or None if it's a root deck."""
+    conn = get_db()
+    row = conn.execute("SELECT parent_id FROM decks WHERE id = ?", (deck_id,)).fetchone()
+    conn.close()
+    return row["parent_id"] if row else None
 
 
 def _leaf_decks_with_category(root_deck_id: int) -> list[tuple[int, str]]:
