@@ -116,7 +116,7 @@ Target words — write exactly one sentence per word, in this order:
 
 Rules:
 - Exactly {len(cards)} sentences total
-- For items marked [USE AS-IS]: use that text verbatim as sentence_zh — only provide an English translation
+- For items marked [USE AS-IS]: use that text verbatim as sentence_zh
 - For all other items: write a sentence that naturally contains the target word
 - Use proper Chinese punctuation — include commas（，）where natural pauses occur
 - Use only HSK 1-{max_hsk} vocabulary for non-target words
@@ -124,7 +124,7 @@ Rules:
 - NEVER use ASCII double-quote characters (") inside Chinese sentences — use 「」or （）instead if quoting is needed
 - Return ONLY valid JSON, no explanation, no markdown:
 [
-  {{"word_id": <integer>, "sentence_zh": "<Chinese sentence>", "sentence_en": "<English translation>"}},
+  {{"word_id": <integer>, "sentence_zh": "<Chinese sentence>"}},
   ...
 ]"""
 
@@ -176,6 +176,8 @@ Rules:
                         continue
                     logger.info("generate_story: success — %d sentences (attempt %d)",
                                 len(result), attempt + 1)
+                    # Translate sentences locally (no extra AI call needed)
+                    _fill_translations(result)
                     return result, prompt
                 else:
                     logger.warning("generate_story: count mismatch — got %d, need %d",
@@ -287,13 +289,38 @@ Return ONLY valid JSON, no explanation, no markdown:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+def _fill_translations(sentences: list[dict]) -> None:
+    """Translate sentence_zh → sentence_en in-place using local argostranslate."""
+    try:
+        import translator as _t
+        texts = [s.get("sentence_zh", "") for s in sentences]
+        translations = _t.translate_batch(texts)
+        for s, en in zip(sentences, translations):
+            s["sentence_en"] = en
+    except Exception as e:
+        logger.warning("_fill_translations: fallback to empty — %s", e)
+        for s in sentences:
+            s.setdefault("sentence_en", "")
+
+
 def _fallback_sentences(cards: list[dict]) -> list[dict]:
     """Minimal sentences used when the AI response cannot be parsed."""
-    return [
+    result = [
         {
             "word_id": c["word_id"],
             "sentence_zh": f"我学了{c['word_zh']}这个词。",
-            "sentence_en": f"I learned the word: {c.get('definition', c['word_zh'])}.",
+            "sentence_en": "",
         }
         for c in cards
     ]
+    _fill_translations(result)
+    return result
+
+
+def estimate_story_tokens(num_cards: int) -> int:
+    """Rough token estimate for generating a story with num_cards words.
+
+    Input:  ~200 base + 13 tokens/card
+    Output: ~75 tokens/card + 100 overhead
+    """
+    return 200 + 13 * num_cards + 75 * num_cards + 100

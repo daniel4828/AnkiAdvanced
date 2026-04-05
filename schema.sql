@@ -269,7 +269,7 @@ CREATE TABLE IF NOT EXISTS review_log (
 CREATE TABLE IF NOT EXISTS stories (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     date            TEXT NOT NULL,  -- YYYY-MM-DD
-    category        TEXT NOT NULL CHECK(category IN ('listening', 'reading', 'creating')),
+    category        TEXT NOT NULL CHECK(category IN ('listening', 'reading', 'creating', 'unified')),
     deck_id         INTEGER NOT NULL REFERENCES decks(id) ON DELETE CASCADE,
     generated_at    TEXT NOT NULL DEFAULT (datetime('now')),
     prompt_text     TEXT,         -- full AI prompt used to generate this story (NULL for legacy rows)

@@ -508,13 +508,16 @@ def get_next_card_any_cat(root_deck_id: int) -> dict | None:
                 story_pos[s["word_id"]] = s["position"]
 
     NO_POS = 9999
-    all_cards.sort(key=lambda c: (
-        0 if c["state"] in ("learning", "relearn") else
-        1 if c["state"] == "review" else 2,
-        cat_order.get(c["category"], 99),
-        story_pos.get(c["word_id"], NO_POS),
-        c["due"],
-    ))
+    if story_pos:
+        # Story exists: follow narrative order so the session reads top-to-bottom
+        all_cards.sort(key=lambda c: story_pos.get(c["word_id"], NO_POS))
+    else:
+        all_cards.sort(key=lambda c: (
+            0 if c["state"] in ("learning", "relearn") else
+            1 if c["state"] == "review" else 2,
+            cat_order.get(c["category"], 99),
+            c["due"],
+        ))
     return all_cards[0]
 
 
