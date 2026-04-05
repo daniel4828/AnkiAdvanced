@@ -86,8 +86,10 @@ def get_story_sentences(story_id: int) -> list[dict]:
 
 
 def get_due_cards_unified(deck_id: int) -> list[dict]:
-    """Collect due cards from all 3 categories for a unified story, deduplicated by word_id."""
-    from .cards import get_due_cards, get_due_cards_multi, get_descendant_leaf_deck_ids
+    """Collect due cards from all 3 categories for a unified story, deduplicated by word_id.
+    Order matches review priority (state → category → due) so story sentence positions
+    align with the order cards will be presented during the review session."""
+    from .cards import get_due_cards, get_due_cards_multi, get_descendant_leaf_deck_ids, get_preset_for_deck
     from .decks import get_deck
 
     def _leaf_ids(cat: str) -> list[int]:
@@ -95,6 +97,10 @@ def get_due_cards_unified(deck_id: int) -> list[dict]:
         if deck["category"] is None:
             return get_descendant_leaf_deck_ids(deck_id, cat)
         return [deck_id]
+
+    preset = get_preset_for_deck(deck_id)
+    order_str = preset.get("category_order", "listening,reading,creating")
+    cat_order = {c.strip(): i for i, c in enumerate(order_str.split(","))}
 
     seen: set[int] = set()
     result: list[dict] = []
@@ -110,4 +116,12 @@ def get_due_cards_unified(deck_id: int) -> list[dict]:
             if c["word_id"] not in seen:
                 seen.add(c["word_id"])
                 result.append(c)
+
+    # Match review order: state priority → category order → due time
+    result.sort(key=lambda c: (
+        0 if c["state"] in ("learning", "relearn") else
+        1 if c["state"] == "review" else 2,
+        cat_order.get(c["category"], 99),
+        c["due"],
+    ))
     return result
