@@ -719,6 +719,11 @@ main.browse-open {
   background: #eff6ff;
   border: 1.5px solid #bfdbfe;
 }
+.story-sentence-playing {
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+}
+.story-sentence-playing .story-num { color: #16a34a; }
 .story-num {
   font-size: 12px;
   font-weight: 700;
@@ -733,11 +738,27 @@ main.browse-open {
 .story-zh  { font-size: 18px; line-height: 1.5; }
 .story-en  { font-size: 13px; color: var(--muted); margin-top: 3px; }
 .story-target { color: var(--primary); font-weight: 700; }
+.story-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.story-nav-btn {
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 6px 11px;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+.story-nav-btn:hover { border-color: var(--primary); color: var(--primary); }
 .story-play-all-btn {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 0 auto;
   background: var(--primary);
   color: #fff;
   border: none;

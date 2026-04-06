@@ -4,6 +4,7 @@ import database
 import ai
 import tts
 from fastapi import APIRouter
+from fastapi.responses import FileResponse
 
 from .utils import DISABLE_AI, leaf_ids
 
@@ -180,6 +181,13 @@ def story_count(deck_id: int, category: str):
     }
 
 
+@router.get("/api/tts-file")
+async def tts_file(text: str):
+    """Return the cached mp3 for text (generating it if needed). Used by the browser Audio API."""
+    path = await tts.get_cached_path(text)
+    return FileResponse(path, media_type="audio/mpeg")
+
+
 @router.post("/api/speak")
 def speak(text: str):
     try:
@@ -192,10 +200,15 @@ def speak(text: str):
 @router.post("/api/speak-multi")
 def speak_multi(body: dict):
     try:
-        tts.speak_multi(body.get("texts", []))
+        tts.speak_multi(body.get("texts", []), start_idx=body.get("start_idx", 0))
     except Exception:
         pass
     return {"ok": True}
+
+
+@router.get("/api/speak-status")
+def speak_status():
+    return tts.get_status()
 
 
 @router.post("/api/speak-stop")

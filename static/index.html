@@ -733,10 +733,14 @@
 <div id="story-modal-overlay" onclick="closeStoryModal()" style="display:none"></div>
 <div id="story-modal" style="display:none">
   <div class="edit-modal-header">
-    <span class="edit-modal-title">Full story</span>
+    <span class="edit-modal-title" id="story-modal-title">Full story</span>
     <button class="edit-modal-close" onclick="closeStoryModal()">✕</button>
   </div>
-  <button class="story-play-all-btn" id="story-play-all-btn" onclick="toggleFullStory()">▶ Play full story</button>
+  <div class="story-controls">
+    <button class="story-nav-btn" onclick="storySkipPrev()" title="Previous sentence (A)">◀◀</button>
+    <button class="story-play-all-btn" id="story-play-all-btn" onclick="toggleFullStory()">▶ Play full story</button>
+    <button class="story-nav-btn" onclick="storySkipNext()" title="Next sentence (D)">▶▶</button>
+  </div>
   <div id="story-modal-body"></div>
 </div>
 

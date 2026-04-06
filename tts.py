@@ -89,6 +89,19 @@ def preload(text: str) -> None:
 _current_playback: subprocess.Popen | None = None
 _playback_lock = threading.Lock()
 _stop_requested = False
+_multi_lock = threading.Lock()   # only one speak_multi runs at a time
+_current_play_idx: int = -1
+_is_multi_playing: bool = False
+
+
+async def get_cached_path(text: str) -> str:
+    """Return local mp3 path for text, generating via edge-tts if not cached."""
+    return await _ensure_cached(text)
+
+
+def get_status() -> dict:
+    """Return current playback index and whether speak_multi is active."""
+    return {"idx": _current_play_idx, "playing": _is_multi_playing}
 
 
 def speak(text: str) -> None:
@@ -102,21 +115,33 @@ def speak_sync(text: str) -> None:
     asyncio.run(_play(text))
 
 
-def speak_multi(texts: list[str]) -> None:
-    """Play a list of texts sequentially with minimal gap between sentences."""
+def speak_multi(texts: list[str], start_idx: int = 0) -> None:
+    """Play texts[start_idx:] sequentially with minimal gap.
+
+    Sets _stop_requested before acquiring _multi_lock so any in-progress
+    speak_multi exits quickly, then starts fresh.
+    """
     global _stop_requested
-    _stop_requested = False
-    asyncio.run(_play_multi(texts))
+    _stop_requested = True   # interrupt any current playback fast
+    with _multi_lock:
+        _stop_requested = False  # safe to start now — old loop has exited
+        asyncio.run(_play_multi(texts, start_idx))
 
 
-async def _play_multi(texts: list[str]) -> None:
-    """Pre-cache all sentences in parallel, then play sequentially."""
-    global _stop_requested
+async def _play_multi(texts: list[str], start_idx: int = 0) -> None:
+    """Pre-cache all sentences in parallel, then play from start_idx."""
+    global _stop_requested, _current_play_idx, _is_multi_playing
     await preload_all_async(texts)
-    for text in texts:
-        if _stop_requested:
-            break
-        await _play(text)
+    _is_multi_playing = True
+    try:
+        for i, text in enumerate(texts[start_idx:], start=start_idx):
+            if _stop_requested:
+                break
+            _current_play_idx = i
+            await _play(text)
+    finally:
+        _is_multi_playing = False
+        _current_play_idx = -1
 
 
 def stop() -> None:
