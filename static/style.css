@@ -407,13 +407,23 @@ main.browse-open {
   padding: 1px 4px;
   cursor: default;
   white-space: nowrap;
-  opacity: 0;
-  transition: opacity 0.15s;
 }
-.tree-row:hover .deck-rr-badge { opacity: 1; }
 .deck-rr-badge.rr-high  { color: #10b981; }
 .deck-rr-badge.rr-mid   { color: #f59e0b; }
 .deck-rr-badge.rr-low   { color: #ef4444; }
+
+/* RR inside category pill */
+.cat-pill-rr {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  margin-top: 2px;
+}
+.cat-pill-rr.rr-high { color: #10b981; }
+.cat-pill-rr.rr-mid  { color: #f59e0b; }
+.cat-pill-rr.rr-low  { color: #ef4444; }
+.cat-pill-rr.rr-none { color: var(--muted); }
 
 .undo-btn {
   background: none;

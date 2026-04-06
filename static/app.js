@@ -373,6 +373,23 @@ function countHtml(c) {
 }
 
 
+// Compute RR for a list of leaf deck objects (using cached _retentionData)
+function _leavesRR(leaves) {
+  if (!_retentionData?.by_deck) return null;
+  let c = 0, t = 0;
+  for (const l of leaves) {
+    const d = _retentionData.by_deck[l.id];
+    if (d) { c += d.correct; t += d.total; }
+  }
+  return t > 0 ? c / t : null;
+}
+
+function _catRRSpan(val) {
+  const cls = val === null ? 'rr-none' : _rrClass(val);
+  const txt = val === null ? '—' : _formatRR(val);
+  return `<span class="cat-pill-rr ${cls}">${txt}</span>`;
+}
+
 // Build 3 inline pills (L/R/C) for any deck. Uses direct cat leaves if present, else aggregates.
 function buildCategoryButtons(deck) {
   const DEFAULT_ORDER = ['listening', 'reading', 'creating'];
@@ -393,7 +410,8 @@ function buildCategoryButtons(deck) {
       const badgeClass = allSusp ? 'cat-susp-badge cat-badge-suspended' : 'cat-susp-badge cat-badge-active';
       const pillClass = allSusp ? 'cat-pill cat-pill-dimmed' : 'cat-pill';
       const title = allSusp ? `Unsuspend all ${label} cards` : `Suspend all ${label} cards`;
-      return `<span class="cat-pill-group"><button class="${badgeClass}" onclick="event.stopPropagation();toggleCategorySuspension(${leaf.id},'${cat}')" title="${title}">${badgeIcon}</button><span class="cat-pill-wrap"><button class="${pillClass}" onclick="event.stopPropagation();startReview(${leaf.id},'${cat}','${safeName}',${!!leaf.no_story})"><span class="cat-pill-label">${label}</span><span class="cat-pill-counts">${countHtml(c)}</span></button><button class="cat-pill-gear" onclick="event.stopPropagation();openOptions(${leaf.id})" title="Options">⚙</button></span></span>`;
+      const rr = _leavesRR([leaf]);
+      return `<span class="cat-pill-group"><button class="${badgeClass}" onclick="event.stopPropagation();toggleCategorySuspension(${leaf.id},'${cat}')" title="${title}">${badgeIcon}</button><span class="cat-pill-wrap"><button class="${pillClass}" onclick="event.stopPropagation();startReview(${leaf.id},'${cat}','${safeName}',${!!leaf.no_story})"><span class="cat-pill-label">${label}</span><span class="cat-pill-counts">${countHtml(c)}</span>${_catRRSpan(rr)}</button><button class="cat-pill-gear" onclick="event.stopPropagation();openOptions(${leaf.id})" title="Options">⚙</button></span></span>`;
     }
     const c = aggregateCounts(deck, cat);
     const hasCards = getDeepCategoryLeaves(deck).some(l => l.category === cat);
@@ -404,7 +422,8 @@ function buildCategoryButtons(deck) {
     const badgeClass = allSusp ? 'cat-susp-badge cat-badge-suspended' : 'cat-susp-badge cat-badge-active';
     const pillClass = allSusp ? 'cat-pill cat-pill-dimmed' : 'cat-pill';
     const title = allSusp ? `Unsuspend all ${label} cards` : `Suspend all ${label} cards`;
-    return `<span class="cat-pill-group"><button class="${badgeClass}" onclick="event.stopPropagation();toggleCategorySuspension(${deck.id},'${cat}')" title="${title}">${badgeIcon}</button><span class="cat-pill-wrap"><button class="${pillClass}" onclick="event.stopPropagation();startReview(${deck.id},'${cat}','${safeName}',${!!deck.no_story})"><span class="cat-pill-label">${label}</span><span class="cat-pill-counts">${countHtml(c)}</span></button><button class="cat-pill-gear" onclick="event.stopPropagation();openOptions(${deck.id})" title="Options">⚙</button></span></span>`;
+    const rr = _leavesRR(leaves);
+    return `<span class="cat-pill-group"><button class="${badgeClass}" onclick="event.stopPropagation();toggleCategorySuspension(${deck.id},'${cat}')" title="${title}">${badgeIcon}</button><span class="cat-pill-wrap"><button class="${pillClass}" onclick="event.stopPropagation();startReview(${deck.id},'${cat}','${safeName}',${!!deck.no_story})"><span class="cat-pill-label">${label}</span><span class="cat-pill-counts">${countHtml(c)}</span>${_catRRSpan(rr)}</button><button class="cat-pill-gear" onclick="event.stopPropagation();openOptions(${deck.id})" title="Options">⚙</button></span></span>`;
   }).join('');
 }
 
