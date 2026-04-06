@@ -324,10 +324,25 @@ def get_next_card(deck_id: int, category: str) -> dict | None:
     story = get_active_story(today, category, deck_id)
     if story:
         sentences = get_story_sentences(story["id"])
-        # word_id → story position
         story_pos = {s["word_id"]: s["position"] for s in sentences}
-        NO_POS = len(sentences)  # cards not in story go last
-        cards.sort(key=lambda c: story_pos.get(c["word_id"], NO_POS))
+        NO_POS = len(sentences)
+
+        # Sort each group by story position, then re-apply new_review_order so
+        # the mixed/reviews_first preset is respected even when a story exists.
+        preset = get_preset_for_deck(deck_id)
+        nr_o = preset.get("new_review_order", "mixed")
+
+        new_cards = [c for c in cards if c["state"] == "new"]
+        non_new   = [c for c in cards if c["state"] != "new"]
+        non_new.sort(key=lambda c: story_pos.get(c["word_id"], NO_POS))
+        new_cards.sort(key=lambda c: story_pos.get(c["word_id"], NO_POS))
+
+        if nr_o == "new_first":
+            cards = new_cards + non_new
+        elif nr_o == "reviews_first":
+            cards = non_new + new_cards
+        else:  # mixed
+            cards = _interleave_cards(non_new, new_cards)
 
     return cards[0]
 
@@ -552,16 +567,35 @@ def count_due_by_category(root_deck_id: int) -> dict:
 
 
 def get_due_cards_multi(deck_ids: list[int], category: str, *, sibling_suppression: bool = False) -> list[dict]:
-    """Due cards across multiple decks, merged and priority-sorted."""
+    """Due cards across multiple decks, merged and priority-sorted.
+
+    Uses the preset of the first deck for ordering settings (new_review_order).
+    """
     all_cards = []
     for deck_id in deck_ids:
         all_cards.extend(get_due_cards(deck_id, category, sibling_suppression=sibling_suppression))
-    all_cards.sort(key=lambda c: (
-        0 if c["state"] in ("learning", "relearn") else
-        1 if c["state"] == "review" else 2,
-        c["due"]
-    ))
-    return all_cards
+
+    # Sort learning/relearn + review cards by due time, then apply new_review_order
+    learning_cards = [c for c in all_cards if c["state"] in ("learning", "relearn")]
+    review_cards   = [c for c in all_cards if c["state"] == "review"]
+    new_cards      = [c for c in all_cards if c["state"] == "new"]
+
+    learning_cards.sort(key=lambda c: c["due"])
+    review_cards.sort(key=lambda c: c["due"])
+    lr = sorted(learning_cards + review_cards, key=lambda c: c["due"])
+
+    if deck_ids:
+        preset = get_preset_for_deck(deck_ids[0])
+        nr_o = preset.get("new_review_order", "mixed")
+    else:
+        nr_o = "mixed"
+
+    if nr_o == "new_first":
+        return new_cards + lr
+    elif nr_o == "reviews_first":
+        return lr + new_cards
+    else:
+        return _interleave_cards(lr, new_cards)
 
 
 def get_next_card_multi(deck_ids: list[int], category: str) -> dict | None:

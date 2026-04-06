@@ -1377,6 +1377,20 @@ main.browse-open {
 }
 .bury-btn:hover { background: var(--border); }
 
+.new-order-btn {
+  background: none;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 2px 4px;
+  border-radius: 6px;
+  line-height: 1;
+  font-weight: 600;
+}
+.new-order-btn:hover { background: var(--border); }
+.new-order-btn.new-order-mixed { color: var(--accent); }
+
 .deck-menu-wrap { position: relative; }
 .deck-dropdown {
   position: fixed;

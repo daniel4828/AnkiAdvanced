@@ -158,22 +158,36 @@ Rules:
                 for item, card in zip(result, cards):
                     item["word_id"] = card["word_id"]
                 if len(result) == len(cards):
-                    missing = [
-                        card["word_zh"]
+                    missing_pairs = [
+                        (item, card)
                         for item, card in zip(result, cards)
                         if not _is_sentence(card["word_zh"])
                         and card["word_zh"] not in item.get("sentence_zh", "")
                     ]
-                    if missing:
+                    if missing_pairs:
+                        missing_pct = len(missing_pairs) / len(cards)
+                        missing_words = [card["word_zh"] for _, card in missing_pairs]
+                        if missing_pct >= 0.03:
+                            logger.warning(
+                                "generate_story: attempt %d — %d/%d words missing (%.0f%%), retrying: %s",
+                                attempt + 1, len(missing_pairs), len(cards),
+                                missing_pct * 100, missing_words,
+                            )
+                            missing_hint = (
+                                f"\n\nIMPORTANT: Your previous attempt was missing these words "
+                                f"— each MUST appear verbatim in its sentence: {', '.join(missing_words)}"
+                            )
+                            continue
+                        # < 3% missing — accept and fill with source_sentence fallback
                         logger.warning(
-                            "generate_story: attempt %d — words missing from sentences: %s",
-                            attempt + 1, missing,
+                            "generate_story: attempt %d — %d/%d words missing (<3%%), "
+                            "accepting with source_sentence fallback: %s",
+                            attempt + 1, len(missing_pairs), len(cards), missing_words,
                         )
-                        missing_hint = (
-                            f"\n\nIMPORTANT: Your previous attempt was missing these words "
-                            f"— each MUST appear verbatim in its sentence: {', '.join(missing)}"
-                        )
-                        continue
+                        for item, card in missing_pairs:
+                            src = card.get("source_sentence", "")
+                            if src:
+                                item["sentence_zh"] = src
                     logger.info("generate_story: success — %d sentences (attempt %d)",
                                 len(result), attempt + 1)
                     # Translate sentences locally (no extra AI call needed)
