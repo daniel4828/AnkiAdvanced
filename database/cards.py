@@ -506,6 +506,13 @@ def get_next_card_any_cat(root_deck_id: int) -> dict | None:
         if story:
             for s in get_story_sentences(story["id"]):
                 story_pos[s["word_id"]] = s["position"]
+    # Unified story is stored as category="unified" on the root deck —
+    # the per-category loop above never finds it, so check explicitly.
+    if not story_pos:
+        unified_story = get_active_story(today, "unified", root_deck_id)
+        if unified_story:
+            for s in get_story_sentences(unified_story["id"]):
+                story_pos[s["word_id"]] = s["position"]
 
     NO_POS = 9999
     if story_pos:

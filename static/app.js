@@ -2822,7 +2822,8 @@ function updateStoryHighlight(idx) {
     const isPlaying = parseInt(el.dataset.idx) === idx;
     el.classList.toggle('story-sentence-playing', isPlaying);
     const playBtn = el.querySelector('.story-play-btn');
-    if (playBtn) playBtn.textContent = isPlaying ? '‖' : '▶';
+    if (playBtn) playBtn.textContent = isPlaying ? '⏸' : '▶';
+    if (isPlaying) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
 }
 
