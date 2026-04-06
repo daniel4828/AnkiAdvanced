@@ -2796,59 +2796,122 @@ function openStoryModal() {
       `<span class="story-target">${s.word_zh}</span>`
     );
     const esc = encodeURIComponent(s.sentence_zh);
-    return `<div class="story-sentence${isCurrent ? ' story-sentence-current' : ''}">
+    return `<div class="story-sentence${isCurrent ? ' story-sentence-current' : ''}" data-idx="${s.position}">
       <span class="story-num">${s.position + 1}</span>
       <div class="story-content">
         <div class="story-zh">${highlighted}</div>
         <div class="story-en">${s.sentence_en}</div>
       </div>
-      <button class="story-play-btn" onclick="playStoryLine('${esc}')" title="Play">▶</button>
+      <button class="story-play-btn" onclick="storyJumpTo(${s.position})" title="Play">▶</button>
     </div>`;
   }).join('');
   document.getElementById('story-modal-body').innerHTML = html;
+  document.getElementById('story-modal-title').textContent = story.topic || 'Full story';
+  if (_storyPlaying && _currentPlayIdx >= 0) updateStoryHighlight(_currentPlayIdx);
   document.getElementById('story-modal-overlay').style.display = 'block';
   document.getElementById('story-modal').style.display = 'flex';
 }
 
-async function playStoryLine(encodedText) {
-  try { await api('POST', `/api/speak?text=${encodedText}`); }
-  catch (e) { showError('TTS failed: ' + e.message); }
+let _storyPlaying = false;
+let _currentPlayIdx = -1;
+let _storyStoppedAt = -1;
+let _currentAudio = null;
+
+function updateStoryHighlight(idx) {
+  document.querySelectorAll('#story-modal-body .story-sentence').forEach(el => {
+    const isPlaying = parseInt(el.dataset.idx) === idx;
+    el.classList.toggle('story-sentence-playing', isPlaying);
+    const playBtn = el.querySelector('.story-play-btn');
+    if (playBtn) playBtn.textContent = isPlaying ? '‖' : '▶';
+  });
 }
 
-let _storyPlaying = false;
+function _storyAudioUrl(idx) {
+  return `/api/tts-file?text=${encodeURIComponent(story.sentences[idx].sentence_zh)}`;
+}
 
-async function toggleFullStory() {
-  if (_storyPlaying) {
-    stopFullStory();
+function _playStoryAtIdx(idx) {
+  if (!_storyPlaying || idx < 0 || idx >= story.sentences.length) {
+    _storyPlaying = false;
+    _currentPlayIdx = -1;
+    _currentAudio = null;
+    updateStoryHighlight(-1);
+    const btn = document.getElementById('story-play-all-btn');
+    if (btn) btn.textContent = '▶ Play full story';
     return;
   }
+
+  _currentPlayIdx = idx;
+  updateStoryHighlight(idx);
+
+  const audio = new Audio(_storyAudioUrl(idx));
+  _currentAudio = audio;
+
+  audio.onended = () => { if (_currentAudio === audio) _playStoryAtIdx(idx + 1); };
+  audio.onerror = () => { if (_currentAudio === audio) _playStoryAtIdx(idx + 1); };
+  audio.play().catch(() => { if (_currentAudio === audio) _playStoryAtIdx(idx + 1); });
+}
+
+async function _startPlayback(startIdx) {
   if (!story?.sentences?.length) return;
   _storyPlaying = true;
   const btn = document.getElementById('story-play-all-btn');
 
-  // Ensure all sentences are cached before starting playback
   btn.textContent = '⏳ Loading audio…';
   const storyDeckId = rootDeckId || deckId;
   try {
     await api('POST', `/api/preload-session/${storyDeckId}/${category}`);
   } catch (_) {}
 
-  if (!_storyPlaying) return; // user pressed stop while loading
+  if (!_storyPlaying) return;
 
-  btn.textContent = '■ Stop';
-  try {
-    await api('POST', '/api/speak-multi', { texts: story.sentences.map(s => s.sentence_zh) });
-  } catch (e) { /* stopped or error — ignore */ }
-  _storyPlaying = false;
-  btn.textContent = '▶ Play full story';
+  _storyStoppedAt = -1;
+  if (btn) btn.textContent = '■ Stop';
+  _playStoryAtIdx(startIdx);
+}
+
+async function toggleFullStory() {
+  if (_storyPlaying) { stopFullStory(); return; }
+  const startIdx = _storyStoppedAt >= 0 ? _storyStoppedAt : 0;
+  await _startPlayback(startIdx);
+}
+
+function storyJumpTo(idx) {
+  if (_currentAudio) { _currentAudio.onended = null; _currentAudio.pause(); _currentAudio = null; }
+  if (!_storyPlaying) {
+    _storyPlaying = true;
+    const btn = document.getElementById('story-play-all-btn');
+    if (btn) btn.textContent = '■ Stop';
+  }
+  _playStoryAtIdx(idx);
+}
+
+function storySkipNext() {
+  if (!_storyPlaying || _currentPlayIdx < 0) return;
+  const next = _currentPlayIdx + 1;
+  if (next >= story.sentences.length) return;
+  storyJumpTo(next);
+}
+
+function storySkipPrev() {
+  if (!_storyPlaying || _currentPlayIdx < 0) return;
+  storyJumpTo(Math.max(0, _currentPlayIdx - 1));
+}
+
+function storyRepeat() {
+  if (_currentPlayIdx < 0) return;
+  storyJumpTo(_currentPlayIdx);
 }
 
 function stopFullStory() {
   if (!_storyPlaying) return;
+  _storyStoppedAt = _currentPlayIdx;
   _storyPlaying = false;
+  _currentPlayIdx = -1;
+  if (_currentAudio) { _currentAudio.onended = null; _currentAudio.pause(); _currentAudio = null; }
+  updateStoryHighlight(-1);
   const btn = document.getElementById('story-play-all-btn');
-  if (btn) btn.textContent = '▶ Play full story';
-  api('POST', '/api/speak-stop').catch(() => {});
+  if (btn) btn.textContent = '▶ Continue';
 }
 
 function closeStoryModal() {
@@ -4076,6 +4139,16 @@ document.addEventListener('keydown', e => {
       e.preventDefault();
       closeStoryModal();
       return;
+    }
+  }
+
+  if (!inInput) {
+    const storyOverlay = document.getElementById('story-modal-overlay');
+    if (storyOverlay && storyOverlay.style.display !== 'none') {
+      if (e.code === 'Space') { e.preventDefault(); toggleFullStory(); return; }
+      if (e.code === 'KeyA' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); storySkipPrev(); return; }
+      if (e.code === 'KeyS' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); storyRepeat(); return; }
+      if (e.code === 'KeyD' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); storySkipNext(); return; }
     }
   }
 
