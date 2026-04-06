@@ -206,11 +206,8 @@ main.browse-open {
 .cnt-cat-rr {
   font-size: 10px;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--text);
 }
-.cnt-cat-rr.rr-high { color: #10b981; }
-.cnt-cat-rr.rr-mid  { color: #f59e0b; }
-.cnt-cat-rr.rr-low  { color: #ef4444; }
 
 /* The main card */
 .review-card {
@@ -396,7 +393,7 @@ main.browse-open {
 .review-rr-badge {
   font-size: 12px;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--text);
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -409,16 +406,13 @@ main.browse-open {
 .deck-rr-badge {
   font-size: 11px;
   font-weight: 600;
-  color: var(--muted);
+  color: var(--text);
   background: transparent;
   border-radius: 4px;
   padding: 1px 4px;
   cursor: default;
   white-space: nowrap;
 }
-.deck-rr-badge.rr-high  { color: #10b981; }
-.deck-rr-badge.rr-mid   { color: #f59e0b; }
-.deck-rr-badge.rr-low   { color: #ef4444; }
 
 /* RR inside category pill */
 .cat-pill-rr {
@@ -427,10 +421,8 @@ main.browse-open {
   font-weight: 600;
   line-height: 1;
   margin-top: 2px;
+  color: var(--text);
 }
-.cat-pill-rr.rr-high { color: #10b981; }
-.cat-pill-rr.rr-mid  { color: #f59e0b; }
-.cat-pill-rr.rr-low  { color: #ef4444; }
 .cat-pill-rr.rr-none { color: var(--muted); }
 
 .undo-btn {

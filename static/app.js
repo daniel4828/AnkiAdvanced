@@ -349,7 +349,7 @@ function _updateReviewRRBadge(deckOrId) {
       badge.style.display = 'none';
     } else {
       badge.textContent = 'RR ' + _formatRR(rr.overall);
-      badge.className = 'review-rr-badge ' + _rrClass(rr.overall);
+      badge.className = 'review-rr-badge';
       badge.title = _rrTooltip(rr);
       badge.style.display = '';
     }
@@ -361,7 +361,7 @@ function _updateReviewRRBadge(deckOrId) {
     if (!el) continue;
     const val = rr.by_category[cat] ?? null;
     el.textContent = _formatRR(val);
-    el.className = 'cnt-cat-rr' + (val !== null ? ' ' + _rrClass(val) : '');
+    el.className = 'cnt-cat-rr';
   }
 }
 
@@ -406,7 +406,7 @@ function _leavesRR(leaves) {
 }
 
 function _catRRSpan(val) {
-  const cls = val === null ? 'rr-none' : _rrClass(val);
+  const cls = val === null ? 'rr-none' : '';
   const txt = val === null ? '—' : _formatRR(val);
   return `<span class="cat-pill-rr ${cls}">${txt}</span>`;
 }
@@ -494,7 +494,7 @@ function renderDecks(decks) {
     const allRRData = _retentionData?.all;
     const allRRVal = allRRData?.total > 0 ? allRRData.correct / allRRData.total : null;
     const allRRBadge = allRRVal !== null
-      ? `<span class="deck-rr-badge ${_rrClass(allRRVal)}" title="30d retention: ${_formatRR(allRRVal)} (${allRRData.total} reviews)">${_formatRR(allRRVal)}</span>`
+      ? `<span class="deck-rr-badge" title="30d retention: ${_formatRR(allRRVal)} (${allRRData.total} reviews)">${_formatRR(allRRVal)}</span>`
       : '';
     filteredHtml += `
       <div class="tree-row tree-parent">
@@ -554,7 +554,7 @@ function renderDeckRows(decks, depth) {
                      :                         'Bury siblings: Custom (click for All)';
     const rrData = _calcDeckRR(deck);
     const rrBadge = rrData.overall !== null
-      ? `<span class="deck-rr-badge ${_rrClass(rrData.overall)}" title="${_rrTooltip(rrData)}">${_formatRR(rrData.overall)}</span>`
+      ? `<span class="deck-rr-badge" title="${_rrTooltip(rrData)}">${_formatRR(rrData.overall)}</span>`
       : '';
     const row = `
       <div class="tree-row tree-parent" style="padding-left:${16 + indent}px">
