@@ -203,6 +203,14 @@ main.browse-open {
   font-size: 11px;
 }
 .cnt-cat-nums b { font-weight: 700; }
+.cnt-cat-rr {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.cnt-cat-rr.rr-high { color: #10b981; }
+.cnt-cat-rr.rr-mid  { color: #f59e0b; }
+.cnt-cat-rr.rr-low  { color: #ef4444; }
 
 /* The main card */
 .review-card {

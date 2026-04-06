@@ -334,21 +334,42 @@ function _rrTooltip(rr) {
 // Update the RR badge in the review header
 function _updateReviewRRBadge(deckOrId) {
   const badge = document.getElementById('review-rr-badge');
-  if (!badge || !_retentionData) return;
+  if (!_retentionData) return;
   let rr;
   if (typeof deckOrId === 'object') {
     rr = _calcDeckRR(deckOrId);
   } else {
-    // Find deck in cached tree
     const deck = _findDeckInTree(_cachedDecks, deckOrId);
-    if (!deck) { badge.style.display = 'none'; return; }
+    if (!deck) { if (badge) badge.style.display = 'none'; _clearCatRRSpans(); return; }
     rr = _calcDeckRR(deck);
   }
-  if (rr.overall === null) { badge.style.display = 'none'; return; }
-  badge.textContent = 'RR ' + _formatRR(rr.overall);
-  badge.className = 'review-rr-badge ' + _rrClass(rr.overall);
-  badge.title = _rrTooltip(rr);
-  badge.style.display = '';
+  // Overall badge
+  if (badge) {
+    if (rr.overall === null) {
+      badge.style.display = 'none';
+    } else {
+      badge.textContent = 'RR ' + _formatRR(rr.overall);
+      badge.className = 'review-rr-badge ' + _rrClass(rr.overall);
+      badge.title = _rrTooltip(rr);
+      badge.style.display = '';
+    }
+  }
+  // Per-category spans
+  const MAP = { reading: 'r', listening: 'l', creating: 'c' };
+  for (const [cat, key] of Object.entries(MAP)) {
+    const el = document.getElementById(`cnt-${key}-rr`);
+    if (!el) continue;
+    const val = rr.by_category[cat] ?? null;
+    el.textContent = _formatRR(val);
+    el.className = 'cnt-cat-rr' + (val !== null ? ' ' + _rrClass(val) : '');
+  }
+}
+
+function _clearCatRRSpans() {
+  for (const key of ['r', 'l', 'c']) {
+    const el = document.getElementById(`cnt-${key}-rr`);
+    if (el) { el.textContent = ''; el.className = 'cnt-cat-rr'; }
+  }
 }
 
 function _findDeckInTree(nodes, id) {
