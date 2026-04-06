@@ -416,11 +416,8 @@ main.browse-open {
 
 /* RR inside category pill */
 .cat-pill-rr {
-  display: block;
   font-size: 10px;
   font-weight: 600;
-  line-height: 1;
-  margin-top: 2px;
   color: var(--text);
 }
 .cat-pill-rr.rr-none { color: var(--muted); }
