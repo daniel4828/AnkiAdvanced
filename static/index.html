@@ -46,19 +46,22 @@
         <div class="cnt-cat-item">
           <span class="cnt-cat-zh">读</span>
           <span class="cnt-cat-nums"><b id="cnt-r-new" class="n-new">0</b>·<b id="cnt-r-lrn" class="n-lrn">0</b>·<b id="cnt-r-rev" class="n-rev">0</b></span>
+          <span id="cnt-r-rr" class="cnt-cat-rr"></span>
         </div>
         <div class="cnt-cat-item">
           <span class="cnt-cat-zh">听</span>
           <span class="cnt-cat-nums"><b id="cnt-l-new" class="n-new">0</b>·<b id="cnt-l-lrn" class="n-lrn">0</b>·<b id="cnt-l-rev" class="n-rev">0</b></span>
+          <span id="cnt-l-rr" class="cnt-cat-rr"></span>
         </div>
         <div class="cnt-cat-item">
           <span class="cnt-cat-zh">创</span>
           <span class="cnt-cat-nums"><b id="cnt-c-new" class="n-new">0</b>·<b id="cnt-c-lrn" class="n-lrn">0</b>·<b id="cnt-c-rev" class="n-rev">0</b></span>
+          <span id="cnt-c-rr" class="cnt-cat-rr"></span>
         </div>
       </div>
       <div style="display:flex;gap:6px;margin-left:auto;align-items:center">
+        <span id="review-rr-badge" class="review-rr-badge" style="display:none" title="30-day retention rate"></span>
         <button class="undo-btn" id="undo-btn" onclick="undoReview()" title="Undo last rating [Z]" disabled>↩ Undo</button>
-        <button class="regen-btn" onclick="regenerateStory()" title="Regenerate story">Regen ↺</button>
       </div>
     </div>
 

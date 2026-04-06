@@ -1,4 +1,5 @@
 import sqlite3
+import datetime as _dt
 from datetime import date, datetime
 from .core import get_db, anki_today
 
@@ -123,6 +124,54 @@ def get_api_costs() -> dict:
         calls.append(r)
 
     return {"calls": calls, "total_cost": round(total_cost, 6)}
+
+
+def get_retention_bulk(days: int = 30) -> dict:
+    """Return retention rate data for all decks, grouped by leaf deck_id.
+
+    Returns:
+        {
+          "by_deck": {deck_id: {"correct": int, "total": int, "category": str|None}},
+          "all":     {"correct": int, "total": int},
+          "days":    int
+        }
+    Rating > 1 (Hard/Good/Easy) counts as correct; rating == 1 (Again) counts as wrong.
+    """
+    conn = get_db()
+    since = (anki_today() - _dt.timedelta(days=days)).isoformat()
+
+    rows = conn.execute(
+        """SELECT c.deck_id, d.category,
+                  COUNT(*) AS total,
+                  SUM(CASE WHEN rl.rating > 1 THEN 1 ELSE 0 END) AS correct
+           FROM review_log rl
+           JOIN cards c ON c.id = rl.card_id
+           JOIN decks d ON d.id = c.deck_id
+           WHERE date(rl.reviewed_at) >= ?
+           GROUP BY c.deck_id""",
+        [since],
+    ).fetchall()
+    conn.close()
+
+    by_deck: dict = {}
+    total_all = 0
+    correct_all = 0
+    for r in rows:
+        correct = r["correct"] or 0
+        total   = r["total"]   or 0
+        by_deck[r["deck_id"]] = {
+            "correct":  correct,
+            "total":    total,
+            "category": r["category"],
+        }
+        total_all   += total
+        correct_all += correct
+
+    return {
+        "by_deck": by_deck,
+        "all":     {"correct": correct_all, "total": total_all},
+        "days":    days,
+    }
 
 
 def _calc_streak(conn: sqlite3.Connection, deck_id: int | None) -> int:

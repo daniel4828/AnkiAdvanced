@@ -203,6 +203,11 @@ main.browse-open {
   font-size: 11px;
 }
 .cnt-cat-nums b { font-weight: 700; }
+.cnt-cat-rr {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text);
+}
 
 /* The main card */
 .review-card {
@@ -383,6 +388,39 @@ main.browse-open {
   white-space: nowrap;
 }
 .regen-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+/* Retention rate badge — review header */
+.review-rr-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 7px;
+  cursor: default;
+  white-space: nowrap;
+}
+
+/* Retention rate badge — deck list row */
+.deck-rr-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  background: transparent;
+  border-radius: 4px;
+  padding: 1px 4px;
+  cursor: default;
+  white-space: nowrap;
+}
+
+/* RR inside category pill */
+.cat-pill-rr {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text);
+}
+.cat-pill-rr.rr-none { color: var(--muted); }
 
 .undo-btn {
   background: none;
@@ -1313,6 +1351,20 @@ main.browse-open {
   line-height: 1;
 }
 .gear-btn:hover { background: var(--border); }
+.deck-regen-btn {
+  background: none;
+  border: none;
+  font-size: 15px;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 2px 4px;
+  border-radius: 6px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.tree-row:hover .deck-regen-btn { opacity: 1; }
+.deck-regen-btn:hover { background: var(--border); color: #6366f1; }
 .bury-btn {
   background: none;
   border: none;

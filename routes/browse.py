@@ -233,6 +233,11 @@ def get_stats(deck_id: int | None = None):
     return database.get_stats(deck_id)
 
 
+@router.get("/api/retention")
+def get_retention(days: int = 30):
+    return database.get_retention_bulk(days)
+
+
 @router.get("/api/costs")
 def get_api_costs():
     return database.get_api_costs()

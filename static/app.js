@@ -55,6 +55,7 @@ let _browseDeckTree = [];         // top-level user decks (children of All) for 
 let _browseDeckExpanded = new Set(); // deck IDs expanded in sidebar tree
 let optDeckId    = null; // deck whose options modal is open
 const collapsed  = new Set(JSON.parse(localStorage.getItem('collapsedDecks') || '[]'));  // parent deck IDs that are collapsed
+let _retentionData = null;  // cached result from GET /api/retention
 let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
 // ── Story info row (Sentence x/y · Topic) ───────────────────────────────────
 function _updateStoryInfoRow() {
@@ -233,8 +234,12 @@ function showError(msg) {
 async function loadDecks() {
   setLoading('Loading decks…');
   try {
-    const decks = await api('GET', '/api/decks');
+    const [decks, retention] = await Promise.all([
+      api('GET', '/api/decks'),
+      api('GET', '/api/retention').catch(() => null),
+    ]);
     _cachedDecks = decks;
+    _retentionData = retention;
     renderDecks(decks);
     showView('decks');
   } catch (e) {
@@ -271,6 +276,111 @@ function getDeepCategoryLeaves(deck) {
   return result;
 }
 
+// ── Retention rate helpers ────────────────────────────────────────────────────
+
+function _rrClass(val) {
+  if (val === null) return '';
+  if (val >= 0.90) return 'rr-high';
+  if (val >= 0.75) return 'rr-mid';
+  return 'rr-low';
+}
+
+function _formatRR(val) {
+  if (val === null) return '—';
+  return Math.round(val * 100) + '%';
+}
+
+// Compute RR for a deck (structural or leaf) using cached _retentionData
+function _calcDeckRR(deck) {
+  if (!_retentionData?.by_deck) return { overall: null, by_category: {} };
+  const leaves = deck.category
+    ? [deck]
+    : getDeepCategoryLeaves(deck);
+
+  let totalC = 0, totalT = 0;
+  const byCat = {};
+
+  for (const leaf of leaves) {
+    const d = _retentionData.by_deck[leaf.id];
+    if (!d) continue;
+    totalC += d.correct;
+    totalT += d.total;
+    const cat = leaf.category;
+    if (cat) {
+      if (!byCat[cat]) byCat[cat] = { c: 0, t: 0 };
+      byCat[cat].c += d.correct;
+      byCat[cat].t += d.total;
+    }
+  }
+
+  const overall = totalT > 0 ? totalC / totalT : null;
+  const by_category = {};
+  for (const [cat, v] of Object.entries(byCat)) {
+    by_category[cat] = v.t > 0 ? v.c / v.t : null;
+  }
+  return { overall, total: totalT, by_category };
+}
+
+// Build tooltip text for a deck's RR
+function _rrTooltip(rr) {
+  const lines = [`30d retention: ${_formatRR(rr.overall)} (${rr.total ?? 0} reviews)`];
+  const LABELS = { reading: 'R', listening: 'L', creating: 'C' };
+  for (const [cat, val] of Object.entries(rr.by_category)) {
+    lines.push(`${LABELS[cat] ?? cat}: ${_formatRR(val)}`);
+  }
+  return lines.join(' · ');
+}
+
+// Update the RR badge in the review header
+function _updateReviewRRBadge(deckOrId) {
+  const badge = document.getElementById('review-rr-badge');
+  if (!_retentionData) return;
+  let rr;
+  if (typeof deckOrId === 'object') {
+    rr = _calcDeckRR(deckOrId);
+  } else {
+    const deck = _findDeckInTree(_cachedDecks, deckOrId);
+    if (!deck) { if (badge) badge.style.display = 'none'; _clearCatRRSpans(); return; }
+    rr = _calcDeckRR(deck);
+  }
+  // Overall badge
+  if (badge) {
+    if (rr.overall === null) {
+      badge.style.display = 'none';
+    } else {
+      badge.textContent = 'RR ' + _formatRR(rr.overall);
+      badge.className = 'review-rr-badge';
+      badge.title = _rrTooltip(rr);
+      badge.style.display = '';
+    }
+  }
+  // Per-category spans
+  const MAP = { reading: 'r', listening: 'l', creating: 'c' };
+  for (const [cat, key] of Object.entries(MAP)) {
+    const el = document.getElementById(`cnt-${key}-rr`);
+    if (!el) continue;
+    const val = rr.by_category[cat] ?? null;
+    el.textContent = _formatRR(val);
+    el.className = 'cnt-cat-rr';
+  }
+}
+
+function _clearCatRRSpans() {
+  for (const key of ['r', 'l', 'c']) {
+    const el = document.getElementById(`cnt-${key}-rr`);
+    if (el) { el.textContent = ''; el.className = 'cnt-cat-rr'; }
+  }
+}
+
+function _findDeckInTree(nodes, id) {
+  for (const n of (nodes || [])) {
+    if (n.id === id) return n;
+    const found = _findDeckInTree(n.children, id);
+    if (found) return found;
+  }
+  return null;
+}
+
 // Aggregate counts for one category from all deep leaves
 function aggregateCounts(deck, category) {
   const leaves = getDeepCategoryLeaves(deck).filter(l => l.category === category);
@@ -283,6 +393,23 @@ function countHtml(c) {
   return `<span class="n-new">${c.new}</span> <span class="n-lrn">${c.learning}</span> <span class="n-rev">${c.review}</span>`;
 }
 
+
+// Compute RR for a list of leaf deck objects (using cached _retentionData)
+function _leavesRR(leaves) {
+  if (!_retentionData?.by_deck) return null;
+  let c = 0, t = 0;
+  for (const l of leaves) {
+    const d = _retentionData.by_deck[l.id];
+    if (d) { c += d.correct; t += d.total; }
+  }
+  return t > 0 ? c / t : null;
+}
+
+function _catRRSpan(val) {
+  const cls = val === null ? 'rr-none' : '';
+  const txt = val === null ? '—' : _formatRR(val);
+  return `<span class="cat-pill-rr ${cls}">${txt}</span>`;
+}
 
 // Build 3 inline pills (L/R/C) for any deck. Uses direct cat leaves if present, else aggregates.
 function buildCategoryButtons(deck) {
@@ -304,7 +431,8 @@ function buildCategoryButtons(deck) {
       const badgeClass = allSusp ? 'cat-susp-badge cat-badge-suspended' : 'cat-susp-badge cat-badge-active';
       const pillClass = allSusp ? 'cat-pill cat-pill-dimmed' : 'cat-pill';
       const title = allSusp ? `Unsuspend all ${label} cards` : `Suspend all ${label} cards`;
-      return `<span class="cat-pill-group"><button class="${badgeClass}" onclick="event.stopPropagation();toggleCategorySuspension(${leaf.id},'${cat}')" title="${title}">${badgeIcon}</button><span class="cat-pill-wrap"><button class="${pillClass}" onclick="event.stopPropagation();startReview(${leaf.id},'${cat}','${safeName}',${!!leaf.no_story})"><span class="cat-pill-label">${label}</span><span class="cat-pill-counts">${countHtml(c)}</span></button><button class="cat-pill-gear" onclick="event.stopPropagation();openOptions(${leaf.id})" title="Options">⚙</button></span></span>`;
+      const rr = _leavesRR([leaf]);
+      return `<span class="cat-pill-group"><button class="${badgeClass}" onclick="event.stopPropagation();toggleCategorySuspension(${leaf.id},'${cat}')" title="${title}">${badgeIcon}</button><span class="cat-pill-wrap"><button class="${pillClass}" onclick="event.stopPropagation();startReview(${leaf.id},'${cat}','${safeName}',${!!leaf.no_story})"><span class="cat-pill-label">${label}</span><span class="cat-pill-counts">${countHtml(c)}</span>${_catRRSpan(rr)}</button><button class="cat-pill-gear" onclick="event.stopPropagation();openOptions(${leaf.id})" title="Options">⚙</button></span></span>`;
     }
     const c = aggregateCounts(deck, cat);
     const hasCards = getDeepCategoryLeaves(deck).some(l => l.category === cat);
@@ -315,7 +443,8 @@ function buildCategoryButtons(deck) {
     const badgeClass = allSusp ? 'cat-susp-badge cat-badge-suspended' : 'cat-susp-badge cat-badge-active';
     const pillClass = allSusp ? 'cat-pill cat-pill-dimmed' : 'cat-pill';
     const title = allSusp ? `Unsuspend all ${label} cards` : `Suspend all ${label} cards`;
-    return `<span class="cat-pill-group"><button class="${badgeClass}" onclick="event.stopPropagation();toggleCategorySuspension(${deck.id},'${cat}')" title="${title}">${badgeIcon}</button><span class="cat-pill-wrap"><button class="${pillClass}" onclick="event.stopPropagation();startReview(${deck.id},'${cat}','${safeName}',${!!deck.no_story})"><span class="cat-pill-label">${label}</span><span class="cat-pill-counts">${countHtml(c)}</span></button><button class="cat-pill-gear" onclick="event.stopPropagation();openOptions(${deck.id})" title="Options">⚙</button></span></span>`;
+    const rr = _leavesRR(leaves);
+    return `<span class="cat-pill-group"><button class="${badgeClass}" onclick="event.stopPropagation();toggleCategorySuspension(${deck.id},'${cat}')" title="${title}">${badgeIcon}</button><span class="cat-pill-wrap"><button class="${pillClass}" onclick="event.stopPropagation();startReview(${deck.id},'${cat}','${safeName}',${!!deck.no_story})"><span class="cat-pill-label">${label}</span><span class="cat-pill-counts">${countHtml(c)}</span>${_catRRSpan(rr)}</button><button class="cat-pill-gear" onclick="event.stopPropagation();openOptions(${deck.id})" title="Options">⚙</button></span></span>`;
   }).join('');
 }
 
@@ -362,11 +491,17 @@ function renderDecks(decks) {
     const allBuryTitle = allBuryMode === 'all'  ? 'Bury siblings: All (click for None)'
                        : allBuryMode === 'none' ? 'Bury siblings: None (click for Custom)'
                        :                          'Bury siblings: Custom (click for All)';
+    const allRRData = _retentionData?.all;
+    const allRRVal = allRRData?.total > 0 ? allRRData.correct / allRRData.total : null;
+    const allRRBadge = allRRVal !== null
+      ? `<span class="deck-rr-badge" title="30d retention: ${_formatRR(allRRVal)} (${allRRData.total} reviews)">${_formatRR(allRRVal)}</span>`
+      : '';
     filteredHtml += `
       <div class="tree-row tree-parent">
         <span class="tree-toggle"></span>
         <span class="tree-name" onclick="startReviewMixed(${allDeck.id},'${safeName}')" style="cursor:pointer">All</span>
         <span class="deck-counts"><span class="n-new">${(allDeck.counts||{}).new||0}</span><span class="n-lrn">${(allDeck.counts||{}).learning||0}</span><span class="n-rev">${(allDeck.counts||{}).review||0}</span></span>
+        ${allRRBadge}
         <button class="${allBuryClass}" onclick="event.stopPropagation();toggleBury(${allDeck.id})" title="${allBuryTitle}">${allBuryIcon}</button>
         <div class="deck-menu-wrap">
           <button class="deck-susp-btn ${allDeck.deck_all_suspended ? 'deck-all-suspended' : ''}" onclick="event.stopPropagation();toggleDeckAllSuspension(${allDeck.id})" title="${allDeck.deck_all_suspended ? 'Unsuspend all cards' : 'Suspend all cards'}">${allDeck.deck_all_suspended ? '▶' : '⏸'}</button>
@@ -417,14 +552,20 @@ function renderDeckRows(decks, depth) {
     const buryTitle  = buryMode === 'all'    ? 'Bury siblings: All (click for None)'
                      : buryMode === 'none'   ? 'Bury siblings: None (click for Custom)'
                      :                         'Bury siblings: Custom (click for All)';
+    const rrData = _calcDeckRR(deck);
+    const rrBadge = rrData.overall !== null
+      ? `<span class="deck-rr-badge" title="${_rrTooltip(rrData)}">${_formatRR(rrData.overall)}</span>`
+      : '';
     const row = `
       <div class="tree-row tree-parent" style="padding-left:${16 + indent}px">
         <span class="tree-toggle" onclick="toggleDeck(${deck.id})">${toggleIcon}</span>
         <span class="tree-name" onclick="startReviewMixed(${deck.id},'${safeName}',${!!deck.no_story})" style="cursor:pointer">${deck.name}</span>
         ${deckCounts}
+        ${rrBadge}
         <button class="${buryClass}" onclick="event.stopPropagation();toggleBury(${deck.id})" title="${buryTitle}">${buryIcon}</button>
         <div class="deck-menu-wrap">
           <button class="deck-susp-btn ${deck.deck_all_suspended ? 'deck-all-suspended' : ''}" onclick="event.stopPropagation();toggleDeckAllSuspension(${deck.id})" title="${deck.deck_all_suspended ? 'Unsuspend all cards' : 'Suspend all cards'}">${deck.deck_all_suspended ? '▶' : '⏸'}</button>
+          ${!deck.no_story ? `<button class="deck-regen-btn" onclick="event.stopPropagation();regenerateStoryFromList(${deck.id})" title="Regenerate story">↺</button>` : ''}
           <button class="gear-btn" onclick="event.stopPropagation();toggleDeckMenu(event,${deck.id},'${safeName}',${!!deck.filtered})" title="Deck options">⚙</button>
         </div>
         <div class="cat-pills-row">${buildCategoryButtons(deck)}</div>
@@ -1764,6 +1905,7 @@ async function startReview(id, cat, name, noStory = false) {
   category = cat;
   deckName = name;
   _sessionReviewedCount = 0;
+  _updateReviewRRBadge(id);
 
   try {
     if (noStory) {
@@ -1840,6 +1982,7 @@ async function startReviewMixed(id, name, noStory = false) {
   deckName   = name;
   story      = null;
   _sessionReviewedCount = 0;
+  _updateReviewRRBadge(id);
   try {
     const todayData = await api('GET', `/api/today-mixed/${id}`);
     if (!todayData.card) {
@@ -2714,11 +2857,14 @@ let _setupResolve = null;
 let _setupIsRegen = false;
 let _setupIsMixed = false;
 let _setupIsUnfinished = false;
+let _setupIsDeckListRegen = false;
+let _deckListRegenId = null;
 
 function openStorySetup(sentenceCount, { isMixed = false, isUnfinished = false, learningCount = 0, estimatedTokens = 0 } = {}) {
   _setupIsRegen = !isMixed && !isUnfinished && !!card; // card exists (fresh single-cat) → regenerating
   _setupIsMixed = isMixed;
   _setupIsUnfinished = isUnfinished;
+  _setupIsDeckListRegen = false;
   document.getElementById('setup-count-label').textContent =
     `This story will have ${sentenceCount} sentence${sentenceCount !== 1 ? 's' : ''}.`;
   const warn = document.getElementById('setup-learning-warning');
@@ -2763,7 +2909,9 @@ function confirmStorySetup() {
   const maxHsk = parseInt(document.getElementById('setup-hsk-slider').value, 10);
   const model  = document.getElementById('setup-model').value;
   _closeSetupModal();
-  if (_setupIsRegen) {
+  if (_setupIsDeckListRegen) {
+    _doRegenStoryForDeckList(_deckListRegenId, topic, maxHsk, model);
+  } else if (_setupIsRegen) {
     _doRegenerateStory(topic, maxHsk, model);
   } else if (_setupIsUnfinished) {
     _doStartReviewUnfinished(topic, maxHsk, model);
@@ -2776,7 +2924,7 @@ function confirmStorySetup() {
 
 function cancelStorySetup() {
   _closeSetupModal();
-  if (!_setupIsRegen) showView('decks');
+  if (!_setupIsRegen && !_setupIsDeckListRegen) showView('decks');
 }
 
 function _closeSetupModal() {
@@ -3166,6 +3314,51 @@ async function _doRegenerateStory(topic, maxHsk, model) {
     await new Promise(r => setTimeout(r, 2000));
     showError('Regenerate failed: ' + e.message);
     showView('review');
+  }
+}
+
+async function regenerateStoryFromList(deckId) {
+  _deckListRegenId = deckId;
+  _setupIsDeckListRegen = true;
+  _setupIsRegen = false;
+  _setupIsMixed = false;
+  _setupIsUnfinished = false;
+  let sentenceCount = 0;
+  try {
+    const data = await api('GET', `/api/story/${deckId}/unified`);
+    sentenceCount = data?.sentences?.length ?? 0;
+  } catch (_) {}
+  document.getElementById('setup-count-label').textContent =
+    `This story will have ${sentenceCount} sentence${sentenceCount !== 1 ? 's' : ''}.`;
+  const warn = document.getElementById('setup-learning-warning');
+  warn.style.display = 'none';
+  const tokenWarn = document.getElementById('setup-token-warning');
+  if (tokenWarn) tokenWarn.style.display = 'none';
+  document.getElementById('setup-topic').value = '';
+  document.getElementById('setup-hsk-slider').value = 2;
+  updateHskLabel();
+  document.getElementById('setup-modal-overlay').style.display = 'block';
+  document.getElementById('setup-modal').style.display = 'flex';
+  document.getElementById('setup-topic').focus();
+}
+
+async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model) {
+  setLoading('Regenerating story…');
+  _resetLoadingSpinner();
+  const stopPhases = _startGenerationPhases();
+  try {
+    await api('POST', `/api/story/${deckId}/unified/regenerate` + _storyParams(topic, maxHsk, model));
+    stopPhases();
+    _showLoadingSuccess('Story regenerated!');
+    _resetLoadingSpinner();
+    await new Promise(r => setTimeout(r, 800));
+    showView('decks');
+  } catch (e) {
+    stopPhases();
+    _showLoadingError(e.message);
+    await new Promise(r => setTimeout(r, 2000));
+    showError('Regenerate failed: ' + e.message);
+    showView('decks');
   }
 }
 
