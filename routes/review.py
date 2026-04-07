@@ -108,9 +108,10 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
     cat     = updated["category"]
 
     # Snapshot sibling buried_until values BEFORE burying so undo can restore them
+    siblings_before = database.get_sibling_cards(card_id)
     siblings_snapshot = [
         {"id": s["id"], "buried_until": s["buried_until"]}
-        for s in database.get_sibling_cards(card_id)
+        for s in siblings_before
     ]
 
     preset = database.get_preset_for_deck(deck_id)
@@ -121,6 +122,16 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
         bury_review=bury_review,
         bury_learning=bury_learning,
     )
+
+    # IDs that bury_siblings() just newly buried — needed to purge them from
+    # the in-memory queue so the queue stays consistent with the DB.
+    today_str = database.anki_today().isoformat()
+    was_buried = {s["id"] for s in siblings_before if s.get("buried_until") is not None}
+    siblings_after = database.get_sibling_cards(card_id)
+    newly_buried = [
+        s["id"] for s in siblings_after
+        if s.get("buried_until") == today_str and s["id"] not in was_buried
+    ]
 
     # Determine queue key for this review context
     if unfinished_mode:
@@ -151,17 +162,17 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
             next_card["intervals"] = srs.preview_intervals(next_card)
         counts = database.count_unfinished()
     elif root_deck_id:
-        _queue_mgr.after_review(queue_key, card_id, updated)
+        _queue_mgr.after_review(queue_key, card_id, updated, newly_buried)
         next_card = _next_card_from_queue(queue_key, build_fn)
         counts = database.count_due_any_cat(root_deck_id)
         counts["by_cat"] = database.count_due_by_category(root_deck_id)
     elif parent_deck_id:
-        _queue_mgr.after_review(queue_key, card_id, updated)
+        _queue_mgr.after_review(queue_key, card_id, updated, newly_buried)
         next_card = _next_card_from_queue(queue_key, build_fn)
         counts = database.count_due_multi(ids, cat)
         counts["by_cat"] = database.count_due_by_category(parent_deck_id)
     else:
-        _queue_mgr.after_review(queue_key, card_id, updated)
+        _queue_mgr.after_review(queue_key, card_id, updated, newly_buried)
         next_card = _next_card_from_queue(queue_key, build_fn)
         counts = database.count_due(deck_id, cat)
         parent_id = database.get_parent_deck_id(deck_id)

@@ -86,6 +86,7 @@ class QueueManager:
         key: tuple,
         card_id: int,
         updated: dict,
+        buried_sibling_ids: list[int] | None = None,
     ) -> None:
         """Update the queue after a card has been reviewed.
 
@@ -93,6 +94,9 @@ class QueueManager:
           remove it from main (if present) and (re)insert into intraday.
         - Otherwise pop it from the front of main (it was just answered) and
           remove it from intraday if it happened to be there.
+        - buried_sibling_ids: card IDs that bury_siblings() just buried in the
+          DB.  They are removed from both queues so the DB and in-memory state
+          stay in sync.
         """
         if key not in self._queues:
             return
@@ -118,6 +122,13 @@ class QueueManager:
         if becomes_intraday:
             entries = list(q.intraday) + [{"id": card_id, "due": new_due}]
             q.intraday = deque(sorted(entries, key=lambda e: e["due"]))
+
+        # Remove siblings that bury_siblings() just buried in the DB so the
+        # in-memory queue stays consistent with the database state.
+        if buried_sibling_ids:
+            remove_set = set(buried_sibling_ids)
+            q.main = deque(cid for cid in q.main if cid not in remove_set)
+            q.intraday = deque(e for e in q.intraday if e["id"] not in remove_set)
 
     def invalidate(self, key: tuple | None = None) -> None:
         """Discard one queue (or all queues) so the next access rebuilds."""
