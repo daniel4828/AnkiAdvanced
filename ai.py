@@ -185,9 +185,10 @@ Rules:
                             attempt + 1, len(missing_pairs), len(cards), missing_words,
                         )
                         for item, card in missing_pairs:
-                            src = card.get("source_sentence", "")
-                            if src:
-                                item["sentence_zh"] = src
+                            item["sentence_zh"] = (
+                                card.get("source_sentence")
+                                or f"我学了{card['word_zh']}这个词。"
+                            )
                     logger.info("generate_story: success — %d sentences (attempt %d)",
                                 len(result), attempt + 1)
                     # Translate sentences locally (no extra AI call needed)
