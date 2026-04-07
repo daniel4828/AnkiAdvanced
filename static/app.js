@@ -4337,6 +4337,14 @@ document.addEventListener('keydown', e => {
       closeStoryModal();
       return;
     }
+    // Blur input fields in review view so space bar can flip the card
+    if (inInput) {
+      const reviewView = document.getElementById('view-review');
+      if (reviewView && reviewView.style.display !== 'none') {
+        document.activeElement.blur();
+        return;
+      }
+    }
   }
 
   if (!inInput) {
@@ -4400,9 +4408,7 @@ document.addEventListener('keydown', e => {
     }
   }
 
-  // 特殊处理：复习界面空格翻转卡片，即使焦点在输入框内也生效
-  // （中文文本不需要空格，所以不影响打字）
-  if (e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+  if (!inInput && e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey) {
     const reviewView = document.getElementById('view-review');
     if (reviewView && reviewView.style.display !== 'none') {
       const backVisible = document.getElementById('side-back')?.style.display === 'flex';
