@@ -507,9 +507,8 @@ function renderDecks(decks) {
       <div class="tree-row tree-parent">
         <span class="tree-toggle"></span>
         <span class="tree-name" onclick="startReviewMixed(${allDeck.id},'${safeName}')" style="cursor:pointer">All</span>
-        <span class="deck-counts"><span class="n-new">${(allDeck.counts||{}).new||0}</span><span class="n-lrn">${(allDeck.counts||{}).learning||0}</span><span class="n-rev">${(allDeck.counts||{}).review||0}</span></span>
+        <span class="deck-counts"><span class="new-count-wrap"><button class="${allNewOrderClass}" onclick="event.stopPropagation();toggleNewOrder(${allDeck.id})" title="${allNewOrderTitle}">${allNewOrderIcon}</button><span class="n-new">${(allDeck.counts||{}).new||0}</span></span><span class="n-lrn">${(allDeck.counts||{}).learning||0}</span><span class="n-rev">${(allDeck.counts||{}).review||0}</span></span>
         ${allRRBadge}
-        <button class="${allNewOrderClass}" onclick="event.stopPropagation();toggleNewOrder(${allDeck.id})" title="${allNewOrderTitle}">${allNewOrderIcon}</button>
         <button class="${allBuryClass}" onclick="event.stopPropagation();toggleBury(${allDeck.id})" title="${allBuryTitle}">${allBuryIcon}</button>
         <div class="deck-menu-wrap">
           <button class="deck-susp-btn ${allDeck.deck_all_suspended ? 'deck-all-suspended' : ''}" onclick="event.stopPropagation();toggleDeckAllSuspension(${allDeck.id})" title="${allDeck.deck_all_suspended ? 'Unsuspend all cards' : 'Suspend all cards'}">${allDeck.deck_all_suspended ? '▶' : '⏸'}</button>
@@ -552,7 +551,7 @@ function renderDeckRows(decks, depth) {
     const toggleIcon = hasStructChildren ? (isCollapsed ? '▶' : '▼') : '';
     const safeName  = deck.name.replace(/'/g, "\\'");
     const c = deck.counts || { new: 0, learning: 0, review: 0 };
-    const deckCounts = `<span class="deck-counts"><span class="n-new">${c.new}</span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span></span>`;
+    const deckCounts = `<span class="deck-counts"><span class="new-count-wrap"><button class="${newOrderClass}" onclick="event.stopPropagation();toggleNewOrder(${deck.id})" title="${newOrderTitle}">${newOrderIcon}</button><span class="n-new">${c.new}</span></span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span></span>`;
 
     const buryMode   = deck.bury_mode || 'all';
     const buryIcon   = buryMode === 'all' ? '⛓' : buryMode === 'none' ? '⊘' : '≡';
@@ -576,7 +575,6 @@ function renderDeckRows(decks, depth) {
         <span class="tree-name" onclick="startReviewMixed(${deck.id},'${safeName}',${!!deck.no_story})" style="cursor:pointer">${deck.name}</span>
         ${deckCounts}
         ${rrBadge}
-        <button class="${newOrderClass}" onclick="event.stopPropagation();toggleNewOrder(${deck.id})" title="${newOrderTitle}">${newOrderIcon}</button>
         <button class="${buryClass}" onclick="event.stopPropagation();toggleBury(${deck.id})" title="${buryTitle}">${buryIcon}</button>
         <div class="deck-menu-wrap">
           <button class="deck-susp-btn ${deck.deck_all_suspended ? 'deck-all-suspended' : ''}" onclick="event.stopPropagation();toggleDeckAllSuspension(${deck.id})" title="${deck.deck_all_suspended ? 'Unsuspend all cards' : 'Suspend all cards'}">${deck.deck_all_suspended ? '▶' : '⏸'}</button>
