@@ -172,6 +172,17 @@ Rules:
                             "generate_story: attempt %d — words missing from sentences: %s",
                             attempt + 1, missing_words,
                         )
+                        missing_ratio = len(missing_pairs) / len(cards)
+                        if attempt >= 1 and missing_ratio < 0.03:
+                            logger.info(
+                                "generate_story: accepting partial result after attempt %d "
+                                "(%.1f%% missing) — patching %d word(s) with source sentence: %s",
+                                attempt + 1, missing_ratio * 100, len(missing_pairs), missing_words,
+                            )
+                            for item, card in missing_pairs:
+                                item["sentence_zh"] = card.get("source_sentence") or f"我学了{card['word_zh']}这个词。"
+                            _fill_translations(result)
+                            return result, prompt
                         missing_hint = (
                             f"\n\nIMPORTANT: Your previous attempt was missing these words "
                             f"— each MUST appear verbatim in its sentence: {', '.join(missing_words)}"
@@ -309,7 +320,7 @@ Return ONLY valid JSON, no explanation, no markdown:
 # ---------------------------------------------------------------------------
 
 def _fill_translations(sentences: list[dict]) -> None:
-    """Translate sentence_zh → sentence_en in-place using local argostranslate."""
+    """Translate sentence_zh → sentence_en in-place using Google Translate."""
     try:
         import translator as _t
         texts = [s.get("sentence_zh", "") for s in sentences]
