@@ -507,7 +507,7 @@ function renderDecks(decks) {
       <div class="tree-row tree-parent">
         <span class="tree-toggle"></span>
         <span class="tree-name" onclick="startReviewMixed(${allDeck.id},'${safeName}')" style="cursor:pointer">All</span>
-        <span class="deck-counts"><span class="new-count-wrap"><button class="${allNewOrderClass}" onclick="event.stopPropagation();toggleNewOrder(${allDeck.id})" title="${allNewOrderTitle}">${allNewOrderIcon}</button><span class="n-new">${(allDeck.counts||{}).new||0}</span></span><span class="n-lrn">${(allDeck.counts||{}).learning||0}</span><span class="n-rev">${(allDeck.counts||{}).review||0}</span></span>
+        <span class="deck-counts"><button class="${allNewOrderClass}" onclick="event.stopPropagation();toggleNewOrder(${allDeck.id})" title="${allNewOrderTitle}">${allNewOrderIcon}</button><span class="n-new">${(allDeck.counts||{}).new||0}</span><span class="n-lrn">${(allDeck.counts||{}).learning||0}</span><span class="n-rev">${(allDeck.counts||{}).review||0}</span></span>
         ${allRRBadge}
         <button class="${allBuryClass}" onclick="event.stopPropagation();toggleBury(${allDeck.id})" title="${allBuryTitle}">${allBuryIcon}</button>
         <div class="deck-menu-wrap">
@@ -564,7 +564,7 @@ function renderDeckRows(decks, depth) {
     const newOrderTitle = newOrder === 'mixed'
       ? 'New cards: Mixed in (click for At end)'
       : 'New cards: At end (click for Mixed in)';
-    const deckCounts = `<span class="deck-counts"><span class="new-count-wrap"><button class="${newOrderClass}" onclick="event.stopPropagation();toggleNewOrder(${deck.id})" title="${newOrderTitle}">${newOrderIcon}</button><span class="n-new">${c.new}</span></span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span></span>`;
+    const deckCounts = `<span class="deck-counts"><button class="${newOrderClass}" onclick="event.stopPropagation();toggleNewOrder(${deck.id})" title="${newOrderTitle}">${newOrderIcon}</button><span class="n-new">${c.new}</span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span></span>`;
     const rrData = _calcDeckRR(deck);
     const rrBadge = rrData.overall !== null
       ? `<span class="deck-rr-badge" title="${_rrTooltip(rrData)}">${_formatRR(rrData.overall)}</span>`
