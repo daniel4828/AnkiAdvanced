@@ -138,6 +138,7 @@ Rules:
         max_tokens = min(max_tokens, 8192)
 
     missing_hint = ""
+    last_partial: tuple | None = None  # (result, missing_pairs) from best attempt
     for attempt in range(3):
         full_prompt = prompt + missing_hint
         raw = _call_api(model, [{"role": "user", "content": full_prompt}], max_tokens,
@@ -165,30 +166,28 @@ Rules:
                         and card["word_zh"] not in item.get("sentence_zh", "")
                     ]
                     if missing_pairs:
-                        missing_pct = len(missing_pairs) / len(cards)
+                        last_partial = (result, missing_pairs)
                         missing_words = [card["word_zh"] for _, card in missing_pairs]
-                        if missing_pct >= 0.03:
-                            logger.warning(
-                                "generate_story: attempt %d — %d/%d words missing (%.0f%%), retrying: %s",
-                                attempt + 1, len(missing_pairs), len(cards),
-                                missing_pct * 100, missing_words,
-                            )
-                            missing_hint = (
-                                f"\n\nIMPORTANT: Your previous attempt was missing these words "
-                                f"— each MUST appear verbatim in its sentence: {', '.join(missing_words)}"
-                            )
-                            continue
-                        # < 3% missing — accept and fill with source_sentence fallback
                         logger.warning(
-                            "generate_story: attempt %d — %d/%d words missing (<3%%), "
-                            "accepting with source_sentence fallback: %s",
-                            attempt + 1, len(missing_pairs), len(cards), missing_words,
+                            "generate_story: attempt %d — words missing from sentences: %s",
+                            attempt + 1, missing_words,
                         )
-                        for item, card in missing_pairs:
-                            item["sentence_zh"] = (
-                                card.get("source_sentence")
-                                or f"我学了{card['word_zh']}这个词。"
+                        missing_ratio = len(missing_pairs) / len(cards)
+                        if attempt >= 1 and missing_ratio < 0.03:
+                            logger.info(
+                                "generate_story: accepting partial result after attempt %d "
+                                "(%.1f%% missing) — patching %d word(s) with source sentence: %s",
+                                attempt + 1, missing_ratio * 100, len(missing_pairs), missing_words,
                             )
+                            for item, card in missing_pairs:
+                                item["sentence_zh"] = card.get("source_sentence") or f"我学了{card['word_zh']}这个词。"
+                            _fill_translations(result)
+                            return result, prompt
+                        missing_hint = (
+                            f"\n\nIMPORTANT: Your previous attempt was missing these words "
+                            f"— each MUST appear verbatim in its sentence: {', '.join(missing_words)}"
+                        )
+                        continue
                     logger.info("generate_story: success — %d sentences (attempt %d)",
                                 len(result), attempt + 1)
                     # Translate sentences locally (no extra AI call needed)
@@ -199,6 +198,22 @@ Rules:
                                    len(result), len(cards))
         except (json.JSONDecodeError, TypeError, KeyError) as e:
             logger.error("generate_story: JSON parse error: %s", e)
+
+    # If the best attempt had < 3% missing words, accept it and patch with source sentences
+    if last_partial is not None:
+        result, missing_pairs = last_partial
+        missing_ratio = len(missing_pairs) / len(cards)
+        if missing_ratio < 0.03:
+            missing_words = [card["word_zh"] for _, card in missing_pairs]
+            logger.info(
+                "generate_story: accepting partial result (%.1f%% missing) — "
+                "patching %d word(s) with source sentence: %s",
+                missing_ratio * 100, len(missing_pairs), missing_words,
+            )
+            for item, card in missing_pairs:
+                item["sentence_zh"] = card.get("source_sentence") or f"我学了{card['word_zh']}这个词。"
+            _fill_translations(result)
+            return result, prompt
 
     logger.warning("generate_story: falling back to placeholder sentences")
     return _fallback_sentences(cards), prompt
@@ -305,7 +320,7 @@ Return ONLY valid JSON, no explanation, no markdown:
 # ---------------------------------------------------------------------------
 
 def _fill_translations(sentences: list[dict]) -> None:
-    """Translate sentence_zh → sentence_en in-place using local argostranslate."""
+    """Translate sentence_zh → sentence_en in-place using Google Translate."""
     try:
         import translator as _t
         texts = [s.get("sentence_zh", "") for s in sentences]
