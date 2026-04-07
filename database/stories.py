@@ -117,11 +117,21 @@ def get_due_cards_unified(deck_id: int) -> list[dict]:
                 seen.add(c["word_id"])
                 result.append(c)
 
-    # Match review order: state priority → category order → due time
-    result.sort(key=lambda c: (
-        0 if c["state"] in ("learning", "relearn") else
-        1 if c["state"] == "review" else 2,
+    # Split new vs non-new, sort non-new by state priority → category → due
+    new_cards = [c for c in result if c["state"] == "new"]
+    non_new   = [c for c in result if c["state"] != "new"]
+    non_new.sort(key=lambda c: (
+        0 if c["state"] in ("learning", "relearn") else 1,
         cat_order.get(c["category"], 99),
         c["due"],
     ))
-    return result
+
+    # Apply the same new_review_order that the review session uses
+    from .cards import _interleave_cards
+    nr_o = preset.get("new_review_order", "mixed")
+    if nr_o == "new_first":
+        return new_cards + non_new
+    elif nr_o == "reviews_first":
+        return non_new + new_cards
+    else:  # mixed
+        return _interleave_cards(non_new, new_cards)
