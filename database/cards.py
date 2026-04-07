@@ -483,14 +483,19 @@ def _leaf_decks_with_category(root_deck_id: int) -> list[tuple[int, str]]:
     return [(r["id"], r["category"]) for r in rows if r["category"]]
 
 
-def get_next_card_any_cat(root_deck_id: int) -> dict | None:
-    """Highest-priority card across all categories under root_deck_id."""
+def get_due_cards_any_cat(root_deck_id: int) -> list[dict]:
+    """All due cards across every category under root_deck_id, priority-sorted.
+
+    Cards are ordered so that the highest-priority card is first.  When a story
+    exists the order follows its narrative position; otherwise cards are sorted
+    by state (learning/relearn → review → new), category order, and due time.
+    """
     leaf_pairs = _leaf_decks_with_category(root_deck_id)
     all_cards = []
     for deck_id, cat in leaf_pairs:
         all_cards.extend(get_due_cards(deck_id, cat))
     if not all_cards:
-        return None
+        return []
 
     # Build category order index from root deck's preset
     preset = get_preset_for_deck(root_deck_id)
@@ -525,7 +530,13 @@ def get_next_card_any_cat(root_deck_id: int) -> dict | None:
             cat_order.get(c["category"], 99),
             c["due"],
         ))
-    return all_cards[0]
+    return all_cards
+
+
+def get_next_card_any_cat(root_deck_id: int) -> dict | None:
+    """Highest-priority card across all categories under root_deck_id."""
+    cards = get_due_cards_any_cat(root_deck_id)
+    return cards[0] if cards else None
 
 
 def count_due_any_cat(root_deck_id: int) -> dict:
