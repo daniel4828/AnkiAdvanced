@@ -551,7 +551,6 @@ function renderDeckRows(decks, depth) {
     const toggleIcon = hasStructChildren ? (isCollapsed ? '▶' : '▼') : '';
     const safeName  = deck.name.replace(/'/g, "\\'");
     const c = deck.counts || { new: 0, learning: 0, review: 0 };
-    const deckCounts = `<span class="deck-counts"><span class="new-count-wrap"><button class="${newOrderClass}" onclick="event.stopPropagation();toggleNewOrder(${deck.id})" title="${newOrderTitle}">${newOrderIcon}</button><span class="n-new">${c.new}</span></span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span></span>`;
 
     const buryMode   = deck.bury_mode || 'all';
     const buryIcon   = buryMode === 'all' ? '⛓' : buryMode === 'none' ? '⊘' : '≡';
@@ -565,6 +564,7 @@ function renderDeckRows(decks, depth) {
     const newOrderTitle = newOrder === 'mixed'
       ? 'New cards: Mixed in (click for At end)'
       : 'New cards: At end (click for Mixed in)';
+    const deckCounts = `<span class="deck-counts"><span class="new-count-wrap"><button class="${newOrderClass}" onclick="event.stopPropagation();toggleNewOrder(${deck.id})" title="${newOrderTitle}">${newOrderIcon}</button><span class="n-new">${c.new}</span></span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span></span>`;
     const rrData = _calcDeckRR(deck);
     const rrBadge = rrData.overall !== null
       ? `<span class="deck-rr-badge" title="${_rrTooltip(rrData)}">${_formatRR(rrData.overall)}</span>`
