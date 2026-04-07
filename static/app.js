@@ -1913,7 +1913,7 @@ async function startReview(id, cat, name, noStory = false) {
       return;
     }
     const [{ count, has_story, estimated_tokens }, todayCounts] = await Promise.all([
-      api('GET', `/api/story/${deckId}/unified/count`),
+      api('GET', `/api/story/${deckId}/${category}/count`),
       api('GET', `/api/today/${deckId}/${category}`),
     ]);
     const learning = todayCounts?.counts?.learning_future || 0;
@@ -1935,14 +1935,15 @@ async function _doStartReview(topic, maxHsk, model) {
   const stopPhases = _startGenerationPhases();
   try {
     const storyDeckId = rootDeckId || deckId;
-    const storyUrl = `/api/story/${storyDeckId}/unified` + _storyParams(topic, maxHsk, model);
+    const storyCategory = rootDeckId ? 'unified' : category;
+    const storyUrl = `/api/story/${storyDeckId}/${storyCategory}` + _storyParams(topic, maxHsk, model);
     const [todayData, storyData] = await Promise.all([
       api('GET', `/api/today/${deckId}/${category}`),
       api('GET', storyUrl),
     ]);
     stopPhases();
 
-    story = await _resolveStory(storyData, storyDeckId, 'unified', topic, maxHsk);
+    story = await _resolveStory(storyData, storyDeckId, storyCategory, topic, maxHsk);
 
     if (!todayData.card) {
       showView('done');
@@ -3295,15 +3296,16 @@ async function _doRegenerateStory(topic, maxHsk, model) {
   const stopPhases = _startGenerationPhases();
   try {
     const storyDeckId = rootDeckId || deckId;
-    const storyData = await api('POST', `/api/story/${storyDeckId}/unified/regenerate` + _storyParams(topic, maxHsk, model));
+    const storyCategory = rootDeckId ? 'unified' : category;
+    const storyData = await api('POST', `/api/story/${storyDeckId}/${storyCategory}/regenerate` + _storyParams(topic, maxHsk, model));
     stopPhases();
-    story = await _resolveStory(storyData, storyDeckId, 'unified', topic, maxHsk);
+    story = await _resolveStory(storyData, storyDeckId, storyCategory, topic, maxHsk);
     sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
     _showLoadingSuccess('Story regenerated!');
     _resetLoadingSpinner();
     _updateStoryInfoRow();
     try {
-      await fetch(`/api/preload-session/${storyDeckId}/unified`, { method: 'POST' });
+      await fetch(`/api/preload-session/${storyDeckId}/${storyCategory}`, { method: 'POST' });
     } catch (_) {}
     await new Promise(r => setTimeout(r, 600));
     showView('review');
