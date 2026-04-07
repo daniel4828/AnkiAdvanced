@@ -170,7 +170,8 @@ function showView(name) {
     name === 'hanzi-detail' ? 'Hanzi Detail' :
     name === 'stats'        ? 'Stats' : 'AnkiAdvanced';
   if (name === 'review') {
-    document.querySelector('.regen-btn').style.display = unfinishedMode ? 'none' : '';
+    const regenBtn = document.querySelector('.regen-btn');
+    if (regenBtn) regenBtn.style.display = unfinishedMode ? 'none' : '';
   }
 }
 
