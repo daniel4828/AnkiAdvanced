@@ -531,8 +531,18 @@ def get_next_card_any_cat(root_deck_id: int) -> dict | None:
 
     NO_POS = 9999
     if story_pos:
-        # Story exists: follow narrative order so the session reads top-to-bottom
-        all_cards.sort(key=lambda c: story_pos.get(c["word_id"], NO_POS))
+        # Story exists: follow narrative order, but still respect new_review_order
+        nr_o = preset.get("new_review_order", "mixed")
+        new_cards = [c for c in all_cards if c["state"] == "new"]
+        non_new   = [c for c in all_cards if c["state"] != "new"]
+        non_new.sort(key=lambda c: story_pos.get(c["word_id"], NO_POS))
+        new_cards.sort(key=lambda c: story_pos.get(c["word_id"], NO_POS))
+        if nr_o == "new_first":
+            all_cards = new_cards + non_new
+        elif nr_o == "reviews_first":
+            all_cards = non_new + new_cards
+        else:  # mixed
+            all_cards = _interleave_cards(non_new, new_cards)
     else:
         all_cards.sort(key=lambda c: (
             0 if c["state"] in ("learning", "relearn") else
