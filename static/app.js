@@ -4399,6 +4399,16 @@ document.addEventListener('keydown', e => {
     }
   }
 
+  // 特殊处理：复习界面空格翻转卡片，即使焦点在输入框内也生效
+  // （中文文本不需要空格，所以不影响打字）
+  if (e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    const reviewView = document.getElementById('view-review');
+    if (reviewView && reviewView.style.display !== 'none') {
+      const backVisible = document.getElementById('side-back')?.style.display === 'flex';
+      if (!backVisible) { e.preventDefault(); revealAnswer(); return; }
+    }
+  }
+
   if (inInput || e.ctrlKey || e.metaKey || e.altKey) return;
 
 
