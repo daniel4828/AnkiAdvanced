@@ -309,7 +309,7 @@ Return ONLY valid JSON, no explanation, no markdown:
 # ---------------------------------------------------------------------------
 
 def _fill_translations(sentences: list[dict]) -> None:
-    """Translate sentence_zh → sentence_en in-place using local argostranslate."""
+    """Translate sentence_zh → sentence_en in-place using Google Translate."""
     try:
         import translator as _t
         texts = [s.get("sentence_zh", "") for s in sentences]
