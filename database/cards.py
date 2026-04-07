@@ -312,41 +312,13 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
 
 
 def get_next_card(deck_id: int, category: str) -> dict | None:
-    """Top-priority card for the review session, ordered by today's story position."""
+    """Top-priority card for the review session.
+
+    get_due_cards already handles new_review_order mixing and learning-first
+    ordering, so just return the first card from the correctly-ordered list.
+    """
     cards = get_due_cards(deck_id, category)
-    if not cards:
-        return None
-
-    today = anki_today().isoformat()
-    from .stories import get_active_story, get_story_sentences
-    story = get_active_story(today, category, deck_id)
-
-    preset = get_preset_for_deck(deck_id)
-    nr_o = preset.get("new_review_order", "mixed")
-
-    # Three buckets: learning (time-sensitive) always first; review + new mixed
-    learning_cards = [c for c in cards if c["state"] in ("learning", "relearn")]
-    review_cards   = [c for c in cards if c["state"] == "review"]
-    new_cards      = [c for c in cards if c["state"] == "new"]
-
-    learning_cards.sort(key=lambda c: c["due"])
-
-    if story:
-        sentences = get_story_sentences(story["id"])
-        story_pos = {s["word_id"]: s["position"] for s in sentences}
-        NO_POS = len(sentences)
-        review_cards.sort(key=lambda c: story_pos.get(c["word_id"], NO_POS))
-        new_cards.sort(key=lambda c: story_pos.get(c["word_id"], NO_POS))
-    # else: review/new keep order from get_due_cards
-
-    if nr_o == "new_first":
-        review_new = new_cards + review_cards
-    elif nr_o == "reviews_first":
-        review_new = review_cards + new_cards
-    else:  # mixed
-        review_new = _interleave_cards(review_cards, new_cards)
-
-    return (learning_cards + review_new)[0]
+    return cards[0] if cards else None
 
 
 def count_due(deck_id: int, category: str) -> dict:
