@@ -62,6 +62,7 @@ def get_decks():
         pid = deck.get("preset_id")
         p = presets.get(pid, {})
         deck["bury_mode"] = p.get("bury_quick_mode", "all")
+        deck["new_order"] = p.get("new_review_order", "mixed")
         deck["category_order"] = p.get("category_order", "listening,reading,creating")
     unfinished = database.count_unfinished()
     if unfinished["learning"] > 0:
@@ -233,6 +234,19 @@ def toggle_bury_siblings(deck_id: int):
     next_mode = {"all": "none", "none": "custom", "custom": "all"}.get(current, "all")
     database.update_preset(preset["id"], {"bury_quick_mode": next_mode})
     return {"bury_mode": next_mode}
+
+
+@router.post("/api/decks/{deck_id}/preset/toggle-new-order")
+def toggle_new_order(deck_id: int):
+    deck = database.get_deck(deck_id)
+    if not deck:
+        raise HTTPException(status_code=404, detail="Deck not found")
+    preset = database.get_preset(deck["preset_id"])
+    current = preset.get("new_review_order", "mixed")
+    # Toggle: mixed ↔ reviews_first
+    next_mode = "reviews_first" if current == "mixed" else "mixed"
+    database.update_preset(preset["id"], {"new_review_order": next_mode})
+    return {"new_order": next_mode}
 
 
 @router.post("/api/decks/{deck_id}/preset/set-default")

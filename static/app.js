@@ -492,6 +492,12 @@ function renderDecks(decks) {
     const allBuryTitle = allBuryMode === 'all'  ? 'Bury siblings: All (click for None)'
                        : allBuryMode === 'none' ? 'Bury siblings: None (click for Custom)'
                        :                          'Bury siblings: Custom (click for All)';
+    const allNewOrder      = allDeck.new_order || 'mixed';
+    const allNewOrderIcon  = allNewOrder === 'mixed' ? '⇄' : '↓';
+    const allNewOrderClass = `new-order-btn new-order-${allNewOrder}`;
+    const allNewOrderTitle = allNewOrder === 'mixed'
+      ? 'New cards: Mixed in (click for At end)'
+      : 'New cards: At end (click for Mixed in)';
     const allRRData = _retentionData?.all;
     const allRRVal = allRRData?.total > 0 ? allRRData.correct / allRRData.total : null;
     const allRRBadge = allRRVal !== null
@@ -501,7 +507,7 @@ function renderDecks(decks) {
       <div class="tree-row tree-parent">
         <span class="tree-toggle"></span>
         <span class="tree-name" onclick="startReviewMixed(${allDeck.id},'${safeName}')" style="cursor:pointer">All</span>
-        <span class="deck-counts"><span class="n-new">${(allDeck.counts||{}).new||0}</span><span class="n-lrn">${(allDeck.counts||{}).learning||0}</span><span class="n-rev">${(allDeck.counts||{}).review||0}</span></span>
+        <span class="deck-counts"><button class="${allNewOrderClass}" onclick="event.stopPropagation();toggleNewOrder(${allDeck.id})" title="${allNewOrderTitle}">${allNewOrderIcon}</button><span class="n-new">${(allDeck.counts||{}).new||0}</span><span class="n-lrn">${(allDeck.counts||{}).learning||0}</span><span class="n-rev">${(allDeck.counts||{}).review||0}</span></span>
         ${allRRBadge}
         <button class="${allBuryClass}" onclick="event.stopPropagation();toggleBury(${allDeck.id})" title="${allBuryTitle}">${allBuryIcon}</button>
         <div class="deck-menu-wrap">
@@ -545,7 +551,6 @@ function renderDeckRows(decks, depth) {
     const toggleIcon = hasStructChildren ? (isCollapsed ? '▶' : '▼') : '';
     const safeName  = deck.name.replace(/'/g, "\\'");
     const c = deck.counts || { new: 0, learning: 0, review: 0 };
-    const deckCounts = `<span class="deck-counts"><span class="n-new">${c.new}</span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span></span>`;
 
     const buryMode   = deck.bury_mode || 'all';
     const buryIcon   = buryMode === 'all' ? '⛓' : buryMode === 'none' ? '⊘' : '≡';
@@ -553,6 +558,13 @@ function renderDeckRows(decks, depth) {
     const buryTitle  = buryMode === 'all'    ? 'Bury siblings: All (click for None)'
                      : buryMode === 'none'   ? 'Bury siblings: None (click for Custom)'
                      :                         'Bury siblings: Custom (click for All)';
+    const newOrder      = deck.new_order || 'mixed';
+    const newOrderIcon  = newOrder === 'mixed' ? '⇄' : '↓';
+    const newOrderClass = `new-order-btn new-order-${newOrder}`;
+    const newOrderTitle = newOrder === 'mixed'
+      ? 'New cards: Mixed in (click for At end)'
+      : 'New cards: At end (click for Mixed in)';
+    const deckCounts = `<span class="deck-counts"><button class="${newOrderClass}" onclick="event.stopPropagation();toggleNewOrder(${deck.id})" title="${newOrderTitle}">${newOrderIcon}</button><span class="n-new">${c.new}</span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span></span>`;
     const rrData = _calcDeckRR(deck);
     const rrBadge = rrData.overall !== null
       ? `<span class="deck-rr-badge" title="${_rrTooltip(rrData)}">${_formatRR(rrData.overall)}</span>`
@@ -636,6 +648,25 @@ async function toggleBury(deckId) {
     }
   } catch (e) {
     showError('Failed to toggle burying: ' + e.message);
+  }
+}
+
+async function toggleNewOrder(deckId) {
+  try {
+    const { new_order } = await api('POST', `/api/decks/${deckId}/preset/toggle-new-order`);
+    if (_cachedDecks) {
+      const flat = [];
+      const walk = nodes => nodes.forEach(n => { flat.push(n); walk(n.children || []); });
+      walk(_cachedDecks);
+      const deck = flat.find(d => d.id === deckId);
+      if (deck) deck.new_order = new_order;
+      const scrollEl = document.querySelector('main');
+      const scrollY = scrollEl ? scrollEl.scrollTop : 0;
+      renderDecks(_cachedDecks);
+      if (scrollEl) scrollEl.scrollTop = scrollY;
+    }
+  } catch (e) {
+    showError('Failed to toggle new card order: ' + e.message);
   }
 }
 
