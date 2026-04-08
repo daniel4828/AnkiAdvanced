@@ -132,6 +132,19 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
         s["id"] for s in siblings_after
         if s.get("buried_until") == today_str and s["id"] not in was_buried
     ]
+    logger.debug(
+        "[review] submit card=#%d word=%s cat=%s state=%s→%s\n"
+        "  bury_flags: new=%s review=%s learning=%s\n"
+        "  siblings_before: %s\n"
+        "  siblings_after:  %s\n"
+        "  newly_buried:    %s",
+        card_id, card_before.get("word_zh"), cat,
+        card_before.get("state"), updated.get("state"),
+        bury_new, bury_review, bury_learning,
+        [(s["id"], s.get("category"), s.get("buried_until")) for s in siblings_before],
+        [(s["id"], s.get("category"), s.get("buried_until")) for s in siblings_after],
+        newly_buried,
+    )
 
     # Determine queue key for this review context
     if unfinished_mode:

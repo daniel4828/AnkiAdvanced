@@ -27,8 +27,10 @@ The queue is invalidated (rebuilt on next access) when:
 
 from __future__ import annotations
 
+import logging
 from collections import deque
-from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 class SessionQueue:
@@ -65,8 +67,10 @@ class QueueManager:
         Builds (or rebuilds) the queue if stale.  Checks intraday_learning
         first; if nothing is due right now, returns main[0].
         """
+        rebuilt = False
         if key not in self._queues or self._queues[key].built_date != today:
             self._build(key, build_fn, today)
+            rebuilt = True
 
         q = self._queues[key]
 
@@ -75,11 +79,28 @@ class QueueManager:
             (e for e in q.intraday if e["due"] <= now),
             None,
         )
-        if due_now:
-            return due_now["id"]
 
-        # Next card from the persistent main queue
-        return q.main[0] if q.main else None
+        if due_now:
+            result = due_now["id"]
+            source = "intraday"
+        elif q.main:
+            result = q.main[0]
+            source = "main"
+        else:
+            result = None
+            source = "empty"
+
+        logger.debug(
+            "[QueueMgr] get_next key=%s rebuilt=%s → #%s (from %s)\n"
+            "  main[0:8]=%s\n"
+            "  intraday=%s\n"
+            "  now=%s",
+            key, rebuilt, result, source,
+            list(q.main)[:8],
+            [{"id": e["id"], "due": e["due"]} for e in list(q.intraday)[:4]],
+            now,
+        )
+        return result
 
     def after_review(
         self,
@@ -99,23 +120,27 @@ class QueueManager:
           stay in sync.
         """
         if key not in self._queues:
+            logger.debug("[QueueMgr] after_review key=%s — queue not found, skipping", key)
             return
 
         q = self._queues[key]
         new_state = updated.get("state", "")
-        new_due = updated.get("due", "")
+        new_due   = updated.get("due", "")
         becomes_intraday = new_state in ("learning", "relearn") and "T" in new_due
+
+        main_before = list(q.main)[:10]
 
         # Remove from main front if this was the card we just answered
         if q.main and q.main[0] == card_id:
             q.main.popleft()
+            removed_from = "main[0]"
         else:
-            # Card may have been deeper in main (e.g. came from intraday)
-            # Remove it to avoid duplicates after re-insertion below
             new_main = deque(cid for cid in q.main if cid != card_id)
+            removed_from = f"main[deeper] (was at pos {list(q.main).index(card_id) if card_id in q.main else 'not found'})"
             q.main = new_main
 
         # Remove from intraday
+        intraday_before = [e["id"] for e in q.intraday]
         q.intraday = deque(e for e in q.intraday if e["id"] != card_id)
 
         # Re-insert into intraday if it became a same-day learning card
@@ -123,18 +148,46 @@ class QueueManager:
             entries = list(q.intraday) + [{"id": card_id, "due": new_due}]
             q.intraday = deque(sorted(entries, key=lambda e: e["due"]))
 
-        # Remove siblings that bury_siblings() just buried in the DB so the
-        # in-memory queue stays consistent with the database state.
+        # Remove siblings that bury_siblings() just buried in the DB
+        buried_removed_main     = []
+        buried_removed_intraday = []
         if buried_sibling_ids:
             remove_set = set(buried_sibling_ids)
-            q.main = deque(cid for cid in q.main if cid not in remove_set)
-            q.intraday = deque(e for e in q.intraday if e["id"] not in remove_set)
+            new_main = deque(cid for cid in q.main if cid not in remove_set)
+            buried_removed_main = [cid for cid in q.main if cid in remove_set]
+            q.main = new_main
+            new_intraday = deque(e for e in q.intraday if e["id"] not in remove_set)
+            buried_removed_intraday = [e["id"] for e in q.intraday if e["id"] in remove_set]
+            q.intraday = new_intraday
+
+        logger.debug(
+            "[QueueMgr] after_review key=%s card=#%d → state=%s due=%s\n"
+            "  removed_from: %s   becomes_intraday=%s\n"
+            "  buried_sibling_ids=%s\n"
+            "  buried_removed_from_main=%s\n"
+            "  buried_removed_from_intraday=%s\n"
+            "  main before[0:10]=%s\n"
+            "  main after [0:8] =%s\n"
+            "  intraday before=%s\n"
+            "  intraday after =%s",
+            key, card_id, new_state, new_due,
+            removed_from, becomes_intraday,
+            buried_sibling_ids,
+            buried_removed_main,
+            buried_removed_intraday,
+            main_before,
+            list(q.main)[:8],
+            intraday_before,
+            [e["id"] for e in q.intraday],
+        )
 
     def invalidate(self, key: tuple | None = None) -> None:
         """Discard one queue (or all queues) so the next access rebuilds."""
         if key is not None:
+            logger.debug("[QueueMgr] invalidate key=%s", key)
             self._queues.pop(key, None)
         else:
+            logger.debug("[QueueMgr] invalidate ALL queues (%d)", len(self._queues))
             self._queues.clear()
 
     # ------------------------------------------------------------------
@@ -156,3 +209,18 @@ class QueueManager:
         main_ids = [c["id"] for c in cards if not _is_intraday(c)]
 
         self._queues[key] = SessionQueue(main_ids, intraday, today)
+
+        logger.debug(
+            "[QueueMgr] _build key=%s today=%s  total=%d cards\n"
+            "  main (%d): %s\n"
+            "  intraday (%d): %s\n"
+            "  full build order (id, state, cat, due):\n%s",
+            key, today, len(cards),
+            len(main_ids), main_ids[:20],
+            len(intraday), [(e["id"], e["due"]) for e in intraday],
+            "\n".join(
+                f"    #{c['id']:5d}  {c['state']:8s}  {c.get('category','?'):10s}  "
+                f"{c.get('due','?')}  {c.get('word_zh','')}"
+                for c in cards[:30]
+            ),
+        )
