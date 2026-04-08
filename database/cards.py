@@ -292,7 +292,7 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
     else:  # mixed: merge by due time
         lr = sorted(learning_cards + review_cards, key=lambda c: c["due"])
 
-    nr_o = preset.get("new_review_order", "mixed")
+    nr_o = preset.get("new_review_order_override") or preset.get("new_review_order", "mixed")
     if nr_o == "new_first":
         cards = new_cards + lr
     elif nr_o == "reviews_first":
@@ -581,7 +581,7 @@ def get_due_cards_multi(deck_ids: list[int], category: str, *, sibling_suppressi
     # new_cards keep the per-deck gather/sort order from get_due_cards
 
     preset = get_preset_for_deck(deck_ids[0]) if deck_ids else {}
-    nr_o = preset.get("new_review_order", "mixed")
+    nr_o = preset.get("new_review_order_override") or preset.get("new_review_order", "mixed")
 
     if nr_o == "new_first":
         review_new = new_cards + review_cards

@@ -136,7 +136,7 @@ def update_preset(preset_id: int, fields: dict) -> None:
         "new_gather_order", "new_sort_order", "new_review_order",
         "interday_learning_review_order", "review_sort_order",
         "bury_new_siblings", "bury_review_siblings", "bury_interday_siblings",
-        "bury_quick_mode", "category_order",
+        "bury_quick_mode", "category_order", "new_review_order_override",
     }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
