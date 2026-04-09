@@ -34,16 +34,16 @@ def preview_intervals(card: dict) -> dict:
         else:
             hard = _fmt_min(l_steps[step_index])
         if step_index >= len(l_steps) - 1:
-            good = _fmt_day(grad_int)
+            good = _fmt_day_fuzzed(grad_int)
         else:
             good = _fmt_min(l_steps[step_index + 1])
-        easy = _fmt_day(easy_int)
+        easy = _fmt_day_fuzzed(easy_int)
 
     elif state == "review":
         again = _fmt_min(r_steps[0])
-        hard  = _fmt_day(max(min_int, math.floor(interval * 1.2)))
-        good  = _fmt_day(max(min_int, math.floor(interval * ease)))
-        easy  = _fmt_day(max(min_int, math.floor(interval * ease * 1.3)))
+        hard  = _fmt_day_fuzzed(max(min_int, math.floor(interval * 1.2)))
+        good  = _fmt_day_fuzzed(max(min_int, math.floor(interval * ease)))
+        easy  = _fmt_day_fuzzed(max(min_int, math.floor(interval * ease * 1.3)))
 
     elif state == "relearn":
         again = _fmt_min(r_steps[0])
@@ -52,10 +52,10 @@ def preview_intervals(card: dict) -> dict:
         else:
             hard = _fmt_min(r_steps[step_index] * 1.5)
         if step_index >= len(r_steps) - 1:
-            good = _fmt_day(max(min_int, interval))
+            good = _fmt_day_fuzzed(max(min_int, interval))
         else:
             good = _fmt_min(r_steps[step_index + 1])
-        easy = _fmt_day(max(min_int, interval))
+        easy = _fmt_day_fuzzed(max(min_int, interval))
 
     else:
         again = hard = good = easy = "—"
@@ -88,21 +88,29 @@ def _fmt_day(days: int) -> str:
 # Pure math helpers — no DB calls
 # ---------------------------------------------------------------------------
 
-def _fuzz_interval(interval: int) -> int:
-    """Apply Anki-style random fuzz to prevent card bunching.
-
-    Cards learned together would otherwise always fall due on the same day.
-    Fuzz range grows proportionally with interval length.
-    """
+def _fuzz_delta(interval: int) -> int:
+    """Return the fuzz delta (in days) for a given interval."""
     if interval < 2:
-        return interval
+        return 0
     if interval < 7:
-        fuzz = max(1, round(interval * 0.25))
-    elif interval < 30:
-        fuzz = max(2, round(interval * 0.15))
-    else:
-        fuzz = max(4, round(interval * 0.05))
-    return random.randint(interval - fuzz, interval + fuzz)
+        return max(1, round(interval * 0.25))
+    if interval < 30:
+        return max(2, round(interval * 0.15))
+    return max(4, round(interval * 0.05))
+
+
+def _fuzz_interval(interval: int) -> int:
+    """Apply Anki-style random fuzz to prevent card bunching."""
+    fuzz = _fuzz_delta(interval)
+    return random.randint(interval - fuzz, interval + fuzz) if fuzz else interval
+
+
+def _fmt_day_fuzzed(days: int) -> str:
+    """Format interval with fuzz range shown when fuzz > 1 day (e.g. '7-11d')."""
+    fuzz = _fuzz_delta(days)
+    if fuzz <= 1:
+        return _fmt_day(days)
+    return f"{_fmt_day(max(1, days - fuzz))}-{_fmt_day(days + fuzz)}"
 
 def _parse_steps(steps_str: str) -> list[int]:
     """Parse step strings to minutes. Supports plain ints ("1 10"), "m" suffix ("1m 10m"), and "d" suffix ("1d" = 1440 min)."""
