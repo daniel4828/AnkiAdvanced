@@ -963,7 +963,7 @@ main.browse-open {
 .wa-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 16px;
 }
 .wa-word-card {
   border: 1px solid var(--border);
