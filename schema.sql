@@ -248,6 +248,9 @@ CREATE TABLE IF NOT EXISTS cards (
     -- soft delete: set when moved to trash, hard-deleted after 30 days
     deleted_at   TEXT,
 
+    -- saved before suspension so it can be restored on unsuspend
+    pre_suspend_state TEXT,
+
     UNIQUE(word_id, category)
 );
 

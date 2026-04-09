@@ -808,16 +808,16 @@ def toggle_deck_creating_suspension(deck_id: int) -> dict:
     has_active = any(r["state"] != "suspended" for r in rows)
     if has_active:
         conn.execute(
-            """UPDATE cards SET state='suspended'
+            """UPDATE cards SET pre_suspend_state=state, state='suspended'
                WHERE deck_id = ? AND category = 'creating'
-                 AND deleted_at IS NULL AND state = 'new'
+                 AND deleted_at IS NULL AND state != 'suspended'
                  AND word_id IN (SELECT id FROM entries WHERE note_type != 'sentence')""",
             (deck_id,),
         )
         all_suspended = True
     else:
         conn.execute(
-            """UPDATE cards SET state='new'
+            """UPDATE cards SET state=COALESCE(pre_suspend_state, 'new'), pre_suspend_state=NULL
                WHERE deck_id = ? AND category = 'creating'
                  AND deleted_at IS NULL AND state = 'suspended'
                  AND word_id IN (SELECT id FROM entries WHERE note_type != 'sentence')""",
@@ -882,7 +882,7 @@ def toggle_category_suspension(deck_id: int, category: str) -> dict:
     has_active = active_row["cnt"] > 0
     if has_active:
         conn.execute(
-            f"""UPDATE cards SET state='suspended'
+            f"""UPDATE cards SET pre_suspend_state=state, state='suspended'
                 WHERE deck_id IN ({placeholders})
                   AND category = ?
                   AND state != 'suspended'
@@ -892,7 +892,7 @@ def toggle_category_suspension(deck_id: int, category: str) -> dict:
         )
     else:
         conn.execute(
-            f"""UPDATE cards SET state='new'
+            f"""UPDATE cards SET state=COALESCE(pre_suspend_state, 'new'), pre_suspend_state=NULL
                 WHERE deck_id IN ({placeholders})
                   AND category = ?
                   AND state = 'suspended'
@@ -955,7 +955,7 @@ def toggle_deck_all_suspension(deck_id: int) -> dict:
     has_active = active_row["cnt"] > 0
     if has_active:
         conn.execute(
-            f"""UPDATE cards SET state='suspended'
+            f"""UPDATE cards SET pre_suspend_state=state, state='suspended'
                 WHERE deck_id IN ({placeholders})
                   AND state != 'suspended'
                   AND deleted_at IS NULL
@@ -964,7 +964,7 @@ def toggle_deck_all_suspension(deck_id: int) -> dict:
         )
     else:
         conn.execute(
-            f"""UPDATE cards SET state='new'
+            f"""UPDATE cards SET state=COALESCE(pre_suspend_state, 'new'), pre_suspend_state=NULL
                 WHERE deck_id IN ({placeholders})
                   AND state = 'suspended'
                   AND deleted_at IS NULL
