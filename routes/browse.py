@@ -5,6 +5,7 @@ import database
 import importer
 from fastapi import APIRouter, HTTPException
 from pypinyin import pinyin as _pinyin, Style
+from .utils import queue_mgr as _queue_mgr
 
 router = APIRouter()
 
@@ -157,7 +158,9 @@ def reset_card_endpoint(card_id: int):
 
 @router.post("/api/cards/{card_id}/bury")
 def bury_card_endpoint(card_id: int):
-    return database.bury_card_until_tomorrow(card_id)
+    result = database.bury_card_until_tomorrow(card_id)
+    _queue_mgr.invalidate()
+    return result
 
 
 @router.delete("/api/cards/{card_id}")
@@ -165,24 +168,28 @@ def delete_card_endpoint(card_id: int):
     card = database.get_card(card_id)
     if card:
         database.delete_word(card["word_id"])
+    _queue_mgr.invalidate()
     return {"ok": True}
 
 
 @router.post("/api/cards/bulk-bury")
 def bulk_bury(body: dict):
     count = database.bulk_bury_cards_by_words(body.get("word_ids", []))
+    _queue_mgr.invalidate()
     return {"ok": True, "count": count}
 
 
 @router.post("/api/cards/bulk-suspend")
 def bulk_suspend(body: dict):
     count = database.bulk_suspend_cards_by_words(body.get("word_ids", []))
+    _queue_mgr.invalidate()
     return {"ok": True, "count": count}
 
 
 @router.post("/api/cards/bulk-delete")
 def bulk_delete(body: dict):
     count = database.bulk_delete_cards_by_words(body.get("word_ids", []))
+    _queue_mgr.invalidate()
     return {"ok": True, "count": count}
 
 

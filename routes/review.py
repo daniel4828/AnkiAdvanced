@@ -4,14 +4,10 @@ from fastapi import APIRouter, HTTPException
 
 import database
 import srs
-from .utils import leaf_ids
-from .queue_manager import QueueManager
+from .utils import leaf_ids, queue_mgr as _queue_mgr
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-# Persistent session queues — rebuilt once per Anki day, then updated in place.
-_queue_mgr = QueueManager()
 
 # In-memory undo stack: list of {card_before, log_id, queue_key, ...}
 _undo_stack: list[dict] = []
