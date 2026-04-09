@@ -34,16 +34,16 @@ def preview_intervals(card: dict) -> dict:
         else:
             hard = _fmt_min(l_steps[step_index])
         if step_index >= len(l_steps) - 1:
-            good = _fmt_day_fuzzed(grad_int)
+            good = _fmt_day(_fuzz_interval(grad_int))
         else:
             good = _fmt_min(l_steps[step_index + 1])
-        easy = _fmt_day_fuzzed(easy_int)
+        easy = _fmt_day(_fuzz_interval(easy_int))
 
     elif state == "review":
         again = _fmt_min(r_steps[0])
-        hard  = _fmt_day_fuzzed(max(min_int, math.floor(interval * 1.2)))
-        good  = _fmt_day_fuzzed(max(min_int, math.floor(interval * ease)))
-        easy  = _fmt_day_fuzzed(max(min_int, math.floor(interval * ease * 1.3)))
+        hard  = _fmt_day(max(min_int, _fuzz_interval(math.floor(interval * 1.2))))
+        good  = _fmt_day(max(min_int, _fuzz_interval(math.floor(interval * ease))))
+        easy  = _fmt_day(max(min_int, _fuzz_interval(math.floor(interval * ease * 1.3))))
 
     elif state == "relearn":
         again = _fmt_min(r_steps[0])
@@ -52,10 +52,10 @@ def preview_intervals(card: dict) -> dict:
         else:
             hard = _fmt_min(r_steps[step_index] * 1.5)
         if step_index >= len(r_steps) - 1:
-            good = _fmt_day_fuzzed(max(min_int, interval))
+            good = _fmt_day(_fuzz_interval(max(min_int, interval)))
         else:
             good = _fmt_min(r_steps[step_index + 1])
-        easy = _fmt_day_fuzzed(max(min_int, interval))
+        easy = _fmt_day(_fuzz_interval(max(min_int, interval)))
 
     else:
         again = hard = good = easy = "—"
