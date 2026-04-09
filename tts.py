@@ -35,6 +35,9 @@ TTS_CACHE_DIR = "data/tts"
 # In-process set of paths confirmed to exist — avoids repeated stat() calls
 _hot: set[str] = set()
 
+# Per-session TTS progress: key → {"done": int, "total": int}
+_preload_progress: dict[str, dict] = {}
+
 
 def _cache_path(text: str) -> str:
     key = hashlib.sha256(text.encode()).hexdigest()
@@ -68,16 +71,40 @@ async def _ensure_cached(text: str) -> str:
     return path
 
 
-async def preload_all_async(texts: list[str]) -> None:
-    """Pre-generate audio for all texts in parallel. Awaitable — blocks until done."""
+async def preload_all_async(texts: list[str], progress_key: str | None = None) -> None:
+    """Pre-generate audio for all texts in parallel. Awaitable — blocks until done.
+
+    If progress_key is given, updates _preload_progress[progress_key] as each
+    sentence finishes so callers can poll for live progress.
+    """
+    total = len(texts)
     missing = [t for t in texts if _cache_path(t) not in _hot
                and not os.path.exists(_cache_path(t))]
+    already_cached = total - len(missing)
+
+    if progress_key is not None:
+        _preload_progress[progress_key] = {"done": already_cached, "total": total}
+
     if not missing:
-        logger.info("tts  all %d sentences already cached", len(texts))
+        logger.info("tts  all %d sentences already cached", total)
+        if progress_key is not None:
+            _preload_progress[progress_key]["done"] = total
         return
-    logger.info("tts  generating %d/%d sentences (rest cached)",
-                len(missing), len(texts))
-    await asyncio.gather(*[_ensure_cached(t) for t in texts])
+
+    logger.info("tts  generating %d/%d sentences (rest cached)", len(missing), total)
+    done_count = already_cached
+
+    async def _cached_with_progress(text: str) -> str:
+        nonlocal done_count
+        result = await _ensure_cached(text)
+        done_count += 1
+        if progress_key is not None:
+            _preload_progress[progress_key]["done"] = done_count
+        return result
+
+    await asyncio.gather(*[_cached_with_progress(t) for t in missing])
+    if progress_key is not None:
+        _preload_progress[progress_key]["done"] = total
 
 
 def preload(text: str) -> None:

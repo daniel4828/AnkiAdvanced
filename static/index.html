@@ -11,6 +11,7 @@
 <header>
   <button id="back-btn" onclick="goBack()">←</button>
   <h1 id="header-title">AnkiAdvanced</h1>
+  <button id="header-regen-btn" onclick="regenerateStory()" title="Regenerate story" style="display:none">↺</button>
   <button id="restart-btn" onclick="restartServer()" title="Restart server (Shift+R)">↺</button>
 </header>
 
@@ -21,6 +22,9 @@
   <div id="view-loading">
     <div class="spinner" id="loading-spinner"></div>
     <div id="loading-msg">Loading…</div>
+    <div id="loading-progress-wrap">
+      <div id="loading-progress-bar"></div>
+    </div>
     <div id="loading-sub"></div>
   </div>
 
