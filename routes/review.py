@@ -137,7 +137,8 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
     # IDs that bury_siblings() just newly buried — needed to purge them from
     # the in-memory queue so the queue stays consistent with the DB.
     today_str = database.anki_today().isoformat()
-    was_buried = {s["id"] for s in siblings_before if s.get("buried_until") is not None}
+    was_buried = {s["id"] for s in siblings_before
+                  if s.get("buried_until") is not None and s.get("buried_until") >= today_str}
     siblings_after = database.get_sibling_cards(card_id)
     newly_buried = [
         s["id"] for s in siblings_after
