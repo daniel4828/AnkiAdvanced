@@ -177,6 +177,8 @@ def init_db() -> None:
     card_cols = {r["name"] for r in conn.execute("PRAGMA table_info(cards)").fetchall()}
     if "deleted_at" not in card_cols:
         conn.execute("ALTER TABLE cards ADD COLUMN deleted_at TEXT")
+    if "pre_suspend_state" not in card_cols:
+        conn.execute("ALTER TABLE cards ADD COLUMN pre_suspend_state TEXT")
 
     preset_cols = {r["name"] for r in conn.execute("PRAGMA table_info(deck_presets)").fetchall()}
     if "new_gather_order" not in preset_cols:
