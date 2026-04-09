@@ -57,6 +57,20 @@ def get_deck_tree() -> list[dict]:
     return roots
 
 
+def set_deck_new_review_order_override(deck_id: int, value: str | None) -> None:
+    conn = get_db()
+    conn.execute("UPDATE decks SET new_review_order_override = ? WHERE id = ?", (value, deck_id))
+    conn.commit()
+    conn.close()
+
+
+def set_deck_bury_quick_mode(deck_id: int, value: str) -> None:
+    conn = get_db()
+    conn.execute("UPDATE decks SET bury_quick_mode = ? WHERE id = ?", (value, deck_id))
+    conn.commit()
+    conn.close()
+
+
 def rename_deck(deck_id: int, name: str) -> None:
     conn = get_db()
     conn.execute("UPDATE decks SET name = ? WHERE id = ?", (name, deck_id))

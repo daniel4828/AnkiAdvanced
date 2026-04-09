@@ -170,6 +170,10 @@ def init_db() -> None:
     deck_cols = {r["name"] for r in conn.execute("PRAGMA table_info(decks)").fetchall()}
     if "deleted_at" not in deck_cols:
         conn.execute("ALTER TABLE decks ADD COLUMN deleted_at TEXT")
+    if "new_review_order_override" not in deck_cols:
+        conn.execute("ALTER TABLE decks ADD COLUMN new_review_order_override TEXT")
+    if "bury_quick_mode" not in deck_cols:
+        conn.execute("ALTER TABLE decks ADD COLUMN bury_quick_mode TEXT NOT NULL DEFAULT 'all'")
     card_cols = {r["name"] for r in conn.execute("PRAGMA table_info(cards)").fetchall()}
     if "deleted_at" not in card_cols:
         conn.execute("ALTER TABLE cards ADD COLUMN deleted_at TEXT")
