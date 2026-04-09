@@ -52,6 +52,18 @@ header {
 }
 #back-btn:hover { background: var(--border); }
 header h1 { font-size: 18px; font-weight: 700; }
+#header-regen-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 2px 6px;
+  border-radius: 6px;
+  line-height: 1;
+  margin-left: 4px;
+}
+#header-regen-btn:hover { background: var(--border); color: #6366f1; }
 #restart-btn {
   background: none;
   border: none;
@@ -96,9 +108,27 @@ main.browse-open {
   margin: 0 auto 16px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-#loading-msg { font-size: 15px; }
-#loading-sub { font-size: 12px; color: var(--muted); margin-top: 6px; min-height: 18px; }
-#loading-sub.error { color: #b91c1c; }
+#loading-msg { font-size: 15px; color: var(--text); }
+#loading-progress-wrap {
+  width: 260px;
+  height: 5px;
+  background: var(--border);
+  border-radius: 3px;
+  margin: 14px auto 0;
+  overflow: hidden;
+  display: none;
+}
+#loading-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--primary);
+  border-radius: 3px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s;
+}
+#loading-progress-bar.success { background: #16a34a; }
+#loading-progress-bar.error   { background: #b91c1c; }
+#loading-sub { font-size: 12px; color: var(--muted); margin-top: 8px; min-height: 18px; }
+#loading-sub.error { color: #b91c1c; font-size: 13px; }
 .spinner.hidden { display: none; }
 
 /* ── Error banner ────────────────────────────────────── */
@@ -255,6 +285,9 @@ main.browse-open {
   gap: 6px;
 }
 #story-info-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
   font-weight: 600;
   color: var(--muted);
@@ -262,9 +295,21 @@ main.browse-open {
   cursor: pointer;
   user-select: none;
 }
-#story-info-row:hover {
-  color: var(--accent);
+#story-info-row:hover { color: var(--accent); }
+.story-regen-btn {
+  background: none;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 1px 3px;
+  border-radius: 4px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s;
 }
+#story-info-row:hover .story-regen-btn { opacity: 1; }
+.story-regen-btn:hover { background: var(--border); color: #6366f1; }
 #card-type-badge {
   font-size: 10px;
   font-weight: 600;
@@ -1133,7 +1178,8 @@ main.browse-open {
   flex-shrink: 0;
 }
 .tree-cat-icon { font-size: 15px; flex-shrink: 0; }
-.tree-name  { flex: 1; font-size: 15px; font-weight: 600; }
+.tree-name-wrap { flex: 1; display: flex; align-items: center; gap: 4px; min-width: 0; }
+.tree-name  { font-size: 15px; font-weight: 600; }
 .tree-counts { font-size: 13px; font-weight: 700; white-space: nowrap; }
 .tree-card {
   background: var(--card);

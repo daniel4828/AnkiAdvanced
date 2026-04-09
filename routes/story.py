@@ -230,13 +230,22 @@ def preload(text: str):
 async def preload_session(deck_id: int, category: str):
     today = database.anki_today().isoformat()
     story = database.get_active_story(today, category, deck_id)
+    progress_key = f"{deck_id}/{category}"
     if story:
         sentences = database.get_story_sentences(story["id"])
         texts = [s["sentence_zh"] for s in sentences if s.get("sentence_zh")]
         logger.info("tts  preloading %d sentences", len(texts))
         try:
-            await tts.preload_all_async(texts)
+            await tts.preload_all_async(texts, progress_key=progress_key)
             logger.info("tts  preload done")
         except Exception as e:
             logger.warning("tts  preload error: %s", e)
+    # Clear progress entry after completion
+    tts._preload_progress.pop(progress_key, None)
     return {"ok": True}
+
+
+@router.get("/api/tts-progress/{deck_id}/{category}")
+async def tts_progress(deck_id: int, category: str):
+    key = f"{deck_id}/{category}"
+    return tts._preload_progress.get(key, {"done": 0, "total": 0})

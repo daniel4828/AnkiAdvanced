@@ -62,8 +62,9 @@ function _updateStoryInfoRow() {
   const row = document.getElementById('story-info-row');
   if (sentence && story?.sentences?.length) {
     const pos = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
-    row.textContent = story.topic ? `${pos}  ·  ${story.topic}` : pos;
-    row.style.display = 'block';
+    const label = story.topic ? `${pos}  ·  ${story.topic}` : pos;
+    row.innerHTML = `<span class="story-info-label">${label}</span><button class="story-regen-btn" onclick="event.stopPropagation();regenerateStory()" title="Regenerate story">↺</button>`;
+    row.style.display = 'flex';
   } else {
     row.style.display = 'none';
   }
@@ -169,51 +170,102 @@ function showView(name) {
     name === 'word-detail'  ? 'Word Detail' :
     name === 'hanzi-detail' ? 'Hanzi Detail' :
     name === 'stats'        ? 'Stats' : 'AnkiAdvanced';
+  const headerRegenBtn = document.getElementById('header-regen-btn');
+  if (headerRegenBtn) headerRegenBtn.style.display = (name === 'review' && !unfinishedMode) ? '' : 'none';
   if (name === 'review') {
     const regenBtn = document.querySelector('.regen-btn');
     if (regenBtn) regenBtn.style.display = unfinishedMode ? 'none' : '';
   }
 }
 
-function setLoading(msg) {
+// Show the loading view. Pass useProgress=true for story/audio generation to show the progress bar.
+function setLoading(msg, useProgress = false) {
   document.getElementById('loading-msg').textContent = msg || 'Loading…';
+  const wrap = document.getElementById('loading-progress-wrap');
+  const bar  = document.getElementById('loading-progress-bar');
+  const sub  = document.getElementById('loading-sub');
+  const spinner = document.getElementById('loading-spinner');
+  if (useProgress) {
+    wrap.style.display = 'block';
+    bar.style.width = '0%';
+    bar.className = '';
+  } else {
+    wrap.style.display = 'none';
+  }
+  if (sub) { sub.textContent = ''; sub.className = ''; }
+  if (spinner) spinner.style.visibility = '';
   showView('loading');
 }
 
-function _clearLoadingSub() {
-  const sub = document.getElementById('loading-sub');
-  if (sub) { sub.textContent = ''; sub.className = ''; }
+// Update progress bar and status text during a multi-step loading operation.
+// percent: 0–100; msg: main heading (optional); sub: detail line (optional)
+function setLoadingStep(percent, msg, sub) {
+  const bar   = document.getElementById('loading-progress-bar');
+  const msgEl = document.getElementById('loading-msg');
+  const subEl = document.getElementById('loading-sub');
+  if (bar)   { bar.style.width = percent + '%'; bar.className = ''; }
+  if (msgEl && msg) msgEl.textContent = msg;
+  if (subEl) { subEl.textContent = sub || ''; subEl.className = ''; }
 }
 
-// Start cycling through generation phase messages.
-// Returns a cleanup function that stops the cycling.
-function _startGenerationPhases() {
-  const phases = ['Calling AI model…', 'Writing to database…'];
-  let i = 0;
-  _clearLoadingSub();
-  const timer = setInterval(() => {
-    const sub = document.getElementById('loading-sub');
-    if (sub && i < phases.length) { sub.textContent = phases[i++]; }
-    else clearInterval(timer);
-  }, 4000);
-  return () => clearInterval(timer);
+// Slowly advance the progress bar from `from` → `to` percent over `durationMs`.
+// Returns a cancel function. Does NOT set the bar above `to`.
+let _fakeProgressTimer = null;
+function _startFakeProgress(from, to, durationMs) {
+  _stopFakeProgress();
+  const steps = Math.ceil(durationMs / 250);
+  const inc   = (to - from) / steps;
+  let current = from;
+  _fakeProgressTimer = setInterval(() => {
+    current = Math.min(current + inc, to);
+    const bar = document.getElementById('loading-progress-bar');
+    if (bar && parseFloat(bar.style.width) < current) bar.style.width = current + '%';
+  }, 250);
+}
+function _stopFakeProgress() {
+  if (_fakeProgressTimer) { clearInterval(_fakeProgressTimer); _fakeProgressTimer = null; }
+}
+
+// Preload TTS for a session while polling per-sentence progress.
+// deckId/cat → used to build the API URL and progress-poll key.
+// onProgress(done, total) called whenever progress updates.
+async function _preloadWithProgress(deckId, cat, onProgress) {
+  let finished = false;
+  const preloadDone = fetch(`/api/preload-session/${deckId}/${cat}`, { method: 'POST' })
+    .then(() => { finished = true; })
+    .catch(() => { finished = true; });
+
+  // Poll progress endpoint until preload completes
+  while (!finished) {
+    await new Promise(r => setTimeout(r, 350));
+    if (finished) break;
+    try {
+      const p = await fetch(`/api/tts-progress/${deckId}/${cat}`).then(r => r.json());
+      if (p.total > 0) onProgress(p.done, p.total);
+    } catch (_) {}
+  }
+  await preloadDone;
 }
 
 function _showLoadingSuccess(msg) {
-  const el = document.getElementById('loading-msg');
-  const sub = document.getElementById('loading-sub');
+  const bar   = document.getElementById('loading-progress-bar');
+  const msgEl = document.getElementById('loading-msg');
+  const subEl = document.getElementById('loading-sub');
   const spinner = document.getElementById('loading-spinner');
-  if (el) el.textContent = msg || 'Done!';
-  if (sub) { sub.textContent = ''; sub.className = ''; }
+  if (bar)    { bar.style.width = '100%'; bar.className = 'success'; }
+  if (msgEl)  msgEl.textContent = msg || 'Done!';
+  if (subEl)  { subEl.textContent = ''; subEl.className = ''; }
   if (spinner) spinner.style.visibility = 'hidden';
 }
 
-function _showLoadingError(msg) {
-  const el = document.getElementById('loading-msg');
-  const sub = document.getElementById('loading-sub');
+function _showLoadingError(headline, detail) {
+  const bar   = document.getElementById('loading-progress-bar');
+  const msgEl = document.getElementById('loading-msg');
+  const subEl = document.getElementById('loading-sub');
   const spinner = document.getElementById('loading-spinner');
-  if (el) el.textContent = 'Generation failed';
-  if (sub) { sub.textContent = msg; sub.className = 'error'; }
+  if (bar)    { bar.className = 'error'; }
+  if (msgEl)  msgEl.textContent = headline || 'Failed';
+  if (subEl)  { subEl.textContent = detail || ''; subEl.className = detail ? 'error' : ''; }
   if (spinner) spinner.style.visibility = 'hidden';
 }
 
@@ -574,13 +626,15 @@ function renderDeckRows(decks, depth) {
     const row = `
       <div class="tree-row tree-parent" style="padding-left:${16 + indent}px">
         <span class="tree-toggle" onclick="toggleDeck(${deck.id})">${toggleIcon}</span>
-        <span class="tree-name" onclick="startReviewMixed(${deck.id},'${safeName}',${!!deck.no_story})" style="cursor:pointer">${deck.name}</span>
+        <span class="tree-name-wrap">
+          <span class="tree-name" onclick="startReviewMixed(${deck.id},'${safeName}',${!!deck.no_story})" style="cursor:pointer">${deck.name}</span>
+          ${!deck.no_story ? `<button class="deck-regen-btn" onclick="event.stopPropagation();regenerateStoryFromList(${deck.id})" title="Regenerate story">↺</button>` : ''}
+        </span>
         ${deckCounts}
         ${rrBadge}
         <button class="${buryClass}" onclick="event.stopPropagation();toggleBury(${deck.id})" title="${buryTitle}">${buryIcon}</button>
         <div class="deck-menu-wrap">
           <button class="deck-susp-btn ${deck.deck_all_suspended ? 'deck-all-suspended' : ''}" onclick="event.stopPropagation();toggleDeckAllSuspension(${deck.id})" title="${deck.deck_all_suspended ? 'Unsuspend all cards' : 'Suspend all cards'}">${deck.deck_all_suspended ? '▶' : '⏸'}</button>
-          ${!deck.no_story ? `<button class="deck-regen-btn" onclick="event.stopPropagation();regenerateStoryFromList(${deck.id})" title="Regenerate story">↺</button>` : ''}
           <button class="gear-btn" onclick="event.stopPropagation();toggleDeckMenu(event,${deck.id},'${safeName}',${!!deck.filtered})" title="Deck options">⚙</button>
         </div>
         <div class="cat-pills-row">${buildCategoryButtons(deck)}</div>
@@ -1964,19 +2018,30 @@ async function startReview(id, cat, name, noStory = false) {
 }
 
 async function _doStartReview(topic, maxHsk, model) {
-  setLoading('Generating story…');
-  _resetLoadingSpinner();
-  const stopPhases = _startGenerationPhases();
+  setLoading('Generating story…', true);
+  setLoadingStep(10, null, 'Sending request to AI…');
+  _startFakeProgress(10, 55, 45000);
   try {
     const storyDeckId = rootDeckId || deckId;
     const storyCategory = rootDeckId ? 'unified' : category;
     const storyUrl = `/api/story/${storyDeckId}/${storyCategory}` + _storyParams(topic, maxHsk, model);
-    const [todayData, storyData] = await Promise.all([
-      api('GET', `/api/today/${deckId}/${category}`),
-      api('GET', storyUrl),
-    ]);
-    stopPhases();
+    let todayData, storyData;
+    try {
+      [todayData, storyData] = await Promise.all([
+        api('GET', `/api/today/${deckId}/${category}`),
+        api('GET', storyUrl),
+      ]);
+    } catch (e) {
+      _stopFakeProgress();
+      _showLoadingError('AI request failed', e.message);
+      await new Promise(r => setTimeout(r, 2500));
+      showError('Failed to start session: ' + e.message);
+      showView('decks');
+      return;
+    }
 
+    _stopFakeProgress();
+    setLoadingStep(65, null, 'Story received, processing…');
     story = await _resolveStory(storyData, storyDeckId, storyCategory, topic, maxHsk);
 
     if (!todayData.card) {
@@ -1984,18 +2049,22 @@ async function _doStartReview(topic, maxHsk, model) {
       return;
     }
 
-    _showLoadingSuccess('Story ready! Loading audio…');
-    _resetLoadingSpinner();
-    try {
-      await fetch(`/api/preload-session/${deckId}/${category}`, { method: 'POST' });
-    } catch (_) {}
+    const sentenceCount = story?.sentences?.length ?? 0;
+    setLoadingStep(70, 'Story ready!',
+      sentenceCount > 0 ? `Generating audio — 0 / ${sentenceCount} sentences…` : 'Loading audio…');
+    await _preloadWithProgress(deckId, category, (done, total) => {
+      const pct = 70 + Math.round((done / total) * 28);
+      setLoadingStep(pct, null, `Generating audio — ${done} / ${total} sentences…`);
+    });
 
+    _showLoadingSuccess('Ready!');
+    await new Promise(r => setTimeout(r, 300));
     showView('review');
     loadCard(todayData.card, todayData.counts);
   } catch (e) {
-    stopPhases();
-    _showLoadingError(e.message);
-    await new Promise(r => setTimeout(r, 2000));
+    _stopFakeProgress();
+    _showLoadingError('Failed to load session', e.message);
+    await new Promise(r => setTimeout(r, 2500));
     showError('Failed to start session: ' + e.message);
     showView('decks');
   }
@@ -2047,12 +2116,12 @@ async function startReviewMixed(id, name, noStory = false) {
 }
 
 async function _doStartReviewMixed(topic, maxHsk, model, noStory = false) {
-  setLoading(noStory ? 'Loading…' : 'Generating stories…');
-  _resetLoadingSpinner();
-  const stopPhases = noStory ? () => {} : _startGenerationPhases();
+  setLoading(noStory ? 'Loading…' : 'Generating stories…', !noStory);
+  if (!noStory) { setLoadingStep(10, null, 'Sending request to AI…'); _startFakeProgress(10, 55, 45000); }
   try {
     const todayData = await api('GET', `/api/today-mixed/${rootDeckId}`);
     if (!todayData.card) {
+      _stopFakeProgress();
       rootDeckId = null;
       showView('done');
       return;
@@ -2063,22 +2132,40 @@ async function _doStartReviewMixed(topic, maxHsk, model, noStory = false) {
       // Load a single unified story covering all categories (1 AI call instead of 3)
       try {
         story = await api('GET', `/api/story/${rootDeckId}/unified` + _storyParams(topic, maxHsk, model));
-      } catch (_) {}
+      } catch (e) {
+        _stopFakeProgress();
+        _showLoadingError('AI request failed', e.message);
+        await new Promise(r => setTimeout(r, 2500));
+        showError('Failed to generate story: ' + e.message);
+        rootDeckId = null;
+        showView('decks');
+        return;
+      }
+      _stopFakeProgress();
       fetch(`/api/preload-session/${rootDeckId}/unified`, { method: 'POST' }).catch(() => {});
     }
 
-    stopPhases();
-    document.getElementById('loading-msg').textContent = 'Loading audio…';
-    try {
-      await fetch(`/api/preload-session/${rootDeckId}/${category}`, { method: 'POST' });
-    } catch (_) {}
-
+    if (!noStory) {
+      const sentenceCount = story?.sentences?.length ?? 0;
+      setLoadingStep(70, 'Story ready!',
+        sentenceCount > 0 ? `Generating audio — 0 / ${sentenceCount} sentences…` : 'Loading audio…');
+      await _preloadWithProgress(rootDeckId, category, (done, total) => {
+        const pct = 70 + Math.round((done / total) * 28);
+        setLoadingStep(pct, null, `Generating audio — ${done} / ${total} sentences…`);
+      });
+      _showLoadingSuccess('Ready!');
+      await new Promise(r => setTimeout(r, 300));
+    } else {
+      try {
+        await fetch(`/api/preload-session/${rootDeckId}/${category}`, { method: 'POST' });
+      } catch (_) {}
+    }
     showView('review');
     loadCard(todayData.card, todayData.counts);
   } catch (e) {
-    stopPhases();
-    _showLoadingError(e.message);
-    await new Promise(r => setTimeout(r, 2000));
+    _stopFakeProgress();
+    _showLoadingError('Failed to load session', e.message);
+    await new Promise(r => setTimeout(r, 2500));
     showError('Failed to start session: ' + e.message);
     rootDeckId = null;
     showView('decks');
@@ -2887,13 +2974,16 @@ async function _resolveStory(storyData, resolvedeckId, resolveCat, topic, maxHsk
     catch (_) { return null; }
   }
   // retry with new model — not counted toward the 2-attempt limit
-  setLoading('Generating your story…');
+  setLoading('Generating your story…', true);
+  setLoadingStep(10, null, 'Sending request to AI…');
+  _startFakeProgress(10, 55, 45000);
   let newData;
   try {
     newData = await api('GET', `/api/story/${resolvedeckId}/${resolveCat}` + _storyParams(topic, maxHsk, choice.model));
   } catch (e) {
     newData = { error: true, reason: e.message, model: choice.model, has_history: storyData.has_history };
   }
+  _stopFakeProgress();
   return _resolveStory(newData, resolvedeckId, resolveCat, topic, maxHsk);
 }
 
@@ -3335,29 +3425,44 @@ async function regenerateStory() {
 }
 
 async function _doRegenerateStory(topic, maxHsk, model) {
-  setLoading('Regenerating story…');
-  _resetLoadingSpinner();
-  const stopPhases = _startGenerationPhases();
+  setLoading('Regenerating story…', true);
+  setLoadingStep(10, null, 'Sending request to AI…');
+  _startFakeProgress(10, 55, 45000);
   try {
     const storyDeckId = rootDeckId || deckId;
     const storyCategory = rootDeckId ? 'unified' : category;
-    const storyData = await api('POST', `/api/story/${storyDeckId}/${storyCategory}/regenerate` + _storyParams(topic, maxHsk, model));
-    stopPhases();
+    let storyData;
+    try {
+      storyData = await api('POST', `/api/story/${storyDeckId}/${storyCategory}/regenerate` + _storyParams(topic, maxHsk, model));
+    } catch (e) {
+      _stopFakeProgress();
+      _showLoadingError('AI request failed', e.message);
+      await new Promise(r => setTimeout(r, 2500));
+      showError('Regenerate failed: ' + e.message);
+      showView('review');
+      return;
+    }
+    _stopFakeProgress();
+    setLoadingStep(65, null, 'Story received, processing…');
     story = await _resolveStory(storyData, storyDeckId, storyCategory, topic, maxHsk);
     sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
-    _showLoadingSuccess('Story regenerated!');
-    _resetLoadingSpinner();
     _updateStoryInfoRow();
-    try {
-      await fetch(`/api/preload-session/${storyDeckId}/${storyCategory}`, { method: 'POST' });
-    } catch (_) {}
-    await new Promise(r => setTimeout(r, 600));
+
+    const sentenceCount = story?.sentences?.length ?? 0;
+    setLoadingStep(70, 'Story ready!',
+      sentenceCount > 0 ? `Generating audio — 0 / ${sentenceCount} sentences…` : 'Loading audio…');
+    await _preloadWithProgress(storyDeckId, storyCategory, (done, total) => {
+      const pct = 70 + Math.round((done / total) * 28);
+      setLoadingStep(pct, null, `Generating audio — ${done} / ${total} sentences…`);
+    });
+    _showLoadingSuccess('Story regenerated!');
+    await new Promise(r => setTimeout(r, 500));
     showView('review');
     showFront();
   } catch (e) {
-    stopPhases();
-    _showLoadingError(e.message);
-    await new Promise(r => setTimeout(r, 2000));
+    _stopFakeProgress();
+    _showLoadingError('Regenerate failed', e.message);
+    await new Promise(r => setTimeout(r, 2500));
     showError('Regenerate failed: ' + e.message);
     showView('review');
   }
@@ -3371,8 +3476,8 @@ async function regenerateStoryFromList(deckId) {
   _setupIsUnfinished = false;
   let sentenceCount = 0;
   try {
-    const data = await api('GET', `/api/story/${deckId}/unified`);
-    sentenceCount = data?.sentences?.length ?? 0;
+    const data = await api('GET', `/api/story/${deckId}/unified/count`);
+    sentenceCount = data?.count ?? 0;
   } catch (_) {}
   document.getElementById('setup-count-label').textContent =
     `This story will have ${sentenceCount} sentence${sentenceCount !== 1 ? 's' : ''}.`;
@@ -3389,20 +3494,29 @@ async function regenerateStoryFromList(deckId) {
 }
 
 async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model) {
-  setLoading('Regenerating story…');
-  _resetLoadingSpinner();
-  const stopPhases = _startGenerationPhases();
+  setLoading('Regenerating story…', true);
+  setLoadingStep(10, null, 'Sending request to AI…');
+  _startFakeProgress(10, 55, 45000);
   try {
-    await api('POST', `/api/story/${deckId}/unified/regenerate` + _storyParams(topic, maxHsk, model));
-    stopPhases();
+    let storyData;
+    try {
+      storyData = await api('POST', `/api/story/${deckId}/unified/regenerate` + _storyParams(topic, maxHsk, model));
+    } catch (e) {
+      _stopFakeProgress();
+      _showLoadingError('AI request failed', e.message);
+      await new Promise(r => setTimeout(r, 2500));
+      showError('Regenerate failed: ' + e.message);
+      showView('decks');
+      return;
+    }
+    _stopFakeProgress();
     _showLoadingSuccess('Story regenerated!');
-    _resetLoadingSpinner();
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, 700));
     showView('decks');
   } catch (e) {
-    stopPhases();
-    _showLoadingError(e.message);
-    await new Promise(r => setTimeout(r, 2000));
+    _stopFakeProgress();
+    _showLoadingError('Regenerate failed', e.message);
+    await new Promise(r => setTimeout(r, 2500));
     showError('Regenerate failed: ' + e.message);
     showView('decks');
   }
