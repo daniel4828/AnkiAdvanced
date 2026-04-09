@@ -25,17 +25,29 @@ def _log_story(story: dict) -> None:
 
 def _get_cards_for_story(deck_id: int, category: str) -> list:
     if category == "unified":
-        return database.get_due_cards_unified(deck_id)
-    ids = leaf_ids(deck_id, category)
-    if not ids:
-        return []
-    # sibling_suppression=True: each word appears only once across all categories
-    # (the AI prompt should not receive the same word from both Listening and Reading)
-    cards = (database.get_due_cards_multi(ids, category)
-             if len(ids) > 1
-             else database.get_due_cards(ids[0], category))
-    # Sentence notes are standalone — never embed them in AI-generated stories
-    return [c for c in cards if c.get("note_type") != "sentence"]
+        cards = database.get_due_cards_unified(deck_id)
+    else:
+        ids = leaf_ids(deck_id, category)
+        if not ids:
+            return []
+        # sibling_suppression=True: each word appears only once across all categories
+        # (the AI prompt should not receive the same word from both Listening and Reading)
+        cards = (database.get_due_cards_multi(ids, category)
+                 if len(ids) > 1
+                 else database.get_due_cards(ids[0], category))
+        # Sentence notes are standalone — never embed them in AI-generated stories
+        cards = [c for c in cards if c.get("note_type") != "sentence"]
+
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(
+            "[story] AI词表 deck=%d cat=%s count=%d:\n%s",
+            deck_id, category, len(cards),
+            "\n".join(
+                f"  {c.get('word_zh', '?'):<16}  {c.get('pinyin', ''):<28}  [{c.get('state', '?')}]"
+                for c in cards
+            ) or "  (empty)",
+        )
+    return cards
 
 
 ALLOWED_MODELS = {

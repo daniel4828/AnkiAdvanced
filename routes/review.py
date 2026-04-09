@@ -4,14 +4,10 @@ from fastapi import APIRouter, HTTPException
 
 import database
 import srs
-from .utils import leaf_ids
-from .queue_manager import QueueManager
+from .utils import leaf_ids, queue_mgr as _queue_mgr
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-# Persistent session queues — rebuilt once per Anki day, then updated in place.
-_queue_mgr = QueueManager()
 
 # In-memory undo stack: list of {card_before, log_id, queue_key, ...}
 _undo_stack: list[dict] = []
@@ -116,6 +112,21 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
 
     preset = database.get_preset_for_deck(deck_id)
     bury_new, bury_review, bury_learning = database.resolve_bury_flags(preset)
+    logger.debug(
+        "[preset] deck=%d  bury_quick_mode=%s → new=%s review=%s learning=%s\n"
+        "  new_per_day=%d  reviews_per_day=%d  learning_steps=%r\n"
+        "  graduating_interval=%d  easy_interval=%d  relearning_steps=%r\n"
+        "  new_review_order=%s  new_gather_order=%s  new_sort_order=%s\n"
+        "  interday_learning_review_order=%s  review_sort_order=%s\n"
+        "  leech_threshold=%d  leech_action=%s  category_order=%s",
+        deck_id,
+        preset.get("bury_quick_mode"), bury_new, bury_review, bury_learning,
+        preset.get("new_per_day", 0), preset.get("reviews_per_day", 0), preset.get("learning_steps", ""),
+        preset.get("graduating_interval", 0), preset.get("easy_interval", 0), preset.get("relearning_steps", ""),
+        preset.get("new_review_order"), preset.get("new_gather_order"), preset.get("new_sort_order"),
+        preset.get("interday_learning_review_order"), preset.get("review_sort_order"),
+        preset.get("leech_threshold", 0), preset.get("leech_action"), preset.get("category_order"),
+    )
     database.bury_siblings(
         updated["word_id"], cat,
         bury_new=bury_new,
