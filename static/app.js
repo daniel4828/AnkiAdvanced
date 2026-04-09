@@ -62,8 +62,9 @@ function _updateStoryInfoRow() {
   const row = document.getElementById('story-info-row');
   if (sentence && story?.sentences?.length) {
     const pos = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
-    row.textContent = story.topic ? `${pos}  ·  ${story.topic}` : pos;
-    row.style.display = 'block';
+    const label = story.topic ? `${pos}  ·  ${story.topic}` : pos;
+    row.innerHTML = `<span class="story-info-label">${label}</span><button class="story-regen-btn" onclick="event.stopPropagation();regenerateStory()" title="Regenerate story">↺</button>`;
+    row.style.display = 'flex';
   } else {
     row.style.display = 'none';
   }
@@ -169,6 +170,8 @@ function showView(name) {
     name === 'word-detail'  ? 'Word Detail' :
     name === 'hanzi-detail' ? 'Hanzi Detail' :
     name === 'stats'        ? 'Stats' : 'AnkiAdvanced';
+  const headerRegenBtn = document.getElementById('header-regen-btn');
+  if (headerRegenBtn) headerRegenBtn.style.display = (name === 'review' && !unfinishedMode) ? '' : 'none';
   if (name === 'review') {
     const regenBtn = document.querySelector('.regen-btn');
     if (regenBtn) regenBtn.style.display = unfinishedMode ? 'none' : '';
@@ -574,13 +577,15 @@ function renderDeckRows(decks, depth) {
     const row = `
       <div class="tree-row tree-parent" style="padding-left:${16 + indent}px">
         <span class="tree-toggle" onclick="toggleDeck(${deck.id})">${toggleIcon}</span>
-        <span class="tree-name" onclick="startReviewMixed(${deck.id},'${safeName}',${!!deck.no_story})" style="cursor:pointer">${deck.name}</span>
+        <span class="tree-name-wrap">
+          <span class="tree-name" onclick="startReviewMixed(${deck.id},'${safeName}',${!!deck.no_story})" style="cursor:pointer">${deck.name}</span>
+          ${!deck.no_story ? `<button class="deck-regen-btn" onclick="event.stopPropagation();regenerateStoryFromList(${deck.id})" title="Regenerate story">↺</button>` : ''}
+        </span>
         ${deckCounts}
         ${rrBadge}
         <button class="${buryClass}" onclick="event.stopPropagation();toggleBury(${deck.id})" title="${buryTitle}">${buryIcon}</button>
         <div class="deck-menu-wrap">
           <button class="deck-susp-btn ${deck.deck_all_suspended ? 'deck-all-suspended' : ''}" onclick="event.stopPropagation();toggleDeckAllSuspension(${deck.id})" title="${deck.deck_all_suspended ? 'Unsuspend all cards' : 'Suspend all cards'}">${deck.deck_all_suspended ? '▶' : '⏸'}</button>
-          ${!deck.no_story ? `<button class="deck-regen-btn" onclick="event.stopPropagation();regenerateStoryFromList(${deck.id})" title="Regenerate story">↺</button>` : ''}
           <button class="gear-btn" onclick="event.stopPropagation();toggleDeckMenu(event,${deck.id},'${safeName}',${!!deck.filtered})" title="Deck options">⚙</button>
         </div>
         <div class="cat-pills-row">${buildCategoryButtons(deck)}</div>
@@ -3371,8 +3376,8 @@ async function regenerateStoryFromList(deckId) {
   _setupIsUnfinished = false;
   let sentenceCount = 0;
   try {
-    const data = await api('GET', `/api/story/${deckId}/unified`);
-    sentenceCount = data?.sentences?.length ?? 0;
+    const data = await api('GET', `/api/story/${deckId}/unified/count`);
+    sentenceCount = data?.count ?? 0;
   } catch (_) {}
   document.getElementById('setup-count-label').textContent =
     `This story will have ${sentenceCount} sentence${sentenceCount !== 1 ? 's' : ''}.`;
