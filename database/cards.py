@@ -521,8 +521,12 @@ def get_due_cards_any_cat(root_deck_id: int) -> list[dict]:
 
     NO_POS = 9999
     if story_pos:
-        # Story exists: follow narrative order so the session reads top-to-bottom
-        all_cards.sort(key=lambda c: story_pos.get(c["word_id"], NO_POS))
+        # Story exists: follow narrative order so the session reads top-to-bottom.
+        # Use category_order as tiebreaker so same-word cards respect deck settings.
+        all_cards.sort(key=lambda c: (
+            story_pos.get(c["word_id"], NO_POS),
+            cat_order.get(c["category"], 99),
+        ))
     else:
         all_cards.sort(key=lambda c: (
             0 if c["state"] in ("learning", "relearn") else
