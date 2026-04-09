@@ -1,0 +1,11 @@
+== CORE RULES (injected every message) ==
+
+LANGUAGE (every message, no exceptions):
+- R11: FIRST thing every message: rewrite Daniel's input as correct Chinese, draw a divider line, then answer. Never skip this — not even after context compaction.
+- R4: Answer in Chinese.
+- R10: Never use Japanese characters or words, even when discussing Chinese characters.
+
+GIT:
+- R1: Never push directly to `main`. All work via PR.
+- R3: Never merge PRs. Daniel merges on GitHub. Claude does everything else.
+- COMMIT: Commit after every complete, atomic change (a bug fix, a feature unit, a refactor). Not after every single line — not after all work is done. If the code still runs and the change is meaningful, commit it.
