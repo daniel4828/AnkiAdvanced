@@ -1,4 +1,5 @@
 import math
+import random
 from datetime import datetime, timedelta, time as dtime
 
 import database
@@ -33,16 +34,16 @@ def preview_intervals(card: dict) -> dict:
         else:
             hard = _fmt_min(l_steps[step_index])
         if step_index >= len(l_steps) - 1:
-            good = _fmt_day(grad_int)
+            good = _fmt_day(_fuzz_interval(grad_int))
         else:
             good = _fmt_min(l_steps[step_index + 1])
-        easy = _fmt_day(easy_int)
+        easy = _fmt_day(_fuzz_interval(easy_int))
 
     elif state == "review":
         again = _fmt_min(r_steps[0])
-        hard  = _fmt_day(max(min_int, math.floor(interval * 1.2)))
-        good  = _fmt_day(max(min_int, math.floor(interval * ease)))
-        easy  = _fmt_day(max(min_int, math.floor(interval * ease * 1.3)))
+        hard  = _fmt_day(max(min_int, _fuzz_interval(math.floor(interval * 1.2))))
+        good  = _fmt_day(max(min_int, _fuzz_interval(math.floor(interval * ease))))
+        easy  = _fmt_day(max(min_int, _fuzz_interval(math.floor(interval * ease * 1.3))))
 
     elif state == "relearn":
         again = _fmt_min(r_steps[0])
@@ -51,10 +52,10 @@ def preview_intervals(card: dict) -> dict:
         else:
             hard = _fmt_min(r_steps[step_index] * 1.5)
         if step_index >= len(r_steps) - 1:
-            good = _fmt_day(max(min_int, interval))
+            good = _fmt_day(_fuzz_interval(max(min_int, interval)))
         else:
             good = _fmt_min(r_steps[step_index + 1])
-        easy = _fmt_day(max(min_int, interval))
+        easy = _fmt_day(_fuzz_interval(max(min_int, interval)))
 
     else:
         again = hard = good = easy = "—"
@@ -86,6 +87,30 @@ def _fmt_day(days: int) -> str:
 # ---------------------------------------------------------------------------
 # Pure math helpers — no DB calls
 # ---------------------------------------------------------------------------
+
+def _fuzz_delta(interval: int) -> int:
+    """Return the fuzz delta (in days) for a given interval."""
+    if interval < 2:
+        return 0
+    if interval < 7:
+        return max(1, round(interval * 0.25))
+    if interval < 30:
+        return max(2, round(interval * 0.15))
+    return max(4, round(interval * 0.05))
+
+
+def _fuzz_interval(interval: int) -> int:
+    """Apply Anki-style random fuzz to prevent card bunching."""
+    fuzz = _fuzz_delta(interval)
+    return random.randint(interval - fuzz, interval + fuzz) if fuzz else interval
+
+
+def _fmt_day_fuzzed(days: int) -> str:
+    """Format interval with fuzz range shown when fuzz > 1 day (e.g. '7-11d')."""
+    fuzz = _fuzz_delta(days)
+    if fuzz <= 1:
+        return _fmt_day(days)
+    return f"{_fmt_day(max(1, days - fuzz))}-{_fmt_day(days + fuzz)}"
 
 def _parse_steps(steps_str: str) -> list[int]:
     """Parse step strings to minutes. Supports plain ints ("1 10"), "m" suffix ("1m 10m"), and "d" suffix ("1d" = 1440 min)."""
@@ -215,7 +240,7 @@ def _handle_learning(card: dict, preset: dict, rating: int) -> dict:
 
     if rating == 4:  # Easy — graduate immediately
         c["state"] = "review"
-        c["interval"] = preset["easy_interval"]
+        c["interval"] = _fuzz_interval(preset["easy_interval"])
         c["due"] = next_review_due(c["interval"])
         c["step_index"] = 0
         c["repetitions"] += 1
@@ -245,7 +270,7 @@ def _handle_learning(card: dict, preset: dict, rating: int) -> dict:
 
     if idx >= last:  # Graduate
         c["state"] = "review"
-        c["interval"] = preset["graduating_interval"]
+        c["interval"] = _fuzz_interval(preset["graduating_interval"])
         c["due"] = next_review_due(c["interval"])
         c["step_index"] = 0
         c["repetitions"] += 1
@@ -275,7 +300,7 @@ def _handle_review(card: dict, preset: dict, rating: int) -> dict:
         c["due"] = next_learning_due(relearn_steps, 0)
         _check_leech(c, preset)
     else:
-        c["interval"] = max(preset["minimum_interval"], new_interval)
+        c["interval"] = max(preset["minimum_interval"], _fuzz_interval(new_interval))
         c["state"] = "review"
         c["due"] = next_review_due(c["interval"])
         c["repetitions"] += 1
@@ -311,6 +336,7 @@ def _handle_relearn(card: dict, preset: dict, rating: int) -> dict:
 
     if rating == 4 or idx >= last:  # Easy or last step — back to review
         c["state"] = "review"
+        c["interval"] = _fuzz_interval(c["interval"])
         c["due"] = next_review_due(c["interval"])
         c["step_index"] = 0
         c["repetitions"] += 1
