@@ -84,20 +84,22 @@ def get_story(deck_id: int, category: str,
     logger.info("story  GENERATE deck=%d cat=%s due_cards=%d topic=%r max_hsk=%d model=%s",
                 deck_id, category, len(cards), topic, max_hsk, chosen_model)
     if cards:
+        progress_key = f"{deck_id}/{category}"
+        ai._story_progress[progress_key] = {"phase": "starting", "msg": "Starting…", "percent": 5}
         last_error = None
-        for attempt in range(2):
-            try:
-                sentences, prompt_text = ai.generate_story(cards, topic=topic, max_hsk=max_hsk,
-                                                           model=chosen_model)
-                for i, s in enumerate(sentences):
-                    s["position"] = i
-                database.create_story(today, category, deck_id, sentences, prompt_text, topic)
-                story = database.get_active_story(today, category, deck_id)
-                last_error = None
-                break
-            except Exception as e:
-                last_error = e
-                logger.error("story  generation error (attempt %d/2): %s", attempt + 1, e)
+        try:
+            sentences, prompt_text = ai.generate_story(cards, topic=topic, max_hsk=max_hsk,
+                                                       model=chosen_model,
+                                                       progress_key=progress_key)
+            for i, s in enumerate(sentences):
+                s["position"] = i
+            database.create_story(today, category, deck_id, sentences, prompt_text, topic)
+            story = database.get_active_story(today, category, deck_id)
+        except Exception as e:
+            last_error = e
+            logger.error("story  generation error: %s", e)
+        finally:
+            ai._story_progress.pop(progress_key, None)
         if last_error is not None:
             return {
                 "error": True,
@@ -129,20 +131,22 @@ def regenerate_story(deck_id: int, category: str,
                 deck_id, category, len(cards), topic, max_hsk, chosen_model)
     if not cards:
         return None
+    progress_key = f"{deck_id}/{category}"
+    ai._story_progress[progress_key] = {"phase": "starting", "msg": "Starting…", "percent": 5}
     last_error = None
-    for attempt in range(2):
-        try:
-            sentences, prompt_text = ai.generate_story(cards, topic=topic, max_hsk=max_hsk,
-                                                       model=chosen_model)
-            for i, s in enumerate(sentences):
-                s["position"] = i
-            database.create_story(today, category, deck_id, sentences, prompt_text, topic)
-            story = database.get_active_story(today, category, deck_id)
-            last_error = None
-            break
-        except Exception as e:
-            last_error = e
-            logger.error("regen  generation error (attempt %d/2): %s", attempt + 1, e)
+    try:
+        sentences, prompt_text = ai.generate_story(cards, topic=topic, max_hsk=max_hsk,
+                                                   model=chosen_model,
+                                                   progress_key=progress_key)
+        for i, s in enumerate(sentences):
+            s["position"] = i
+        database.create_story(today, category, deck_id, sentences, prompt_text, topic)
+        story = database.get_active_story(today, category, deck_id)
+    except Exception as e:
+        last_error = e
+        logger.error("regen  generation error: %s", e)
+    finally:
+        ai._story_progress.pop(progress_key, None)
     if last_error is not None:
         return {
             "error": True,
@@ -249,3 +253,9 @@ async def preload_session(deck_id: int, category: str):
 async def tts_progress(deck_id: int, category: str):
     key = f"{deck_id}/{category}"
     return tts._preload_progress.get(key, {"done": 0, "total": 0})
+
+
+@router.get("/api/story-progress/{deck_id}/{category}")
+def story_progress_endpoint(deck_id: int, category: str):
+    key = f"{deck_id}/{category}"
+    return ai._story_progress.get(key, {"phase": "idle", "msg": "", "percent": 0})
