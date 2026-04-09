@@ -351,8 +351,22 @@ def _fill_translations(sentences: list[dict], progress_key: str | None = None) -
     try:
         import translator as _t
         texts = [s.get("sentence_zh", "") for s in sentences]
-        translations = _t.translate_batch(texts)
-        for s, en in zip(sentences, translations):
+        total = len(texts)
+
+        if progress_key and total > 0:
+            # Chunked translation so we can show per-chunk progress
+            chunk_size = 8
+            results: list[str] = []
+            for start in range(0, total, chunk_size):
+                chunk = texts[start:start + chunk_size]
+                results.extend(_t.translate_batch(chunk))
+                done = min(start + chunk_size, total)
+                _set_progress(progress_key, phase="translating",
+                              msg=f"Translating… {done}/{total}", percent=88 + round(done / total * 4))
+        else:
+            results = _t.translate_batch(texts)
+
+        for s, en in zip(sentences, results):
             s["sentence_en"] = en
     except Exception as e:
         err = str(e)
