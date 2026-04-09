@@ -22,6 +22,14 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "deepseek-chat"
 
+# Per-session story generation progress: key → {phase, msg, percent, translate_warn?}
+_story_progress: dict[str, dict] = {}
+
+
+def _set_progress(key: str | None, **kwargs) -> None:
+    if key:
+        _story_progress[key] = kwargs
+
 
 # ---------------------------------------------------------------------------
 # Provider routing
@@ -75,7 +83,8 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str) -> str:
 # ---------------------------------------------------------------------------
 
 def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2,
-                   model: str = DEFAULT_MODEL) -> tuple[list[dict], str]:
+                   model: str = DEFAULT_MODEL,
+                   progress_key: str | None = None) -> tuple[list[dict], str]:
     """
     Generate a short Mandarin story, one sentence per card.
 
@@ -140,6 +149,9 @@ Rules:
     missing_hint = ""
     last_partial: tuple | None = None  # (result, missing_pairs) from best attempt
     for attempt in range(3):
+        retry_label = f" (retry {attempt}/{2})" if attempt > 0 else ""
+        _set_progress(progress_key, phase="request", attempt=attempt + 1,
+                      msg=f"Sending request to AI…{retry_label}", percent=max(5, 10 - attempt * 4))
         full_prompt = prompt + missing_hint
         raw = _call_api(model, [{"role": "user", "content": full_prompt}], max_tokens,
                         purpose="story")
@@ -172,6 +184,9 @@ Rules:
                             "generate_story: attempt %d — words missing from sentences: %s",
                             attempt + 1, missing_words,
                         )
+                        _set_progress(progress_key, phase="warning", attempt=attempt + 1,
+                                      msg=f"⚠ Attempt {attempt + 1}: missing {missing_words} — retrying",
+                                      percent=0)
                         missing_ratio = len(missing_pairs) / len(cards)
                         if attempt >= 1 and missing_ratio < 0.03:
                             logger.info(
@@ -181,7 +196,11 @@ Rules:
                             )
                             for item, card in missing_pairs:
                                 item["sentence_zh"] = card.get("source_sentence") or f"我学了{card['word_zh']}这个词。"
-                            _fill_translations(result)
+                            _set_progress(progress_key, phase="translating",
+                                          msg="Translating sentences…", percent=88)
+                            _fill_translations(result, progress_key=progress_key)
+                            _set_progress(progress_key, phase="ai_done",
+                                          msg=f"✓ {len(result)} sentences (attempt {attempt + 1})", percent=93)
                             return result, prompt
                         missing_hint = (
                             f"\n\nIMPORTANT: Your previous attempt was missing these words "
@@ -190,8 +209,12 @@ Rules:
                         continue
                     logger.info("generate_story: success — %d sentences (attempt %d)",
                                 len(result), attempt + 1)
+                    _set_progress(progress_key, phase="translating",
+                                  msg="Translating sentences…", percent=88)
                     # Translate sentences locally (no extra AI call needed)
-                    _fill_translations(result)
+                    _fill_translations(result, progress_key=progress_key)
+                    _set_progress(progress_key, phase="ai_done",
+                                  msg=f"✓ {len(result)} sentences (attempt {attempt + 1})", percent=93)
                     return result, prompt
                 else:
                     logger.warning("generate_story: count mismatch — got %d, need %d",
@@ -212,7 +235,11 @@ Rules:
             )
             for item, card in missing_pairs:
                 item["sentence_zh"] = card.get("source_sentence") or f"我学了{card['word_zh']}这个词。"
-            _fill_translations(result)
+            _set_progress(progress_key, phase="translating",
+                          msg="Translating sentences…", percent=88)
+            _fill_translations(result, progress_key=progress_key)
+            _set_progress(progress_key, phase="ai_done",
+                          msg=f"✓ {len(result)} sentences (patched)", percent=93)
             return result, prompt
 
     logger.warning("generate_story: falling back to placeholder sentences")
@@ -319,7 +346,7 @@ Return ONLY valid JSON, no explanation, no markdown:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _fill_translations(sentences: list[dict]) -> None:
+def _fill_translations(sentences: list[dict], progress_key: str | None = None) -> None:
     """Translate sentence_zh → sentence_en in-place using Google Translate."""
     try:
         import translator as _t
@@ -328,7 +355,11 @@ def _fill_translations(sentences: list[dict]) -> None:
         for s, en in zip(sentences, translations):
             s["sentence_en"] = en
     except Exception as e:
+        err = str(e)
+        vpn_hint = " (VPN issue?)" if any(k in err.lower() for k in ("eof", "connect", "timeout", "proxy", "ssl")) else ""
         logger.warning("_fill_translations: fallback to empty — %s", e)
+        if progress_key and progress_key in _story_progress:
+            _story_progress[progress_key]["translate_warn"] = f"⚠ Translation failed{vpn_hint}"
         for s in sentences:
             s.setdefault("sentence_en", "")
 

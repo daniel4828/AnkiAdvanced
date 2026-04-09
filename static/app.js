@@ -226,6 +226,37 @@ function _stopFakeProgress() {
   if (_fakeProgressTimer) { clearInterval(_fakeProgressTimer); _fakeProgressTimer = null; }
 }
 
+// Poll /api/story-progress/{deckId}/{cat} and update the loading sub-text + progress bar.
+// Handles warning phase (retry): resets bar to 5% and restarts fake progress.
+let _storyProgressPoll = null;
+function _startStoryProgressPoll(deckId, cat) {
+  _stopStoryProgressPoll();
+  _storyProgressPoll = setInterval(async () => {
+    try {
+      const p = await fetch(`/api/story-progress/${deckId}/${cat}`).then(r => r.json());
+      if (!p || p.phase === 'idle') return;
+      const subEl = document.getElementById('loading-sub');
+      const bar   = document.getElementById('loading-progress-bar');
+      if (p.translate_warn) {
+        if (subEl) { subEl.textContent = p.translate_warn; subEl.className = 'warn'; }
+        return;
+      }
+      if (p.phase === 'warning') {
+        _stopFakeProgress();
+        if (bar) { bar.style.width = '5%'; bar.className = 'warn'; }
+        _startFakeProgress(5, 50, 30000);
+        if (subEl) { subEl.textContent = p.msg; subEl.className = 'warn'; }
+      } else if (p.msg) {
+        if (subEl) { subEl.textContent = p.msg; subEl.className = ''; }
+        if (bar && p.phase !== 'ai_done') bar.className = '';
+      }
+    } catch (_) {}
+  }, 400);
+}
+function _stopStoryProgressPoll() {
+  if (_storyProgressPoll) { clearInterval(_storyProgressPoll); _storyProgressPoll = null; }
+}
+
 // Preload TTS for a session while polling per-sentence progress.
 // deckId/cat → used to build the API URL and progress-poll key.
 // onProgress(done, total) called whenever progress updates.
@@ -242,6 +273,10 @@ async function _preloadWithProgress(deckId, cat, onProgress) {
     try {
       const p = await fetch(`/api/tts-progress/${deckId}/${cat}`).then(r => r.json());
       if (p.total > 0) onProgress(p.done, p.total);
+      if (p.error) {
+        const subEl = document.getElementById('loading-sub');
+        if (subEl) { subEl.textContent = p.error; subEl.className = 'warn'; }
+      }
     } catch (_) {}
   }
   await preloadDone;
@@ -2024,6 +2059,7 @@ async function _doStartReview(topic, maxHsk, model) {
   try {
     const storyDeckId = rootDeckId || deckId;
     const storyCategory = rootDeckId ? 'unified' : category;
+    _startStoryProgressPoll(storyDeckId, storyCategory);
     const storyUrl = `/api/story/${storyDeckId}/${storyCategory}` + _storyParams(topic, maxHsk, model);
     let todayData, storyData;
     try {
@@ -2032,7 +2068,7 @@ async function _doStartReview(topic, maxHsk, model) {
         api('GET', storyUrl),
       ]);
     } catch (e) {
-      _stopFakeProgress();
+      _stopFakeProgress(); _stopStoryProgressPoll();
       _showLoadingError('AI request failed', e.message);
       await new Promise(r => setTimeout(r, 2500));
       showError('Failed to start session: ' + e.message);
@@ -2040,7 +2076,7 @@ async function _doStartReview(topic, maxHsk, model) {
       return;
     }
 
-    _stopFakeProgress();
+    _stopFakeProgress(); _stopStoryProgressPoll();
     setLoadingStep(65, null, 'Story received, processing…');
     story = await _resolveStory(storyData, storyDeckId, storyCategory, topic, maxHsk);
 
@@ -2062,7 +2098,7 @@ async function _doStartReview(topic, maxHsk, model) {
     showView('review');
     loadCard(todayData.card, todayData.counts);
   } catch (e) {
-    _stopFakeProgress();
+    _stopFakeProgress(); _stopStoryProgressPoll();
     _showLoadingError('Failed to load session', e.message);
     await new Promise(r => setTimeout(r, 2500));
     showError('Failed to start session: ' + e.message);
@@ -2117,11 +2153,15 @@ async function startReviewMixed(id, name, noStory = false) {
 
 async function _doStartReviewMixed(topic, maxHsk, model, noStory = false) {
   setLoading(noStory ? 'Loading…' : 'Generating stories…', !noStory);
-  if (!noStory) { setLoadingStep(10, null, 'Sending request to AI…'); _startFakeProgress(10, 55, 45000); }
+  if (!noStory) {
+    setLoadingStep(10, null, 'Sending request to AI…');
+    _startFakeProgress(10, 55, 45000);
+    _startStoryProgressPoll(rootDeckId, 'unified');
+  }
   try {
     const todayData = await api('GET', `/api/today-mixed/${rootDeckId}`);
     if (!todayData.card) {
-      _stopFakeProgress();
+      _stopFakeProgress(); _stopStoryProgressPoll();
       rootDeckId = null;
       showView('done');
       return;
@@ -2133,7 +2173,7 @@ async function _doStartReviewMixed(topic, maxHsk, model, noStory = false) {
       try {
         story = await api('GET', `/api/story/${rootDeckId}/unified` + _storyParams(topic, maxHsk, model));
       } catch (e) {
-        _stopFakeProgress();
+        _stopFakeProgress(); _stopStoryProgressPoll();
         _showLoadingError('AI request failed', e.message);
         await new Promise(r => setTimeout(r, 2500));
         showError('Failed to generate story: ' + e.message);
@@ -2141,7 +2181,7 @@ async function _doStartReviewMixed(topic, maxHsk, model, noStory = false) {
         showView('decks');
         return;
       }
-      _stopFakeProgress();
+      _stopFakeProgress(); _stopStoryProgressPoll();
       fetch(`/api/preload-session/${rootDeckId}/unified`, { method: 'POST' }).catch(() => {});
     }
 
@@ -2163,7 +2203,7 @@ async function _doStartReviewMixed(topic, maxHsk, model, noStory = false) {
     showView('review');
     loadCard(todayData.card, todayData.counts);
   } catch (e) {
-    _stopFakeProgress();
+    _stopFakeProgress(); _stopStoryProgressPoll();
     _showLoadingError('Failed to load session', e.message);
     await new Promise(r => setTimeout(r, 2500));
     showError('Failed to start session: ' + e.message);
@@ -2977,13 +3017,14 @@ async function _resolveStory(storyData, resolvedeckId, resolveCat, topic, maxHsk
   setLoading('Generating your story…', true);
   setLoadingStep(10, null, 'Sending request to AI…');
   _startFakeProgress(10, 55, 45000);
+  _startStoryProgressPoll(resolvedeckId, resolveCat);
   let newData;
   try {
     newData = await api('GET', `/api/story/${resolvedeckId}/${resolveCat}` + _storyParams(topic, maxHsk, choice.model));
   } catch (e) {
     newData = { error: true, reason: e.message, model: choice.model, has_history: storyData.has_history };
   }
-  _stopFakeProgress();
+  _stopFakeProgress(); _stopStoryProgressPoll();
   return _resolveStory(newData, resolvedeckId, resolveCat, topic, maxHsk);
 }
 
@@ -3431,18 +3472,19 @@ async function _doRegenerateStory(topic, maxHsk, model) {
   try {
     const storyDeckId = rootDeckId || deckId;
     const storyCategory = rootDeckId ? 'unified' : category;
+    _startStoryProgressPoll(storyDeckId, storyCategory);
     let storyData;
     try {
       storyData = await api('POST', `/api/story/${storyDeckId}/${storyCategory}/regenerate` + _storyParams(topic, maxHsk, model));
     } catch (e) {
-      _stopFakeProgress();
+      _stopFakeProgress(); _stopStoryProgressPoll();
       _showLoadingError('AI request failed', e.message);
       await new Promise(r => setTimeout(r, 2500));
       showError('Regenerate failed: ' + e.message);
       showView('review');
       return;
     }
-    _stopFakeProgress();
+    _stopFakeProgress(); _stopStoryProgressPoll();
     setLoadingStep(65, null, 'Story received, processing…');
     story = await _resolveStory(storyData, storyDeckId, storyCategory, topic, maxHsk);
     sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
@@ -3460,7 +3502,7 @@ async function _doRegenerateStory(topic, maxHsk, model) {
     showView('review');
     showFront();
   } catch (e) {
-    _stopFakeProgress();
+    _stopFakeProgress(); _stopStoryProgressPoll();
     _showLoadingError('Regenerate failed', e.message);
     await new Promise(r => setTimeout(r, 2500));
     showError('Regenerate failed: ' + e.message);
@@ -3497,24 +3539,42 @@ async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model) {
   setLoading('Regenerating story…', true);
   setLoadingStep(10, null, 'Sending request to AI…');
   _startFakeProgress(10, 55, 45000);
+  _startStoryProgressPoll(deckId, 'unified');
   try {
     let storyData;
     try {
       storyData = await api('POST', `/api/story/${deckId}/unified/regenerate` + _storyParams(topic, maxHsk, model));
     } catch (e) {
-      _stopFakeProgress();
+      _stopFakeProgress(); _stopStoryProgressPoll();
       _showLoadingError('AI request failed', e.message);
       await new Promise(r => setTimeout(r, 2500));
       showError('Regenerate failed: ' + e.message);
       showView('decks');
       return;
     }
-    _stopFakeProgress();
+    _stopFakeProgress(); _stopStoryProgressPoll();
+
+    // Preload audio before starting review
+    const sentenceCount = storyData?.sentences?.length ?? 0;
+    setLoadingStep(70, 'Story ready!',
+      sentenceCount > 0 ? `Generating audio — 0 / ${sentenceCount} sentences…` : 'Loading audio…');
+    await _preloadWithProgress(deckId, 'unified', (done, total) => {
+      const pct = 70 + Math.round((done / total) * 28);
+      setLoadingStep(pct, null, `Generating audio — ${done} / ${total} sentences…`);
+    });
+
     _showLoadingSuccess('Story regenerated!');
-    await new Promise(r => setTimeout(r, 700));
-    showView('decks');
+    await new Promise(r => setTimeout(r, 500));
+
+    // Auto-open the deck for review (story is already in DB, will load fast)
+    const deck = flatten(_cachedDecks || []).find(d => d.id === deckId);
+    if (deck) {
+      await startReviewMixed(deckId, deck.name, !!deck.no_story);
+    } else {
+      showView('decks');
+    }
   } catch (e) {
-    _stopFakeProgress();
+    _stopFakeProgress(); _stopStoryProgressPoll();
     _showLoadingError('Regenerate failed', e.message);
     await new Promise(r => setTimeout(r, 2500));
     showError('Regenerate failed: ' + e.message);

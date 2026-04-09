@@ -96,7 +96,16 @@ async def preload_all_async(texts: list[str], progress_key: str | None = None) -
 
     async def _cached_with_progress(text: str) -> str:
         nonlocal done_count
-        result = await _ensure_cached(text)
+        try:
+            result = await _ensure_cached(text)
+        except Exception as e:
+            logger.warning("tts  failed for sentence: %s", e)
+            if progress_key is not None:
+                _preload_progress[progress_key]["error"] = f"⚠ Audio failed: {str(e)[:60]}"
+            done_count += 1
+            if progress_key is not None:
+                _preload_progress[progress_key]["done"] = done_count
+            return ""
         done_count += 1
         if progress_key is not None:
             _preload_progress[progress_key]["done"] = done_count
