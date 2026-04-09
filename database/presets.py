@@ -92,11 +92,23 @@ def get_preset(preset_id: int) -> dict:
 def get_preset_for_deck(deck_id: int) -> dict:
     conn = get_db()
     row = conn.execute(
-        "SELECT p.* FROM deck_presets p JOIN decks d ON d.preset_id = p.id WHERE d.id = ?",
+        """SELECT p.*,
+                  d.new_review_order_override AS deck_nro_override,
+                  d.bury_quick_mode           AS deck_bury_quick_mode
+           FROM deck_presets p JOIN decks d ON d.preset_id = p.id WHERE d.id = ?""",
         (deck_id,),
     ).fetchone()
     conn.close()
-    return dict(row) if row else None
+    if not row:
+        return None
+    preset = dict(row)
+    deck_nro = preset.pop("deck_nro_override", None)
+    if deck_nro is not None:
+        preset["new_review_order_override"] = deck_nro
+    deck_bury = preset.pop("deck_bury_quick_mode", None)
+    if deck_bury is not None:
+        preset["bury_quick_mode"] = deck_bury
+    return preset
 
 
 def insert_preset(preset: dict) -> int:
@@ -136,7 +148,7 @@ def update_preset(preset_id: int, fields: dict) -> None:
         "new_gather_order", "new_sort_order", "new_review_order",
         "interday_learning_review_order", "review_sort_order",
         "bury_new_siblings", "bury_review_siblings", "bury_interday_siblings",
-        "bury_quick_mode", "category_order",
+        "bury_quick_mode", "category_order", "new_review_order_override",
     }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:

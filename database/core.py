@@ -170,6 +170,10 @@ def init_db() -> None:
     deck_cols = {r["name"] for r in conn.execute("PRAGMA table_info(decks)").fetchall()}
     if "deleted_at" not in deck_cols:
         conn.execute("ALTER TABLE decks ADD COLUMN deleted_at TEXT")
+    if "new_review_order_override" not in deck_cols:
+        conn.execute("ALTER TABLE decks ADD COLUMN new_review_order_override TEXT")
+    if "bury_quick_mode" not in deck_cols:
+        conn.execute("ALTER TABLE decks ADD COLUMN bury_quick_mode TEXT NOT NULL DEFAULT 'all'")
     card_cols = {r["name"] for r in conn.execute("PRAGMA table_info(cards)").fetchall()}
     if "deleted_at" not in card_cols:
         conn.execute("ALTER TABLE cards ADD COLUMN deleted_at TEXT")
@@ -203,6 +207,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN bury_quick_mode TEXT NOT NULL DEFAULT 'all'")
     if "category_order" not in preset_cols:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN category_order TEXT NOT NULL DEFAULT 'listening,reading,creating'")
+    if "new_review_order_override" not in preset_cols:
+        conn.execute("ALTER TABLE deck_presets ADD COLUMN new_review_order_override TEXT")
 
     # Normalize legacy due values: learning/relearn cards whose due datetime
     # falls on a future Anki day should store just the date (no time component).

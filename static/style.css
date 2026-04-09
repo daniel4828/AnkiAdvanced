@@ -208,6 +208,24 @@ main.browse-open {
   font-weight: 600;
   color: var(--text);
 }
+.cnt-item-active {
+  background: rgba(128, 128, 128, 0.15);
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+.cnt-item-active .cnt-label {
+  color: var(--text);
+  font-weight: 600;
+}
+.cnt-cat-item-active {
+  background: rgba(128, 128, 128, 0.15);
+  border-radius: 5px;
+  padding: 2px 5px;
+}
+.cnt-cat-item-active .cnt-cat-zh {
+  color: var(--text);
+  font-weight: 700;
+}
 
 /* The main card */
 .review-card {
@@ -1376,6 +1394,27 @@ main.browse-open {
   line-height: 1;
 }
 .bury-btn:hover { background: var(--border); }
+
+.mix-new-btn {
+  background: none;
+  border: none;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 1px 2px;
+  border-radius: 4px;
+  line-height: 1;
+  opacity: 0;
+  vertical-align: middle;
+  transition: opacity 0.15s;
+}
+.tree-row:hover .mix-new-btn { opacity: 0.45; }
+.tree-row:hover .mix-new-btn.mix-on { opacity: 1; }
+.mix-new-btn.mix-on {
+  color: var(--primary);
+  opacity: 1;
+}
+.mix-new-btn:hover { background: var(--border); opacity: 1 !important; }
 
 .deck-menu-wrap { position: relative; }
 .deck-dropdown {

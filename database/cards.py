@@ -292,7 +292,7 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
     else:  # mixed: merge by due time
         lr = sorted(learning_cards + review_cards, key=lambda c: c["due"])
 
-    nr_o = preset.get("new_review_order", "mixed")
+    nr_o = preset.get("new_review_order_override") or preset.get("new_review_order", "mixed")
     if nr_o == "new_first":
         cards = new_cards + lr
     elif nr_o == "reviews_first":
@@ -483,14 +483,19 @@ def _leaf_decks_with_category(root_deck_id: int) -> list[tuple[int, str]]:
     return [(r["id"], r["category"]) for r in rows if r["category"]]
 
 
-def get_next_card_any_cat(root_deck_id: int) -> dict | None:
-    """Highest-priority card across all categories under root_deck_id."""
+def get_due_cards_any_cat(root_deck_id: int) -> list[dict]:
+    """All due cards across every category under root_deck_id, priority-sorted.
+
+    Cards are ordered so that the highest-priority card is first.  When a story
+    exists the order follows its narrative position; otherwise cards are sorted
+    by state (learning/relearn → review → new), category order, and due time.
+    """
     leaf_pairs = _leaf_decks_with_category(root_deck_id)
     all_cards = []
     for deck_id, cat in leaf_pairs:
         all_cards.extend(get_due_cards(deck_id, cat))
     if not all_cards:
-        return None
+        return []
 
     # Build category order index from root deck's preset
     preset = get_preset_for_deck(root_deck_id)
@@ -525,7 +530,13 @@ def get_next_card_any_cat(root_deck_id: int) -> dict | None:
             cat_order.get(c["category"], 99),
             c["due"],
         ))
-    return all_cards[0]
+    return all_cards
+
+
+def get_next_card_any_cat(root_deck_id: int) -> dict | None:
+    """Highest-priority card across all categories under root_deck_id."""
+    cards = get_due_cards_any_cat(root_deck_id)
+    return cards[0] if cards else None
 
 
 def count_due_any_cat(root_deck_id: int) -> dict:
@@ -552,16 +563,34 @@ def count_due_by_category(root_deck_id: int) -> dict:
 
 
 def get_due_cards_multi(deck_ids: list[int], category: str, *, sibling_suppression: bool = False) -> list[dict]:
-    """Due cards across multiple decks, merged and priority-sorted."""
+    """Due cards across multiple decks, merged and priority-sorted.
+
+    Mirrors the bucket logic of get_due_cards so that new_review_order="mixed"
+    interleaves new cards into the review queue instead of appending them last.
+    """
     all_cards = []
     for deck_id in deck_ids:
         all_cards.extend(get_due_cards(deck_id, category, sibling_suppression=sibling_suppression))
-    all_cards.sort(key=lambda c: (
-        0 if c["state"] in ("learning", "relearn") else
-        1 if c["state"] == "review" else 2,
-        c["due"]
-    ))
-    return all_cards
+
+    learning_cards = [c for c in all_cards if c["state"] in ("learning", "relearn")]
+    review_cards   = [c for c in all_cards if c["state"] == "review"]
+    new_cards      = [c for c in all_cards if c["state"] == "new"]
+
+    learning_cards.sort(key=lambda c: c["due"])
+    review_cards.sort(key=lambda c: c["due"])
+    # new_cards keep the per-deck gather/sort order from get_due_cards
+
+    preset = get_preset_for_deck(deck_ids[0]) if deck_ids else {}
+    nr_o = preset.get("new_review_order_override") or preset.get("new_review_order", "mixed")
+
+    if nr_o == "new_first":
+        review_new = new_cards + review_cards
+    elif nr_o == "reviews_first":
+        review_new = review_cards + new_cards
+    else:  # mixed
+        review_new = _interleave_cards(review_cards, new_cards)
+
+    return learning_cards + review_new
 
 
 def get_next_card_multi(deck_ids: list[int], category: str) -> dict | None:

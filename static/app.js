@@ -291,6 +291,20 @@ function _formatRR(val) {
   return Math.round(val * 100) + '%';
 }
 
+function _mixNewBtn(deckId, override) {
+  const icons = { mixed: '⇄', reviews_first: '↓', new_first: '↑' };
+  const titles = {
+    mixed:        'Override: mixed (click → after reviews)',
+    reviews_first:'Override: new after reviews (click → new before reviews)',
+    new_first:    'Override: new before reviews (click → no override)',
+    null:         'No override — using deck setting (click → mixed)',
+  };
+  const icon  = icons[override] || '⇄';
+  const title = titles[override ?? 'null'] || titles['null'];
+  const cls   = override ? 'mix-new-btn mix-on' : 'mix-new-btn';
+  return `<button class="${cls}" onclick="event.stopPropagation();toggleMixNew(${deckId})" title="${title}">${icon}</button>`;
+}
+
 // Compute RR for a deck (structural or leaf) using cached _retentionData
 function _calcDeckRR(deck) {
   if (!_retentionData?.by_deck) return { overall: null, by_category: {} };
@@ -501,7 +515,7 @@ function renderDecks(decks) {
       <div class="tree-row tree-parent">
         <span class="tree-toggle"></span>
         <span class="tree-name" onclick="startReviewMixed(${allDeck.id},'${safeName}')" style="cursor:pointer">All</span>
-        <span class="deck-counts"><span class="n-new">${(allDeck.counts||{}).new||0}</span><span class="n-lrn">${(allDeck.counts||{}).learning||0}</span><span class="n-rev">${(allDeck.counts||{}).review||0}</span></span>
+        <span class="deck-counts">${_mixNewBtn(allDeck.id, allDeck.new_review_order_override)}<span class="n-new">${(allDeck.counts||{}).new||0}</span><span class="n-lrn">${(allDeck.counts||{}).learning||0}</span><span class="n-rev">${(allDeck.counts||{}).review||0}</span></span>
         ${allRRBadge}
         <button class="${allBuryClass}" onclick="event.stopPropagation();toggleBury(${allDeck.id})" title="${allBuryTitle}">${allBuryIcon}</button>
         <div class="deck-menu-wrap">
@@ -545,7 +559,7 @@ function renderDeckRows(decks, depth) {
     const toggleIcon = hasStructChildren ? (isCollapsed ? '▶' : '▼') : '';
     const safeName  = deck.name.replace(/'/g, "\\'");
     const c = deck.counts || { new: 0, learning: 0, review: 0 };
-    const deckCounts = `<span class="deck-counts"><span class="n-new">${c.new}</span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span></span>`;
+    const deckCounts = `<span class="deck-counts">${_mixNewBtn(deck.id, deck.new_review_order_override)}<span class="n-new">${c.new}</span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span></span>`;
 
     const buryMode   = deck.bury_mode || 'all';
     const buryIcon   = buryMode === 'all' ? '⛓' : buryMode === 'none' ? '⊘' : '≡';
@@ -636,6 +650,25 @@ async function toggleBury(deckId) {
     }
   } catch (e) {
     showError('Failed to toggle burying: ' + e.message);
+  }
+}
+
+async function toggleMixNew(deckId) {
+  try {
+    const { new_review_order_override } = await api('POST', `/api/decks/${deckId}/preset/toggle-mix`);
+    if (_cachedDecks) {
+      const flat = [];
+      const walk = nodes => nodes.forEach(n => { flat.push(n); walk(n.children || []); });
+      walk(_cachedDecks);
+      const deck = flat.find(d => d.id === deckId);
+      if (deck) deck.new_review_order_override = new_review_order_override;
+      const scrollEl = document.querySelector('main');
+      const scrollY = scrollEl ? scrollEl.scrollTop : 0;
+      renderDecks(_cachedDecks);
+      if (scrollEl) scrollEl.scrollTop = scrollY;
+    }
+  } catch (e) {
+    showError('Failed to toggle mix setting: ' + e.message);
   }
 }
 
@@ -2116,6 +2149,12 @@ function loadCard(c, counts) {
   document.getElementById('cnt-lrn').textContent = counts.learning;
   document.getElementById('cnt-rev').textContent = counts.review;
 
+  // Highlight the active state item
+  const stateToItemId = { new: 'cnt-item-new', learning: 'cnt-item-lrn', review: 'cnt-item-rev', relearn: 'cnt-item-lrn' };
+  ['cnt-item-new', 'cnt-item-lrn', 'cnt-item-rev'].forEach(id => document.getElementById(id)?.classList.remove('cnt-item-active'));
+  const activeStateId = stateToItemId[c?.state];
+  if (activeStateId) document.getElementById(activeStateId)?.classList.add('cnt-item-active');
+
   // Per-category breakdown (mixed/all mode only)
   const byCatEl = document.getElementById('cnt-by-cat');
   if (counts.by_cat && byCatEl) {
@@ -2127,6 +2166,10 @@ function loadCard(c, counts) {
       document.getElementById(`cnt-${prefix}-lrn`).textContent = cc.learning;
       document.getElementById(`cnt-${prefix}-rev`).textContent = cc.review;
     }
+    // Highlight the active category item
+    ['cnt-cat-reading', 'cnt-cat-listening', 'cnt-cat-creating'].forEach(id => document.getElementById(id)?.classList.remove('cnt-cat-item-active'));
+    const activeCat = c?.category;
+    if (activeCat) document.getElementById(`cnt-cat-${activeCat}`)?.classList.add('cnt-cat-item-active');
   } else if (byCatEl) {
     byCatEl.style.display = 'none';
   }
@@ -4337,6 +4380,14 @@ document.addEventListener('keydown', e => {
       closeStoryModal();
       return;
     }
+    // Blur input fields in review view so space bar can flip the card
+    if (inInput) {
+      const reviewView = document.getElementById('view-review');
+      if (reviewView && reviewView.style.display !== 'none') {
+        document.activeElement.blur();
+        return;
+      }
+    }
   }
 
   if (!inInput) {
@@ -4400,9 +4451,7 @@ document.addEventListener('keydown', e => {
     }
   }
 
-  // 特殊处理：复习界面空格翻转卡片，即使焦点在输入框内也生效
-  // （中文文本不需要空格，所以不影响打字）
-  if (e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+  if (!inInput && e.code === 'Space' && !e.ctrlKey && !e.metaKey && !e.altKey) {
     const reviewView = document.getElementById('view-review');
     if (reviewView && reviewView.style.display !== 'none') {
       const backVisible = document.getElementById('side-back')?.style.display === 'flex';
