@@ -4664,7 +4664,9 @@ document.addEventListener('keydown', e => {
   const reviewView = document.getElementById('view-review');
   if (reviewView && reviewView.style.display !== 'none') {
     const backVisible = document.getElementById('side-back')?.style.display === 'flex';
-    if (e.key === 'r') {
+    if (e.key === 'R') {
+      e.preventDefault(); location.reload();
+    } else if (e.key === 'r') {
       e.preventDefault(); playSentence();
     } else if (e.key === 't') {
       e.preventDefault(); togglePinyin();
