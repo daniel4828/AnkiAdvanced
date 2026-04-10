@@ -19,6 +19,53 @@ The output is imported from `imports/Kouyu/*.yaml`. The canonical format is `tes
 
 ---
 
+## Step 0 — Parse codewords (optional import modifiers)
+
+The user may append **codewords** after the vocabulary item to override import defaults. Parse and strip them before processing the input.
+
+### Category codewords — which card types are active
+
+By default: reading ✓, listening ✓, creating ✗ (suspended).
+
+Each category codeword accepts the **full word or single letter** (case-insensitive):
+
+| Codeword(s) | Active categories | YAML field |
+|-------------|------------------|------------|
+| `c` / `creating` | creating only | `categories: [creating]` |
+| `l` / `listening` | listening only | `categories: [listening]` |
+| `r` / `reading` | reading only | `categories: [reading]` |
+| `c l` / `creating listening` | creating + listening | `categories: [creating, listening]` |
+| `r l` / `reading listening` | reading + listening | `categories: [reading, listening]` |
+| `c r` / `creating reading` | creating + reading | `categories: [creating, reading]` |
+
+**Multiple letters can be combined in any order, space-separated.** Two or more category codewords mean "these categories are active; all others are suspended."
+
+### Deck codeword — which deck to import into
+
+Any token that is not a category codeword and is not the vocabulary item itself is treated as a **deck hint**:
+
+| Example | YAML field |
+|---------|------------|
+| `B`, `b`, `HSK` | `deck_hint: B` (normalized to uppercase) |
+
+### Rules
+- Strip all codewords from the input before determining entry type and generating YAML.
+- If no category codewords → omit `categories` field entirely.
+- If no deck codeword → omit `deck_hint` field entirely.
+- `categories` and `deck_hint` go directly after the `hsk` field in the YAML output.
+
+### Examples
+
+| Input | categories field | deck_hint field |
+|-------|-----------------|-----------------|
+| `有空 c` | `[creating]` | — |
+| `有空 c l` | `[creating, listening]` | — |
+| `有空 c b` | `[creating]` | `B` |
+| `有空 c l b` | `[creating, listening]` | `B` |
+| `有空` | — | — |
+
+---
+
 ## Step 1 — Determine entry type
 
 | Input | Type |
@@ -40,12 +87,81 @@ The output is imported from `imports/Kouyu/*.yaml`. The canonical format is `tes
 
 If a single word has multiple meaningfully different Chinese translations (different register, connotation, or part of speech), briefly present the options and let the user pick. Keep this short — just a bullet list of variants. Don't generate the full YAML until the user chooses.
 
-For unambiguous inputs, skip this step entirely and go straight to the YAML.
+For unambiguous inputs, skip this step entirely and go straight to the YAML. **Never ask for a choice when the user provides a Chinese word directly or a full sentence — only ask when the input is genuinely ambiguous.**
+
+---
+
+## Step 2.5 — Handle full sentences for flexible YAML generation
+
+When the user provides a **full sentence** in German (or English) for translation into Chinese, do the following:
+
+1. **First, output the translation** — show the original, then the Chinese translation with pinyin and a brief word-by-word breakdown.
+
+2. **Then, ask what to save** — present the main components (2–5 items) as a numbered list and ask which ones the user wants as YAML entries (words, expressions, or the full sentence).
+
+**Format:**
+```
+**[Original sentence]**
+
+Chinese translation: **[Chinese]**
+Pinyin: *[pinyin]*
+
+Breakdown:
+- [word/phrase 1] — [meaning]
+- [word/phrase 2] — [meaning]
+- [word/phrase 3] — [meaning]
+
+Which parts would you like as YAML entries?
+1. [component 1]
+2. [component 2]
+3. [component 3]
+4. [full sentence]
+```
+
+**Only do this for full sentences.** For single words or short phrases that are clearly dictionary items (e.g., "生态", "拥抱", "深烘"), skip this step and go directly to generating the YAML entry — unless the word is ambiguous, in which case follow Step 2.
+
+**Example:**
+
+User: `Wann hast du nächste Woche Zeit?`
+
+Response:
+> **Wann hast du nächste Woche Zeit?**
+>
+> Chinese translation: **你下周什么时候有空？**
+> Pinyin: *Nǐ xià zhōu shénme shíhou yǒu kòng?*
+>
+> Breakdown:
+> - 你 (nǐ) — du
+> - 下周 (xià zhōu) — nächste Woche
+> - 什么时候 (shénme shíhou) — wann
+> - 有空 (yǒu kòng) — Zeit haben (wörtl. "freien Raum haben")
+>
+> Which parts would you like as YAML entries?
+> 1. 下周 — nächste Woche
+> 2. 什么时候 — wann
+> 3. 有空 — Zeit haben
+> 4. 你下周什么时候有空？ — full sentence
 
 ---
 
 ## Step 3 — Output
-Please then give the YAML output for the given word in a textfield or extra file if possible.
+
+First, output a single line with the German translation in **bold**, then output the fenced YAML block. Nothing else — no additional explanation, no questions, no commentary.
+
+Format:
+```
+**[German translation]**
+
+```yaml
+...
+```
+```
+
+Example for 生态: `**Ökologie / Ökosystem**`
+Example for 在适当的时候: `**Zur geeigneten Zeit werde ich dir die Wahrheit sagen.**`
+Example for 同心协力: `**gemeinsam an einem Strang ziehen / mit vereinten Kräften**`
+
+---
 
 ## Canonical Examples
 
@@ -601,6 +717,29 @@ These are real entries from `test.yaml` — match this format exactly.
 | `date` | Today's date as `"MM/DD"` string |
 | `source_de` | Include when input was German |
 
+## YAML quoting rules — CRITICAL
+
+Inline string fields (`meaning`, `compounds[].meaning`, `synonyms[].meaning`, `measure_word[].meaning`, etc.) must **never** contain unquoted colons. Follow this priority order:
+
+1. **Avoid colons in `meaning` fields entirely.** Instead of `wörtlich: X`, write `(wörtl. X)` or rephrase without a colon.
+2. **If a colon is unavoidable**, use **single quotes**: `meaning: 'Es tut mir leid (wörtlich: nicht treffen können)'`
+   - Single-quoted strings treat everything literally except `''` (doubled single quote to escape)
+   - Safe as long as the text has no single-quote character
+3. **Never use double quotes** (`"..."`) for `meaning` or similar fields — double-quoted strings allow escape sequences and are easy to break if the text contains `"` or if the closing quote is misplaced.
+4. **The `note`, `etymology`, `explanations` fields use block scalars (`|`)** — colons are safe there, no quoting needed.
+
+**Bad (will break YAML):**
+```yaml
+meaning: "Es tut mir leid (wörtlich: nicht gegenüber treffen können")  # misplaced closing quote
+meaning: "Geruch und Duft: angenehm"  # double-quote with colon inside
+```
+
+**Good:**
+```yaml
+meaning: 'Es tut mir leid (wörtlich: nicht treffen können)'  # single-quoted
+meaning: angenehmer Geruch oder Duft  # rephrase to avoid colon entirely
+```
+
 ---
 
 ## Quality checklist
@@ -615,7 +754,5 @@ Before outputting, verify:
 - [ ] `note` used for word/chengyu, `explanations` used for sentence
 - [ ] For chengyu: `word_analyses` covers all 4 component words
 - [ ] For sentence: `word_analyses` covers the 2–4 most important vocabulary items
-
-
-Readiness Signal
-When this skill loads with no input, respond only with: 准备好了。
+- [ ] No `meaning` field uses double quotes — colons avoided or single-quoted
+- [ ] `synonyms` / `antonyms` included where they add clear value (always for chengyu, optional for others)
