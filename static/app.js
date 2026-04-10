@@ -4550,7 +4550,7 @@ function _hasOpenModal() {
   return modalIds.some(_isVisible);
 }
 
-document.addEventListener('keydown', e => {
+document.addEventListener('keydown', async e => {
   const inInput = _isEditableFocusTarget(document.activeElement);
 
   if (e.key === 'Escape') {
