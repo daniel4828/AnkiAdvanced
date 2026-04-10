@@ -3666,18 +3666,38 @@ function _importRenderTable() {
     const statusSpan = `<span style="color:${STATUS_COLOR[e.status]}">${STATUS_ICON[e.status]}</span>` +
       (e.reason ? ` <span style="font-size:10px;color:${STATUS_COLOR[e.status]}" title="${_ea(e.reason)}">!</span>` : '');
 
-    return `<tr class="${rowClass}" id="import-row-${idx}">
-      <td>
-        <button class="${inclBtnCls}" ${inclDisabled}
-          onclick="importToggleInclude(${_ea(JSON.stringify(e.simplified))})">${inclLabel}</button>
-      </td>
-      <td style="font-weight:500" title="${_ea(e.simplified)}">${e.simplified.length > 6 ? e.simplified.slice(0,4) + '…' : e.simplified}
-        ${e.raw_yaml ? `<button class="edit-cancel-btn" style="font-size:10px;padding:1px 5px;margin-left:4px"
-          data-word="${_ea(e.simplified)}" data-yaml="${_ea(e.raw_yaml)}" data-deck="" data-idx="${idx}"
-          onclick="openYamlEditFromBtn(this)">Edit</button>` : ''}
-      </td>
-      <td style="color:var(--clr-muted,#888);font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_ea(e.english || '')}">${e.english || ''}</td>
-      <td>${suspBtn('listening')}</td>
+    const isDuplicate = e.status === 'duplicate';
+    let midCols;
+    if (isDuplicate) {
+      const dupAction = cfg.duplicate_action || 'skip';
+      const moveTarget = cfg.move_target || '';
+      const moveCats = cfg.move_categories || null; // null = all
+      const catChecked = (cat) => (!moveCats || moveCats.includes(cat)) ? 'checked' : '';
+      const moveOpts = dupAction === 'move' ? `
+        <input list="import-deck-datalist" class="dup-move-target" value="${_ea(moveTarget)}"
+          placeholder="deck path"
+          oninput="importSetDupMoveTarget(${_ea(JSON.stringify(e.simplified))}, this.value)"
+          style="width:120px;font-size:11px;margin-left:4px">
+        <span style="margin-left:4px;font-size:11px">
+          <label title="Listening"><input type="checkbox" ${catChecked('listening')}
+            onchange="importToggleDupMoveCat(${_ea(JSON.stringify(e.simplified))}, 'listening', this.checked)">L</label>
+          <label title="Reading"><input type="checkbox" ${catChecked('reading')}
+            onchange="importToggleDupMoveCat(${_ea(JSON.stringify(e.simplified))}, 'reading', this.checked)">R</label>
+          <label title="Creating"><input type="checkbox" ${catChecked('creating')}
+            onchange="importToggleDupMoveCat(${_ea(JSON.stringify(e.simplified))}, 'creating', this.checked)">C</label>
+        </span>` : '';
+      midCols = `<td colspan="4" style="padding:2px 6px">
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px">
+          <select style="font-size:11px" onchange="importSetDupAction(${_ea(JSON.stringify(e.simplified))}, this.value)">
+            <option value="skip"${dupAction==='skip'?' selected':''}>Skip</option>
+            <option value="reset"${dupAction==='reset'?' selected':''}>Reset progress</option>
+            <option value="move"${dupAction==='move'?' selected':''}>Move to deck</option>
+          </select>
+          ${moveOpts}
+        </div>
+      </td>`;
+    } else {
+      midCols = `<td>${suspBtn('listening')}</td>
       <td>${suspBtn('reading')}</td>
       <td>${suspBtn('creating')}</td>
       <td>
@@ -3692,7 +3712,21 @@ function _importRenderTable() {
             ${deckOptHtml}
           </select>
         </div>
+      </td>`;
+    }
+
+    return `<tr class="${rowClass}" id="import-row-${idx}">
+      <td>
+        <button class="${inclBtnCls}" ${inclDisabled}
+          onclick="importToggleInclude(${_ea(JSON.stringify(e.simplified))})">${inclLabel}</button>
       </td>
+      <td style="font-weight:500" title="${_ea(e.simplified)}">${e.simplified.length > 6 ? e.simplified.slice(0,4) + '…' : e.simplified}
+        ${e.raw_yaml ? `<button class="edit-cancel-btn" style="font-size:10px;padding:1px 5px;margin-left:4px"
+          data-word="${_ea(e.simplified)}" data-yaml="${_ea(e.raw_yaml)}" data-deck="" data-idx="${idx}"
+          onclick="openYamlEditFromBtn(this)">Edit</button>` : ''}
+      </td>
+      <td style="color:var(--clr-muted,#888);font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${_ea(e.english || '')}">${e.english || ''}</td>
+      ${midCols}
       <td style="color:var(--clr-muted,#888);font-size:11px">${NOTE_TYPE_LABEL[e.note_type] || e.note_type}</td>
       <td style="color:var(--clr-muted,#888);font-size:11px">${e.hsk || ''}</td>
       <td>${statusSpan}</td>
@@ -3754,6 +3788,31 @@ function importToggleSuspended(wordZh, category) {
 function importSetCardDeck(wordZh, deckPath) {
   const cfg = _cardConfigs[wordZh] || {};
   _cardConfigs[wordZh] = { ...cfg, deck_path: deckPath || null };
+}
+
+function importSetDupAction(wordZh, action) {
+  const cfg = _cardConfigs[wordZh] || {};
+  _cardConfigs[wordZh] = { ...cfg, duplicate_action: action };
+  _importRenderTable();
+}
+
+function importSetDupMoveTarget(wordZh, target) {
+  const cfg = _cardConfigs[wordZh] || {};
+  _cardConfigs[wordZh] = { ...cfg, move_target: target || null };
+}
+
+function importToggleDupMoveCat(wordZh, cat, checked) {
+  const cfg = _cardConfigs[wordZh] || {};
+  // null means all-categories; convert to explicit list on first toggle
+  const allCats = ['listening', 'reading', 'creating'];
+  let cats = cfg.move_categories ? [...cfg.move_categories] : [...allCats];
+  if (checked) {
+    if (!cats.includes(cat)) cats.push(cat);
+  } else {
+    cats = cats.filter(c => c !== cat);
+  }
+  // If all selected, store null (= all)
+  _cardConfigs[wordZh] = { ...cfg, move_categories: cats.length === allCats.length ? null : cats };
 }
 
 function importSelectAll(include) {
@@ -3820,6 +3879,10 @@ async function openImportModal() {
     }
   }
   addDeckSuggestions(decks, '');
+
+  // Populate datalist for duplicate move-target autocomplete
+  const dl = document.getElementById('import-deck-datalist');
+  if (dl) dl.innerHTML = _importDeckOptions.map(p => `<option value="${_ea(p)}">`).join('');
 
   // Open OS file picker — modal appears after file is chosen
   document.getElementById('import-file').click();
