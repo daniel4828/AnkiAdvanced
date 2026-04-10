@@ -2707,6 +2707,12 @@ function renderReviewCatRow() {
   el.innerHTML = html;
 }
 
+function _toggleSuspendCat(category) {
+  const cards = wordDetails?.cards || [];
+  const c = cards.find(c => c.category === category && !c.deleted_at);
+  if (c) toggleReviewCat(c.id);
+}
+
 async function toggleReviewCat(cardId) {
   try {
     await api('POST', `/api/cards/${cardId}/suspend`);
@@ -4660,7 +4666,7 @@ document.addEventListener('keydown', e => {
     const backVisible = document.getElementById('side-back')?.style.display === 'flex';
     if (e.key === 'r') {
       e.preventDefault(); playSentence();
-    } else if (e.key === 'p') {
+    } else if (e.key === 't') {
       e.preventDefault(); togglePinyin();
     } else if (e.key === 's') {
       e.preventDefault();
@@ -4680,8 +4686,17 @@ document.addEventListener('keydown', e => {
       e.preventDefault(); _toggleAndScroll('notes-section-body', 'notes-section');
     } else if (backVisible && e.key === 'w') {
       e.preventDefault(); _toggleAndScroll('word-analysis-section-body', 'word-analysis-section', 'end');
-    } else if (backVisible && e.key === 'c') {
+    } else if (backVisible && e.key === 'h') {
       e.preventDefault(); _toggleAllChars();
+    } else if (e.key === 'f') {
+      e.preventDefault(); _toggleSuspendCat('reading');
+    } else if (e.key === 'v') {
+      e.preventDefault(); _toggleSuspendCat('listening');
+    } else if (e.key === 'c') {
+      e.preventDefault(); _toggleSuspendCat('creating');
+    } else if (e.key === 'D') {
+      e.preventDefault();
+      if (await showConfirm('Delete this card?')) reviewCardAction('delete');
     }
     return;
   }
