@@ -614,9 +614,38 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
         word_id = database.insert_word(word)  # INSERT OR IGNORE → always get id
 
         if database.word_has_cards(word_id):
-            skipped_duplicate += 1
-            skipped_entries.append({"word": word_zh, "reason": "already in deck"})
-            # Still process word_analyses so components stay linked
+            dup_action = card_cfg.get("duplicate_action", "skip")
+            if dup_action == "reset":
+                n = database.reset_card_progress(word_id)
+                logger.info("RESET %s: %r — reset %d card(s)", label, word_zh, n)
+                imported += 1
+            elif dup_action == "move":
+                move_target = card_cfg.get("move_target")
+                move_cats = card_cfg.get("move_categories") or None
+                if move_target:
+                    try:
+                        pid = database.get_or_create_deck_path(move_target)
+                        parent = database.get_deck(pid)
+                        leaf_name = parent["name"] if parent else move_target.split("::")[-1]
+                        move_deck_ids = _make_leaf_decks(leaf_name, pid)
+                    except Exception as e:
+                        logger.warning("MOVE %s: %r — deck_path %r failed (%s), skipping",
+                                       label, word_zh, move_target, e)
+                        skipped_duplicate += 1
+                        skipped_entries.append({"word": word_zh, "reason": f"move target failed: {e}"})
+                        continue
+                    n = database.move_cards_to_deck(word_id, move_deck_ids, move_cats)
+                    logger.info("MOVE %s: %r → %r (cats=%r) — moved %d card(s)",
+                                label, word_zh, move_target, move_cats, n)
+                    imported += 1
+                else:
+                    logger.warning("MOVE %s: %r — no move_target specified, skipping", label, word_zh)
+                    skipped_duplicate += 1
+                    skipped_entries.append({"word": word_zh, "reason": "move_target missing"})
+            else:
+                skipped_duplicate += 1
+                skipped_entries.append({"word": word_zh, "reason": "already in deck"})
+            # Always process word_analyses so components stay linked
             for pos, analysis in enumerate(entry.get("word_analyses") or []):
                 if analysis.get("char_only"):
                     _process_char_only_component(analysis, word_id, pos, source)

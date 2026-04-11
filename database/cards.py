@@ -37,6 +37,52 @@ def move_card_to_deck(card_id: int, deck_id: int) -> bool:
     return cur.rowcount > 0
 
 
+def reset_card_progress(word_id: int) -> int:
+    """Reset all cards for a word to 'new' state, clearing all SRS progress.
+
+    Returns the number of cards reset.
+    """
+    today = anki_today()
+    conn = get_db()
+    cur = conn.execute(
+        """UPDATE cards
+           SET state='new', due=?, interval=0, ease=2.5,
+               step_index=0, lapses=0, buried_until=NULL
+           WHERE word_id=? AND deleted_at IS NULL AND state != 'suspended'""",
+        (today, word_id),
+    )
+    conn.commit()
+    conn.close()
+    return cur.rowcount
+
+
+def move_cards_to_deck(word_id: int, target_deck_ids: dict,
+                       categories: list[str] | None = None) -> int:
+    """Move cards for a word to new deck IDs.
+
+    target_deck_ids: {"reading": deck_id, "listening": deck_id, "creating": deck_id}
+    categories: if given, only move cards in those categories; else move all.
+
+    Returns the number of cards moved.
+    """
+    conn = get_db()
+    moved = 0
+    cats = categories if categories else list(target_deck_ids.keys())
+    for cat in cats:
+        deck_id = target_deck_ids.get(cat)
+        if deck_id is None:
+            continue
+        cur = conn.execute(
+            """UPDATE cards SET deck_id=?
+               WHERE word_id=? AND category=? AND deleted_at IS NULL""",
+            (deck_id, word_id, cat),
+        )
+        moved += cur.rowcount
+    conn.commit()
+    conn.close()
+    return moved
+
+
 def get_card(card_id: int) -> dict | None:
     """Joined with word, deck, and preset — everything srs.py needs."""
     conn = get_db()
