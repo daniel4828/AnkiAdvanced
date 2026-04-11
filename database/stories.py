@@ -124,4 +124,19 @@ def get_due_cards_unified(deck_id: int) -> list[dict]:
         cat_order.get(c["category"], 99),
         c["due"],
     ))
+
+    # Apply new_review_order so new cards are interleaved (or placed first/last)
+    # to match the order the review session will present them.
+    from .cards import _interleave_cards
+    nr_o = preset.get("new_review_order_override") or preset.get("new_review_order", "mixed")
+    lr_cards  = [c for c in result if c["state"] != "new"]
+    new_cards = [c for c in result if c["state"] == "new"]
+    if new_cards and lr_cards:
+        if nr_o == "new_first":
+            result = new_cards + lr_cards
+        elif nr_o == "reviews_first":
+            result = lr_cards + new_cards
+        else:  # mixed
+            result = _interleave_cards(lr_cards, new_cards)
+
     return result
