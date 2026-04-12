@@ -213,16 +213,29 @@ def resolve_bury_flags(preset: dict) -> tuple[bool, bool, bool]:
 
 
 def _interleave_cards(base: list, inserts: list) -> list:
-    """Distribute inserts evenly throughout base."""
+    """Distribute inserts evenly across the full combined length.
+
+    Uses Bresenham-style spacing so inserts are spread uniformly from
+    start to end, regardless of whether base or inserts is larger.
+    """
     if not inserts:
         return base
     if not base:
         return inserts
-    result = list(base)
-    step = max(1, len(base) // (len(inserts) + 1))
-    for i, card in enumerate(inserts):
-        pos = min(step * (i + 1) + i, len(result))
-        result.insert(pos, card)
+    total = len(base) + len(inserts)
+    result = []
+    bi = ii = 0
+    # For each of the `total` slots, decide whether to place a base or insert
+    # card by tracking accumulated "debt" for insert cards.
+    # insert cards get slot k if: round(k * len(inserts) / total) > ii
+    for k in range(total):
+        next_insert_count = round((k + 1) * len(inserts) / total)
+        if next_insert_count > ii and ii < len(inserts):
+            result.append(inserts[ii])
+            ii += 1
+        else:
+            result.append(base[bi])
+            bi += 1
     return result
 
 

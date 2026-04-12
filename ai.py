@@ -103,6 +103,15 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
     def _is_sentence(word_zh: str) -> bool:
         return word_zh.endswith(('。', '！', '？', '!', '?'))
 
+    def _word_in_sentence(word_zh: str, sentence_zh: str) -> bool:
+        """For pattern words containing '...' or '…', check that every non-dot hanzi
+        character appears in the sentence (the AI fills the gap with real words).
+        For normal words, fall back to a simple substring check."""
+        if '...' in word_zh or '…' in word_zh:
+            chars = [c for c in word_zh if c not in '.…']
+            return all(c in sentence_zh for c in chars)
+        return word_zh in sentence_zh
+
     word_list_lines = []
     for i, c in enumerate(cards):
         if _is_sentence(c['word_zh']):
@@ -116,22 +125,36 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
             )
     word_list = "\n".join(word_list_lines)
 
-    topic_line = f"- The story should be set around this topic or theme: {topic}\n" if topic else ""
+    if topic:
+        intro = (
+            f"请用以下目标词汇各写一个句子，围绕以下话题写一段客观、正式的说明性文字。\n"
+            f"绝对不要写成故事，不要有虚构人物，不要有叙事情节。\n"
+            f"每个句子应像新闻报道或百科介绍一样，陈述一个事实或观点。\n\n"
+            f"话题：{topic}"
+        )
+        narrative_rule = (
+            "- 每个句子陈述一个与话题相关的事实，语气客观\n"
+            "- 句子之间有逻辑连贯性（如因果、递进、对比）\n"
+            "- 不要出现「小明」「她走进」「那天」等叙事性表达"
+        )
+    else:
+        intro = "请写一个简短的普通话故事，帮助HSK 4-5级学习者复习词汇。"
+        narrative_rule = "- 所有句子必须构成一个连贯的故事，使用相同的人物"
 
-    prompt = f"""Write a short Mandarin Chinese story to help an HSK 4-5 learner review vocabulary.
+    prompt = f"""{intro}
 
-Target words — write exactly one sentence per word, in this order:
+目标词汇——每个词恰好写一个句子，按以下顺序：
 {word_list}
 
-Rules:
-- Exactly {len(cards)} sentences total
-- For items marked [USE AS-IS]: use that text verbatim as sentence_zh
-- For all other items: write a sentence that naturally contains the target word
-- Use proper Chinese punctuation — include commas（，）where natural pauses occur
-- Use only HSK 1-{max_hsk} vocabulary for non-target words
-{topic_line}- The sentences must form a coherent narrative with the same recurring characters
-- NEVER use ASCII double-quote characters (") inside Chinese sentences — use 「」or （）instead if quoting is needed
-- Return ONLY valid JSON, no explanation, no markdown:
+规则：
+- 共恰好 {len(cards)} 个句子
+- 标有 [USE AS-IS] 的条目：将该文本原封不动地作为 sentence_zh
+- 其他所有条目：写一个自然包含目标词的句子
+- 使用正确的中文标点——在自然停顿处加逗号（，）
+- 非目标词只使用 HSK 1-{max_hsk} 级词汇
+{narrative_rule}
+- 中文句子中绝对不要使用ASCII双引号（"）——如需引用，请用「」或（）代替
+- 只返回有效的JSON，不要解释，不要markdown：
 [
   {{"word_id": <integer>, "sentence_zh": "<Chinese sentence>"}},
   ...
@@ -175,7 +198,7 @@ Rules:
                         (item, card)
                         for item, card in zip(result, cards)
                         if not _is_sentence(card["word_zh"])
-                        and card["word_zh"] not in item.get("sentence_zh", "")
+                        and not _word_in_sentence(card["word_zh"], item.get("sentence_zh", ""))
                     ]
                     if missing_pairs:
                         last_partial = (result, missing_pairs)
