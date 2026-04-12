@@ -91,9 +91,10 @@ class QueueManager:
             source = "empty"
 
         logger.debug(
-            "[QueueMgr] get_next key=%s rebuilt=%s → #%s (from %s)\n"
-            "  main[0:8]=%s\n"
-            "  intraday=%s\n"
+            "=== [QueueMgr] 取下一张卡 (get_next) ===\n"
+            "  key=%s  rebuilt=%s  → 发出 #%s (来源: %s)\n"
+            "  [主队列头部 main[0:8]] = %s\n"
+            "  [日内学习队列 intraday（已到期的插队卡，仅前4条）] = %s\n"
             "  now=%s",
             key, rebuilt, result, source,
             list(q.main)[:8],
@@ -211,10 +212,11 @@ class QueueManager:
         self._queues[key] = SessionQueue(main_ids, intraday, today)
 
         logger.debug(
-            "[QueueMgr] _build key=%s today=%s  total=%d cards\n"
-            "  main (%d): %s\n"
-            "  intraday (%d): %s\n"
-            "  full build order (id, state, cat, due):\n%s",
+            "=== [QueueMgr] 队列构建 (_build) ===\n"
+            "  key=%s  today=%s  共 %d 张卡\n"
+            "  [主队列 main — 交错排列后，埋藏卡已排除] (%d 张，仅显示前20): %s\n"
+            "  [日内学习队列 intraday — 今日内有具体时间戳、需插队的卡] (%d 张): %s\n"
+            "  [完整排序顺序 — 状态→类别→due，new/learning已交错] (id, state, cat, due):\n%s",
             key, today, len(cards),
             len(main_ids), main_ids[:20],
             len(intraday), [(e["id"], e["due"]) for e in intraday],
