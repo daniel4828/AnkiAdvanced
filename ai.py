@@ -125,9 +125,19 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
             )
     word_list = "\n".join(word_list_lines)
 
-    topic_line = f"- 故事应围绕以下话题或主题展开：{topic}\n" if topic else ""
+    if topic:
+        intro = (
+            f"请用以下目标词汇各写一个句子，构成一段连贯的说明文，内容围绕以下话题：{topic}"
+        )
+        narrative_rule = (
+            "- 句子之间应有逻辑连贯性（如解释、举例、递进），构成说明文而非虚构故事\n"
+            "- 内容应真实准确，不要编造人物或虚构情节"
+        )
+    else:
+        intro = "请写一个简短的普通话故事，帮助HSK 4-5级学习者复习词汇。"
+        narrative_rule = "- 所有句子必须构成一个连贯的故事，使用相同的人物"
 
-    prompt = f"""请写一个简短的普通话故事，帮助HSK 4-5级学习者复习词汇。
+    prompt = f"""{intro}
 
 目标词汇——每个词恰好写一个句子，按以下顺序：
 {word_list}
@@ -138,7 +148,7 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
 - 其他所有条目：写一个自然包含目标词的句子
 - 使用正确的中文标点——在自然停顿处加逗号（，）
 - 非目标词只使用 HSK 1-{max_hsk} 级词汇
-{topic_line}- 所有句子必须构成一个连贯的故事，使用相同的人物
+{narrative_rule}
 - 中文句子中绝对不要使用ASCII双引号（"）——如需引用，请用「」或（）代替
 - 只返回有效的JSON，不要解释，不要markdown：
 [
