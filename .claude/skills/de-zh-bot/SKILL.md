@@ -85,9 +85,32 @@ Any token that is not a category codeword and is not the vocabulary item itself 
 
 ## Step 2 — Handle ambiguous inputs
 
-If a single word has multiple meaningfully different Chinese translations (different register, connotation, or part of speech), briefly present the options and let the user pick. Keep this short — just a bullet list of variants. Don't generate the full YAML until the user chooses.
+**If the user provides a Chinese word directly → skip this step entirely and go straight to YAML. Never show options for Chinese input.**
 
-For unambiguous inputs, skip this step entirely and go straight to the YAML. **Never ask for a choice when the user provides a Chinese word directly or a full sentence — only ask when the input is genuinely ambiguous.**
+If the user provides a German or English word with multiple meaningfully different Chinese translations (different register, connotation, or part of speech), present the options as a numbered list using this exact format — then wait for the user to choose a number before generating YAML:
+
+```
+1. 措辞 (cuòcí)
+   Verwendung: Konkrete Wortwahl, oft mit Bewertung (präzise, höflich, ungeschickt). Formelle Kontexte (Briefe, Verträge).
+   Beispielsatz: Diese Formulierung ist unhöflich. → 这种措辞不礼貌。
+
+2. 表述 (biǎoshù)
+   Verwendung: Allgemein für das Formulieren einer Idee oder Meinung. Neutral, gesprochen/geschrieben.
+   Beispielsatz: Kannst du das anders formulieren? → 你能换一种表述吗？
+
+3. 说法 (shuōfǎ)
+   Verwendung: Umgangssprachlich. Auch "Behauptung" oder "Version einer Geschichte".
+   Beispielsatz: Das ist eine andere Formulierung. → 这是另一种说法。
+```
+
+Rules for this list:
+- Each option has: Chinese (pinyin), Verwendung (1–2 sentences on register/context), Beispielsatz (German → Chinese)
+- 3–5 options maximum — only include genuinely distinct translations, not synonyms
+- No bold, no extra headers — keep it clean and scannable
+- After the list, add one line: `Welche Variante möchtest du?`
+- Once the user picks a number, generate the full YAML for that option immediately
+
+For unambiguous inputs, skip this step entirely and go straight to YAML.
 
 ---
 
