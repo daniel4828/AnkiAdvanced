@@ -67,23 +67,30 @@
       english: Protecting the ecological environment is the responsibility of every one of us.
       de: Den ökologischen Umwelt zu schützen ist die Verantwortung eines jeden von uns.
 
-  characters:                   # 汉字分析（可选）
-    - char: 生
-      simplified: 生            # 必须包含，即使与 char 相同
-      traditional: 生           # 与简体相同时省略
+  word_analyses:                # 组成汉字分析（可选）
+    - char_only: 生             # HSK 1–2 的简单字用 char_only
       pinyin: shēng
       hsk: "1"
-      detailed_analysis: true  # HSK 3+ 为 true；HSK 1–2 为 false
-      meaning_in_context: life, living
-      compounds:
-        - simplified: 生命
-          pinyin: shēngmìng
-          meaning: life
-        - simplified: 生活
-          pinyin: shēnghuó
-          meaning: life, livelihood
-      etymology: |
-        纯散文，不含列表。说明：部首、声符（表音字）、甲骨文/金文来源（如有）、意义演变。
+    - type: word                # HSK 3+ 的字用 type: word，内含 characters
+      simplified: 态
+      traditional: 態
+      pinyin: tài
+      english: state, condition
+      hsk: "4"
+      characters:
+        - char: 态
+          simplified: 态        # 必须包含，即使与 char 相同
+          traditional: 態       # 与简体相同时省略
+          pinyin: tài
+          hsk: "4"
+          detailed_analysis: true  # HSK 3+ 为 true；HSK 1–2 为 false
+          meaning_in_context: Zustand, Beschaffenheit
+          compounds:
+            - simplified: 状态
+              pinyin: zhuàngtài
+              meaning: Zustand, Verfassung
+          etymology: |
+            纯散文，不含列表。说明：部首、声符（表音字）、甲骨文/金文来源（如有）、意义演变。
 ```
 
 ### register 字段值
@@ -201,7 +208,13 @@
 
 ## 嵌套结构：`word_analyses`
 
-`word_analyses` 用于 `sentence` / `chengyu` / `expression` 类型，解释组成词语。
+`word_analyses` 用于**所有类型**，解释组成词语或汉字。
+
+| 类型 | word_analyses 的内容 |
+|------|---------------------|
+| `word` | 每个组成字：HSK 1–2 用 `char_only`，HSK 3+ 用 `type: word`（内含 `characters`） |
+| `chengyu` / `expression` | 每个组成词：`type: word`（内含 `characters`） |
+| `sentence` | 2–4 个关键词：`type: word`（内含 `characters`） |
 
 ### 形式 1：完整词语（`type: word`）
 
@@ -280,6 +293,7 @@ word_analyses:
 | 旧字段/值 | 当前支持 | 说明 |
 |-----------|----------|------|
 | `type: vocabulary` | ✅ | 等同于 `type: word` |
+| `characters:` (顶层) | ✅ | 旧格式，现已被 `word_analyses:` 取代；现有文件无需迁移 |
 | `measure_word` | ✅ | 量词列表键名 |
 | `explanations` | ✅ | sentence 类型字段，写入 `entries.notes` |
 | `source_de` | ✅ | 存入 `entries.source_sentence` |
@@ -300,5 +314,5 @@ word_analyses:
 | `examples` | `entry_examples` (type=`example`) |
 | `similar_sentences` | `entry_examples` (type=`similar`) |
 | `grammar_structures` | `entry_grammar_structures` |
-| `characters` | `entry_characters` → `characters` → `character_compounds` |
-| `word_analyses` | `entry_components` + 递归导入子词语 |
+| `characters` | `entry_characters` → `characters` → `character_compounds`（旧格式，仍支持） |
+| `word_analyses` | `entry_components` + 递归导入子词语（所有类型的统一格式） |

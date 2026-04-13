@@ -645,7 +645,7 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
             else:
                 skipped_duplicate += 1
                 skipped_entries.append({"word": word_zh, "reason": "already in deck"})
-            # Always process word_analyses so components stay linked
+            # Always process word_analyses (all types) so components stay linked
             for pos, analysis in enumerate(entry.get("word_analyses") or []):
                 if analysis.get("char_only"):
                     _process_char_only_component(analysis, word_id, pos, source)
@@ -681,8 +681,8 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
                     example_type="similar",
                 )
 
-        # Characters — only for vocabulary; expression/chengyu/sentence
-        # attach characters via word_analyses sub-words, not the main entry
+        # Legacy: top-level `characters:` on vocabulary entries.
+        # New format uses `word_analyses:` for all entry types (handled below).
         if note_type == "vocabulary":
             _process_characters(entry, word_id)
 

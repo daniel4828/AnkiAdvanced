@@ -217,48 +217,39 @@ These are real entries from `test.yaml` — match this format exactly.
       pinyin: Liánghǎo de zhèngzhì shēngtài shì jīngjì fāzhǎn de zhòngyào bǎozhàng.
       english: A healthy political environment is an important guarantee for economic development.
       de: Ein gesundes politisches Umfeld ist eine wichtige Garantie für die wirtschaftliche Entwicklung.
-  characters:
-    - char: 生
-      simplified: 生
-      traditional: 生
+  word_analyses:
+    - char_only: 生
       pinyin: shēng
       hsk: "1"
-      detailed_analysis: true
-      meaning_in_context: Leben, lebendig
-      compounds:
-        - simplified: 生命
-          pinyin: shēngmìng
-          meaning: Leben
-        - simplified: 生活
-          pinyin: shēnghuó
-          meaning: Leben, Alltag
-        - simplified: 生态
-          pinyin: shēngtài
-          meaning: Ökologie
-      etymology: |
-        Piktogramm. Das Orakelknochenschrift-Zeichen zeigte eine keimende Pflanze und stand für "wachsen, leben". Die ursprüngliche Bedeutung ist "geboren werden, Leben, lebendig sein."
-    - char: 态
+    - type: word
       simplified: 态
       traditional: 態
       pinyin: tài
+      english: state, condition, form
       hsk: "4"
-      detailed_analysis: true
-      meaning_in_context: Zustand, Beschaffenheit
-      compounds:
-        - simplified: 状态
-          pinyin: zhuàngtài
-          meaning: Zustand, Verfassung
-        - simplified: 态度
-          pinyin: tàidù
-          meaning: Haltung, Einstellung
-        - simplified: 形态
-          pinyin: xíngtài
-          meaning: Form, Gestalt
-        - simplified: 生态
-          pinyin: shēngtài
-          meaning: Ökologie
-      etymology: |
-        Phonosemantische Verbindung. Die traditionelle Form 態 besteht aus dem Radikal 心 (Herz) und der phonetischen Komponente 能 (néng, "Fähigkeit"). Das Herzradikal weist auf einen geistigen Zustand hin. Die ursprüngliche Bedeutung ist "Zustand, Verfassung, Erscheinung."
+      characters:
+        - char: 态
+          simplified: 态
+          traditional: 態
+          pinyin: tài
+          hsk: "4"
+          detailed_analysis: true
+          meaning_in_context: Zustand, Beschaffenheit
+          compounds:
+            - simplified: 状态
+              pinyin: zhuàngtài
+              meaning: Zustand, Verfassung
+            - simplified: 态度
+              pinyin: tàidù
+              meaning: Haltung, Einstellung
+            - simplified: 形态
+              pinyin: xíngtài
+              meaning: Form, Gestalt
+            - simplified: 生态
+              pinyin: shēngtài
+              meaning: Ökologie
+          etymology: |
+            Phonosemantische Verbindung. Die traditionelle Form 態 besteht aus dem Radikal 心 (Herz) und der phonetischen Komponente 能 (néng, "Fähigkeit"). Das Herzradikal weist auf einen geistigen Zustand hin. Die ursprüngliche Bedeutung ist "Zustand, Verfassung, Erscheinung."
 ```
 
 ### Example: `sentence` — 在适当的时候
@@ -752,7 +743,8 @@ Before outputting, verify:
 - [ ] `hsk` is a single quoted digit
 - [ ] `traditional` omitted where identical to `simplified`
 - [ ] `note` used for word/chengyu, `explanations` used for sentence
-- [ ] For chengyu: `word_analyses` covers all 4 component words
+- [ ] For word: `word_analyses` covers all component characters — `char_only` for HSK 1–2, `type: word` with `characters` for HSK 3+
+- [ ] For chengyu/expression: `word_analyses` covers all component words, each with nested `characters`
 - [ ] For sentence: `word_analyses` covers the 2–4 most important vocabulary items
 - [ ] No `meaning` field uses double quotes — colons avoided or single-quoted
 - [ ] `synonyms` / `antonyms` included where they add clear value (always for chengyu, optional for others)
