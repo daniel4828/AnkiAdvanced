@@ -2335,9 +2335,11 @@ function loadCard(c, counts) {
               const sentFront = document.getElementById('sentence-front');
               if (sentFront.style.display !== 'none') sentFront.innerHTML = renderSentence();
             } else if (isCloze) {
-              // Cloze: update sentence-front with blanked Chinese sentence
+              // Cloze: update sentence-front with blanked Chinese + show English hint
               document.getElementById('sentence-front').innerHTML = renderClozeSentence();
-              document.getElementById('sentence-en-front').style.display = 'none';
+              const enFront = document.getElementById('sentence-en-front');
+              enFront.style.display = 'flex';
+              enFront.textContent = sentence.sentence_en || '';
             } else if (isCreating && isSentenceNt) {
               // Sentence notes: update English prompt
               const inp = document.getElementById('sentence-en-front');
@@ -2459,8 +2461,8 @@ function showFront() {
     sentFront.innerHTML = renderClozeSentence();
   }
 
-  // Creating (sentence notes only): show source sentence as prompt
-  document.getElementById('sentence-en-front').style.display   = (isCreating && isSentence) ? 'flex' : 'none';
+  // Creating: show sentence-en-front for both cloze and sentence notes
+  document.getElementById('sentence-en-front').style.display   = isCreating ? 'flex' : 'none';
   document.getElementById('creating-input-wrap').style.display = isCreating ? 'flex' : 'none';
   if (isCreating) {
     if (isSentence) {
@@ -2470,7 +2472,8 @@ function showFront() {
       document.getElementById('creating-input-label').textContent = 'Your translation in Chinese';
       document.getElementById('creating-input').placeholder = 'Type here…';
     } else {
-      // Cloze: label + placeholder for single-word input
+      // Cloze: show English translation as context hint
+      document.getElementById('sentence-en-front').textContent = sentence?.sentence_en || '';
       document.getElementById('creating-input-label').textContent = 'Fill in the blank';
       document.getElementById('creating-input').placeholder = 'Type the missing word…';
     }
@@ -2924,11 +2927,14 @@ function renderSentence() {
 // ── Cloze sentence (creating category, non-sentence notes) ──────────────────
 function renderClozeSentence() {
   if (!sentence) {
-    return `<span class="cloze-blank">___</span>`;
+    return `<span class="cloze-blank">＿＿</span>`;
   }
   const zh   = sentence.sentence_zh;
   const word = card.word_zh;
-  const blanked = zh.replace(word, `<span class="cloze-blank">${'_'.repeat([...word].length)}</span>`);
+  const len  = [...word].length;
+  // Use full-width underscores scaled to word length for a clean inline blank
+  const blank = `<span class="cloze-blank">${'＿'.repeat(len)}</span>`;
+  const blanked = zh.includes(word) ? zh.replace(word, blank) : `${zh} ${blank}`;
   return `<span>${blanked}</span>`;
 }
 
