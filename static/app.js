@@ -2326,13 +2326,20 @@ function loadCard(c, counts) {
           sentence = story.sentences.find(s => s.word_id === card.word_id) || null;
           if (sentence) {
             _updateStoryInfoRow();
-            const isListening = category === 'listening';
-            const isCreating  = category === 'creating';
+            const isListening  = category === 'listening';
+            const isCreating   = category === 'creating';
+            const isSentenceNt = card.note_type === 'sentence';
+            const isCloze      = isCreating && !isSentenceNt;
             if (!isListening && !isCreating) {
+              // Reading: update sentence with full highlighted sentence
               const sentFront = document.getElementById('sentence-front');
               if (sentFront.style.display !== 'none') sentFront.innerHTML = renderSentence();
-            }
-            if (isCreating) {
+            } else if (isCloze) {
+              // Cloze: update sentence-front with blanked Chinese sentence
+              document.getElementById('sentence-front').innerHTML = renderClozeSentence();
+              document.getElementById('sentence-en-front').style.display = 'none';
+            } else if (isCreating && isSentenceNt) {
+              // Sentence notes: update English prompt
               const inp = document.getElementById('sentence-en-front');
               if (inp.style.display !== 'none') inp.textContent = sentence.sentence_en || '';
             }
