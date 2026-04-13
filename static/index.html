@@ -99,13 +99,13 @@
       <div id="side-front">
         <!-- Listening: speaker icon (clickable) -->
         <button class="listen-icon" id="front-listen-icon" onclick="playSentence()">🔊</button>
-        <!-- Reading: Chinese sentence on front -->
+        <!-- Reading / Cloze: Chinese sentence on front (reading shows full, cloze shows blanked) -->
         <div class="sentence" id="sentence-front"></div>
-        <!-- Creating: English sentence + input field -->
+        <!-- Creating (sentence notes only): English/German source sentence -->
         <div class="sentence-en-front" id="sentence-en-front"></div>
         <div class="creating-input-wrap" id="creating-input-wrap">
-          <div class="input-label">Your translation in Chinese</div>
-          <input type="text" id="creating-input" placeholder="Type here…"
+          <div class="input-label" id="creating-input-label">Fill in the blank</div>
+          <input type="text" id="creating-input" placeholder="Type the missing word…"
                  autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                  onkeydown="if(event.key==='Enter')revealAnswer()">
         </div>

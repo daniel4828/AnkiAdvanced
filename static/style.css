@@ -296,6 +296,13 @@ main.browse-open {
   letter-spacing: 0.4px;
   cursor: pointer;
   user-select: none;
+  overflow: hidden;
+}
+.story-info-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 #story-info-row:hover { color: var(--accent); }
 .story-regen-btn {
@@ -1155,6 +1162,7 @@ main.browse-open {
 .ch-match  { color: var(--good);      font-weight: 700; }
 .ch-target { color: var(--primary);   font-weight: 700; }
 .ch-miss   { color: var(--muted); }
+.cloze-blank { color: var(--primary); font-weight: 700; letter-spacing: 2px; }
 .match-bar { font-size: 13px; font-weight: 700; margin-top: 8px; display: block; letter-spacing: 1px; }
 
 /* ── Deck tree ───────────────────────────────────────────── */

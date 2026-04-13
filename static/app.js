@@ -2440,23 +2440,33 @@ function showFront() {
   document.getElementById('front-listen-icon').style.display = isListening ? 'flex' : 'none';
   document.getElementById('back-meta-play-btn').style.display = 'none';
 
-  // Reading: Chinese sentence
+  // Cloze mode: creating category for non-sentence notes → show sentence with blank
+  const isCloze = isCreating && !isSentence;
+
+  // Reading / Cloze: Chinese sentence on front
   const sentFront = document.getElementById('sentence-front');
-  sentFront.style.display = (!isListening && !isCreating) ? 'flex' : 'none';
+  sentFront.style.display = (!isListening && (!isCreating || isCloze)) ? 'flex' : 'none';
   if (!isListening && !isCreating) {
     sentFront.innerHTML = renderSentence();
+  } else if (isCloze) {
+    sentFront.innerHTML = renderClozeSentence();
   }
 
-  // Creating: prompt + input
-  document.getElementById('sentence-en-front').style.display   = isCreating ? 'flex' : 'none';
+  // Creating (sentence notes only): show source sentence as prompt
+  document.getElementById('sentence-en-front').style.display   = (isCreating && isSentence) ? 'flex' : 'none';
   document.getElementById('creating-input-wrap').style.display = isCreating ? 'flex' : 'none';
   if (isCreating) {
-    // Sentence notes: show the German source sentence as the prompt
-    // Other notes: show the AI story sentence in English
-    const prompt = isSentence
-      ? (card.source_sentence || card.definition || '')
-      : (sentence?.sentence_en || '');
-    document.getElementById('sentence-en-front').textContent = prompt;
+    if (isSentence) {
+      // Sentence notes: show the German/English source as prompt
+      const prompt = card.source_sentence || card.definition || '';
+      document.getElementById('sentence-en-front').textContent = prompt;
+      document.getElementById('creating-input-label').textContent = 'Your translation in Chinese';
+      document.getElementById('creating-input').placeholder = 'Type here…';
+    } else {
+      // Cloze: label + placeholder for single-word input
+      document.getElementById('creating-input-label').textContent = 'Fill in the blank';
+      document.getElementById('creating-input').placeholder = 'Type the missing word…';
+    }
     const inp = document.getElementById('creating-input');
     inp.value = '';
     userInput = '';
@@ -2525,19 +2535,36 @@ function revealAnswer() {
     // Show answer comparison block; hide normal sentence row
     document.getElementById('creating-answer-section').style.display = 'flex';
     document.getElementById('sentence-row-back').style.display = 'none';
-    // Sentence notes: correct answer is card.word_zh (the whole sentence)
-    const correctZh = isSentenceNote ? card.word_zh : sentence?.sentence_zh;
-    const { html: userHtml, pct, bar } = diffAnswer(userInput, correctZh, card.word_zh);
-    document.getElementById('user-answer-text').innerHTML = userHtml;
     const matchBar = document.getElementById('answer-match-bar');
-    if (correctZh && userInput) {
-      const color = pct >= 80 ? 'var(--good)' : pct >= 50 ? 'var(--hard)' : 'var(--again)';
-      matchBar.innerHTML = `<span class="match-bar" style="color:${color}">${bar} ${pct}%</span>`;
-      matchBar.style.display = 'block';
+
+    if (!isSentenceNote) {
+      // ── Cloze mode: compare only the target word ─────────────────────────
+      const { html: userHtml, pct } = diffClozeAnswer(userInput, card.word_zh);
+      document.getElementById('user-answer-text').innerHTML = userHtml;
+      if (userInput) {
+        const filled = Math.round(pct / 10);
+        const bar = '▓'.repeat(filled) + '░'.repeat(10 - filled);
+        const color = pct >= 100 ? 'var(--good)' : pct >= 50 ? 'var(--hard)' : 'var(--again)';
+        matchBar.innerHTML = `<span class="match-bar" style="color:${color}">${bar} ${pct}%</span>`;
+        matchBar.style.display = 'block';
+      } else {
+        matchBar.style.display = 'none';
+      }
+      document.getElementById('correct-answer-text').innerHTML = renderSentence();
     } else {
-      matchBar.style.display = 'none';
+      // ── Sentence notes: full translation comparison (old behaviour) ──────
+      const correctZh = card.word_zh;
+      const { html: userHtml, pct, bar } = diffAnswer(userInput, correctZh, card.word_zh);
+      document.getElementById('user-answer-text').innerHTML = userHtml;
+      if (correctZh && userInput) {
+        const color = pct >= 80 ? 'var(--good)' : pct >= 50 ? 'var(--hard)' : 'var(--again)';
+        matchBar.innerHTML = `<span class="match-bar" style="color:${color}">${bar} ${pct}%</span>`;
+        matchBar.style.display = 'block';
+      } else {
+        matchBar.style.display = 'none';
+      }
+      document.getElementById('correct-answer-text').innerHTML = renderSentence();
     }
-    document.getElementById('correct-answer-text').innerHTML = renderSentence();
   } else {
     document.getElementById('creating-answer-section').style.display = 'none';
     document.getElementById('sentence-row-back').style.display = 'flex';
@@ -2885,6 +2912,31 @@ function renderSentence() {
   // treating the text node and the highlight span as separate block items
   const inner = zh.replace(word, `<span class="hl">${word}</span>`);
   return `<span>${inner}</span>`;
+}
+
+// ── Cloze sentence (creating category, non-sentence notes) ──────────────────
+function renderClozeSentence() {
+  if (!sentence) {
+    return `<span class="cloze-blank">___</span>`;
+  }
+  const zh   = sentence.sentence_zh;
+  const word = card.word_zh;
+  const blanked = zh.replace(word, `<span class="cloze-blank">${'_'.repeat([...word].length)}</span>`);
+  return `<span>${blanked}</span>`;
+}
+
+// ── Cloze answer diff ────────────────────────────────────────────────────────
+function diffClozeAnswer(userInput, targetWord) {
+  if (!userInput) return { html: '<span class="ch-miss">(no answer)</span>', pct: 0 };
+  const userChars   = [...userInput];
+  const targetChars = [...targetWord];
+  const html = userChars.map((ch, i) => {
+    if (ch === targetChars[i]) return `<span class="ch-match">${ch}</span>`;
+    return `<span class="ch-miss">${ch}</span>`;
+  }).join('');
+  const matched = userChars.filter((ch, i) => ch === targetChars[i]).length;
+  const pct = targetChars.length > 0 ? Math.round((matched / targetChars.length) * 100) : 0;
+  return { html, pct };
 }
 
 // ── Submit rating ───────────────────────────────────────────────────────────
