@@ -2932,7 +2932,7 @@ function renderClozeSentence() {
   const len  = sentence ? [...card.word_zh].length : 2;
   const inputEl = `<input class="cloze-inline-input" id="cloze-inline-input" type="text"`
     + ` autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"`
-    + ` style="width:${Math.max(len, 1) + 0.8}em"`
+    + ` style="width:${Math.max(len, 5) + 0.8}em"`
     + ` onkeydown="if(event.key==='Enter')revealAnswer()">`;
   if (!sentence) return `<span>${inputEl}</span>`;
   const zh = sentence.sentence_zh;
