@@ -2448,6 +2448,8 @@ function showFront() {
   // Listening elements
   document.getElementById('front-listen-icon').style.display = isListening ? 'flex' : 'none';
   document.getElementById('back-meta-play-btn').style.display = 'none';
+  _listenCount = 0;
+  document.getElementById('listen-counter').style.display = 'none';
 
   // Cloze mode: creating category for non-sentence notes → show sentence with blank
   const isCloze = isCreating && !isSentence;
@@ -3511,9 +3513,17 @@ async function enrichCard() {
 }
 
 // ── TTS ─────────────────────────────────────────────────────────────────────
+let _listenCount = 0;
+
 async function playSentence() {
   const text = sentence?.sentence_zh || card?.word_zh;
   if (!text) return;
+  _listenCount++;
+  const el = document.getElementById('listen-counter');
+  if (el) {
+    el.textContent = `×${_listenCount}`;
+    el.style.display = 'inline-block';
+  }
   try {
     await api('POST', `/api/speak?text=${encodeURIComponent(text)}`);
   } catch (e) {

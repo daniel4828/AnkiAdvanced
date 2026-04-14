@@ -97,8 +97,11 @@
 
       <!-- Front side (content varies by category) -->
       <div id="side-front">
-        <!-- Listening: speaker icon (clickable) -->
-        <button class="listen-icon" id="front-listen-icon" onclick="playSentence()">🔊</button>
+        <!-- Listening: speaker icon (clickable) + repeat counter -->
+        <div class="listen-icon-wrap" id="front-listen-icon" style="display:none">
+          <button class="listen-icon" onclick="playSentence()">🔊</button>
+          <span class="listen-counter" id="listen-counter" style="display:none"></span>
+        </div>
         <!-- Creating: English/German context sentence (shown above Chinese for cloze) -->
         <div class="sentence-en-front" id="sentence-en-front"></div>
         <!-- Reading / Cloze: Chinese sentence on front (reading shows full, cloze shows blanked) -->
