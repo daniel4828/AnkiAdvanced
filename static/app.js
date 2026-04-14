@@ -2449,7 +2449,7 @@ function showFront() {
   document.getElementById('front-listen-icon').style.display = isListening ? 'flex' : 'none';
   document.getElementById('back-meta-play-btn').style.display = 'none';
   _listenCount = 0;
-  document.getElementById('listen-counter').style.display = 'none';
+  _updateListenCounters();
 
   // Cloze mode: creating category for non-sentence notes → show sentence with blank
   const isCloze = isCreating && !isSentence;
@@ -2539,6 +2539,7 @@ function revealAnswer() {
   document.getElementById('side-back').style.flexDirection = 'column';
   document.getElementById('side-back').style.gap = '16px';
   document.getElementById('back-meta-play-btn').style.display = isCreating ? 'none' : 'flex';
+  _updateListenCounters();
 
   // Pre-load pinyin in background (shown blurred until p is pressed)
   const _pinyinText = sentence?.sentence_zh || card?.word_zh;
@@ -3515,15 +3516,22 @@ async function enrichCard() {
 // ── TTS ─────────────────────────────────────────────────────────────────────
 let _listenCount = 0;
 
+function _updateListenCounters() {
+  const label = _listenCount > 0 ? `×${_listenCount}` : '';
+  const show  = _listenCount > 0;
+  ['listen-counter', 'listen-counter-back'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = label;
+    el.style.display = show ? 'inline-block' : 'none';
+  });
+}
+
 async function playSentence() {
   const text = sentence?.sentence_zh || card?.word_zh;
   if (!text) return;
   _listenCount++;
-  const el = document.getElementById('listen-counter');
-  if (el) {
-    el.textContent = `×${_listenCount}`;
-    el.style.display = 'inline-block';
-  }
+  _updateListenCounters();
   try {
     await api('POST', `/api/speak?text=${encodeURIComponent(text)}`);
   } catch (e) {
