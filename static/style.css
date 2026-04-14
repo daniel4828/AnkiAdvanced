@@ -426,9 +426,13 @@ main.browse-open {
   letter-spacing: 0.03em;
   font-variant-numeric: tabular-nums;
 }
+.back-play-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
 .listen-counter-back {
   font-size: 13px;
-  align-self: center;
 }
 
 /* Play button (front of listening card) */

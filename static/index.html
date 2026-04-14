@@ -82,8 +82,10 @@
         <div id="review-cat-row" style="flex:1"></div>
         <div class="card-meta-right">
           <button id="card-hsk-badge" class="card-hsk-badge" onclick="enrichCard()" title="Ask AI to fill HSK level &amp; character data" style="display:none"></button>
-          <button id="back-meta-play-btn" class="play-icon-btn play-icon-sm" onclick="playSentence()" style="display:none" title="Play audio">🔊</button>
-          <span class="listen-counter listen-counter-back" id="listen-counter-back" style="display:none"></span>
+          <div class="back-play-group">
+            <button id="back-meta-play-btn" class="play-icon-btn play-icon-sm" onclick="playSentence()" style="display:none" title="Play audio">🔊</button>
+            <span class="listen-counter listen-counter-back" id="listen-counter-back" style="display:none"></span>
+          </div>
           <div id="card-type-badge"></div>
           <div class="wd-card-menu-wrap" id="review-card-menu-wrap">
             <button class="wd-menu-btn" onclick="toggleReviewCardMenu(event)">⋯</button>
