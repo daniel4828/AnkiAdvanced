@@ -2463,7 +2463,8 @@ function showFront() {
 
   // Creating: show sentence-en-front for both cloze and sentence notes
   document.getElementById('sentence-en-front').style.display   = isCreating ? 'flex' : 'none';
-  document.getElementById('creating-input-wrap').style.display = isCreating ? 'flex' : 'none';
+  // Cloze mode uses inline input inside the sentence; sentence notes use the box below
+  document.getElementById('creating-input-wrap').style.display = (isCreating && !isCloze) ? 'flex' : 'none';
   if (isCreating) {
     if (isSentence) {
       // Sentence notes: show the German/English source as prompt
@@ -2471,17 +2472,17 @@ function showFront() {
       document.getElementById('sentence-en-front').textContent = prompt;
       document.getElementById('creating-input-label').textContent = 'Your translation in Chinese';
       document.getElementById('creating-input').placeholder = 'Type here…';
+      const inp = document.getElementById('creating-input');
+      inp.value = '';
+      userInput = '';
+      setTimeout(() => inp.focus(), 80);
     } else {
-      // Cloze: show English translation as context hint
+      // Cloze: show English translation as context hint; input is inline in the sentence
       document.getElementById('sentence-en-front').textContent = sentence?.sentence_en || '';
-      document.getElementById('creating-input-label').textContent = 'Fill in the blank';
-      document.getElementById('creating-input').placeholder = 'Type the missing word…';
+      userInput = '';
+      // Focus the inline input that was just rendered inside the sentence
+      setTimeout(() => document.getElementById('cloze-inline-input')?.focus(), 80);
     }
-    const inp = document.getElementById('creating-input');
-    inp.value = '';
-    userInput = '';
-    // Focus input after a short delay so the card render doesn't steal it
-    setTimeout(() => inp.focus(), 80);
   }
 
   // Rename reveal button for creating
@@ -2526,7 +2527,9 @@ function revealAnswer() {
 
   // Capture user input before hiding front
   if (isCreating) {
-    userInput = document.getElementById('creating-input').value.trim();
+    const isClozeMode = card.note_type !== 'sentence';
+    const inlineEl = isClozeMode ? document.getElementById('cloze-inline-input') : null;
+    userInput = (inlineEl ?? document.getElementById('creating-input')).value.trim();
   }
 
   document.getElementById('side-front').style.display = 'none';
@@ -2926,15 +2929,14 @@ function renderSentence() {
 
 // ── Cloze sentence (creating category, non-sentence notes) ──────────────────
 function renderClozeSentence() {
-  if (!sentence) {
-    return `<span class="cloze-blank">＿＿</span>`;
-  }
-  const zh   = sentence.sentence_zh;
-  const word = card.word_zh;
-  const len  = [...word].length;
-  // Use full-width underscores scaled to word length for a clean inline blank
-  const blank = `<span class="cloze-blank">${'＿'.repeat(len)}</span>`;
-  const blanked = zh.includes(word) ? zh.replace(word, blank) : `${zh} ${blank}`;
+  const len  = sentence ? [...card.word_zh].length : 2;
+  const inputEl = `<input class="cloze-inline-input" id="cloze-inline-input" type="text"`
+    + ` autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"`
+    + ` style="width:${Math.max(len, 1) + 0.8}em"`
+    + ` onkeydown="if(event.key==='Enter')revealAnswer()">`;
+  if (!sentence) return `<span>${inputEl}</span>`;
+  const zh = sentence.sentence_zh;
+  const blanked = zh.includes(card.word_zh) ? zh.replace(card.word_zh, inputEl) : `${zh} ${inputEl}`;
   return `<span>${blanked}</span>`;
 }
 

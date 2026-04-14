@@ -1163,6 +1163,20 @@ main.browse-open {
 .ch-target { color: var(--primary);   font-weight: 700; }
 .ch-miss   { color: var(--muted); }
 .cloze-blank { color: var(--primary); font-weight: 700; letter-spacing: 2px; }
+.cloze-inline-input {
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: 700;
+  color: var(--primary);
+  background: none;
+  border: none;
+  border-bottom: 3px solid var(--primary);
+  outline: none;
+  text-align: center;
+  vertical-align: middle;
+  padding: 0 2px;
+  min-width: 1em;
+}
 .match-bar { font-size: 13px; font-weight: 700; margin-top: 8px; display: block; letter-spacing: 1px; }
 
 /* ── Deck tree ───────────────────────────────────────────── */
