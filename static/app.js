@@ -1861,7 +1861,10 @@ function _getCategoryOrderUI() {
   return [...list.children].map(el => el.dataset.cat).join(',');
 }
 
+let currentPresetId = null;
+
 function loadPresetFields(preset) {
+  currentPresetId = preset.id;
   document.getElementById('opt-new-per-day').value     = preset.new_per_day;
   document.getElementById('opt-reviews-per-day').value = preset.reviews_per_day;
   document.getElementById('opt-learn-steps').value     = preset.learning_steps;
@@ -1886,6 +1889,50 @@ function loadPresetFields(preset) {
   btnDef.disabled = !!preset.is_default;
   const btnDel = document.getElementById('btn-delete-preset');
   btnDel.disabled = allPresets.length <= 1;
+
+  // Category overrides
+  _loadCategoryOverrides(preset.category_overrides || {});
+}
+
+const _CAT_OVERRIDE_FIELDS = [
+  'new_per_day', 'reviews_per_day', 'learning_steps',
+  'graduating_interval', 'easy_interval', 'relearning_steps',
+];
+
+function _loadCategoryOverrides(overrides) {
+  for (const details of document.querySelectorAll('.cat-override-details')) {
+    const cat = details.dataset.cat;
+    const catOverrides = overrides[cat] || {};
+    let hasAny = false;
+    for (const input of details.querySelectorAll('input[data-field]')) {
+      const val = catOverrides[input.dataset.field];
+      input.value = val != null ? val : '';
+      if (val != null) hasAny = true;
+    }
+    if (hasAny) {
+      details.setAttribute('data-has-overrides', '');
+      details.open = true;
+    } else {
+      details.removeAttribute('data-has-overrides');
+      details.open = false;
+    }
+  }
+}
+
+function _collectCategoryOverrides() {
+  const result = {};
+  for (const details of document.querySelectorAll('.cat-override-details')) {
+    const cat = details.dataset.cat;
+    const fields = {};
+    for (const input of details.querySelectorAll('input[data-field]')) {
+      const raw = input.value.trim();
+      if (raw !== '') {
+        fields[input.dataset.field] = input.type === 'number' ? Number(raw) : raw;
+      }
+    }
+    if (Object.keys(fields).length > 0) result[cat] = fields;
+  }
+  return result;
 }
 
 function renderPresetSelect(selectedId) {
@@ -1915,7 +1962,7 @@ async function switchPreset(presetId) {
   presetId = parseInt(presetId);
   try {
     await api('PUT', `/api/decks/${optDeckId}/preset/assign?preset_id=${presetId}`);
-    const preset = allPresets.find(p => p.id === presetId);
+    const preset = await api('GET', `/api/decks/${optDeckId}/preset`);
     loadPresetFields(preset);
   } catch (e) {
     showError('Failed to switch preset: ' + e.message);
@@ -1999,7 +2046,20 @@ async function saveOptions() {
     if (!ok) return;
   }
   try {
-    await api('PUT', `/api/decks/${optDeckId}/preset`, fields);
+    const [savedPreset] = await Promise.all([
+      api('PUT', `/api/decks/${optDeckId}/preset`, fields),
+    ]);
+    const presetId = currentPresetId;
+    // Save category overrides
+    const catOverrides = _collectCategoryOverrides();
+    const cats = ['listening', 'reading', 'creating'];
+    await Promise.all(cats.map(cat => {
+      if (catOverrides[cat]) {
+        return api('PUT', `/api/presets/${presetId}/categories/${cat}`, catOverrides[cat]);
+      } else {
+        return api('DELETE', `/api/presets/${presetId}/categories/${cat}`).catch(() => {});
+      }
+    }));
     closeModal();
     loadDecks();
   } catch (e) {

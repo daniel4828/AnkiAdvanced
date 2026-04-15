@@ -327,6 +327,48 @@
     </div>
 
     <div class="opt-group">
+      <div class="opt-group-label">Category Overrides <span style="font-weight:400;font-size:11px;color:var(--muted)">— leave blank to use preset default</span></div>
+      <div id="cat-overrides-container">
+        <!-- Listening -->
+        <details class="cat-override-details" data-cat="listening">
+          <summary class="cat-override-summary">Listening</summary>
+          <div class="cat-override-fields">
+            <div class="opt-row"><span class="opt-label">New / day</span>              <input class="opt-input" data-field="new_per_day"         type="number" min="0" placeholder="default"></div>
+            <div class="opt-row"><span class="opt-label">Reviews / day</span>          <input class="opt-input" data-field="reviews_per_day"     type="number" min="0" placeholder="default"></div>
+            <div class="opt-row"><span class="opt-label">Steps (min)</span>            <input class="opt-input wide" data-field="learning_steps" type="text"   placeholder="default"></div>
+            <div class="opt-row"><span class="opt-label">Graduating interval (days)</span><input class="opt-input" data-field="graduating_interval" type="number" min="1" placeholder="default"></div>
+            <div class="opt-row"><span class="opt-label">Easy interval (days)</span>  <input class="opt-input" data-field="easy_interval"        type="number" min="1" placeholder="default"></div>
+            <div class="opt-row"><span class="opt-label">Relearning steps (min)</span><input class="opt-input wide" data-field="relearning_steps" type="text"  placeholder="default"></div>
+          </div>
+        </details>
+        <!-- Reading -->
+        <details class="cat-override-details" data-cat="reading">
+          <summary class="cat-override-summary">Reading</summary>
+          <div class="cat-override-fields">
+            <div class="opt-row"><span class="opt-label">New / day</span>              <input class="opt-input" data-field="new_per_day"         type="number" min="0" placeholder="default"></div>
+            <div class="opt-row"><span class="opt-label">Reviews / day</span>          <input class="opt-input" data-field="reviews_per_day"     type="number" min="0" placeholder="default"></div>
+            <div class="opt-row"><span class="opt-label">Steps (min)</span>            <input class="opt-input wide" data-field="learning_steps" type="text"   placeholder="default"></div>
+            <div class="opt-row"><span class="opt-label">Graduating interval (days)</span><input class="opt-input" data-field="graduating_interval" type="number" min="1" placeholder="default"></div>
+            <div class="opt-row"><span class="opt-label">Easy interval (days)</span>  <input class="opt-input" data-field="easy_interval"        type="number" min="1" placeholder="default"></div>
+            <div class="opt-row"><span class="opt-label">Relearning steps (min)</span><input class="opt-input wide" data-field="relearning_steps" type="text"  placeholder="default"></div>
+          </div>
+        </details>
+        <!-- Creating -->
+        <details class="cat-override-details" data-cat="creating">
+          <summary class="cat-override-summary">Creating</summary>
+          <div class="cat-override-fields">
+            <div class="opt-row"><span class="opt-label">New / day</span>              <input class="opt-input" data-field="new_per_day"         type="number" min="0" placeholder="default"></div>
+            <div class="opt-row"><span class="opt-label">Reviews / day</span>          <input class="opt-input" data-field="reviews_per_day"     type="number" min="0" placeholder="default"></div>
+            <div class="opt-row"><span class="opt-label">Steps (min)</span>            <input class="opt-input wide" data-field="learning_steps" type="text"   placeholder="default"></div>
+            <div class="opt-row"><span class="opt-label">Graduating interval (days)</span><input class="opt-input" data-field="graduating_interval" type="number" min="1" placeholder="default"></div>
+            <div class="opt-row"><span class="opt-label">Easy interval (days)</span>  <input class="opt-input" data-field="easy_interval"        type="number" min="1" placeholder="default"></div>
+            <div class="opt-row"><span class="opt-label">Relearning steps (min)</span><input class="opt-input wide" data-field="relearning_steps" type="text"  placeholder="default"></div>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div class="opt-group">
       <div class="opt-group-label">Display Order</div>
       <div class="opt-row"><span class="opt-label">New card gather order</span>
         <select class="opt-input" id="opt-new-gather-order">
