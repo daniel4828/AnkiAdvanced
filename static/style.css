@@ -296,6 +296,13 @@ main.browse-open {
   letter-spacing: 0.4px;
   cursor: pointer;
   user-select: none;
+  overflow: hidden;
+}
+.story-info-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 #story-info-row:hover { color: var(--accent); }
 .story-regen-btn {
@@ -390,14 +397,21 @@ main.browse-open {
 .play-icon-btn:hover { color: var(--primary); }
 
 /* Listen icon (front of listening card) — now a clickable button */
-.listen-icon {
-  font-size: 72px;
-  text-align: center;
+.listen-icon-wrap {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   min-height: 120px;
+  gap: 8px;
+}
+.listen-icon {
+  font-size: 72px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   cursor: pointer;
@@ -406,6 +420,20 @@ main.browse-open {
 }
 .listen-icon:hover { opacity: 0.75; transform: scale(1.05); }
 .listen-icon:active { transform: scale(0.95); }
+.listen-counter {
+  font-size: 15px;
+  color: var(--text-muted, #888);
+  letter-spacing: 0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.back-play-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.listen-counter-back {
+  font-size: 13px;
+}
 
 /* Play button (front of listening card) */
 .play-btn {
@@ -1155,6 +1183,21 @@ main.browse-open {
 .ch-match  { color: var(--good);      font-weight: 700; }
 .ch-target { color: var(--primary);   font-weight: 700; }
 .ch-miss   { color: var(--muted); }
+.cloze-blank { color: var(--primary); font-weight: 700; letter-spacing: 2px; }
+.cloze-inline-input {
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: 700;
+  color: var(--primary);
+  background: none;
+  border: none;
+  border-bottom: 3px solid var(--primary);
+  outline: none;
+  text-align: center;
+  vertical-align: middle;
+  padding: 0 2px;
+  min-width: 1em;
+}
 .match-bar { font-size: 13px; font-weight: 700; margin-top: 8px; display: block; letter-spacing: 1px; }
 
 /* ── Deck tree ───────────────────────────────────────────── */

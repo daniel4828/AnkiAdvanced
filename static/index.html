@@ -82,7 +82,10 @@
         <div id="review-cat-row" style="flex:1"></div>
         <div class="card-meta-right">
           <button id="card-hsk-badge" class="card-hsk-badge" onclick="enrichCard()" title="Ask AI to fill HSK level &amp; character data" style="display:none"></button>
-          <button id="back-meta-play-btn" class="play-icon-btn play-icon-sm" onclick="playSentence()" style="display:none" title="Play audio">🔊</button>
+          <div class="back-play-group">
+            <button id="back-meta-play-btn" class="play-icon-btn play-icon-sm" onclick="playSentence()" style="display:none" title="Play audio">🔊</button>
+            <span class="listen-counter listen-counter-back" id="listen-counter-back" style="display:none"></span>
+          </div>
           <div id="card-type-badge"></div>
           <div class="wd-card-menu-wrap" id="review-card-menu-wrap">
             <button class="wd-menu-btn" onclick="toggleReviewCardMenu(event)">⋯</button>
@@ -97,15 +100,18 @@
 
       <!-- Front side (content varies by category) -->
       <div id="side-front">
-        <!-- Listening: speaker icon (clickable) -->
-        <button class="listen-icon" id="front-listen-icon" onclick="playSentence()">🔊</button>
-        <!-- Reading: Chinese sentence on front -->
-        <div class="sentence" id="sentence-front"></div>
-        <!-- Creating: English sentence + input field -->
+        <!-- Listening: speaker icon (clickable) + repeat counter -->
+        <div class="listen-icon-wrap" id="front-listen-icon" style="display:none">
+          <button class="listen-icon" onclick="playSentence()">🔊</button>
+          <span class="listen-counter" id="listen-counter" style="display:none"></span>
+        </div>
+        <!-- Creating: English/German context sentence (shown above Chinese for cloze) -->
         <div class="sentence-en-front" id="sentence-en-front"></div>
+        <!-- Reading / Cloze: Chinese sentence on front (reading shows full, cloze shows blanked) -->
+        <div class="sentence" id="sentence-front"></div>
         <div class="creating-input-wrap" id="creating-input-wrap">
-          <div class="input-label">Your translation in Chinese</div>
-          <input type="text" id="creating-input" placeholder="Type here…"
+          <div class="input-label" id="creating-input-label">Fill in the blank</div>
+          <input type="text" id="creating-input" placeholder="Type the missing word…"
                  autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                  onkeydown="if(event.key==='Enter')revealAnswer()">
         </div>
