@@ -103,6 +103,15 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
     def _is_sentence(word_zh: str) -> bool:
         return word_zh.endswith(('。', '！', '？', '!', '?'))
 
+    def _word_in_sentence(word_zh: str, sentence_zh: str) -> bool:
+        """For pattern words containing '...' or '…', check that every non-dot hanzi
+        character appears in the sentence (the AI fills the gap with real words).
+        For normal words, fall back to a simple substring check."""
+        if '...' in word_zh or '…' in word_zh:
+            chars = [c for c in word_zh if c not in '.…']
+            return all(c in sentence_zh for c in chars)
+        return word_zh in sentence_zh
+
     word_list_lines = []
     for i, c in enumerate(cards):
         if _is_sentence(c['word_zh']):
@@ -175,7 +184,7 @@ Rules:
                         (item, card)
                         for item, card in zip(result, cards)
                         if not _is_sentence(card["word_zh"])
-                        and card["word_zh"] not in item.get("sentence_zh", "")
+                        and not _word_in_sentence(card["word_zh"], item.get("sentence_zh", ""))
                     ]
                     if missing_pairs:
                         last_partial = (result, missing_pairs)

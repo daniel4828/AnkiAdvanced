@@ -2326,13 +2326,22 @@ function loadCard(c, counts) {
           sentence = story.sentences.find(s => s.word_id === card.word_id) || null;
           if (sentence) {
             _updateStoryInfoRow();
-            const isListening = category === 'listening';
-            const isCreating  = category === 'creating';
+            const isListening  = category === 'listening';
+            const isCreating   = category === 'creating';
+            const isSentenceNt = card.note_type === 'sentence';
+            const isCloze      = isCreating && !isSentenceNt;
             if (!isListening && !isCreating) {
+              // Reading: update sentence with full highlighted sentence
               const sentFront = document.getElementById('sentence-front');
               if (sentFront.style.display !== 'none') sentFront.innerHTML = renderSentence();
-            }
-            if (isCreating) {
+            } else if (isCloze) {
+              // Cloze: update sentence-front with blanked Chinese + show English hint
+              document.getElementById('sentence-front').innerHTML = renderClozeSentence();
+              const enFront = document.getElementById('sentence-en-front');
+              enFront.style.display = 'flex';
+              enFront.textContent = sentence.sentence_en || '';
+            } else if (isCreating && isSentenceNt) {
+              // Sentence notes: update English prompt
               const inp = document.getElementById('sentence-en-front');
               if (inp.style.display !== 'none') inp.textContent = sentence.sentence_en || '';
             }
@@ -2439,29 +2448,43 @@ function showFront() {
   // Listening elements
   document.getElementById('front-listen-icon').style.display = isListening ? 'flex' : 'none';
   document.getElementById('back-meta-play-btn').style.display = 'none';
+  _listenCount = 0;
+  _updateListenCounters();
 
-  // Reading: Chinese sentence
+  // Cloze mode: creating category for non-sentence notes → show sentence with blank
+  const isCloze = isCreating && !isSentence;
+
+  // Reading / Cloze: Chinese sentence on front
   const sentFront = document.getElementById('sentence-front');
-  sentFront.style.display = (!isListening && !isCreating) ? 'flex' : 'none';
+  sentFront.style.display = (!isListening && (!isCreating || isCloze)) ? 'flex' : 'none';
   if (!isListening && !isCreating) {
     sentFront.innerHTML = renderSentence();
+  } else if (isCloze) {
+    sentFront.innerHTML = renderClozeSentence();
   }
 
-  // Creating: prompt + input
+  // Creating: show sentence-en-front for both cloze and sentence notes
   document.getElementById('sentence-en-front').style.display   = isCreating ? 'flex' : 'none';
-  document.getElementById('creating-input-wrap').style.display = isCreating ? 'flex' : 'none';
+  // Cloze mode uses inline input inside the sentence; sentence notes use the box below
+  document.getElementById('creating-input-wrap').style.display = (isCreating && !isCloze) ? 'flex' : 'none';
   if (isCreating) {
-    // Sentence notes: show the German source sentence as the prompt
-    // Other notes: show the AI story sentence in English
-    const prompt = isSentence
-      ? (card.source_sentence || card.definition || '')
-      : (sentence?.sentence_en || '');
-    document.getElementById('sentence-en-front').textContent = prompt;
-    const inp = document.getElementById('creating-input');
-    inp.value = '';
-    userInput = '';
-    // Focus input after a short delay so the card render doesn't steal it
-    setTimeout(() => inp.focus(), 80);
+    if (isSentence) {
+      // Sentence notes: show the German/English source as prompt
+      const prompt = card.source_sentence || card.definition || '';
+      document.getElementById('sentence-en-front').textContent = prompt;
+      document.getElementById('creating-input-label').textContent = 'Your translation in Chinese';
+      document.getElementById('creating-input').placeholder = 'Type here…';
+      const inp = document.getElementById('creating-input');
+      inp.value = '';
+      userInput = '';
+      setTimeout(() => inp.focus(), 80);
+    } else {
+      // Cloze: show English translation as context hint; input is inline in the sentence
+      document.getElementById('sentence-en-front').textContent = sentence?.sentence_en || '';
+      userInput = '';
+      // Focus the inline input that was just rendered inside the sentence
+      setTimeout(() => document.getElementById('cloze-inline-input')?.focus(), 80);
+    }
   }
 
   // Rename reveal button for creating
@@ -2506,7 +2529,9 @@ function revealAnswer() {
 
   // Capture user input before hiding front
   if (isCreating) {
-    userInput = document.getElementById('creating-input').value.trim();
+    const isClozeMode = card.note_type !== 'sentence';
+    const inlineEl = isClozeMode ? document.getElementById('cloze-inline-input') : null;
+    userInput = (inlineEl ?? document.getElementById('creating-input')).value.trim();
   }
 
   document.getElementById('side-front').style.display = 'none';
@@ -2514,6 +2539,7 @@ function revealAnswer() {
   document.getElementById('side-back').style.flexDirection = 'column';
   document.getElementById('side-back').style.gap = '16px';
   document.getElementById('back-meta-play-btn').style.display = isCreating ? 'none' : 'flex';
+  _updateListenCounters();
 
   // Pre-load pinyin in background (shown blurred until p is pressed)
   const _pinyinText = sentence?.sentence_zh || card?.word_zh;
@@ -2525,19 +2551,36 @@ function revealAnswer() {
     // Show answer comparison block; hide normal sentence row
     document.getElementById('creating-answer-section').style.display = 'flex';
     document.getElementById('sentence-row-back').style.display = 'none';
-    // Sentence notes: correct answer is card.word_zh (the whole sentence)
-    const correctZh = isSentenceNote ? card.word_zh : sentence?.sentence_zh;
-    const { html: userHtml, pct, bar } = diffAnswer(userInput, correctZh, card.word_zh);
-    document.getElementById('user-answer-text').innerHTML = userHtml;
     const matchBar = document.getElementById('answer-match-bar');
-    if (correctZh && userInput) {
-      const color = pct >= 80 ? 'var(--good)' : pct >= 50 ? 'var(--hard)' : 'var(--again)';
-      matchBar.innerHTML = `<span class="match-bar" style="color:${color}">${bar} ${pct}%</span>`;
-      matchBar.style.display = 'block';
+
+    if (!isSentenceNote) {
+      // ── Cloze mode: compare only the target word ─────────────────────────
+      const { html: userHtml, pct } = diffClozeAnswer(userInput, card.word_zh);
+      document.getElementById('user-answer-text').innerHTML = userHtml;
+      if (userInput) {
+        const filled = Math.round(pct / 10);
+        const bar = '▓'.repeat(filled) + '░'.repeat(10 - filled);
+        const color = pct >= 100 ? 'var(--good)' : pct >= 50 ? 'var(--hard)' : 'var(--again)';
+        matchBar.innerHTML = `<span class="match-bar" style="color:${color}">${bar} ${pct}%</span>`;
+        matchBar.style.display = 'block';
+      } else {
+        matchBar.style.display = 'none';
+      }
+      document.getElementById('correct-answer-text').innerHTML = renderSentence();
     } else {
-      matchBar.style.display = 'none';
+      // ── Sentence notes: full translation comparison (old behaviour) ──────
+      const correctZh = card.word_zh;
+      const { html: userHtml, pct, bar } = diffAnswer(userInput, correctZh, card.word_zh);
+      document.getElementById('user-answer-text').innerHTML = userHtml;
+      if (correctZh && userInput) {
+        const color = pct >= 80 ? 'var(--good)' : pct >= 50 ? 'var(--hard)' : 'var(--again)';
+        matchBar.innerHTML = `<span class="match-bar" style="color:${color}">${bar} ${pct}%</span>`;
+        matchBar.style.display = 'block';
+      } else {
+        matchBar.style.display = 'none';
+      }
+      document.getElementById('correct-answer-text').innerHTML = renderSentence();
     }
-    document.getElementById('correct-answer-text').innerHTML = renderSentence();
   } else {
     document.getElementById('creating-answer-section').style.display = 'none';
     document.getElementById('sentence-row-back').style.display = 'flex';
@@ -2885,6 +2928,33 @@ function renderSentence() {
   // treating the text node and the highlight span as separate block items
   const inner = zh.replace(word, `<span class="hl">${word}</span>`);
   return `<span>${inner}</span>`;
+}
+
+// ── Cloze sentence (creating category, non-sentence notes) ──────────────────
+function renderClozeSentence() {
+  const len  = sentence ? [...card.word_zh].length : 2;
+  const inputEl = `<input class="cloze-inline-input" id="cloze-inline-input" type="text"`
+    + ` autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"`
+    + ` style="width:5.8em"`
+    + ` onkeydown="if(event.key==='Enter')revealAnswer()">`;
+  if (!sentence) return `<span>${inputEl}</span>`;
+  const zh = sentence.sentence_zh;
+  const blanked = zh.includes(card.word_zh) ? zh.replace(card.word_zh, inputEl) : `${zh} ${inputEl}`;
+  return `<span>${blanked}</span>`;
+}
+
+// ── Cloze answer diff ────────────────────────────────────────────────────────
+function diffClozeAnswer(userInput, targetWord) {
+  if (!userInput) return { html: '<span class="ch-miss">(no answer)</span>', pct: 0 };
+  const userChars   = [...userInput];
+  const targetChars = [...targetWord];
+  const html = userChars.map((ch, i) => {
+    if (ch === targetChars[i]) return `<span class="ch-match">${ch}</span>`;
+    return `<span class="ch-miss">${ch}</span>`;
+  }).join('');
+  const matched = userChars.filter((ch, i) => ch === targetChars[i]).length;
+  const pct = targetChars.length > 0 ? Math.round((matched / targetChars.length) * 100) : 0;
+  return { html, pct };
 }
 
 // ── Submit rating ───────────────────────────────────────────────────────────
@@ -3444,9 +3514,24 @@ async function enrichCard() {
 }
 
 // ── TTS ─────────────────────────────────────────────────────────────────────
+let _listenCount = 0;
+
+function _updateListenCounters() {
+  const label = _listenCount > 0 ? `×${_listenCount}` : '';
+  const show  = _listenCount > 0;
+  ['listen-counter', 'listen-counter-back'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = label;
+    el.style.display = show ? 'inline-block' : 'none';
+  });
+}
+
 async function playSentence() {
   const text = sentence?.sentence_zh || card?.word_zh;
   if (!text) return;
+  _listenCount++;
+  _updateListenCounters();
   try {
     await api('POST', `/api/speak?text=${encodeURIComponent(text)}`);
   } catch (e) {

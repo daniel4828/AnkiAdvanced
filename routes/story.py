@@ -40,7 +40,8 @@ def _get_cards_for_story(deck_id: int, category: str) -> list:
 
     if logger.isEnabledFor(logging.DEBUG):
         logger.debug(
-            "[story] AI词表 deck=%d cat=%s count=%d:\n%s",
+            "=== [story] 发给 AI 的词表（AI词表）===\n"
+            "  deck=%d  cat=%s  共 %d 词（埋藏卡已排除，new/learning已交错，这就是故事句子的顺序）:\n%s",
             deck_id, category, len(cards),
             "\n".join(
                 f"  {c.get('word_zh', '?'):<16}  {c.get('pinyin', ''):<28}  [{c.get('state', '?')}]"
