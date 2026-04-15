@@ -390,3 +390,24 @@ CREATE TABLE IF NOT EXISTS grammar_expressions (
     meaning     TEXT,
     position    INTEGER NOT NULL DEFAULT 0
 );
+
+-- ---------------------------------------------------------------------------
+-- preset_category_overrides
+-- Per-category scheduling overrides for a preset.
+-- NULL fields mean "use the preset default".
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS preset_category_overrides (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    preset_id           INTEGER NOT NULL REFERENCES deck_presets(id) ON DELETE CASCADE,
+    category            TEXT NOT NULL CHECK(category IN ('listening', 'reading', 'creating')),
+    new_per_day         INTEGER,
+    reviews_per_day     INTEGER,
+    learning_steps      TEXT,
+    graduating_interval INTEGER,
+    easy_interval       INTEGER,
+    relearning_steps    TEXT,
+    minimum_interval    INTEGER,
+    leech_threshold     INTEGER,
+    leech_action        TEXT CHECK(leech_action IN ('suspend', 'tag')),
+    UNIQUE(preset_id, category)
+);

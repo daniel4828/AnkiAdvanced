@@ -113,6 +113,7 @@ def get_card(card_id: int) -> dict | None:
                     (SELECT group_concat(name, ' › ')
                      FROM (SELECT name FROM ancestors ORDER BY depth DESC))
                   END AS deck_path,
+                  p.id AS preset_id,
                   p.learning_steps, p.graduating_interval, p.easy_interval,
                   p.relearning_steps, p.minimum_interval,
                   p.leech_threshold, p.leech_action,
@@ -124,8 +125,24 @@ def get_card(card_id: int) -> dict | None:
            WHERE c.id = ?""",
         (card_id, card_id),
     ).fetchone()
+    if not row:
+        conn.close()
+        return None
+    card = dict(row)
+    # Apply category-level scheduling overrides on top of the preset defaults
+    category = card.get("category")
+    preset_id = card.get("preset_id")
+    if category and preset_id:
+        override = conn.execute(
+            "SELECT * FROM preset_category_overrides WHERE preset_id = ? AND category = ?",
+            (preset_id, category),
+        ).fetchone()
+        if override:
+            for key, val in dict(override).items():
+                if key not in ("id", "preset_id", "category") and val is not None:
+                    card[key] = val
     conn.close()
-    return dict(row) if row else None
+    return card
 
 
 def _count_new_introduced_today(conn, deck_id: int, category: str, today: str) -> int:
@@ -248,7 +265,7 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
     now = datetime.now().isoformat(timespec="seconds")
     conn = get_db()
 
-    preset = get_preset_for_deck(deck_id)
+    preset = get_preset_for_deck(deck_id, category)
     new_limit = preset["new_per_day"]
     new_done_today = _count_new_introduced_today(conn, deck_id, category, today)
     new_remaining = max(0, new_limit - new_done_today)
@@ -395,7 +412,7 @@ def count_due(deck_id: int, category: str) -> dict:
     """Returns {new, learning, review} counts for deck badge display."""
     today = anki_today().isoformat()
     now = datetime.now().isoformat(timespec="seconds")
-    preset = get_preset_for_deck(deck_id)
+    preset = get_preset_for_deck(deck_id, category)
     new_limit = preset["new_per_day"]
 
     conn = get_db()
