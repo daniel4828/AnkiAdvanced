@@ -46,6 +46,7 @@ let _currentWordId = null; // word ID open in word-detail view
 let _prevView = null;      // view we came from before opening word-detail
 let _sessionReviewedCount = 0; // cards rated this session (for clap animation)
 let userInput   = '';     // creating category: what the user typed
+let clozeExtraWord = ''; // extra word blanked in cloze front (revealed on back)
 let browseWords  = [];   // all words from /api/browse-words
 let browseAll    = [];   // kept for legacy (unused by new browse)
 let _browseSort  = 'pinyin-asc';
@@ -2994,17 +2995,45 @@ function renderSentence() {
   return `<span>${inner}</span>`;
 }
 
+// ── Pick a random 2-char CJK word that doesn't overlap with excludeWord ─────
+function pickExtraBlankWord(zh, excludeWord) {
+  const excludeIdx = zh.indexOf(excludeWord);
+  const excludeEnd = excludeIdx >= 0 ? excludeIdx + excludeWord.length : -1;
+  const isCjk = ch => ch >= '\u4E00' && ch <= '\u9FFF';
+  const candidates = [];
+  for (let i = 0; i < zh.length - 1; i++) {
+    if (excludeIdx >= 0 && i < excludeEnd && i + 2 > excludeIdx) continue;
+    if (isCjk(zh[i]) && isCjk(zh[i + 1])) candidates.push(i);
+  }
+  if (!candidates.length) return '';
+  const idx = candidates[Math.floor(Math.random() * candidates.length)];
+  return zh.slice(idx, idx + 2);
+}
+
 // ── Cloze sentence (creating category, non-sentence notes) ──────────────────
 function renderClozeSentence() {
-  const len  = sentence ? [...card.word_zh].length : 2;
   const inputEl = `<input class="cloze-inline-input" id="cloze-inline-input" type="text"`
     + ` autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"`
     + ` style="width:5.8em"`
     + ` onkeydown="if(event.key==='Enter')revealAnswer()">`;
   if (!sentence) return `<span>${inputEl}</span>`;
   const zh = sentence.sentence_zh;
-  const blanked = zh.includes(card.word_zh) ? zh.replace(card.word_zh, inputEl) : `${zh} ${inputEl}`;
-  return `<span>${blanked}</span>`;
+
+  // Pick an extra word to blank out (chosen before any replacements)
+  clozeExtraWord = pickExtraBlankWord(zh, card.word_zh);
+
+  // Use a temporary placeholder so the two replacements don't interfere
+  let text = zh.includes(card.word_zh)
+    ? zh.replace(card.word_zh, '\x00T\x00')
+    : `${zh} \x00T\x00`;
+
+  if (clozeExtraWord && text.includes(clozeExtraWord)) {
+    const blank = `<span class="cloze-blank">${'＿'.repeat(clozeExtraWord.length)}</span>`;
+    text = text.replace(clozeExtraWord, blank);
+  }
+
+  text = text.replace('\x00T\x00', inputEl);
+  return `<span>${text}</span>`;
 }
 
 // ── Cloze answer diff ────────────────────────────────────────────────────────
