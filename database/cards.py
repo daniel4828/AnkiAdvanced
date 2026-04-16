@@ -373,8 +373,8 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
         cards = new_cards + lr
     elif nr_o == "reviews_first":
         cards = lr + new_cards
-    else:  # mixed: distribute new cards evenly throughout lr
-        cards = _interleave_cards(lr, new_cards)
+    else:  # mixed: learning first, then interleave new cards evenly among reviews
+        cards = learning_cards + _interleave_cards(review_cards, new_cards)
 
     # ── 5. Sibling suppression (for story word-list building) ─────────────────
     if sibling_suppression and any(resolve_bury_flags(preset)):
