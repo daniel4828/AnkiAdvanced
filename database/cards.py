@@ -1,8 +1,11 @@
+import logging
 import sqlite3
 from datetime import date, datetime, timedelta
 from .core import get_db, anki_today
 from .presets import get_preset_for_deck
 from .decks import get_deck
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -869,11 +872,21 @@ def apply_sibling_repulsion(card_id: int, new_interval: int,
     datetime-based due values that must not be touched here).
     """
     if new_interval <= sibling_separation:
+        logger.debug(
+            "[sibling_repulsion] card=#%d interval=%d ≤ separation=%d → skipped (initial learning phase)",
+            card_id, new_interval, sibling_separation,
+        )
         return
 
     effective_sep = max(sibling_separation, int(new_interval * sibling_factor))
     today = anki_today()
     min_due = (today + timedelta(days=effective_sep)).isoformat()
+
+    logger.debug(
+        "[sibling_repulsion] card=#%d  interval=%d  sep=%d  factor=%.2f"
+        "  → effective_sep=%d  min_due=%s",
+        card_id, new_interval, sibling_separation, sibling_factor, effective_sep, min_due,
+    )
 
     conn = get_db()
     card = conn.execute("SELECT word_id FROM cards WHERE id = ?", (card_id,)).fetchone()
@@ -882,14 +895,25 @@ def apply_sibling_repulsion(card_id: int, new_interval: int,
         return
 
     siblings = conn.execute(
-        """SELECT id, state, due FROM cards
+        """SELECT id, category, state, due FROM cards
            WHERE word_id = ? AND id != ? AND deleted_at IS NULL AND state NOT IN ('suspended', 'learning', 'relearn')""",
         (card["word_id"], card_id),
     ).fetchall()
 
+    pushed = []
     for s in siblings:
         if s["due"] < min_due:
             conn.execute("UPDATE cards SET due = ? WHERE id = ?", (min_due, s["id"]))
+            pushed.append((s["id"], s["category"], s["due"], min_due))
+
+    if pushed:
+        for sid, cat, old_due, new_due in pushed:
+            logger.debug(
+                "[sibling_repulsion]   pushed sibling #%d (%s): %s → %s",
+                sid, cat, old_due, new_due,
+            )
+    else:
+        logger.debug("[sibling_repulsion]   no siblings needed pushing")
 
     conn.commit()
     conn.close()

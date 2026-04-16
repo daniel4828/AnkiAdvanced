@@ -752,13 +752,17 @@ def _create_cards(word_id: int, deck_ids: dict,
     if suspended_states is None:
         suspended_states = _DEFAULT_SUSPENDED
     today = database.anki_today()
+    from datetime import timedelta
     for category, deck_id in deck_ids.items():
         is_suspended = suspended_states.get(category,
                                             _DEFAULT_SUSPENDED.get(category, False))
         state = "suspended" if is_suspended else "new"
         offset = _CATEGORY_DUE_OFFSET.get(category, 0)
-        from datetime import timedelta
         due = (today + timedelta(days=offset)).isoformat() if not is_suspended else None
+        logger.debug(
+            "[stagger_intro] word_id=%d  category=%s  state=%s  due=%s (offset=+%d)",
+            word_id, category, state, due or "default", offset,
+        )
         database.insert_card(word_id, category, deck_id, state=state, due=due)
 
 

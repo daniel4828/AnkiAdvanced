@@ -109,7 +109,12 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
     preset = database.get_preset_for_deck(deck_id)
     sibling_sep    = preset.get("sibling_separation", 3)
     sibling_factor = preset.get("sibling_factor", 0.2)
-    database.apply_sibling_repulsion(card_id, updated.get("interval", 0), sibling_sep, sibling_factor)
+    new_interval   = updated.get("interval", 0)
+    logger.debug(
+        "[sibling_repulsion] triggering for card=#%d  new_interval=%d  sep=%d  factor=%.2f",
+        card_id, new_interval, sibling_sep, sibling_factor,
+    )
+    database.apply_sibling_repulsion(card_id, new_interval, sibling_sep, sibling_factor)
 
     # Snapshot sibling buried_until values BEFORE burying so undo can restore them
     siblings_before = database.get_sibling_cards(card_id)
