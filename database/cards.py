@@ -857,19 +857,23 @@ def get_sibling_cards(card_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def apply_sibling_repulsion(card_id: int, new_interval: int, sibling_separation: int) -> None:
-    """Push sibling due dates that fall within sibling_separation days of today.
+def apply_sibling_repulsion(card_id: int, new_interval: int,
+                            sibling_separation: int, sibling_factor: float = 0.2) -> None:
+    """Push sibling due dates that are too close after a review.
 
-    Only applied when the reviewed card's new_interval exceeds sibling_separation,
-    so initial learning (small intervals) is unaffected — the staggered introduction
-    handles that phase.  Only review/new-state siblings are adjusted (learning/relearn
-    cards use datetime-based due values that should not be touched here).
+    effective_separation = max(sibling_separation, floor(new_interval * sibling_factor))
+
+    Only applied when new_interval exceeds sibling_separation so the initial
+    staggered-introduction phase (small intervals) is unaffected.
+    Only review/new-state siblings are adjusted (learning/relearn cards use
+    datetime-based due values that must not be touched here).
     """
     if new_interval <= sibling_separation:
         return
 
+    effective_sep = max(sibling_separation, int(new_interval * sibling_factor))
     today = anki_today()
-    min_due = (today + timedelta(days=sibling_separation)).isoformat()
+    min_due = (today + timedelta(days=effective_sep)).isoformat()
 
     conn = get_db()
     card = conn.execute("SELECT word_id FROM cards WHERE id = ?", (card_id,)).fetchone()

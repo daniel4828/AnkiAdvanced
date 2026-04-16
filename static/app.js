@@ -1881,6 +1881,7 @@ function loadPresetFields(preset) {
   document.getElementById('opt-bury-review').checked   = !!preset.bury_review_siblings;
   document.getElementById('opt-bury-interday').checked = !!preset.bury_interday_siblings;
   document.getElementById('opt-sibling-sep').value     = preset.sibling_separation ?? 3;
+  document.getElementById('opt-sibling-factor').value  = preset.sibling_factor ?? 0.2;
 
   // Category order
   const order = (preset.category_order || 'listening,reading,creating').split(',').map(s => s.trim());
@@ -2040,6 +2041,7 @@ async function saveOptions() {
     bury_review_siblings:   document.getElementById('opt-bury-review').checked   ? 1 : 0,
     bury_interday_siblings: document.getElementById('opt-bury-interday').checked ? 1 : 0,
     sibling_separation:     parseInt(document.getElementById('opt-sibling-sep').value) || 3,
+    sibling_factor:         parseFloat(document.getElementById('opt-sibling-factor').value) || 0.2,
     category_order: _getCategoryOrderUI(),
   };
   // Warn if a story for today already exists — order settings change would cause mismatch
