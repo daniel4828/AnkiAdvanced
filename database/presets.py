@@ -31,6 +31,7 @@ def default_preset() -> dict:
         "bury_interday_siblings": 0,
         "bury_quick_mode": "all",
         "category_order": "listening,reading,creating",
+        "sibling_separation": 3,
     }
 
 
@@ -202,7 +203,7 @@ def insert_preset(preset: dict) -> int:
             new_gather_order, new_sort_order, new_review_order,
             interday_learning_review_order, review_sort_order,
             bury_new_siblings, bury_review_siblings, bury_interday_siblings,
-            bury_quick_mode, category_order)
+            bury_quick_mode, category_order, sibling_separation)
            VALUES (:name, :new_per_day, :reviews_per_day,
                    :learning_steps, :graduating_interval, :easy_interval,
                    :relearning_steps, :minimum_interval, :insertion_order,
@@ -210,7 +211,7 @@ def insert_preset(preset: dict) -> int:
                    :new_gather_order, :new_sort_order, :new_review_order,
                    :interday_learning_review_order, :review_sort_order,
                    :bury_new_siblings, :bury_review_siblings, :bury_interday_siblings,
-                   :bury_quick_mode, :category_order)""",
+                   :bury_quick_mode, :category_order, :sibling_separation)""",
         preset,
     )
     conn.commit()
@@ -229,6 +230,7 @@ def update_preset(preset_id: int, fields: dict) -> None:
         "interday_learning_review_order", "review_sort_order",
         "bury_new_siblings", "bury_review_siblings", "bury_interday_siblings",
         "bury_quick_mode", "category_order", "new_review_order_override",
+        "sibling_separation",
     }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:

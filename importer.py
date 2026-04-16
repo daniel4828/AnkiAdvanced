@@ -740,15 +740,26 @@ _DEFAULT_SUSPENDED: dict[str, bool] = {
 }
 
 
+_CATEGORY_DUE_OFFSET: dict[str, int] = {
+    "reading": 0,
+    "listening": 1,
+    "creating": 2,
+}
+
+
 def _create_cards(word_id: int, deck_ids: dict,
                   suspended_states: dict[str, bool] | None = None) -> None:
     if suspended_states is None:
         suspended_states = _DEFAULT_SUSPENDED
+    today = database.anki_today()
     for category, deck_id in deck_ids.items():
         is_suspended = suspended_states.get(category,
                                             _DEFAULT_SUSPENDED.get(category, False))
         state = "suspended" if is_suspended else "new"
-        database.insert_card(word_id, category, deck_id, state=state)
+        offset = _CATEGORY_DUE_OFFSET.get(category, 0)
+        from datetime import timedelta
+        due = (today + timedelta(days=offset)).isoformat() if not is_suspended else None
+        database.insert_card(word_id, category, deck_id, state=state, due=due)
 
 
 def _hsk_to_int(hsk_str: str) -> int | None:

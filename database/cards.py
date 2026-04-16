@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from .core import get_db, anki_today
 from .presets import get_preset_for_deck
 from .decks import get_deck
@@ -10,13 +10,20 @@ from .decks import get_deck
 # ---------------------------------------------------------------------------
 
 def insert_card(word_id: int, category: str, deck_id: int,
-                state: str = "new") -> int:
+                state: str = "new", due: str | None = None) -> int:
     conn = get_db()
-    cur = conn.execute(
-        """INSERT OR IGNORE INTO cards (word_id, deck_id, category, state)
-           VALUES (?, ?, ?, ?)""",
-        (word_id, deck_id, category, state),
-    )
+    if due is not None:
+        conn.execute(
+            """INSERT OR IGNORE INTO cards (word_id, deck_id, category, state, due)
+               VALUES (?, ?, ?, ?, ?)""",
+            (word_id, deck_id, category, state, due),
+        )
+    else:
+        conn.execute(
+            """INSERT OR IGNORE INTO cards (word_id, deck_id, category, state)
+               VALUES (?, ?, ?, ?)""",
+            (word_id, deck_id, category, state),
+        )
     conn.commit()
     row = conn.execute(
         "SELECT id FROM cards WHERE word_id = ? AND category = ?",
@@ -848,6 +855,40 @@ def get_sibling_cards(card_id: int) -> list[dict]:
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def apply_sibling_repulsion(card_id: int, new_interval: int, sibling_separation: int) -> None:
+    """Push sibling due dates that fall within sibling_separation days of today.
+
+    Only applied when the reviewed card's new_interval exceeds sibling_separation,
+    so initial learning (small intervals) is unaffected — the staggered introduction
+    handles that phase.  Only review/new-state siblings are adjusted (learning/relearn
+    cards use datetime-based due values that should not be touched here).
+    """
+    if new_interval <= sibling_separation:
+        return
+
+    today = anki_today()
+    min_due = (today + timedelta(days=sibling_separation)).isoformat()
+
+    conn = get_db()
+    card = conn.execute("SELECT word_id FROM cards WHERE id = ?", (card_id,)).fetchone()
+    if not card:
+        conn.close()
+        return
+
+    siblings = conn.execute(
+        """SELECT id, state, due FROM cards
+           WHERE word_id = ? AND id != ? AND deleted_at IS NULL AND state NOT IN ('suspended', 'learning', 'relearn')""",
+        (card["word_id"], card_id),
+    ).fetchall()
+
+    for s in siblings:
+        if s["due"] < min_due:
+            conn.execute("UPDATE cards SET due = ? WHERE id = ?", (min_due, s["id"]))
+
+    conn.commit()
+    conn.close()
 
 
 def get_creating_all_suspended(deck_id: int) -> bool:

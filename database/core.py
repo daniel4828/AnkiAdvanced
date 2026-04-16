@@ -211,6 +211,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN category_order TEXT NOT NULL DEFAULT 'listening,reading,creating'")
     if "new_review_order_override" not in preset_cols:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN new_review_order_override TEXT")
+    if "sibling_separation" not in preset_cols:
+        conn.execute("ALTER TABLE deck_presets ADD COLUMN sibling_separation INTEGER NOT NULL DEFAULT 3")
 
     conn.execute("""CREATE TABLE IF NOT EXISTS preset_category_overrides (
         id                  INTEGER PRIMARY KEY AUTOINCREMENT,
