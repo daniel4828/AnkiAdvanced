@@ -873,7 +873,8 @@ def apply_sibling_repulsion(card_id: int, new_interval: int,
     """
     if new_interval <= sibling_separation:
         logger.debug(
-            "[sibling_repulsion] card=#%d interval=%d ≤ separation=%d → skipped (initial learning phase)",
+            "[SIBLING REPULSION]  card=#%d  interval=%dd  ≤  threshold=%dd"
+            "  →  SKIP (still in early intro phase, repulsion not active yet)",
             card_id, new_interval, sibling_separation,
         )
         return
@@ -882,38 +883,52 @@ def apply_sibling_repulsion(card_id: int, new_interval: int,
     today = anki_today()
     min_due = (today + timedelta(days=effective_sep)).isoformat()
 
-    logger.debug(
-        "[sibling_repulsion] card=#%d  interval=%d  sep=%d  factor=%.2f"
-        "  → effective_sep=%d  min_due=%s",
-        card_id, new_interval, sibling_separation, sibling_factor, effective_sep, min_due,
-    )
-
     conn = get_db()
-    card = conn.execute("SELECT word_id FROM cards WHERE id = ?", (card_id,)).fetchone()
-    if not card:
+    card_row = conn.execute(
+        """SELECT c.category, e.word_zh
+           FROM cards c JOIN entries e ON e.id = c.word_id
+           WHERE c.id = ?""",
+        (card_id,),
+    ).fetchone()
+    if not card_row:
         conn.close()
         return
 
+    cat_label  = card_row["category"]
+    word_label = card_row["word_zh"] or "?"
+    factor_val = int(new_interval * sibling_factor)
+
+    logger.debug(
+        "[SIBLING REPULSION]  #%d %s 「%s」  interval=%dd"
+        "  →  effective_sep = max(%dd, ⌊%d×%.2f⌋=%dd) = %dd  →  min_due=%s",
+        card_id, cat_label, word_label, new_interval,
+        sibling_separation, new_interval, sibling_factor, factor_val,
+        effective_sep, min_due,
+    )
+
     siblings = conn.execute(
         """SELECT id, category, state, due FROM cards
-           WHERE word_id = ? AND id != ? AND deleted_at IS NULL AND state NOT IN ('suspended', 'learning', 'relearn')""",
-        (card["word_id"], card_id),
+           WHERE word_id = (SELECT word_id FROM cards WHERE id = ?)
+             AND id != ? AND deleted_at IS NULL
+             AND state NOT IN ('suspended', 'learning', 'relearn')""",
+        (card_id, card_id),
     ).fetchall()
 
     pushed = []
     for s in siblings:
         if s["due"] < min_due:
             conn.execute("UPDATE cards SET due = ? WHERE id = ?", (min_due, s["id"]))
-            pushed.append((s["id"], s["category"], s["due"], min_due))
+            days_pushed = (date.fromisoformat(min_due) - date.fromisoformat(s["due"])).days
+            pushed.append((s["id"], s["category"], s["due"], min_due, days_pushed))
 
     if pushed:
-        for sid, cat, old_due, new_due in pushed:
+        for sid, cat, old_due, new_due, days_pushed in pushed:
             logger.debug(
-                "[sibling_repulsion]   pushed sibling #%d (%s): %s → %s",
-                sid, cat, old_due, new_due,
+                "  →  pushed  #%d %-10s  %s  →  %s  (+%dd)",
+                sid, cat, old_due, new_due, days_pushed,
             )
     else:
-        logger.debug("[sibling_repulsion]   no siblings needed pushing")
+        logger.debug("  →  all siblings already beyond min_due=%s, no push needed", min_due)
 
     conn.commit()
     conn.close()
