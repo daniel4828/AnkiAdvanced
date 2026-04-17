@@ -86,7 +86,7 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
                    model: str = DEFAULT_MODEL,
                    progress_key: str | None = None,
                    grammar_focus: str | None = None,
-                   grammar_pct: int = 50) -> tuple[list[dict], str]:
+                   grammar_pct: int = 75) -> tuple[list[dict], str]:
     """
     Generate a short Mandarin story, one sentence per card.
 
@@ -134,8 +134,7 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
         n_sentences = max(1, round(len(cards) * grammar_pct / 100))
         grammar_line = (
             f"- Grammar focus: try to use the pattern 「{grammar_focus}」 in roughly "
-            f"{n_sentences} of the {len(cards)} sentences (about {grammar_pct}%). "
-            f"You decide which sentences to apply it to — it does not need to be forced.\n"
+            f"{n_sentences} of the {len(cards)} sentences (about {grammar_pct}%).\n"
         )
     else:
         grammar_line = ""
