@@ -90,15 +90,14 @@ def get_story(deck_id: int, category: str,
         return None
 
     today = database.anki_today().isoformat()
-    # Only use cached story if no custom options were provided
-    if not topic and max_hsk == 3 and not model and not grammar_focus:
-        story = database.get_active_story(today, category, deck_id)
-        if story:
-            story["sentences"] = _add_tokens(database.get_story_sentences(story["id"]))
-            logger.info("story  CACHED  deck=%d cat=%s sentences=%d story_id=%d",
-                        deck_id, category, len(story["sentences"]), story["id"])
-            _log_story(story)
-            return story
+    # Always return today's cached story — custom params only apply when generating a new one
+    story = database.get_active_story(today, category, deck_id)
+    if story:
+        story["sentences"] = _add_tokens(database.get_story_sentences(story["id"]))
+        logger.info("story  CACHED  deck=%d cat=%s sentences=%d story_id=%d",
+                    deck_id, category, len(story["sentences"]), story["id"])
+        _log_story(story)
+        return story
 
     if DISABLE_AI:
         logger.info("story  DISABLED (DISABLE_AI=1) deck=%d cat=%s", deck_id, category)
