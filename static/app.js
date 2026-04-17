@@ -47,6 +47,8 @@ let _prevView = null;      // view we came from before opening word-detail
 let _sessionReviewedCount = 0; // cards rated this session (for clap animation)
 let userInput   = '';     // creating category: what the user typed
 let clozeExtraWord = ''; // extra word blanked in cloze front (revealed on back)
+let wordBankTokens = [];  // [{char, num}] shuffled non-target tokens
+let wordBankOrder  = [];  // [{type:'char'|'target', char?, word?, num?}] original order
 let browseWords  = [];   // all words from /api/browse-words
 let browseAll    = [];   // kept for legacy (unused by new browse)
 let _browseSort  = 'pinyin-asc';
@@ -2400,11 +2402,13 @@ function loadCard(c, counts) {
               const sentFront = document.getElementById('sentence-front');
               if (sentFront.style.display !== 'none') sentFront.innerHTML = renderSentence();
             } else if (isCloze) {
-              // Cloze: update sentence-front with blanked Chinese + show English hint
-              document.getElementById('sentence-front').innerHTML = renderClozeSentence();
+              // Word bank: sentence just loaded — update hint and rebuild token bank
               const enFront = document.getElementById('sentence-en-front');
               enFront.style.display = 'flex';
               enFront.textContent = sentence.sentence_en || '';
+              if (document.getElementById('word-bank-wrap').style.display !== 'none') {
+                renderWordBankUI();
+              }
             } else if (isCreating && isSentenceNt) {
               // Sentence notes: update English prompt
               const inp = document.getElementById('sentence-en-front');
@@ -2516,22 +2520,19 @@ function showFront() {
   _listenCount = 0;
   _updateListenCounters();
 
-  // Cloze mode: creating category for non-sentence notes → show sentence with blank
+  // Word bank mode: creating category for non-sentence notes
   const isCloze = isCreating && !isSentence;
 
-  // Reading / Cloze: Chinese sentence on front
+  // Reading only: Chinese sentence on front
   const sentFront = document.getElementById('sentence-front');
-  sentFront.style.display = (!isListening && (!isCreating || isCloze)) ? 'flex' : 'none';
-  if (!isListening && !isCreating) {
-    sentFront.innerHTML = renderSentence();
-  } else if (isCloze) {
-    sentFront.innerHTML = renderClozeSentence();
-  }
+  sentFront.style.display = !isListening && !isCreating ? 'flex' : 'none';
+  if (!isListening && !isCreating) sentFront.innerHTML = renderSentence();
 
-  // Creating: show sentence-en-front for both cloze and sentence notes
+  // Creating: show English hint + appropriate input
   document.getElementById('sentence-en-front').style.display   = isCreating ? 'flex' : 'none';
-  // Cloze mode uses inline input inside the sentence; sentence notes use the box below
   document.getElementById('creating-input-wrap').style.display = (isCreating && !isCloze) ? 'flex' : 'none';
+  document.getElementById('word-bank-wrap').style.display      = isCloze ? 'flex' : 'none';
+
   if (isCreating) {
     if (isSentence) {
       // Sentence notes: show the German/English source as prompt
@@ -2544,11 +2545,10 @@ function showFront() {
       userInput = '';
       setTimeout(() => inp.focus(), 80);
     } else {
-      // Cloze: show English translation as context hint; input is inline in the sentence
+      // Word bank mode: English translation as hint; word bank renders below
       document.getElementById('sentence-en-front').textContent = sentence?.sentence_en || '';
       userInput = '';
-      // Focus the inline input that was just rendered inside the sentence
-      setTimeout(() => document.getElementById('cloze-inline-input')?.focus(), 80);
+      renderWordBankUI();
     }
   }
 
@@ -2595,8 +2595,13 @@ function revealAnswer() {
   // Capture user input before hiding front
   if (isCreating) {
     const isClozeMode = card.note_type !== 'sentence';
-    const inlineEl = isClozeMode ? document.getElementById('cloze-inline-input') : null;
-    userInput = (inlineEl ?? document.getElementById('creating-input')).value.trim();
+    if (isClozeMode) {
+      // Word bank mode: parse number sequence into reconstructed sentence
+      const wbRaw = document.getElementById('word-bank-input').value.trim();
+      userInput = _parseWordBankInput(wbRaw).join('');
+    } else {
+      userInput = document.getElementById('creating-input').value.trim();
+    }
   }
 
   document.getElementById('side-front').style.display = 'none';
@@ -2619,9 +2624,19 @@ function revealAnswer() {
     const matchBar = document.getElementById('answer-match-bar');
 
     if (!isSentenceNote) {
-      // ── Cloze mode: compare only the target word ─────────────────────────
-      const { html: userHtml, pct } = diffClozeAnswer(userInput, card.word_zh);
+      // ── Word bank mode: compare reconstructed sentence ────────────────────
+      const correctZh = sentence?.sentence_zh || card.word_zh;
+      const userChars  = [...userInput];
+      const corrChars  = [...correctZh];
+      const matched = userChars.filter((ch, i) => ch === corrChars[i]).length;
+      const pct = corrChars.length > 0 ? Math.round((matched / corrChars.length) * 100) : 0;
+
+      // Highlight target word in user's answer
+      const userHtml = userInput
+        ? userInput.replace(card.word_zh, `<span class="ch-target">${card.word_zh}</span>`)
+        : '<span class="ch-miss">(no answer)</span>';
       document.getElementById('user-answer-text').innerHTML = userHtml;
+
       if (userInput) {
         const filled = Math.round(pct / 10);
         const bar = '▓'.repeat(filled) + '░'.repeat(10 - filled);
@@ -3011,6 +3026,90 @@ function pickExtraBlankWord(zh, excludeWord) {
   if (!candidates.length) return '';
   const idx = candidates[Math.floor(Math.random() * candidates.length)];
   return zh.slice(idx, idx + 2);
+}
+
+// ── Word bank (creating mode, non-sentence notes) ─────────────────────────
+function _buildWordBank() {
+  const zh = sentence?.sentence_zh;
+  if (!zh || !card?.word_zh) return;
+  const target = card.word_zh;
+
+  // Use jieba tokens from backend if available, otherwise fall back to char-by-char
+  let rawTokens;
+  if (sentence.tokens && sentence.tokens.length) {
+    rawTokens = sentence.tokens;
+  } else {
+    // Fallback: split by target word boundary, then individual chars
+    rawTokens = [];
+    let i = 0;
+    const tIdx = zh.indexOf(target);
+    while (i < zh.length) {
+      if (tIdx >= 0 && i === tIdx) { rawTokens.push(target); i += target.length; }
+      else { rawTokens.push(zh[i]); i++; }
+    }
+  }
+
+  // Build ordered sequence, marking which token is the target
+  const order = rawTokens.map(tok =>
+    tok === target
+      ? { type: 'target', word: target }
+      : { type: 'char', char: tok }
+  );
+  // If target wasn't found in tokens, append it
+  if (!order.some(it => it.type === 'target')) order.push({ type: 'target', word: target });
+
+  const chars    = order.filter(it => it.type === 'char');
+  const shuffled = [...chars].sort(() => Math.random() - 0.5);
+  shuffled.forEach((item, n) => { item.num = n + 1; });
+
+  wordBankOrder  = order;
+  wordBankTokens = shuffled;
+}
+
+function _parseWordBankInput(text) {
+  // Auto-split by token type: runs of digits OR runs of CJK chars (spaces optional)
+  const tokens = text.match(/\d+|[\u3000-\u9FFF\uF900-\uFAFF]+/g) || [];
+  return tokens.map(part => {
+    if (/^\d+$/.test(part)) {
+      const tok = wordBankTokens.find(t => t.num === parseInt(part, 10));
+      return tok ? tok.char : '?';
+    }
+    return part; // Chinese characters = target word
+  });
+}
+
+function updateWordBankPreview(text) {
+  const el = document.getElementById('word-bank-preview');
+  const parts = _parseWordBankInput(text);
+  el.textContent = parts.length ? parts.join('') : '…';
+}
+
+function wordBankAddToken(num) {
+  const inp = document.getElementById('word-bank-input');
+  const cur = inp.value.trim();
+  inp.value = cur ? cur + ' ' + num : String(num);
+  updateWordBankPreview(inp.value);
+  inp.focus();
+}
+
+function renderWordBankUI() {
+  _buildWordBank();
+  if (!wordBankTokens.length) return; // sentence not loaded yet
+
+  document.getElementById('word-bank-preview').textContent = '…';
+
+  const tokensEl = document.getElementById('word-bank-tokens');
+  tokensEl.innerHTML = wordBankTokens.map(tok =>
+    `<button class="wb-token-btn" onclick="wordBankAddToken(${tok.num})">`
+    + `<span class="wb-num">${tok.num}</span>`
+    + `<span class="wb-char">${tok.char}</span>`
+    + `</button>`
+  ).join('');
+
+  const inp = document.getElementById('word-bank-input');
+  inp.value = '';
+  userInput = '';
+  setTimeout(() => inp.focus(), 80);
 }
 
 // ── Cloze sentence (creating category, non-sentence notes) ──────────────────

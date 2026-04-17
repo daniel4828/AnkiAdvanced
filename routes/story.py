@@ -1,5 +1,6 @@
 import logging
 
+import jieba
 import database
 import ai
 import tts
@@ -7,6 +8,17 @@ from fastapi import APIRouter
 from fastapi.responses import FileResponse
 
 from .utils import DISABLE_AI, leaf_ids
+
+# Suppress jieba's startup log messages
+jieba.setLogLevel(logging.ERROR)
+
+
+def _add_tokens(sentences: list[dict]) -> list[dict]:
+    """Add jieba word segmentation tokens to each story sentence."""
+    for s in sentences:
+        zh = s.get("sentence_zh") or ""
+        s["tokens"] = jieba.lcut(zh) if zh else []
+    return sentences
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -81,7 +93,7 @@ def get_story(deck_id: int, category: str,
     if not topic and max_hsk == 2 and not model:
         story = database.get_active_story(today, category, deck_id)
         if story:
-            story["sentences"] = database.get_story_sentences(story["id"])
+            story["sentences"] = _add_tokens(database.get_story_sentences(story["id"]))
             logger.info("story  CACHED  deck=%d cat=%s sentences=%d story_id=%d",
                         deck_id, category, len(story["sentences"]), story["id"])
             _log_story(story)
@@ -122,7 +134,7 @@ def get_story(deck_id: int, category: str,
             }
 
     if story:
-        story["sentences"] = database.get_story_sentences(story["id"])
+        story["sentences"] = _add_tokens(database.get_story_sentences(story["id"]))
         logger.info("story  SAVED   deck=%d cat=%s sentences=%d",
                     deck_id, category, len(story["sentences"]))
         _log_story(story)
@@ -168,7 +180,7 @@ def regenerate_story(deck_id: int, category: str,
             "has_history": database.has_story_history(deck_id, category),
         }
     if story:
-        story["sentences"] = database.get_story_sentences(story["id"])
+        story["sentences"] = _add_tokens(database.get_story_sentences(story["id"]))
         logger.info("regen  SAVED sentences=%d", len(story["sentences"]))
         _log_story(story)
     return story
@@ -179,7 +191,7 @@ def get_history_story(deck_id: int, category: str):
     """Return the most recent story for this deck+category, regardless of date."""
     story = database.get_latest_story(deck_id, category)
     if story:
-        story["sentences"] = database.get_story_sentences(story["id"])
+        story["sentences"] = _add_tokens(database.get_story_sentences(story["id"]))
     return story
 
 
@@ -249,7 +261,7 @@ async def preload_session(deck_id: int, category: str):
     story = database.get_active_story(today, category, deck_id)
     progress_key = f"{deck_id}/{category}"
     if story:
-        sentences = database.get_story_sentences(story["id"])
+        sentences = _add_tokens(database.get_story_sentences(story["id"]))
         texts = [s["sentence_zh"] for s in sentences if s.get("sentence_zh")]
         logger.info("tts  preloading %d sentences", len(texts))
         try:
