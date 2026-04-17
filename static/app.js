@@ -3123,9 +3123,11 @@ function updateWordBankPreview(text) {
   const parts = _parseWordBankInput(text);
   el.textContent = parts.length ? parts.join('') : '…';
 
-  // Grey out tokens whose number has been typed
+  // Grey out tokens whose number has been typed OR whose char appears in typed CJK text
+  const isCjk = ch => /[\u3000-\u9FFF\uF900-\uFAFF]/.test(ch);
   const usedNums = new Set();
   const chars = [...text.replace(/\s+/g, '')];
+  const cjkText = chars.filter(isCjk).join('');
   let i = 0;
   while (i < chars.length) {
     if (/\d/.test(chars[i])) {
@@ -3137,6 +3139,7 @@ function updateWordBankPreview(text) {
       i++;
     } else { i++; }
   }
+  wordBankTokens.forEach(t => { if (cjkText.includes(t.char)) usedNums.add(t.num); });
   document.querySelectorAll('.wb-token-btn').forEach(btn => {
     const num = parseInt(btn.querySelector('.wb-num').textContent, 10);
     btn.classList.toggle('wb-used', usedNums.has(num));
