@@ -72,13 +72,14 @@ def _validated_model(model: str | None) -> str:
 @router.get("/api/story/{deck_id}/{category}")
 def get_story(deck_id: int, category: str,
               topic: str | None = None, max_hsk: int = 2,
-              model: str | None = None):
+              model: str | None = None,
+              grammar_focus: str | None = None, grammar_pct: int = 50):
     if database.is_sentences_deck(deck_id):
         return None
 
     today = database.anki_today().isoformat()
     # Only use cached story if no custom options were provided
-    if not topic and max_hsk == 2 and not model:
+    if not topic and max_hsk == 2 and not model and not grammar_focus:
         story = database.get_active_story(today, category, deck_id)
         if story:
             story["sentences"] = database.get_story_sentences(story["id"])
@@ -103,7 +104,9 @@ def get_story(deck_id: int, category: str,
         try:
             sentences, prompt_text = ai.generate_story(cards, topic=topic, max_hsk=max_hsk,
                                                        model=chosen_model,
-                                                       progress_key=progress_key)
+                                                       progress_key=progress_key,
+                                                       grammar_focus=grammar_focus,
+                                                       grammar_pct=grammar_pct)
             for i, s in enumerate(sentences):
                 s["position"] = i
             database.create_story(today, category, deck_id, sentences, prompt_text, topic)
@@ -132,7 +135,8 @@ def get_story(deck_id: int, category: str,
 @router.post("/api/story/{deck_id}/{category}/regenerate")
 def regenerate_story(deck_id: int, category: str,
                      topic: str | None = None, max_hsk: int = 2,
-                     model: str | None = None):
+                     model: str | None = None,
+                     grammar_focus: str | None = None, grammar_pct: int = 50):
     if database.is_sentences_deck(deck_id):
         return None
     if DISABLE_AI:
@@ -150,7 +154,9 @@ def regenerate_story(deck_id: int, category: str,
     try:
         sentences, prompt_text = ai.generate_story(cards, topic=topic, max_hsk=max_hsk,
                                                    model=chosen_model,
-                                                   progress_key=progress_key)
+                                                   progress_key=progress_key,
+                                                   grammar_focus=grammar_focus,
+                                                   grammar_pct=grammar_pct)
         for i, s in enumerate(sentences):
             s["position"] = i
         database.create_story(today, category, deck_id, sentences, prompt_text, topic)

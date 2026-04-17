@@ -454,6 +454,13 @@
     <label class="edit-label">Topic <span style="font-weight:400;text-transform:none">(optional)</span>
       <input class="edit-input" id="setup-topic" type="text" placeholder="e.g. a day at a coffee shop" onkeydown="if(event.key==='Enter')confirmStorySetup()">
     </label>
+    <label class="edit-label">Grammar focus <span style="font-weight:400;text-transform:none">(optional)</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="edit-input" id="setup-grammar" type="text" placeholder="e.g. 把字句, 是...的结构" style="flex:1" onkeydown="if(event.key==='Enter')confirmStorySetup()">
+        <input class="edit-input" id="setup-grammar-pct" type="number" min="0" max="100" value="50" style="width:64px;text-align:center" title="% of sentences">
+        <span style="font-size:13px;color:var(--muted,#888);white-space:nowrap">%</span>
+      </div>
+    </label>
     <label class="edit-label">
       <span style="display:flex;align-items:center;gap:6px">
         Model
