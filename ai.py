@@ -376,13 +376,11 @@ def _fill_translations(sentences: list[dict], progress_key: str | None = None) -
         total = len(texts)
 
         if progress_key and total > 0:
-            # Translate one by one to show per-sentence progress
-            results: list[str] = []
-            for i, text in enumerate(texts):
-                _set_progress(progress_key, phase="translating",
-                              msg=f"Translating… {i + 1}/{total}",
-                              percent=88 + round((i + 1) / total * 4))
-                results.append(_t.translate_zh_en(text))
+            _set_progress(progress_key, phase="translating",
+                          msg=f"Translating… 0/{total}", percent=88)
+            results = _t.translate_batch(texts)
+            _set_progress(progress_key, phase="translating",
+                          msg=f"Translating… {total}/{total}", percent=92)
         else:
             results = _t.translate_batch(texts)
 

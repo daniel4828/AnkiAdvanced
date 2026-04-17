@@ -85,7 +85,14 @@ CREATE TABLE IF NOT EXISTS deck_presets (
                                 CHECK(bury_quick_mode IN ('all', 'none', 'custom')),
 
     -- Order of L/R/C category pills shown in the deck list
-    category_order          TEXT NOT NULL DEFAULT 'listening,reading,creating'
+    category_order          TEXT NOT NULL DEFAULT 'listening,reading,creating',
+
+    -- Minimum days between sibling card reviews (R/T/C of the same word)
+    sibling_separation      INTEGER NOT NULL DEFAULT 3,
+
+    -- Fraction of current interval applied as additional sibling separation
+    -- effective_separation = max(sibling_separation, floor(interval * sibling_factor))
+    sibling_factor          REAL NOT NULL DEFAULT 0.2
 );
 
 -- ---------------------------------------------------------------------------

@@ -1200,6 +1200,59 @@ main.browse-open {
 }
 .match-bar { font-size: 13px; font-weight: 700; margin-top: 8px; display: block; letter-spacing: 1px; }
 
+/* ── Word bank (creating mode) ──────────────────────────────── */
+#word-bank-wrap {
+  flex-direction: column;
+  gap: 10px;
+}
+.word-bank-preview {
+  min-height: 52px;
+  padding: 10px 14px;
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  font-size: 24px;
+  color: var(--text);
+  line-height: 1.4;
+  background: var(--bg);
+  letter-spacing: 1px;
+}
+.word-bank-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.wb-token-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, opacity 0.12s;
+  font-family: inherit;
+  gap: 2px;
+}
+.wb-token-btn:hover { background: var(--bg); border-color: var(--primary); }
+.wb-token-btn.wb-used { opacity: 0.3; pointer-events: none; }
+.wb-num { font-size: 10px; font-weight: 700; color: var(--muted); line-height: 1; }
+.wb-char { font-size: 20px; color: var(--text); line-height: 1; }
+#word-bank-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 18px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  background: var(--card);
+  color: var(--text);
+  box-sizing: border-box;
+}
+#word-bank-input:focus { border-color: var(--primary); }
+
 /* ── Deck tree ───────────────────────────────────────────── */
 .tree-row {
   display: flex;
