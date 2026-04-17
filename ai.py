@@ -133,15 +133,18 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
     if grammar_focus:
         n_sentences = max(1, round(len(cards) * grammar_pct / 100))
         grammar_line = (
-            f"- Grammar focus: try to use the pattern 「{grammar_focus}」 in roughly "
+            f"- Grammar focus: use the pattern 「{grammar_focus}」 in roughly "
             f"{n_sentences} of the {len(cards)} sentences (about {grammar_pct}%).\n"
+            f"  For each sentence, set \"grammar_used\": true if you used the pattern, false if not.\n"
         )
     else:
         grammar_line = ""
 
+    grammar_first = f"GRAMMAR FOCUS (apply this before writing sentences):\n{grammar_line}\n" if grammar_focus else ""
+
     prompt = f"""Write a short Mandarin Chinese story to help an HSK 4-5 learner review vocabulary.
 
-Target words — write exactly one sentence per word, in this order:
+{grammar_first}Target words — write exactly one sentence per word, in this order:
 {word_list}
 
 Rules:
@@ -151,11 +154,11 @@ Rules:
 - Use proper Chinese punctuation — include commas（，）where natural pauses occur
 - Use only HSK 1-{max_hsk} vocabulary for non-target words
 - Please keep each sentence as short and simple as possible — shorter is better, as long as all other rules are still met
-{topic_line}{grammar_line}- The sentences must form a coherent narrative with the same recurring characters
+{topic_line}- The sentences must form a coherent narrative with the same recurring characters
 - NEVER use ASCII double-quote characters (") inside Chinese sentences — use 「」or （）instead if quoting is needed
 - Return ONLY valid JSON, no explanation, no markdown:
 [
-  {{"word_id": <integer>, "sentence_zh": "<Chinese sentence>"}},
+  {{"word_id": <integer>, "sentence_zh": "<Chinese sentence>"{', "grammar_used": <true|false>' if grammar_focus else ''}}},
   ...
 ]"""
 
