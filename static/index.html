@@ -512,7 +512,7 @@
     <label class="edit-label">Grammar focus <span style="font-weight:400;text-transform:none">(optional)</span>
       <div style="display:flex;gap:8px;align-items:center">
         <input class="edit-input" id="setup-grammar" type="text" placeholder="e.g. 把字句, 是...的结构" style="flex:1" onkeydown="if(event.key==='Enter')confirmStorySetup()">
-        <input class="edit-input" id="setup-grammar-pct" type="number" min="0" max="100" value="50" style="width:64px;text-align:center" title="% of sentences">
+        <input class="edit-input" id="setup-grammar-pct" type="number" min="0" max="100" value="75" style="width:64px;text-align:center" title="% of sentences">
         <span style="font-size:13px;color:var(--muted,#888);white-space:nowrap">%</span>
       </div>
     </label>
@@ -548,9 +548,9 @@
       Max HSK level for background vocabulary
       <div class="setup-slider-row">
         <span class="setup-slider-min">1</span>
-        <input type="range" id="setup-hsk-slider" min="1" max="6" value="2" oninput="updateHskLabel()">
+        <input type="range" id="setup-hsk-slider" min="1" max="6" value="3" oninput="updateHskLabel()">
         <span class="setup-slider-max">6</span>
-        <span class="setup-hsk-badge" id="setup-hsk-badge">HSK 2</span>
+        <span class="setup-hsk-badge" id="setup-hsk-badge">HSK 3</span>
       </div>
     </label>
   </div>
