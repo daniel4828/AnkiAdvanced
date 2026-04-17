@@ -1200,6 +1200,59 @@ main.browse-open {
 }
 .match-bar { font-size: 13px; font-weight: 700; margin-top: 8px; display: block; letter-spacing: 1px; }
 
+/* ── Word bank (creating mode) ──────────────────────────────── */
+#word-bank-wrap {
+  flex-direction: column;
+  gap: 10px;
+}
+.word-bank-preview {
+  min-height: 52px;
+  padding: 10px 14px;
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  font-size: 24px;
+  color: var(--text);
+  line-height: 1.4;
+  background: var(--bg);
+  letter-spacing: 1px;
+}
+.word-bank-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.wb-token-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, opacity 0.12s;
+  font-family: inherit;
+  gap: 2px;
+}
+.wb-token-btn:hover { background: var(--bg); border-color: var(--primary); }
+.wb-token-btn.wb-used { opacity: 0.3; pointer-events: none; }
+.wb-num { font-size: 10px; font-weight: 700; color: var(--muted); line-height: 1; }
+.wb-char { font-size: 20px; color: var(--text); line-height: 1; }
+#word-bank-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 18px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  background: var(--card);
+  color: var(--text);
+  box-sizing: border-box;
+}
+#word-bank-input:focus { border-color: var(--primary); }
+
 /* ── Deck tree ───────────────────────────────────────────── */
 .tree-row {
   display: flex;
@@ -2946,6 +2999,39 @@ select.opt-input {
 }
 .cat-order-btns button:hover:not(:disabled) { background: var(--hover); color: var(--text); }
 .cat-order-btns button:disabled { opacity: 0.3; cursor: default; }
+
+/* ── Category overrides ───────────────────────────────────────────────────── */
+.cat-override-details {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  margin-bottom: 4px;
+  overflow: hidden;
+}
+.cat-override-summary {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--card-bg);
+  user-select: none;
+  list-style: none;
+}
+.cat-override-summary::-webkit-details-marker { display: none; }
+.cat-override-summary::before { content: '▶ '; font-size: 9px; }
+details[open] .cat-override-summary::before { content: '▼ '; }
+.cat-override-details[data-has-overrides] .cat-override-summary {
+  color: var(--text);
+}
+.cat-override-details[data-has-overrides] .cat-override-summary::after {
+  content: ' ●';
+  color: #4a9eff;
+  font-size: 9px;
+}
+.cat-override-fields {
+  padding: 4px 8px 8px;
+  background: var(--bg);
+}
 
 /* ── Clapping animation on review completion ─────────────────────────────── */
 .clap-particle {

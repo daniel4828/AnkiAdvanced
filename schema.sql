@@ -85,7 +85,14 @@ CREATE TABLE IF NOT EXISTS deck_presets (
                                 CHECK(bury_quick_mode IN ('all', 'none', 'custom')),
 
     -- Order of L/R/C category pills shown in the deck list
-    category_order          TEXT NOT NULL DEFAULT 'listening,reading,creating'
+    category_order          TEXT NOT NULL DEFAULT 'listening,reading,creating',
+
+    -- Minimum days between sibling card reviews (R/T/C of the same word)
+    sibling_separation      INTEGER NOT NULL DEFAULT 3,
+
+    -- Fraction of current interval applied as additional sibling separation
+    -- effective_separation = max(sibling_separation, floor(interval * sibling_factor))
+    sibling_factor          REAL NOT NULL DEFAULT 0.2
 );
 
 -- ---------------------------------------------------------------------------
@@ -389,4 +396,25 @@ CREATE TABLE IF NOT EXISTS grammar_expressions (
     expression  TEXT NOT NULL,
     meaning     TEXT,
     position    INTEGER NOT NULL DEFAULT 0
+);
+
+-- ---------------------------------------------------------------------------
+-- preset_category_overrides
+-- Per-category scheduling overrides for a preset.
+-- NULL fields mean "use the preset default".
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS preset_category_overrides (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    preset_id           INTEGER NOT NULL REFERENCES deck_presets(id) ON DELETE CASCADE,
+    category            TEXT NOT NULL CHECK(category IN ('listening', 'reading', 'creating')),
+    new_per_day         INTEGER,
+    reviews_per_day     INTEGER,
+    learning_steps      TEXT,
+    graduating_interval INTEGER,
+    easy_interval       INTEGER,
+    relearning_steps    TEXT,
+    minimum_interval    INTEGER,
+    leech_threshold     INTEGER,
+    leech_action        TEXT CHECK(leech_action IN ('suspend', 'tag')),
+    UNIQUE(preset_id, category)
 );

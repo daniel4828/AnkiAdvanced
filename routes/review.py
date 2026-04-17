@@ -103,6 +103,19 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
     deck_id = updated["deck_id"]
     cat     = updated["category"]
 
+    # Apply sibling repulsion: push sibling due dates that are too close to today.
+    # Only kicks in when the reviewed card has a long enough interval (> sibling_separation),
+    # leaving the initial staggered-introduction phase unaffected.
+    preset = database.get_preset_for_deck(deck_id)
+    sibling_sep    = preset.get("sibling_separation", 3)
+    sibling_factor = preset.get("sibling_factor", 0.2)
+    new_interval   = updated.get("interval", 0)
+    logger.debug(
+        "[sibling_repulsion] triggering for card=#%d  new_interval=%d  sep=%d  factor=%.2f",
+        card_id, new_interval, sibling_sep, sibling_factor,
+    )
+    database.apply_sibling_repulsion(card_id, new_interval, sibling_sep, sibling_factor)
+
     # Snapshot sibling buried_until values BEFORE burying so undo can restore them
     siblings_before = database.get_sibling_cards(card_id)
     siblings_snapshot = [
@@ -110,7 +123,6 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
         for s in siblings_before
     ]
 
-    preset = database.get_preset_for_deck(deck_id)
     bury_new, bury_review, bury_learning = database.resolve_bury_flags(preset)
     logger.debug(
         "[preset] deck=%d  bury_quick_mode=%s → new=%s review=%s learning=%s\n"

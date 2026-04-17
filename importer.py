@@ -711,7 +711,7 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
             logger.info("CATEGORIES %s: %r active=%r", label, word_zh, list(active))
         else:
             suspended_states = card_cfg.get("suspended") or None
-        _create_cards(word_id, target_deck_ids, suspended_states)
+        _create_cards(word_id, target_deck_ids, suspended_states, word_zh=word_zh)
         imported += 1
 
     return {"imported": imported, "skipped_duplicate": skipped_duplicate,
@@ -740,15 +740,34 @@ _DEFAULT_SUSPENDED: dict[str, bool] = {
 }
 
 
+_CATEGORY_DUE_OFFSET: dict[str, int] = {
+    "reading": 0,
+    "listening": 1,
+    "creating": 2,
+}
+
+
 def _create_cards(word_id: int, deck_ids: dict,
-                  suspended_states: dict[str, bool] | None = None) -> None:
+                  suspended_states: dict[str, bool] | None = None,
+                  word_zh: str = "") -> None:
     if suspended_states is None:
         suspended_states = _DEFAULT_SUSPENDED
+    today = database.anki_today()
+    from datetime import timedelta
+    lines = []
     for category, deck_id in deck_ids.items():
         is_suspended = suspended_states.get(category,
                                             _DEFAULT_SUSPENDED.get(category, False))
         state = "suspended" if is_suspended else "new"
-        database.insert_card(word_id, category, deck_id, state=state)
+        offset = _CATEGORY_DUE_OFFSET.get(category, 0)
+        due = (today + timedelta(days=offset)).isoformat() if not is_suspended else None
+        tag = "  [SUSPENDED]" if is_suspended else ""
+        lines.append(f"  {category:<10}  due={due or '(none)'}  (+{offset}d){tag}")
+        database.insert_card(word_id, category, deck_id, state=state, due=due)
+    logger.debug(
+        "[STAGGER INTRO]  「%s」 (word_id=%d)\n%s",
+        word_zh or "?", word_id, "\n".join(lines),
+    )
 
 
 def _hsk_to_int(hsk_str: str) -> int | None:

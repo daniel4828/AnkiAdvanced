@@ -46,6 +46,9 @@ let _currentWordId = null; // word ID open in word-detail view
 let _prevView = null;      // view we came from before opening word-detail
 let _sessionReviewedCount = 0; // cards rated this session (for clap animation)
 let userInput   = '';     // creating category: what the user typed
+let clozeExtraWord = ''; // extra word blanked in cloze front (revealed on back)
+let wordBankTokens = [];  // [{char, num}] shuffled non-target tokens
+let wordBankOrder  = [];  // [{type:'char'|'target', char?, word?, num?}] original order
 let browseWords  = [];   // all words from /api/browse-words
 let browseAll    = [];   // kept for legacy (unused by new browse)
 let _browseSort  = 'pinyin-asc';
@@ -1861,7 +1864,10 @@ function _getCategoryOrderUI() {
   return [...list.children].map(el => el.dataset.cat).join(',');
 }
 
+let currentPresetId = null;
+
 function loadPresetFields(preset) {
+  currentPresetId = preset.id;
   document.getElementById('opt-new-per-day').value     = preset.new_per_day;
   document.getElementById('opt-reviews-per-day').value = preset.reviews_per_day;
   document.getElementById('opt-learn-steps').value     = preset.learning_steps;
@@ -1877,6 +1883,8 @@ function loadPresetFields(preset) {
   document.getElementById('opt-bury-new').checked      = !!preset.bury_new_siblings;
   document.getElementById('opt-bury-review').checked   = !!preset.bury_review_siblings;
   document.getElementById('opt-bury-interday').checked = !!preset.bury_interday_siblings;
+  document.getElementById('opt-sibling-sep').value     = preset.sibling_separation ?? 3;
+  document.getElementById('opt-sibling-factor').value  = preset.sibling_factor ?? 0.2;
 
   // Category order
   const order = (preset.category_order || 'listening,reading,creating').split(',').map(s => s.trim());
@@ -1886,6 +1894,50 @@ function loadPresetFields(preset) {
   btnDef.disabled = !!preset.is_default;
   const btnDel = document.getElementById('btn-delete-preset');
   btnDel.disabled = allPresets.length <= 1;
+
+  // Category overrides
+  _loadCategoryOverrides(preset.category_overrides || {});
+}
+
+const _CAT_OVERRIDE_FIELDS = [
+  'new_per_day', 'reviews_per_day', 'learning_steps',
+  'graduating_interval', 'easy_interval', 'relearning_steps',
+];
+
+function _loadCategoryOverrides(overrides) {
+  for (const details of document.querySelectorAll('.cat-override-details')) {
+    const cat = details.dataset.cat;
+    const catOverrides = overrides[cat] || {};
+    let hasAny = false;
+    for (const input of details.querySelectorAll('input[data-field]')) {
+      const val = catOverrides[input.dataset.field];
+      input.value = val != null ? val : '';
+      if (val != null) hasAny = true;
+    }
+    if (hasAny) {
+      details.setAttribute('data-has-overrides', '');
+      details.open = true;
+    } else {
+      details.removeAttribute('data-has-overrides');
+      details.open = false;
+    }
+  }
+}
+
+function _collectCategoryOverrides() {
+  const result = {};
+  for (const details of document.querySelectorAll('.cat-override-details')) {
+    const cat = details.dataset.cat;
+    const fields = {};
+    for (const input of details.querySelectorAll('input[data-field]')) {
+      const raw = input.value.trim();
+      if (raw !== '') {
+        fields[input.dataset.field] = input.type === 'number' ? Number(raw) : raw;
+      }
+    }
+    if (Object.keys(fields).length > 0) result[cat] = fields;
+  }
+  return result;
 }
 
 function renderPresetSelect(selectedId) {
@@ -1915,7 +1967,7 @@ async function switchPreset(presetId) {
   presetId = parseInt(presetId);
   try {
     await api('PUT', `/api/decks/${optDeckId}/preset/assign?preset_id=${presetId}`);
-    const preset = allPresets.find(p => p.id === presetId);
+    const preset = await api('GET', `/api/decks/${optDeckId}/preset`);
     loadPresetFields(preset);
   } catch (e) {
     showError('Failed to switch preset: ' + e.message);
@@ -1991,6 +2043,8 @@ async function saveOptions() {
     bury_new_siblings:      document.getElementById('opt-bury-new').checked      ? 1 : 0,
     bury_review_siblings:   document.getElementById('opt-bury-review').checked   ? 1 : 0,
     bury_interday_siblings: document.getElementById('opt-bury-interday').checked ? 1 : 0,
+    sibling_separation:     parseInt(document.getElementById('opt-sibling-sep').value) || 3,
+    sibling_factor:         parseFloat(document.getElementById('opt-sibling-factor').value) || 0.2,
     category_order: _getCategoryOrderUI(),
   };
   // Warn if a story for today already exists — order settings change would cause mismatch
@@ -1999,7 +2053,20 @@ async function saveOptions() {
     if (!ok) return;
   }
   try {
-    await api('PUT', `/api/decks/${optDeckId}/preset`, fields);
+    const [savedPreset] = await Promise.all([
+      api('PUT', `/api/decks/${optDeckId}/preset`, fields),
+    ]);
+    const presetId = currentPresetId;
+    // Save category overrides
+    const catOverrides = _collectCategoryOverrides();
+    const cats = ['listening', 'reading', 'creating'];
+    await Promise.all(cats.map(cat => {
+      if (catOverrides[cat]) {
+        return api('PUT', `/api/presets/${presetId}/categories/${cat}`, catOverrides[cat]);
+      } else {
+        return api('DELETE', `/api/presets/${presetId}/categories/${cat}`).catch(() => {});
+      }
+    }));
     closeModal();
     loadDecks();
   } catch (e) {
@@ -2052,7 +2119,7 @@ async function startReview(id, cat, name, noStory = false) {
   }
 }
 
-async function _doStartReview(topic, maxHsk, model) {
+async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct) {
   setLoading('Generating story…', true);
   setLoadingStep(10, null, 'Sending request to AI…');
   _startFakeProgress(10, 55, 45000);
@@ -2060,7 +2127,7 @@ async function _doStartReview(topic, maxHsk, model) {
     const storyDeckId = rootDeckId || deckId;
     const storyCategory = rootDeckId ? 'unified' : category;
     _startStoryProgressPoll(storyDeckId, storyCategory);
-    const storyUrl = `/api/story/${storyDeckId}/${storyCategory}` + _storyParams(topic, maxHsk, model);
+    const storyUrl = `/api/story/${storyDeckId}/${storyCategory}` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct);
     let todayData, storyData;
     try {
       [todayData, storyData] = await Promise.all([
@@ -2078,7 +2145,7 @@ async function _doStartReview(topic, maxHsk, model) {
 
     _stopFakeProgress(); _stopStoryProgressPoll();
     setLoadingStep(65, null, 'Story received, processing…');
-    story = await _resolveStory(storyData, storyDeckId, storyCategory, topic, maxHsk);
+    story = await _resolveStory(storyData, storyDeckId, storyCategory, topic, maxHsk, grammarFocus, grammarPct);
 
     if (!todayData.card) {
       showView('done');
@@ -2106,11 +2173,13 @@ async function _doStartReview(topic, maxHsk, model) {
   }
 }
 
-function _storyParams(topic, maxHsk, model) {
+function _storyParams(topic, maxHsk, model, grammarFocus, grammarPct) {
   const p = new URLSearchParams();
   if (topic)                              p.set('topic', topic);
   if (maxHsk !== 2)                       p.set('max_hsk', maxHsk);
   if (model && model !== 'deepseek-chat') p.set('model', model);
+  if (grammarFocus)                       p.set('grammar_focus', grammarFocus);
+  if (grammarFocus && grammarPct !== 50)  p.set('grammar_pct', grammarPct);
   const s = p.toString();
   return s ? '?' + s : '';
 }
@@ -2131,7 +2200,7 @@ async function startReviewMixed(id, name, noStory = false) {
       return;
     }
     if (noStory) {
-      await _doStartReviewMixed(null, 2, null, true);
+      await _doStartReviewMixed(null, 2, null, null, 50, true);
       return;
     }
     const c = todayData.counts;
@@ -2140,7 +2209,7 @@ async function startReviewMixed(id, name, noStory = false) {
     const firstCat = todayData.card.category;
     const { has_story, estimated_tokens } = await api('GET', `/api/story/${id}/unified/count`);
     if (has_story) {
-      await _doStartReviewMixed(null, 2);
+      await _doStartReviewMixed(null, 2, null, null, 50);
     } else {
       openStorySetup(total, { isMixed: true, learningCount: learning, estimatedTokens: estimated_tokens });
     }
@@ -2151,7 +2220,7 @@ async function startReviewMixed(id, name, noStory = false) {
   }
 }
 
-async function _doStartReviewMixed(topic, maxHsk, model, noStory = false) {
+async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct, noStory = false) {
   setLoading(noStory ? 'Loading…' : 'Generating stories…', !noStory);
   if (!noStory) {
     setLoadingStep(10, null, 'Sending request to AI…');
@@ -2171,7 +2240,7 @@ async function _doStartReviewMixed(topic, maxHsk, model, noStory = false) {
     if (!noStory) {
       // Load a single unified story covering all categories (1 AI call instead of 3)
       try {
-        story = await api('GET', `/api/story/${rootDeckId}/unified` + _storyParams(topic, maxHsk, model));
+        story = await api('GET', `/api/story/${rootDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct));
       } catch (e) {
         _stopFakeProgress(); _stopStoryProgressPoll();
         _showLoadingError('AI request failed', e.message);
@@ -2230,7 +2299,7 @@ async function startReviewUnfinished() {
   }
 }
 
-async function _doStartReviewUnfinished(topic, maxHsk, model) {
+async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct) {
   unfinishedMode = true;
   setLoading('Loading cards…');
   try {
@@ -2247,7 +2316,7 @@ async function _doStartReviewUnfinished(topic, maxHsk, model) {
     const firstDeckId = todayData.card.deck_id;
     // Load a single unified story for the first card's deck
     try {
-      story = await api('GET', `/api/story/${firstDeckId}/unified` + _storyParams(topic, maxHsk, model));
+      story = await api('GET', `/api/story/${firstDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct));
     } catch (_) {}
     fetch(`/api/preload-session/${firstDeckId}/unified`, { method: 'POST' }).catch(() => {});
     showView('review');
@@ -2335,11 +2404,13 @@ function loadCard(c, counts) {
               const sentFront = document.getElementById('sentence-front');
               if (sentFront.style.display !== 'none') sentFront.innerHTML = renderSentence();
             } else if (isCloze) {
-              // Cloze: update sentence-front with blanked Chinese + show English hint
-              document.getElementById('sentence-front').innerHTML = renderClozeSentence();
+              // Word bank: sentence just loaded — update hint and rebuild token bank
               const enFront = document.getElementById('sentence-en-front');
               enFront.style.display = 'flex';
               enFront.textContent = sentence.sentence_en || '';
+              if (document.getElementById('word-bank-wrap').style.display !== 'none') {
+                renderWordBankUI();
+              }
             } else if (isCreating && isSentenceNt) {
               // Sentence notes: update English prompt
               const inp = document.getElementById('sentence-en-front');
@@ -2451,22 +2522,19 @@ function showFront() {
   _listenCount = 0;
   _updateListenCounters();
 
-  // Cloze mode: creating category for non-sentence notes → show sentence with blank
+  // Word bank mode: creating category for non-sentence notes
   const isCloze = isCreating && !isSentence;
 
-  // Reading / Cloze: Chinese sentence on front
+  // Reading only: Chinese sentence on front
   const sentFront = document.getElementById('sentence-front');
-  sentFront.style.display = (!isListening && (!isCreating || isCloze)) ? 'flex' : 'none';
-  if (!isListening && !isCreating) {
-    sentFront.innerHTML = renderSentence();
-  } else if (isCloze) {
-    sentFront.innerHTML = renderClozeSentence();
-  }
+  sentFront.style.display = !isListening && !isCreating ? 'flex' : 'none';
+  if (!isListening && !isCreating) sentFront.innerHTML = renderSentence();
 
-  // Creating: show sentence-en-front for both cloze and sentence notes
+  // Creating: show English hint + appropriate input
   document.getElementById('sentence-en-front').style.display   = isCreating ? 'flex' : 'none';
-  // Cloze mode uses inline input inside the sentence; sentence notes use the box below
   document.getElementById('creating-input-wrap').style.display = (isCreating && !isCloze) ? 'flex' : 'none';
+  document.getElementById('word-bank-wrap').style.display      = isCloze ? 'flex' : 'none';
+
   if (isCreating) {
     if (isSentence) {
       // Sentence notes: show the German/English source as prompt
@@ -2479,11 +2547,10 @@ function showFront() {
       userInput = '';
       setTimeout(() => inp.focus(), 80);
     } else {
-      // Cloze: show English translation as context hint; input is inline in the sentence
+      // Word bank mode: English translation as hint; word bank renders below
       document.getElementById('sentence-en-front').textContent = sentence?.sentence_en || '';
       userInput = '';
-      // Focus the inline input that was just rendered inside the sentence
-      setTimeout(() => document.getElementById('cloze-inline-input')?.focus(), 80);
+      renderWordBankUI();
     }
   }
 
@@ -2530,8 +2597,13 @@ function revealAnswer() {
   // Capture user input before hiding front
   if (isCreating) {
     const isClozeMode = card.note_type !== 'sentence';
-    const inlineEl = isClozeMode ? document.getElementById('cloze-inline-input') : null;
-    userInput = (inlineEl ?? document.getElementById('creating-input')).value.trim();
+    if (isClozeMode) {
+      // Word bank mode: parse number sequence into reconstructed sentence
+      const wbRaw = document.getElementById('word-bank-input').value.trim();
+      userInput = _parseWordBankInput(wbRaw).join('');
+    } else {
+      userInput = document.getElementById('creating-input').value.trim();
+    }
   }
 
   document.getElementById('side-front').style.display = 'none';
@@ -2554,13 +2626,42 @@ function revealAnswer() {
     const matchBar = document.getElementById('answer-match-bar');
 
     if (!isSentenceNote) {
-      // ── Cloze mode: compare only the target word ─────────────────────────
-      const { html: userHtml, pct } = diffClozeAnswer(userInput, card.word_zh);
+      // ── Word bank mode: compare reconstructed sentence ────────────────────
+      const correctZh = sentence?.sentence_zh || card.word_zh;
+
+      // LCS-based match percentage (handles missing/extra words gracefully)
+      const ua = [...userInput], ca = [...correctZh];
+      const dp = Array(ua.length + 1).fill(null).map(() => Array(ca.length + 1).fill(0));
+      for (let i = 1; i <= ua.length; i++)
+        for (let j = 1; j <= ca.length; j++)
+          dp[i][j] = ua[i-1] === ca[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+      const lcs = dp[ua.length][ca.length];
+      const pct = ca.length > 0 ? Math.round((lcs / ca.length) * 100) : 0;
+
+      // Per-character coloring: target word = blue, others green/red by presence
+      const corrSet = new Set(ca);
+      const hanzi = /[\u4E00-\u9FFF]/;
+      const targetIdx = userInput.indexOf(card.word_zh);
+      const targetLen = [...card.word_zh].length;
+      let userHtml;
+      if (!userInput) {
+        userHtml = '<span class="ch-miss">(no answer)</span>';
+      } else {
+        const chars = [...userInput];
+        const tStart = targetIdx >= 0 ? [...userInput.slice(0, targetIdx)].length : -1;
+        userHtml = chars.map((ch, i) => {
+          if (tStart >= 0 && i >= tStart && i < tStart + targetLen)
+            return `<span class="ch-target">${ch}</span>`;
+          if (hanzi.test(ch) && corrSet.has(ch)) return `<span class="ch-match">${ch}</span>`;
+          return `<span class="ch-miss">${ch}</span>`;
+        }).join('');
+      }
       document.getElementById('user-answer-text').innerHTML = userHtml;
+
       if (userInput) {
         const filled = Math.round(pct / 10);
         const bar = '▓'.repeat(filled) + '░'.repeat(10 - filled);
-        const color = pct >= 100 ? 'var(--good)' : pct >= 50 ? 'var(--hard)' : 'var(--again)';
+        const color = pct >= 100 ? 'var(--good)' : pct >= 60 ? 'var(--hard)' : 'var(--again)';
         matchBar.innerHTML = `<span class="match-bar" style="color:${color}">${bar} ${pct}%</span>`;
         matchBar.style.display = 'block';
       } else {
@@ -2817,8 +2918,11 @@ function renderWordAnalysis(container, wordData) {
   let wordGroups = [];
   if (isMultiWord) {
     wordGroups = wd?.components || [];
+  } else if (wd?.components?.length > 0) {
+    // New-format vocabulary: word_analyses stored as components (each with own characters)
+    wordGroups = wd.components;
   } else if (wd) {
-    // Single word: one group = the word itself
+    // Old-format vocabulary: characters linked directly to the entry
     wordGroups = [{
       id: wd.id,
       word_zh:       wd.word_zh    || card?.word_zh,
@@ -2930,17 +3034,172 @@ function renderSentence() {
   return `<span>${inner}</span>`;
 }
 
+// ── Pick a random 2-char CJK word that doesn't overlap with excludeWord ─────
+function pickExtraBlankWord(zh, excludeWord) {
+  const excludeIdx = zh.indexOf(excludeWord);
+  const excludeEnd = excludeIdx >= 0 ? excludeIdx + excludeWord.length : -1;
+  const isCjk = ch => ch >= '\u4E00' && ch <= '\u9FFF';
+  const candidates = [];
+  for (let i = 0; i < zh.length - 1; i++) {
+    if (excludeIdx >= 0 && i < excludeEnd && i + 2 > excludeIdx) continue;
+    if (isCjk(zh[i]) && isCjk(zh[i + 1])) candidates.push(i);
+  }
+  if (!candidates.length) return '';
+  const idx = candidates[Math.floor(Math.random() * candidates.length)];
+  return zh.slice(idx, idx + 2);
+}
+
+// ── Word bank (creating mode, non-sentence notes) ─────────────────────────
+function _buildWordBank() {
+  const zh = sentence?.sentence_zh;
+  if (!zh || !card?.word_zh) return;
+  const target = card.word_zh;
+
+  // Use jieba tokens from backend if available, otherwise fall back to char-by-char
+  let rawTokens;
+  if (sentence.tokens && sentence.tokens.length) {
+    rawTokens = sentence.tokens;
+  } else {
+    // Fallback: split by target word boundary, then individual chars
+    rawTokens = [];
+    let i = 0;
+    const tIdx = zh.indexOf(target);
+    while (i < zh.length) {
+      if (tIdx >= 0 && i === tIdx) { rawTokens.push(target); i += target.length; }
+      else { rawTokens.push(zh[i]); i++; }
+    }
+  }
+
+  // Build ordered sequence, marking which token is the target
+  const order = rawTokens.map(tok =>
+    tok === target
+      ? { type: 'target', word: target }
+      : { type: 'char', char: tok }
+  );
+  // If target wasn't found in tokens, append it
+  if (!order.some(it => it.type === 'target')) order.push({ type: 'target', word: target });
+
+  const chars    = order.filter(it => it.type === 'char');
+  const shuffled = [...chars].sort(() => Math.random() - 0.5);
+  shuffled.forEach((item, n) => { item.num = n + 1; });
+
+  wordBankOrder  = order;
+  wordBankTokens = shuffled;
+}
+
+function _parseWordBankInput(text) {
+  // Segment into tokens without requiring spaces:
+  // - CJK runs → one token (target word)
+  // - Digits: greedy 2-digit if it's a valid token number, else single digit
+  const isCjk = ch => /[\u3000-\u9FFF\uF900-\uFAFF]/.test(ch);
+  const chars = [...text.replace(/\s+/g, '')];
+  const raw = [];
+  let i = 0;
+  while (i < chars.length) {
+    if (isCjk(chars[i])) {
+      let s = chars[i++];
+      while (i < chars.length && isCjk(chars[i])) s += chars[i++];
+      raw.push(s);
+    } else if (/\d/.test(chars[i])) {
+      // Try 2-digit match first
+      if (i + 1 < chars.length && /\d/.test(chars[i + 1])) {
+        const two = parseInt(chars[i] + chars[i + 1], 10);
+        if (wordBankTokens.some(t => t.num === two)) { raw.push(String(two)); i += 2; continue; }
+      }
+      raw.push(chars[i++]);
+    } else {
+      i++; // skip spaces / punctuation typed by mistake
+    }
+  }
+  return raw.map(part => {
+    if (/^\d+$/.test(part)) {
+      const tok = wordBankTokens.find(t => t.num === parseInt(part, 10));
+      return tok ? tok.char : '?';
+    }
+    return part;
+  });
+}
+
+function updateWordBankPreview(text) {
+  const el = document.getElementById('word-bank-preview');
+  const parts = _parseWordBankInput(text);
+  el.textContent = parts.length ? parts.join('') : '…';
+
+  // Grey out tokens whose number has been typed OR whose char appears in typed CJK text
+  const isCjk = ch => /[\u3000-\u9FFF\uF900-\uFAFF]/.test(ch);
+  const usedNums = new Set();
+  const chars = [...text.replace(/\s+/g, '')];
+  const cjkText = chars.filter(isCjk).join('');
+  let i = 0;
+  while (i < chars.length) {
+    if (/\d/.test(chars[i])) {
+      if (i + 1 < chars.length && /\d/.test(chars[i + 1])) {
+        const two = parseInt(chars[i] + chars[i + 1], 10);
+        if (wordBankTokens.some(t => t.num === two)) { usedNums.add(two); i += 2; continue; }
+      }
+      usedNums.add(parseInt(chars[i], 10));
+      i++;
+    } else { i++; }
+  }
+  wordBankTokens.forEach(t => { if (cjkText.includes(t.char)) usedNums.add(t.num); });
+  document.querySelectorAll('.wb-token-btn').forEach(btn => {
+    const num = parseInt(btn.querySelector('.wb-num').textContent, 10);
+    btn.classList.toggle('wb-used', usedNums.has(num));
+  });
+}
+
+function wordBankAddToken(num) {
+  const inp = document.getElementById('word-bank-input');
+  const cur = inp.value.trim();
+  inp.value = cur ? cur + ' ' + num : String(num);
+  updateWordBankPreview(inp.value);
+  inp.focus();
+}
+
+function renderWordBankUI() {
+  _buildWordBank();
+  if (!wordBankTokens.length) return; // sentence not loaded yet
+
+  document.getElementById('word-bank-preview').textContent = '…';
+
+  const tokensEl = document.getElementById('word-bank-tokens');
+  tokensEl.innerHTML = wordBankTokens.map(tok =>
+    `<button class="wb-token-btn" onclick="wordBankAddToken(${tok.num})">`
+    + `<span class="wb-num">${tok.num}</span>`
+    + `<span class="wb-char">${tok.char}</span>`
+    + `</button>`
+  ).join('');
+
+  const inp = document.getElementById('word-bank-input');
+  inp.value = '';
+  userInput = '';
+  setTimeout(() => inp.focus(), 80);
+}
+
 // ── Cloze sentence (creating category, non-sentence notes) ──────────────────
 function renderClozeSentence() {
-  const len  = sentence ? [...card.word_zh].length : 2;
   const inputEl = `<input class="cloze-inline-input" id="cloze-inline-input" type="text"`
     + ` autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"`
     + ` style="width:5.8em"`
     + ` onkeydown="if(event.key==='Enter')revealAnswer()">`;
   if (!sentence) return `<span>${inputEl}</span>`;
   const zh = sentence.sentence_zh;
-  const blanked = zh.includes(card.word_zh) ? zh.replace(card.word_zh, inputEl) : `${zh} ${inputEl}`;
-  return `<span>${blanked}</span>`;
+
+  // Pick an extra word to blank out (chosen before any replacements)
+  clozeExtraWord = pickExtraBlankWord(zh, card.word_zh);
+
+  // Use a temporary placeholder so the two replacements don't interfere
+  let text = zh.includes(card.word_zh)
+    ? zh.replace(card.word_zh, '\x00T\x00')
+    : `${zh} \x00T\x00`;
+
+  if (clozeExtraWord && text.includes(clozeExtraWord)) {
+    const blank = `<span class="cloze-blank">${'＿'.repeat(clozeExtraWord.length)}</span>`;
+    text = text.replace(clozeExtraWord, blank);
+  }
+
+  text = text.replace('\x00T\x00', inputEl);
+  return `<span>${text}</span>`;
 }
 
 // ── Cloze answer diff ────────────────────────────────────────────────────────
@@ -3081,7 +3340,7 @@ function storyErrorUseHistory() {
   if (_storyErrorResolve) { _storyErrorResolve({ action: 'history' }); _storyErrorResolve = null; }
 }
 
-async function _resolveStory(storyData, resolvedeckId, resolveCat, topic, maxHsk) {
+async function _resolveStory(storyData, resolvedeckId, resolveCat, topic, maxHsk, grammarFocus, grammarPct) {
   if (!storyData?.error) return storyData;
   const choice = await _openStoryErrorModal(storyData);
   if (choice.action === 'skip') return null;
@@ -3096,12 +3355,12 @@ async function _resolveStory(storyData, resolvedeckId, resolveCat, topic, maxHsk
   _startStoryProgressPoll(resolvedeckId, resolveCat);
   let newData;
   try {
-    newData = await api('GET', `/api/story/${resolvedeckId}/${resolveCat}` + _storyParams(topic, maxHsk, choice.model));
+    newData = await api('GET', `/api/story/${resolvedeckId}/${resolveCat}` + _storyParams(topic, maxHsk, choice.model, grammarFocus, grammarPct));
   } catch (e) {
     newData = { error: true, reason: e.message, model: choice.model, has_history: storyData.has_history };
   }
   _stopFakeProgress(); _stopStoryProgressPoll();
-  return _resolveStory(newData, resolvedeckId, resolveCat, topic, maxHsk);
+  return _resolveStory(newData, resolvedeckId, resolveCat, topic, maxHsk, grammarFocus, grammarPct);
 }
 
 // ── Story setup modal ────────────────────────────────────────────────────────
@@ -3136,6 +3395,8 @@ function openStorySetup(sentenceCount, { isMixed = false, isUnfinished = false, 
     }
   }
   document.getElementById('setup-topic').value = '';
+  document.getElementById('setup-grammar').value = '';
+  document.getElementById('setup-grammar-pct').value = 50;
   document.getElementById('setup-hsk-slider').value = 2;
   updateHskLabel();
   document.getElementById('setup-modal-overlay').style.display = 'block';
@@ -3157,20 +3418,22 @@ function updateHskLabel() {
 }
 
 function confirmStorySetup() {
-  const topic  = document.getElementById('setup-topic').value.trim() || null;
-  const maxHsk = parseInt(document.getElementById('setup-hsk-slider').value, 10);
-  const model  = document.getElementById('setup-model').value;
+  const topic       = document.getElementById('setup-topic').value.trim() || null;
+  const maxHsk      = parseInt(document.getElementById('setup-hsk-slider').value, 10);
+  const model       = document.getElementById('setup-model').value;
+  const grammarFocus = document.getElementById('setup-grammar').value.trim() || null;
+  const grammarPct  = parseInt(document.getElementById('setup-grammar-pct').value, 10) || 50;
   _closeSetupModal();
   if (_setupIsDeckListRegen) {
-    _doRegenStoryForDeckList(_deckListRegenId, topic, maxHsk, model);
+    _doRegenStoryForDeckList(_deckListRegenId, topic, maxHsk, model, grammarFocus, grammarPct);
   } else if (_setupIsRegen) {
-    _doRegenerateStory(topic, maxHsk, model);
+    _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct);
   } else if (_setupIsUnfinished) {
-    _doStartReviewUnfinished(topic, maxHsk, model);
+    _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct);
   } else if (_setupIsMixed) {
-    _doStartReviewMixed(topic, maxHsk, model);
+    _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct);
   } else {
-    _doStartReview(topic, maxHsk, model);
+    _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct);
   }
 }
 
@@ -3556,7 +3819,7 @@ async function regenerateStory() {
   }
 }
 
-async function _doRegenerateStory(topic, maxHsk, model) {
+async function _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct) {
   setLoading('Regenerating story…', true);
   setLoadingStep(10, null, 'Sending request to AI…');
   _startFakeProgress(10, 55, 45000);
@@ -3566,7 +3829,7 @@ async function _doRegenerateStory(topic, maxHsk, model) {
     _startStoryProgressPoll(storyDeckId, storyCategory);
     let storyData;
     try {
-      storyData = await api('POST', `/api/story/${storyDeckId}/${storyCategory}/regenerate` + _storyParams(topic, maxHsk, model));
+      storyData = await api('POST', `/api/story/${storyDeckId}/${storyCategory}/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct));
     } catch (e) {
       _stopFakeProgress(); _stopStoryProgressPoll();
       _showLoadingError('AI request failed', e.message);
@@ -3577,7 +3840,7 @@ async function _doRegenerateStory(topic, maxHsk, model) {
     }
     _stopFakeProgress(); _stopStoryProgressPoll();
     setLoadingStep(65, null, 'Story received, processing…');
-    story = await _resolveStory(storyData, storyDeckId, storyCategory, topic, maxHsk);
+    story = await _resolveStory(storyData, storyDeckId, storyCategory, topic, maxHsk, grammarFocus, grammarPct);
     sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
     _updateStoryInfoRow();
 
@@ -3619,6 +3882,8 @@ async function regenerateStoryFromList(deckId) {
   const tokenWarn = document.getElementById('setup-token-warning');
   if (tokenWarn) tokenWarn.style.display = 'none';
   document.getElementById('setup-topic').value = '';
+  document.getElementById('setup-grammar').value = '';
+  document.getElementById('setup-grammar-pct').value = 50;
   document.getElementById('setup-hsk-slider').value = 2;
   updateHskLabel();
   document.getElementById('setup-modal-overlay').style.display = 'block';
@@ -3626,7 +3891,7 @@ async function regenerateStoryFromList(deckId) {
   document.getElementById('setup-topic').focus();
 }
 
-async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model) {
+async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model, grammarFocus, grammarPct) {
   setLoading('Regenerating story…', true);
   setLoadingStep(10, null, 'Sending request to AI…');
   _startFakeProgress(10, 55, 45000);
@@ -3634,7 +3899,7 @@ async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model) {
   try {
     let storyData;
     try {
-      storyData = await api('POST', `/api/story/${deckId}/unified/regenerate` + _storyParams(topic, maxHsk, model));
+      storyData = await api('POST', `/api/story/${deckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct));
     } catch (e) {
       _stopFakeProgress(); _stopStoryProgressPoll();
       _showLoadingError('AI request failed', e.message);
@@ -4847,6 +5112,9 @@ document.addEventListener('keydown', async e => {
     } else if (e.key === 'D') {
       e.preventDefault();
       if (await showConfirm('Delete this card?')) reviewCardAction('delete');
+    } else if (e.key === 'o') {
+      e.preventDefault();
+      if (deckId) openOptions(deckId);
     }
     return;
   }

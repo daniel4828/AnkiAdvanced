@@ -1,8 +1,11 @@
+import logging
 import sqlite3
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from .core import get_db, anki_today
 from .presets import get_preset_for_deck
 from .decks import get_deck
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -10,13 +13,20 @@ from .decks import get_deck
 # ---------------------------------------------------------------------------
 
 def insert_card(word_id: int, category: str, deck_id: int,
-                state: str = "new") -> int:
+                state: str = "new", due: str | None = None) -> int:
     conn = get_db()
-    cur = conn.execute(
-        """INSERT OR IGNORE INTO cards (word_id, deck_id, category, state)
-           VALUES (?, ?, ?, ?)""",
-        (word_id, deck_id, category, state),
-    )
+    if due is not None:
+        conn.execute(
+            """INSERT OR IGNORE INTO cards (word_id, deck_id, category, state, due)
+               VALUES (?, ?, ?, ?, ?)""",
+            (word_id, deck_id, category, state, due),
+        )
+    else:
+        conn.execute(
+            """INSERT OR IGNORE INTO cards (word_id, deck_id, category, state)
+               VALUES (?, ?, ?, ?)""",
+            (word_id, deck_id, category, state),
+        )
     conn.commit()
     row = conn.execute(
         "SELECT id FROM cards WHERE word_id = ? AND category = ?",
@@ -113,6 +123,7 @@ def get_card(card_id: int) -> dict | None:
                     (SELECT group_concat(name, ' › ')
                      FROM (SELECT name FROM ancestors ORDER BY depth DESC))
                   END AS deck_path,
+                  p.id AS preset_id,
                   p.learning_steps, p.graduating_interval, p.easy_interval,
                   p.relearning_steps, p.minimum_interval,
                   p.leech_threshold, p.leech_action,
@@ -124,8 +135,24 @@ def get_card(card_id: int) -> dict | None:
            WHERE c.id = ?""",
         (card_id, card_id),
     ).fetchone()
+    if not row:
+        conn.close()
+        return None
+    card = dict(row)
+    # Apply category-level scheduling overrides on top of the preset defaults
+    category = card.get("category")
+    preset_id = card.get("preset_id")
+    if category and preset_id:
+        override = conn.execute(
+            "SELECT * FROM preset_category_overrides WHERE preset_id = ? AND category = ?",
+            (preset_id, category),
+        ).fetchone()
+        if override:
+            for key, val in dict(override).items():
+                if key not in ("id", "preset_id", "category") and val is not None:
+                    card[key] = val
     conn.close()
-    return dict(row) if row else None
+    return card
 
 
 def _count_new_introduced_today(conn, deck_id: int, category: str, today: str) -> int:
@@ -248,7 +275,7 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
     now = datetime.now().isoformat(timespec="seconds")
     conn = get_db()
 
-    preset = get_preset_for_deck(deck_id)
+    preset = get_preset_for_deck(deck_id, category)
     new_limit = preset["new_per_day"]
     new_done_today = _count_new_introduced_today(conn, deck_id, category, today)
     new_remaining = max(0, new_limit - new_done_today)
@@ -356,8 +383,8 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
         cards = new_cards + lr
     elif nr_o == "reviews_first":
         cards = lr + new_cards
-    else:  # mixed: distribute new cards evenly throughout lr
-        cards = _interleave_cards(lr, new_cards)
+    else:  # mixed: learning first, then interleave new cards evenly among reviews
+        cards = learning_cards + _interleave_cards(review_cards, new_cards)
 
     # ── 5. Sibling suppression (for story word-list building) ─────────────────
     if sibling_suppression and any(resolve_bury_flags(preset)):
@@ -395,7 +422,7 @@ def count_due(deck_id: int, category: str) -> dict:
     """Returns {new, learning, review} counts for deck badge display."""
     today = anki_today().isoformat()
     now = datetime.now().isoformat(timespec="seconds")
-    preset = get_preset_for_deck(deck_id)
+    preset = get_preset_for_deck(deck_id, category)
     new_limit = preset["new_per_day"]
 
     conn = get_db()
@@ -628,8 +655,10 @@ def count_due_by_category(root_deck_id: int) -> dict:
 def get_due_cards_multi(deck_ids: list[int], category: str, *, sibling_suppression: bool = False) -> list[dict]:
     """Due cards across multiple decks, merged and priority-sorted.
 
-    Mirrors the bucket logic of get_due_cards so that new_review_order="mixed"
-    interleaves new cards into the review queue instead of appending them last.
+    Learning cards always come first (sorted by due), then review and new cards
+    are combined according to new_review_order: "mixed" interleaves new cards
+    evenly among review cards; "reviews_first" appends new cards after reviews;
+    "new_first" prepends new cards before reviews.
     """
     all_cards = []
     for deck_id in deck_ids:
@@ -650,7 +679,7 @@ def get_due_cards_multi(deck_ids: list[int], category: str, *, sibling_suppressi
         review_new = new_cards + review_cards
     elif nr_o == "reviews_first":
         review_new = review_cards + new_cards
-    else:  # mixed
+    else:  # mixed: interleave new cards evenly among review cards
         review_new = _interleave_cards(review_cards, new_cards)
 
     return learning_cards + review_new
@@ -829,6 +858,80 @@ def get_sibling_cards(card_id: int) -> list[dict]:
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+def apply_sibling_repulsion(card_id: int, new_interval: int,
+                            sibling_separation: int, sibling_factor: float = 0.2) -> None:
+    """Push sibling due dates that are too close after a review.
+
+    effective_separation = max(sibling_separation, floor(new_interval * sibling_factor))
+
+    Only applied when new_interval exceeds sibling_separation so the initial
+    staggered-introduction phase (small intervals) is unaffected.
+    Only review/new-state siblings are adjusted (learning/relearn cards use
+    datetime-based due values that must not be touched here).
+    """
+    if new_interval <= sibling_separation:
+        logger.debug(
+            "[SIBLING REPULSION]  card=#%d  interval=%dd  ≤  threshold=%dd"
+            "  →  SKIP (still in early intro phase, repulsion not active yet)",
+            card_id, new_interval, sibling_separation,
+        )
+        return
+
+    effective_sep = max(sibling_separation, int(new_interval * sibling_factor))
+    today = anki_today()
+    min_due = (today + timedelta(days=effective_sep)).isoformat()
+
+    conn = get_db()
+    card_row = conn.execute(
+        """SELECT c.category, e.word_zh
+           FROM cards c JOIN entries e ON e.id = c.word_id
+           WHERE c.id = ?""",
+        (card_id,),
+    ).fetchone()
+    if not card_row:
+        conn.close()
+        return
+
+    cat_label  = card_row["category"]
+    word_label = card_row["word_zh"] or "?"
+    factor_val = int(new_interval * sibling_factor)
+
+    logger.debug(
+        "[SIBLING REPULSION]  #%d %s 「%s」  interval=%dd"
+        "  →  effective_sep = max(%dd, ⌊%d×%.2f⌋=%dd) = %dd  →  min_due=%s",
+        card_id, cat_label, word_label, new_interval,
+        sibling_separation, new_interval, sibling_factor, factor_val,
+        effective_sep, min_due,
+    )
+
+    siblings = conn.execute(
+        """SELECT id, category, state, due FROM cards
+           WHERE word_id = (SELECT word_id FROM cards WHERE id = ?)
+             AND id != ? AND deleted_at IS NULL
+             AND state NOT IN ('suspended', 'learning', 'relearn')""",
+        (card_id, card_id),
+    ).fetchall()
+
+    pushed = []
+    for s in siblings:
+        if s["due"] < min_due:
+            conn.execute("UPDATE cards SET due = ? WHERE id = ?", (min_due, s["id"]))
+            days_pushed = (date.fromisoformat(min_due) - date.fromisoformat(s["due"])).days
+            pushed.append((s["id"], s["category"], s["due"], min_due, days_pushed))
+
+    if pushed:
+        for sid, cat, old_due, new_due, days_pushed in pushed:
+            logger.debug(
+                "  →  pushed  #%d %-10s  %s  →  %s  (+%dd)",
+                sid, cat, old_due, new_due, days_pushed,
+            )
+    else:
+        logger.debug("  →  all siblings already beyond min_due=%s, no push needed", min_due)
+
+    conn.commit()
+    conn.close()
 
 
 def get_creating_all_suspended(deck_id: int) -> bool:

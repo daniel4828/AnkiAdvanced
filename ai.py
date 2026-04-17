@@ -84,14 +84,18 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str) -> str:
 
 def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2,
                    model: str = DEFAULT_MODEL,
-                   progress_key: str | None = None) -> tuple[list[dict], str]:
+                   progress_key: str | None = None,
+                   grammar_focus: str | None = None,
+                   grammar_pct: int = 50) -> tuple[list[dict], str]:
     """
     Generate a short Mandarin story, one sentence per card.
 
-    cards:   list of dicts with keys word_id, word_zh, pinyin, definition, pos
-    topic:   optional theme/setting to guide the story
-    max_hsk: maximum HSK level for non-target background vocabulary (1-6)
-    model:   model ID to use for generation
+    cards:         list of dicts with keys word_id, word_zh, pinyin, definition, pos
+    topic:         optional theme/setting to guide the story
+    max_hsk:       maximum HSK level for non-target background vocabulary (1-6)
+    model:         model ID to use for generation
+    grammar_focus: optional grammar pattern to encourage (e.g. "把字句")
+    grammar_pct:   approximate percentage of sentences that should use the grammar (0-100)
     Returns: (sentences, prompt_text)
       sentences: list of {word_id, sentence_zh, sentence_en} — same length as cards.
       prompt_text: the full prompt string sent to the AI.
@@ -126,6 +130,15 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
     word_list = "\n".join(word_list_lines)
 
     topic_line = f"- The story should be set around this topic or theme: {topic}\n" if topic else ""
+    if grammar_focus:
+        n_sentences = max(1, round(len(cards) * grammar_pct / 100))
+        grammar_line = (
+            f"- Grammar focus: try to use the pattern 「{grammar_focus}」 in roughly "
+            f"{n_sentences} of the {len(cards)} sentences (about {grammar_pct}%). "
+            f"You decide which sentences to apply it to — it does not need to be forced.\n"
+        )
+    else:
+        grammar_line = ""
 
     prompt = f"""Write a short Mandarin Chinese story to help an HSK 4-5 learner review vocabulary.
 
@@ -138,7 +151,8 @@ Rules:
 - For all other items: write a sentence that naturally contains the target word
 - Use proper Chinese punctuation — include commas（，）where natural pauses occur
 - Use only HSK 1-{max_hsk} vocabulary for non-target words
-{topic_line}- The sentences must form a coherent narrative with the same recurring characters
+- Please keep each sentence as short and simple as possible — shorter is better, as long as all other rules are still met
+{topic_line}{grammar_line}- The sentences must form a coherent narrative with the same recurring characters
 - NEVER use ASCII double-quote characters (") inside Chinese sentences — use 「」or （）instead if quoting is needed
 - Return ONLY valid JSON, no explanation, no markdown:
 [
@@ -363,13 +377,11 @@ def _fill_translations(sentences: list[dict], progress_key: str | None = None) -
         total = len(texts)
 
         if progress_key and total > 0:
-            # Translate one by one to show per-sentence progress
-            results: list[str] = []
-            for i, text in enumerate(texts):
-                _set_progress(progress_key, phase="translating",
-                              msg=f"Translating… {i + 1}/{total}",
-                              percent=88 + round((i + 1) / total * 4))
-                results.append(_t.translate_zh_en(text))
+            _set_progress(progress_key, phase="translating",
+                          msg=f"Translating… 0/{total}", percent=88)
+            results = _t.translate_batch(texts)
+            _set_progress(progress_key, phase="translating",
+                          msg=f"Translating… {total}/{total}", percent=92)
         else:
             results = _t.translate_batch(texts)
 
