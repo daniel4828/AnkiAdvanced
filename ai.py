@@ -151,6 +151,7 @@ Rules:
 - For all other items: write a sentence that naturally contains the target word
 - Use proper Chinese punctuation — include commas（，）where natural pauses occur
 - Use only HSK 1-{max_hsk} vocabulary for non-target words
+- Please keep each sentence as short and simple as possible — shorter is better, as long as all other rules are still met
 {topic_line}{grammar_line}- The sentences must form a coherent narrative with the same recurring characters
 - NEVER use ASCII double-quote characters (") inside Chinese sentences — use 「」or （）instead if quoting is needed
 - Return ONLY valid JSON, no explanation, no markdown:
