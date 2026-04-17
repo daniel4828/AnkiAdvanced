@@ -37,14 +37,25 @@ def translate_zh_en(text: str) -> str:
 
 
 def translate_batch(texts: list[str]) -> list[str]:
-    """Translate a list of Chinese strings to English."""
+    """Translate a list of Chinese strings to English in a single HTTP request."""
     _load()
     if _translator is None:
         return texts
+    if not texts:
+        return texts
+
+    # Join with newline — Google Translate preserves \n, so one request suffices.
+    sep = "\n"
+    combined = sep.join(t.strip() or " " for t in texts)
     try:
-        from deep_translator import GoogleTranslator
-        results = GoogleTranslator(source="zh-CN", target="en").translate_batch(texts)
-        return [r or t for r, t in zip(results, texts)]
+        translated = _translator.translate(combined) or combined
+        parts = translated.split(sep)
+        # If split count matches, return aligned results; otherwise fall back.
+        if len(parts) == len(texts):
+            return [p.strip() or t for p, t in zip(parts, texts)]
+        logger.warning("translator: split count mismatch (%d vs %d), falling back", len(parts), len(texts))
     except Exception as e:
         logger.warning("translator: batch error — %s", e)
-        return [translate_zh_en(t) for t in texts]
+
+    # Fallback: translate one by one
+    return [translate_zh_en(t) for t in texts]
