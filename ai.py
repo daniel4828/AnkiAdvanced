@@ -135,12 +135,14 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
         grammar_line = (
             f"- Grammar focus: use the pattern 「{grammar_focus}」 in roughly "
             f"{n_sentences} of the {len(cards)} sentences (about {grammar_pct}%).\n"
-            f"  For each sentence, set \"grammar_used\": true if you used the pattern, false if not.\n"
+            f"  For each sentence, decide BEFORE writing: what specific grammar fragment will you use "
+            f"(e.g. 「三年以内」「十八岁以上」)? Write that fragment in the \"grammar_fragment\" field. "
+            f"If you are not using the pattern for a sentence, set \"grammar_fragment\" to \"\".\n"
         )
     else:
         grammar_line = ""
 
-    grammar_first = f"GRAMMAR FOCUS (apply this before writing sentences):\n{grammar_line}\n" if grammar_focus else ""
+    grammar_first = f"GRAMMAR FOCUS (plan each sentence before writing it):\n{grammar_line}\n" if grammar_focus else ""
 
     prompt = f"""Write a short Mandarin Chinese story to help an HSK 4-5 learner review vocabulary.
 
@@ -158,7 +160,7 @@ Rules:
 - NEVER use ASCII double-quote characters (") inside Chinese sentences — use 「」or （）instead if quoting is needed
 - Return ONLY valid JSON, no explanation, no markdown:
 [
-  {{"word_id": <integer>, "sentence_zh": "<Chinese sentence>"{', "grammar_used": <true|false>' if grammar_focus else ''}}},
+  {{"word_id": <integer>{', "grammar_fragment": "<fragment or empty string>"' if grammar_focus else ''}, "sentence_zh": "<Chinese sentence>"}},
   ...
 ]"""
 
