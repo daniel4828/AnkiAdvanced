@@ -3122,6 +3122,25 @@ function updateWordBankPreview(text) {
   const el = document.getElementById('word-bank-preview');
   const parts = _parseWordBankInput(text);
   el.textContent = parts.length ? parts.join('') : '…';
+
+  // Grey out tokens whose number has been typed
+  const usedNums = new Set();
+  const chars = [...text.replace(/\s+/g, '')];
+  let i = 0;
+  while (i < chars.length) {
+    if (/\d/.test(chars[i])) {
+      if (i + 1 < chars.length && /\d/.test(chars[i + 1])) {
+        const two = parseInt(chars[i] + chars[i + 1], 10);
+        if (wordBankTokens.some(t => t.num === two)) { usedNums.add(two); i += 2; continue; }
+      }
+      usedNums.add(parseInt(chars[i], 10));
+      i++;
+    } else { i++; }
+  }
+  document.querySelectorAll('.wb-token-btn').forEach(btn => {
+    const num = parseInt(btn.querySelector('.wb-num').textContent, 10);
+    btn.classList.toggle('wb-used', usedNums.has(num));
+  });
 }
 
 function wordBankAddToken(num) {
