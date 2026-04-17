@@ -2882,8 +2882,11 @@ function renderWordAnalysis(container, wordData) {
   let wordGroups = [];
   if (isMultiWord) {
     wordGroups = wd?.components || [];
+  } else if (wd?.components?.length > 0) {
+    // New-format vocabulary: word_analyses stored as components (each with own characters)
+    wordGroups = wd.components;
   } else if (wd) {
-    // Single word: one group = the word itself
+    // Old-format vocabulary: characters linked directly to the entry
     wordGroups = [{
       id: wd.id,
       word_zh:       wd.word_zh    || card?.word_zh,
