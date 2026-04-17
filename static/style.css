@@ -2947,6 +2947,39 @@ select.opt-input {
 .cat-order-btns button:hover:not(:disabled) { background: var(--hover); color: var(--text); }
 .cat-order-btns button:disabled { opacity: 0.3; cursor: default; }
 
+/* ── Category overrides ───────────────────────────────────────────────────── */
+.cat-override-details {
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  margin-bottom: 4px;
+  overflow: hidden;
+}
+.cat-override-summary {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--card-bg);
+  user-select: none;
+  list-style: none;
+}
+.cat-override-summary::-webkit-details-marker { display: none; }
+.cat-override-summary::before { content: '▶ '; font-size: 9px; }
+details[open] .cat-override-summary::before { content: '▼ '; }
+.cat-override-details[data-has-overrides] .cat-override-summary {
+  color: var(--text);
+}
+.cat-override-details[data-has-overrides] .cat-override-summary::after {
+  content: ' ●';
+  color: #4a9eff;
+  font-size: 9px;
+}
+.cat-override-fields {
+  padding: 4px 8px 8px;
+  background: var(--bg);
+}
+
 /* ── Clapping animation on review completion ─────────────────────────────── */
 .clap-particle {
   position: fixed;

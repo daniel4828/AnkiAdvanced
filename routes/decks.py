@@ -206,8 +206,10 @@ def delete_preset(preset_id: int):
 
 
 @router.get("/api/decks/{deck_id}/preset")
-def get_deck_preset(deck_id: int):
-    return database.get_preset_for_deck(deck_id)
+def get_deck_preset(deck_id: int, category: str | None = None):
+    preset = database.get_preset_for_deck(deck_id, category)
+    preset["category_overrides"] = database.get_category_overrides(preset["id"])
+    return preset
 
 
 @router.put("/api/decks/{deck_id}/preset")
@@ -252,3 +254,40 @@ def set_deck_preset_as_default(deck_id: int):
     deck = database.get_deck(deck_id)
     database.set_default_preset(deck["preset_id"])
     return database.get_preset(deck["preset_id"])
+
+
+# ---------------------------------------------------------------------------
+# Category-level scheduling overrides
+# ---------------------------------------------------------------------------
+
+VALID_CATEGORIES = {"listening", "reading", "creating"}
+
+
+@router.get("/api/presets/{preset_id}/categories")
+def get_preset_category_overrides(preset_id: int):
+    return database.get_category_overrides(preset_id)
+
+
+@router.get("/api/presets/{preset_id}/categories/{category}")
+def get_preset_category_override(preset_id: int, category: str):
+    if category not in VALID_CATEGORIES:
+        raise HTTPException(status_code=400, detail="Invalid category")
+    overrides = database.get_category_overrides(preset_id)
+    return overrides.get(category, {})
+
+
+@router.put("/api/presets/{preset_id}/categories/{category}")
+def set_preset_category_override(preset_id: int, category: str, fields: dict):
+    if category not in VALID_CATEGORIES:
+        raise HTTPException(status_code=400, detail="Invalid category")
+    database.set_category_override(preset_id, category, fields)
+    overrides = database.get_category_overrides(preset_id)
+    return overrides.get(category, {})
+
+
+@router.delete("/api/presets/{preset_id}/categories/{category}")
+def delete_preset_category_override(preset_id: int, category: str):
+    if category not in VALID_CATEGORIES:
+        raise HTTPException(status_code=400, detail="Invalid category")
+    database.delete_category_override(preset_id, category)
+    return {"ok": True}
