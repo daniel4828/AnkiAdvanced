@@ -2626,21 +2626,40 @@ function revealAnswer() {
     if (!isSentenceNote) {
       // ── Word bank mode: compare reconstructed sentence ────────────────────
       const correctZh = sentence?.sentence_zh || card.word_zh;
-      const userChars  = [...userInput];
-      const corrChars  = [...correctZh];
-      const matched = userChars.filter((ch, i) => ch === corrChars[i]).length;
-      const pct = corrChars.length > 0 ? Math.round((matched / corrChars.length) * 100) : 0;
 
-      // Highlight target word in user's answer
-      const userHtml = userInput
-        ? userInput.replace(card.word_zh, `<span class="ch-target">${card.word_zh}</span>`)
-        : '<span class="ch-miss">(no answer)</span>';
+      // LCS-based match percentage (handles missing/extra words gracefully)
+      const ua = [...userInput], ca = [...correctZh];
+      const dp = Array(ua.length + 1).fill(null).map(() => Array(ca.length + 1).fill(0));
+      for (let i = 1; i <= ua.length; i++)
+        for (let j = 1; j <= ca.length; j++)
+          dp[i][j] = ua[i-1] === ca[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+      const lcs = dp[ua.length][ca.length];
+      const pct = ca.length > 0 ? Math.round((lcs / ca.length) * 100) : 0;
+
+      // Per-character coloring: target word = blue, others green/red by presence
+      const corrSet = new Set(ca);
+      const hanzi = /[\u4E00-\u9FFF]/;
+      const targetIdx = userInput.indexOf(card.word_zh);
+      const targetLen = [...card.word_zh].length;
+      let userHtml;
+      if (!userInput) {
+        userHtml = '<span class="ch-miss">(no answer)</span>';
+      } else {
+        const chars = [...userInput];
+        const tStart = targetIdx >= 0 ? [...userInput.slice(0, targetIdx)].length : -1;
+        userHtml = chars.map((ch, i) => {
+          if (tStart >= 0 && i >= tStart && i < tStart + targetLen)
+            return `<span class="ch-target">${ch}</span>`;
+          if (hanzi.test(ch) && corrSet.has(ch)) return `<span class="ch-match">${ch}</span>`;
+          return `<span class="ch-miss">${ch}</span>`;
+        }).join('');
+      }
       document.getElementById('user-answer-text').innerHTML = userHtml;
 
       if (userInput) {
         const filled = Math.round(pct / 10);
         const bar = '▓'.repeat(filled) + '░'.repeat(10 - filled);
-        const color = pct >= 100 ? 'var(--good)' : pct >= 50 ? 'var(--hard)' : 'var(--again)';
+        const color = pct >= 100 ? 'var(--good)' : pct >= 60 ? 'var(--hard)' : 'var(--again)';
         matchBar.innerHTML = `<span class="match-bar" style="color:${color}">${bar} ${pct}%</span>`;
         matchBar.style.display = 'block';
       } else {
