@@ -4940,6 +4940,9 @@ document.addEventListener('keydown', async e => {
     } else if (e.key === 'D') {
       e.preventDefault();
       if (await showConfirm('Delete this card?')) reviewCardAction('delete');
+    } else if (e.key === 'o') {
+      e.preventDefault();
+      if (deckId) openOptions(deckId);
     }
     return;
   }
