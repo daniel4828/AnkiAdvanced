@@ -3086,14 +3086,35 @@ function _buildWordBank() {
 }
 
 function _parseWordBankInput(text) {
-  // Auto-split by token type: runs of digits OR runs of CJK chars (spaces optional)
-  const tokens = text.match(/\d+|[\u3000-\u9FFF\uF900-\uFAFF]+/g) || [];
-  return tokens.map(part => {
+  // Segment into tokens without requiring spaces:
+  // - CJK runs → one token (target word)
+  // - Digits: greedy 2-digit if it's a valid token number, else single digit
+  const isCjk = ch => /[\u3000-\u9FFF\uF900-\uFAFF]/.test(ch);
+  const chars = [...text.replace(/\s+/g, '')];
+  const raw = [];
+  let i = 0;
+  while (i < chars.length) {
+    if (isCjk(chars[i])) {
+      let s = chars[i++];
+      while (i < chars.length && isCjk(chars[i])) s += chars[i++];
+      raw.push(s);
+    } else if (/\d/.test(chars[i])) {
+      // Try 2-digit match first
+      if (i + 1 < chars.length && /\d/.test(chars[i + 1])) {
+        const two = parseInt(chars[i] + chars[i + 1], 10);
+        if (wordBankTokens.some(t => t.num === two)) { raw.push(String(two)); i += 2; continue; }
+      }
+      raw.push(chars[i++]);
+    } else {
+      i++; // skip spaces / punctuation typed by mistake
+    }
+  }
+  return raw.map(part => {
     if (/^\d+$/.test(part)) {
       const tok = wordBankTokens.find(t => t.num === parseInt(part, 10));
       return tok ? tok.char : '?';
     }
-    return part; // Chinese characters = target word
+    return part;
   });
 }
 
