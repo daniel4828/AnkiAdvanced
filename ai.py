@@ -86,7 +86,7 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
                    model: str = DEFAULT_MODEL,
                    progress_key: str | None = None,
                    grammar_focus: str | None = None,
-                   grammar_pct: int = 50) -> tuple[list[dict], str]:
+                   grammar_pct: int = 75) -> tuple[list[dict], str]:
     """
     Generate a short Mandarin story, one sentence per card.
 
@@ -133,16 +133,20 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
     if grammar_focus:
         n_sentences = max(1, round(len(cards) * grammar_pct / 100))
         grammar_line = (
-            f"- Grammar focus: try to use the pattern 「{grammar_focus}」 in roughly "
-            f"{n_sentences} of the {len(cards)} sentences (about {grammar_pct}%). "
-            f"You decide which sentences to apply it to — it does not need to be forced.\n"
+            f"- Grammar focus: use the pattern 「{grammar_focus}」 in roughly "
+            f"{n_sentences} of the {len(cards)} sentences (about {grammar_pct}%).\n"
+            f"  For each sentence, decide BEFORE writing: what specific grammar fragment will you use "
+            f"(e.g. 「三年以内」「十八岁以上」)? Write that fragment in the \"grammar_fragment\" field. "
+            f"If you are not using the pattern for a sentence, set \"grammar_fragment\" to \"\".\n"
         )
     else:
         grammar_line = ""
 
+    grammar_first = f"GRAMMAR FOCUS (plan each sentence before writing it):\n{grammar_line}\n" if grammar_focus else ""
+
     prompt = f"""Write a short Mandarin Chinese story to help an HSK 4-5 learner review vocabulary.
 
-Target words — write exactly one sentence per word, in this order:
+{grammar_first}Target words — write exactly one sentence per word, in this order:
 {word_list}
 
 Rules:
@@ -152,11 +156,11 @@ Rules:
 - Use proper Chinese punctuation — include commas（，）where natural pauses occur
 - Use only HSK 1-{max_hsk} vocabulary for non-target words
 - Please keep each sentence as short and simple as possible — shorter is better, as long as all other rules are still met
-{topic_line}{grammar_line}- The sentences must form a coherent narrative with the same recurring characters
+{topic_line}- The sentences must form a coherent narrative with the same recurring characters
 - NEVER use ASCII double-quote characters (") inside Chinese sentences — use 「」or （）instead if quoting is needed
 - Return ONLY valid JSON, no explanation, no markdown:
 [
-  {{"word_id": <integer>, "sentence_zh": "<Chinese sentence>"}},
+  {{"word_id": <integer>{', "grammar_fragment": "<fragment or empty string>"' if grammar_focus else ''}, "sentence_zh": "<Chinese sentence>"}},
   ...
 ]"""
 

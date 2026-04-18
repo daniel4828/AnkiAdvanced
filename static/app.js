@@ -2176,10 +2176,10 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct) {
 function _storyParams(topic, maxHsk, model, grammarFocus, grammarPct) {
   const p = new URLSearchParams();
   if (topic)                              p.set('topic', topic);
-  if (maxHsk !== 2)                       p.set('max_hsk', maxHsk);
+  if (maxHsk !== 3)                       p.set('max_hsk', maxHsk);
   if (model && model !== 'deepseek-chat') p.set('model', model);
   if (grammarFocus)                       p.set('grammar_focus', grammarFocus);
-  if (grammarFocus && grammarPct !== 50)  p.set('grammar_pct', grammarPct);
+  if (grammarFocus && grammarPct !== 75)  p.set('grammar_pct', grammarPct);
   const s = p.toString();
   return s ? '?' + s : '';
 }
@@ -3422,7 +3422,7 @@ function confirmStorySetup() {
   const maxHsk      = parseInt(document.getElementById('setup-hsk-slider').value, 10);
   const model       = document.getElementById('setup-model').value;
   const grammarFocus = document.getElementById('setup-grammar').value.trim() || null;
-  const grammarPct  = parseInt(document.getElementById('setup-grammar-pct').value, 10) || 50;
+  const grammarPct  = parseInt(document.getElementById('setup-grammar-pct').value, 10) || 75;
   _closeSetupModal();
   if (_setupIsDeckListRegen) {
     _doRegenStoryForDeckList(_deckListRegenId, topic, maxHsk, model, grammarFocus, grammarPct);
