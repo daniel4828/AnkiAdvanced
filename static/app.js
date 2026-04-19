@@ -2692,18 +2692,18 @@ function revealAnswer() {
   }
 
   // Sentence notes have no story — hide story button; show German/French translation
-  const _sentDeEl = document.getElementById('sentence-de');
   const _sentFrEl = document.getElementById('sentence-fr');
+  const _sentDeEl = document.getElementById('sentence-de');
   if (isSentenceNote) {
-    _sentDeEl.textContent = card.definition || '';
-    _sentDeEl.style.display = card.definition ? '' : 'none';
     _sentFrEl.textContent = '';
     _sentFrEl.style.display = 'none';
+    _sentDeEl.textContent = card.definition || '';
+    _sentDeEl.style.display = card.definition ? '' : 'none';
   } else {
-    _sentDeEl.textContent = sentence?.sentence_de || '';
-    _sentDeEl.style.display = sentence?.sentence_de ? '' : 'none';
     _sentFrEl.textContent = sentence?.sentence_fr || '';
     _sentFrEl.style.display = sentence?.sentence_fr ? '' : 'none';
+    _sentDeEl.textContent = sentence?.sentence_de || '';
+    _sentDeEl.style.display = sentence?.sentence_de ? '' : 'none';
   }
   const noteType = wordDetails?.note_type || card.note_type;
   const wordZhEl = document.getElementById('word-zh');
@@ -3479,8 +3479,8 @@ function openStoryModal() {
       <span class="story-num">${s.position + 1}</span>
       <div class="story-content">
         <div class="story-zh">${highlighted}</div>
-        ${s.sentence_de ? `<div class="story-de">🇩🇪 ${s.sentence_de}</div>` : ''}
         ${s.sentence_fr ? `<div class="story-fr">🇫🇷 ${s.sentence_fr}</div>` : ''}
+        ${s.sentence_de ? `<div class="story-de">🇩🇪 ${s.sentence_de}</div>` : ''}
       </div>
       <button class="story-play-btn" onclick="storyJumpTo(${s.position})" title="Play">▶</button>
     </div>`;
