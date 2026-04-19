@@ -129,6 +129,7 @@ CREATE TABLE IF NOT EXISTS entries (
     source_sentence TEXT,           -- original source-language sentence (e.g. German) for sentence notes
     grammar_notes   TEXT,           -- grammar explanation (e.g. grammar_de from YAML)
     definition_de   TEXT,           -- German translation / definition
+    definition_fr   TEXT,           -- French translation / definition
     note_type       TEXT NOT NULL DEFAULT 'vocabulary',
                         -- vocabulary | sentence | chengyu | expression | grammar
     register        TEXT CHECK(register IN ('spoken', 'written', 'both', 'spoken_colloquial', 'spoken_neutral', 'neutral', 'formal_written', 'literary'))
@@ -298,7 +299,9 @@ CREATE TABLE IF NOT EXISTS story_sentences (
     word_id     INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
     position    INTEGER NOT NULL,
     sentence_zh TEXT NOT NULL,
-    sentence_en TEXT NOT NULL,
+    sentence_en TEXT NOT NULL DEFAULT '',
+    sentence_de TEXT,
+    sentence_fr TEXT,
     UNIQUE(story_id, word_id),
     UNIQUE(story_id, position)
 );

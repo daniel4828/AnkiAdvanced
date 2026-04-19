@@ -1358,6 +1358,9 @@ function renderWordDetail(word) {
   const defDeEl = document.getElementById('wd-def-de');
   defDeEl.textContent = word.definition_de ? `🇩🇪 ${word.definition_de}` : '';
   defDeEl.style.display = word.definition_de ? 'block' : 'none';
+  const defFrEl = document.getElementById('wd-def-fr');
+  defFrEl.textContent = word.definition_fr ? `🇫🇷 ${word.definition_fr}` : '';
+  defFrEl.style.display = word.definition_fr ? 'block' : 'none';
 
   // Synonyms / antonyms section — collapsible, clickable
   const relEl = document.getElementById('wd-relations-section');
@@ -2407,14 +2410,14 @@ function loadCard(c, counts) {
               // Word bank: sentence just loaded — update hint and rebuild token bank
               const enFront = document.getElementById('sentence-en-front');
               enFront.style.display = 'flex';
-              enFront.textContent = sentence.sentence_en || '';
+              enFront.textContent = sentence.sentence_de || sentence.sentence_fr || '';
               if (document.getElementById('word-bank-wrap').style.display !== 'none') {
                 renderWordBankUI();
               }
             } else if (isCreating && isSentenceNt) {
               // Sentence notes: update English prompt
               const inp = document.getElementById('sentence-en-front');
-              if (inp.style.display !== 'none') inp.textContent = sentence.sentence_en || '';
+              if (inp.style.display !== 'none') inp.textContent = sentence.sentence_de || sentence.sentence_fr || '';
             }
           }
         }
@@ -2547,8 +2550,8 @@ function showFront() {
       userInput = '';
       setTimeout(() => inp.focus(), 80);
     } else {
-      // Word bank mode: English translation as hint; word bank renders below
-      document.getElementById('sentence-en-front').textContent = sentence?.sentence_en || '';
+      // Word bank mode: German/French translation as hint; word bank renders below
+      document.getElementById('sentence-en-front').textContent = sentence?.sentence_de || sentence?.sentence_fr || '';
       userInput = '';
       renderWordBankUI();
     }
@@ -2688,10 +2691,20 @@ function revealAnswer() {
     document.getElementById('sentence-back').innerHTML = renderSentence();
   }
 
-  // Sentence notes have no story — hide story button and English sentence from story
-  document.getElementById('sentence-en').textContent = isSentenceNote
-    ? (card.definition || '')
-    : (sentence?.sentence_en || '');
+  // Sentence notes have no story — hide story button; show German/French translation
+  const _sentDeEl = document.getElementById('sentence-de');
+  const _sentFrEl = document.getElementById('sentence-fr');
+  if (isSentenceNote) {
+    _sentDeEl.textContent = card.definition || '';
+    _sentDeEl.style.display = card.definition ? '' : 'none';
+    _sentFrEl.textContent = '';
+    _sentFrEl.style.display = 'none';
+  } else {
+    _sentDeEl.textContent = sentence?.sentence_de || '';
+    _sentDeEl.style.display = sentence?.sentence_de ? '' : 'none';
+    _sentFrEl.textContent = sentence?.sentence_fr || '';
+    _sentFrEl.style.display = sentence?.sentence_fr ? '' : 'none';
+  }
   const noteType = wordDetails?.note_type || card.note_type;
   const wordZhEl = document.getElementById('word-zh');
   const isMultiWord = noteType === 'sentence' || noteType === 'chengyu' || noteType === 'expression';
@@ -2705,8 +2718,11 @@ function revealAnswer() {
   wordPinEl.style.display = isSentenceNote ? 'none' : '';
   document.getElementById('word-def').textContent = card.definition || '';
   const wordDefDeEl = document.getElementById('word-def-de');
-  wordDefDeEl.textContent = card.definition_de || '';
+  wordDefDeEl.textContent = card.definition_de ? `🇩🇪 ${card.definition_de}` : '';
   wordDefDeEl.style.display = card.definition_de ? 'block' : 'none';
+  const wordDefFrEl = document.getElementById('word-def-fr');
+  wordDefFrEl.textContent = card.definition_fr ? `🇫🇷 ${card.definition_fr}` : '';
+  wordDefFrEl.style.display = card.definition_fr ? 'block' : 'none';
 
   const posEl = document.getElementById('word-pos');
   posEl.textContent   = card.pos || '';
@@ -3463,7 +3479,8 @@ function openStoryModal() {
       <span class="story-num">${s.position + 1}</span>
       <div class="story-content">
         <div class="story-zh">${highlighted}</div>
-        <div class="story-en">${s.sentence_en}</div>
+        ${s.sentence_de ? `<div class="story-de">🇩🇪 ${s.sentence_de}</div>` : ''}
+        ${s.sentence_fr ? `<div class="story-fr">🇫🇷 ${s.sentence_fr}</div>` : ''}
       </div>
       <button class="story-play-btn" onclick="storyJumpTo(${s.position})" title="Play">▶</button>
     </div>`;
@@ -3597,6 +3614,7 @@ function _openEditModal(wordObj) {
   document.getElementById('edit-traditional').value   = wordObj.traditional   || '';
   document.getElementById('edit-definition-zh').value = wordObj.definition_zh || '';
   document.getElementById('edit-definition-de').value = wordObj.definition_de || '';
+  document.getElementById('edit-definition-fr').value = wordObj.definition_fr || '';
   document.getElementById('edit-notes').value         = wordObj.notes         || '';
   // Show card action menu only when opened during active review
   const menuWrap = document.getElementById('edit-card-menu-wrap');
@@ -3718,6 +3736,7 @@ async function saveEditCard() {
     traditional:   document.getElementById('edit-traditional').value.trim(),
     definition_zh: document.getElementById('edit-definition-zh').value.trim(),
     definition_de: document.getElementById('edit-definition-de').value.trim(),
+    definition_fr: document.getElementById('edit-definition-fr').value.trim(),
     notes:         document.getElementById('edit-notes').value.trim(),
   };
   try {
@@ -3732,14 +3751,18 @@ async function saveEditCard() {
         definition: updated.definition, pos: updated.pos,
         traditional: updated.traditional, definition_zh: updated.definition_zh,
         definition_de: updated.definition_de,
+        definition_fr: updated.definition_fr,
         notes: updated.notes,
       });
       document.getElementById('word-zh').textContent  = updated.word_zh || '';
       document.getElementById('word-pin').textContent = updated.pinyin  || '';
       document.getElementById('word-def').textContent = updated.definition || '';
       const wordDefDeEl2 = document.getElementById('word-def-de');
-      wordDefDeEl2.textContent = updated.definition_de || '';
+      wordDefDeEl2.textContent = updated.definition_de ? `🇩🇪 ${updated.definition_de}` : '';
       wordDefDeEl2.style.display = updated.definition_de ? 'block' : 'none';
+      const wordDefFrEl2 = document.getElementById('word-def-fr');
+      wordDefFrEl2.textContent = updated.definition_fr ? `🇫🇷 ${updated.definition_fr}` : '';
+      wordDefFrEl2.style.display = updated.definition_fr ? 'block' : 'none';
       const posEl = document.getElementById('word-pos');
       posEl.textContent   = updated.pos || '';
       posEl.style.display = updated.pos ? 'inline-block' : 'none';

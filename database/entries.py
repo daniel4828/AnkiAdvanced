@@ -14,10 +14,10 @@ def insert_word(word: dict) -> int:
         """INSERT OR IGNORE INTO entries
            (word_zh, pinyin, definition, pos, hsk_level,
             traditional, definition_zh, source, note_type,
-            notes, date_yaml, source_sentence, grammar_notes, register, definition_de)
+            notes, date_yaml, source_sentence, grammar_notes, register, definition_de, definition_fr)
            VALUES (:word_zh, :pinyin, :definition, :pos, :hsk_level,
                    :traditional, :definition_zh, :source, :note_type,
-                   :notes, :date_yaml, :source_sentence, :grammar_notes, :register, :definition_de)""",
+                   :notes, :date_yaml, :source_sentence, :grammar_notes, :register, :definition_de, :definition_fr)""",
         {
             **word,
             "note_type":       word.get("note_type", "vocabulary"),
@@ -27,6 +27,7 @@ def insert_word(word: dict) -> int:
             "grammar_notes":   word.get("grammar_notes"),
             "register":        word.get("register"),
             "definition_de":   word.get("definition_de"),
+            "definition_fr":   word.get("definition_fr"),
         },
     )
     # Backfill notes / date_yaml for entries that existed before these fields were added

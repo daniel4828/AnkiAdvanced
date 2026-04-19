@@ -374,7 +374,7 @@ Return ONLY valid JSON, no explanation, no markdown:
 # ---------------------------------------------------------------------------
 
 def _fill_translations(sentences: list[dict], progress_key: str | None = None) -> None:
-    """Translate sentence_zh → sentence_en in-place using Google Translate."""
+    """Translate sentence_zh → sentence_de and sentence_fr in-place using Google Translate."""
     try:
         import translator as _t
         texts = [s.get("sentence_zh", "") for s in sentences]
@@ -383,14 +383,18 @@ def _fill_translations(sentences: list[dict], progress_key: str | None = None) -
         if progress_key and total > 0:
             _set_progress(progress_key, phase="translating",
                           msg=f"Translating… 0/{total}", percent=88)
-            results = _t.translate_batch(texts)
+            de_results = _t.translate_batch(texts, target="de")
+            fr_results = _t.translate_batch(texts, target="fr")
             _set_progress(progress_key, phase="translating",
                           msg=f"Translating… {total}/{total}", percent=92)
         else:
-            results = _t.translate_batch(texts)
+            de_results = _t.translate_batch(texts, target="de")
+            fr_results = _t.translate_batch(texts, target="fr")
 
-        for s, en in zip(sentences, results):
-            s["sentence_en"] = en
+        for s, de, fr in zip(sentences, de_results, fr_results):
+            s["sentence_de"] = de
+            s["sentence_fr"] = fr
+            s.setdefault("sentence_en", "")
     except Exception as e:
         err = str(e)
         vpn_hint = " (VPN issue?)" if any(k in err.lower() for k in ("eof", "connect", "timeout", "proxy", "ssl")) else ""
@@ -399,6 +403,8 @@ def _fill_translations(sentences: list[dict], progress_key: str | None = None) -
             _story_progress[progress_key]["translate_warn"] = f"⚠ Translation failed{vpn_hint}"
         for s in sentences:
             s.setdefault("sentence_en", "")
+            s.setdefault("sentence_de", "")
+            s.setdefault("sentence_fr", "")
 
 
 def _fallback_sentences(cards: list[dict]) -> list[dict]:
@@ -408,6 +414,8 @@ def _fallback_sentences(cards: list[dict]) -> list[dict]:
             "word_id": c["word_id"],
             "sentence_zh": f"我学了{c['word_zh']}这个词。",
             "sentence_en": "",
+            "sentence_de": "",
+            "sentence_fr": "",
         }
         for c in cards
     ]
