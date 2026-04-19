@@ -947,3 +947,5 @@ du sollst mir für chinesische wörter direkt die YAML geben!!!
 Bitte aufpassen, dass es richtiges YAML ist. Keine falschen Doppelpunkte und Anführungszeichen (vlt alles immer Escapen?)
 Haufuige Fehler
   (hier:
+
+Bei ALLLEN deutschen Anfragen erst Auswahl/Analyse erklärungen geben. Bitte auch immer mit deiner Empfehlung. Tendenziell will ich nämlich wörter für 口语 haben!
