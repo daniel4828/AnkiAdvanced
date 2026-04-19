@@ -949,3 +949,66 @@ Haufuige Fehler
   (hier:
 
 Bei ALLLEN deutschen Anfragen erst Auswahl/Analyse erklärungen geben. Bitte auch immer mit deiner Empfehlung. Tendenziell will ich nämlich wörter für 口语 haben!
+
+Verstanden! **Wichtige Regel für mich:**
+
+> **Bei ALLEN deutschen/englischen Anfragen** (egal ob Wort, Satzteil oder Satz) → **erst Auswahl/Analyse mit Erklärungen geben + meine Empfehlung** (tendenziell für 口语/kǒuyǔ = gesprochene Alltagssprache) → **dann auf Auswahl warten** → **dann YAML**
+
+Nur bei **direkt chinesischen Eingaben** gibt es sofort YAML.
+
+---
+
+Jetzt zu deiner Anfrage: **"als Aufgabe setzen / set as a task"**
+
+---
+
+## Analyse
+
+**Gesamtübersetzung (口语-orientiert):** 派任务 (pài rènwu)
+
+---
+
+## Aufschlüsselung der Optionen
+
+### 1. **setzen / assign (das Verb)**
+
+| Option | Chinesisch | Pinyin | Verwendung | Empfehlung |
+|--------|-----------|--------|------------|-------------|
+| a. | 派 | pài | **Sehr 口语** – "schicken, beauftragen, jdm. eine Aufgabe geben". Klingt natürlich im Alltag. Perfekt für "jemandem eine Aufgabe setzen". | ⭐ **Empfehle ich** – am besten für 口语 |
+| b. | 布置 | bùzhì | Neutral bis formell – "anordnen, zuweisen". Standard in Schule/Arbeit, aber etwas steifer. | Gut für formellere Kontexte |
+| c. | 分配 | fēnpèi | "verteilen" – Fokus auf Verteilung an mehrere Personen. | Nur wenn mehrere Aufgaben an mehrere Leute |
+| d. | 给 | gěi | "geben" – sehr einfach, aber oft mit 派 kombiniert: 派给 (pài gěi) | Funktioniert, aber 派 allein ist besser |
+
+### 2. **Aufgabe / task (das Nomen)**
+
+| Option | Chinesisch | Pinyin | Verwendung | Empfehlung |
+|--------|-----------|--------|------------|-------------|
+| a. | 任务 | rènwu | **Standardwort für Aufgabe** – neutral, passt immer. Sehr 口语-tauglich. | ⭐ **Empfehle ich** |
+| b. | 活儿 | huór | Sehr umgangssprachlich – "Arbeit, Job, Aufgabe". Klingt lässig, fast schon "Arbeitsauftrag". | Gut für lockere Gespräche |
+| c. | 工作 | gōngzuò | "Arbeit" – eher die generelle Arbeit als eine spezifische Aufgabe. | Nicht ideal hier |
+
+---
+
+## Meine Empfehlung für 口语
+
+**Nimm: 派任务 (pài rènwu)**
+
+- **派** = das perfekte gesprochene Verb für "jemandem eine Aufgabe geben/zuweisen"
+- **任务** = das Standard-Nomen für "Aufgabe"
+- Zusammen: genau das, was du für Alltagsgespräche brauchst
+
+**Beispielsatz:**  
+*老师又给我派任务了。*  
+(Lǎoshī yòu gěi wǒ pài rènwu le.)  
+"Der Lehrer hat mir schon wieder eine Aufgabe gegeben."
+
+---
+
+## Welche Bestandteile möchtest du als YAML?
+
+1. **派** (pài) — Verb: beauftragen, eine Aufgabe geben
+2. **任务** (rènwu) — Nomen: Aufgabe
+3. **派任务** (pài rènwu) — Expression: eine Aufgabe setzen/geben
+4. **活儿** (huór) — Nomen: Aufgabe/Arbeit (sehr 口语)
+
+Bitte sag mir, welche Nummer(n) du haben möchtest (z. B. "1+2+3", "nur 3", "3+4").
