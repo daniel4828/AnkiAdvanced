@@ -3296,7 +3296,10 @@ function _parseWordBankInput(text) {
       }
       raw.push(chars[i++]);
     } else {
-      i++; // skip spaces / punctuation typed by mistake
+      // Include punctuation that matches a tile char (e.g. ，。、)
+      const ch = chars[i];
+      if (wordBankTokens.some(t => t.char === ch)) raw.push(ch);
+      i++;
     }
   }
   // Walk wordBankOrder: pre-placed tokens auto-fill; tiles and target come from user input in order
@@ -3339,6 +3342,9 @@ function updateWordBankPreview(text) {
     } else { i++; }
   }
   wordBankTokens.forEach(t => { if (cjkText.includes(t.char)) usedNums.add(t.num); });
+  // Also mark punctuation tiles as used when their char appears in raw input
+  const rawText = text.replace(/\s+/g, '');
+  wordBankTokens.forEach(t => { if (!isCjk(t.char[0]) && rawText.includes(t.char)) usedNums.add(t.num); });
   document.querySelectorAll('.wb-token-btn').forEach(btn => {
     const num = parseInt(btn.querySelector('.wb-num').textContent, 10);
     btn.classList.toggle('wb-used', usedNums.has(num));
