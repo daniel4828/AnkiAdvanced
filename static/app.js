@@ -3260,12 +3260,15 @@ function _buildWordBank() {
   if (!order.some(it => it.type === 'target')) order.push({ type: 'target', word: target });
 
   const MAX_TILES = 5;
+  const isWord = tok => /[\u4E00-\u9FFF\u3400-\u4DBF]/.test(tok.char);
   const allChars = order.filter(it => it.type === 'char');
-  if (allChars.length > MAX_TILES) {
-    // Pick MAX_TILES random positions to be tiles; the rest become pre-placed
+  // Punctuation tokens are always pre-placed — only real words become tiles
+  allChars.forEach(c => { if (!isWord(c)) c.type = 'pre'; });
+  const wordTokens = allChars.filter(c => c.type === 'char');
+  if (wordTokens.length > MAX_TILES) {
     const tileIdxSet = new Set();
-    while (tileIdxSet.size < MAX_TILES) tileIdxSet.add(Math.floor(Math.random() * allChars.length));
-    allChars.forEach((c, i) => { if (!tileIdxSet.has(i)) c.type = 'pre'; });
+    while (tileIdxSet.size < MAX_TILES) tileIdxSet.add(Math.floor(Math.random() * wordTokens.length));
+    wordTokens.forEach((c, i) => { if (!tileIdxSet.has(i)) c.type = 'pre'; });
   }
   const tileChars = order.filter(it => it.type === 'char');
   const shuffled  = [...tileChars].sort(() => Math.random() - 0.5);
@@ -3365,13 +3368,13 @@ function renderWordBankUI() {
 
   document.getElementById('word-bank-preview').textContent = '…';
 
-  // Sentence skeleton: pre-placed tokens shown, numbered blanks for tiles, [?] for target
+  // Sentence skeleton: pre-placed tokens shown as text, blanks for tiles and target
   const skelEl = document.getElementById('word-bank-skeleton');
   if (skelEl) {
     skelEl.innerHTML = wordBankOrder.map(tok => {
-      if (tok.type === 'pre')    return `<span class="wb-skel-pre">${tok.char}</span>`;
-      if (tok.type === 'char')   return `<span class="wb-skel-blank">[${tok.num}]</span>`;
-      return `<span class="wb-skel-target">[?]</span>`;
+      if (tok.type === 'pre')  return `<span class="wb-skel-pre">${tok.char}</span>`;
+      if (tok.type === 'char') return `<span class="wb-skel-blank">＿</span>`;
+      return `<span class="wb-skel-target">＿</span>`;
     }).join('');
   }
 

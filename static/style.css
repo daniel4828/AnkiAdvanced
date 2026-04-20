@@ -1241,12 +1241,12 @@ main.browse-open {
 .wb-skel-blank {
   color: var(--primary);
   font-weight: 700;
-  padding: 0 2px;
+  letter-spacing: -2px;
 }
 .wb-skel-target {
   color: var(--accent, #e67e22);
   font-weight: 700;
-  padding: 0 2px;
+  letter-spacing: -2px;
 }
 .word-bank-tokens {
   display: flex;
