@@ -1228,6 +1228,26 @@ main.browse-open {
   background: var(--bg);
   letter-spacing: 1px;
 }
+.word-bank-skeleton {
+  font-size: 18px;
+  line-height: 1.8;
+  color: var(--text);
+  padding: 6px 0;
+  flex-wrap: wrap;
+  display: flex;
+  gap: 2px;
+}
+.wb-skel-pre { color: var(--muted); }
+.wb-skel-blank {
+  color: var(--primary);
+  font-weight: 700;
+  padding: 0 2px;
+}
+.wb-skel-target {
+  color: var(--accent, #e67e22);
+  font-weight: 700;
+  padding: 0 2px;
+}
 .word-bank-tokens {
   display: flex;
   flex-wrap: wrap;

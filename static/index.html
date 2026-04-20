@@ -121,10 +121,11 @@
         <div id="word-bank-wrap" style="display:none">
           <div class="input-label">Reconstruct the sentence</div>
           <div class="word-bank-preview" id="word-bank-preview">…</div>
+          <div class="word-bank-skeleton" id="word-bank-skeleton"></div>
           <div class="word-bank-tokens" id="word-bank-tokens"></div>
           <input type="text" id="word-bank-input"
                  autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-                 placeholder="Type numbers + target word (e.g. 3 1 学校 2 4)"
+                 placeholder="Type numbers + target word in order (e.g. 1 2 努力 3)"
                  oninput="updateWordBankPreview(this.value)"
                  onkeydown="if(event.key==='Enter')revealAnswer()">
         </div>

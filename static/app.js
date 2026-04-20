@@ -3259,8 +3259,16 @@ function _buildWordBank() {
   // If target wasn't found in tokens, append it
   if (!order.some(it => it.type === 'target')) order.push({ type: 'target', word: target });
 
-  const chars    = order.filter(it => it.type === 'char');
-  const shuffled = [...chars].sort(() => Math.random() - 0.5);
+  const MAX_TILES = 5;
+  const allChars = order.filter(it => it.type === 'char');
+  if (allChars.length > MAX_TILES) {
+    // Pick MAX_TILES random positions to be tiles; the rest become pre-placed
+    const tileIdxSet = new Set();
+    while (tileIdxSet.size < MAX_TILES) tileIdxSet.add(Math.floor(Math.random() * allChars.length));
+    allChars.forEach((c, i) => { if (!tileIdxSet.has(i)) c.type = 'pre'; });
+  }
+  const tileChars = order.filter(it => it.type === 'char');
+  const shuffled  = [...tileChars].sort(() => Math.random() - 0.5);
   shuffled.forEach((item, n) => { item.num = n + 1; });
 
   wordBankOrder  = order;
@@ -3291,13 +3299,22 @@ function _parseWordBankInput(text) {
       i++; // skip spaces / punctuation typed by mistake
     }
   }
-  return raw.map(part => {
-    if (/^\d+$/.test(part)) {
-      const tok = wordBankTokens.find(t => t.num === parseInt(part, 10));
-      return tok ? tok.char : '?';
+  // Walk wordBankOrder: pre-placed tokens auto-fill; tiles and target come from user input in order
+  let rawIdx = 0;
+  const result = [];
+  for (const tok of wordBankOrder) {
+    if (tok.type === 'pre') { result.push(tok.char); continue; }
+    if (rawIdx >= raw.length) break; // user hasn't typed this far yet
+    const part = raw[rawIdx++];
+    if (tok.type === 'char') {
+      const n = parseInt(part, 10);
+      const tile = isNaN(n) ? null : wordBankTokens.find(t => t.num === n);
+      result.push(tile ? tile.char : part);
+    } else {
+      result.push(part); // target: pass CJK through
     }
-    return part;
-  });
+  }
+  return result;
 }
 
 function updateWordBankPreview(text) {
@@ -3342,9 +3359,19 @@ function renderWordBankUI() {
 
   document.getElementById('word-bank-preview').textContent = '…';
 
+  // Sentence skeleton: pre-placed tokens shown, numbered blanks for tiles, [?] for target
+  const skelEl = document.getElementById('word-bank-skeleton');
+  if (skelEl) {
+    skelEl.innerHTML = wordBankOrder.map(tok => {
+      if (tok.type === 'pre')    return `<span class="wb-skel-pre">${tok.char}</span>`;
+      if (tok.type === 'char')   return `<span class="wb-skel-blank">[${tok.num}]</span>`;
+      return `<span class="wb-skel-target">[?]</span>`;
+    }).join('');
+  }
+
   const tokensEl = document.getElementById('word-bank-tokens');
   tokensEl.innerHTML = wordBankTokens.map(tok =>
-    `<button class="wb-token-btn" onclick="wordBankAddToken(${tok.num})">`
+    `<button class="wb-token-btn" onmousedown="event.preventDefault()" onclick="wordBankAddToken(${tok.num})">`
     + `<span class="wb-num">${tok.num}</span>`
     + `<span class="wb-char">${tok.char}</span>`
     + `</button>`
