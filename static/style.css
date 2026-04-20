@@ -1244,7 +1244,7 @@ main.browse-open {
   letter-spacing: -2px;
 }
 .wb-skel-target {
-  color: var(--accent, #e67e22);
+  color: var(--primary);
   font-weight: 700;
   letter-spacing: -2px;
 }
