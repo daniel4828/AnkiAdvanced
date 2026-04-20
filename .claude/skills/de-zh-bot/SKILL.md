@@ -771,3 +771,244 @@ Before outputting, verify:
 - [ ] For sentence: `word_analyses` covers the 2–4 most important vocabulary items
 - [ ] No `meaning` field uses double quotes — colons avoided or single-quoted
 - [ ] `synonyms` / `antonyms` included where they add clear value (always for chengyu, optional for others)
+
+
+
+
+Hier ist der **vollständige Prompt** für dieses Verhalten — jetzt mit **Sätzen** integriert:
+
+---
+
+## Verhalten bei deutschen/englischen Eingaben (Wörter, Satzteile, Sätze)
+
+Wenn der Benutzer eine **deutsche oder englische Eingabe** macht, **generiere nicht automatisch YAML**. Stattdessen:
+
+### Fall 1: Eingabe ist ein **vollständiger Satz**
+
+1. **Übersetze den gesamten Satz ins Chinesische** — zeige: Original → Chinesisch (Hanzi) → Pinyin
+
+2. **Gib eine kurze Wort-für-Wort-Aufschlüsselung** (2–5 wichtige Bestandteile mit Bedeutung)
+
+3. **Liste die Bestandteile nummeriert auf** (1., 2., 3., ...) + optional die volle Satzoption
+
+4. **Frage den Benutzer**, welche Bestandteile er als YAML-Einträge haben möchte (z. B. "1+3", "nur 2", "1+2+4")
+
+5. **Generiere für jeden ausgewählten Bestandteil einen eigenen YAML-Eintrag** (`type: word` für einzelne Wörter, `type: expression` für kurze Phrasen, `type: sentence` für den vollen Satz)
+
+---
+
+### Fall 2: Eingabe ist ein **Satzteil / eine Kombination aus zwei oder mehr bedeutungstragenden Bestandteilen** (z. B. Adjektiv + Nomen, Verb + Nomen)
+
+1. **Gib die vollständige Übersetzung des gesamten Ausdrucks** in Hanzi + Pinyin
+
+2. **Liste die einzelnen Bestandteile nummeriert auf** (1., 2., 3., ...)
+   - Für jeden Bestandteil: deutsches/englisches Original + **1–2 chinesische Übersetzungsoptionen** (a., b., ...)
+   - Jede Option erhält eine kurze Erklärung (Verwendung, Kontext, Register)
+
+3. **Frage den Benutzer**, welche Bestandteile er als separate YAML-Einträge haben möchte (z. B. "1a + 2a", "nur 2a", "1b + 2a + 3a")
+
+4. **Generiere für jeden ausgewählten Bestandteil einen eigenen YAML-Eintrag** (`type: word`)
+
+---
+
+### Fall 3: Eingabe ist ein **einzelnes Wort** (Verb, Nomen, Adjektiv)
+
+1. **Wenn eindeutig** (nur eine sinnvolle Übersetzung im gegebenen Kontext) → direkt YAML generieren
+
+2. **Wenn mehrdeutig** (mehrere unterschiedliche Übersetzungen mit verschiedenem Register/Kontext) → nummerierte Liste der Optionen mit:
+   - Chinesisch + Pinyin
+   - Verwendung (1–2 Sätze)
+   - Beispielsatz (Deutsch → Chinesisch)
+   - Dann auf Auswahl warten → YAML generieren
+
+---
+
+### Fall 4: Eingabe ist **direkt Chinesisch**
+
+→ Sofort YAML generieren (keine Auswahl, keine Übersetzung)
+
+---
+
+## Beispiele
+
+### Beispiel 1: Satz — "Wann hast du nächste Woche Zeit?"
+
+**Antwort:**
+
+**Wann hast du nächste Woche Zeit?**
+
+Chinesische Übersetzung: **你下周什么时候有空？**
+Pinyin: *Nǐ xià zhōu shénme shíhou yǒu kòng?*
+
+
+Welche Bestandteile möchtest du als YAML?
+1. 下周 — nächste Woche
+2. 什么时候 — wann
+3. 有空 — Zeit haben
+4. 你下周什么时候有空？ — vollständiger Satz
+
+---
+
+### Beispiel 2: Satzteil — "potenzielle zu interviewende"
+
+**Antwort:**
+
+**Gesamtübersetzung:** 潜在的受访者 (qiánzài de shòufǎngzhě)
+
+**Aufschlüsselung:**
+
+1. **potenziell**
+   - a. 潜在 (qiánzài) — formell, geschrieben (latent, verborgen vorhanden)
+   - b. 可能 (kěnéng) — neutral, alltag (möglich, eventuell)
+
+2. **zu interviewende (Person)**
+   - a. 受访者 (shòufǎngzhě) — formell, allgemein für Befragte (Umfragen, Studien)
+   - b. 面试者 (miànshìzhě) — formell, für Bewerbungsgespräche
+   - c. 访谈对象 (fǎngtán duìxiàng) — formell, für journalistische Interviews
+
+Welche Bestandteile möchtest du als YAML? (z. B. "1a + 2a", "nur 2a", "1b + 2c")
+
+---
+
+### Beispiel 3: Einzelnes Wort (mehrdeutig) — "formulieren"
+
+**Antwort:**
+
+1. 措辞 (cuòcí)
+   - Verwendung: Konkrete Wortwahl, oft mit Bewertung (präzise, höflich, ungeschickt). Formelle Kontexte.
+   - Beispielsatz: Diese Formulierung ist unhöflich. → 这种措辞不礼貌。
+
+2. 表述 (biǎoshù)
+   - Verwendung: Allgemein für das Formulieren einer Idee oder Meinung. Neutral, gesprochen/geschrieben.
+   - Beispielsatz: Kannst du das anders formulieren? → 你能换一种表述吗？
+
+3. 说法 (shuōfǎ)
+   - Verwendung: Umgangssprachlich. Auch "Behauptung" oder "Version einer Geschichte".
+   - Beispielsatz: Das ist eine andere Formulierung. → 这是另一种说法。
+
+Welche Variante möchtest du?
+
+---
+
+### Beispiel 4: Einzelnes Wort (eindeutig) — "生态"
+
+**Antwort:** (sofort YAML, ohne Auswahl)
+
+```yaml
+- type: word
+  ...
+```
+
+---
+
+### Beispiel 5: Satzteil mit drei Bestandteilen — "schnell eine Entscheidung treffen"
+
+**Antwort:**
+
+**Gesamtübersetzung:** 快速做决定 (kuàisù zuò juédìng)
+
+**Aufschlüsselung:**
+
+1. **schnell**
+   - a. 快速 (kuàisù) — neutral, alltag
+   - b. 迅速 (xùnsù) — formeller, schneller
+
+2. **eine Entscheidung**
+   - a. 决定 (juédìng) — Standardwort für Entscheidung
+
+3. **treffen**
+   - a. 做 (zuò) — neutral (machen, treffen)
+   - b. 作出 (zuòchū) — formeller (treffen, fällen)
+
+Welche Bestandteile möchtest du als YAML? (z. B. "1a + 2a + 3a", "nur 2a", "1b + 3b")
+
+---
+
+## Wichtige Regeln
+
+| Eingabetyp | Zuerst Übersetzung? | Dann Aufschlüsselung? | Dann Auswahl? | Dann YAML pro Bestandteil? |
+|------------|---------------------|----------------------|---------------|---------------------------|
+| Ganzer Satz | ✓ | ✓ (Wort-für-Wort) | ✓ | ✓ |
+| Satzteil (2+ Bestandteile) | ✓ (Gesamt) | ✓ (nummeriert) | ✓ | ✓ |
+| Einzelnes Wort (mehrdeutig) | ✗ | ✓ (Optionen) | ✓ | ✓ (ein Eintrag) |
+| Einzelnes Wort (eindeutig) | ✗ | ✗ | ✗ | ✓ (sofort) |
+| Direkt Chinesisch | ✗ | ✗ | ✗ | ✓ (sofort) |
+
+---
+
+**Merke:** Bei **jedem** deutschen/englischen Input, der nicht offensichtlich eindeutig und ein einzelnes Wort ist: **erst auflisten, auf Auswahl warten, dann YAML generieren** — niemals direkt YAML ausgeben!
+
+
+only german for sentences
+also french for just the single word translation
+
+du sollst mir für chinesische wörter direkt die YAML geben!!!
+
+Bitte aufpassen, dass es richtiges YAML ist. Keine falschen Doppelpunkte und Anführungszeichen (vlt alles immer Escapen?)
+Haufuige Fehler
+  (hier:
+
+Bei ALLLEN deutschen Anfragen erst Auswahl/Analyse erklärungen geben. Bitte auch immer mit deiner Empfehlung. Tendenziell will ich nämlich wörter für 口语 haben!
+
+Verstanden! **Wichtige Regel für mich:**
+
+> **Bei ALLEN deutschen/englischen Anfragen** (egal ob Wort, Satzteil oder Satz) → **erst Auswahl/Analyse mit Erklärungen geben + meine Empfehlung** (tendenziell für 口语/kǒuyǔ = gesprochene Alltagssprache) → **dann auf Auswahl warten** → **dann YAML**
+
+Nur bei **direkt chinesischen Eingaben** gibt es sofort YAML.
+
+---
+
+Jetzt zu deiner Anfrage: **"als Aufgabe setzen / set as a task"**
+
+---
+
+## Analyse
+
+**Gesamtübersetzung (口语-orientiert):** 派任务 (pài rènwu)
+
+---
+
+## Aufschlüsselung der Optionen
+
+### 1. **setzen / assign (das Verb)**
+
+| Option | Chinesisch | Pinyin | Verwendung | Empfehlung |
+|--------|-----------|--------|------------|-------------|
+| a. | 派 | pài | **Sehr 口语** – "schicken, beauftragen, jdm. eine Aufgabe geben". Klingt natürlich im Alltag. Perfekt für "jemandem eine Aufgabe setzen". | ⭐ **Empfehle ich** – am besten für 口语 |
+| b. | 布置 | bùzhì | Neutral bis formell – "anordnen, zuweisen". Standard in Schule/Arbeit, aber etwas steifer. | Gut für formellere Kontexte |
+| c. | 分配 | fēnpèi | "verteilen" – Fokus auf Verteilung an mehrere Personen. | Nur wenn mehrere Aufgaben an mehrere Leute |
+| d. | 给 | gěi | "geben" – sehr einfach, aber oft mit 派 kombiniert: 派给 (pài gěi) | Funktioniert, aber 派 allein ist besser |
+
+### 2. **Aufgabe / task (das Nomen)**
+
+| Option | Chinesisch | Pinyin | Verwendung | Empfehlung |
+|--------|-----------|--------|------------|-------------|
+| a. | 任务 | rènwu | **Standardwort für Aufgabe** – neutral, passt immer. Sehr 口语-tauglich. | ⭐ **Empfehle ich** |
+| b. | 活儿 | huór | Sehr umgangssprachlich – "Arbeit, Job, Aufgabe". Klingt lässig, fast schon "Arbeitsauftrag". | Gut für lockere Gespräche |
+| c. | 工作 | gōngzuò | "Arbeit" – eher die generelle Arbeit als eine spezifische Aufgabe. | Nicht ideal hier |
+
+---
+
+## Meine Empfehlung für 口语
+
+**Nimm: 派任务 (pài rènwu)**
+
+- **派** = das perfekte gesprochene Verb für "jemandem eine Aufgabe geben/zuweisen"
+- **任务** = das Standard-Nomen für "Aufgabe"
+- Zusammen: genau das, was du für Alltagsgespräche brauchst
+
+**Beispielsatz:**  
+*老师又给我派任务了。*  
+(Lǎoshī yòu gěi wǒ pài rènwu le.)  
+"Der Lehrer hat mir schon wieder eine Aufgabe gegeben."
+
+---
+
+## Welche Bestandteile möchtest du als YAML?
+
+1. **派** (pài) — Verb: beauftragen, eine Aufgabe geben
+2. **任务** (rènwu) — Nomen: Aufgabe
+3. **派任务** (pài rènwu) — Expression: eine Aufgabe setzen/geben
+4. **活儿** (huór) — Nomen: Aufgabe/Arbeit (sehr 口语)
+
+Bitte sag mir, welche Nummer(n) du haben möchtest (z. B. "1+2+3", "nur 3", "3+4").

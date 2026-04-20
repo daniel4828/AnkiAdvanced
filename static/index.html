@@ -155,8 +155,9 @@
 
         <!-- 2. Pinyin row (blurred by default, p to reveal) -->
         <div class="pinyin-row" id="pinyin-row"></div>
-        <!-- English translation of the sentence -->
-        <div class="sentence-en" id="sentence-en"></div>
+        <!-- French and German translation of the sentence -->
+        <div class="sentence-fr" id="sentence-fr"></div>
+        <div class="sentence-de" id="sentence-de"></div>
 
         <!-- 3. Rating buttons (immediately visible after flip) -->
         <div class="rating-row" id="rating-row">
@@ -172,6 +173,7 @@
           <div class="word-pin" id="word-pin"></div>
           <div class="word-pos-row"><span class="word-pos" id="word-pos"></span><span class="word-register" id="word-register" style="display:none"></span></div>
           <div class="word-def" id="word-def"></div>
+          <div class="word-def-fr" id="word-def-fr" style="display:none"></div>
           <div class="word-def-de" id="word-def-de" style="display:none"></div>
           <!-- Notes — populated by JS, hidden when empty -->
           <div id="notes-section"></div>
@@ -266,6 +268,7 @@
         <span class="wd-def" id="wd-def"></span>
       </div>
       <div class="wd-def-zh" id="wd-def-zh" style="display:none"></div>
+      <div class="wd-def-fr" id="wd-def-fr" style="display:none"></div>
       <div class="wd-def-de" id="wd-def-de" style="display:none"></div>
       <button class="wd-edit-btn" id="wd-edit-btn">Edit</button>
       <button class="wd-back-review-btn" id="wd-back-review-btn" style="display:none" onclick="goBack()">← Review</button>
@@ -487,6 +490,7 @@
     <label class="edit-label">Traditional<input class="edit-input" id="edit-traditional" type="text" lang="zh"></label>
     <label class="edit-label">Chinese definition<input class="edit-input" id="edit-definition-zh" type="text" lang="zh"></label>
     <label class="edit-label">German definition<input class="edit-input" id="edit-definition-de" type="text"></label>
+    <label class="edit-label">French definition<input class="edit-input" id="edit-definition-fr" type="text"></label>
     <label class="edit-label">Notes<textarea class="edit-input edit-notes" id="edit-notes" rows="3"></textarea></label>
   </div>
   <div class="edit-card-actions">

@@ -305,6 +305,7 @@ def _build_word_dict(entry: dict, source: str, note_type: str = "vocabulary") ->
         "pinyin":          entry.get("pinyin"),
         "definition":      entry.get("english"),
         "definition_de":   entry.get("german"),
+        "definition_fr":   entry.get("french"),
         "pos":             entry.get("pos"),
         "hsk_level":       _hsk_to_int(str(entry.get("hsk", ""))),
         "traditional":     entry.get("traditional"),

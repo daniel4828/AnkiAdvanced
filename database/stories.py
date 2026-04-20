@@ -54,9 +54,10 @@ def create_story(date_str: str, category: str, deck_id: int,
     story_id = cur.lastrowid
     for s in sentences:
         conn.execute(
-            """INSERT INTO story_sentences (story_id, word_id, position, sentence_zh, sentence_en)
-               VALUES (?, ?, ?, ?, ?)""",
-            (story_id, s["word_id"], s["position"], s["sentence_zh"], s["sentence_en"]),
+            """INSERT INTO story_sentences (story_id, word_id, position, sentence_zh, sentence_en, sentence_de, sentence_fr)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (story_id, s["word_id"], s["position"], s["sentence_zh"],
+             s.get("sentence_en", ""), s.get("sentence_de"), s.get("sentence_fr")),
         )
     conn.commit()
     conn.close()

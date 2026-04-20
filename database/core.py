@@ -115,6 +115,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE entries ADD COLUMN date_yaml TEXT")
     if "definition_de" not in cols:
         conn.execute("ALTER TABLE entries ADD COLUMN definition_de TEXT")
+    if "definition_fr" not in cols:
+        conn.execute("ALTER TABLE entries ADD COLUMN definition_fr TEXT")
     if "source_sentence" not in cols:
         conn.execute("ALTER TABLE entries ADD COLUMN source_sentence TEXT")
     if "grammar_notes" not in cols:
@@ -166,6 +168,11 @@ def init_db() -> None:
     if "topic" not in story_cols:
         conn.execute("ALTER TABLE stories ADD COLUMN topic TEXT")
     _migrate_stories_category(conn)
+    ss_cols = {r["name"] for r in conn.execute("PRAGMA table_info(story_sentences)").fetchall()}
+    if "sentence_de" not in ss_cols:
+        conn.execute("ALTER TABLE story_sentences ADD COLUMN sentence_de TEXT")
+    if "sentence_fr" not in ss_cols:
+        conn.execute("ALTER TABLE story_sentences ADD COLUMN sentence_fr TEXT")
 
     deck_cols = {r["name"] for r in conn.execute("PRAGMA table_info(decks)").fetchall()}
     if "deleted_at" not in deck_cols:

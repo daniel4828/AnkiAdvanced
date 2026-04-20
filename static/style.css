@@ -586,6 +586,7 @@ main.browse-open {
 .word-pos-row { text-align: center; margin: 2px 0; }
 .word-def  { font-size: 16px; color: var(--text); text-align: center; margin-bottom: 4px; }
 .word-def-de { font-size: 14px; color: var(--muted); text-align: center; margin-bottom: 4px; }
+.word-def-fr { font-size: 14px; color: var(--muted); text-align: center; margin-bottom: 4px; }
 
 /* ── Edit card ───────────────────────────────────────── */
 .edit-card-btn {
@@ -867,7 +868,8 @@ main.browse-open {
 .story-sentence-current .story-num { color: var(--primary); }
 .story-content { flex: 1; }
 .story-zh  { font-size: 18px; line-height: 1.5; }
-.story-en  { font-size: 13px; color: var(--muted); margin-top: 3px; }
+.story-de  { font-size: 13px; color: var(--muted); margin-top: 3px; }
+.story-fr  { font-size: 13px; color: var(--muted); margin-top: 2px; }
 .story-target { color: var(--primary); font-weight: 700; }
 .story-controls {
   display: flex;
@@ -957,7 +959,8 @@ main.browse-open {
 .py-zh  { font-size: 18px; }
 .py-target .py-syl { color: var(--primary); font-weight: 700; }
 .py-target .py-zh  { color: var(--primary); font-weight: 700; }
-.sentence-en {
+.sentence-de,
+.sentence-fr {
   flex: 1;
   text-align: center;
   font-size: 14px;
@@ -1989,6 +1992,7 @@ main.browse-open {
 .wd-def    { font-size: 16px; color: var(--text); }
 .wd-def-zh { font-size: 14px; color: var(--muted); margin-top: 4px; }
 .wd-def-de { font-size: 14px; color: var(--muted); margin-top: 2px; }
+.wd-def-fr { font-size: 14px; color: var(--muted); margin-top: 2px; }
 .word-register {
   display: inline-block;
   font-size: 11px;
