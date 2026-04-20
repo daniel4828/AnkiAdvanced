@@ -3324,30 +3324,50 @@ function _parseWordBankInput(text) {
 }
 
 function updateWordBankPreview(text) {
-  const el = document.getElementById('word-bank-preview');
-  const parts = _parseWordBankInput(text);
-  el.textContent = parts.length ? parts.join('') : '…';
-
-  // Grey out tokens whose number has been typed OR whose char appears in typed CJK text
+  // Compute slot values by walking wordBankOrder with parsed user tokens
   const isCjk = ch => /[\u3000-\u9FFF\uF900-\uFAFF]/.test(ch);
-  const usedNums = new Set();
   const chars = [...text.replace(/\s+/g, '')];
-  const cjkText = chars.filter(isCjk).join('');
+  const raw = [];
   let i = 0;
   while (i < chars.length) {
-    if (/\d/.test(chars[i])) {
+    if (isCjk(chars[i])) {
+      let s = chars[i++];
+      while (i < chars.length && isCjk(chars[i])) s += chars[i++];
+      raw.push(s);
+    } else if (/\d/.test(chars[i])) {
       if (i + 1 < chars.length && /\d/.test(chars[i + 1])) {
         const two = parseInt(chars[i] + chars[i + 1], 10);
-        if (wordBankTokens.some(t => t.num === two)) { usedNums.add(two); i += 2; continue; }
+        if (wordBankTokens.some(t => t.num === two)) { raw.push(String(two)); i += 2; continue; }
       }
-      usedNums.add(parseInt(chars[i], 10));
+      raw.push(chars[i++]);
+    } else {
+      const ch = chars[i];
+      if (wordBankTokens.some(t => t.char === ch)) raw.push(ch);
       i++;
-    } else { i++; }
+    }
   }
-  wordBankTokens.forEach(t => { if (cjkText.includes(t.char)) usedNums.add(t.num); });
-  // Also mark punctuation tiles as used when their char appears in raw input
-  const rawText = text.replace(/\s+/g, '');
-  wordBankTokens.forEach(t => { if (!isCjk(t.char[0]) && rawText.includes(t.char)) usedNums.add(t.num); });
+
+  // Walk wordBankOrder to assign values to numbered slots
+  let rawIdx = 0, slotIdx = 0;
+  const usedNums = new Set();
+  document.querySelectorAll('.wb-skel-blank[data-slot]').forEach(span => span.textContent = '＿');
+
+  for (const tok of wordBankOrder) {
+    if (tok.type === 'pre') continue;
+    const span = document.querySelector(`.wb-skel-blank[data-slot="${slotIdx++}"]`);
+    if (rawIdx >= raw.length) continue;
+    const part = raw[rawIdx++];
+    if (tok.type === 'char') {
+      const n = parseInt(part, 10);
+      const tile = isNaN(n) ? null : wordBankTokens.find(t => t.num === n);
+      if (tile) { usedNums.add(tile.num); if (span) span.textContent = tile.char; }
+      else if (span) span.textContent = part;
+    } else {
+      if (span) span.textContent = part; // target word
+    }
+  }
+
+  // Grey out used tile buttons
   document.querySelectorAll('.wb-token-btn').forEach(btn => {
     const num = parseInt(btn.querySelector('.wb-num').textContent, 10);
     btn.classList.toggle('wb-used', usedNums.has(num));
@@ -3366,15 +3386,13 @@ function renderWordBankUI() {
   _buildWordBank();
   if (!wordBankTokens.length) return; // sentence not loaded yet
 
-  document.getElementById('word-bank-preview').textContent = '…';
-
-  // Sentence skeleton: pre-placed tokens shown as text, blanks for tiles and target
+  // Sentence skeleton: pre-placed tokens shown as text, blanks for tiles/target (data-slot for live update)
   const skelEl = document.getElementById('word-bank-skeleton');
   if (skelEl) {
+    let slotIdx = 0;
     skelEl.innerHTML = wordBankOrder.map(tok => {
-      if (tok.type === 'pre')  return `<span class="wb-skel-pre">${tok.char}</span>`;
-      if (tok.type === 'char') return `<span class="wb-skel-blank">＿</span>`;
-      return `<span class="wb-skel-target">＿</span>`;
+      if (tok.type === 'pre') return `<span class="wb-skel-pre">${tok.char}</span>`;
+      return `<span class="wb-skel-blank" data-slot="${slotIdx++}">＿</span>`;
     }).join('');
   }
 

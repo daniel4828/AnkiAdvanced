@@ -1217,19 +1217,8 @@ main.browse-open {
   flex-direction: column;
   gap: 10px;
 }
-.word-bank-preview {
-  min-height: 52px;
-  padding: 10px 14px;
-  border: 2px dashed var(--border);
-  border-radius: 10px;
-  font-size: 24px;
-  color: var(--text);
-  line-height: 1.4;
-  background: var(--bg);
-  letter-spacing: 1px;
-}
 .word-bank-skeleton {
-  font-size: 18px;
+  font-size: 22px;
   line-height: 1.8;
   color: var(--text);
   padding: 6px 0;
