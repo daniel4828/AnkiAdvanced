@@ -86,16 +86,18 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
                    model: str = DEFAULT_MODEL,
                    progress_key: str | None = None,
                    grammar_focus: str | None = None,
-                   grammar_pct: int = 75) -> tuple[list[dict], str]:
+                   grammar_pct: int = 75,
+                   mode: str = "story") -> tuple[list[dict], str]:
     """
-    Generate a short Mandarin story, one sentence per card.
+    Generate Mandarin content, one sentence per card.
 
     cards:         list of dicts with keys word_id, word_zh, pinyin, definition, pos
-    topic:         optional theme/setting to guide the story
+    topic:         optional theme/question/topic to guide the content
     max_hsk:       maximum HSK level for non-target background vocabulary (1-6)
     model:         model ID to use for generation
     grammar_focus: optional grammar pattern to encourage (e.g. "把字句")
     grammar_pct:   approximate percentage of sentences that should use the grammar (0-100)
+    mode:          "story" | "qa" | "expository"
     Returns: (sentences, prompt_text)
       sentences: list of {word_id, sentence_zh, sentence_en} — same length as cards.
       prompt_text: the full prompt string sent to the AI.
@@ -129,7 +131,6 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
             )
     word_list = "\n".join(word_list_lines)
 
-    topic_line = f"- The story should be set around this topic or theme: {topic}\n" if topic else ""
     if grammar_focus:
         n_sentences = max(1, round(len(cards) * grammar_pct / 100))
         grammar_line = (
@@ -144,7 +145,18 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
 
     grammar_first = f"GRAMMAR FOCUS (plan each sentence before writing it):\n{grammar_line}\n" if grammar_focus else ""
 
-    prompt = f"""Write a short Mandarin Chinese story to help an HSK 4-5 learner review vocabulary.
+    if mode == "qa":
+        task_line = f"Answer the following question in Mandarin Chinese, one sentence at a time, to help an HSK 4-5 learner review vocabulary.\nQuestion: {topic or 'Describe something interesting.'}"
+        style_rule = f"- The sentences together should form a coherent, informative answer to the question above\n- Do NOT use fictional characters or narrative story structure"
+    elif mode == "expository":
+        task_line = f"Write a short informative text in Mandarin Chinese about the following topic, to help an HSK 4-5 learner review vocabulary.\nTopic: {topic or 'an interesting subject'}"
+        style_rule = f"- The sentences together should form a coherent, factual explanation of the topic above\n- Do NOT use fictional characters or narrative story structure"
+    else:
+        task_line = "Write a short Mandarin Chinese story to help an HSK 4-5 learner review vocabulary."
+        topic_clause = f"- The story should be set around this topic or theme: {topic}\n" if topic else ""
+        style_rule = f"{topic_clause}- The sentences must form a coherent narrative with the same recurring characters"
+
+    prompt = f"""{task_line}
 
 {grammar_first}Target words — write exactly one sentence per word, in this order:
 {word_list}
@@ -156,7 +168,7 @@ Rules:
 - Use proper Chinese punctuation — include commas（，）where natural pauses occur
 - Use only HSK 1-{max_hsk} vocabulary for non-target words
 - Please keep each sentence as short and simple as possible — shorter is better, as long as all other rules are still met
-{topic_line}- The sentences must form a coherent narrative with the same recurring characters
+{style_rule}
 - NEVER use ASCII double-quote characters (") inside Chinese sentences — use 「」or （）instead if quoting is needed
 - Return ONLY valid JSON, no explanation, no markdown:
 [
@@ -164,7 +176,7 @@ Rules:
   ...
 ]"""
 
-    logger.info("[%s] generate_story: %d 张卡片", model, len(cards))
+    logger.info("[%s] generate_story: %d 张卡片 mode=%s", model, len(cards), mode)
     logger.debug("Prompt:\n%s", prompt)
 
     # 150 tokens per sentence is generous; add 200 for overhead/fences.

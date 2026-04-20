@@ -2122,7 +2122,7 @@ async function startReview(id, cat, name, noStory = false) {
   }
 }
 
-async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct) {
+async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story') {
   setLoading('Generating story…', true);
   setLoadingStep(10, null, 'Sending request to AI…');
   _startFakeProgress(10, 55, 45000);
@@ -2130,7 +2130,7 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct) {
     const storyDeckId = rootDeckId || deckId;
     const storyCategory = rootDeckId ? 'unified' : category;
     _startStoryProgressPoll(storyDeckId, storyCategory);
-    const storyUrl = `/api/story/${storyDeckId}/${storyCategory}` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct);
+    const storyUrl = `/api/story/${storyDeckId}/${storyCategory}` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode);
     let todayData, storyData;
     try {
       [todayData, storyData] = await Promise.all([
@@ -2148,7 +2148,7 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct) {
 
     _stopFakeProgress(); _stopStoryProgressPoll();
     setLoadingStep(65, null, 'Story received, processing…');
-    story = await _resolveStory(storyData, storyDeckId, storyCategory, topic, maxHsk, grammarFocus, grammarPct);
+    story = await _resolveStory(storyData, storyDeckId, storyCategory, topic, maxHsk, grammarFocus, grammarPct, mode);
 
     if (!todayData.card) {
       showView('done');
@@ -2176,13 +2176,14 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct) {
   }
 }
 
-function _storyParams(topic, maxHsk, model, grammarFocus, grammarPct) {
+function _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode) {
   const p = new URLSearchParams();
   if (topic)                              p.set('topic', topic);
   if (maxHsk !== 3)                       p.set('max_hsk', maxHsk);
   if (model && model !== 'deepseek-chat') p.set('model', model);
   if (grammarFocus)                       p.set('grammar_focus', grammarFocus);
   if (grammarFocus && grammarPct !== 75)  p.set('grammar_pct', grammarPct);
+  if (mode && mode !== 'story')           p.set('mode', mode);
   const s = p.toString();
   return s ? '?' + s : '';
 }
@@ -2203,7 +2204,7 @@ async function startReviewMixed(id, name, noStory = false) {
       return;
     }
     if (noStory) {
-      await _doStartReviewMixed(null, 2, null, null, 50, true);
+      await _doStartReviewMixed(null, 2, null, null, 50, 'story', true);
       return;
     }
     const c = todayData.counts;
@@ -2212,7 +2213,7 @@ async function startReviewMixed(id, name, noStory = false) {
     const firstCat = todayData.card.category;
     const { has_story, estimated_tokens } = await api('GET', `/api/story/${id}/unified/count`);
     if (has_story) {
-      await _doStartReviewMixed(null, 2, null, null, 50);
+      await _doStartReviewMixed(null, 2, null, null, 50, 'story');
     } else {
       openStorySetup(total, { isMixed: true, learningCount: learning, estimatedTokens: estimated_tokens });
     }
@@ -2223,7 +2224,7 @@ async function startReviewMixed(id, name, noStory = false) {
   }
 }
 
-async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct, noStory = false) {
+async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', noStory = false) {
   setLoading(noStory ? 'Loading…' : 'Generating stories…', !noStory);
   if (!noStory) {
     setLoadingStep(10, null, 'Sending request to AI…');
@@ -2243,7 +2244,7 @@ async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPc
     if (!noStory) {
       // Load a single unified story covering all categories (1 AI call instead of 3)
       try {
-        story = await api('GET', `/api/story/${rootDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct));
+        story = await api('GET', `/api/story/${rootDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode));
       } catch (e) {
         _stopFakeProgress(); _stopStoryProgressPoll();
         _showLoadingError('AI request failed', e.message);
@@ -2302,7 +2303,7 @@ async function startReviewUnfinished() {
   }
 }
 
-async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct) {
+async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story') {
   unfinishedMode = true;
   setLoading('Loading cards…');
   try {
@@ -2319,7 +2320,7 @@ async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, gram
     const firstDeckId = todayData.card.deck_id;
     // Load a single unified story for the first card's deck
     try {
-      story = await api('GET', `/api/story/${firstDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct));
+      story = await api('GET', `/api/story/${firstDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode));
     } catch (_) {}
     fetch(`/api/preload-session/${firstDeckId}/unified`, { method: 'POST' }).catch(() => {});
     showView('review');
@@ -3356,7 +3357,7 @@ function storyErrorUseHistory() {
   if (_storyErrorResolve) { _storyErrorResolve({ action: 'history' }); _storyErrorResolve = null; }
 }
 
-async function _resolveStory(storyData, resolvedeckId, resolveCat, topic, maxHsk, grammarFocus, grammarPct) {
+async function _resolveStory(storyData, resolvedeckId, resolveCat, topic, maxHsk, grammarFocus, grammarPct, mode = 'story') {
   if (!storyData?.error) return storyData;
   const choice = await _openStoryErrorModal(storyData);
   if (choice.action === 'skip') return null;
@@ -3371,12 +3372,12 @@ async function _resolveStory(storyData, resolvedeckId, resolveCat, topic, maxHsk
   _startStoryProgressPoll(resolvedeckId, resolveCat);
   let newData;
   try {
-    newData = await api('GET', `/api/story/${resolvedeckId}/${resolveCat}` + _storyParams(topic, maxHsk, choice.model, grammarFocus, grammarPct));
+    newData = await api('GET', `/api/story/${resolvedeckId}/${resolveCat}` + _storyParams(topic, maxHsk, choice.model, grammarFocus, grammarPct, mode));
   } catch (e) {
     newData = { error: true, reason: e.message, model: choice.model, has_history: storyData.has_history };
   }
   _stopFakeProgress(); _stopStoryProgressPoll();
-  return _resolveStory(newData, resolvedeckId, resolveCat, topic, maxHsk, grammarFocus, grammarPct);
+  return _resolveStory(newData, resolvedeckId, resolveCat, topic, maxHsk, grammarFocus, grammarPct, mode);
 }
 
 // ── Story setup modal ────────────────────────────────────────────────────────
@@ -3414,7 +3415,9 @@ function openStorySetup(sentenceCount, { isMixed = false, isUnfinished = false, 
   document.getElementById('setup-grammar').value = '';
   document.getElementById('setup-grammar-pct').value = 50;
   document.getElementById('setup-hsk-slider').value = 2;
+  document.getElementById('setup-mode').value = 'story';
   updateHskLabel();
+  updateSetupMode();
   document.getElementById('setup-modal-overlay').style.display = 'block';
   document.getElementById('setup-modal').style.display        = 'flex';
   document.getElementById('setup-topic').focus();
@@ -3433,23 +3436,44 @@ function updateHskLabel() {
   document.getElementById('setup-hsk-badge').textContent = `HSK ${v}`;
 }
 
+function updateSetupMode() {
+  const mode = document.getElementById('setup-mode').value;
+  const topicLabel = document.getElementById('setup-topic-label');
+  const topicInput = document.getElementById('setup-topic');
+  const btn = document.getElementById('setup-generate-btn');
+  if (mode === 'qa') {
+    topicLabel.childNodes[0].textContent = 'Question ';
+    topicInput.placeholder = 'e.g. How was life in ancient China?';
+    btn.textContent = 'Generate answer';
+  } else if (mode === 'expository') {
+    topicLabel.childNodes[0].textContent = 'Topic ';
+    topicInput.placeholder = 'e.g. The Second World War';
+    btn.textContent = 'Generate text';
+  } else {
+    topicLabel.childNodes[0].textContent = 'Topic ';
+    topicInput.placeholder = 'e.g. a day at a coffee shop';
+    btn.textContent = 'Generate story';
+  }
+}
+
 function confirmStorySetup() {
   const topic       = document.getElementById('setup-topic').value.trim() || null;
   const maxHsk      = parseInt(document.getElementById('setup-hsk-slider').value, 10);
   const model       = document.getElementById('setup-model').value;
   const grammarFocus = document.getElementById('setup-grammar').value.trim() || null;
   const grammarPct  = parseInt(document.getElementById('setup-grammar-pct').value, 10) || 75;
+  const mode        = document.getElementById('setup-mode').value;
   _closeSetupModal();
   if (_setupIsDeckListRegen) {
-    _doRegenStoryForDeckList(_deckListRegenId, topic, maxHsk, model, grammarFocus, grammarPct);
+    _doRegenStoryForDeckList(_deckListRegenId, topic, maxHsk, model, grammarFocus, grammarPct, mode);
   } else if (_setupIsRegen) {
-    _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct);
+    _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct, mode);
   } else if (_setupIsUnfinished) {
-    _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct);
+    _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct, mode);
   } else if (_setupIsMixed) {
-    _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct);
+    _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct, mode);
   } else {
-    _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct);
+    _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode);
   }
 }
 
@@ -3842,7 +3866,7 @@ async function regenerateStory() {
   }
 }
 
-async function _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct) {
+async function _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story') {
   setLoading('Regenerating story…', true);
   setLoadingStep(10, null, 'Sending request to AI…');
   _startFakeProgress(10, 55, 45000);
@@ -3852,7 +3876,7 @@ async function _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct
     _startStoryProgressPoll(storyDeckId, storyCategory);
     let storyData;
     try {
-      storyData = await api('POST', `/api/story/${storyDeckId}/${storyCategory}/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct));
+      storyData = await api('POST', `/api/story/${storyDeckId}/${storyCategory}/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode));
     } catch (e) {
       _stopFakeProgress(); _stopStoryProgressPoll();
       _showLoadingError('AI request failed', e.message);
@@ -3863,7 +3887,7 @@ async function _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct
     }
     _stopFakeProgress(); _stopStoryProgressPoll();
     setLoadingStep(65, null, 'Story received, processing…');
-    story = await _resolveStory(storyData, storyDeckId, storyCategory, topic, maxHsk, grammarFocus, grammarPct);
+    story = await _resolveStory(storyData, storyDeckId, storyCategory, topic, maxHsk, grammarFocus, grammarPct, mode);
     sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
     _updateStoryInfoRow();
 
@@ -3914,7 +3938,7 @@ async function regenerateStoryFromList(deckId) {
   document.getElementById('setup-topic').focus();
 }
 
-async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model, grammarFocus, grammarPct) {
+async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story') {
   setLoading('Regenerating story…', true);
   setLoadingStep(10, null, 'Sending request to AI…');
   _startFakeProgress(10, 55, 45000);
@@ -3922,7 +3946,7 @@ async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model, grammarFoc
   try {
     let storyData;
     try {
-      storyData = await api('POST', `/api/story/${deckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct));
+      storyData = await api('POST', `/api/story/${deckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode));
     } catch (e) {
       _stopFakeProgress(); _stopStoryProgressPoll();
       _showLoadingError('AI request failed', e.message);
