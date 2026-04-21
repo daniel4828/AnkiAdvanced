@@ -62,6 +62,8 @@ let _retentionData = null;  // cached result from GET /api/retention
 let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
 let _timerInterval = null;
 let _timerStart = null;
+let _sessionTotalMs = 0;
+let _sessionRatedCount = 0;
 // ── Card timer ──────────────────────────────────────────────────────────────
 function _startTimer() {
   _stopTimer();
@@ -77,6 +79,14 @@ function _startTimer() {
 function _stopTimer() {
   if (_timerInterval) { clearInterval(_timerInterval); _timerInterval = null; }
   document.getElementById('card-timer').style.display = 'none';
+}
+function _updateAvgTimeBadge() {
+  const el = document.getElementById('avg-time-badge');
+  if (_sessionRatedCount === 0) { el.style.display = 'none'; return; }
+  const avgS = Math.round(_sessionTotalMs / _sessionRatedCount / 1000);
+  const label = avgS < 60 ? `${avgS}s` : `${Math.floor(avgS / 60)}m${avgS % 60}s`;
+  el.textContent = `avg ${label}/card`;
+  el.style.display = 'inline';
 }
 
 // ── Story info row (Sentence x/y · Topic) ───────────────────────────────────
@@ -2117,6 +2127,9 @@ async function startReview(id, cat, name, noStory = false) {
   category = cat;
   deckName = name;
   _sessionReviewedCount = 0;
+  _sessionTotalMs = 0;
+  _sessionRatedCount = 0;
+  _updateAvgTimeBadge();
   _updateReviewRRBadge(id);
 
   try {
@@ -2214,6 +2227,9 @@ async function startReviewMixed(id, name, noStory = false) {
   deckName   = name;
   story      = null;
   _sessionReviewedCount = 0;
+  _sessionTotalMs = 0;
+  _sessionRatedCount = 0;
+  _updateAvgTimeBadge();
   _updateReviewRRBadge(id);
   try {
     const todayData = await api('GET', `/api/today-mixed/${id}`);
@@ -2309,6 +2325,9 @@ async function startReviewUnfinished() {
   deckName = 'Unfinished Cards';
   story    = null;
   _sessionReviewedCount = 0;
+  _sessionTotalMs = 0;
+  _sessionRatedCount = 0;
+  _updateAvgTimeBadge();
   try {
     const counts = await api('GET', '/api/today-unfinished');
     if (!counts.card) {
@@ -3257,6 +3276,11 @@ function diffClozeAnswer(userInput, targetWord) {
 // ── Submit rating ───────────────────────────────────────────────────────────
 async function rate(rating) {
   document.querySelectorAll('.r-btn').forEach(b => b.disabled = true);
+  if (_timerStart) {
+    _sessionTotalMs += Date.now() - _timerStart;
+    _sessionRatedCount++;
+    _updateAvgTimeBadge();
+  }
   try {
     let url = `/api/review?card_id=${card.id}&rating=${rating}`;
     if (unfinishedMode) url += `&unfinished_mode=true`;
