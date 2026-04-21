@@ -3168,6 +3168,13 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   justify-content: center;
 }
 .cal-legend-sep { width: 1px; background: var(--border); margin: 0 2px; align-self: stretch; }
+.cal-legend-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
 .cal-legend-item {
   display: flex;
   align-items: center;
