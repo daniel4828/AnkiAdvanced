@@ -479,3 +479,17 @@ def get_word_characters(word_id: int) -> list[dict]:
         result.append(d)
     conn.close()
     return result
+
+
+def get_random_word(exclude_word: str = "") -> str | None:
+    conn = get_db()
+    row = conn.execute(
+        """SELECT word_zh FROM entries
+           WHERE note_type = 'vocabulary'
+             AND word_zh != ?
+             AND length(word_zh) BETWEEN 1 AND 3
+           ORDER BY RANDOM() LIMIT 1""",
+        (exclude_word,),
+    ).fetchone()
+    conn.close()
+    return row["word_zh"] if row else None

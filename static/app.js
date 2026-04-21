@@ -3230,7 +3230,7 @@ function pickExtraBlankWord(zh, excludeWord) {
 }
 
 // ── Word bank (creating mode, non-sentence notes) ─────────────────────────
-function _buildWordBank() {
+async function _buildWordBank() {
   const zh = sentence?.sentence_zh;
   if (!zh || !card?.word_zh) return;
   const target = card.word_zh;
@@ -3273,22 +3273,15 @@ function _buildWordBank() {
   const tileChars = order.filter(it => it.type === 'char');
   const shuffled  = [...tileChars].sort(() => Math.random() - 0.5);
 
-  // Add a random distractor word (unrelated token to increase difficulty)
-  const DISTRACTOR_WORDS = [
-    '也', '和', '需要', '但是', '因为', '所以', '很', '就', '还', '还是',
-    '只', '都', '一样', '不同', '最', '更', '比', '如果', '虽然', '为了',
-    '不', '没', '要', '能', '会', '可以', '应该', '想', '知道', '看',
-    '说', '听', '写', '读', '学', '教', '来', '去', '给', '对'
-  ];
-  const distractor = {
-    type: 'char',
-    char: DISTRACTOR_WORDS[Math.floor(Math.random() * DISTRACTOR_WORDS.length)],
-    num: -1
-  };
-  // Only add if it's not already in the tokens and different from target word
-  if (!shuffled.some(t => t.char === distractor.char) && distractor.char !== target) {
-    shuffled.push(distractor);
-  }
+  // Fetch a random distractor word from the database and insert at a random position
+  try {
+    const resp = await fetch(`/api/words/random?exclude=${encodeURIComponent(target)}`);
+    const data = await resp.json();
+    if (data.word && !shuffled.some(t => t.char === data.word)) {
+      const pos = Math.floor(Math.random() * (shuffled.length + 1));
+      shuffled.splice(pos, 0, { type: 'char', char: data.word, num: -1 });
+    }
+  } catch (_) { /* skip distractor if fetch fails */ }
 
   shuffled.forEach((item, n) => { item.num = n + 1; });
 
@@ -3400,8 +3393,8 @@ function wordBankAddToken(num) {
   inp.focus();
 }
 
-function renderWordBankUI() {
-  _buildWordBank();
+async function renderWordBankUI() {
+  await _buildWordBank();
   if (!wordBankTokens.length) return; // sentence not loaded yet
 
   // Sentence skeleton: pre-placed tokens shown as text, blanks for tiles/target (data-slot for live update)
