@@ -60,6 +60,25 @@ let optDeckId    = null; // deck whose options modal is open
 const collapsed  = new Set(JSON.parse(localStorage.getItem('collapsedDecks') || '[]'));  // parent deck IDs that are collapsed
 let _retentionData = null;  // cached result from GET /api/retention
 let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
+let _timerInterval = null;
+let _timerStart = null;
+// ── Card timer ──────────────────────────────────────────────────────────────
+function _startTimer() {
+  _stopTimer();
+  _timerStart = Date.now();
+  const el = document.getElementById('card-timer');
+  el.textContent = '0s';
+  el.style.display = 'block';
+  _timerInterval = setInterval(() => {
+    const s = Math.floor((Date.now() - _timerStart) / 1000);
+    el.textContent = s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${s % 60}s`;
+  }, 1000);
+}
+function _stopTimer() {
+  if (_timerInterval) { clearInterval(_timerInterval); _timerInterval = null; }
+  document.getElementById('card-timer').style.display = 'none';
+}
+
 // ── Story info row (Sentence x/y · Topic) ───────────────────────────────────
 function _updateStoryInfoRow() {
   const row = document.getElementById('story-info-row');
@@ -2496,6 +2515,7 @@ function loadCard(c, counts) {
     .catch(() => {});
 
   showFront();
+  _startTimer();
 
   // Auto-play audio for the listening category.
   // If sentence is missing and a story fetch is in flight, defer to the fetch callback above.
@@ -2596,6 +2616,7 @@ function diffAnswer(userInput, correct, wordZh) {
 
 // ── Back of card ────────────────────────────────────────────────────────────
 function revealAnswer() {
+  _stopTimer();
   const isCreating = category === 'creating';
 
   // Capture user input before hiding front
