@@ -3156,10 +3156,10 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 .cal-chip-hard  { background: #f97316; }
 .cal-chip-good  { background: #22c55e; }
 .cal-chip-easy  { background: #3b82f6; }
-/* Future due chips — background = category */
-.cal-chip-due-listening { background: #818cf8; }
-.cal-chip-due-reading   { background: #2dd4bf; color: #1a5f57; }
-.cal-chip-due-creating  { background: #fb923c; }
+/* Future due chips — hollow outline, no fill (clearly not a rating) */
+.cal-chip-due-listening { background: transparent; border: 1.5px solid #818cf8; color: #818cf8; }
+.cal-chip-due-reading   { background: transparent; border: 1.5px solid #0d9488; color: #0d9488; }
+.cal-chip-due-creating  { background: transparent; border: 1.5px solid #f97316; color: #f97316; }
 .cal-legend {
   display: flex;
   gap: 8px;

@@ -1166,7 +1166,8 @@ def get_card_calendar_data(card_id: int) -> dict:
            FROM cards c
            WHERE c.word_id = ?
              AND c.state NOT IN ('suspended')
-             AND c.deleted_at IS NULL""",
+             AND c.deleted_at IS NULL
+             AND DATE(c.due) >= DATE('now')""",
         (word_id,),
     ).fetchall()
 
