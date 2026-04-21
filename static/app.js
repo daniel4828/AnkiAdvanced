@@ -69,6 +69,7 @@ let _sessionRatedCount = 0;
 let _calData     = null;   // {history, future} from API
 let _calYear     = null;
 let _calMonth    = null;   // 0-based
+let _calCategory = null;   // current card's category — shown on today even if not in dues
 
 const _RATING_CLASS = { 1: 'again', 2: 'hard', 3: 'good', 4: 'easy' };
 const _CAT_CLASS    = { listening: 'listening', reading: 'reading', creating: 'creating' };
@@ -143,6 +144,10 @@ function _renderCal() {
         html += `<span class="cal-chip cal-chip-due-${cCls}" title="${f.category} due">${letter}</span>`;
       }
       html += '</div>';
+    } else if (isToday && _calCategory) {
+      const letter = _CAT_LETTER[_calCategory] || '?';
+      const cCls   = _CAT_CLASS[_calCategory]  || '';
+      html += `<div class="cal-chips"><span class="cal-chip cal-chip-due-${cCls}" title="${_calCategory} today">${letter}</span></div>`;
     } else {
       html += `<span class="cal-day-num${isToday ? ' cal-day-num-today' : ''}">${d}</span>`;
     }
@@ -163,10 +168,11 @@ function calNextMonth() {
   _renderCal();
 }
 
-async function _loadCardCalendar(cardId) {
+async function _loadCardCalendar(cardId, category) {
   const el = document.getElementById('card-calendar');
   if (!el) return;
-  _calData = null;
+  _calData     = null;
+  _calCategory = category || null;
   el.style.display = 'none';
   try {
     const data = await api('GET', `/api/cards/${cardId}/calendar`);
@@ -2651,7 +2657,7 @@ function loadCard(c, counts) {
 
   showFront();
   _startTimer();
-  _loadCardCalendar(c.id);
+  _loadCardCalendar(c.id, c.category);
 
   // Auto-play audio for the listening category.
   // If sentence is missing and a story fetch is in flight, defer to the fetch callback above.
