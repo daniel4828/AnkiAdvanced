@@ -1162,12 +1162,11 @@ def get_card_calendar_data(card_id: int) -> dict:
     ).fetchall()
 
     future = conn.execute(
-        """SELECT c.due, c.category, c.state
+        """SELECT MAX(DATE(c.due), DATE('now')) AS due, c.category, c.state
            FROM cards c
            WHERE c.word_id = ?
              AND c.state NOT IN ('suspended')
-             AND c.deleted_at IS NULL
-             AND DATE(c.due) >= DATE('now')""",
+             AND c.deleted_at IS NULL""",
         (word_id,),
     ).fetchall()
 
