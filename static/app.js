@@ -327,7 +327,7 @@ async function loadDecks() {
   try {
     const [decks, retention] = await Promise.all([
       api('GET', '/api/decks'),
-      api('GET', '/api/retention').catch(() => null),
+      api('GET', '/api/retention?days=1').catch(() => null),
     ]);
     _cachedDecks = decks;
     _retentionData = retention;
@@ -428,7 +428,7 @@ function _calcDeckRR(deck) {
 
 // Build tooltip text for a deck's RR
 function _rrTooltip(rr) {
-  const lines = [`30d retention: ${_formatRR(rr.overall)} (${rr.total ?? 0} reviews)`];
+  const lines = [`Today's retention: ${_formatRR(rr.overall)} (${rr.total ?? 0} reviews)`];
   const LABELS = { reading: 'R', listening: 'L', creating: 'C' };
   for (const [cat, val] of Object.entries(rr.by_category)) {
     lines.push(`${LABELS[cat] ?? cat}: ${_formatRR(val)}`);
@@ -599,7 +599,7 @@ function renderDecks(decks) {
     const allRRData = _retentionData?.all;
     const allRRVal = allRRData?.total > 0 ? allRRData.correct / allRRData.total : null;
     const allRRBadge = allRRVal !== null
-      ? `<span class="deck-rr-badge" title="30d retention: ${_formatRR(allRRVal)} (${allRRData.total} reviews)">${_formatRR(allRRVal)}</span>`
+      ? `<span class="deck-rr-badge" title="Today's retention: ${_formatRR(allRRVal)} (${allRRData.total} reviews)">${_formatRR(allRRVal)}</span>`
       : '';
     filteredHtml += `
       <div class="tree-row tree-parent">
