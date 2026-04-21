@@ -75,18 +75,27 @@ const _CAT_CLASS    = { listening: 'listening', reading: 'reading', creating: 'c
 
 function _calKey(dateStr) { return dateStr; }  // "YYYY-MM-DD"
 
+const _CAT_LETTER = { listening: 'L', reading: 'R', creating: 'C' };
+
 function _buildCalDayMap() {
-  // Returns map: "YYYY-MM-DD" → { ratings: [{rating,category}], dues: [{category,state}] }
-  const map = {};
+  // Deduplicate: per (date, category) keep only the last review
+  const histByKey = {};
   for (const h of (_calData?.history || [])) {
-    const k = h.date;
-    if (!map[k]) map[k] = { ratings: [], dues: [] };
-    map[k].ratings.push({ rating: h.rating, category: h.category });
+    histByKey[`${h.date}|${h.category}`] = h;
   }
+  const dueByKey = {};
   for (const f of (_calData?.future || [])) {
-    const k = f.due;
-    if (!map[k]) map[k] = { ratings: [], dues: [] };
-    map[k].dues.push({ category: f.category, state: f.state });
+    dueByKey[`${f.due}|${f.category}`] = f;
+  }
+
+  const map = {};
+  for (const h of Object.values(histByKey)) {
+    if (!map[h.date]) map[h.date] = { ratings: [], dues: [] };
+    map[h.date].ratings.push({ rating: h.rating, category: h.category });
+  }
+  for (const f of Object.values(dueByKey)) {
+    if (!map[f.due]) map[f.due] = { ratings: [], dues: [] };
+    map[f.due].dues.push({ category: f.category, state: f.state });
   }
   return map;
 }
@@ -104,15 +113,13 @@ function _renderCal() {
 
   const dayMap = _buildCalDayMap();
 
-  // First day of month (Mon=0 offset)
   const firstDay = new Date(_calYear, _calMonth, 1);
-  let startOffset = firstDay.getDay() - 1;  // Mon=0
+  let startOffset = firstDay.getDay() - 1;
   if (startOffset < 0) startOffset = 6;
 
   const daysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
 
   let html = '';
-  // Empty cells before first day
   for (let i = 0; i < startOffset; i++) html += '<div class="cal-cell cal-empty"></div>';
 
   for (let d = 1; d <= daysInMonth; d++) {
@@ -123,19 +130,21 @@ function _renderCal() {
     const info = dayMap[dateStr];
 
     html += `<div class="cal-cell${isToday ? ' cal-today' : ''}">`;
-    html += `<span class="cal-day-num">${d}</span>`;
     if (info) {
-      html += '<div class="cal-dots">';
+      html += '<div class="cal-chips">';
       for (const r of info.ratings) {
-        const rCls  = _RATING_CLASS[r.rating] || 'good';
-        const cCls  = _CAT_CLASS[r.category]  || '';
-        html += `<span class="cal-dot cal-dot-${rCls} cal-dot-cat-${cCls}" title="${r.category}: ${rCls}"></span>`;
+        const rCls = _RATING_CLASS[r.rating] || 'good';
+        const letter = _CAT_LETTER[r.category] || '?';
+        html += `<span class="cal-chip cal-chip-${rCls}" title="${r.category}: ${rCls}">${letter}</span>`;
       }
       for (const f of info.dues) {
         const cCls = _CAT_CLASS[f.category] || '';
-        html += `<span class="cal-dot cal-dot-due-${cCls}" title="${f.category} due (${f.state})"></span>`;
+        const letter = _CAT_LETTER[f.category] || '?';
+        html += `<span class="cal-chip cal-chip-due-${cCls}" title="${f.category} due">${letter}</span>`;
       }
       html += '</div>';
+    } else if (isToday) {
+      html += '<div class="cal-today-dot"></div>';
     }
     html += '</div>';
   }
