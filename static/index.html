@@ -510,7 +510,14 @@
   <div id="setup-learning-warning" style="display:none;background:var(--again-bg,#fff3cd);color:var(--again-text,#856404);border:1px solid var(--again-border,#ffc107);border-radius:6px;padding:8px 12px;font-size:13px;margin:0 0 8px"></div>
   <div id="setup-token-warning" style="display:none;background:#fff3cd;color:#856404;border:1px solid #ffc107;border-radius:6px;padding:8px 12px;font-size:13px;margin:0 0 8px"></div>
   <div class="edit-card-fields">
-    <label class="edit-label">Topic <span style="font-weight:400;text-transform:none">(optional)</span>
+    <label class="edit-label">Content mode
+      <select class="edit-input" id="setup-mode" onchange="updateSetupMode()">
+        <option value="story">📖 Story — narrative with characters</option>
+        <option value="qa">❓ Q&amp;A — answer a question</option>
+        <option value="expository">📚 Expository — informative text</option>
+      </select>
+    </label>
+    <label class="edit-label" id="setup-topic-label">Topic <span style="font-weight:400;text-transform:none">(optional)</span>
       <input class="edit-input" id="setup-topic" type="text" placeholder="e.g. a day at a coffee shop" onkeydown="if(event.key==='Enter')confirmStorySetup()">
     </label>
     <label class="edit-label">Grammar focus <span style="font-weight:400;text-transform:none">(optional)</span>
@@ -560,7 +567,7 @@
   </div>
   <div class="edit-card-actions">
     <button class="edit-cancel-btn" onclick="cancelStorySetup()">Cancel</button>
-    <button class="edit-save-btn" id="setup-generate-btn" onclick="confirmStorySetup()">Generate story</button>
+    <button class="edit-save-btn" id="setup-generate-btn" onclick="confirmStorySetup()">Generate</button>
   </div>
 </div>
 

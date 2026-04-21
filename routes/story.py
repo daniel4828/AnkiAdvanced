@@ -85,7 +85,8 @@ def _validated_model(model: str | None) -> str:
 def get_story(deck_id: int, category: str,
               topic: str | None = None, max_hsk: int = 3,
               model: str | None = None,
-              grammar_focus: str | None = None, grammar_pct: int = 75):
+              grammar_focus: str | None = None, grammar_pct: int = 75,
+              mode: str = "story"):
     if database.is_sentences_deck(deck_id):
         return None
 
@@ -106,8 +107,8 @@ def get_story(deck_id: int, category: str,
     chosen_model = _validated_model(model)
     story = None
     cards = _get_cards_for_story(deck_id, category)
-    logger.info("story  GENERATE deck=%d cat=%s due_cards=%d topic=%r max_hsk=%d model=%s",
-                deck_id, category, len(cards), topic, max_hsk, chosen_model)
+    logger.info("story  GENERATE deck=%d cat=%s due_cards=%d topic=%r max_hsk=%d model=%s mode=%s",
+                deck_id, category, len(cards), topic, max_hsk, chosen_model, mode)
     if cards:
         progress_key = f"{deck_id}/{category}"
         ai._story_progress[progress_key] = {"phase": "starting", "msg": "Starting…", "percent": 5}
@@ -117,7 +118,8 @@ def get_story(deck_id: int, category: str,
                                                        model=chosen_model,
                                                        progress_key=progress_key,
                                                        grammar_focus=grammar_focus,
-                                                       grammar_pct=grammar_pct)
+                                                       grammar_pct=grammar_pct,
+                                                       mode=mode)
             for i, s in enumerate(sentences):
                 s["position"] = i
             database.create_story(today, category, deck_id, sentences, prompt_text, topic)
@@ -147,7 +149,8 @@ def get_story(deck_id: int, category: str,
 def regenerate_story(deck_id: int, category: str,
                      topic: str | None = None, max_hsk: int = 3,
                      model: str | None = None,
-                     grammar_focus: str | None = None, grammar_pct: int = 75):
+                     grammar_focus: str | None = None, grammar_pct: int = 75,
+                     mode: str = "story"):
     if database.is_sentences_deck(deck_id):
         return None
     if DISABLE_AI:
@@ -155,8 +158,8 @@ def regenerate_story(deck_id: int, category: str,
     chosen_model = _validated_model(model)
     today = database.anki_today().isoformat()
     cards = _get_cards_for_story(deck_id, category)
-    logger.info("regen  deck=%d cat=%s due_cards=%d topic=%r max_hsk=%d model=%s",
-                deck_id, category, len(cards), topic, max_hsk, chosen_model)
+    logger.info("regen  deck=%d cat=%s due_cards=%d topic=%r max_hsk=%d model=%s mode=%s",
+                deck_id, category, len(cards), topic, max_hsk, chosen_model, mode)
     if not cards:
         return None
     progress_key = f"{deck_id}/{category}"
@@ -167,7 +170,8 @@ def regenerate_story(deck_id: int, category: str,
                                                    model=chosen_model,
                                                    progress_key=progress_key,
                                                    grammar_focus=grammar_focus,
-                                                   grammar_pct=grammar_pct)
+                                                   grammar_pct=grammar_pct,
+                                                   mode=mode)
         for i, s in enumerate(sentences):
             s["position"] = i
         database.create_story(today, category, deck_id, sentences, prompt_text, topic)
