@@ -3116,6 +3116,15 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 }
 .cal-cell.cal-today { outline: 2px solid var(--primary, #6366f1); outline-offset: -2px; border-radius: 4px; }
 .cal-cell.cal-empty { pointer-events: none; }
+.cal-day-num {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  line-height: 1;
+}
+.cal-day-num-today {
+  color: var(--primary, #6366f1);
+  font-weight: 700;
+}
 .cal-today-dot {
   width: 5px;
   height: 5px;

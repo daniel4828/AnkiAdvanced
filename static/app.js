@@ -143,8 +143,8 @@ function _renderCal() {
         html += `<span class="cal-chip cal-chip-due-${cCls}" title="${f.category} due">${letter}</span>`;
       }
       html += '</div>';
-    } else if (isToday) {
-      html += '<div class="cal-today-dot"></div>';
+    } else {
+      html += `<span class="cal-day-num${isToday ? ' cal-day-num-today' : ''}">${d}</span>`;
     }
     html += '</div>';
   }
