@@ -71,7 +71,7 @@ let _calYear     = null;
 let _calMonth    = null;   // 0-based
 
 const _RATING_CLASS = { 1: 'again', 2: 'hard', 3: 'good', 4: 'easy' };
-const _CAT_ABBR     = { listening: 'L', reading: 'R', creating: 'C' };
+const _CAT_CLASS    = { listening: 'listening', reading: 'reading', creating: 'creating' };
 
 function _calKey(dateStr) { return dateStr; }  // "YYYY-MM-DD"
 
@@ -127,11 +127,13 @@ function _renderCal() {
     if (info) {
       html += '<div class="cal-dots">';
       for (const r of info.ratings) {
-        const cls = _RATING_CLASS[r.rating] || 'good';
-        html += `<span class="cal-dot cal-dot-${cls}" title="${r.category}: ${cls}"></span>`;
+        const rCls  = _RATING_CLASS[r.rating] || 'good';
+        const cCls  = _CAT_CLASS[r.category]  || '';
+        html += `<span class="cal-dot cal-dot-${rCls} cal-dot-cat-${cCls}" title="${r.category}: ${rCls}"></span>`;
       }
       for (const f of info.dues) {
-        html += `<span class="cal-dot cal-dot-due" title="${f.category} due (${f.state})"></span>`;
+        const cCls = _CAT_CLASS[f.category] || '';
+        html += `<span class="cal-dot cal-dot-due-${cCls}" title="${f.category} due (${f.state})"></span>`;
       }
       html += '</div>';
     }

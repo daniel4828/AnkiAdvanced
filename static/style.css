@@ -3141,7 +3141,14 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 .cal-dot-hard  { background: #f97316; }
 .cal-dot-good  { background: #22c55e; }
 .cal-dot-easy  { background: #3b82f6; }
-.cal-dot-due   { background: #a855f7; opacity: 0.7; border: 1px solid #a855f7; }
+/* Category border on history dots */
+.cal-dot-cat-listening { box-shadow: 0 0 0 2px #818cf8; }
+.cal-dot-cat-reading   { box-shadow: 0 0 0 2px #2dd4bf; }
+.cal-dot-cat-creating  { box-shadow: 0 0 0 2px #fb923c; }
+/* Future due dots — colored by category */
+.cal-dot-due-listening { background: #818cf8; opacity: 0.75; }
+.cal-dot-due-reading   { background: #2dd4bf; opacity: 0.75; }
+.cal-dot-due-creating  { background: #fb923c; opacity: 0.75; }
 .cal-legend {
   display: flex;
   gap: 10px;
@@ -3149,6 +3156,7 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   flex-wrap: wrap;
   justify-content: center;
 }
+.cal-legend-sep { width: 1px; background: var(--border); margin: 0 2px; }
 .cal-legend-item {
   display: flex;
   align-items: center;
