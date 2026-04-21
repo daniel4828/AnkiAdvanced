@@ -3175,6 +3175,7 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   border-radius: 3px;
   flex-shrink: 0;
 }
+.cal-legend-cat { font-weight: 500; color: var(--text-muted); }
 .cal-legend-item {
   display: flex;
   align-items: center;

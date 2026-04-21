@@ -75,7 +75,7 @@ const _CAT_CLASS    = { listening: 'listening', reading: 'reading', creating: 'c
 
 function _calKey(dateStr) { return dateStr; }  // "YYYY-MM-DD"
 
-const _CAT_LETTER = { listening: 'L', reading: 'R', creating: 'C' };
+const _CAT_LETTER = { listening: '听', reading: '读', creating: '创' };
 
 function _buildCalDayMap() {
   // Deduplicate: per (date, category) keep only the last review
