@@ -3272,6 +3272,24 @@ function _buildWordBank() {
   }
   const tileChars = order.filter(it => it.type === 'char');
   const shuffled  = [...tileChars].sort(() => Math.random() - 0.5);
+
+  // Add a random distractor word (unrelated token to increase difficulty)
+  const DISTRACTOR_WORDS = [
+    '也', '和', '需要', '但是', '因为', '所以', '很', '就', '还', '还是',
+    '只', '都', '一样', '不同', '最', '更', '比', '如果', '虽然', '为了',
+    '不', '没', '要', '能', '会', '可以', '应该', '想', '知道', '看',
+    '说', '听', '写', '读', '学', '教', '来', '去', '给', '对'
+  ];
+  const distractor = {
+    type: 'char',
+    char: DISTRACTOR_WORDS[Math.floor(Math.random() * DISTRACTOR_WORDS.length)],
+    num: -1
+  };
+  // Only add if it's not already in the tokens and different from target word
+  if (!shuffled.some(t => t.char === distractor.char) && distractor.char !== target) {
+    shuffled.push(distractor);
+  }
+
   shuffled.forEach((item, n) => { item.num = n + 1; });
 
   wordBankOrder  = order;
