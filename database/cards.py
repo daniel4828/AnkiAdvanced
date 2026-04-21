@@ -1140,3 +1140,38 @@ def toggle_deck_all_suspension(deck_id: int) -> dict:
     conn.commit()
     conn.close()
     return {"all_suspended": not has_active}
+
+
+def get_card_calendar_data(card_id: int) -> dict:
+    """Return past review history and future due dates for all category cards of the same word."""
+    conn = get_db()
+
+    word_row = conn.execute("SELECT word_id FROM cards WHERE id = ?", (card_id,)).fetchone()
+    if not word_row:
+        conn.close()
+        return {"history": [], "future": []}
+    word_id = word_row["word_id"]
+
+    history = conn.execute(
+        """SELECT DATE(rl.reviewed_at) AS date, rl.rating, c.category
+           FROM review_log rl
+           JOIN cards c ON c.id = rl.card_id
+           WHERE c.word_id = ?
+           ORDER BY rl.reviewed_at""",
+        (word_id,),
+    ).fetchall()
+
+    future = conn.execute(
+        """SELECT MAX(DATE(c.due), DATE('now')) AS due, c.category, c.state
+           FROM cards c
+           WHERE c.word_id = ?
+             AND c.state NOT IN ('suspended')
+             AND c.deleted_at IS NULL""",
+        (word_id,),
+    ).fetchall()
+
+    conn.close()
+    return {
+        "history": [{"date": r["date"], "rating": r["rating"], "category": r["category"]} for r in history],
+        "future":  [{"due": r["due"][:10], "category": r["category"], "state": r["state"]} for r in future],
+    }

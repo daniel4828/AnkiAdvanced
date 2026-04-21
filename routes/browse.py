@@ -77,6 +77,12 @@ def browse_words():
     return database.get_words_for_browse()
 
 
+@router.get("/api/words/random")
+def random_word(exclude: str = ""):
+    word = database.get_random_word(exclude)
+    return {"word": word}
+
+
 @router.get("/api/hanzi")
 def get_all_hanzi():
     return database.get_all_characters()

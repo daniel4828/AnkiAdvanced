@@ -60,6 +60,157 @@ let optDeckId    = null; // deck whose options modal is open
 const collapsed  = new Set(JSON.parse(localStorage.getItem('collapsedDecks') || '[]'));  // parent deck IDs that are collapsed
 let _retentionData = null;  // cached result from GET /api/retention
 let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
+let _timerInterval = null;
+let _timerStart = null;
+let _sessionTotalMs = 0;
+let _sessionRatedCount = 0;
+
+// ── Card schedule calendar ───────────────────────────────────────────────────
+let _calData     = null;   // {history, future} from API
+let _calYear     = null;
+let _calMonth    = null;   // 0-based
+let _calCategory = null;   // current card's category — shown on today even if not in dues
+
+const _RATING_CLASS = { 1: 'again', 2: 'hard', 3: 'good', 4: 'easy' };
+const _CAT_CLASS    = { listening: 'listening', reading: 'reading', creating: 'creating' };
+
+function _calKey(dateStr) { return dateStr; }  // "YYYY-MM-DD"
+
+const _CAT_LETTER = { listening: '听', reading: '读', creating: '创' };
+
+function _buildCalDayMap() {
+  // Deduplicate: per (date, category) keep only the last review
+  const histByKey = {};
+  for (const h of (_calData?.history || [])) {
+    histByKey[`${h.date}|${h.category}`] = h;
+  }
+  const dueByKey = {};
+  for (const f of (_calData?.future || [])) {
+    dueByKey[`${f.due}|${f.category}`] = f;
+  }
+
+  const map = {};
+  for (const h of Object.values(histByKey)) {
+    if (!map[h.date]) map[h.date] = { ratings: [], dues: [] };
+    map[h.date].ratings.push({ rating: h.rating, category: h.category });
+  }
+  for (const f of Object.values(dueByKey)) {
+    if (!map[f.due]) map[f.due] = { ratings: [], dues: [] };
+    map[f.due].dues.push({ category: f.category, state: f.state });
+  }
+  return map;
+}
+
+function _renderCal() {
+  const labelEl = document.getElementById('cal-month-label');
+  const gridEl  = document.getElementById('cal-grid');
+  if (!labelEl || !gridEl) return;
+
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  labelEl.textContent = `${monthNames[_calMonth]} ${_calYear}`;
+
+  const dayMap = _buildCalDayMap();
+
+  const firstDay = new Date(_calYear, _calMonth, 1);
+  let startOffset = firstDay.getDay() - 1;
+  if (startOffset < 0) startOffset = 6;
+
+  const daysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
+
+  let html = '';
+  for (let i = 0; i < startOffset; i++) html += '<div class="cal-cell cal-empty"></div>';
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const mm = String(_calMonth + 1).padStart(2, '0');
+    const dd = String(d).padStart(2, '0');
+    const dateStr = `${_calYear}-${mm}-${dd}`;
+    const isToday = dateStr === todayStr;
+    const info = dayMap[dateStr];
+
+    html += `<div class="cal-cell${isToday ? ' cal-today' : ''}">`;
+    if (info) {
+      html += '<div class="cal-chips">';
+      for (const r of info.ratings) {
+        const rCls = _RATING_CLASS[r.rating] || 'good';
+        const letter = _CAT_LETTER[r.category] || '?';
+        html += `<span class="cal-chip cal-chip-${rCls}" title="${r.category}: ${rCls}">${letter}</span>`;
+      }
+      for (const f of info.dues) {
+        const cCls = _CAT_CLASS[f.category] || '';
+        const letter = _CAT_LETTER[f.category] || '?';
+        html += `<span class="cal-chip cal-chip-due-${cCls}" title="${f.category} due">${letter}</span>`;
+      }
+      html += '</div>';
+    } else if (isToday && _calCategory) {
+      const letter = _CAT_LETTER[_calCategory] || '?';
+      const cCls   = _CAT_CLASS[_calCategory]  || '';
+      html += `<div class="cal-chips"><span class="cal-chip cal-chip-due-${cCls}" title="${_calCategory} today">${letter}</span></div>`;
+    } else {
+      html += `<span class="cal-day-num${isToday ? ' cal-day-num-today' : ''}">${d}</span>`;
+    }
+    html += '</div>';
+  }
+
+  gridEl.innerHTML = html;
+}
+
+function calPrevMonth() {
+  _calMonth--;
+  if (_calMonth < 0) { _calMonth = 11; _calYear--; }
+  _renderCal();
+}
+function calNextMonth() {
+  _calMonth++;
+  if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+  _renderCal();
+}
+
+async function _loadCardCalendar(cardId, category) {
+  const el = document.getElementById('card-calendar');
+  if (!el) return;
+  _calData     = null;
+  _calCategory = category || null;
+  el.style.display = 'none';
+  try {
+    const data = await api('GET', `/api/cards/${cardId}/calendar`);
+    if (!data) return;
+    _calData = data;
+    const today = new Date();
+    _calYear  = today.getFullYear();
+    _calMonth = today.getMonth();
+    _renderCal();
+    el.style.display = 'block';
+  } catch (e) { /* silently skip if unavailable */ }
+}
+
+// ── Card timer ──────────────────────────────────────────────────────────────
+function _startTimer() {
+  _stopTimer();
+  _timerStart = Date.now();
+  const el = document.getElementById('card-timer');
+  el.textContent = '0s';
+  el.style.display = 'block';
+  _timerInterval = setInterval(() => {
+    const s = Math.floor((Date.now() - _timerStart) / 1000);
+    el.textContent = s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${s % 60}s`;
+  }, 1000);
+}
+function _stopTimer() {
+  if (_timerInterval) { clearInterval(_timerInterval); _timerInterval = null; }
+  document.getElementById('card-timer').style.display = 'none';
+}
+function _updateAvgTimeBadge() {
+  const el = document.getElementById('avg-time-badge');
+  if (_sessionRatedCount === 0) { el.style.display = 'none'; return; }
+  const avgS = Math.round(_sessionTotalMs / _sessionRatedCount / 1000);
+  const label = avgS < 60 ? `${avgS}s` : `${Math.floor(avgS / 60)}m${avgS % 60}s`;
+  el.textContent = `avg ${label}/card`;
+  el.style.display = 'inline';
+}
+
 // ── Story info row (Sentence x/y · Topic) ───────────────────────────────────
 function _updateStoryInfoRow() {
   const row = document.getElementById('story-info-row');
@@ -327,7 +478,7 @@ async function loadDecks() {
   try {
     const [decks, retention] = await Promise.all([
       api('GET', '/api/decks'),
-      api('GET', '/api/retention').catch(() => null),
+      api('GET', '/api/retention?days=0').catch(() => null),
     ]);
     _cachedDecks = decks;
     _retentionData = retention;
@@ -428,7 +579,7 @@ function _calcDeckRR(deck) {
 
 // Build tooltip text for a deck's RR
 function _rrTooltip(rr) {
-  const lines = [`30d retention: ${_formatRR(rr.overall)} (${rr.total ?? 0} reviews)`];
+  const lines = [`Today's retention: ${_formatRR(rr.overall)} (${rr.total ?? 0} reviews)`];
   const LABELS = { reading: 'R', listening: 'L', creating: 'C' };
   for (const [cat, val] of Object.entries(rr.by_category)) {
     lines.push(`${LABELS[cat] ?? cat}: ${_formatRR(val)}`);
@@ -599,7 +750,7 @@ function renderDecks(decks) {
     const allRRData = _retentionData?.all;
     const allRRVal = allRRData?.total > 0 ? allRRData.correct / allRRData.total : null;
     const allRRBadge = allRRVal !== null
-      ? `<span class="deck-rr-badge" title="30d retention: ${_formatRR(allRRVal)} (${allRRData.total} reviews)">${_formatRR(allRRVal)}</span>`
+      ? `<span class="deck-rr-badge" title="Today's retention: ${_formatRR(allRRVal)} (${allRRData.total} reviews)">${_formatRR(allRRVal)}</span>`
       : '';
     filteredHtml += `
       <div class="tree-row tree-parent">
@@ -2098,6 +2249,9 @@ async function startReview(id, cat, name, noStory = false) {
   category = cat;
   deckName = name;
   _sessionReviewedCount = 0;
+  _sessionTotalMs = 0;
+  _sessionRatedCount = 0;
+  _updateAvgTimeBadge();
   _updateReviewRRBadge(id);
 
   try {
@@ -2195,6 +2349,9 @@ async function startReviewMixed(id, name, noStory = false) {
   deckName   = name;
   story      = null;
   _sessionReviewedCount = 0;
+  _sessionTotalMs = 0;
+  _sessionRatedCount = 0;
+  _updateAvgTimeBadge();
   _updateReviewRRBadge(id);
   try {
     const todayData = await api('GET', `/api/today-mixed/${id}`);
@@ -2290,6 +2447,9 @@ async function startReviewUnfinished() {
   deckName = 'Unfinished Cards';
   story    = null;
   _sessionReviewedCount = 0;
+  _sessionTotalMs = 0;
+  _sessionRatedCount = 0;
+  _updateAvgTimeBadge();
   try {
     const counts = await api('GET', '/api/today-unfinished');
     if (!counts.card) {
@@ -2496,6 +2656,8 @@ function loadCard(c, counts) {
     .catch(() => {});
 
   showFront();
+  _startTimer();
+  _loadCardCalendar(c.id, c.category);
 
   // Auto-play audio for the listening category.
   // If sentence is missing and a story fetch is in flight, defer to the fetch callback above.
@@ -2596,6 +2758,7 @@ function diffAnswer(userInput, correct, wordZh) {
 
 // ── Back of card ────────────────────────────────────────────────────────────
 function revealAnswer() {
+  _stopTimer();
   const isCreating = category === 'creating';
 
   // Capture user input before hiding front
@@ -3067,7 +3230,7 @@ function pickExtraBlankWord(zh, excludeWord) {
 }
 
 // ── Word bank (creating mode, non-sentence notes) ─────────────────────────
-function _buildWordBank() {
+async function _buildWordBank() {
   const zh = sentence?.sentence_zh;
   if (!zh || !card?.word_zh) return;
   const target = card.word_zh;
@@ -3096,8 +3259,30 @@ function _buildWordBank() {
   // If target wasn't found in tokens, append it
   if (!order.some(it => it.type === 'target')) order.push({ type: 'target', word: target });
 
-  const chars    = order.filter(it => it.type === 'char');
-  const shuffled = [...chars].sort(() => Math.random() - 0.5);
+  const MAX_TILES = 5;
+  const isWord = tok => /[\u4E00-\u9FFF\u3400-\u4DBF]/.test(tok.char);
+  const allChars = order.filter(it => it.type === 'char');
+  // Punctuation tokens are always pre-placed — only real words become tiles
+  allChars.forEach(c => { if (!isWord(c)) c.type = 'pre'; });
+  const wordTokens = allChars.filter(c => c.type === 'char');
+  if (wordTokens.length > MAX_TILES) {
+    const tileIdxSet = new Set();
+    while (tileIdxSet.size < MAX_TILES) tileIdxSet.add(Math.floor(Math.random() * wordTokens.length));
+    wordTokens.forEach((c, i) => { if (!tileIdxSet.has(i)) c.type = 'pre'; });
+  }
+  const tileChars = order.filter(it => it.type === 'char');
+  const shuffled  = [...tileChars].sort(() => Math.random() - 0.5);
+
+  // Fetch a random distractor word from the database and insert at a random position
+  try {
+    const resp = await fetch(`/api/words/random?exclude=${encodeURIComponent(target)}`);
+    const data = await resp.json();
+    if (data.word && !shuffled.some(t => t.char === data.word)) {
+      const pos = Math.floor(Math.random() * (shuffled.length + 1));
+      shuffled.splice(pos, 0, { type: 'char', char: data.word, num: -1 });
+    }
+  } catch (_) { /* skip distractor if fetch fails */ }
+
   shuffled.forEach((item, n) => { item.num = n + 1; });
 
   wordBankOrder  = order;
@@ -3125,40 +3310,75 @@ function _parseWordBankInput(text) {
       }
       raw.push(chars[i++]);
     } else {
-      i++; // skip spaces / punctuation typed by mistake
+      // Include punctuation that matches a tile char (e.g. ，。、)
+      const ch = chars[i];
+      if (wordBankTokens.some(t => t.char === ch)) raw.push(ch);
+      i++;
     }
   }
-  return raw.map(part => {
-    if (/^\d+$/.test(part)) {
-      const tok = wordBankTokens.find(t => t.num === parseInt(part, 10));
-      return tok ? tok.char : '?';
+  // Walk wordBankOrder: pre-placed tokens auto-fill; tiles and target come from user input in order
+  let rawIdx = 0;
+  const result = [];
+  for (const tok of wordBankOrder) {
+    if (tok.type === 'pre') { result.push(tok.char); continue; }
+    if (rawIdx >= raw.length) break; // user hasn't typed this far yet
+    const part = raw[rawIdx++];
+    if (tok.type === 'char') {
+      const n = parseInt(part, 10);
+      const tile = isNaN(n) ? null : wordBankTokens.find(t => t.num === n);
+      result.push(tile ? tile.char : part);
+    } else {
+      result.push(part); // target: pass CJK through
     }
-    return part;
-  });
+  }
+  return result;
 }
 
 function updateWordBankPreview(text) {
-  const el = document.getElementById('word-bank-preview');
-  const parts = _parseWordBankInput(text);
-  el.textContent = parts.length ? parts.join('') : '…';
-
-  // Grey out tokens whose number has been typed OR whose char appears in typed CJK text
+  // Compute slot values by walking wordBankOrder with parsed user tokens
   const isCjk = ch => /[\u3000-\u9FFF\uF900-\uFAFF]/.test(ch);
-  const usedNums = new Set();
   const chars = [...text.replace(/\s+/g, '')];
-  const cjkText = chars.filter(isCjk).join('');
+  const raw = [];
   let i = 0;
   while (i < chars.length) {
-    if (/\d/.test(chars[i])) {
+    if (isCjk(chars[i])) {
+      let s = chars[i++];
+      while (i < chars.length && isCjk(chars[i])) s += chars[i++];
+      raw.push(s);
+    } else if (/\d/.test(chars[i])) {
       if (i + 1 < chars.length && /\d/.test(chars[i + 1])) {
         const two = parseInt(chars[i] + chars[i + 1], 10);
-        if (wordBankTokens.some(t => t.num === two)) { usedNums.add(two); i += 2; continue; }
+        if (wordBankTokens.some(t => t.num === two)) { raw.push(String(two)); i += 2; continue; }
       }
-      usedNums.add(parseInt(chars[i], 10));
+      raw.push(chars[i++]);
+    } else {
+      const ch = chars[i];
+      if (wordBankTokens.some(t => t.char === ch)) raw.push(ch);
       i++;
-    } else { i++; }
+    }
   }
-  wordBankTokens.forEach(t => { if (cjkText.includes(t.char)) usedNums.add(t.num); });
+
+  // Walk wordBankOrder to assign values to numbered slots
+  let rawIdx = 0, slotIdx = 0;
+  const usedNums = new Set();
+  document.querySelectorAll('.wb-skel-blank[data-slot]').forEach(span => span.textContent = '＿');
+
+  for (const tok of wordBankOrder) {
+    if (tok.type === 'pre') continue;
+    const span = document.querySelector(`.wb-skel-blank[data-slot="${slotIdx++}"]`);
+    if (rawIdx >= raw.length) continue;
+    const part = raw[rawIdx++];
+    if (tok.type === 'char') {
+      const n = parseInt(part, 10);
+      const tile = isNaN(n) ? null : wordBankTokens.find(t => t.num === n);
+      if (tile) { usedNums.add(tile.num); if (span) span.textContent = tile.char; }
+      else if (span) span.textContent = part;
+    } else {
+      if (span) span.textContent = part; // target word
+    }
+  }
+
+  // Grey out used tile buttons
   document.querySelectorAll('.wb-token-btn').forEach(btn => {
     const num = parseInt(btn.querySelector('.wb-num').textContent, 10);
     btn.classList.toggle('wb-used', usedNums.has(num));
@@ -3173,15 +3393,23 @@ function wordBankAddToken(num) {
   inp.focus();
 }
 
-function renderWordBankUI() {
-  _buildWordBank();
+async function renderWordBankUI() {
+  await _buildWordBank();
   if (!wordBankTokens.length) return; // sentence not loaded yet
 
-  document.getElementById('word-bank-preview').textContent = '…';
+  // Sentence skeleton: pre-placed tokens shown as text, blanks for tiles/target (data-slot for live update)
+  const skelEl = document.getElementById('word-bank-skeleton');
+  if (skelEl) {
+    let slotIdx = 0;
+    skelEl.innerHTML = wordBankOrder.map(tok => {
+      if (tok.type === 'pre') return `<span class="wb-skel-pre">${tok.char}</span>`;
+      return `<span class="wb-skel-blank" data-slot="${slotIdx++}">＿</span>`;
+    }).join('');
+  }
 
   const tokensEl = document.getElementById('word-bank-tokens');
   tokensEl.innerHTML = wordBankTokens.map(tok =>
-    `<button class="wb-token-btn" onclick="wordBankAddToken(${tok.num})">`
+    `<button class="wb-token-btn" onmousedown="event.preventDefault()" onclick="wordBankAddToken(${tok.num})">`
     + `<span class="wb-num">${tok.num}</span>`
     + `<span class="wb-char">${tok.char}</span>`
     + `</button>`
@@ -3236,6 +3464,11 @@ function diffClozeAnswer(userInput, targetWord) {
 // ── Submit rating ───────────────────────────────────────────────────────────
 async function rate(rating) {
   document.querySelectorAll('.r-btn').forEach(b => b.disabled = true);
+  if (_timerStart) {
+    _sessionTotalMs += Date.now() - _timerStart;
+    _sessionRatedCount++;
+    _updateAvgTimeBadge();
+  }
   try {
     let url = `/api/review?card_id=${card.id}&rating=${rating}`;
     if (unfinishedMode) url += `&unfinished_mode=true`;

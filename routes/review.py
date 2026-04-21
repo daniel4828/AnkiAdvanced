@@ -307,3 +307,8 @@ def bury_card(card_id: int):
 def unbury_card(card_id: int):
     database.unbury_card(card_id)
     return {"ok": True}
+
+
+@router.get("/api/cards/{card_id}/calendar")
+def get_card_calendar(card_id: int):
+    return database.get_card_calendar_data(card_id)

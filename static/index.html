@@ -64,7 +64,8 @@
         </div>
       </div>
       <div style="display:flex;gap:6px;margin-left:auto;align-items:center">
-        <span id="review-rr-badge" class="review-rr-badge" style="display:none" title="30-day retention rate"></span>
+        <span id="avg-time-badge" class="review-rr-badge" style="display:none" title="Average time per card this session"></span>
+        <span id="review-rr-badge" class="review-rr-badge" style="display:none" title="Daily retention rate"></span>
         <button class="undo-btn" id="undo-btn" onclick="undoReview()" title="Undo last rating [Z]" disabled>↩ Undo</button>
       </div>
     </div>
@@ -86,6 +87,7 @@
             <button id="back-meta-play-btn" class="play-icon-btn play-icon-sm" onclick="playSentence()" style="display:none" title="Play audio">🔊</button>
             <span class="listen-counter listen-counter-back" id="listen-counter-back" style="display:none"></span>
           </div>
+          <div id="card-timer" style="display:none"></div>
           <div id="card-type-badge"></div>
           <div class="wd-card-menu-wrap" id="review-card-menu-wrap">
             <button class="wd-menu-btn" onclick="toggleReviewCardMenu(event)">⋯</button>
@@ -118,11 +120,11 @@
         <!-- Word bank (creating mode, non-sentence notes) -->
         <div id="word-bank-wrap" style="display:none">
           <div class="input-label">Reconstruct the sentence</div>
-          <div class="word-bank-preview" id="word-bank-preview">…</div>
+          <div class="word-bank-skeleton" id="word-bank-skeleton"></div>
           <div class="word-bank-tokens" id="word-bank-tokens"></div>
           <input type="text" id="word-bank-input"
                  autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-                 placeholder="Type numbers + target word (e.g. 3 1 学校 2 4)"
+                 placeholder="Fill blanks left to right: tile numbers + target word (e.g. 3 1 努力 2 5 4)"
                  oninput="updateWordBankPreview(this.value)"
                  onkeydown="if(event.key==='Enter')revealAnswer()">
         </div>
@@ -184,6 +186,29 @@
           <button class="edit-card-btn" id="edit-card-btn" onclick="openEditCard()">Edit card</button>
         </div>
 
+      </div>
+
+      <!-- Card schedule calendar -->
+      <div id="card-calendar" class="card-calendar" style="display:none">
+        <div class="cal-header">
+          <button class="cal-nav-btn" onclick="calPrevMonth()">‹</button>
+          <span id="cal-month-label" class="cal-month-label"></span>
+          <button class="cal-nav-btn" onclick="calNextMonth()">›</button>
+        </div>
+        <div class="cal-weekdays">
+          <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
+        </div>
+        <div class="cal-grid" id="cal-grid"></div>
+        <div class="cal-legend">
+          <span class="cal-legend-item"><span class="cal-legend-swatch cal-chip-again"></span>Again</span>
+          <span class="cal-legend-item"><span class="cal-legend-swatch cal-chip-hard"></span>Hard</span>
+          <span class="cal-legend-item"><span class="cal-legend-swatch cal-chip-good"></span>Good</span>
+          <span class="cal-legend-item"><span class="cal-legend-swatch cal-chip-easy"></span>Easy</span>
+          <span class="cal-legend-sep"></span>
+          <span class="cal-legend-item cal-legend-cat">听 Listening</span>
+          <span class="cal-legend-item cal-legend-cat">读 Reading</span>
+          <span class="cal-legend-item cal-legend-cat">创 Creating</span>
+        </div>
       </div>
     </div>
   </div>

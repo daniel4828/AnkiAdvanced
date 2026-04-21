@@ -105,7 +105,17 @@
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(p\\) for p in d if ''''serena'''' in str\\(p\\).lower\\(\\)]\")",
       "Bash(rm -rf /Users/daniel/.claude/plugins/cache/claude-plugins-official/serena)",
       "Bash(rm -rf /Users/daniel/Documents/AnkiAdvanced/.serena)",
-      "Skill(commit-commands:commit)"
+      "Skill(commit-commands:commit)",
+      "Bash(bash /Users/daniel/Documents/AnkiAdvanced/backup.sh)",
+      "Bash(crontab -l)",
+      "Read(//Users/daniel/Library/LaunchAgents/**)",
+      "Bash(launchctl load *)",
+      "Bash(launchctl list *)",
+      "Bash(plutil *)",
+      "Bash(launchctl unload *)",
+      "Bash(launchctl start *)",
+      "Bash(cat /Users/daniel/Documents/AnkiAdvanced/ldn174.md)",
+      "Read(//tmp/**)"
     ]
   },
   "hooks": {
@@ -141,4 +151,3 @@
     ]
   }
 }
-
