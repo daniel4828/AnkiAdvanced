@@ -472,7 +472,7 @@ async function loadDecks() {
   try {
     const [decks, retention] = await Promise.all([
       api('GET', '/api/decks'),
-      api('GET', '/api/retention?days=1').catch(() => null),
+      api('GET', '/api/retention?days=0').catch(() => null),
     ]);
     _cachedDecks = decks;
     _retentionData = retention;
