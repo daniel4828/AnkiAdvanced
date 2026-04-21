@@ -64,6 +64,111 @@ let _timerInterval = null;
 let _timerStart = null;
 let _sessionTotalMs = 0;
 let _sessionRatedCount = 0;
+
+// ── Card schedule calendar ───────────────────────────────────────────────────
+let _calData     = null;   // {history, future} from API
+let _calYear     = null;
+let _calMonth    = null;   // 0-based
+
+const _RATING_CLASS = { 1: 'again', 2: 'hard', 3: 'good', 4: 'easy' };
+const _CAT_ABBR     = { listening: 'L', reading: 'R', creating: 'C' };
+
+function _calKey(dateStr) { return dateStr; }  // "YYYY-MM-DD"
+
+function _buildCalDayMap() {
+  // Returns map: "YYYY-MM-DD" → { ratings: [{rating,category}], dues: [{category,state}] }
+  const map = {};
+  for (const h of (_calData?.history || [])) {
+    const k = h.date;
+    if (!map[k]) map[k] = { ratings: [], dues: [] };
+    map[k].ratings.push({ rating: h.rating, category: h.category });
+  }
+  for (const f of (_calData?.future || [])) {
+    const k = f.due;
+    if (!map[k]) map[k] = { ratings: [], dues: [] };
+    map[k].dues.push({ category: f.category, state: f.state });
+  }
+  return map;
+}
+
+function _renderCal() {
+  const labelEl = document.getElementById('cal-month-label');
+  const gridEl  = document.getElementById('cal-grid');
+  if (!labelEl || !gridEl) return;
+
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  labelEl.textContent = `${monthNames[_calMonth]} ${_calYear}`;
+
+  const dayMap = _buildCalDayMap();
+
+  // First day of month (Mon=0 offset)
+  const firstDay = new Date(_calYear, _calMonth, 1);
+  let startOffset = firstDay.getDay() - 1;  // Mon=0
+  if (startOffset < 0) startOffset = 6;
+
+  const daysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
+
+  let html = '';
+  // Empty cells before first day
+  for (let i = 0; i < startOffset; i++) html += '<div class="cal-cell cal-empty"></div>';
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const mm = String(_calMonth + 1).padStart(2, '0');
+    const dd = String(d).padStart(2, '0');
+    const dateStr = `${_calYear}-${mm}-${dd}`;
+    const isToday = dateStr === todayStr;
+    const info = dayMap[dateStr];
+
+    html += `<div class="cal-cell${isToday ? ' cal-today' : ''}">`;
+    html += `<span class="cal-day-num">${d}</span>`;
+    if (info) {
+      html += '<div class="cal-dots">';
+      for (const r of info.ratings) {
+        const cls = _RATING_CLASS[r.rating] || 'good';
+        html += `<span class="cal-dot cal-dot-${cls}" title="${r.category}: ${cls}"></span>`;
+      }
+      for (const f of info.dues) {
+        html += `<span class="cal-dot cal-dot-due" title="${f.category} due (${f.state})"></span>`;
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  gridEl.innerHTML = html;
+}
+
+function calPrevMonth() {
+  _calMonth--;
+  if (_calMonth < 0) { _calMonth = 11; _calYear--; }
+  _renderCal();
+}
+function calNextMonth() {
+  _calMonth++;
+  if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+  _renderCal();
+}
+
+async function _loadCardCalendar(cardId) {
+  const el = document.getElementById('card-calendar');
+  if (!el) return;
+  _calData = null;
+  el.style.display = 'none';
+  try {
+    const data = await api('GET', `/api/cards/${cardId}/calendar`);
+    if (!data) return;
+    _calData = data;
+    const today = new Date();
+    _calYear  = today.getFullYear();
+    _calMonth = today.getMonth();
+    _renderCal();
+    el.style.display = 'block';
+  } catch (e) { /* silently skip if unavailable */ }
+}
+
 // ── Card timer ──────────────────────────────────────────────────────────────
 function _startTimer() {
   _stopTimer();
@@ -2535,6 +2640,7 @@ function loadCard(c, counts) {
 
   showFront();
   _startTimer();
+  _loadCardCalendar(c.id);
 
   // Auto-play audio for the listening category.
   // If sentence is missing and a story fetch is in flight, defer to the fetch callback above.

@@ -187,6 +187,26 @@
         </div>
 
       </div>
+
+      <!-- Card schedule calendar -->
+      <div id="card-calendar" class="card-calendar" style="display:none">
+        <div class="cal-header">
+          <button class="cal-nav-btn" onclick="calPrevMonth()">‹</button>
+          <span id="cal-month-label" class="cal-month-label"></span>
+          <button class="cal-nav-btn" onclick="calNextMonth()">›</button>
+        </div>
+        <div class="cal-weekdays">
+          <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
+        </div>
+        <div class="cal-grid" id="cal-grid"></div>
+        <div class="cal-legend">
+          <span class="cal-legend-item"><span class="cal-dot cal-dot-again"></span>Again</span>
+          <span class="cal-legend-item"><span class="cal-dot cal-dot-hard"></span>Hard</span>
+          <span class="cal-legend-item"><span class="cal-dot cal-dot-good"></span>Good</span>
+          <span class="cal-legend-item"><span class="cal-dot cal-dot-easy"></span>Easy</span>
+          <span class="cal-legend-item"><span class="cal-dot cal-dot-due"></span>Due</span>
+        </div>
+      </div>
     </div>
   </div>
 
