@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import re
+import time
 
 import anthropic
 import openai
@@ -56,9 +57,13 @@ def _openai_client(model: str) -> openai.OpenAI:
 
 def _call_api(model: str, messages: list, max_tokens: int, purpose: str) -> str:
     """Call the appropriate provider, log usage, and return the raw text response."""
+    t0 = time.time()
     if model.startswith("claude-"):
         client = anthropic.Anthropic()
         msg = client.messages.create(model=model, max_tokens=max_tokens, messages=messages)
+        elapsed = time.time() - t0
+        logger.info("[%s] API call done in %.1fs — in=%d out=%d purpose=%s",
+                    model, elapsed, msg.usage.input_tokens, msg.usage.output_tokens, purpose)
         database.log_api_call(
             model=msg.model,
             input_tokens=msg.usage.input_tokens,
@@ -69,6 +74,9 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str) -> str:
     else:
         client = _openai_client(model)
         resp = client.chat.completions.create(model=model, max_tokens=max_tokens, messages=messages)
+        elapsed = time.time() - t0
+        logger.info("[%s] API call done in %.1fs — in=%d out=%d purpose=%s",
+                    model, elapsed, resp.usage.prompt_tokens, resp.usage.completion_tokens, purpose)
         database.log_api_call(
             model=resp.model,
             input_tokens=resp.usage.prompt_tokens,
@@ -185,6 +193,7 @@ Rules:
     if not model.startswith("claude-"):
         max_tokens = min(max_tokens, 8192)
 
+    t_start = time.time()
     missing_hint = ""
     last_partial: tuple | None = None  # (result, missing_pairs) from best attempt
     for attempt in range(3):
@@ -246,12 +255,14 @@ Rules:
                             f"— each MUST appear verbatim in its sentence: {', '.join(missing_words)}"
                         )
                         continue
-                    logger.info("generate_story: success — %d sentences (attempt %d)",
-                                len(result), attempt + 1)
+                    logger.info("generate_story: success — %d sentences (attempt %d) in %.1fs total",
+                                len(result), attempt + 1, time.time() - t_start)
                     _set_progress(progress_key, phase="translating",
                                   msg="Translating sentences…", percent=88)
                     # Translate sentences locally (no extra AI call needed)
                     _fill_translations(result, progress_key=progress_key)
+                    total_elapsed = time.time() - t_start
+                    logger.info("generate_story: DONE — %.1fs total (AI + translation)", total_elapsed)
                     _set_progress(progress_key, phase="ai_done",
                                   msg=f"✓ {len(result)} sentences (attempt {attempt + 1})", percent=93)
                     return result, prompt
@@ -395,13 +406,18 @@ def _fill_translations(sentences: list[dict], progress_key: str | None = None) -
         if progress_key and total > 0:
             _set_progress(progress_key, phase="translating",
                           msg=f"Translating… 0/{total}", percent=88)
-            de_results = _t.translate_batch(texts, target="de")
-            fr_results = _t.translate_batch(texts, target="fr")
+
+        t0 = time.time()
+        de_results = _t.translate_batch(texts, target="de")
+        logger.info("translate DE done in %.1fs (%d sentences)", time.time() - t0, total)
+
+        t1 = time.time()
+        fr_results = _t.translate_batch(texts, target="fr")
+        logger.info("translate FR done in %.1fs (%d sentences)", time.time() - t1, total)
+
+        if progress_key and total > 0:
             _set_progress(progress_key, phase="translating",
                           msg=f"Translating… {total}/{total}", percent=92)
-        else:
-            de_results = _t.translate_batch(texts, target="de")
-            fr_results = _t.translate_batch(texts, target="fr")
 
         for s, de, fr in zip(sentences, de_results, fr_results):
             s["sentence_de"] = de
@@ -410,7 +426,7 @@ def _fill_translations(sentences: list[dict], progress_key: str | None = None) -
     except Exception as e:
         err = str(e)
         vpn_hint = " (VPN issue?)" if any(k in err.lower() for k in ("eof", "connect", "timeout", "proxy", "ssl")) else ""
-        logger.warning("_fill_translations: fallback to empty — %s", e)
+        logger.warning("_fill_translations: fallback to empty — %s%s", e, vpn_hint)
         if progress_key and progress_key in _story_progress:
             _story_progress[progress_key]["translate_warn"] = f"⚠ Translation failed{vpn_hint}"
         for s in sentences:
