@@ -4303,25 +4303,30 @@ function _importRenderTable() {
       const moveTarget = cfg.move_target || '';
       const moveCats = cfg.move_categories || null; // null = all
       const catChecked = (cat) => (!moveCats || moveCats.includes(cat)) ? 'checked' : '';
-      const moveOpts = dupAction === 'move' ? `
-        <input list="import-deck-datalist" class="dup-move-target" value="${_ea(moveTarget)}"
-          placeholder="deck path"
-          oninput="importSetDupMoveTarget(${_ea(JSON.stringify(e.simplified))}, this.value)"
-          style="width:120px;font-size:11px;margin-left:4px">
-        <span style="margin-left:4px;font-size:11px">
+      const catCheckboxes = `<span style="margin-left:4px;font-size:11px">
           <label title="Listening"><input type="checkbox" ${catChecked('listening')}
             onchange="importToggleDupMoveCat(${_ea(JSON.stringify(e.simplified))}, 'listening', this.checked)">L</label>
           <label title="Reading"><input type="checkbox" ${catChecked('reading')}
             onchange="importToggleDupMoveCat(${_ea(JSON.stringify(e.simplified))}, 'reading', this.checked)">R</label>
           <label title="Creating"><input type="checkbox" ${catChecked('creating')}
             onchange="importToggleDupMoveCat(${_ea(JSON.stringify(e.simplified))}, 'creating', this.checked)">C</label>
-        </span>` : '';
+        </span>`;
+      const moveOpts = dupAction === 'move' ? `
+        <input list="import-deck-datalist" class="dup-move-target" value="${_ea(moveTarget)}"
+          placeholder="deck path"
+          oninput="importSetDupMoveTarget(${_ea(JSON.stringify(e.simplified))}, this.value)"
+          style="width:120px;font-size:11px;margin-left:4px">
+        ${catCheckboxes}` :
+        dupAction === 'move_import' ? `
+        <span style="margin-left:4px;font-size:11px;color:var(--clr-muted,#888)">→ import deck</span>
+        ${catCheckboxes}` : '';
       midCols = `<td colspan="4" style="padding:2px 6px">
         <div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px">
           <select style="font-size:11px" onchange="importSetDupAction(${_ea(JSON.stringify(e.simplified))}, this.value)">
             <option value="skip"${dupAction==='skip'?' selected':''}>Skip</option>
             <option value="reset"${dupAction==='reset'?' selected':''}>Reset progress</option>
-            <option value="move"${dupAction==='move'?' selected':''}>Move to deck</option>
+            <option value="move_import"${dupAction==='move_import'?' selected':''}>Move to import deck</option>
+            <option value="move"${dupAction==='move'?' selected':''}>Move to deck…</option>
           </select>
           ${moveOpts}
         </div>
@@ -4466,8 +4471,12 @@ function importSetAllSuspended(category, suspended) {
 }
 
 function importApplyGlobalDeck() {
-  // When global deck changes, cards using the default automatically use it
-  // (deck_path: null means "use global default"), so just re-render
+  // Keep datalist in sync so new deck names appear in the move-target autocomplete
+  const importDeckPath = document.getElementById('import-deck-path').value.trim();
+  if (importDeckPath && !_importDeckOptions.includes(importDeckPath)) {
+    const dl = document.getElementById('import-deck-datalist');
+    if (dl) dl.innerHTML = [..._importDeckOptions, importDeckPath].map(p => `<option value="${_ea(p)}">`).join('');
+  }
   _importRenderTable();
 }
 
@@ -4747,10 +4756,14 @@ async function _doUploadImport() {
   _previewEntries.forEach(e => {
     const cfg = _cardConfigs[e.simplified];
     if (cfg) {
-      cardConfigsMap[e.simplified] = {
+      let resolved = {
         ...cfg,
         deck_path: cfg.deck_path === '__deckB__' ? (_deckBPath || null) : cfg.deck_path
       };
+      if (resolved.duplicate_action === 'move_import') {
+        resolved = { ...resolved, duplicate_action: 'move', move_target: deckPath || null };
+      }
+      cardConfigsMap[e.simplified] = resolved;
     }
   });
 

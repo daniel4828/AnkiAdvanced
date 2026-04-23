@@ -74,12 +74,16 @@ async def upload_import(
         except json.JSONDecodeError:
             raise HTTPException(status_code=400, detail="custom_fields must be valid JSON")
 
-    result = importer.import_yaml_content(
-        content, deck_id,
-        resolutions=resolution_map,
-        card_configs=card_configs_map,
-        custom_fields=custom_fields_map,
-    )
+    try:
+        result = importer.import_yaml_content(
+            content, deck_id,
+            resolutions=resolution_map,
+            card_configs=card_configs_map,
+            custom_fields=custom_fields_map,
+        )
+    except Exception as e:
+        logger.exception("Unhandled error during import (deck_id=%s): %s", deck_id, e)
+        raise HTTPException(status_code=500, detail=f"Import failed: {e}")
     return {"deck_id": deck_id, **result}
 
 
