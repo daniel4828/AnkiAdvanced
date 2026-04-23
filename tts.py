@@ -71,8 +71,12 @@ async def _ensure_cached(text: str) -> str:
     return path
 
 
+_TTS_CONCURRENCY = 12   # max parallel edge-tts connections
+_TTS_TIMEOUT = 20.0     # seconds per sentence before giving up
+
+
 async def preload_all_async(texts: list[str], progress_key: str | None = None) -> None:
-    """Pre-generate audio for all texts in parallel. Awaitable — blocks until done.
+    """Pre-generate audio for all texts with bounded concurrency. Awaitable — blocks until done.
 
     If progress_key is given, updates _preload_progress[progress_key] as each
     sentence finishes so callers can poll for live progress.
@@ -91,21 +95,32 @@ async def preload_all_async(texts: list[str], progress_key: str | None = None) -
             _preload_progress[progress_key]["done"] = total
         return
 
-    logger.info("tts  generating %d/%d sentences (rest cached)", len(missing), total)
+    logger.info("tts  generating %d/%d sentences (rest cached), concurrency=%d",
+                len(missing), total, _TTS_CONCURRENCY)
     done_count = already_cached
+    sem = asyncio.Semaphore(_TTS_CONCURRENCY)
 
     async def _cached_with_progress(text: str) -> str:
         nonlocal done_count
-        try:
-            result = await _ensure_cached(text)
-        except Exception as e:
-            logger.warning("tts  failed for sentence: %s", e)
-            if progress_key is not None:
-                _preload_progress[progress_key]["error"] = f"⚠ Audio failed: {str(e)[:60]}"
-            done_count += 1
-            if progress_key is not None:
-                _preload_progress[progress_key]["done"] = done_count
-            return ""
+        async with sem:
+            try:
+                result = await asyncio.wait_for(_ensure_cached(text), timeout=_TTS_TIMEOUT)
+            except asyncio.TimeoutError:
+                logger.warning("tts  timeout after %.0fs for: %r", _TTS_TIMEOUT, text[:40])
+                if progress_key is not None:
+                    _preload_progress[progress_key]["error"] = "⚠ Audio timeout — skipped some sentences"
+                done_count += 1
+                if progress_key is not None:
+                    _preload_progress[progress_key]["done"] = done_count
+                return ""
+            except Exception as e:
+                logger.warning("tts  failed for sentence: %s", e)
+                if progress_key is not None:
+                    _preload_progress[progress_key]["error"] = f"⚠ Audio failed: {str(e)[:60]}"
+                done_count += 1
+                if progress_key is not None:
+                    _preload_progress[progress_key]["done"] = done_count
+                return ""
         done_count += 1
         if progress_key is not None:
             _preload_progress[progress_key]["done"] = done_count
