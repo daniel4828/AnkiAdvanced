@@ -97,7 +97,7 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
                    grammar_pct: int = 75,
                    mode: str = "story") -> tuple[list[dict], str]:
     """
-    Generate Mandarin content, one sentence per card.
+    Generate Mandarin sentences covering all target vocab words.
 
     cards:         list of dicts with keys word_id, word_zh, pinyin, definition, pos
     topic:         optional theme/question/topic to guide the content
@@ -107,20 +107,20 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
     grammar_pct:   approximate percentage of sentences that should use the grammar (0-100)
     mode:          "story" | "qa" | "expository"
     Returns: (sentences, prompt_text)
-      sentences: list of {word_id, sentence_zh, sentence_en} — same length as cards.
+      sentences: list of {word_ids: [int, ...], sentence_zh, sentence_en, sentence_de, sentence_fr}.
+                 Multiple cards may share one sentence. Each card's word_id appears in exactly one sentence.
       prompt_text: the full prompt string sent to the AI.
     Returns ([], "") immediately if cards is empty (no API call made).
     """
     if not cards:
         return [], ""
 
+    word_id_set = {c["word_id"] for c in cards}
+
     def _is_sentence(word_zh: str) -> bool:
         return word_zh.endswith(('。', '！', '？', '!', '?'))
 
     def _word_in_sentence(word_zh: str, sentence_zh: str) -> bool:
-        """For pattern words containing '...' or '…', check that every non-dot hanzi
-        character appears in the sentence (the AI fills the gap with real words).
-        For normal words, fall back to a simple substring check."""
         if '...' in word_zh or '…' in word_zh:
             chars = [c for c in word_zh if c not in '.…']
             return all(c in sentence_zh for c in chars)
@@ -143,7 +143,7 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
         n_sentences = max(1, round(len(cards) * grammar_pct / 100))
         grammar_line = (
             f"- Grammar focus: use the pattern 「{grammar_focus}」 in roughly "
-            f"{n_sentences} of the {len(cards)} sentences (about {grammar_pct}%).\n"
+            f"{n_sentences} of the sentences (about {grammar_pct}%).\n"
             f"  For each sentence, decide BEFORE writing: what specific grammar fragment will you use "
             f"(e.g. 「三年以内」「十八岁以上」)? Write that fragment in the \"grammar_fragment\" field. "
             f"If you are not using the pattern for a sentence, set \"grammar_fragment\" to \"\".\n"
@@ -155,145 +155,150 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
 
     if mode == "qa":
         task_line = f"Answer the following question in Mandarin Chinese, one sentence at a time, to help an HSK 4-5 learner review vocabulary.\nQuestion: {topic or 'Describe something interesting.'}"
-        style_rule = f"- The sentences together should form a coherent, informative answer to the question above\n- Do NOT use fictional characters or narrative story structure"
+        style_rule = "- The sentences together should form a coherent, informative answer to the question above\n- Do NOT use fictional characters or narrative story structure"
     elif mode == "expository":
         task_line = f"Write a short informative text in Mandarin Chinese about the following topic, to help an HSK 4-5 learner review vocabulary.\nTopic: {topic or 'an interesting subject'}"
-        style_rule = f"- The sentences together should form a coherent, factual explanation of the topic above\n- Do NOT use fictional characters or narrative story structure"
+        style_rule = "- The sentences together should form a coherent, factual explanation of the topic above\n- Do NOT use fictional characters or narrative story structure"
     else:
         task_line = "Write a short Mandarin Chinese story to help an HSK 4-5 learner review vocabulary."
         topic_clause = f"- The story should be set around this topic or theme: {topic}\n" if topic else ""
         style_rule = f"{topic_clause}- The sentences must form a coherent narrative with the same recurring characters"
 
+    grammar_frag_field = ', "grammar_fragment": "<fragment or empty string>"' if grammar_focus else ""
+
     prompt = f"""{task_line}
 
-{grammar_first}Target words — write exactly one sentence per word, in this order:
+{grammar_first}Target words (each must appear in at least one sentence):
 {word_list}
 
 Rules:
-- Exactly {len(cards)} sentences total
-- For items marked [USE AS-IS]: use that text verbatim as sentence_zh
-- For all other items: write a sentence that naturally contains the target word
+- Each target word MUST appear verbatim in exactly one sentence
+- You may combine multiple target words into a single sentence when they fit naturally — this is encouraged
+- For items marked [USE AS-IS]: use that text verbatim as sentence_zh; include its word_id in word_ids
 - Use proper Chinese punctuation — include commas（，）where natural pauses occur
 - Use only HSK 1-{max_hsk} vocabulary for non-target words
-- Please keep each sentence as short and simple as possible — shorter is better, as long as all other rules are still met
+- Keep each sentence as short and simple as possible
 {style_rule}
 - NEVER use ASCII double-quote characters (") inside Chinese sentences — use 「」or （）instead if quoting is needed
-- Return ONLY valid JSON, no explanation, no markdown:
+- Return ONLY valid JSON array of sentence objects, no explanation, no markdown:
 [
-  {{"word_id": <integer>{', "grammar_fragment": "<fragment or empty string>"' if grammar_focus else ''}, "sentence_zh": "<Chinese sentence>"}},
+  {{"word_ids": [<integer>, ...]{grammar_frag_field}, "sentence_zh": "<Chinese sentence>"}},
   ...
 ]"""
 
     logger.info("[%s] generate_story: %d 张卡片 mode=%s", model, len(cards), mode)
     logger.debug("Prompt:\n%s", prompt)
 
-    # 150 tokens per sentence is generous; add 200 for overhead/fences.
-    # DeepSeek and other OpenAI-compatible providers cap at 8192.
     max_tokens = len(cards) * 150 + 200
     if not model.startswith("claude-"):
         max_tokens = min(max_tokens, 8192)
 
+    card_by_id = {c["word_id"]: c for c in cards}
     t_start = time.time()
     missing_hint = ""
-    last_partial: tuple | None = None  # (result, missing_pairs) from best attempt
+    last_partial: tuple | None = None  # (sentences, missing_word_ids)
     for attempt in range(3):
         retry_label = f" (retry {attempt}/{2})" if attempt > 0 else ""
         _set_progress(progress_key, phase="request", attempt=attempt + 1,
                       msg=f"Sending request to AI…{retry_label}", percent=max(5, 10 - attempt * 4))
-        full_prompt = prompt + missing_hint
-        raw = _call_api(model, [{"role": "user", "content": full_prompt}], max_tokens,
+        raw = _call_api(model, [{"role": "user", "content": prompt + missing_hint}], max_tokens,
                         purpose="story")
 
         logger.debug("Raw response attempt=%d (%d chars):\n%s", attempt + 1, len(raw), raw)
 
-        # Try to extract a JSON array from the response (handles markdown fences,
-        # leading/trailing text, or extra commentary the model sometimes adds)
         json_match = re.search(r'\[\s*\{.*?\}\s*\]', raw, re.DOTALL)
         if json_match:
             raw = json_match.group(0)
 
         try:
-            result = json.loads(raw)
-            if isinstance(result, list) and len(result) >= 1:
-                result = result[:len(cards)]
-                for item, card in zip(result, cards):
-                    item["word_id"] = card["word_id"]
-                if len(result) == len(cards):
-                    missing_pairs = [
-                        (item, card)
-                        for item, card in zip(result, cards)
-                        if not _is_sentence(card["word_zh"])
-                        and not _word_in_sentence(card["word_zh"], item.get("sentence_zh", ""))
-                    ]
-                    if missing_pairs:
-                        last_partial = (result, missing_pairs)
-                        missing_words = [card["word_zh"] for _, card in missing_pairs]
-                        logger.warning(
-                            "generate_story: attempt %d — words missing from sentences: %s",
-                            attempt + 1, missing_words,
-                        )
-                        _set_progress(progress_key, phase="warning", attempt=attempt + 1,
-                                      msg=f"⚠ Attempt {attempt + 1}: missing {missing_words} — retrying",
-                                      percent=0)
-                        missing_ratio = len(missing_pairs) / len(cards)
-                        if attempt >= 1 and missing_ratio < 0.03:
-                            logger.info(
-                                "generate_story: accepting partial result after attempt %d "
-                                "(%.1f%% missing) — patching %d word(s) with source sentence: %s",
-                                attempt + 1, missing_ratio * 100, len(missing_pairs), missing_words,
-                            )
-                            for item, card in missing_pairs:
-                                item["sentence_zh"] = card.get("source_sentence") or f"我学了{card['word_zh']}这个词。"
-                            _set_progress(progress_key, phase="translating",
-                                          msg="Translating sentences…", percent=88)
-                            _fill_translations(result, progress_key=progress_key)
-                            _set_progress(progress_key, phase="ai_done",
-                                          msg=f"✓ {len(result)} sentences (attempt {attempt + 1})", percent=93)
-                            return result, prompt
-                        missing_hint = (
-                            f"\n\nIMPORTANT: Your previous attempt was missing these words "
-                            f"— each MUST appear verbatim in its sentence: {', '.join(missing_words)}"
-                        )
-                        continue
-                    logger.info("generate_story: success — %d sentences (attempt %d) in %.1fs total",
-                                len(result), attempt + 1, time.time() - t_start)
+            parsed = json.loads(raw)
+            if not (isinstance(parsed, list) and len(parsed) >= 1):
+                continue
+
+            # Collect all word_ids mentioned across sentences
+            seen_ids: dict[int, int] = {}  # word_id → sentence index (first occurrence)
+            for si, item in enumerate(parsed):
+                for wid in item.get("word_ids", []):
+                    if wid not in seen_ids:
+                        seen_ids[wid] = si
+
+            # Find which target words are missing or covered multiple times
+            missing_ids = [wid for wid in word_id_set if wid not in seen_ids]
+            # Ignore extra word_ids the AI invented (not in our target set)
+            for item in parsed:
+                item["word_ids"] = [wid for wid in item.get("word_ids", []) if wid in word_id_set]
+
+            # Check that every word actually appears in its sentence
+            bad_pairs: list[tuple[int, str, str]] = []  # (word_id, word_zh, sentence_zh)
+            for item in parsed:
+                for wid in item.get("word_ids", []):
+                    card = card_by_id.get(wid)
+                    if card and not _is_sentence(card["word_zh"]) and \
+                            not _word_in_sentence(card["word_zh"], item.get("sentence_zh", "")):
+                        bad_pairs.append((wid, card["word_zh"], item.get("sentence_zh", "")))
+
+            all_missing = missing_ids + [wid for wid, _, _ in bad_pairs]
+            if all_missing:
+                missing_words = [card_by_id[wid]["word_zh"] for wid in all_missing if wid in card_by_id]
+                logger.warning("generate_story: attempt %d — words missing/not found: %s",
+                               attempt + 1, missing_words)
+                _set_progress(progress_key, phase="warning", attempt=attempt + 1,
+                              msg=f"⚠ Attempt {attempt + 1}: missing {missing_words} — retrying",
+                              percent=0)
+                missing_ratio = len(all_missing) / len(cards)
+                last_partial = (parsed, all_missing)
+                if attempt >= 1 and missing_ratio < 0.03:
+                    _patch_missing(parsed, all_missing, card_by_id)
                     _set_progress(progress_key, phase="translating",
                                   msg="Translating sentences…", percent=88)
-                    # Translate sentences locally (no extra AI call needed)
-                    _fill_translations(result, progress_key=progress_key)
-                    total_elapsed = time.time() - t_start
-                    logger.info("generate_story: DONE — %.1fs total (AI + translation)", total_elapsed)
+                    _fill_translations(parsed, progress_key=progress_key)
                     _set_progress(progress_key, phase="ai_done",
-                                  msg=f"✓ {len(result)} sentences (attempt {attempt + 1})", percent=93)
-                    return result, prompt
-                else:
-                    logger.warning("generate_story: count mismatch — got %d, need %d",
-                                   len(result), len(cards))
+                                  msg=f"✓ {len(parsed)} sentences (attempt {attempt + 1})", percent=93)
+                    return parsed, prompt
+                missing_hint = (
+                    f"\n\nIMPORTANT: Your previous attempt was missing these words "
+                    f"— each MUST appear verbatim in its sentence: {', '.join(missing_words)}"
+                )
+                continue
+
+            logger.info("generate_story: success — %d sentences covering %d words (attempt %d) in %.1fs",
+                        len(parsed), len(cards), attempt + 1, time.time() - t_start)
+            _set_progress(progress_key, phase="translating",
+                          msg="Translating sentences…", percent=88)
+            _fill_translations(parsed, progress_key=progress_key)
+            logger.info("generate_story: DONE — %.1fs total", time.time() - t_start)
+            _set_progress(progress_key, phase="ai_done",
+                          msg=f"✓ {len(parsed)} sentences (attempt {attempt + 1})", percent=93)
+            return parsed, prompt
+
         except (json.JSONDecodeError, TypeError, KeyError) as e:
             logger.error("generate_story: JSON parse error: %s", e)
 
-    # If the best attempt had < 3% missing words, accept it and patch with source sentences
     if last_partial is not None:
-        result, missing_pairs = last_partial
-        missing_ratio = len(missing_pairs) / len(cards)
-        if missing_ratio < 0.03:
-            missing_words = [card["word_zh"] for _, card in missing_pairs]
-            logger.info(
-                "generate_story: accepting partial result (%.1f%% missing) — "
-                "patching %d word(s) with source sentence: %s",
-                missing_ratio * 100, len(missing_pairs), missing_words,
-            )
-            for item, card in missing_pairs:
-                item["sentence_zh"] = card.get("source_sentence") or f"我学了{card['word_zh']}这个词。"
+        parsed, missing_ids = last_partial
+        if len(missing_ids) / len(cards) < 0.03:
+            _patch_missing(parsed, missing_ids, card_by_id)
             _set_progress(progress_key, phase="translating",
                           msg="Translating sentences…", percent=88)
-            _fill_translations(result, progress_key=progress_key)
+            _fill_translations(parsed, progress_key=progress_key)
             _set_progress(progress_key, phase="ai_done",
-                          msg=f"✓ {len(result)} sentences (patched)", percent=93)
-            return result, prompt
+                          msg=f"✓ {len(parsed)} sentences (patched)", percent=93)
+            return parsed, prompt
 
     logger.warning("generate_story: falling back to placeholder sentences")
     return _fallback_sentences(cards), prompt
+
+
+def _patch_missing(sentences: list[dict], missing_word_ids: list[int],
+                   card_by_id: dict[int, dict]) -> None:
+    """Append fallback sentences for words the AI failed to include."""
+    for wid in missing_word_ids:
+        card = card_by_id.get(wid)
+        if not card:
+            continue
+        fallback_zh = card.get("source_sentence") or f"我学了{card['word_zh']}这个词。"
+        sentences.append({"word_ids": [wid], "sentence_zh": fallback_zh,
+                          "sentence_en": "", "sentence_de": "", "sentence_fr": ""})
 
 
 def generate_character_info(char: str, pinyin: str, model: str = DEFAULT_MODEL) -> dict:
@@ -439,7 +444,7 @@ def _fallback_sentences(cards: list[dict]) -> list[dict]:
     """Minimal sentences used when the AI response cannot be parsed."""
     result = [
         {
-            "word_id": c["word_id"],
+            "word_ids": [c["word_id"]],
             "sentence_zh": f"我学了{c['word_zh']}这个词。",
             "sentence_en": "",
             "sentence_de": "",
