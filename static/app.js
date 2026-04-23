@@ -2542,7 +2542,7 @@ function loadCard(c, counts) {
 
   // Find sentence for this card's word in the story.
   // If no match, leave sentence null — renderSentence() will show just the word.
-  sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
+  sentence = story?.sentences?.find(s => s.word_ids?.includes(card.word_id)) || null;
 
   // In unfinished mode or mixed mode: story may be from a different deck/category.
   // Async-load the correct story and update the display when it arrives.
@@ -2556,7 +2556,7 @@ function loadCard(c, counts) {
         fetch(`/api/preload-session/${storyDeckId}/unified`, { method: 'POST' }).catch(() => {});
         if (s?.sentences) {
           story    = s;
-          sentence = story.sentences.find(s => s.word_id === card.word_id) || null;
+          sentence = story.sentences.find(s => s.word_ids?.includes(card.word_id)) || null;
           if (sentence) {
             _updateStoryInfoRow();
             const isListening  = category === 'listening';
@@ -2908,6 +2908,9 @@ function revealAnswer() {
   // Re-enable rating buttons
   document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
 
+  // Show multi-word rating UI when the sentence contains multiple vocab words
+  _renderMultiRatingIfNeeded();
+
   // Populate character breakdown, examples, notes, grammar, and word analysis
   renderVocabDetail();
   renderNotesSection();
@@ -3203,15 +3206,16 @@ function _callRenderWordAnalysis() {
 // ── Render sentence (with target word highlighted) ──────────────────────────
 function renderSentence() {
   if (!sentence) {
-    // No story sentence — just show the word itself
     return `<span class="hl">${card.word_zh}</span>`;
   }
-  const zh   = sentence.sentence_zh;
-  const word = card.word_zh;
-  // Wrap in <span> so the flex container has a single child — avoids flex
-  // treating the text node and the highlight span as separate block items
-  const inner = zh.replace(word, `<span class="hl">${word}</span>`);
-  return `<span>${inner}</span>`;
+  let zh = sentence.sentence_zh;
+  // Highlight co-occurring vocab words (secondary), then the current card's word (primary)
+  const coWords = (sentence.words || []).filter(w => w.word_id !== card.word_id);
+  for (const w of coWords) {
+    zh = zh.replace(w.word_zh, `<span class="hl-secondary">${w.word_zh}</span>`);
+  }
+  zh = zh.replace(card.word_zh, `<span class="hl">${card.word_zh}</span>`);
+  return `<span>${zh}</span>`;
 }
 
 // ── Pick a random 2-char CJK word that doesn't overlap with excludeWord ─────
@@ -3459,6 +3463,123 @@ function diffClozeAnswer(userInput, targetWord) {
   const matched = userChars.filter((ch, i) => ch === targetChars[i]).length;
   const pct = targetChars.length > 0 ? Math.round((matched / targetChars.length) * 100) : 0;
   return { html, pct };
+}
+
+// ── Multi-word sentence rating UI ────────────────────────────────────────────
+
+// State: {word_id → rating} for the current multi-word sentence
+const _multiRatings = {};
+
+function _renderMultiRatingIfNeeded() {
+  const ratingRow  = document.getElementById('rating-row');
+  const multiBlock = document.getElementById('multi-rating');
+  const coWords = (sentence?.words || []).filter(w => w.word_id !== card?.word_id);
+
+  if (!sentence || coWords.length === 0) {
+    // Single-word (or no sentence): use normal rating row
+    ratingRow.style.display  = '';
+    multiBlock.style.display = 'none';
+    return;
+  }
+
+  // Multi-word sentence: hide normal buttons, show multi-rating block
+  ratingRow.style.display  = 'none';
+  multiBlock.style.display = '';
+
+  // Clear previous selections
+  Object.keys(_multiRatings).forEach(k => delete _multiRatings[k]);
+  document.getElementById('multi-rating-submit').disabled = true;
+
+  const allWords = [{ word_id: card.word_id, word_zh: card.word_zh }, ...coWords];
+  const iv = card.intervals || {};
+  const container = document.getElementById('multi-rating-rows');
+  container.innerHTML = allWords.map(w => {
+    const isMain = w.word_id === card.word_id;
+    const label = isMain ? `${w.word_zh} ★` : w.word_zh;
+    return `<div class="multi-rating-row" data-word-id="${w.word_id}">
+      <span class="multi-word-label${isMain ? ' multi-word-main' : ''}">${label}</span>
+      <div class="multi-btn-group">
+        ${[1,2,3,4].map(r => {
+          const names = ['Again','Hard','Good','Easy'];
+          const ivLabel = (isMain && iv[r]) ? `<small>${iv[r]}</small>` : '';
+          return `<button class="r-btn r-${names[r-1].toLowerCase()} multi-r-btn"
+                    data-word="${w.word_id}" data-r="${r}"
+                    onclick="_pickMultiRating(${w.word_id},${r},this)">
+                    ${names[r-1]}${ivLabel}</button>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function _pickMultiRating(wordId, rating, btn) {
+  // Deselect other buttons in this row, select this one
+  const row = btn.closest('.multi-rating-row');
+  row.querySelectorAll('.multi-r-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  _multiRatings[wordId] = rating;
+
+  // Enable submit when all words have a rating
+  const allWords = document.querySelectorAll('#multi-rating-rows .multi-rating-row');
+  const allRated = [...allWords].every(r => _multiRatings[Number(r.dataset.wordId)] !== undefined);
+  document.getElementById('multi-rating-submit').disabled = !allRated;
+}
+
+async function submitMultiRating() {
+  document.querySelectorAll('.r-btn').forEach(b => b.disabled = true);
+  if (_timerStart) {
+    _sessionTotalMs += Date.now() - _timerStart;
+    _sessionRatedCount++;
+    _updateAvgTimeBadge();
+  }
+
+  // Build batch payload: current card first, then co-words
+  // We need the actual card IDs for all words — look them up from the queue/story
+  const allWordIds = Object.keys(_multiRatings).map(Number);
+  // card.id corresponds to card.word_id; for co-occurring words we need their card IDs.
+  // We'll use a helper endpoint to get card IDs by word_id + category.
+  let batchItems;
+  try {
+    const coWordIds = allWordIds.filter(wid => wid !== card.word_id);
+    let cardIdMap = { [card.word_id]: card.id };
+    if (coWordIds.length > 0) {
+      // Fetch card IDs for co-words in the same category
+      const idsRes = await api('GET',
+        `/api/cards/by-word?word_ids=${coWordIds.join(',')}&category=${encodeURIComponent(category)}`);
+      for (const entry of (idsRes || [])) cardIdMap[entry.word_id] = entry.card_id;
+    }
+    batchItems = allWordIds
+      .filter(wid => cardIdMap[wid] != null)
+      .map(wid => ({ card_id: cardIdMap[wid], rating: _multiRatings[wid] }));
+  } catch (e) {
+    showError('Failed to look up card IDs: ' + e.message);
+    document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
+    return;
+  }
+
+  try {
+    let url = `/api/review/batch`;
+    const params = [];
+    if (unfinishedMode) params.push('unfinished_mode=true');
+    else if (rootDeckId) params.push(`root_deck_id=${rootDeckId}`);
+    else if (deckId) params.push(`parent_deck_id=${deckId}`);
+    if (params.length) url += '?' + params.join('&');
+
+    const result = await api('POST', url, batchItems);
+    _sessionReviewedCount++;
+    if (!result.next_card) {
+      rootDeckId = null;
+      unfinishedMode = false;
+      showView('done');
+      return;
+    }
+    if (unfinishedMode || rootDeckId) category = result.next_card.category;
+    loadCard(result.next_card, result.counts);
+    document.getElementById('undo-btn').disabled = false;
+  } catch (e) {
+    showError('Submit failed: ' + e.message);
+    document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
+  }
 }
 
 // ── Submit rating ───────────────────────────────────────────────────────────
@@ -4121,7 +4242,7 @@ async function _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct
     _stopFakeProgress(); _stopStoryProgressPoll();
     setLoadingStep(65, null, 'Story received, processing…');
     story = await _resolveStory(storyData, storyDeckId, storyCategory, topic, maxHsk, grammarFocus, grammarPct, mode);
-    sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
+    sentence = story?.sentences?.find(s => s.word_ids?.includes(card.word_id)) || null;
     _updateStoryInfoRow();
 
     const sentenceCount = story?.sentences?.length ?? 0;
