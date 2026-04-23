@@ -3469,6 +3469,28 @@ function diffClozeAnswer(userInput, targetWord) {
 
 // State: {word_id → rating} for the current multi-word sentence
 const _multiRatings = {};
+let _multiRatingFocused = null;   // word_id currently in "rating mode", or null
+
+function _setMultiFocusedWord(wordId) {
+  _multiRatingFocused = wordId;
+  document.querySelectorAll('#multi-rating-rows .multi-rating-row').forEach(row => {
+    row.classList.toggle('row-focused', Number(row.dataset.wordId) === wordId);
+  });
+}
+
+function _clearMultiFocus() {
+  _multiRatingFocused = null;
+  document.querySelectorAll('#multi-rating-rows .multi-rating-row').forEach(row => {
+    row.classList.remove('row-focused');
+  });
+}
+
+function _autoAdvanceMultiFocus() {
+  const rows = [...document.querySelectorAll('#multi-rating-rows .multi-rating-row')];
+  const next = rows.find(r => _multiRatings[Number(r.dataset.wordId)] === undefined);
+  if (next) _setMultiFocusedWord(Number(next.dataset.wordId));
+  else _clearMultiFocus();
+}
 
 function _renderMultiRatingIfNeeded() {
   const ratingRow  = document.getElementById('rating-row');
@@ -3486,8 +3508,9 @@ function _renderMultiRatingIfNeeded() {
   ratingRow.style.display  = 'none';
   multiBlock.style.display = '';
 
-  // Clear previous selections
+  // Clear previous selections and focus state
   Object.keys(_multiRatings).forEach(k => delete _multiRatings[k]);
+  _multiRatingFocused = null;
   document.getElementById('multi-rating-submit').disabled = true;
 
   const allWords = [{ word_id: card.word_id, word_zh: card.word_zh }, ...coWords];
@@ -3517,6 +3540,7 @@ function _pickMultiRating(wordId, rating, btn) {
   const row = btn.closest('.multi-rating-row');
   row.querySelectorAll('.multi-r-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
+  row.classList.add('rated');
   _multiRatings[wordId] = rating;
 
   // Enable submit when all words have a rating
@@ -5381,6 +5405,12 @@ document.addEventListener('keydown', async e => {
   const inInput = _isEditableFocusTarget(document.activeElement);
 
   if (e.key === 'Escape') {
+    // Exit multi-word rating focus mode
+    if (_multiRatingFocused !== null) {
+      e.preventDefault();
+      _clearMultiFocus();
+      return;
+    }
     const storyOverlay = document.getElementById('story-modal-overlay');
     if (storyOverlay && storyOverlay.style.display !== 'none') {
       e.preventDefault();
@@ -5504,8 +5534,26 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); if (!backVisible) revealAnswer();
     } else if (['1','2','3','4'].includes(e.key) && backVisible) {
       e.preventDefault();
-      const btns = document.querySelectorAll('.r-btn');
-      if (btns.length && !btns[0].disabled) rate(Number(e.key));
+      const multiVisible = document.getElementById('multi-rating')?.style.display !== 'none';
+      if (multiVisible) {
+        const wordRows = [...document.querySelectorAll('#multi-rating-rows .multi-rating-row')];
+        if (_multiRatingFocused !== null) {
+          // In rating mode: 1-4 pick the rating for the focused word
+          const btn = document.querySelector(
+            `#multi-rating-rows .multi-rating-row[data-word-id="${_multiRatingFocused}"] .multi-r-btn[data-r="${e.key}"]`
+          );
+          if (btn) { _pickMultiRating(_multiRatingFocused, Number(e.key), btn); _autoAdvanceMultiFocus(); }
+        } else {
+          // Not in rating mode: 1-N select which word to focus
+          const idx = Number(e.key) - 1;
+          if (idx >= 0 && idx < wordRows.length) {
+            _setMultiFocusedWord(Number(wordRows[idx].dataset.wordId));
+          }
+        }
+      } else {
+        const btns = document.querySelectorAll('.r-btn');
+        if (btns.length && !btns[0].disabled) rate(Number(e.key));
+      }
     } else if (e.key === 'z') {
       const undoBtn = document.getElementById('undo-btn');
       if (undoBtn && !undoBtn.disabled) { e.preventDefault(); undoReview(); }

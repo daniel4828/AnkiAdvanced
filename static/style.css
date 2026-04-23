@@ -604,6 +604,17 @@ main.browse-open {
   opacity: 0.4;
   cursor: not-allowed;
 }
+/* Keyboard focus mode: highlight the active row */
+.multi-rating-row.row-focused {
+  background: var(--surface2, rgba(255,255,255,0.06));
+  border-radius: 8px;
+  outline: 2px solid var(--accent, #6366f1);
+  outline-offset: -2px;
+}
+/* Already-rated rows: grey out non-selected buttons */
+.multi-rating-row.rated .multi-r-btn:not(.selected) {
+  opacity: 0.3;
+}
 .r-btn {
   padding: 11px 4px 9px;
   border: none;
