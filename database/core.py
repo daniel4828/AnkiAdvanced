@@ -173,6 +173,19 @@ def init_db() -> None:
         conn.execute("ALTER TABLE story_sentences ADD COLUMN sentence_de TEXT")
     if "sentence_fr" not in ss_cols:
         conn.execute("ALTER TABLE story_sentences ADD COLUMN sentence_fr TEXT")
+    if "word_id" in ss_cols:
+        _migrate_story_sentences_multi_word(conn)
+    existing_tables = {r["name"] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'"
+    ).fetchall()}
+    if "story_sentence_words" not in existing_tables:
+        conn.execute("""CREATE TABLE story_sentence_words (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            sentence_id INTEGER NOT NULL REFERENCES story_sentences(id) ON DELETE CASCADE,
+            word_id     INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+            UNIQUE(sentence_id, word_id)
+        )""")
+        conn.commit()
 
     deck_cols = {r["name"] for r in conn.execute("PRAGMA table_info(decks)").fetchall()}
     if "deleted_at" not in deck_cols:
@@ -297,6 +310,44 @@ def init_db() -> None:
     _migrate_sentences_deck(conn, all_id, preset_id)
     conn.commit()
     conn.close()
+
+
+def _migrate_story_sentences_multi_word(conn: sqlite3.Connection) -> None:
+    """Rebuild story_sentences to remove word_id column, create story_sentence_words."""
+    conn.executescript("""
+        PRAGMA foreign_keys=OFF;
+
+        CREATE TABLE story_sentences_new (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            story_id    INTEGER NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+            position    INTEGER NOT NULL,
+            sentence_zh TEXT NOT NULL,
+            sentence_en TEXT NOT NULL DEFAULT '',
+            sentence_de TEXT,
+            sentence_fr TEXT,
+            UNIQUE(story_id, position)
+        );
+
+        INSERT INTO story_sentences_new (id, story_id, position, sentence_zh, sentence_en, sentence_de, sentence_fr)
+        SELECT id, story_id, position, sentence_zh, sentence_en, sentence_de, sentence_fr
+        FROM story_sentences;
+
+        CREATE TABLE IF NOT EXISTS story_sentence_words (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            sentence_id INTEGER NOT NULL REFERENCES story_sentences(id) ON DELETE CASCADE,
+            word_id     INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+            UNIQUE(sentence_id, word_id)
+        );
+
+        INSERT INTO story_sentence_words (sentence_id, word_id)
+        SELECT id, word_id FROM story_sentences;
+
+        DROP TABLE story_sentences;
+        ALTER TABLE story_sentences_new RENAME TO story_sentences;
+
+        PRAGMA foreign_keys=ON;
+    """)
+    conn.commit()
 
 
 def _migrate_stories_category(conn: sqlite3.Connection) -> None:

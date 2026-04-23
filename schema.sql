@@ -296,14 +296,22 @@ CREATE TABLE IF NOT EXISTS stories (
 CREATE TABLE IF NOT EXISTS story_sentences (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     story_id    INTEGER NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
-    word_id     INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
     position    INTEGER NOT NULL,
     sentence_zh TEXT NOT NULL,
     sentence_en TEXT NOT NULL DEFAULT '',
     sentence_de TEXT,
     sentence_fr TEXT,
-    UNIQUE(story_id, word_id),
     UNIQUE(story_id, position)
+);
+
+-- ---------------------------------------------------------------------------
+-- story_sentence_words  (many-to-many: sentences ↔ vocab entries)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS story_sentence_words (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    sentence_id INTEGER NOT NULL REFERENCES story_sentences(id) ON DELETE CASCADE,
+    word_id     INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+    UNIQUE(sentence_id, word_id)
 );
 
 -- ---------------------------------------------------------------------------
