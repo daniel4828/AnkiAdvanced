@@ -45,7 +45,11 @@ def get_latest_story(deck_id: int, category: str) -> dict | None:
 def create_story(date_str: str, category: str, deck_id: int,
                  sentences: list[dict], prompt_text: str | None = None,
                  topic: str | None = None) -> int:
-    """Always inserts a new story row. Returns story_id."""
+    """Always inserts a new story row. Returns story_id.
+
+    Each sentence dict must have: position, sentence_zh, word_ids (list of entry IDs).
+    Optional: sentence_en, sentence_de, sentence_fr.
+    """
     conn = get_db()
     cur = conn.execute(
         "INSERT INTO stories (date, category, deck_id, prompt_text, topic) VALUES (?, ?, ?, ?, ?)",
@@ -53,21 +57,31 @@ def create_story(date_str: str, category: str, deck_id: int,
     )
     story_id = cur.lastrowid
     for s in sentences:
-        conn.execute(
-            """INSERT INTO story_sentences (story_id, word_id, position, sentence_zh, sentence_en, sentence_de, sentence_fr)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (story_id, s["word_id"], s["position"], s["sentence_zh"],
+        sent_cur = conn.execute(
+            """INSERT INTO story_sentences (story_id, position, sentence_zh, sentence_en, sentence_de, sentence_fr)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (story_id, s["position"], s["sentence_zh"],
              s.get("sentence_en", ""), s.get("sentence_de"), s.get("sentence_fr")),
         )
+        sentence_id = sent_cur.lastrowid
+        for word_id in s.get("word_ids", []):
+            conn.execute(
+                "INSERT INTO story_sentence_words (sentence_id, word_id) VALUES (?, ?)",
+                (sentence_id, word_id),
+            )
     conn.commit()
     conn.close()
     return story_id
 
 
 def get_sentence_for_word(story_id: int, word_id: int) -> dict | None:
+    """Return the first sentence (lowest position) in this story that contains word_id."""
     conn = get_db()
     row = conn.execute(
-        "SELECT * FROM story_sentences WHERE story_id = ? AND word_id = ?",
+        """SELECT s.* FROM story_sentences s
+           JOIN story_sentence_words sw ON sw.sentence_id = s.id
+           WHERE s.story_id = ? AND sw.word_id = ?
+           ORDER BY s.position ASC LIMIT 1""",
         (story_id, word_id),
     ).fetchone()
     conn.close()
@@ -75,15 +89,44 @@ def get_sentence_for_word(story_id: int, word_id: int) -> dict | None:
 
 
 def get_story_sentences(story_id: int) -> list[dict]:
+    """Return all sentences for a story, each with word_ids and words list."""
     conn = get_db()
-    rows = conn.execute(
-        """SELECT s.*, w.word_zh, w.definition
-           FROM story_sentences s JOIN entries w ON w.id = s.word_id
-           WHERE s.story_id = ? ORDER BY s.position""",
+    sent_rows = conn.execute(
+        "SELECT * FROM story_sentences WHERE story_id = ? ORDER BY position",
+        (story_id,),
+    ).fetchall()
+
+    word_rows = conn.execute(
+        """SELECT sw.sentence_id, e.id AS word_id, e.word_zh, e.definition
+           FROM story_sentence_words sw
+           JOIN story_sentences ss ON ss.id = sw.sentence_id
+           JOIN entries e ON e.id = sw.word_id
+           WHERE ss.story_id = ?
+           ORDER BY sw.sentence_id, sw.id""",
         (story_id,),
     ).fetchall()
     conn.close()
-    return [dict(r) for r in rows]
+
+    words_by_sentence: dict[int, list] = {}
+    for w in word_rows:
+        words_by_sentence.setdefault(w["sentence_id"], []).append({
+            "word_id": w["word_id"],
+            "word_zh": w["word_zh"],
+            "definition": w["definition"],
+        })
+
+    result = []
+    for s in sent_rows:
+        d = dict(s)
+        wlist = words_by_sentence.get(s["id"], [])
+        d["word_ids"] = [w["word_id"] for w in wlist]
+        d["words"] = wlist
+        # Legacy compat: expose word_zh / definition of first word for callers that still use them
+        if wlist:
+            d["word_zh"] = wlist[0]["word_zh"]
+            d["definition"] = wlist[0]["definition"]
+        result.append(d)
+    return result
 
 
 def get_due_cards_unified(deck_id: int) -> list[dict]:
