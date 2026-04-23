@@ -64,7 +64,6 @@
         </div>
       </div>
       <div style="display:flex;gap:6px;margin-left:auto;align-items:center">
-        <span id="avg-time-badge" class="review-rr-badge" style="display:none" title="Average time per card this session"></span>
         <span id="review-rr-badge" class="review-rr-badge" style="display:none" title="Daily retention rate"></span>
         <button class="undo-btn" id="undo-btn" onclick="undoReview()" title="Undo last rating [Z]" disabled>↩ Undo</button>
       </div>
@@ -87,6 +86,7 @@
             <button id="back-meta-play-btn" class="play-icon-btn play-icon-sm" onclick="playSentence()" style="display:none" title="Play audio">🔊</button>
             <span class="listen-counter listen-counter-back" id="listen-counter-back" style="display:none"></span>
           </div>
+          <span id="avg-time-badge" class="review-rr-badge" style="display:none" title="Average time per card this session"></span>
           <div id="card-timer" style="display:none"></div>
           <div id="card-type-badge"></div>
           <div class="wd-card-menu-wrap" id="review-card-menu-wrap">
@@ -162,11 +162,20 @@
         <div class="sentence-de" id="sentence-de"></div>
 
         <!-- 3. Rating buttons (immediately visible after flip) -->
+        <!-- Single-word mode: standard 4-button row -->
         <div class="rating-row" id="rating-row">
           <button class="r-btn r-again" onclick="rate(1)">Again<small id="int-1"></small></button>
           <button class="r-btn r-hard"  onclick="rate(2)">Hard<small id="int-2"></small></button>
           <button class="r-btn r-good"  onclick="rate(3)">Good<small id="int-3"></small></button>
           <button class="r-btn r-easy"  onclick="rate(4)">Easy<small id="int-4"></small></button>
+        </div>
+        <!-- Multi-word mode: one rating row per vocab word, then a submit button -->
+        <div class="multi-rating" id="multi-rating" style="display:none">
+          <div class="multi-rating-rows" id="multi-rating-rows"></div>
+          <div class="multi-rating-submit-row">
+            <button class="multi-rating-submit r-btn r-good" id="multi-rating-submit"
+                    onclick="submitMultiRating()" disabled>Submit all ratings</button>
+          </div>
         </div>
 
         <!-- 3. Full vocabulary info (below the fold) -->

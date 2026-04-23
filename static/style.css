@@ -383,6 +383,7 @@ main.browse-open {
   min-height: 90px;
 }
 .sentence .hl { color: var(--primary); font-weight: 700; }
+.sentence .hl-secondary { color: var(--hard, #f59e0b); font-weight: 600; }
 .answer-user .hl { color: var(--primary); font-weight: 700; }
 
 /* Small inline play icon next to sentence on back */
@@ -544,6 +545,64 @@ main.browse-open {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
+}
+
+/* Multi-word sentence rating UI */
+.multi-rating {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.multi-rating-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.multi-rating-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.multi-word-label {
+  min-width: 60px;
+  font-size: 14px;
+  color: var(--text-muted, #888);
+  flex-shrink: 0;
+}
+.multi-word-label.multi-word-main {
+  color: var(--primary);
+  font-weight: 700;
+}
+.multi-btn-group {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  flex: 1;
+}
+.multi-r-btn {
+  padding: 7px 4px 6px;
+  font-size: 12px;
+  opacity: 0.75;
+}
+.multi-r-btn.selected {
+  opacity: 1;
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+}
+.multi-rating-submit-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 2px;
+}
+.multi-rating-submit {
+  min-width: 180px;
+  padding: 10px 20px;
+  font-size: 13px;
+  background: var(--good, #22c55e);
+}
+.multi-rating-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 .r-btn {
   padding: 11px 4px 9px;

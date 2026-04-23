@@ -439,6 +439,16 @@ def undo_review():
     return {"card": restored, "counts": counts, "stack_size": len(_undo_stack)}
 
 
+@router.get("/api/cards/by-word")
+def get_cards_by_word(word_ids: str, category: str):
+    """Return [{word_id, card_id}] for the given comma-separated word_ids and category."""
+    try:
+        ids = [int(x) for x in word_ids.split(",") if x.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid word_ids")
+    return database.get_cards_by_word_ids(ids, category)
+
+
 @router.post("/api/cards/{card_id}/bury")
 def bury_card(card_id: int):
     database.bury_card(card_id)
