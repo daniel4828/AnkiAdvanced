@@ -244,13 +244,155 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
     return {"next_card": next_card, "counts": counts}
 
 
+@router.post("/api/review/batch")
+def submit_review_batch(
+    body: list[dict],
+    root_deck_id: int | None = None,
+    unfinished_mode: bool = False,
+    parent_deck_id: int | None = None,
+):
+    """Rate multiple cards at once (multi-word sentence). body: [{card_id, rating}, ...]."""
+    if not body:
+        raise HTTPException(status_code=400, detail="Empty batch")
+
+    batch_entries = []
+    all_newly_buried: list[int] = []
+    last_updated = None
+    last_deck_id = None
+    last_cat = None
+    queue_key = None
+    build_fn = None
+
+    for item in body:
+        card_id = item["card_id"]
+        rating  = item["rating"]
+        card_before = database.get_card(card_id)
+        updated, log_id = srs.apply_review(card_id, rating)
+        deck_id = updated["deck_id"]
+        cat     = updated["category"]
+        last_updated = updated
+        last_deck_id = deck_id
+        last_cat     = cat
+
+        preset = database.get_preset_for_deck(deck_id)
+        sibling_sep    = preset.get("sibling_separation", 3)
+        sibling_factor = preset.get("sibling_factor", 0.2)
+        database.apply_sibling_repulsion(card_id, updated.get("interval", 0), sibling_sep, sibling_factor)
+
+        siblings_before = database.get_sibling_cards(card_id)
+        siblings_snapshot = [{"id": s["id"], "buried_until": s["buried_until"]} for s in siblings_before]
+
+        bury_new, bury_review, bury_learning = database.resolve_bury_flags(preset)
+        database.bury_siblings(updated["word_id"], cat,
+                               bury_new=bury_new, bury_review=bury_review, bury_learning=bury_learning)
+
+        today_str = database.anki_today().isoformat()
+        was_buried = {s["id"] for s in siblings_before
+                      if s.get("buried_until") is not None and s.get("buried_until") >= today_str}
+        siblings_after = database.get_sibling_cards(card_id)
+        newly_buried = [s["id"] for s in siblings_after
+                        if s.get("buried_until") == today_str and s["id"] not in was_buried]
+        all_newly_buried.extend(newly_buried)
+
+        batch_entries.append({
+            "card_before":       card_before,
+            "log_id":            log_id,
+            "siblings_snapshot": siblings_snapshot,
+        })
+
+        if queue_key is None:
+            if root_deck_id:
+                queue_key, build_fn = _key_and_build(root_deck_id=root_deck_id)
+            elif parent_deck_id:
+                ids = leaf_ids(parent_deck_id, cat)
+                queue_key, build_fn = _key_and_build(ids=ids, category=cat)
+            else:
+                queue_key, build_fn = _key_and_build(deck_id=deck_id, category=cat)
+
+    _undo_stack.append({
+        "batch":           True,
+        "batch_entries":   batch_entries,
+        "queue_key":       queue_key,
+        "root_deck_id":    root_deck_id,
+        "parent_deck_id":  parent_deck_id,
+        "unfinished_mode": unfinished_mode,
+        "deck_id":         last_deck_id,
+        "category":        last_cat,
+    })
+
+    first_card_id = body[0]["card_id"]
+    rated_card_ids = {item["card_id"] for item in body}
+
+    if unfinished_mode:
+        next_card = database.get_next_unfinished_card()
+        if next_card:
+            next_card["intervals"] = srs.preview_intervals(next_card)
+        counts = database.count_unfinished()
+    elif root_deck_id:
+        for item in body:
+            updated_card = database.get_card(item["card_id"])
+            if updated_card:
+                _queue_mgr.after_review(queue_key, item["card_id"], updated_card, [])
+        _queue_mgr.after_review(queue_key, first_card_id, database.get_card(first_card_id) or {},
+                                list(rated_card_ids - {first_card_id}) + all_newly_buried)
+        next_card = _next_card_from_queue(queue_key, build_fn)
+        counts = database.count_due_any_cat(root_deck_id)
+        counts["by_cat"] = database.count_due_by_category(root_deck_id)
+    elif parent_deck_id:
+        ids = leaf_ids(parent_deck_id, last_cat)
+        _queue_mgr.after_review(queue_key, first_card_id,
+                                database.get_card(first_card_id) or {},
+                                list(rated_card_ids - {first_card_id}) + all_newly_buried)
+        next_card = _next_card_from_queue(queue_key, build_fn)
+        counts = database.count_due_multi(ids, last_cat)
+        counts["by_cat"] = database.count_due_by_category(parent_deck_id)
+    else:
+        _queue_mgr.after_review(queue_key, first_card_id,
+                                database.get_card(first_card_id) or {},
+                                list(rated_card_ids - {first_card_id}) + all_newly_buried)
+        next_card = _next_card_from_queue(queue_key, build_fn)
+        counts = database.count_due(last_deck_id, last_cat)
+        parent_id = database.get_parent_deck_id(last_deck_id)
+        counts["by_cat"] = database.count_due_by_category(parent_id or last_deck_id)
+
+    return {"next_card": next_card, "counts": counts}
+
+
 @router.post("/api/review/undo")
 def undo_review():
     if not _undo_stack:
         raise HTTPException(status_code=404, detail="Nothing to undo")
 
     entry = _undo_stack.pop()
-    cb    = entry["card_before"]
+
+    if entry.get("batch"):
+        for be in reversed(entry["batch_entries"]):
+            cb = be["card_before"]
+            database.update_card(cb["id"], state=cb["state"], due=cb["due"],
+                                 step_index=cb["step_index"], interval=cb["interval"],
+                                 ease=cb["ease"], repetitions=cb["repetitions"], lapses=cb["lapses"])
+            database.delete_review_log(be["log_id"])
+            for sib in be.get("siblings_snapshot", []):
+                database.set_card_buried_until(sib["id"], sib["buried_until"])
+        _queue_mgr.invalidate(entry.get("queue_key"))
+        # Return the first card of the batch as the restored card
+        cb = entry["batch_entries"][0]["card_before"]
+        restored = database.get_card(cb["id"])
+        restored["intervals"] = srs.preview_intervals(restored)
+        deck_id = entry["deck_id"]
+        cat     = entry["category"]
+        if entry["root_deck_id"]:
+            counts = database.count_due_any_cat(entry["root_deck_id"])
+        elif entry["parent_deck_id"]:
+            ids    = leaf_ids(entry["parent_deck_id"], cat)
+            counts = database.count_due_multi(ids, cat)
+        else:
+            counts = database.count_due(deck_id, cat)
+        logger.info("undo batch review (%d cards), restored first=%s (stack=%d)",
+                    len(entry["batch_entries"]), restored["word_zh"], len(_undo_stack))
+        return {"card": restored, "counts": counts, "stack_size": len(_undo_stack)}
+
+    cb = entry["card_before"]
 
     # Restore the card to its pre-review state
     database.update_card(
