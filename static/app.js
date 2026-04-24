@@ -3277,7 +3277,8 @@ function _renderListenHint(threshold) {
   const isCjk = ch => ch >= '一' && ch <= '鿿';
   const targetPositions = _getTargetPositions(zh);
 
-  // Build set of character positions to reveal via HSK-level check on jieba tokens
+  // Reveal tokens that are HARDER than the threshold (level > threshold, or unknown to HSK).
+  // These are the "hard context words" the user may not recognise — showing them helps.
   const revealPositions = new Set();
   if (threshold > 0 && _hskLevels && sentence?.tokens?.length) {
     let pos = 0;
@@ -3285,11 +3286,11 @@ function _renderListenHint(threshold) {
       const tokStart = zh.indexOf(tok, pos);
       if (tokStart === -1) { pos += tok.length; continue; }
       const tokEnd = tokStart + tok.length;
-      // Only reveal if the token doesn't overlap any target word
       const overlapsTarget = [...Array(tok.length).keys()].some(k => targetPositions.has(tokStart + k));
       if (!overlapsTarget) {
         const level = _hskLevelOf(tok);
-        if (level !== null && level <= threshold) {
+        // Reveal if level is above threshold OR completely unknown (null = not in HSK dict)
+        if (level === null || level > threshold) {
           for (let k = tokStart; k < tokEnd; k++) revealPositions.add(k);
         }
       }
@@ -3316,7 +3317,7 @@ function _renderListenHint(threshold) {
 
 function onListenHintSlider(val) {
   const lvl = parseInt(val, 10);
-  const label = lvl === 0 ? 'Off' : `HSK ${lvl}`;
+  const label = lvl === 0 ? 'Off' : `HSK ${lvl}+`;
   document.getElementById('listen-hint-pct').textContent = label;
   _renderListenHint(lvl);
 }
