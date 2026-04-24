@@ -90,7 +90,7 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str) -> str:
 # Public API
 # ---------------------------------------------------------------------------
 
-def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2,
+def generate_story(cards: list[dict], topic: str | None = None,
                    model: str = DEFAULT_MODEL,
                    progress_key: str | None = None,
                    grammar_focus: str | None = None,
@@ -101,7 +101,6 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
 
     cards:         list of dicts with keys word_id, word_zh, pinyin, definition, pos
     topic:         optional theme/question/topic to guide the content
-    max_hsk:       maximum HSK level for non-target background vocabulary (1-6)
     model:         model ID to use for generation
     grammar_focus: optional grammar pattern to encourage (e.g. "把字句")
     grammar_pct:   approximate percentage of sentences that should use the grammar (0-100)
@@ -174,8 +173,7 @@ Rules:
 - For items marked [USE AS-IS]: use that text verbatim as sentence_zh
 - For all other items: write a sentence that naturally contains the target word
 - Use proper Chinese punctuation — include commas（，）where natural pauses occur
-- Use only HSK 1-{max_hsk} vocabulary for non-target words
-- Please keep each sentence as short and simple as possible — shorter is better, as long as all other rules are still met
+- Keep each sentence as short and simple as possible
 {style_rule}
 - NEVER use ASCII double-quote characters (") inside Chinese sentences — use 「」or （）instead if quoting is needed
 - Return ONLY valid JSON, no explanation, no markdown:

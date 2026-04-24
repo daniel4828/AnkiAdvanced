@@ -83,7 +83,7 @@ def _validated_model(model: str | None) -> str:
 
 @router.get("/api/story/{deck_id}/{category}")
 def get_story(deck_id: int, category: str,
-              topic: str | None = None, max_hsk: int = 3,
+              topic: str | None = None,
               model: str | None = None,
               grammar_focus: str | None = None, grammar_pct: int = 75,
               mode: str = "story"):
@@ -107,14 +107,14 @@ def get_story(deck_id: int, category: str,
     chosen_model = _validated_model(model)
     story = None
     cards = _get_cards_for_story(deck_id, category)
-    logger.info("story  GENERATE deck=%d cat=%s due_cards=%d topic=%r max_hsk=%d model=%s mode=%s",
-                deck_id, category, len(cards), topic, max_hsk, chosen_model, mode)
+    logger.info("story  GENERATE deck=%d cat=%s due_cards=%d topic=%r model=%s mode=%s",
+                deck_id, category, len(cards), topic, chosen_model, mode)
     if cards:
         progress_key = f"{deck_id}/{category}"
         ai._story_progress[progress_key] = {"phase": "starting", "msg": "Starting…", "percent": 5}
         last_error = None
         try:
-            sentences, prompt_text = ai.generate_story(cards, topic=topic, max_hsk=max_hsk,
+            sentences, prompt_text = ai.generate_story(cards, topic=topic,
                                                        model=chosen_model,
                                                        progress_key=progress_key,
                                                        grammar_focus=grammar_focus,
@@ -147,7 +147,7 @@ def get_story(deck_id: int, category: str,
 
 @router.post("/api/story/{deck_id}/{category}/regenerate")
 def regenerate_story(deck_id: int, category: str,
-                     topic: str | None = None, max_hsk: int = 3,
+                     topic: str | None = None,
                      model: str | None = None,
                      grammar_focus: str | None = None, grammar_pct: int = 75,
                      mode: str = "story"):
@@ -158,15 +158,15 @@ def regenerate_story(deck_id: int, category: str,
     chosen_model = _validated_model(model)
     today = database.anki_today().isoformat()
     cards = _get_cards_for_story(deck_id, category)
-    logger.info("regen  deck=%d cat=%s due_cards=%d topic=%r max_hsk=%d model=%s mode=%s",
-                deck_id, category, len(cards), topic, max_hsk, chosen_model, mode)
+    logger.info("regen  deck=%d cat=%s due_cards=%d topic=%r model=%s mode=%s",
+                deck_id, category, len(cards), topic, chosen_model, mode)
     if not cards:
         return None
     progress_key = f"{deck_id}/{category}"
     ai._story_progress[progress_key] = {"phase": "starting", "msg": "Starting…", "percent": 5}
     last_error = None
     try:
-        sentences, prompt_text = ai.generate_story(cards, topic=topic, max_hsk=max_hsk,
+        sentences, prompt_text = ai.generate_story(cards, topic=topic,
                                                    model=chosen_model,
                                                    progress_key=progress_key,
                                                    grammar_focus=grammar_focus,
