@@ -3213,62 +3213,35 @@ function _callRenderWordAnalysis() {
   renderWordAnalysis();
 }
 
-// ── Listening hint slider ────────────────────────────────────────────────────
-// Stable shuffle order for current card (reset on each new card load)
-let _hintRevealOrder = [];
+// ── Listening hint slider (HSK-aware) ───────────────────────────────────────
+let _hskLevels = null; // {word: hsk_level_number} — loaded once from static file
 
-function _initListenHint() {
-  const zh = sentence?.sentence_zh || '';
-  const isCjk = ch => ch >= '一' && ch <= '鿿';
-
-  // Collect all target word strings (current card + co-occurring words in sentence)
-  const targetWords = [];
-  if (card?.word_zh) targetWords.push(card.word_zh);
-  if (sentence?.words) {
-    for (const w of sentence.words) {
-      if (w.word_zh && !targetWords.includes(w.word_zh)) targetWords.push(w.word_zh);
-    }
+async function _loadHskLevels() {
+  if (_hskLevels) return;
+  try {
+    const r = await fetch('/static/hsk_levels.json');
+    _hskLevels = await r.json();
+  } catch {
+    _hskLevels = {};
   }
-
-  // Find which character positions belong to ANY target word
-  const targetPositions = new Set();
-  for (const tw of targetWords) {
-    let start = 0;
-    while (true) {
-      const idx = zh.indexOf(tw, start);
-      if (idx === -1) break;
-      for (let k = 0; k < tw.length; k++) targetPositions.add(idx + k);
-      start = idx + tw.length;
-    }
-  }
-
-  // Build list of non-target CJK character indices (these can be revealed by slider)
-  const revealable = [];
-  for (let i = 0; i < zh.length; i++) {
-    if (isCjk(zh[i]) && !targetPositions.has(i)) revealable.push(i);
-  }
-
-  // Shuffle once per card load for stable reveal order
-  _hintRevealOrder = [...revealable].sort(() => Math.random() - 0.5);
-
-  const pct = parseInt(document.getElementById('listen-hint-slider').value, 10);
-  _renderListenHint(pct);
 }
 
-function _renderListenHint(pct) {
-  const zh = sentence?.sentence_zh;
-  if (!zh) {
-    document.getElementById('listen-hint-sentence').textContent = '';
-    return;
-  }
-
+// Returns the HSK level of a token (tries compound first, then max of chars).
+// Returns null if the token has no CJK chars or is completely unknown.
+function _hskLevelOf(token) {
+  if (_hskLevels[token]) return _hskLevels[token];
   const isCjk = ch => ch >= '一' && ch <= '鿿';
+  let max = 0;
+  for (const ch of token) {
+    if (!isCjk(ch)) continue;
+    const l = _hskLevels[ch];
+    if (!l) return null; // unknown character → treat whole token as unknown
+    max = Math.max(max, l);
+  }
+  return max > 0 ? max : null;
+}
 
-  // Determine which positions to reveal based on pct
-  const revealCount = Math.round(_hintRevealOrder.length * pct / 100);
-  const revealed = new Set(_hintRevealOrder.slice(0, revealCount));
-
-  // Collect target positions (always hidden on front)
+function _getTargetPositions(zh) {
   const targetWords = [];
   if (card?.word_zh) targetWords.push(card.word_zh);
   if (sentence?.words) {
@@ -3276,18 +3249,55 @@ function _renderListenHint(pct) {
       if (w.word_zh && !targetWords.includes(w.word_zh)) targetWords.push(w.word_zh);
     }
   }
-  const targetPositions = new Set();
+  const positions = new Set();
   for (const tw of targetWords) {
     let start = 0;
     while (true) {
       const idx = zh.indexOf(tw, start);
       if (idx === -1) break;
-      for (let k = 0; k < tw.length; k++) targetPositions.add(idx + k);
+      for (let k = 0; k < tw.length; k++) positions.add(idx + k);
       start = idx + tw.length;
     }
   }
+  return positions;
+}
 
-  // Build HTML: revealed CJK → char, hidden CJK → <span class="hint-blank">_</span>, non-CJK → as-is
+function _initListenHint() {
+  _loadHskLevels().then(() => {
+    const threshold = parseInt(document.getElementById('listen-hint-slider').value, 10);
+    _renderListenHint(threshold);
+  });
+}
+
+function _renderListenHint(threshold) {
+  const zh = sentence?.sentence_zh;
+  const el = document.getElementById('listen-hint-sentence');
+  if (!zh) { el.textContent = ''; return; }
+
+  const isCjk = ch => ch >= '一' && ch <= '鿿';
+  const targetPositions = _getTargetPositions(zh);
+
+  // Build set of character positions to reveal via HSK-level check on jieba tokens
+  const revealPositions = new Set();
+  if (threshold > 0 && _hskLevels && sentence?.tokens?.length) {
+    let pos = 0;
+    for (const tok of sentence.tokens) {
+      const tokStart = zh.indexOf(tok, pos);
+      if (tokStart === -1) { pos += tok.length; continue; }
+      const tokEnd = tokStart + tok.length;
+      // Only reveal if the token doesn't overlap any target word
+      const overlapsTarget = [...Array(tok.length).keys()].some(k => targetPositions.has(tokStart + k));
+      if (!overlapsTarget) {
+        const level = _hskLevelOf(tok);
+        if (level !== null && level <= threshold) {
+          for (let k = tokStart; k < tokEnd; k++) revealPositions.add(k);
+        }
+      }
+      pos = tokEnd;
+    }
+  }
+
+  // Build HTML char by char
   let html = '';
   for (let i = 0; i < zh.length; i++) {
     const ch = zh[i];
@@ -3295,19 +3305,20 @@ function _renderListenHint(pct) {
       html += ch;
     } else if (targetPositions.has(i)) {
       html += `<span class="hint-blank">_</span>`;
-    } else if (revealed.has(i)) {
+    } else if (revealPositions.has(i)) {
       html += ch;
     } else {
       html += `<span class="hint-blank">_</span>`;
     }
   }
-  document.getElementById('listen-hint-sentence').innerHTML = html;
+  el.innerHTML = html;
 }
 
 function onListenHintSlider(val) {
-  const pct = parseInt(val, 10);
-  document.getElementById('listen-hint-pct').textContent = pct + '%';
-  _renderListenHint(pct);
+  const lvl = parseInt(val, 10);
+  const label = lvl === 0 ? 'Off' : `HSK ${lvl}`;
+  document.getElementById('listen-hint-pct').textContent = label;
+  _renderListenHint(lvl);
 }
 
 // ── Render sentence (with target word highlighted) ──────────────────────────
