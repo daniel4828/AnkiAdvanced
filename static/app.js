@@ -2582,6 +2582,10 @@ function loadCard(c, counts) {
             }
           }
         }
+        // Update listening hint now that sentence is loaded
+        if (snap.category === 'listening' && document.getElementById('side-back').style.display === 'none') {
+          _initListenHint();
+        }
         // Auto-play deferred from loadCard: play now that story is loaded
         if (snap.category === 'listening' && document.getElementById('side-back').style.display === 'none') {
           playSentence();
@@ -2687,6 +2691,15 @@ function showFront() {
   document.getElementById('back-meta-play-btn').style.display = 'none';
   _listenCount = 0;
   _updateListenCounters();
+
+  // Listening hint slider
+  const hintWrap = document.getElementById('listen-hint-wrap');
+  if (isListening) {
+    hintWrap.style.display = 'flex';
+    _initListenHint();
+  } else {
+    hintWrap.style.display = 'none';
+  }
 
   // Word bank mode: creating category for non-sentence notes
   const isCloze = isCreating && !isSentence;
@@ -3201,6 +3214,103 @@ function renderWordAnalysis(container, wordData) {
 
 function _callRenderWordAnalysis() {
   renderWordAnalysis();
+}
+
+// ── Listening hint slider ────────────────────────────────────────────────────
+// Stable shuffle order for current card (reset on each new card load)
+let _hintRevealOrder = [];
+
+function _initListenHint() {
+  const zh = sentence?.sentence_zh || '';
+  const isCjk = ch => ch >= '一' && ch <= '鿿';
+
+  // Collect all target word strings (current card + co-occurring words in sentence)
+  const targetWords = [];
+  if (card?.word_zh) targetWords.push(card.word_zh);
+  if (sentence?.words) {
+    for (const w of sentence.words) {
+      if (w.word_zh && !targetWords.includes(w.word_zh)) targetWords.push(w.word_zh);
+    }
+  }
+
+  // Find which character positions belong to ANY target word
+  const targetPositions = new Set();
+  for (const tw of targetWords) {
+    let start = 0;
+    while (true) {
+      const idx = zh.indexOf(tw, start);
+      if (idx === -1) break;
+      for (let k = 0; k < tw.length; k++) targetPositions.add(idx + k);
+      start = idx + tw.length;
+    }
+  }
+
+  // Build list of non-target CJK character indices (these can be revealed by slider)
+  const revealable = [];
+  for (let i = 0; i < zh.length; i++) {
+    if (isCjk(zh[i]) && !targetPositions.has(i)) revealable.push(i);
+  }
+
+  // Shuffle once per card load for stable reveal order
+  _hintRevealOrder = [...revealable].sort(() => Math.random() - 0.5);
+
+  const pct = parseInt(document.getElementById('listen-hint-slider').value, 10);
+  _renderListenHint(pct);
+}
+
+function _renderListenHint(pct) {
+  const zh = sentence?.sentence_zh;
+  if (!zh) {
+    document.getElementById('listen-hint-sentence').textContent = '';
+    return;
+  }
+
+  const isCjk = ch => ch >= '一' && ch <= '鿿';
+
+  // Determine which positions to reveal based on pct
+  const revealCount = Math.round(_hintRevealOrder.length * pct / 100);
+  const revealed = new Set(_hintRevealOrder.slice(0, revealCount));
+
+  // Collect target positions (always hidden on front)
+  const targetWords = [];
+  if (card?.word_zh) targetWords.push(card.word_zh);
+  if (sentence?.words) {
+    for (const w of sentence.words) {
+      if (w.word_zh && !targetWords.includes(w.word_zh)) targetWords.push(w.word_zh);
+    }
+  }
+  const targetPositions = new Set();
+  for (const tw of targetWords) {
+    let start = 0;
+    while (true) {
+      const idx = zh.indexOf(tw, start);
+      if (idx === -1) break;
+      for (let k = 0; k < tw.length; k++) targetPositions.add(idx + k);
+      start = idx + tw.length;
+    }
+  }
+
+  // Build HTML: revealed CJK → char, hidden CJK → <span class="hint-blank">_</span>, non-CJK → as-is
+  let html = '';
+  for (let i = 0; i < zh.length; i++) {
+    const ch = zh[i];
+    if (!isCjk(ch)) {
+      html += ch;
+    } else if (targetPositions.has(i)) {
+      html += `<span class="hint-blank">_</span>`;
+    } else if (revealed.has(i)) {
+      html += ch;
+    } else {
+      html += `<span class="hint-blank">_</span>`;
+    }
+  }
+  document.getElementById('listen-hint-sentence').innerHTML = html;
+}
+
+function onListenHintSlider(val) {
+  const pct = parseInt(val, 10);
+  document.getElementById('listen-hint-pct').textContent = pct + '%';
+  _renderListenHint(pct);
 }
 
 // ── Render sentence (with target word highlighted) ──────────────────────────
