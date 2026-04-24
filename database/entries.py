@@ -44,6 +44,10 @@ def insert_word(word: dict) -> int:
     conn.commit()
     row = conn.execute("SELECT id FROM entries WHERE word_zh = ?", (word["word_zh"],)).fetchone()
     conn.close()
+    if row is None:
+        raise RuntimeError(
+            f"insert_word: INSERT OR IGNORE failed (constraint violation?) for word_zh={word['word_zh']!r}"
+        )
     return row["id"]
 
 
@@ -261,6 +265,8 @@ def insert_grammar_point(name: str, level: str | None, structure: str | None,
         "SELECT id FROM grammar_points WHERE name = ?", (name,)
     ).fetchone()
     conn.close()
+    if row is None:
+        raise RuntimeError(f"insert_grammar_point: INSERT OR IGNORE failed for name={name!r}")
     return row["id"]
 
 
@@ -354,6 +360,8 @@ def upsert_character(char: dict) -> int:
     conn.commit()
     row = conn.execute("SELECT id FROM characters WHERE char = ?", (char["char"],)).fetchone()
     conn.close()
+    if row is None:
+        raise RuntimeError(f"upsert_character: INSERT failed for char={char['char']!r}")
     return row["id"]
 
 

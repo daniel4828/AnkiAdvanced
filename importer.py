@@ -11,6 +11,12 @@ from yaml_fixer import fix_yaml_content
 logger = logging.getLogger(__name__)
 
 # Maps YAML entry `type` → DB `note_type`. Unknown types are skipped.
+_VALID_REGISTERS = {
+    'spoken', 'written', 'both',
+    'spoken_colloquial', 'spoken_neutral', 'neutral',
+    'formal_written', 'literary',
+}
+
 NOTE_TYPE_MAP = {
     "vocabulary": "vocabulary",
     "word":       "vocabulary",   # new canonical name for vocabulary
@@ -300,6 +306,11 @@ def _strip_ellipsis(word_zh: str) -> str:
 
 
 def _build_word_dict(entry: dict, source: str, note_type: str = "vocabulary") -> dict:
+    register = entry.get("register")
+    if register not in _VALID_REGISTERS:
+        if register is not None:
+            logger.warning("_build_word_dict: invalid register %r — set to None", register)
+        register = None
     return {
         "word_zh":         _strip_ellipsis(entry.get("simplified", "").strip()),
         "pinyin":          entry.get("pinyin"),
@@ -316,7 +327,7 @@ def _build_word_dict(entry: dict, source: str, note_type: str = "vocabulary") ->
         "date_yaml":       entry.get("date"),
         "source_sentence": entry.get("source_de"),
         "grammar_notes":   None,
-        "register":        entry.get("register"),  # spoken | written | both
+        "register":        register,
     }
 
 
@@ -543,6 +554,7 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
     _deck_path_cache: dict[str, dict] = {}  # deck_path → leaf deck_ids
 
     for entry in entries:
+      try:
         yaml_type = entry.get("type", "")
         note_type = NOTE_TYPE_MAP.get(yaml_type)
 
@@ -714,6 +726,12 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
             suspended_states = card_cfg.get("suspended") or None
         _create_cards(word_id, target_deck_ids, suspended_states, word_zh=word_zh)
         imported += 1
+
+      except Exception as _entry_exc:
+        _entry_word = entry.get("simplified") or entry.get("word_zh") or repr(entry)[:60]
+        logger.exception("ENTRY_ERROR %s: %r — %s", label, _entry_word, _entry_exc)
+        skipped_invalid += 1
+        skipped_entries.append({"word": str(_entry_word), "reason": str(_entry_exc)})
 
     return {"imported": imported, "skipped_duplicate": skipped_duplicate,
             "skipped_invalid": skipped_invalid, "skipped_entries": skipped_entries}
