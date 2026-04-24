@@ -173,17 +173,25 @@ def _count_new_introduced_today(conn, deck_id: int, category: str, today: str) -
 
 
 def _get_virtually_buried_word_ids(
-    word_ids: set[int], category: str, conn, today: str, now: str
+    word_ids: set[int], category: str, conn, today: str, now: str,
+    cat_rank: dict[str, int] | None = None,
 ) -> set[int]:
     """Return the subset of word_ids suppressed by a higher-priority sibling card due today.
 
     Each word is "owned" by the due card with the best combined rank:
       state rank  : learning/relearn=0, review=1, new=2
-      category rank: listening=0, reading=1, creating=2
+      category rank: determined by cat_rank (defaults to listening=0, reading=1, creating=2)
     A card is suppressed if a sibling with a strictly lower combined rank exists and is due.
     """
     if not word_ids:
         return set()
+    if cat_rank is None:
+        cat_rank = {"listening": 0, "reading": 1, "creating": 2}
+
+    def _cat_case(col: str) -> str:
+        parts = " ".join(f"WHEN '{c}' THEN {r}" for c, r in cat_rank.items())
+        return f"CASE {col} {parts} ELSE 99 END"
+
     placeholders = ",".join("?" * len(word_ids))
     rows = conn.execute(
         f"""SELECT DISTINCT c_mine.word_id
@@ -215,8 +223,7 @@ def _get_virtually_buried_word_ids(
                     WHEN 'learning' THEN 0 WHEN 'relearn' THEN 0 WHEN 'review' THEN 1 ELSE 2
                   END
                   AND
-                  CASE c_sib.category WHEN 'listening' THEN 0 WHEN 'reading' THEN 1 ELSE 2 END <
-                  CASE c_mine.category WHEN 'listening' THEN 0 WHEN 'reading' THEN 1 ELSE 2 END
+                  {_cat_case('c_sib.category')} < {_cat_case('c_mine.category')}
                 )
               )""",
         (*word_ids, category, category, today, now, today),
@@ -389,7 +396,9 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
     # ── 5. Sibling suppression (for story word-list building) ─────────────────
     if sibling_suppression and any(resolve_bury_flags(preset)):
         word_ids = {c["word_id"] for c in cards}
-        suppressed = _get_virtually_buried_word_ids(word_ids, category, conn, today, now)
+        order_str = preset.get("category_order", "listening,reading,creating")
+        cat_rank = {c.strip(): i for i, c in enumerate(order_str.split(","))}
+        suppressed = _get_virtually_buried_word_ids(word_ids, category, conn, today, now, cat_rank=cat_rank)
         if suppressed:
             cards = [c for c in cards if c["word_id"] not in suppressed]
 
@@ -726,7 +735,8 @@ def count_due_deduped(leaf_pairs: list[tuple[int, str]]) -> dict:
                 total[k] += v
         return total
 
-    cat_rank_map = {"listening": 0, "reading": 1, "creating": 2}
+    order_str = preset.get("category_order", "listening,reading,creating")
+    cat_rank_map = {c.strip(): i for i, c in enumerate(order_str.split(","))}
     # word_id -> (state_rank, cat_rank, state, deck_id, category)
     best: dict[int, tuple] = {}
     new_remaining_map: dict[tuple, int] = {}
@@ -824,10 +834,13 @@ def get_next_unfinished_card() -> dict | None:
 def bury_siblings(word_id: int, reviewed_category: str, *,
                   bury_new: bool = False, bury_review: bool = False,
                   bury_learning: bool = False) -> None:
-    """Bury other-category cards for this word based on which states should be buried."""
+    """Bury other-category cards for this word based on which states should be buried.
+
+    New-state siblings are never buried regardless of bury_new: a card that has
+    never been reviewed in its category should remain visible until first studied.
+    """
     states = []
-    if bury_new:
-        states.append("'new'")
+    # intentionally skip 'new' — new siblings must stay visible until first reviewed
     if bury_review:
         states.append("'review'")
     if bury_learning:
