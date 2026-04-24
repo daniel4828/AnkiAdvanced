@@ -3216,33 +3216,7 @@ function _callRenderWordAnalysis() {
   renderWordAnalysis();
 }
 
-// ── Listening hint slider (HSK-aware) ───────────────────────────────────────
-let _hskLevels = null; // {word: hsk_level_number} — loaded once from static file
-
-async function _loadHskLevels() {
-  if (_hskLevels) return;
-  try {
-    const r = await fetch('/static/hsk_levels.json');
-    _hskLevels = await r.json();
-  } catch {
-    _hskLevels = {};
-  }
-}
-
-// Returns the HSK level of a token (tries compound first, then max of chars).
-// Returns null if the token has no CJK chars or is completely unknown.
-function _hskLevelOf(token) {
-  if (_hskLevels[token]) return _hskLevels[token];
-  const isCjk = ch => ch >= '一' && ch <= '鿿';
-  let max = 0;
-  for (const ch of token) {
-    if (!isCjk(ch)) continue;
-    const l = _hskLevels[ch];
-    if (!l) return null; // unknown character → treat whole token as unknown
-    max = Math.max(max, l);
-  }
-  return max > 0 ? max : null;
-}
+// ── Listening hint slider (random percentage reveal) ─────────────────────────
 
 function _getTargetPositions(zh) {
   const targetWords = [];
@@ -3266,13 +3240,11 @@ function _getTargetPositions(zh) {
 }
 
 function _initListenHint() {
-  _loadHskLevels().then(() => {
-    const threshold = parseInt(document.getElementById('listen-hint-slider').value, 10);
-    _renderListenHint(threshold);
-  });
+  const pct = parseInt(document.getElementById('listen-hint-slider').value, 10);
+  _renderListenHint(pct);
 }
 
-function _renderListenHint(threshold) {
+function _renderListenHint(pct) {
   const zh = sentence?.sentence_zh;
   const el = document.getElementById('listen-hint-sentence');
   if (!zh) { el.textContent = ''; return; }
@@ -3280,27 +3252,18 @@ function _renderListenHint(threshold) {
   const isCjk = ch => ch >= '一' && ch <= '鿿';
   const targetPositions = _getTargetPositions(zh);
 
-  // Build set of character positions to reveal via HSK-level check on jieba tokens
+  // Collect all non-target CJK positions and randomly reveal pct% of them
   const revealPositions = new Set();
-  if (threshold > 0 && _hskLevels && sentence?.tokens?.length) {
-    let pos = 0;
-    for (const tok of sentence.tokens) {
-      const tokStart = zh.indexOf(tok, pos);
-      if (tokStart === -1) { pos += tok.length; continue; }
-      const tokEnd = tokStart + tok.length;
-      // Only reveal if the token doesn't overlap any target word
-      const overlapsTarget = [...Array(tok.length).keys()].some(k => targetPositions.has(tokStart + k));
-      if (!overlapsTarget) {
-        const level = _hskLevelOf(tok);
-        if (level !== null && level <= threshold) {
-          for (let k = tokStart; k < tokEnd; k++) revealPositions.add(k);
-        }
-      }
-      pos = tokEnd;
+  if (pct > 0) {
+    const revealable = [];
+    for (let i = 0; i < zh.length; i++) {
+      if (isCjk(zh[i]) && !targetPositions.has(i)) revealable.push(i);
     }
+    const count = Math.round(revealable.length * pct / 100);
+    revealable.sort(() => Math.random() - 0.5);
+    for (let i = 0; i < count; i++) revealPositions.add(revealable[i]);
   }
 
-  // Build HTML char by char
   let html = '';
   for (let i = 0; i < zh.length; i++) {
     const ch = zh[i];
@@ -3318,10 +3281,9 @@ function _renderListenHint(threshold) {
 }
 
 function onListenHintSlider(val) {
-  const lvl = parseInt(val, 10);
-  const label = lvl === 0 ? 'Off' : `HSK ${lvl}`;
-  document.getElementById('listen-hint-pct').textContent = label;
-  _renderListenHint(lvl);
+  const pct = parseInt(val, 10);
+  document.getElementById('listen-hint-pct').textContent = pct === 0 ? 'Off' : `${pct}%`;
+  _renderListenHint(pct);
 }
 
 // ── Render sentence (with target word highlighted) ──────────────────────────

@@ -107,14 +107,14 @@
           <button class="listen-icon" onclick="playSentence()">🔊</button>
           <span class="listen-counter" id="listen-counter" style="display:none"></span>
         </div>
-        <!-- Listening: hint sentence with slider (shows % of non-target chars) -->
+        <!-- Listening: hint sentence with slider (randomly reveals X% of non-target chars) -->
         <div id="listen-hint-wrap" style="display:none">
           <div class="listen-hint-sentence" id="listen-hint-sentence"></div>
           <div class="listen-hint-slider-row">
             <span class="listen-hint-label">Hint</span>
-            <input type="range" id="listen-hint-slider" min="0" max="6" value="4"
+            <input type="range" id="listen-hint-slider" min="0" max="100" value="30"
                    oninput="onListenHintSlider(this.value)">
-            <span class="listen-hint-pct" id="listen-hint-pct">HSK 4</span>
+            <span class="listen-hint-pct" id="listen-hint-pct">30%</span>
           </div>
         </div>
         <!-- Creating: English/German context sentence (shown above Chinese for cloze) -->
