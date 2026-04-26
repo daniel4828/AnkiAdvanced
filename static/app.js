@@ -2456,7 +2456,7 @@ async function startReviewUnfinished() {
       showView('done');
       return;
     }
-    await _doStartReviewUnfinished(null, 2, null);
+    await _doStartReviewUnfinished(null, 3, null);
   } catch (e) {
     showError('Failed to start session: ' + e.message);
     showView('decks');
@@ -2542,7 +2542,7 @@ function loadCard(c, counts) {
 
   // Find sentence for this card's word in the story.
   // If no match, leave sentence null — renderSentence() will show just the word.
-  sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
+  sentence = story?.sentences?.find(s => s.word_ids?.includes(card.word_id)) || null;
 
   // In unfinished mode or mixed mode: story may be from a different deck/category.
   // Async-load the correct story and update the display when it arrives.
@@ -2556,7 +2556,7 @@ function loadCard(c, counts) {
         fetch(`/api/preload-session/${storyDeckId}/unified`, { method: 'POST' }).catch(() => {});
         if (s?.sentences) {
           story    = s;
-          sentence = story.sentences.find(s => s.word_id === card.word_id) || null;
+          sentence = story.sentences.find(s => s.word_ids?.includes(card.word_id)) || null;
           if (sentence) {
             _updateStoryInfoRow();
             const isListening  = category === 'listening';
@@ -2581,6 +2581,10 @@ function loadCard(c, counts) {
               if (inp.style.display !== 'none') inp.textContent = sentence.sentence_de || sentence.sentence_fr || '';
             }
           }
+        }
+        // Update listening hint now that sentence is loaded
+        if (snap.category === 'listening' && document.getElementById('side-back').style.display === 'none') {
+          _initListenHint();
         }
         // Auto-play deferred from loadCard: play now that story is loaded
         if (snap.category === 'listening' && document.getElementById('side-back').style.display === 'none') {
@@ -2687,6 +2691,15 @@ function showFront() {
   document.getElementById('back-meta-play-btn').style.display = 'none';
   _listenCount = 0;
   _updateListenCounters();
+
+  // Listening hint slider
+  const hintWrap = document.getElementById('listen-hint-wrap');
+  if (isListening) {
+    hintWrap.style.display = 'flex';
+    _initListenHint();
+  } else {
+    hintWrap.style.display = 'none';
+  }
 
   // Word bank mode: creating category for non-sentence notes
   const isCloze = isCreating && !isSentence;
@@ -2907,6 +2920,9 @@ function revealAnswer() {
 
   // Re-enable rating buttons
   document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
+
+  // Show multi-word rating UI when the sentence contains multiple vocab words
+  _renderMultiRatingIfNeeded();
 
   // Populate character breakdown, examples, notes, grammar, and word analysis
   renderVocabDetail();
@@ -3200,18 +3216,134 @@ function _callRenderWordAnalysis() {
   renderWordAnalysis();
 }
 
+// ── Listening hint slider (HSK-aware) ───────────────────────────────────────
+let _hskLevels = null; // {word: hsk_level_number} — loaded once from static file
+
+async function _loadHskLevels() {
+  if (_hskLevels) return;
+  try {
+    const r = await fetch('/static/hsk_levels.json');
+    _hskLevels = await r.json();
+  } catch {
+    _hskLevels = {};
+  }
+}
+
+// Returns the HSK level of a token (tries compound first, then max of chars).
+// Returns null if the token has no CJK chars or is completely unknown.
+function _hskLevelOf(token) {
+  if (_hskLevels[token]) return _hskLevels[token];
+  const isCjk = ch => ch >= '一' && ch <= '鿿';
+  let max = 0;
+  for (const ch of token) {
+    if (!isCjk(ch)) continue;
+    const l = _hskLevels[ch];
+    if (!l) return null; // unknown character → treat whole token as unknown
+    max = Math.max(max, l);
+  }
+  return max > 0 ? max : null;
+}
+
+function _getTargetPositions(zh) {
+  const targetWords = [];
+  if (card?.word_zh) targetWords.push(card.word_zh);
+  if (sentence?.words) {
+    for (const w of sentence.words) {
+      if (w.word_zh && !targetWords.includes(w.word_zh)) targetWords.push(w.word_zh);
+    }
+  }
+  const positions = new Set();
+  for (const tw of targetWords) {
+    let start = 0;
+    while (true) {
+      const idx = zh.indexOf(tw, start);
+      if (idx === -1) break;
+      for (let k = 0; k < tw.length; k++) positions.add(idx + k);
+      start = idx + tw.length;
+    }
+  }
+  return positions;
+}
+
+function _initListenHint() {
+  _loadHskLevels().then(() => {
+    const threshold = parseInt(document.getElementById('listen-hint-slider').value, 10);
+    _renderListenHint(threshold);
+  });
+}
+
+function _renderListenHint(threshold) {
+  const zh = sentence?.sentence_zh;
+  const el = document.getElementById('listen-hint-sentence');
+  if (!zh) { el.textContent = ''; return; }
+
+  const isCjk = ch => ch >= '一' && ch <= '鿿';
+  const targetPositions = _getTargetPositions(zh);
+
+  // Reveal tokens harder than the threshold (level > threshold, or unknown to HSK).
+  // threshold=0 means "All": level > 0 is true for every known word, null words also qualify.
+  const revealPositions = new Set();
+  if (_hskLevels && sentence?.tokens?.length) {
+    let pos = 0;
+    for (const tok of sentence.tokens) {
+      const tokStart = zh.indexOf(tok, pos);
+      if (tokStart === -1) { pos += tok.length; continue; }
+      const tokEnd = tokStart + tok.length;
+      const overlapsTarget = [...Array(tok.length).keys()].some(k => targetPositions.has(tokStart + k));
+      if (!overlapsTarget) {
+        const level = _hskLevelOf(tok);
+        if (level === null || level > threshold) {
+          for (let k = tokStart; k < tokEnd; k++) revealPositions.add(k);
+        }
+      }
+      pos = tokEnd;
+    }
+  }
+
+  // Build HTML char by char
+  let html = '';
+  for (let i = 0; i < zh.length; i++) {
+    const ch = zh[i];
+    if (!isCjk(ch)) {
+      html += ch;
+    } else if (targetPositions.has(i)) {
+      html += `<span class="hint-blank">_</span>`;
+    } else if (revealPositions.has(i)) {
+      html += ch;
+    } else {
+      html += `<span class="hint-blank">_</span>`;
+    }
+  }
+  el.innerHTML = html;
+}
+
+function onListenHintSlider(val) {
+  const lvl = parseInt(val, 10);
+  document.getElementById('listen-hint-pct').textContent = lvl === 0 ? 'All' : `HSK ${lvl}+`;
+  _renderListenHint(lvl);
+}
+
+function _adjustListenHintSlider(delta) {
+  const slider = document.getElementById('listen-hint-slider');
+  if (!slider || slider.closest('#listen-hint-wrap')?.style.display === 'none') return;
+  const next = Math.max(0, Math.min(6, parseInt(slider.value, 10) + delta));
+  slider.value = next;
+  onListenHintSlider(next);
+}
+
 // ── Render sentence (with target word highlighted) ──────────────────────────
 function renderSentence() {
   if (!sentence) {
-    // No story sentence — just show the word itself
     return `<span class="hl">${card.word_zh}</span>`;
   }
-  const zh   = sentence.sentence_zh;
-  const word = card.word_zh;
-  // Wrap in <span> so the flex container has a single child — avoids flex
-  // treating the text node and the highlight span as separate block items
-  const inner = zh.replace(word, `<span class="hl">${word}</span>`);
-  return `<span>${inner}</span>`;
+  let zh = sentence.sentence_zh;
+  // Highlight co-occurring vocab words (secondary), then the current card's word (primary)
+  const coWords = (sentence.words || []).filter(w => w.word_id !== card.word_id);
+  for (const w of coWords) {
+    zh = zh.replace(w.word_zh, `<span class="hl-secondary">${w.word_zh}</span>`);
+  }
+  zh = zh.replace(card.word_zh, `<span class="hl">${card.word_zh}</span>`);
+  return `<span>${zh}</span>`;
 }
 
 // ── Pick a random 2-char CJK word that doesn't overlap with excludeWord ─────
@@ -3461,6 +3593,147 @@ function diffClozeAnswer(userInput, targetWord) {
   return { html, pct };
 }
 
+// ── Multi-word sentence rating UI ────────────────────────────────────────────
+
+// State: {word_id → rating} for the current multi-word sentence
+const _multiRatings = {};
+let _multiRatingFocused = null;   // word_id currently in "rating mode", or null
+
+function _setMultiFocusedWord(wordId) {
+  _multiRatingFocused = wordId;
+  document.querySelectorAll('#multi-rating-rows .multi-rating-row').forEach(row => {
+    row.classList.toggle('row-focused', Number(row.dataset.wordId) === wordId);
+  });
+}
+
+function _clearMultiFocus() {
+  _multiRatingFocused = null;
+  document.querySelectorAll('#multi-rating-rows .multi-rating-row').forEach(row => {
+    row.classList.remove('row-focused');
+  });
+}
+
+function _autoAdvanceMultiFocus() {
+  const rows = [...document.querySelectorAll('#multi-rating-rows .multi-rating-row')];
+  const next = rows.find(r => _multiRatings[Number(r.dataset.wordId)] === undefined);
+  if (next) _setMultiFocusedWord(Number(next.dataset.wordId));
+  else _clearMultiFocus();
+}
+
+function _renderMultiRatingIfNeeded() {
+  const ratingRow  = document.getElementById('rating-row');
+  const multiBlock = document.getElementById('multi-rating');
+  const coWords = (sentence?.words || []).filter(w => w.word_id !== card?.word_id);
+
+  if (!sentence || coWords.length === 0) {
+    // Single-word (or no sentence): use normal rating row
+    ratingRow.style.display  = '';
+    multiBlock.style.display = 'none';
+    return;
+  }
+
+  // Multi-word sentence: hide normal buttons, show multi-rating block
+  ratingRow.style.display  = 'none';
+  multiBlock.style.display = '';
+
+  // Clear previous selections and focus state
+  Object.keys(_multiRatings).forEach(k => delete _multiRatings[k]);
+  _multiRatingFocused = null;
+  document.getElementById('multi-rating-submit').disabled = true;
+
+  const allWords = [{ word_id: card.word_id, word_zh: card.word_zh }, ...coWords];
+  const iv = card.intervals || {};
+  const container = document.getElementById('multi-rating-rows');
+  container.innerHTML = allWords.map(w => {
+    const isMain = w.word_id === card.word_id;
+    const label = isMain ? `${w.word_zh} ★` : w.word_zh;
+    return `<div class="multi-rating-row" data-word-id="${w.word_id}">
+      <span class="multi-word-label${isMain ? ' multi-word-main' : ''}">${label}</span>
+      <div class="multi-btn-group">
+        ${[1,2,3,4].map(r => {
+          const names = ['Again','Hard','Good','Easy'];
+          const ivLabel = (isMain && iv[r]) ? `<small>${iv[r]}</small>` : '';
+          return `<button class="r-btn r-${names[r-1].toLowerCase()} multi-r-btn"
+                    data-word="${w.word_id}" data-r="${r}"
+                    onclick="_pickMultiRating(${w.word_id},${r},this)">
+                    ${names[r-1]}${ivLabel}</button>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function _pickMultiRating(wordId, rating, btn) {
+  // Deselect other buttons in this row, select this one
+  const row = btn.closest('.multi-rating-row');
+  row.querySelectorAll('.multi-r-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  row.classList.add('rated');
+  _multiRatings[wordId] = rating;
+
+  // Enable submit when all words have a rating
+  const allWords = document.querySelectorAll('#multi-rating-rows .multi-rating-row');
+  const allRated = [...allWords].every(r => _multiRatings[Number(r.dataset.wordId)] !== undefined);
+  document.getElementById('multi-rating-submit').disabled = !allRated;
+}
+
+async function submitMultiRating() {
+  document.querySelectorAll('.r-btn').forEach(b => b.disabled = true);
+  if (_timerStart) {
+    _sessionTotalMs += Date.now() - _timerStart;
+    _sessionRatedCount++;
+    _updateAvgTimeBadge();
+  }
+
+  // Build batch payload: current card first, then co-words
+  // We need the actual card IDs for all words — look them up from the queue/story
+  const allWordIds = Object.keys(_multiRatings).map(Number);
+  // card.id corresponds to card.word_id; for co-occurring words we need their card IDs.
+  // We'll use a helper endpoint to get card IDs by word_id + category.
+  let batchItems;
+  try {
+    const coWordIds = allWordIds.filter(wid => wid !== card.word_id);
+    let cardIdMap = { [card.word_id]: card.id };
+    if (coWordIds.length > 0) {
+      // Fetch card IDs for co-words in the same category
+      const idsRes = await api('GET',
+        `/api/cards/by-word?word_ids=${coWordIds.join(',')}&category=${encodeURIComponent(category)}`);
+      for (const entry of (idsRes || [])) cardIdMap[entry.word_id] = entry.card_id;
+    }
+    batchItems = allWordIds
+      .filter(wid => cardIdMap[wid] != null)
+      .map(wid => ({ card_id: cardIdMap[wid], rating: _multiRatings[wid] }));
+  } catch (e) {
+    showError('Failed to look up card IDs: ' + e.message);
+    document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
+    return;
+  }
+
+  try {
+    let url = `/api/review/batch`;
+    const params = [];
+    if (unfinishedMode) params.push('unfinished_mode=true');
+    else if (rootDeckId) params.push(`root_deck_id=${rootDeckId}`);
+    else if (deckId) params.push(`parent_deck_id=${deckId}`);
+    if (params.length) url += '?' + params.join('&');
+
+    const result = await api('POST', url, batchItems);
+    _sessionReviewedCount++;
+    if (!result.next_card) {
+      rootDeckId = null;
+      unfinishedMode = false;
+      showView('done');
+      return;
+    }
+    if (unfinishedMode || rootDeckId) category = result.next_card.category;
+    loadCard(result.next_card, result.counts);
+    document.getElementById('undo-btn').disabled = false;
+  } catch (e) {
+    showError('Submit failed: ' + e.message);
+    document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
+  }
+}
+
 // ── Submit rating ───────────────────────────────────────────────────────────
 async function rate(rating) {
   document.querySelectorAll('.r-btn').forEach(b => b.disabled = true);
@@ -3647,7 +3920,7 @@ function openStorySetup(sentenceCount, { isMixed = false, isUnfinished = false, 
   document.getElementById('setup-topic').value = '';
   document.getElementById('setup-grammar').value = '';
   document.getElementById('setup-grammar-pct').value = 50;
-  document.getElementById('setup-hsk-slider').value = 2;
+  document.getElementById('setup-hsk-slider').value = 3;
   document.getElementById('setup-mode').value = 'story';
   updateHskLabel();
   updateSetupMode();
@@ -4121,7 +4394,7 @@ async function _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct
     _stopFakeProgress(); _stopStoryProgressPoll();
     setLoadingStep(65, null, 'Story received, processing…');
     story = await _resolveStory(storyData, storyDeckId, storyCategory, topic, maxHsk, grammarFocus, grammarPct, mode);
-    sentence = story?.sentences?.find(s => s.word_id === card.word_id) || null;
+    sentence = story?.sentences?.find(s => s.word_ids?.includes(card.word_id)) || null;
     _updateStoryInfoRow();
 
     const sentenceCount = story?.sentences?.length ?? 0;
@@ -4164,7 +4437,7 @@ async function regenerateStoryFromList(deckId) {
   document.getElementById('setup-topic').value = '';
   document.getElementById('setup-grammar').value = '';
   document.getElementById('setup-grammar-pct').value = 50;
-  document.getElementById('setup-hsk-slider').value = 2;
+  document.getElementById('setup-hsk-slider').value = 3;
   updateHskLabel();
   document.getElementById('setup-modal-overlay').style.display = 'block';
   document.getElementById('setup-modal').style.display = 'flex';
@@ -5260,6 +5533,12 @@ document.addEventListener('keydown', async e => {
   const inInput = _isEditableFocusTarget(document.activeElement);
 
   if (e.key === 'Escape') {
+    // Exit multi-word rating focus mode
+    if (_multiRatingFocused !== null) {
+      e.preventDefault();
+      _clearMultiFocus();
+      return;
+    }
     const storyOverlay = document.getElementById('story-modal-overlay');
     if (storyOverlay && storyOverlay.style.display !== 'none') {
       e.preventDefault();
@@ -5383,8 +5662,26 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); if (!backVisible) revealAnswer();
     } else if (['1','2','3','4'].includes(e.key) && backVisible) {
       e.preventDefault();
-      const btns = document.querySelectorAll('.r-btn');
-      if (btns.length && !btns[0].disabled) rate(Number(e.key));
+      const multiVisible = document.getElementById('multi-rating')?.style.display !== 'none';
+      if (multiVisible) {
+        const wordRows = [...document.querySelectorAll('#multi-rating-rows .multi-rating-row')];
+        if (_multiRatingFocused !== null) {
+          // In rating mode: 1-4 pick the rating for the focused word
+          const btn = document.querySelector(
+            `#multi-rating-rows .multi-rating-row[data-word-id="${_multiRatingFocused}"] .multi-r-btn[data-r="${e.key}"]`
+          );
+          if (btn) { _pickMultiRating(_multiRatingFocused, Number(e.key), btn); _autoAdvanceMultiFocus(); }
+        } else {
+          // Not in rating mode: 1-N select which word to focus
+          const idx = Number(e.key) - 1;
+          if (idx >= 0 && idx < wordRows.length) {
+            _setMultiFocusedWord(Number(wordRows[idx].dataset.wordId));
+          }
+        }
+      } else {
+        const btns = document.querySelectorAll('.r-btn');
+        if (btns.length && !btns[0].disabled) rate(Number(e.key));
+      }
     } else if (e.key === 'z') {
       const undoBtn = document.getElementById('undo-btn');
       if (undoBtn && !undoBtn.disabled) { e.preventDefault(); undoReview(); }
@@ -5396,6 +5693,10 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); _toggleAndScroll('word-analysis-section-body', 'word-analysis-section', 'end');
     } else if (backVisible && e.key === 'h') {
       e.preventDefault(); _toggleAllChars();
+    } else if (e.key === 'j') {
+      e.preventDefault(); _adjustListenHintSlider(-1);
+    } else if (e.key === 'k') {
+      e.preventDefault(); _adjustListenHintSlider(1);
     } else if (e.key === 'f') {
       e.preventDefault(); _toggleSuspendCat('reading');
     } else if (e.key === 'v') {
