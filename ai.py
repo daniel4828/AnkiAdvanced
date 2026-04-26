@@ -173,7 +173,7 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
 
 Rules:
 - Each target word MUST appear verbatim in exactly one sentence
-- You may combine multiple target words into a single sentence when they fit naturally — this is encouraged
+- Each sentence MUST contain EXACTLY ONE target word — never put two or more target words in the same sentence
 - For items marked [USE AS-IS]: use that text verbatim as sentence_zh; include its word_id in word_ids
 - Use proper Chinese punctuation — include commas（，）where natural pauses occur
 - Use only HSK 1-{max_hsk} vocabulary for non-target words
@@ -234,6 +234,18 @@ Rules:
             # Ignore extra word_ids the AI invented (not in our target set)
             for item in parsed:
                 item["word_ids"] = [wid for wid in item.get("word_ids", []) if wid in word_id_set]
+
+            # Enforce one-word-per-sentence: if AI combined words, keep only the first,
+            # treat the rest as missing so _patch_missing generates separate sentences.
+            overflow_ids: list[int] = []
+            for item in parsed:
+                if len(item["word_ids"]) > 1:
+                    overflow = item["word_ids"][1:]
+                    item["word_ids"] = item["word_ids"][:1]
+                    overflow_ids.extend(overflow)
+                    logger.warning("generate_story: sentence had multiple word_ids %s — splitting off %s",
+                                   item["word_ids"] + overflow, overflow)
+            missing_ids = list(set(missing_ids + overflow_ids))
 
             # Validate and normalise tokens for each sentence
             for item in parsed:
