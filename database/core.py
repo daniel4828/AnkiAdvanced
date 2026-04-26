@@ -173,6 +173,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE story_sentences ADD COLUMN sentence_de TEXT")
     if "sentence_fr" not in ss_cols:
         conn.execute("ALTER TABLE story_sentences ADD COLUMN sentence_fr TEXT")
+    if "tokens" not in ss_cols:
+        conn.execute("ALTER TABLE story_sentences ADD COLUMN tokens TEXT")
     if "word_id" in ss_cols:
         _migrate_story_sentences_multi_word(conn)
     existing_tables = {r["name"] for r in conn.execute(

@@ -182,14 +182,21 @@ Rules:
 - NEVER use ASCII double-quote characters (") inside Chinese sentences — use 「」or （）instead if quoting is needed
 - Return ONLY valid JSON array of sentence objects, no explanation, no markdown:
 [
-  {{"word_ids": [<integer>, ...]{grammar_frag_field}, "sentence_zh": "<Chinese sentence>"}},
+  {{
+    "word_ids": [<integer>, ...]{grammar_frag_field},
+    "sentence_zh": "<Chinese sentence>",
+    "tokens": [["<word_or_punct>", <word_id or null>], ...]
+  }},
   ...
-]"""
+]
+- "tokens": segment sentence_zh into natural words (NOT individual characters). Each token is [text, word_id_or_null].
+  Assign a target word's word_id to the token whose text matches it exactly; use null for all other tokens.
+  Joining all token texts must exactly reproduce sentence_zh."""
 
     logger.info("[%s] generate_story: %d 张卡片 mode=%s", model, len(cards), mode)
     logger.debug("Prompt:\n%s", prompt)
 
-    max_tokens = len(cards) * 150 + 200
+    max_tokens = len(cards) * 250 + 200
     if not model.startswith("claude-"):
         max_tokens = min(max_tokens, 8192)
 
@@ -227,6 +234,22 @@ Rules:
             # Ignore extra word_ids the AI invented (not in our target set)
             for item in parsed:
                 item["word_ids"] = [wid for wid in item.get("word_ids", []) if wid in word_id_set]
+
+            # Validate and normalise tokens for each sentence
+            for item in parsed:
+                raw_toks = item.get("tokens")
+                s_zh = item.get("sentence_zh", "")
+                item["tokens"] = []
+                if isinstance(raw_toks, list) and raw_toks:
+                    try:
+                        pairs = [[str(t[0]), t[1] if t[1] in word_id_set else None]
+                                 for t in raw_toks if isinstance(t, (list, tuple)) and len(t) == 2]
+                        if "".join(p[0] for p in pairs) == s_zh:
+                            item["tokens"] = pairs
+                        else:
+                            logger.warning("generate_story: tokens don't reconstruct sentence — dropping")
+                    except Exception:
+                        logger.warning("generate_story: malformed tokens — dropping")
 
             # Check that every word actually appears in its sentence
             bad_pairs: list[tuple[int, str, str]] = []  # (word_id, word_zh, sentence_zh)
