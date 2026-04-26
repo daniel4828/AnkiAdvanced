@@ -3393,7 +3393,7 @@ async function _buildWordBank() {
   // If target wasn't found in tokens, append it
   if (!order.some(it => it.type === 'target')) order.push({ type: 'target', word: target });
 
-  const MAX_TILES = 5;
+  const MAX_TILES = 4;
   const isWord = tok => /[\u4E00-\u9FFF\u3400-\u4DBF]/.test(tok.char);
   const allChars = order.filter(it => it.type === 'char');
   // Punctuation tokens are always pre-placed — only real words become tiles
