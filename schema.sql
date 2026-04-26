@@ -301,6 +301,7 @@ CREATE TABLE IF NOT EXISTS story_sentences (
     sentence_en TEXT NOT NULL DEFAULT '',
     sentence_de TEXT,
     sentence_fr TEXT,
+    tokens      TEXT,
     UNIQUE(story_id, position)
 );
 

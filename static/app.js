@@ -3285,7 +3285,7 @@ function _renderListenHint(threshold) {
   const revealPositions = new Set();
   if (_hskLevels && sentence?.tokens?.length) {
     let pos = 0;
-    for (const tok of sentence.tokens) {
+    for (const [tok] of sentence.tokens) {
       const tokStart = zh.indexOf(tok, pos);
       if (tokStart === -1) { pos += tok.length; continue; }
       const tokEnd = tokStart + tok.length;
@@ -3367,27 +3367,29 @@ async function _buildWordBank() {
   if (!zh || !card?.word_zh) return;
   const target = card.word_zh;
 
-  // Use jieba tokens from backend if available, otherwise fall back to char-by-char
-  let rawTokens;
+  // Build ordered sequence from tokens [[text, word_id_or_null], ...]
+  let order;
   if (sentence.tokens && sentence.tokens.length) {
-    rawTokens = sentence.tokens;
+    order = sentence.tokens.map(([text, wid]) =>
+      text === target
+        ? { type: 'target', word: target }
+        : { type: 'char', char: text }
+    );
   } else {
     // Fallback: split by target word boundary, then individual chars
-    rawTokens = [];
+    const rawTokens = [];
     let i = 0;
     const tIdx = zh.indexOf(target);
     while (i < zh.length) {
       if (tIdx >= 0 && i === tIdx) { rawTokens.push(target); i += target.length; }
       else { rawTokens.push(zh[i]); i++; }
     }
+    order = rawTokens.map(tok =>
+      tok === target
+        ? { type: 'target', word: target }
+        : { type: 'char', char: tok }
+    );
   }
-
-  // Build ordered sequence, marking which token is the target
-  const order = rawTokens.map(tok =>
-    tok === target
-      ? { type: 'target', word: target }
-      : { type: 'char', char: tok }
-  );
   // If target wasn't found in tokens, append it
   if (!order.some(it => it.type === 'target')) order.push({ type: 'target', word: target });
 

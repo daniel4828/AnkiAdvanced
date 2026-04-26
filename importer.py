@@ -761,8 +761,8 @@ _DEFAULT_SUSPENDED: dict[str, bool] = {
 
 _CATEGORY_DUE_OFFSET: dict[str, int] = {
     "reading": 0,
-    "listening": 1,
-    "creating": 2,
+    "listening": 0,
+    "creating": 0,
 }
 
 

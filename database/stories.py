@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from .core import get_db
 
@@ -57,11 +58,12 @@ def create_story(date_str: str, category: str, deck_id: int,
     )
     story_id = cur.lastrowid
     for s in sentences:
+        tokens_json = json.dumps(s["tokens"], ensure_ascii=False) if s.get("tokens") else None
         sent_cur = conn.execute(
-            """INSERT INTO story_sentences (story_id, position, sentence_zh, sentence_en, sentence_de, sentence_fr)
-               VALUES (?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO story_sentences (story_id, position, sentence_zh, sentence_en, sentence_de, sentence_fr, tokens)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (story_id, s["position"], s["sentence_zh"],
-             s.get("sentence_en", ""), s.get("sentence_de"), s.get("sentence_fr")),
+             s.get("sentence_en", ""), s.get("sentence_de"), s.get("sentence_fr"), tokens_json),
         )
         sentence_id = sent_cur.lastrowid
         for word_id in s.get("word_ids", []):
@@ -125,6 +127,8 @@ def get_story_sentences(story_id: int) -> list[dict]:
         if wlist:
             d["word_zh"] = wlist[0]["word_zh"]
             d["definition"] = wlist[0]["definition"]
+        raw_tokens = d.get("tokens")
+        d["tokens"] = json.loads(raw_tokens) if raw_tokens else []
         result.append(d)
     return result
 

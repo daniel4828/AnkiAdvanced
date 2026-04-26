@@ -14,10 +14,16 @@ jieba.setLogLevel(logging.ERROR)
 
 
 def _add_tokens(sentences: list[dict]) -> list[dict]:
-    """Add jieba word segmentation tokens to each story sentence."""
+    """Ensure every sentence has tokens in [[text, word_id_or_null], ...] format.
+
+    New stories already have AI-provided tokens stored in the DB.
+    Old stories without tokens fall back to jieba segmentation (word_id=null for all).
+    """
     for s in sentences:
+        if s.get("tokens"):
+            continue
         zh = s.get("sentence_zh") or ""
-        s["tokens"] = jieba.lcut(zh) if zh else []
+        s["tokens"] = [[tok, None] for tok in jieba.lcut(zh)] if zh else []
     return sentences
 
 logger = logging.getLogger(__name__)
