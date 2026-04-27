@@ -2714,23 +2714,15 @@ function showFront() {
   document.getElementById('creating-input-wrap').style.display = (isCreating && !isCloze) ? 'flex' : 'none';
   document.getElementById('word-bank-wrap').style.display      = isCloze ? 'flex' : 'none';
 
-  // Creating: FR always visible; DE hidden until S is pressed; fallback EN
+  // Creating: show FR and DE (both always visible); fallback EN if neither exists
   const wordDefHint = document.getElementById('creating-word-def');
   if (isCreating) {
-    const hasFr = !!card.definition_fr;
-    const hasDe = !!card.definition_de;
-    if (hasFr || hasDe) {
-      let html = '';
-      if (hasFr) html += `<span class="cwd-fr">🇫🇷 ${card.definition_fr}</span>`;
-      if (hasDe) html += `${hasFr ? '<br>' : ''}<span class="cwd-de" style="display:none">🇩🇪 ${card.definition_de}</span>`;
-      wordDefHint.innerHTML = html;
-      wordDefHint.style.display = 'block';
-    } else if (card.definition) {
-      wordDefHint.textContent = card.definition;
-      wordDefHint.style.display = 'block';
-    } else {
-      wordDefHint.style.display = 'none';
-    }
+    const parts = [];
+    if (card.definition_fr) parts.push(`🇫🇷 ${card.definition_fr}`);
+    if (card.definition_de) parts.push(`🇩🇪 ${card.definition_de}`);
+    const defText = parts.length ? parts.join('<br>') : (card.definition || '');
+    wordDefHint.innerHTML = defText;
+    wordDefHint.style.display = defText ? 'block' : 'none';
   } else {
     wordDefHint.style.display = 'none';
   }
@@ -5680,12 +5672,7 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); togglePinyin();
     } else if (e.key === 's') {
       e.preventDefault();
-      const deSpan = document.querySelector('#creating-word-def .cwd-de');
-      if (!backVisible && deSpan) {
-        deSpan.style.display = deSpan.style.display === 'none' ? 'inline' : 'none';
-      } else {
-        document.getElementById('sentence-front')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+      document.getElementById('sentence-front')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else if (e.key === ' ') {
       e.preventDefault(); if (!backVisible) revealAnswer();
     } else if (['1','2','3','4'].includes(e.key) && backVisible) {
