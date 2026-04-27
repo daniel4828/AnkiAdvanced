@@ -107,7 +107,7 @@ def get_card(card_id: int) -> dict | None:
            )
            SELECT c.*,
                   w.word_zh, w.pinyin, w.definition, w.pos, w.hsk_level,
-                  w.traditional, w.definition_zh, w.note_type, w.notes, w.definition_de, w.register,
+                  w.traditional, w.definition_zh, w.note_type, w.notes, w.definition_de, w.definition_fr, w.register,
                   d.name AS deck_name,
                   CASE WHEN d.category IS NOT NULL THEN
                     (SELECT group_concat(name, ' › ')
@@ -283,7 +283,7 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
     rows = conn.execute(
         """SELECT c.*, w.word_zh, w.pinyin, w.definition, w.pos,
                   w.hsk_level, w.traditional, w.definition_zh,
-                  w.note_type, w.source_sentence, w.notes, w.definition_de, w.register
+                  w.note_type, w.source_sentence, w.notes, w.definition_de, w.definition_fr, w.register
            FROM cards c
            JOIN entries w ON w.id = c.word_id
            WHERE c.deck_id = ?
