@@ -3383,11 +3383,19 @@ async function _buildWordBank() {
   // Build ordered sequence from tokens [[text, word_id_or_null], ...]
   let order;
   if (sentence.tokens && sentence.tokens.length) {
-    order = sentence.tokens.map(([text, wid]) =>
-      text === target
-        ? { type: 'target', word: target }
-        : { type: 'char', char: text }
-    );
+    order = sentence.tokens.flatMap(([text, wid]) => {
+      if (text === target) return [{ type: 'target', word: target }];
+      if (target.length > 0 && text.includes(target)) {
+        // Target is embedded in a larger token — split it out
+        const idx = text.indexOf(target);
+        const parts = [];
+        if (idx > 0) parts.push({ type: 'char', char: text.slice(0, idx) });
+        parts.push({ type: 'target', word: target });
+        if (idx + target.length < text.length) parts.push({ type: 'char', char: text.slice(idx + target.length) });
+        return parts;
+      }
+      return [{ type: 'char', char: text }];
+    });
   } else {
     // Fallback: split by target word boundary, then individual chars
     const rawTokens = [];

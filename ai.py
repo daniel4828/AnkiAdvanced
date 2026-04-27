@@ -191,7 +191,9 @@ Rules:
 ]
 - "tokens": segment sentence_zh into natural words (NOT individual characters). Each token is [text, word_id_or_null].
   Assign a target word's word_id to the token whose text matches it exactly; use null for all other tokens.
-  Joining all token texts must exactly reproduce sentence_zh."""
+  Joining all token texts must exactly reproduce sentence_zh.
+  CRITICAL: If a target word appears inside a larger compound word, you MUST split that compound so the target word is its own separate token.
+  Example: target="款", sentence has "新款" → tokens must be ["新", null], ["款", word_id] — NEVER ["新款", null]."""
 
     logger.info("[%s] generate_story: %d 张卡片 mode=%s", model, len(cards), mode)
     logger.debug("Prompt:\n%s", prompt)
