@@ -2714,6 +2714,16 @@ function showFront() {
   document.getElementById('creating-input-wrap').style.display = (isCreating && !isCloze) ? 'flex' : 'none';
   document.getElementById('word-bank-wrap').style.display      = isCloze ? 'flex' : 'none';
 
+  // Creating: target word translation hint (FR > DE > EN)
+  const wordDefHint = document.getElementById('creating-word-def');
+  if (isCreating) {
+    const defText = card.definition_fr || card.definition_de || card.definition || '';
+    wordDefHint.textContent = defText;
+    wordDefHint.style.display = defText ? 'block' : 'none';
+  } else {
+    wordDefHint.style.display = 'none';
+  }
+
   if (isCreating) {
     if (isSentence) {
       // Sentence notes: show the German/English source as prompt
