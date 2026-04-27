@@ -2714,11 +2714,14 @@ function showFront() {
   document.getElementById('creating-input-wrap').style.display = (isCreating && !isCloze) ? 'flex' : 'none';
   document.getElementById('word-bank-wrap').style.display      = isCloze ? 'flex' : 'none';
 
-  // Creating: target word translation hint (FR > DE > EN)
+  // Creating: show FR and DE (both always visible); fallback EN if neither exists
   const wordDefHint = document.getElementById('creating-word-def');
   if (isCreating) {
-    const defText = card.definition_fr || card.definition_de || card.definition || '';
-    wordDefHint.textContent = defText;
+    const parts = [];
+    if (card.definition_fr) parts.push(`🇫🇷 ${card.definition_fr}`);
+    if (card.definition_de) parts.push(`🇩🇪 ${card.definition_de}`);
+    const defText = parts.length ? parts.join('<br>') : (card.definition || '');
+    wordDefHint.innerHTML = defText;
     wordDefHint.style.display = defText ? 'block' : 'none';
   } else {
     wordDefHint.style.display = 'none';
@@ -3283,19 +3286,26 @@ function _initListenHint() {
 }
 
 function _renderListenHint(threshold) {
-  const zh = sentence?.sentence_zh;
+  // Sentence notes are excluded from stories; fall back to card.word_zh (the sentence itself).
+  const isSentenceNote = card?.note_type === 'sentence';
+  const zh = sentence?.sentence_zh || (isSentenceNote ? card?.word_zh : null);
   const el = document.getElementById('listen-hint-sentence');
   if (!zh) { el.textContent = ''; return; }
 
   const isCjk = ch => ch >= '一' && ch <= '鿿';
-  const targetPositions = _getTargetPositions(zh);
+  // Sentence notes have no single "target word" to blank — reveal based on HSK only.
+  const targetPositions = isSentenceNote && !sentence ? new Set() : _getTargetPositions(zh);
 
   // Reveal tokens harder than the threshold (level > threshold, or unknown to HSK).
   // threshold=0 means "All": level > 0 is true for every known word, null words also qualify.
   const revealPositions = new Set();
-  if (_hskLevels && sentence?.tokens?.length) {
+  if (_hskLevels) {
+    // Use story tokens when available; fall back to char-by-char for sentence notes.
+    const tokens = sentence?.tokens?.length
+      ? sentence.tokens
+      : [...zh].map(ch => [ch, null]);
     let pos = 0;
-    for (const [tok] of sentence.tokens) {
+    for (const [tok] of tokens) {
       const tokStart = zh.indexOf(tok, pos);
       if (tokStart === -1) { pos += tok.length; continue; }
       const tokEnd = tokStart + tok.length;
@@ -3380,11 +3390,19 @@ async function _buildWordBank() {
   // Build ordered sequence from tokens [[text, word_id_or_null], ...]
   let order;
   if (sentence.tokens && sentence.tokens.length) {
-    order = sentence.tokens.map(([text, wid]) =>
-      text === target
-        ? { type: 'target', word: target }
-        : { type: 'char', char: text }
-    );
+    order = sentence.tokens.flatMap(([text, wid]) => {
+      if (text === target) return [{ type: 'target', word: target }];
+      if (target.length > 0 && text.includes(target)) {
+        // Target is embedded in a larger token — split it out
+        const idx = text.indexOf(target);
+        const parts = [];
+        if (idx > 0) parts.push({ type: 'char', char: text.slice(0, idx) });
+        parts.push({ type: 'target', word: target });
+        if (idx + target.length < text.length) parts.push({ type: 'char', char: text.slice(idx + target.length) });
+        return parts;
+      }
+      return [{ type: 'char', char: text }];
+    });
   } else {
     // Fallback: split by target word boundary, then individual chars
     const rawTokens = [];
