@@ -3286,19 +3286,26 @@ function _initListenHint() {
 }
 
 function _renderListenHint(threshold) {
-  const zh = sentence?.sentence_zh;
+  // Sentence notes are excluded from stories; fall back to card.word_zh (the sentence itself).
+  const isSentenceNote = card?.note_type === 'sentence';
+  const zh = sentence?.sentence_zh || (isSentenceNote ? card?.word_zh : null);
   const el = document.getElementById('listen-hint-sentence');
   if (!zh) { el.textContent = ''; return; }
 
   const isCjk = ch => ch >= '一' && ch <= '鿿';
-  const targetPositions = _getTargetPositions(zh);
+  // Sentence notes have no single "target word" to blank — reveal based on HSK only.
+  const targetPositions = isSentenceNote && !sentence ? new Set() : _getTargetPositions(zh);
 
   // Reveal tokens harder than the threshold (level > threshold, or unknown to HSK).
   // threshold=0 means "All": level > 0 is true for every known word, null words also qualify.
   const revealPositions = new Set();
-  if (_hskLevels && sentence?.tokens?.length) {
+  if (_hskLevels) {
+    // Use story tokens when available; fall back to char-by-char for sentence notes.
+    const tokens = sentence?.tokens?.length
+      ? sentence.tokens
+      : [...zh].map(ch => [ch, null]);
     let pos = 0;
-    for (const [tok] of sentence.tokens) {
+    for (const [tok] of tokens) {
       const tokStart = zh.indexOf(tok, pos);
       if (tokStart === -1) { pos += tok.length; continue; }
       const tokEnd = tokStart + tok.length;
