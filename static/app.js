@@ -2714,7 +2714,7 @@ function showFront() {
   document.getElementById('creating-input-wrap').style.display = (isCreating && !isCloze) ? 'flex' : 'none';
   document.getElementById('word-bank-wrap').style.display      = isCloze ? 'flex' : 'none';
 
-  // Creating: target word translation hint — FR visible, DE blurred (press S to reveal); fallback EN
+  // Creating: FR always visible; DE hidden until S is pressed; fallback EN
   const wordDefHint = document.getElementById('creating-word-def');
   if (isCreating) {
     const hasFr = !!card.definition_fr;
@@ -2722,7 +2722,7 @@ function showFront() {
     if (hasFr || hasDe) {
       let html = '';
       if (hasFr) html += `<span class="cwd-fr">🇫🇷 ${card.definition_fr}</span>`;
-      if (hasDe) html += `<span class="cwd-de blurred" onclick="this.classList.remove('blurred')" title="Press S to reveal">🇩🇪 ${card.definition_de}</span>`;
+      if (hasDe) html += `${hasFr ? '<br>' : ''}<span class="cwd-de" style="display:none">🇩🇪 ${card.definition_de}</span>`;
       wordDefHint.innerHTML = html;
       wordDefHint.style.display = 'block';
     } else if (card.definition) {
@@ -5682,7 +5682,7 @@ document.addEventListener('keydown', async e => {
       e.preventDefault();
       const deSpan = document.querySelector('#creating-word-def .cwd-de');
       if (!backVisible && deSpan) {
-        deSpan.classList.toggle('blurred');
+        deSpan.style.display = deSpan.style.display === 'none' ? 'inline' : 'none';
       } else {
         document.getElementById('sentence-front')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }

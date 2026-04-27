@@ -1259,20 +1259,6 @@ main.browse-open {
   text-align: center;
   font-style: italic;
   margin-top: -8px;
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-.cwd-de.blurred {
-  filter: blur(4px);
-  opacity: 0.35;
-  transition: filter 0.2s ease, opacity 0.2s ease;
-  user-select: none;
-  cursor: pointer;
-}
-.cwd-de {
-  transition: filter 0.2s ease, opacity 0.2s ease;
 }
 .creating-input-wrap {
   display: flex;
