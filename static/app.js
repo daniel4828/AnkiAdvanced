@@ -2714,12 +2714,23 @@ function showFront() {
   document.getElementById('creating-input-wrap').style.display = (isCreating && !isCloze) ? 'flex' : 'none';
   document.getElementById('word-bank-wrap').style.display      = isCloze ? 'flex' : 'none';
 
-  // Creating: target word translation hint (FR > DE > EN)
+  // Creating: target word translation hint — FR visible, DE blurred (press S to reveal); fallback EN
   const wordDefHint = document.getElementById('creating-word-def');
   if (isCreating) {
-    const defText = card.definition_fr || card.definition_de || card.definition || '';
-    wordDefHint.textContent = defText;
-    wordDefHint.style.display = defText ? 'block' : 'none';
+    const hasFr = !!card.definition_fr;
+    const hasDe = !!card.definition_de;
+    if (hasFr || hasDe) {
+      let html = '';
+      if (hasFr) html += `<span class="cwd-fr">🇫🇷 ${card.definition_fr}</span>`;
+      if (hasDe) html += `<span class="cwd-de blurred" onclick="this.classList.remove('blurred')" title="Press S to reveal">🇩🇪 ${card.definition_de}</span>`;
+      wordDefHint.innerHTML = html;
+      wordDefHint.style.display = 'block';
+    } else if (card.definition) {
+      wordDefHint.textContent = card.definition;
+      wordDefHint.style.display = 'block';
+    } else {
+      wordDefHint.style.display = 'none';
+    }
   } else {
     wordDefHint.style.display = 'none';
   }
@@ -5669,7 +5680,12 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); togglePinyin();
     } else if (e.key === 's') {
       e.preventDefault();
-      document.getElementById('sentence-front')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const deSpan = document.querySelector('#creating-word-def .cwd-de');
+      if (!backVisible && deSpan) {
+        deSpan.classList.toggle('blurred');
+      } else {
+        document.getElementById('sentence-front')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     } else if (e.key === ' ') {
       e.preventDefault(); if (!backVisible) revealAnswer();
     } else if (['1','2','3','4'].includes(e.key) && backVisible) {
