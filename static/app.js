@@ -5685,9 +5685,6 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); playSentence();
     } else if (e.key === 't') {
       e.preventDefault(); togglePinyin();
-    } else if (e.key === 's') {
-      e.preventDefault();
-      document.getElementById('sentence-front')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else if (e.key === ' ') {
       e.preventDefault(); if (!backVisible) revealAnswer();
     } else if (['1','2','3','4'].includes(e.key) && backVisible) {
@@ -5723,9 +5720,9 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); _toggleAndScroll('word-analysis-section-body', 'word-analysis-section', 'end');
     } else if (backVisible && e.key === 'h') {
       e.preventDefault(); _toggleAllChars();
-    } else if (e.key === 'j') {
+    } else if (e.key === 'q') {
       e.preventDefault(); _adjustListenHintSlider(-1);
-    } else if (e.key === 'k') {
+    } else if (e.key === 'w') {
       e.preventDefault(); _adjustListenHintSlider(1);
     } else if (e.key === 'f') {
       e.preventDefault(); _toggleSuspendCat('reading');

@@ -89,6 +89,9 @@ class QueueManager:
         else:
             result = None
             source = "empty"
+            # Invalidate so the next access rebuilds — intraday learning cards
+            # reviewed earlier may have become due again since the queue drained.
+            self._queues.pop(key, None)
 
         logger.debug(
             "=== [QueueMgr] 取下一张卡 (get_next) ===\n"
