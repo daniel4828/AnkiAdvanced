@@ -3354,9 +3354,8 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 /* Desktop: fixed three-column grid so center tile is ALWAYS centered */
 @media (min-width: 1100px) {
   main.review-open {
-    max-width: 1160px;
-    overflow: hidden;
-    padding-bottom: 0;
+    max-width: 1200px;
+    padding: 0;
   }
   .review-layout {
     display: grid;

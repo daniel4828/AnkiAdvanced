@@ -5569,25 +5569,6 @@ async function importYamlEntry() {
   }
 }
 
-// ── Server restart ───────────────────────────────────────────────────────────
-async function restartServer() {
-  const btn = document.getElementById('restart-btn');
-  btn.classList.add('spinning');
-  btn.disabled = true;
-  try {
-    await fetch('/api/restart', { method: 'POST' });
-  } catch (_) { /* server going down — expected */ }
-
-  // Poll until the server is back up, then reload
-  const poll = async () => {
-    try {
-      const r = await fetch('/api/decks');
-      if (r.ok) { location.reload(); return; }
-    } catch (_) {}
-    setTimeout(poll, 400);
-  };
-  setTimeout(poll, 600);
-}
 
 function _isVisible(id) {
   const el = document.getElementById(id);
@@ -5663,11 +5644,6 @@ document.addEventListener('keydown', async e => {
       saveEditCard();
       return;
     }
-  }
-
-  if (e.key === 'R' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
-    if (!inInput) { e.preventDefault(); restartServer(); }
-    return;
   }
 
   // Enter in word-detail → back to review (if opened from review)
