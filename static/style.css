@@ -3348,9 +3348,10 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   .review-layout {
     display: grid;
     grid-template-columns: 300px 500px 300px;
-    grid-template-rows: calc(100vh - 90px);
+    grid-template-rows: calc(100vh - 106px);
     gap: 16px;
     justify-content: center;
+    padding-top: 16px;
   }
   .review-center-tile {
     grid-column: 2;
