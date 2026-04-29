@@ -69,7 +69,7 @@ def _get_cards_for_story(deck_id: int, category: str) -> list:
     return cards
 
 
-CHUNK_SIZE = 60
+CHUNK_SIZE = 100
 
 
 def _generate_story_sentences(cards: list, *, topic, max_hsk, model, progress_key,
