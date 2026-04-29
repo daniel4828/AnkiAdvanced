@@ -102,78 +102,116 @@ function _buildCalDayMap() {
 }
 
 function _renderCal() {
-  const labelEl = document.getElementById('cal-month-label');
-  const gridEl  = document.getElementById('cal-grid');
-  if (!labelEl || !gridEl) return;
+  const timelineEl = document.getElementById('cal-timeline');
+  if (!timelineEl) return;
 
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
-
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  labelEl.textContent = `${monthNames[_calMonth]} ${_calYear}`;
-
   const dayMap = _buildCalDayMap();
 
-  const firstDay = new Date(_calYear, _calMonth, 1);
-  let startOffset = firstDay.getDay() - 1;
-  if (startOffset < 0) startOffset = 6;
+  // Range: first history date → today + 3 months
+  const allDates = [
+    ...(_calData?.history || []).map(h => h.date),
+    ...(_calData?.future  || []).map(f => f.due),
+  ];
+  let startDate = today;
+  if (allDates.length) {
+    const minStr = allDates.reduce((a, b) => a < b ? a : b);
+    const parsed = new Date(minStr);
+    if (!isNaN(parsed)) startDate = parsed;
+  }
+  const endDate = new Date(today.getFullYear(), today.getMonth() + 4, 0); // last day of today+3 months
 
-  const daysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
-
-  let html = '';
-  for (let i = 0; i < startOffset; i++) html += '<div class="cal-cell cal-empty"></div>';
-
-  for (let d = 1; d <= daysInMonth; d++) {
-    const mm = String(_calMonth + 1).padStart(2, '0');
-    const dd = String(d).padStart(2, '0');
-    const dateStr = `${_calYear}-${mm}-${dd}`;
-    const isToday = dateStr === todayStr;
-    const info = dayMap[dateStr];
-
-    html += `<div class="cal-cell${isToday ? ' cal-today' : ''}">`;
-    if (info) {
-      html += '<div class="cal-chips">';
-      for (const r of info.ratings) {
-        const rCls = _RATING_CLASS[r.rating] || 'good';
-        const letter = _CAT_LETTER[r.category] || '?';
-        html += `<span class="cal-chip cal-chip-${rCls}" title="${r.category}: ${rCls}">${letter}</span>`;
-      }
-      for (const f of info.dues) {
-        const cCls = _CAT_CLASS[f.category] || '';
-        const letter = _CAT_LETTER[f.category] || '?';
-        html += `<span class="cal-chip cal-chip-due-${cCls}" title="${f.category} due">${letter}</span>`;
-      }
-      html += '</div>';
-    } else if (isToday && _calCategory) {
-      const letter = _CAT_LETTER[_calCategory] || '?';
-      const cCls   = _CAT_CLASS[_calCategory]  || '';
-      html += `<div class="cal-chips"><span class="cal-chip cal-chip-due-${cCls}" title="${_calCategory} today">${letter}</span></div>`;
-    } else {
-      html += `<span class="cal-day-num${isToday ? ' cal-day-num-today' : ''}">${d}</span>`;
+  // Find first review date to scroll to on open
+  const histDates = (_calData?.history || []).map(h => h.date).filter(Boolean).sort();
+  let firstMonthId = null;
+  if (histDates.length) {
+    const firstParsed = new Date(histDates[0]);
+    if (!isNaN(firstParsed)) {
+      firstMonthId = `cal-month-${firstParsed.getFullYear()}-${firstParsed.getMonth()}`;
     }
-    html += '</div>';
   }
 
-  gridEl.innerHTML = html;
-}
+  let html = '';
+  let yr = startDate.getFullYear(), mo = startDate.getMonth();
+  const endYr = endDate.getFullYear(), endMo = endDate.getMonth();
+  let todayMonthId = null;
 
-function calPrevMonth() {
-  _calMonth--;
-  if (_calMonth < 0) { _calMonth = 11; _calYear--; }
-  _renderCal();
-}
-function calNextMonth() {
-  _calMonth++;
-  if (_calMonth > 11) { _calMonth = 0; _calYear++; }
-  _renderCal();
+  while (yr < endYr || (yr === endYr && mo <= endMo)) {
+    const monthId = `cal-month-${yr}-${mo}`;
+    if (yr === today.getFullYear() && mo === today.getMonth()) todayMonthId = monthId;
+
+    html += `<div class="cal-month-block" id="${monthId}">`;
+    html += `<div class="cal-month-heading">${monthNames[mo]} ${yr}</div>`;
+    html += `<div class="cal-weekdays"><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span></div>`;
+    html += `<div class="cal-grid">`;
+
+    const firstDay = new Date(yr, mo, 1);
+    let startOffset = firstDay.getDay() - 1;
+    if (startOffset < 0) startOffset = 6;
+    for (let i = 0; i < startOffset; i++) html += '<div class="cal-cell cal-empty"></div>';
+
+    const daysInMonth = new Date(yr, mo + 1, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const mm = String(mo + 1).padStart(2, '0');
+      const dd = String(d).padStart(2, '0');
+      const dateStr = `${yr}-${mm}-${dd}`;
+      const isToday = dateStr === todayStr;
+      const info = dayMap[dateStr];
+
+      html += `<div class="cal-cell${isToday ? ' cal-today' : ''}">`;
+      if (info) {
+        html += '<div class="cal-chips">';
+        for (const r of info.ratings) {
+          const rCls = _RATING_CLASS[r.rating] || 'good';
+          const letter = _CAT_LETTER[r.category] || '?';
+          html += `<span class="cal-chip cal-chip-${rCls}" title="${r.category}: ${rCls}">${letter}</span>`;
+        }
+        for (const f of info.dues) {
+          const cCls = _CAT_CLASS[f.category] || '';
+          const letter = _CAT_LETTER[f.category] || '?';
+          html += `<span class="cal-chip cal-chip-due-${cCls}" title="${f.category} due">${letter}</span>`;
+        }
+        html += '</div>';
+      } else if (isToday && _calCategory) {
+        const letter = _CAT_LETTER[_calCategory] || '?';
+        const cCls   = _CAT_CLASS[_calCategory]  || '';
+        html += `<div class="cal-chips"><span class="cal-chip cal-chip-due-${cCls}" title="${_calCategory} today">${letter}</span></div>`;
+      } else {
+        html += `<span class="cal-day-num${isToday ? ' cal-day-num-today' : ''}">${d}</span>`;
+      }
+      html += '</div>';
+    }
+
+    html += '</div></div>'; // close cal-grid + cal-month-block
+
+    mo++;
+    if (mo > 11) { mo = 0; yr++; }
+  }
+
+  timelineEl.innerHTML = html;
+
+  // Scroll to first reviewed month (or today if no history)
+  const scrollTargetId = firstMonthId || todayMonthId;
+  if (scrollTargetId) {
+    requestAnimationFrame(() => {
+      const panel = document.getElementById('review-cal-panel');
+      const el    = document.getElementById(scrollTargetId);
+      if (panel && el) {
+        const panelRect = panel.getBoundingClientRect();
+        const elRect    = el.getBoundingClientRect();
+        panel.scrollTop += elRect.top - panelRect.top;
+      }
+    });
+  }
 }
 
 async function _loadCardCalendar(cardId, category) {
-  const el = document.getElementById('card-calendar');
-  if (!el) return;
+  const panel = document.getElementById('review-cal-panel');
   _calData     = null;
   _calCategory = category || null;
-  el.style.display = 'none';
+  if (panel) panel.style.display = 'none';
   try {
     const data = await api('GET', `/api/cards/${cardId}/calendar`);
     if (!data) return;
@@ -182,7 +220,7 @@ async function _loadCardCalendar(cardId, category) {
     _calYear  = today.getFullYear();
     _calMonth = today.getMonth();
     _renderCal();
-    el.style.display = 'block';
+    if (panel) panel.style.display = '';
   } catch (e) { /* silently skip if unavailable */ }
 }
 
@@ -317,6 +355,9 @@ function showView(name) {
   document.getElementById(`view-${name}`).style.display =
     name === 'browse' ? 'flex' : 'block';
   document.querySelector('main').classList.toggle('browse-open', name === 'browse');
+  document.querySelector('main').classList.toggle('review-open', name === 'review');
+  const countsRow = document.getElementById('counts-row');
+  if (countsRow) countsRow.style.display = name === 'review' ? 'flex' : 'none';
   document.getElementById('back-btn').style.display = name === 'decks' ? 'none' : 'block';
   document.getElementById('header-title').textContent =
     name === 'review'       ? deckName :
@@ -2609,7 +2650,7 @@ function loadCard(c, counts) {
   // Deck path bar
   const deckPath = document.getElementById('card-deck-path');
   if (card.deck_path) {
-    deckPath.textContent = card.deck_path;
+    deckPath.textContent = card.deck_path.replace(/_/g, ' ');
     deckPath.style.display = 'block';
   } else {
     deckPath.style.display = 'none';
@@ -2685,6 +2726,10 @@ function showFront() {
   document.getElementById('side-front').style.flexDirection = 'column';
   document.getElementById('side-front').style.gap = '16px';
   document.getElementById('side-back').style.display = 'none';
+  const _mascot = document.getElementById('front-mascot');
+  if (_mascot) _mascot.style.display = 'flex';
+  const _vc = document.getElementById('vocab-content');
+  if (_vc) _vc.style.display = 'none';
 
   // Listening elements
   document.getElementById('front-listen-icon').style.display = isListening ? 'flex' : 'none';
@@ -2803,6 +2848,10 @@ function revealAnswer() {
   document.getElementById('side-back').style.display  = 'flex';
   document.getElementById('side-back').style.flexDirection = 'column';
   document.getElementById('side-back').style.gap = '16px';
+  const _mascotBack = document.getElementById('front-mascot');
+  if (_mascotBack) _mascotBack.style.display = 'none';
+  const _vcBack = document.getElementById('vocab-content');
+  if (_vcBack) _vcBack.style.display = 'block';
   document.getElementById('back-meta-play-btn').style.display = isCreating ? 'none' : 'flex';
   _updateListenCounters();
 
@@ -2857,6 +2906,7 @@ function revealAnswer() {
         const color = pct >= 100 ? 'var(--good)' : pct >= 60 ? 'var(--hard)' : 'var(--again)';
         matchBar.innerHTML = `<span class="match-bar" style="color:${color}">${bar} ${pct}%</span>`;
         matchBar.style.display = 'block';
+        if (pct >= 100) triggerApplause();
       } else {
         matchBar.style.display = 'none';
       }
@@ -2870,6 +2920,7 @@ function revealAnswer() {
         const color = pct >= 80 ? 'var(--good)' : pct >= 50 ? 'var(--hard)' : 'var(--again)';
         matchBar.innerHTML = `<span class="match-bar" style="color:${color}">${bar} ${pct}%</span>`;
         matchBar.style.display = 'block';
+        if (pct >= 100) triggerApplause();
       } else {
         matchBar.style.display = 'none';
       }
@@ -3431,6 +3482,23 @@ async function _buildWordBank() {
         : { type: 'char', char: tok }
     );
   }
+  // Handle case where NLP tokenizer splits the target across consecutive tokens
+  // e.g., "怎么可能" tokenized as ["怎么", "可能"] — merge them into one target token
+  if (!targetParts) {
+    for (let i = 0; i < order.length; i++) {
+      if (order[i].type !== 'char') continue;
+      let acc = '';
+      let j = i;
+      while (j < order.length && order[j].type === 'char') {
+        acc += order[j].char;
+        if (acc === target) { order.splice(i, j - i + 1, { type: 'target', word: target }); break; }
+        if (!target.startsWith(acc)) break;
+        j++;
+      }
+      if (order[i]?.type === 'target') break;
+    }
+  }
+
   // For separable words, count how many parts were found; for normal words, check if any target found
   const targetCount = order.filter(it => it.type === 'target').length;
   const expectedCount = targetParts ? targetParts.length : 1;
@@ -5523,25 +5591,6 @@ async function importYamlEntry() {
   }
 }
 
-// ── Server restart ───────────────────────────────────────────────────────────
-async function restartServer() {
-  const btn = document.getElementById('restart-btn');
-  btn.classList.add('spinning');
-  btn.disabled = true;
-  try {
-    await fetch('/api/restart', { method: 'POST' });
-  } catch (_) { /* server going down — expected */ }
-
-  // Poll until the server is back up, then reload
-  const poll = async () => {
-    try {
-      const r = await fetch('/api/decks');
-      if (r.ok) { location.reload(); return; }
-    } catch (_) {}
-    setTimeout(poll, 400);
-  };
-  setTimeout(poll, 600);
-}
 
 function _isVisible(id) {
   const el = document.getElementById(id);
@@ -5620,7 +5669,7 @@ document.addEventListener('keydown', async e => {
   }
 
   if (e.key === 'R' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
-    if (!inInput) { e.preventDefault(); restartServer(); }
+    if (!inInput) { e.preventDefault(); _restartServer(); }
     return;
   }
 
@@ -6159,6 +6208,33 @@ document.addEventListener('click', function(e) {
     body: JSON.stringify({ action }),
   }).catch(() => {});
 }, true);
+
+// ── Confetti (100% score) ─────────────────────────────────────────────────────
+function triggerApplause() {
+  const colors = ['#16a34a', '#2563eb', '#d97706', '#dc2626', '#0891b2', '#9333ea'];
+  const count = 48;
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.left = Math.random() * 100 + 'vw';
+    el.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    el.style.animationDuration = (1.0 + Math.random() * 1.2) + 's';
+    el.style.animationDelay = (Math.random() * 0.4) + 's';
+    el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
+  }
+}
+
+// ── Server restart (Shift+R, no button) ──────────────────────────────────────
+async function _restartServer() {
+  try { await fetch('/api/restart', { method: 'POST' }); } catch (_) {}
+  const poll = async () => {
+    try { const r = await fetch('/api/decks'); if (r.ok) { location.reload(); return; } } catch (_) {}
+    setTimeout(poll, 400);
+  };
+  setTimeout(poll, 600);
+}
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 loadDecks();

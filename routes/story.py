@@ -69,6 +69,36 @@ def _get_cards_for_story(deck_id: int, category: str) -> list:
     return cards
 
 
+CHUNK_SIZE = 100
+
+
+def _generate_story_sentences(cards: list, *, topic, max_hsk, model, progress_key,
+                               grammar_focus, grammar_pct, mode) -> tuple[list, str]:
+    """Generate story sentences, splitting into chunks of CHUNK_SIZE when cards > CHUNK_SIZE."""
+    if len(cards) <= CHUNK_SIZE:
+        return ai.generate_story(cards, topic=topic, max_hsk=max_hsk, model=model,
+                                 progress_key=progress_key, grammar_focus=grammar_focus,
+                                 grammar_pct=grammar_pct, mode=mode)
+
+    chunks = [cards[i:i + CHUNK_SIZE] for i in range(0, len(cards), CHUNK_SIZE)]
+    logger.info("story  CHUNKED %d cards → %d chunks of ≤%d", len(cards), len(chunks), CHUNK_SIZE)
+    all_sentences: list[dict] = []
+    combined_prompt = ""
+    for idx, chunk in enumerate(chunks):
+        ai._set_progress(progress_key, phase="generating",
+                         msg=f"Generating chunk {idx + 1}/{len(chunks)}…",
+                         percent=5 + int(85 * idx / len(chunks)))
+        chunk_sentences, chunk_prompt = ai.generate_story(
+            chunk, topic=topic, max_hsk=max_hsk, model=model,
+            progress_key=None,  # suppress per-chunk progress spam
+            grammar_focus=grammar_focus, grammar_pct=grammar_pct, mode=mode,
+        )
+        all_sentences.extend(chunk_sentences)
+        if idx == 0:
+            combined_prompt = chunk_prompt
+    return all_sentences, combined_prompt
+
+
 ALLOWED_MODELS = {
     "glm-4-flash",
     "glm-4-air",
@@ -120,12 +150,10 @@ def get_story(deck_id: int, category: str,
         ai._story_progress[progress_key] = {"phase": "starting", "msg": "Starting…", "percent": 5}
         last_error = None
         try:
-            sentences, prompt_text = ai.generate_story(cards, topic=topic, max_hsk=max_hsk,
-                                                       model=chosen_model,
-                                                       progress_key=progress_key,
-                                                       grammar_focus=grammar_focus,
-                                                       grammar_pct=grammar_pct,
-                                                       mode=mode)
+            sentences, prompt_text = _generate_story_sentences(
+                cards, topic=topic, max_hsk=max_hsk, model=chosen_model,
+                progress_key=progress_key, grammar_focus=grammar_focus,
+                grammar_pct=grammar_pct, mode=mode)
             for i, s in enumerate(sentences):
                 s["position"] = i
             database.create_story(today, category, deck_id, sentences, prompt_text, topic)
@@ -172,12 +200,10 @@ def regenerate_story(deck_id: int, category: str,
     ai._story_progress[progress_key] = {"phase": "starting", "msg": "Starting…", "percent": 5}
     last_error = None
     try:
-        sentences, prompt_text = ai.generate_story(cards, topic=topic, max_hsk=max_hsk,
-                                                   model=chosen_model,
-                                                   progress_key=progress_key,
-                                                   grammar_focus=grammar_focus,
-                                                   grammar_pct=grammar_pct,
-                                                   mode=mode)
+        sentences, prompt_text = _generate_story_sentences(
+            cards, topic=topic, max_hsk=max_hsk, model=chosen_model,
+            progress_key=progress_key, grammar_focus=grammar_focus,
+            grammar_pct=grammar_pct, mode=mode)
         for i, s in enumerate(sentences):
             s["position"] = i
         database.create_story(today, category, deck_id, sentences, prompt_text, topic)
