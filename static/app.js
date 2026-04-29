@@ -3266,15 +3266,20 @@ function _getTargetPositions(zh) {
     }
   }
   const positions = new Set();
-  for (const tw of targetWords) {
-    let start = 0;
-    while (true) {
-      const idx = zh.indexOf(tw, start);
-      if (idx === -1) break;
-      for (let k = 0; k < tw.length; k++) positions.add(idx + k);
-      start = idx + tw.length;
+  const markWord = (tw) => {
+    // Separable words like "由...组成" — search each part independently
+    const parts = tw.includes('...') ? tw.split('...').filter(p => p.length > 0) : [tw];
+    for (const part of parts) {
+      let start = 0;
+      while (true) {
+        const idx = zh.indexOf(part, start);
+        if (idx === -1) break;
+        for (let k = 0; k < part.length; k++) positions.add(idx + k);
+        start = idx + part.length;
+      }
     }
-  }
+  };
+  for (const tw of targetWords) markWord(tw);
   return positions;
 }
 
@@ -3362,7 +3367,10 @@ function renderSentence() {
   for (const w of coWords) {
     zh = zh.replace(w.word_zh, `<span class="hl-secondary">${w.word_zh}</span>`);
   }
-  zh = zh.replace(card.word_zh, `<span class="hl">${card.word_zh}</span>`);
+  const targetParts = card.word_zh.includes('...') ? card.word_zh.split('...').filter(p => p.length > 0) : [card.word_zh];
+  for (const part of targetParts) {
+    zh = zh.replace(part, `<span class="hl">${part}</span>`);
+  }
   return `<span>${zh}</span>`;
 }
 
@@ -3387,12 +3395,17 @@ async function _buildWordBank() {
   if (!zh || !card?.word_zh) return;
   const target = card.word_zh;
 
+  // Separable words like "由...组成" — split into parts to match independently
+  const targetParts = target.includes('...') ? target.split('...').filter(p => p.length > 0) : null;
+  const isTargetPart = text => targetParts ? targetParts.includes(text) : (text === target);
+  const isTargetEmbedded = text => !targetParts && target.length > 0 && text.includes(target);
+
   // Build ordered sequence from tokens [[text, word_id_or_null], ...]
   let order;
   if (sentence.tokens && sentence.tokens.length) {
     order = sentence.tokens.flatMap(([text, wid]) => {
-      if (text === target) return [{ type: 'target', word: target }];
-      if (target.length > 0 && text.includes(target)) {
+      if (isTargetPart(text)) return [{ type: 'target', word: text }];
+      if (isTargetEmbedded(text)) {
         // Target is embedded in a larger token — split it out
         const idx = text.indexOf(target);
         const parts = [];
@@ -3407,19 +3420,21 @@ async function _buildWordBank() {
     // Fallback: split by target word boundary, then individual chars
     const rawTokens = [];
     let i = 0;
-    const tIdx = zh.indexOf(target);
+    const tIdx = targetParts ? -1 : zh.indexOf(target);
     while (i < zh.length) {
       if (tIdx >= 0 && i === tIdx) { rawTokens.push(target); i += target.length; }
       else { rawTokens.push(zh[i]); i++; }
     }
     order = rawTokens.map(tok =>
-      tok === target
-        ? { type: 'target', word: target }
+      isTargetPart(tok)
+        ? { type: 'target', word: tok }
         : { type: 'char', char: tok }
     );
   }
-  // If target wasn't found in tokens, append it
-  if (!order.some(it => it.type === 'target')) order.push({ type: 'target', word: target });
+  // For separable words, count how many parts were found; for normal words, check if any target found
+  const targetCount = order.filter(it => it.type === 'target').length;
+  const expectedCount = targetParts ? targetParts.length : 1;
+  if (targetCount < expectedCount) order.push({ type: 'target', word: targetParts ? targetParts[targetCount] : target });
 
   const MAX_TILES = 4;
   const isWord = tok => /[\u4E00-\u9FFF\u3400-\u4DBF]/.test(tok.char);
