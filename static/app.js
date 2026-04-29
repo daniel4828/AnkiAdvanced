@@ -198,7 +198,11 @@ function _renderCal() {
     requestAnimationFrame(() => {
       const panel = document.getElementById('review-cal-panel');
       const el    = document.getElementById(scrollTargetId);
-      if (panel && el) panel.scrollTop = el.offsetTop;
+      if (panel && el) {
+        const panelRect = panel.getBoundingClientRect();
+        const elRect    = el.getBoundingClientRect();
+        panel.scrollTop += elRect.top - panelRect.top;
+      }
     });
   }
 }
