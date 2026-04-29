@@ -69,169 +69,180 @@
       </div>
     </div>
 
-    <div class="review-card" id="review-card">
+    <!-- Three-panel layout: [calendar] [card] [vocab detail] -->
+    <div class="review-layout">
 
-      <!-- Deck path bar: full-width breadcrumb above meta row -->
-      <div id="card-deck-path" class="card-deck-path" style="display:none"></div>
+      <!-- CENTER: Main review card — DOM first so mobile shows it first -->
+      <div class="review-center-tile">
+        <div class="review-card" id="review-card">
 
-      <!-- Story info row: sentence count + topic (clickable → full story) -->
-      <div id="story-info-row" style="display:none" onclick="openStoryModal()" title="View full story"></div>
+          <!-- Deck path bar: full-width breadcrumb above meta row -->
+          <div id="card-deck-path" class="card-deck-path" style="display:none"></div>
 
-      <!-- Card meta row: category circles (centre) + right group -->
-      <div class="card-meta-row">
-        <div id="review-cat-row" style="flex:1"></div>
-        <div class="card-meta-right">
-          <button id="card-hsk-badge" class="card-hsk-badge" onclick="enrichCard()" title="Ask AI to fill HSK level &amp; character data" style="display:none"></button>
-          <div class="back-play-group">
-            <button id="back-meta-play-btn" class="play-icon-btn play-icon-sm" onclick="playSentence()" style="display:none" title="Play audio">🔊</button>
-            <span class="listen-counter listen-counter-back" id="listen-counter-back" style="display:none"></span>
-          </div>
-          <span id="avg-time-badge" class="review-rr-badge" style="display:none" title="Average time per card this session"></span>
-          <div id="card-timer" style="display:none"></div>
-          <div id="card-type-badge"></div>
-          <div class="wd-card-menu-wrap" id="review-card-menu-wrap">
-            <button class="wd-menu-btn" onclick="toggleReviewCardMenu(event)">⋯</button>
-            <div class="wd-card-menu" id="review-card-menu" style="display:none">
-              <button class="wd-menu-item" onclick="reviewCardAction('bury')">Bury until tomorrow</button>
-              <button class="wd-menu-item" id="review-suspend-btn" onclick="reviewCardAction('suspend')">Suspend</button>
-              <button class="wd-menu-item wd-menu-item-danger" onclick="reviewCardAction('delete')">Delete card</button>
+          <!-- Story info row: sentence count + topic (clickable → full story) -->
+          <div id="story-info-row" style="display:none" onclick="openStoryModal()" title="View full story"></div>
+
+          <!-- Card meta row: category circles (centre) + right group -->
+          <div class="card-meta-row">
+            <div id="review-cat-row" style="flex:1"></div>
+            <div class="card-meta-right">
+              <button id="card-hsk-badge" class="card-hsk-badge" onclick="enrichCard()" title="Ask AI to fill HSK level &amp; character data" style="display:none"></button>
+              <div class="back-play-group">
+                <button id="back-meta-play-btn" class="play-icon-btn play-icon-sm" onclick="playSentence()" style="display:none" title="Play audio">🔊</button>
+                <span class="listen-counter listen-counter-back" id="listen-counter-back" style="display:none"></span>
+              </div>
+              <span id="avg-time-badge" class="review-rr-badge" style="display:none" title="Average time per card this session"></span>
+              <div id="card-timer" style="display:none"></div>
+              <div id="card-type-badge"></div>
+              <div class="wd-card-menu-wrap" id="review-card-menu-wrap">
+                <button class="wd-menu-btn" onclick="toggleReviewCardMenu(event)">⋯</button>
+                <div class="wd-card-menu" id="review-card-menu" style="display:none">
+                  <button class="wd-menu-item" onclick="reviewCardAction('bury')">Bury until tomorrow</button>
+                  <button class="wd-menu-item" id="review-suspend-btn" onclick="reviewCardAction('suspend')">Suspend</button>
+                  <button class="wd-menu-item wd-menu-item-danger" onclick="reviewCardAction('delete')">Delete card</button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- Front side (content varies by category) -->
-      <div id="side-front">
-        <!-- Listening: speaker icon (clickable) + repeat counter -->
-        <div class="listen-icon-wrap" id="front-listen-icon" style="display:none">
-          <button class="listen-icon" onclick="playSentence()">🔊</button>
-          <span class="listen-counter" id="listen-counter" style="display:none"></span>
-        </div>
-        <!-- Listening: hint sentence with slider (shows % of non-target chars) -->
-        <div id="listen-hint-wrap" style="display:none">
-          <div class="listen-hint-sentence" id="listen-hint-sentence"></div>
-          <div class="listen-hint-slider-row">
-            <span class="listen-hint-label">Hint</span>
-            <input type="range" id="listen-hint-slider" min="0" max="6" value="5"
-                   oninput="onListenHintSlider(this.value)">
-            <span class="listen-hint-pct" id="listen-hint-pct">HSK 5+</span>
-          </div>
-        </div>
-        <!-- Creating: English/German context sentence (shown above Chinese for cloze) -->
-        <div class="sentence-en-front" id="sentence-en-front"></div>
-        <!-- Creating: target word translation hint (FR > DE > EN) -->
-        <div class="creating-word-def" id="creating-word-def" style="display:none"></div>
-        <!-- Reading / Cloze: Chinese sentence on front (reading shows full, cloze shows blanked) -->
-        <div class="sentence" id="sentence-front"></div>
-        <div class="creating-input-wrap" id="creating-input-wrap">
-          <div class="input-label" id="creating-input-label">Fill in the blank</div>
-          <input type="text" id="creating-input" placeholder="Type the missing word…"
-                 autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-                 onkeydown="if(event.key==='Enter')revealAnswer()">
-        </div>
-        <!-- Word bank (creating mode, non-sentence notes) -->
-        <div id="word-bank-wrap" style="display:none">
-          <div class="input-label">Reconstruct the sentence</div>
-          <div class="word-bank-skeleton" id="word-bank-skeleton"></div>
-          <div class="word-bank-tokens" id="word-bank-tokens"></div>
-          <input type="text" id="word-bank-input"
-                 autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-                 placeholder="Fill blanks left to right: tile numbers + target word (e.g. 3 1 努力 2 5 4)"
-                 oninput="updateWordBankPreview(this.value)"
-                 onkeydown="if(event.key==='Enter')revealAnswer()">
-        </div>
-        <button class="reveal-btn" id="reveal-btn" onclick="revealAnswer()">Show Answer</button>
-      </div>
-
-      <!-- Back: sentence → ratings → full vocab detail -->
-      <div id="side-back" style="display:none">
-
-        <!-- Creating only: answer comparison -->
-        <div class="answer-compare" id="creating-answer-section" style="display:none">
-          <div class="answer-block">
-            <div class="answer-block-label">Your answer</div>
-            <div class="answer-block-text answer-user" id="user-answer-text"></div>
-            <div id="answer-match-bar" style="display:none"></div>
-          </div>
-          <div class="answer-block">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-              <div class="answer-block-label" style="margin-bottom:0">Correct</div>
-              <button class="play-icon-btn" onclick="playSentence()" title="Play audio">▶</button>
+          <!-- Front side (content varies by category) -->
+          <div id="side-front">
+            <!-- Listening: speaker icon (clickable) + repeat counter -->
+            <div class="listen-icon-wrap" id="front-listen-icon" style="display:none">
+              <button class="listen-icon" onclick="playSentence()">🔊</button>
+              <span class="listen-counter" id="listen-counter" style="display:none"></span>
             </div>
-            <div class="answer-block-text answer-correct" id="correct-answer-text"></div>
+            <!-- Listening: hint sentence with slider (shows % of non-target chars) -->
+            <div id="listen-hint-wrap" style="display:none">
+              <div class="listen-hint-sentence" id="listen-hint-sentence"></div>
+              <div class="listen-hint-slider-row">
+                <span class="listen-hint-label">Hint</span>
+                <input type="range" id="listen-hint-slider" min="0" max="6" value="5"
+                       oninput="onListenHintSlider(this.value)">
+                <span class="listen-hint-pct" id="listen-hint-pct">HSK 5+</span>
+              </div>
+            </div>
+            <!-- Creating: English/German context sentence (shown above Chinese for cloze) -->
+            <div class="sentence-en-front" id="sentence-en-front"></div>
+            <!-- Creating: target word translation hint (FR > DE > EN) -->
+            <div class="creating-word-def" id="creating-word-def" style="display:none"></div>
+            <!-- Reading / Cloze: Chinese sentence on front (reading shows full, cloze shows blanked) -->
+            <div class="sentence" id="sentence-front"></div>
+            <div class="creating-input-wrap" id="creating-input-wrap">
+              <div class="input-label" id="creating-input-label">Fill in the blank</div>
+              <input type="text" id="creating-input" placeholder="Type the missing word…"
+                     autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                     onkeydown="if(event.key==='Enter')revealAnswer()">
+            </div>
+            <!-- Word bank (creating mode, non-sentence notes) -->
+            <div id="word-bank-wrap" style="display:none">
+              <div class="input-label">Reconstruct the sentence</div>
+              <div class="word-bank-skeleton" id="word-bank-skeleton"></div>
+              <div class="word-bank-tokens" id="word-bank-tokens"></div>
+              <input type="text" id="word-bank-input"
+                     autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                     placeholder="Fill blanks left to right: tile numbers + target word (e.g. 3 1 努力 2 5 4)"
+                     oninput="updateWordBankPreview(this.value)"
+                     onkeydown="if(event.key==='Enter')revealAnswer()">
+            </div>
+            <button class="reveal-btn" id="reveal-btn" onclick="revealAnswer()">Show Answer</button>
           </div>
-        </div>
 
-        <!-- 1. Sentence (listening/reading back; hidden for creating) -->
-        <div class="sentence-row" id="sentence-row-back">
-          <div class="sentence" id="sentence-back"></div>
-        </div>
+          <!-- Back: sentence → ratings → word summary (no collapsible sections) -->
+          <div id="side-back" style="display:none">
 
-        <!-- 2. Pinyin row (blurred by default, p to reveal) -->
-        <div class="pinyin-row" id="pinyin-row"></div>
-        <!-- French and German translation of the sentence -->
-        <div class="sentence-fr" id="sentence-fr"></div>
-        <div class="sentence-de" id="sentence-de"></div>
+            <!-- Creating only: answer comparison -->
+            <div class="answer-compare" id="creating-answer-section" style="display:none">
+              <div class="answer-block">
+                <div class="answer-block-label">Your answer</div>
+                <div class="answer-block-text answer-user" id="user-answer-text"></div>
+                <div id="answer-match-bar" style="display:none"></div>
+              </div>
+              <div class="answer-block">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+                  <div class="answer-block-label" style="margin-bottom:0">Correct</div>
+                  <button class="play-icon-btn" onclick="playSentence()" title="Play audio">▶</button>
+                </div>
+                <div class="answer-block-text answer-correct" id="correct-answer-text"></div>
+              </div>
+            </div>
 
-        <!-- 3. Rating buttons (immediately visible after flip) -->
-        <!-- Single-word mode: standard 4-button row -->
-        <div class="rating-row" id="rating-row">
-          <button class="r-btn r-again" onclick="rate(1)">Again<small id="int-1"></small></button>
-          <button class="r-btn r-hard"  onclick="rate(2)">Hard<small id="int-2"></small></button>
-          <button class="r-btn r-good"  onclick="rate(3)">Good<small id="int-3"></small></button>
-          <button class="r-btn r-easy"  onclick="rate(4)">Easy<small id="int-4"></small></button>
-        </div>
-        <!-- Multi-word mode: one rating row per vocab word, then a submit button -->
-        <div class="multi-rating" id="multi-rating" style="display:none">
-          <div class="multi-rating-rows" id="multi-rating-rows"></div>
-          <div class="multi-rating-submit-row">
-            <button class="multi-rating-submit r-btn r-good" id="multi-rating-submit"
-                    onclick="submitMultiRating()" disabled>Submit all ratings</button>
+            <!-- 1. Sentence (listening/reading back; hidden for creating) -->
+            <div class="sentence-row" id="sentence-row-back">
+              <div class="sentence" id="sentence-back"></div>
+            </div>
+
+            <!-- 2. Pinyin row (blurred by default, p to reveal) -->
+            <div class="pinyin-row" id="pinyin-row"></div>
+            <!-- French and German translation of the sentence -->
+            <div class="sentence-fr" id="sentence-fr"></div>
+            <div class="sentence-de" id="sentence-de"></div>
+
+            <!-- 3. Rating buttons (immediately visible after flip) -->
+            <div class="rating-row" id="rating-row">
+              <button class="r-btn r-again" onclick="rate(1)">Again<small id="int-1"></small></button>
+              <button class="r-btn r-hard"  onclick="rate(2)">Hard<small id="int-2"></small></button>
+              <button class="r-btn r-good"  onclick="rate(3)">Good<small id="int-3"></small></button>
+              <button class="r-btn r-easy"  onclick="rate(4)">Easy<small id="int-4"></small></button>
+            </div>
+            <!-- Multi-word mode: one rating row per vocab word, then a submit button -->
+            <div class="multi-rating" id="multi-rating" style="display:none">
+              <div class="multi-rating-rows" id="multi-rating-rows"></div>
+              <div class="multi-rating-submit-row">
+                <button class="multi-rating-submit r-btn r-good" id="multi-rating-submit"
+                        onclick="submitMultiRating()" disabled>Submit all ratings</button>
+              </div>
+            </div>
+
+            <!-- Word summary: character, pinyin, pos, definition -->
+            <div class="vocab-detail">
+              <div class="word-big" id="word-zh"></div>
+              <div class="word-pin" id="word-pin"></div>
+              <div class="word-pos-row"><span class="word-pos" id="word-pos"></span><span class="word-register" id="word-register" style="display:none"></span></div>
+              <div class="word-def" id="word-def"></div>
+              <div class="word-def-fr" id="word-def-fr" style="display:none"></div>
+              <div class="word-def-de" id="word-def-de" style="display:none"></div>
+            </div>
+
           </div>
-        </div>
 
-        <!-- 3. Full vocabulary info (below the fold) -->
-        <div class="vocab-detail">
-          <div class="word-big" id="word-zh"></div>
-          <div class="word-pin" id="word-pin"></div>
-          <div class="word-pos-row"><span class="word-pos" id="word-pos"></span><span class="word-register" id="word-register" style="display:none"></span></div>
-          <div class="word-def" id="word-def"></div>
-          <div class="word-def-fr" id="word-def-fr" style="display:none"></div>
-          <div class="word-def-de" id="word-def-de" style="display:none"></div>
-          <!-- Notes — populated by JS, hidden when empty -->
-          <div id="notes-section"></div>
-          <!-- Example sentences — populated by JS -->
-          <div id="examples-section"></div>
-          <!-- Word Analysis — populated by JS, open by default -->
-          <div id="word-analysis-section"></div>
-          <button class="edit-card-btn" id="edit-card-btn" onclick="openEditCard()">Edit card</button>
         </div>
+      </div><!-- /review-center-tile -->
 
+      <!-- RIGHT: Notes / Examples / Word Analysis tile (hidden until card flip) -->
+      <div class="review-side-tile" id="review-vocab-panel" style="display:none">
+        <div id="notes-section"></div>
+        <div id="examples-section"></div>
+        <div id="word-analysis-section"></div>
+        <button class="edit-card-btn" id="edit-card-btn" onclick="openEditCard()">Edit card</button>
       </div>
 
-      <!-- Card schedule calendar -->
-      <div id="card-calendar" class="card-calendar" style="display:none">
-        <div class="cal-header">
-          <button class="cal-nav-btn" onclick="calPrevMonth()">‹</button>
-          <span id="cal-month-label" class="cal-month-label"></span>
-          <button class="cal-nav-btn" onclick="calNextMonth()">›</button>
+      <!-- LEFT: Calendar tile (hidden until data loads; shown on desktop to the left via order) -->
+      <div class="review-side-tile review-cal-tile" id="review-cal-panel" style="display:none">
+        <div id="card-calendar" class="card-calendar">
+          <div class="cal-header">
+            <button class="cal-nav-btn" onclick="calPrevMonth()">‹</button>
+            <span id="cal-month-label" class="cal-month-label"></span>
+            <button class="cal-nav-btn" onclick="calNextMonth()">›</button>
+          </div>
+          <div class="cal-weekdays">
+            <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
+          </div>
+          <div class="cal-grid" id="cal-grid"></div>
+          <div class="cal-legend">
+            <span class="cal-legend-item"><span class="cal-legend-swatch cal-chip-again"></span>Again</span>
+            <span class="cal-legend-item"><span class="cal-legend-swatch cal-chip-hard"></span>Hard</span>
+            <span class="cal-legend-item"><span class="cal-legend-swatch cal-chip-good"></span>Good</span>
+            <span class="cal-legend-item"><span class="cal-legend-swatch cal-chip-easy"></span>Easy</span>
+            <span class="cal-legend-sep"></span>
+            <span class="cal-legend-item cal-legend-cat">听 Listening</span>
+            <span class="cal-legend-item cal-legend-cat">读 Reading</span>
+            <span class="cal-legend-item cal-legend-cat">创 Creating</span>
+          </div>
         </div>
-        <div class="cal-weekdays">
-          <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
-        </div>
-        <div class="cal-grid" id="cal-grid"></div>
-        <div class="cal-legend">
-          <span class="cal-legend-item"><span class="cal-legend-swatch cal-chip-again"></span>Again</span>
-          <span class="cal-legend-item"><span class="cal-legend-swatch cal-chip-hard"></span>Hard</span>
-          <span class="cal-legend-item"><span class="cal-legend-swatch cal-chip-good"></span>Good</span>
-          <span class="cal-legend-item"><span class="cal-legend-swatch cal-chip-easy"></span>Easy</span>
-          <span class="cal-legend-sep"></span>
-          <span class="cal-legend-item cal-legend-cat">听 Listening</span>
-          <span class="cal-legend-item cal-legend-cat">读 Reading</span>
-          <span class="cal-legend-item cal-legend-cat">创 Creating</span>
-        </div>
-      </div>
-    </div>
+      </div><!-- /review-cal-panel -->
+
+    </div><!-- /review-layout -->
   </div>
 
   <!-- Done -->

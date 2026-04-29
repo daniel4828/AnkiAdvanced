@@ -169,11 +169,10 @@ function calNextMonth() {
 }
 
 async function _loadCardCalendar(cardId, category) {
-  const el = document.getElementById('card-calendar');
-  if (!el) return;
+  const panel = document.getElementById('review-cal-panel');
   _calData     = null;
   _calCategory = category || null;
-  el.style.display = 'none';
+  if (panel) panel.style.display = 'none';
   try {
     const data = await api('GET', `/api/cards/${cardId}/calendar`);
     if (!data) return;
@@ -182,7 +181,7 @@ async function _loadCardCalendar(cardId, category) {
     _calYear  = today.getFullYear();
     _calMonth = today.getMonth();
     _renderCal();
-    el.style.display = 'block';
+    if (panel) panel.style.display = '';
   } catch (e) { /* silently skip if unavailable */ }
 }
 
@@ -317,6 +316,7 @@ function showView(name) {
   document.getElementById(`view-${name}`).style.display =
     name === 'browse' ? 'flex' : 'block';
   document.querySelector('main').classList.toggle('browse-open', name === 'browse');
+  document.querySelector('main').classList.toggle('review-open', name === 'review');
   document.getElementById('back-btn').style.display = name === 'decks' ? 'none' : 'block';
   document.getElementById('header-title').textContent =
     name === 'review'       ? deckName :
@@ -2685,6 +2685,8 @@ function showFront() {
   document.getElementById('side-front').style.flexDirection = 'column';
   document.getElementById('side-front').style.gap = '16px';
   document.getElementById('side-back').style.display = 'none';
+  const _vp = document.getElementById('review-vocab-panel');
+  if (_vp) _vp.style.display = 'none';
 
   // Listening elements
   document.getElementById('front-listen-icon').style.display = isListening ? 'flex' : 'none';
@@ -2803,6 +2805,8 @@ function revealAnswer() {
   document.getElementById('side-back').style.display  = 'flex';
   document.getElementById('side-back').style.flexDirection = 'column';
   document.getElementById('side-back').style.gap = '16px';
+  const _vpBack = document.getElementById('review-vocab-panel');
+  if (_vpBack) _vpBack.style.display = '';
   document.getElementById('back-meta-play-btn').style.display = isCreating ? 'none' : 'flex';
   _updateListenCounters();
 

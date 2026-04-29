@@ -3192,9 +3192,7 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 
 /* ── Card schedule calendar ──────────────────────────────────────────────── */
 .card-calendar {
-  margin: 12px 0 4px;
-  border-top: 1px solid var(--border);
-  padding-top: 10px;
+  margin: 0;
 }
 .cal-header {
   display: flex;
@@ -3311,6 +3309,47 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   gap: 3px;
   font-size: 0.62rem;
   color: var(--text-muted);
+}
+
+/* ── Three-panel review layout ────────────────────────────── */
+.review-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Side tiles: card-like styling on both mobile and desktop */
+.review-side-tile {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px 16px 16px;
+}
+
+
+/* Desktop: three columns side by side */
+@media (min-width: 1100px) {
+  main.review-open {
+    max-width: 1200px;
+  }
+  .review-layout {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 16px;
+  }
+  .review-center-tile {
+    flex: 0 0 500px;
+    order: 2;
+  }
+  #review-vocab-panel {
+    flex: 0 0 240px;
+    order: 3;
+  }
+  #review-cal-panel {
+    flex: 0 0 240px;
+    order: 1;
+  }
 }
 
 /* ── Confetti (100% score celebration) ──────────────────── */
