@@ -197,7 +197,8 @@ main.browse-open {
   display: flex;
   gap: 16px;
   align-items: center;
-  margin-bottom: 18px;
+  flex: 1;
+  min-width: 0;
 }
 .cnt-item {
   display: flex;
@@ -3318,7 +3319,7 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   gap: 12px;
 }
 
-/* Side tiles: card-like styling on both mobile and desktop */
+/* Side tiles: card-like styling */
 .review-side-tile {
   background: var(--card);
   border-radius: var(--radius);
@@ -3326,28 +3327,57 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   padding: 20px 16px 16px;
 }
 
+/* Calendar month sections in timeline */
+.cal-month-block {
+  margin-bottom: 20px;
+}
+.cal-month-heading {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
 
-/* Desktop: three columns side by side */
+/* Desktop: three columns side by side, each independently scrollable */
 @media (min-width: 1100px) {
   main.review-open {
-    max-width: 1200px;
+    max-width: 1260px;
+    overflow: hidden;
+    padding-bottom: 0;
   }
   .review-layout {
     flex-direction: row;
-    align-items: flex-start;
+    align-items: stretch;
     justify-content: center;
     gap: 16px;
+    height: calc(100vh - 90px);
+  }
+  .review-center-tile,
+  .review-side-tile {
+    overflow-y: auto;
+    height: 100%;
   }
   .review-center-tile {
     flex: 0 0 500px;
     order: 2;
+    /* center tile is not a card itself, just a container */
+    background: none;
+    box-shadow: none;
+    padding: 0;
+    border-radius: 0;
+  }
+  .review-center-tile .review-card {
+    height: 100%;
+    overflow-y: auto;
   }
   #review-vocab-panel {
-    flex: 0 0 240px;
+    flex: 0 0 300px;
     order: 3;
   }
   #review-cal-panel {
-    flex: 0 0 240px;
+    flex: 0 0 300px;
     order: 1;
   }
 }

@@ -102,70 +102,91 @@ function _buildCalDayMap() {
 }
 
 function _renderCal() {
-  const labelEl = document.getElementById('cal-month-label');
-  const gridEl  = document.getElementById('cal-grid');
-  if (!labelEl || !gridEl) return;
+  const timelineEl = document.getElementById('cal-timeline');
+  if (!timelineEl) return;
 
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
-
   const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  labelEl.textContent = `${monthNames[_calMonth]} ${_calYear}`;
-
   const dayMap = _buildCalDayMap();
 
-  const firstDay = new Date(_calYear, _calMonth, 1);
-  let startOffset = firstDay.getDay() - 1;
-  if (startOffset < 0) startOffset = 6;
-
-  const daysInMonth = new Date(_calYear, _calMonth + 1, 0).getDate();
+  // Range: first history date → today + 3 months
+  const allDates = [
+    ...(_calData?.history || []).map(h => h.date),
+    ...(_calData?.future  || []).map(f => f.due),
+  ];
+  let startDate = today;
+  if (allDates.length) {
+    const minStr = allDates.reduce((a, b) => a < b ? a : b);
+    const parsed = new Date(minStr);
+    if (!isNaN(parsed)) startDate = parsed;
+  }
+  const endDate = new Date(today.getFullYear(), today.getMonth() + 4, 0); // last day of today+3 months
 
   let html = '';
-  for (let i = 0; i < startOffset; i++) html += '<div class="cal-cell cal-empty"></div>';
+  let yr = startDate.getFullYear(), mo = startDate.getMonth();
+  const endYr = endDate.getFullYear(), endMo = endDate.getMonth();
+  let todayMonthId = null;
 
-  for (let d = 1; d <= daysInMonth; d++) {
-    const mm = String(_calMonth + 1).padStart(2, '0');
-    const dd = String(d).padStart(2, '0');
-    const dateStr = `${_calYear}-${mm}-${dd}`;
-    const isToday = dateStr === todayStr;
-    const info = dayMap[dateStr];
+  while (yr < endYr || (yr === endYr && mo <= endMo)) {
+    const monthId = `cal-month-${yr}-${mo}`;
+    if (yr === today.getFullYear() && mo === today.getMonth()) todayMonthId = monthId;
 
-    html += `<div class="cal-cell${isToday ? ' cal-today' : ''}">`;
-    if (info) {
-      html += '<div class="cal-chips">';
-      for (const r of info.ratings) {
-        const rCls = _RATING_CLASS[r.rating] || 'good';
-        const letter = _CAT_LETTER[r.category] || '?';
-        html += `<span class="cal-chip cal-chip-${rCls}" title="${r.category}: ${rCls}">${letter}</span>`;
-      }
-      for (const f of info.dues) {
-        const cCls = _CAT_CLASS[f.category] || '';
-        const letter = _CAT_LETTER[f.category] || '?';
-        html += `<span class="cal-chip cal-chip-due-${cCls}" title="${f.category} due">${letter}</span>`;
+    html += `<div class="cal-month-block" id="${monthId}">`;
+    html += `<div class="cal-month-heading">${monthNames[mo]} ${yr}</div>`;
+    html += `<div class="cal-weekdays"><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span></div>`;
+    html += `<div class="cal-grid">`;
+
+    const firstDay = new Date(yr, mo, 1);
+    let startOffset = firstDay.getDay() - 1;
+    if (startOffset < 0) startOffset = 6;
+    for (let i = 0; i < startOffset; i++) html += '<div class="cal-cell cal-empty"></div>';
+
+    const daysInMonth = new Date(yr, mo + 1, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const mm = String(mo + 1).padStart(2, '0');
+      const dd = String(d).padStart(2, '0');
+      const dateStr = `${yr}-${mm}-${dd}`;
+      const isToday = dateStr === todayStr;
+      const info = dayMap[dateStr];
+
+      html += `<div class="cal-cell${isToday ? ' cal-today' : ''}">`;
+      if (info) {
+        html += '<div class="cal-chips">';
+        for (const r of info.ratings) {
+          const rCls = _RATING_CLASS[r.rating] || 'good';
+          const letter = _CAT_LETTER[r.category] || '?';
+          html += `<span class="cal-chip cal-chip-${rCls}" title="${r.category}: ${rCls}">${letter}</span>`;
+        }
+        for (const f of info.dues) {
+          const cCls = _CAT_CLASS[f.category] || '';
+          const letter = _CAT_LETTER[f.category] || '?';
+          html += `<span class="cal-chip cal-chip-due-${cCls}" title="${f.category} due">${letter}</span>`;
+        }
+        html += '</div>';
+      } else if (isToday && _calCategory) {
+        const letter = _CAT_LETTER[_calCategory] || '?';
+        const cCls   = _CAT_CLASS[_calCategory]  || '';
+        html += `<div class="cal-chips"><span class="cal-chip cal-chip-due-${cCls}" title="${_calCategory} today">${letter}</span></div>`;
+      } else {
+        html += `<span class="cal-day-num${isToday ? ' cal-day-num-today' : ''}">${d}</span>`;
       }
       html += '</div>';
-    } else if (isToday && _calCategory) {
-      const letter = _CAT_LETTER[_calCategory] || '?';
-      const cCls   = _CAT_CLASS[_calCategory]  || '';
-      html += `<div class="cal-chips"><span class="cal-chip cal-chip-due-${cCls}" title="${_calCategory} today">${letter}</span></div>`;
-    } else {
-      html += `<span class="cal-day-num${isToday ? ' cal-day-num-today' : ''}">${d}</span>`;
     }
-    html += '</div>';
+
+    html += '</div></div>'; // close cal-grid + cal-month-block
+
+    mo++;
+    if (mo > 11) { mo = 0; yr++; }
   }
 
-  gridEl.innerHTML = html;
-}
+  timelineEl.innerHTML = html;
 
-function calPrevMonth() {
-  _calMonth--;
-  if (_calMonth < 0) { _calMonth = 11; _calYear--; }
-  _renderCal();
-}
-function calNextMonth() {
-  _calMonth++;
-  if (_calMonth > 11) { _calMonth = 0; _calYear++; }
-  _renderCal();
+  // Scroll the tile to show the current month
+  if (todayMonthId) {
+    const el = document.getElementById(todayMonthId);
+    if (el) requestAnimationFrame(() => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
+  }
 }
 
 async function _loadCardCalendar(cardId, category) {
@@ -317,6 +338,8 @@ function showView(name) {
     name === 'browse' ? 'flex' : 'block';
   document.querySelector('main').classList.toggle('browse-open', name === 'browse');
   document.querySelector('main').classList.toggle('review-open', name === 'review');
+  const countsRow = document.getElementById('counts-row');
+  if (countsRow) countsRow.style.display = name === 'review' ? 'flex' : 'none';
   document.getElementById('back-btn').style.display = name === 'decks' ? 'none' : 'block';
   document.getElementById('header-title').textContent =
     name === 'review'       ? deckName :

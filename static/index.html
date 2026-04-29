@@ -11,6 +11,41 @@
 <header>
   <button id="back-btn" onclick="goBack()">←</button>
   <h1 id="header-title">AnkiAdvanced</h1>
+  <!-- Review counts — shown only during review, hidden otherwise -->
+  <div class="counts-row" id="counts-row" style="display:none">
+    <div class="cnt-item" id="cnt-item-new">
+      <b id="cnt-new" class="n-new">0</b>
+      <span class="cnt-label">new</span>
+    </div>
+    <div class="cnt-item" id="cnt-item-lrn">
+      <b id="cnt-lrn" class="n-lrn">0</b>
+      <span class="cnt-label">learning</span>
+    </div>
+    <div class="cnt-item" id="cnt-item-rev">
+      <b id="cnt-rev" class="n-rev">0</b>
+      <span class="cnt-label">review</span>
+    </div>
+    <div id="cnt-by-cat" style="display:none">
+      <div class="cnt-cat-item" id="cnt-cat-reading">
+        <span class="cnt-cat-zh">读</span>
+        <span class="cnt-cat-nums"><b id="cnt-r-new" class="n-new">0</b>·<b id="cnt-r-lrn" class="n-lrn">0</b>·<b id="cnt-r-rev" class="n-rev">0</b></span>
+        <span id="cnt-r-rr" class="cnt-cat-rr"></span>
+      </div>
+      <div class="cnt-cat-item" id="cnt-cat-listening">
+        <span class="cnt-cat-zh">听</span>
+        <span class="cnt-cat-nums"><b id="cnt-l-new" class="n-new">0</b>·<b id="cnt-l-lrn" class="n-lrn">0</b>·<b id="cnt-l-rev" class="n-rev">0</b></span>
+        <span id="cnt-l-rr" class="cnt-cat-rr"></span>
+      </div>
+      <div class="cnt-cat-item" id="cnt-cat-creating">
+        <span class="cnt-cat-zh">创</span>
+        <span class="cnt-cat-nums"><b id="cnt-c-new" class="n-new">0</b>·<b id="cnt-c-lrn" class="n-lrn">0</b>·<b id="cnt-c-rev" class="n-rev">0</b></span>
+        <span id="cnt-c-rr" class="cnt-cat-rr"></span>
+      </div>
+    </div>
+    <span id="review-rr-badge" class="review-rr-badge" style="display:none" title="Daily retention rate"></span>
+    <span id="avg-time-badge" class="review-rr-badge" style="display:none" title="Average time per card this session"></span>
+    <button class="undo-btn" id="undo-btn" onclick="undoReview()" title="Undo last rating [Z]" disabled>↩ Undo</button>
+  </div>
   <button id="header-regen-btn" onclick="regenerateStory()" title="Regenerate story" style="display:none">↺</button>
   <button id="restart-btn" onclick="restartServer()" title="Restart server (Shift+R)">↺</button>
 </header>
@@ -33,41 +68,6 @@
 
   <!-- Review -->
   <div id="view-review">
-    <div class="counts-row">
-      <div class="cnt-item" id="cnt-item-new">
-        <b id="cnt-new" class="n-new">0</b>
-        <span class="cnt-label">new</span>
-      </div>
-      <div class="cnt-item" id="cnt-item-lrn">
-        <b id="cnt-lrn" class="n-lrn">0</b>
-        <span class="cnt-label">learning</span>
-      </div>
-      <div class="cnt-item" id="cnt-item-rev">
-        <b id="cnt-rev" class="n-rev">0</b>
-        <span class="cnt-label">review</span>
-      </div>
-      <div id="cnt-by-cat" style="display:none">
-        <div class="cnt-cat-item" id="cnt-cat-reading">
-          <span class="cnt-cat-zh">读</span>
-          <span class="cnt-cat-nums"><b id="cnt-r-new" class="n-new">0</b>·<b id="cnt-r-lrn" class="n-lrn">0</b>·<b id="cnt-r-rev" class="n-rev">0</b></span>
-          <span id="cnt-r-rr" class="cnt-cat-rr"></span>
-        </div>
-        <div class="cnt-cat-item" id="cnt-cat-listening">
-          <span class="cnt-cat-zh">听</span>
-          <span class="cnt-cat-nums"><b id="cnt-l-new" class="n-new">0</b>·<b id="cnt-l-lrn" class="n-lrn">0</b>·<b id="cnt-l-rev" class="n-rev">0</b></span>
-          <span id="cnt-l-rr" class="cnt-cat-rr"></span>
-        </div>
-        <div class="cnt-cat-item" id="cnt-cat-creating">
-          <span class="cnt-cat-zh">创</span>
-          <span class="cnt-cat-nums"><b id="cnt-c-new" class="n-new">0</b>·<b id="cnt-c-lrn" class="n-lrn">0</b>·<b id="cnt-c-rev" class="n-rev">0</b></span>
-          <span id="cnt-c-rr" class="cnt-cat-rr"></span>
-        </div>
-      </div>
-      <div style="display:flex;gap:6px;margin-left:auto;align-items:center">
-        <span id="review-rr-badge" class="review-rr-badge" style="display:none" title="Daily retention rate"></span>
-        <button class="undo-btn" id="undo-btn" onclick="undoReview()" title="Undo last rating [Z]" disabled>↩ Undo</button>
-      </div>
-    </div>
 
     <!-- Three-panel layout: [calendar] [card] [vocab detail] -->
     <div class="review-layout">
@@ -91,7 +91,6 @@
                 <button id="back-meta-play-btn" class="play-icon-btn play-icon-sm" onclick="playSentence()" style="display:none" title="Play audio">🔊</button>
                 <span class="listen-counter listen-counter-back" id="listen-counter-back" style="display:none"></span>
               </div>
-              <span id="avg-time-badge" class="review-rr-badge" style="display:none" title="Average time per card this session"></span>
               <div id="card-timer" style="display:none"></div>
               <div id="card-type-badge"></div>
               <div class="wd-card-menu-wrap" id="review-card-menu-wrap">
@@ -220,15 +219,7 @@
       <!-- LEFT: Calendar tile (hidden until data loads; shown on desktop to the left via order) -->
       <div class="review-side-tile review-cal-tile" id="review-cal-panel" style="display:none">
         <div id="card-calendar" class="card-calendar">
-          <div class="cal-header">
-            <button class="cal-nav-btn" onclick="calPrevMonth()">‹</button>
-            <span id="cal-month-label" class="cal-month-label"></span>
-            <button class="cal-nav-btn" onclick="calNextMonth()">›</button>
-          </div>
-          <div class="cal-weekdays">
-            <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
-          </div>
-          <div class="cal-grid" id="cal-grid"></div>
+          <div id="cal-timeline"></div>
           <div class="cal-legend">
             <span class="cal-legend-item"><span class="cal-legend-swatch cal-chip-again"></span>Again</span>
             <span class="cal-legend-item"><span class="cal-legend-swatch cal-chip-hard"></span>Hard</span>
