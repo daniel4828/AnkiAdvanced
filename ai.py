@@ -322,8 +322,12 @@ Rules:
                           msg=f"✓ {len(parsed)} sentences (patched)", percent=93)
             return parsed, prompt
 
-    logger.warning("generate_story: falling back to placeholder sentences")
-    return _fallback_sentences(cards), prompt
+    missing_count = len(last_partial[1]) if last_partial else len(cards)
+    raise RuntimeError(
+        f"Story generation failed after 3 attempts "
+        f"({missing_count} word(s) still missing from the story). "
+        "Please try again or switch to a different model."
+    )
 
 
 def _patch_missing(sentences: list[dict], missing_word_ids: list[int],
