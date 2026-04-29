@@ -182,10 +182,13 @@ function _renderCal() {
 
   timelineEl.innerHTML = html;
 
-  // Scroll the tile to show the current month
+  // Scroll the calendar tile so the current month is at the top
   if (todayMonthId) {
-    const el = document.getElementById(todayMonthId);
-    if (el) requestAnimationFrame(() => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
+    requestAnimationFrame(() => {
+      const panel = document.getElementById('review-cal-panel');
+      const el    = document.getElementById(todayMonthId);
+      if (panel && el) panel.scrollTop = el.offsetTop;
+    });
   }
 }
 
