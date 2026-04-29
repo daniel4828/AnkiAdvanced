@@ -200,7 +200,11 @@ try:
 
     @app.get("/")
     def root():
-        return FileResponse("static/index.html")
+        return FileResponse("static/index.html", headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        })
 
     app.include_router(decks.router)
     app.include_router(review.router)
