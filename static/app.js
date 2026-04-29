@@ -2857,6 +2857,7 @@ function revealAnswer() {
         const color = pct >= 100 ? 'var(--good)' : pct >= 60 ? 'var(--hard)' : 'var(--again)';
         matchBar.innerHTML = `<span class="match-bar" style="color:${color}">${bar} ${pct}%</span>`;
         matchBar.style.display = 'block';
+        if (pct >= 100) triggerApplause();
       } else {
         matchBar.style.display = 'none';
       }
@@ -2870,6 +2871,7 @@ function revealAnswer() {
         const color = pct >= 80 ? 'var(--good)' : pct >= 50 ? 'var(--hard)' : 'var(--again)';
         matchBar.innerHTML = `<span class="match-bar" style="color:${color}">${bar} ${pct}%</span>`;
         matchBar.style.display = 'block';
+        if (pct >= 100) triggerApplause();
       } else {
         matchBar.style.display = 'none';
       }
@@ -3431,6 +3433,23 @@ async function _buildWordBank() {
         : { type: 'char', char: tok }
     );
   }
+  // Handle case where NLP tokenizer splits the target across consecutive tokens
+  // e.g., "怎么可能" tokenized as ["怎么", "可能"] — merge them into one target token
+  if (!targetParts) {
+    for (let i = 0; i < order.length; i++) {
+      if (order[i].type !== 'char') continue;
+      let acc = '';
+      let j = i;
+      while (j < order.length && order[j].type === 'char') {
+        acc += order[j].char;
+        if (acc === target) { order.splice(i, j - i + 1, { type: 'target', word: target }); break; }
+        if (!target.startsWith(acc)) break;
+        j++;
+      }
+      if (order[i]?.type === 'target') break;
+    }
+  }
+
   // For separable words, count how many parts were found; for normal words, check if any target found
   const targetCount = order.filter(it => it.type === 'target').length;
   const expectedCount = targetParts ? targetParts.length : 1;
@@ -6159,6 +6178,23 @@ document.addEventListener('click', function(e) {
     body: JSON.stringify({ action }),
   }).catch(() => {});
 }, true);
+
+// ── Confetti (100% score) ─────────────────────────────────────────────────────
+function triggerApplause() {
+  const colors = ['#16a34a', '#2563eb', '#d97706', '#dc2626', '#0891b2', '#9333ea'];
+  const count = 48;
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.style.left = Math.random() * 100 + 'vw';
+    el.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    el.style.animationDuration = (1.0 + Math.random() * 1.2) + 's';
+    el.style.animationDelay = (Math.random() * 0.4) + 's';
+    el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
+  }
+}
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 loadDecks();

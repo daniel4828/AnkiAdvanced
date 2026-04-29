@@ -3312,3 +3312,20 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   font-size: 0.62rem;
   color: var(--text-muted);
 }
+
+/* ── Confetti (100% score celebration) ──────────────────── */
+@keyframes confetti-fall {
+  0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+.confetti-piece {
+  position: fixed;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 9999;
+  animation: confetti-fall linear forwards;
+}
