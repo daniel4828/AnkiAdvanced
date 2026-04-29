@@ -123,6 +123,16 @@ function _renderCal() {
   }
   const endDate = new Date(today.getFullYear(), today.getMonth() + 4, 0); // last day of today+3 months
 
+  // Find first review date to scroll to on open
+  const histDates = (_calData?.history || []).map(h => h.date).filter(Boolean).sort();
+  let firstMonthId = null;
+  if (histDates.length) {
+    const firstParsed = new Date(histDates[0]);
+    if (!isNaN(firstParsed)) {
+      firstMonthId = `cal-month-${firstParsed.getFullYear()}-${firstParsed.getMonth()}`;
+    }
+  }
+
   let html = '';
   let yr = startDate.getFullYear(), mo = startDate.getMonth();
   const endYr = endDate.getFullYear(), endMo = endDate.getMonth();
@@ -182,11 +192,12 @@ function _renderCal() {
 
   timelineEl.innerHTML = html;
 
-  // Scroll the calendar tile so the current month is at the top
-  if (todayMonthId) {
+  // Scroll to first reviewed month (or today if no history)
+  const scrollTargetId = firstMonthId || todayMonthId;
+  if (scrollTargetId) {
     requestAnimationFrame(() => {
       const panel = document.getElementById('review-cal-panel');
-      const el    = document.getElementById(todayMonthId);
+      const el    = document.getElementById(scrollTargetId);
       if (panel && el) panel.scrollTop = el.offsetTop;
     });
   }
