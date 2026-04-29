@@ -9,8 +9,10 @@
 <body>
 
 <header>
-  <button id="back-btn" onclick="goBack()">←</button>
-  <h1 id="header-title">AnkiAdvanced</h1>
+  <div class="header-left">
+    <button id="back-btn" onclick="goBack()">←</button>
+    <h1 id="header-title">AnkiAdvanced</h1>
+  </div>
   <!-- Review counts — shown only during review, hidden otherwise -->
   <div class="counts-row" id="counts-row" style="display:none">
     <div class="cnt-item" id="cnt-item-new">
@@ -46,8 +48,10 @@
     <span id="avg-time-badge" class="review-rr-badge" style="display:none" title="Average time per card this session"></span>
     <button class="undo-btn" id="undo-btn" onclick="undoReview()" title="Undo last rating [Z]" disabled>↩ Undo</button>
   </div>
-  <button id="header-regen-btn" onclick="regenerateStory()" title="Regenerate story" style="display:none">↺</button>
-  <button id="restart-btn" onclick="restartServer()" title="Restart server (Shift+R)">↺</button>
+  <div class="header-right">
+    <button id="header-regen-btn" onclick="regenerateStory()" title="Regenerate story" style="display:none">↺</button>
+    <button id="restart-btn" onclick="restartServer()" title="Restart server (Shift+R)">↻</button>
+  </div>
 </header>
 
 <main>
