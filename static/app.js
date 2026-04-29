@@ -2632,7 +2632,7 @@ function loadCard(c, counts) {
   // Deck path bar
   const deckPath = document.getElementById('card-deck-path');
   if (card.deck_path) {
-    deckPath.textContent = card.deck_path;
+    deckPath.textContent = card.deck_path.replace(/_/g, ' ');
     deckPath.style.display = 'block';
   } else {
     deckPath.style.display = 'none';
@@ -2710,6 +2710,8 @@ function showFront() {
   document.getElementById('side-back').style.display = 'none';
   const _vp = document.getElementById('review-vocab-panel');
   if (_vp) _vp.style.display = 'none';
+  const _mascot = document.getElementById('cal-front-mascot');
+  if (_mascot) _mascot.style.display = 'flex';
 
   // Listening elements
   document.getElementById('front-listen-icon').style.display = isListening ? 'flex' : 'none';
@@ -2830,6 +2832,8 @@ function revealAnswer() {
   document.getElementById('side-back').style.gap = '16px';
   const _vpBack = document.getElementById('review-vocab-panel');
   if (_vpBack) _vpBack.style.display = '';
+  const _mascotBack = document.getElementById('cal-front-mascot');
+  if (_mascotBack) _mascotBack.style.display = 'none';
   document.getElementById('back-meta-play-btn').style.display = isCreating ? 'none' : 'flex';
   _updateListenCounters();
 

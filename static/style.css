@@ -3241,7 +3241,7 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   gap: 2px;
 }
 .cal-cell.cal-today { outline: 2px solid var(--primary, #6366f1); outline-offset: -2px; border-radius: 4px; }
-.cal-cell.cal-empty { pointer-events: none; }
+.cal-cell.cal-empty { pointer-events: none; border-color: transparent; background: none; }
 .cal-day-num {
   font-size: 0.65rem;
   color: var(--text-muted);
@@ -3308,6 +3308,32 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   gap: 3px;
   font-size: 0.62rem;
   color: var(--text-muted);
+}
+
+/* ── Front-side mascot in calendar tile ─────────────────── */
+.cal-front-mascot {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 12px 16px;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.mascot-art {
+  font-family: monospace;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+  margin: 0;
+  text-align: center;
+  letter-spacing: 0.05em;
+}
+.mascot-caption {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-align: center;
+  font-style: italic;
 }
 
 /* ── Three-panel review layout ────────────────────────────── */
