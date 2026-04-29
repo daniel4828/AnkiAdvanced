@@ -3366,6 +3366,7 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   }
   .review-center-tile {
     grid-column: 2;
+    grid-row: 1;
     background: none;
     box-shadow: none;
     padding: 0;
@@ -3378,10 +3379,12 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   }
   #review-cal-panel {
     grid-column: 1;
+    grid-row: 1;
     overflow-y: auto;
   }
   #review-vocab-panel {
     grid-column: 3;
+    grid-row: 1;
     overflow-y: auto;
   }
 }
