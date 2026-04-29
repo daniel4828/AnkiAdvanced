@@ -2708,10 +2708,10 @@ function showFront() {
   document.getElementById('side-front').style.flexDirection = 'column';
   document.getElementById('side-front').style.gap = '16px';
   document.getElementById('side-back').style.display = 'none';
-  const _vp = document.getElementById('review-vocab-panel');
-  if (_vp) _vp.style.display = 'none';
-  const _mascot = document.getElementById('cal-front-mascot');
+  const _mascot = document.getElementById('front-mascot');
   if (_mascot) _mascot.style.display = 'flex';
+  const _vc = document.getElementById('vocab-content');
+  if (_vc) _vc.style.display = 'none';
 
   // Listening elements
   document.getElementById('front-listen-icon').style.display = isListening ? 'flex' : 'none';
@@ -2830,10 +2830,10 @@ function revealAnswer() {
   document.getElementById('side-back').style.display  = 'flex';
   document.getElementById('side-back').style.flexDirection = 'column';
   document.getElementById('side-back').style.gap = '16px';
-  const _vpBack = document.getElementById('review-vocab-panel');
-  if (_vpBack) _vpBack.style.display = '';
-  const _mascotBack = document.getElementById('cal-front-mascot');
+  const _mascotBack = document.getElementById('front-mascot');
   if (_mascotBack) _mascotBack.style.display = 'none';
+  const _vcBack = document.getElementById('vocab-content');
+  if (_vcBack) _vcBack.style.display = 'block';
   document.getElementById('back-meta-play-btn').style.display = isCreating ? 'none' : 'flex';
   _updateListenCounters();
 
@@ -5650,6 +5650,11 @@ document.addEventListener('keydown', async e => {
     }
   }
 
+  if (e.key === 'R' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    if (!inInput) { e.preventDefault(); _restartServer(); }
+    return;
+  }
+
   // Enter in word-detail → back to review (if opened from review)
   if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.altKey && !inInput && !_hasOpenModal()) {
     if (document.getElementById('view-word-detail')?.style.display !== 'none' && _prevView === 'review') {
@@ -6201,6 +6206,16 @@ function triggerApplause() {
     document.body.appendChild(el);
     el.addEventListener('animationend', () => el.remove());
   }
+}
+
+// ── Server restart (Shift+R, no button) ──────────────────────────────────────
+async function _restartServer() {
+  try { await fetch('/api/restart', { method: 'POST' }); } catch (_) {}
+  const poll = async () => {
+    try { const r = await fetch('/api/decks'); if (r.ok) { location.reload(); return; } } catch (_) {}
+    setTimeout(poll, 400);
+  };
+  setTimeout(poll, 600);
 }
 
 // ── Boot ─────────────────────────────────────────────────────────────────────

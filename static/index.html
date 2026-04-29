@@ -212,16 +212,9 @@
       </div><!-- /review-center-tile -->
 
       <!-- RIGHT: Notes / Examples / Word Analysis tile (hidden until card flip) -->
-      <div class="review-side-tile" id="review-vocab-panel" style="display:none">
-        <div id="notes-section"></div>
-        <div id="examples-section"></div>
-        <div id="word-analysis-section"></div>
-        <button class="edit-card-btn" id="edit-card-btn" onclick="openEditCard()">Edit card</button>
-      </div>
-
-      <!-- LEFT: Calendar tile (hidden until data loads; shown on desktop to the left via order) -->
-      <div class="review-side-tile review-cal-tile" id="review-cal-panel" style="display:none">
-        <div id="cal-front-mascot" class="cal-front-mascot" style="display:none">
+      <!-- RIGHT: Mascot (front) + Notes/Examples/Word Analysis (back) -->
+      <div class="review-side-tile" id="review-vocab-panel">
+        <div id="front-mascot" class="front-mascot">
 <pre class="mascot-art">
   /\___/\
  (= ^.^ =)
@@ -231,6 +224,16 @@
 </pre>
           <div class="mascot-caption">Focus — show answer when ready!</div>
         </div>
+        <div id="vocab-content" style="display:none">
+          <div id="notes-section"></div>
+          <div id="examples-section"></div>
+          <div id="word-analysis-section"></div>
+          <button class="edit-card-btn" id="edit-card-btn" onclick="openEditCard()">Edit card</button>
+        </div>
+      </div>
+
+      <!-- LEFT: Calendar tile (hidden until data loads; shown on desktop to the left via order) -->
+      <div class="review-side-tile review-cal-tile" id="review-cal-panel" style="display:none">
         <div id="card-calendar" class="card-calendar">
           <div id="cal-timeline"></div>
           <div class="cal-legend">

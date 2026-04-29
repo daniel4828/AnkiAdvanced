@@ -3310,8 +3310,8 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   color: var(--text-muted);
 }
 
-/* ── Front-side mascot in calendar tile ─────────────────── */
-.cal-front-mascot {
+/* ── Front-side mascot in vocab tile ───────────────────── */
+.front-mascot {
   flex-direction: column;
   align-items: center;
   justify-content: center;
