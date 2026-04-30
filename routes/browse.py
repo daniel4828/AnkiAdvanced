@@ -81,24 +81,23 @@ def _run_regen_ai(word_id: int, word: dict, fields: list) -> tuple[dict, list]:
             chars = database.get_word_characters(word_id)
             top_fields = [f for f in fields if f in ("notes", "examples")]
             top_result = ai.regenerate_entry_fields(word, chars, top_fields)
-            logger.info("regen top_result keys=%s", list(top_result.keys()))
 
         if want_char_data:
             comp_fields = [f for f in fields if f in ("etymology", "compounds")]
             for comp in components:
                 comp_chars = database.get_word_characters(comp["id"])
-                logger.info("regen comp=%s comp_chars=%s", comp.get("word_zh"), [c.get("char") for c in comp_chars])
+                print(f"[REGEN] comp={comp.get('word_zh')!r} comp_chars={[c.get('char') for c in comp_chars]}", flush=True)
                 result = ai.regenerate_entry_fields(comp, comp_chars, comp_fields)
-                logger.info("regen comp result keys=%s chars_returned=%s", list(result.keys()), [c.get("char") for c in result.get("characters", [])])
+                print(f"[REGEN] comp result keys={list(result.keys())} chars_returned={[c.get('char') for c in result.get('characters', [])]}", flush=True)
                 _enrich_chars_with_id(result.get("characters", []), comp_chars, all_characters)
     else:
         characters = database.get_word_characters(word_id)
-        logger.info("regen chars=%s", [c.get("char") for c in characters])
+        print(f"[REGEN] no components, chars={[c.get('char') for c in characters]}", flush=True)
         top_result = ai.regenerate_entry_fields(word, characters, fields)
-        logger.info("regen top_result keys=%s chars_returned=%s", list(top_result.keys()), [c.get("char") for c in top_result.get("characters", [])])
+        print(f"[REGEN] top_result keys={list(top_result.keys())} chars_returned={[c.get('char') for c in top_result.get('characters', [])]}", flush=True)
         _enrich_chars_with_id(top_result.get("characters", []), characters, all_characters)
 
-    logger.info("regen all_characters count=%s chars=%s", len(all_characters), [c.get("char") for c in all_characters])
+    print(f"[REGEN] FINAL all_characters count={len(all_characters)} chars={[c.get('char') for c in all_characters]}", flush=True)
     return top_result, all_characters
 
 

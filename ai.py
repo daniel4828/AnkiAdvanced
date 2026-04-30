@@ -460,10 +460,10 @@ def regenerate_entry_fields(
         + f"\n\nReturn ONLY valid JSON with exactly these top-level keys:\n{json_template}"
     )
 
-    logger.info("[%s] regenerate_entry_fields: %s fields=%s", model, word_zh, fields)
+    print(f"[REGEN] calling AI: word={word_zh!r} fields={fields}", flush=True)
     raw = _call_api(model, [{"role": "user", "content": prompt}], max_tokens=1800,
                     purpose=f"regen:{word_zh}")
-    logger.info("regenerate_entry_fields raw response for %s: %s", word_zh, raw[:500])
+    print(f"[REGEN] raw AI response for {word_zh!r}:\n{raw}\n", flush=True)
 
     json_match = re.search(r'\{.*\}', raw, re.DOTALL)
     if json_match:
@@ -471,11 +471,10 @@ def regenerate_entry_fields(
 
     try:
         parsed = json.loads(raw)
-        logger.info("regenerate_entry_fields parsed keys=%s chars=%s",
-                    list(parsed.keys()),
-                    [c.get("char") for c in parsed.get("characters", [])])
+        print(f"[REGEN] parsed keys={list(parsed.keys())} chars={[c.get('char') for c in parsed.get('characters', [])]}", flush=True)
         return parsed
     except (json.JSONDecodeError, TypeError) as e:
+        print(f"[REGEN] JSON parse error for {word_zh!r}: {e}", flush=True)
         logger.error("regenerate_entry_fields: JSON parse error for %s: %s", word_zh, e)
         return {}
 
