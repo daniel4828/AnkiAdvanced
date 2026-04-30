@@ -3344,32 +3344,36 @@ async function _applyRegenResult() {
     const result = _getRegenResultFromModal();
     const updated = await api('POST', `/api/word/${wordId}/apply-regen-result`, { fields, result });
     _closeRegenPreviewModal();
-    if (_currentWordId === wordId) {
+    if (wordDetails?.id === wordId) wordDetails = updated;
+    const DEF_FIELDS = ['definition', 'definition_zh', 'definition_de', 'definition_fr', 'pos'];
+    const isDefRegen = fields.some(f => DEF_FIELDS.includes(f));
+    if (isDefRegen && _currentWordId === wordId) {
+      // Definition/POS regen: full re-render is safe (header is always visible)
       updated.cards = wordDetails?.cards || [];
       renderWordDetail(updated);
     } else {
-      if (wordDetails?.id === wordId) wordDetails = updated;
+      // Section regen (notes/examples/etymology/compounds): targeted re-render to keep section open
       const target = document.getElementById(containerId);
-      if (!target) return;
-      const DEF_FIELDS = ['definition', 'definition_zh', 'definition_de', 'definition_fr', 'pos'];
-      if (fields.some(f => DEF_FIELDS.includes(f))) {
-        const posEl = document.getElementById('wd-pos');
-        if (posEl) { posEl.textContent = updated.pos || ''; posEl.style.display = updated.pos ? 'inline-block' : 'none'; }
-        const defEl = document.getElementById('wd-def');
-        if (defEl) defEl.textContent = updated.definition || '';
-        const defZhEl = document.getElementById('wd-def-zh');
-        if (defZhEl) { defZhEl.textContent = updated.definition_zh || ''; defZhEl.style.display = updated.definition_zh ? 'block' : 'none'; }
-        const defDeEl = document.getElementById('wd-def-de');
-        if (defDeEl) { defDeEl.textContent = updated.definition_de ? `🇩🇪 ${updated.definition_de}` : ''; defDeEl.style.display = updated.definition_de ? 'block' : 'none'; }
-        const defFrEl = document.getElementById('wd-def-fr');
-        if (defFrEl) { defFrEl.textContent = updated.definition_fr ? `🇫🇷 ${updated.definition_fr}` : ''; defFrEl.style.display = updated.definition_fr ? 'block' : 'none'; }
-      } else if (fields.includes('notes'))         renderNotesSection(target, updated.notes, wordId);
-      else if (fields.includes('examples')) renderVocabDetail(target, updated.examples, wordId);
-      else                                  renderWordAnalysis(target, updated, wordId);
-      const body  = document.getElementById(containerId + '-body');
-      const arrow = document.getElementById(containerId + '-body-arrow');
-      if (body)  body.style.display = 'block';
-      if (arrow) arrow.textContent = '▼';
+      if (target) {
+        if (isDefRegen) {
+          const posEl = document.getElementById('wd-pos');
+          if (posEl) { posEl.textContent = updated.pos || '—'; posEl.style.display = 'inline-block'; }
+          const defEl = document.getElementById('wd-def');
+          if (defEl) defEl.textContent = updated.definition || '';
+          const defZhEl = document.getElementById('wd-def-zh');
+          if (defZhEl) { defZhEl.textContent = updated.definition_zh || ''; defZhEl.style.display = updated.definition_zh ? 'block' : 'none'; }
+          const defDeEl = document.getElementById('wd-def-de');
+          if (defDeEl) { defDeEl.textContent = updated.definition_de ? `🇩🇪 ${updated.definition_de}` : ''; defDeEl.style.display = updated.definition_de ? 'block' : 'none'; }
+          const defFrEl = document.getElementById('wd-def-fr');
+          if (defFrEl) { defFrEl.textContent = updated.definition_fr ? `🇫🇷 ${updated.definition_fr}` : ''; defFrEl.style.display = updated.definition_fr ? 'block' : 'none'; }
+        } else if (fields.includes('notes'))    renderNotesSection(target, updated.notes, wordId);
+        else if (fields.includes('examples'))   renderVocabDetail(target, updated.examples, wordId);
+        else                                    renderWordAnalysis(target, updated, wordId);
+        const body  = document.getElementById(containerId + '-body');
+        const arrow = document.getElementById(containerId + '-body-arrow');
+        if (body)  body.style.display = 'block';
+        if (arrow) arrow.textContent = '▼';
+      }
     }
   } catch (e) {
     showError('Apply failed: ' + e.message);
