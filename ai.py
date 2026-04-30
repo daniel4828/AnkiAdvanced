@@ -463,13 +463,18 @@ def regenerate_entry_fields(
     logger.info("[%s] regenerate_entry_fields: %s fields=%s", model, word_zh, fields)
     raw = _call_api(model, [{"role": "user", "content": prompt}], max_tokens=1800,
                     purpose=f"regen:{word_zh}")
+    logger.info("regenerate_entry_fields raw response for %s: %s", word_zh, raw[:500])
 
     json_match = re.search(r'\{.*\}', raw, re.DOTALL)
     if json_match:
         raw = json_match.group(0)
 
     try:
-        return json.loads(raw)
+        parsed = json.loads(raw)
+        logger.info("regenerate_entry_fields parsed keys=%s chars=%s",
+                    list(parsed.keys()),
+                    [c.get("char") for c in parsed.get("characters", [])])
+        return parsed
     except (json.JSONDecodeError, TypeError) as e:
         logger.error("regenerate_entry_fields: JSON parse error for %s: %s", word_zh, e)
         return {}
