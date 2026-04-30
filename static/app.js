@@ -1584,9 +1584,9 @@ function renderWordDetail(word) {
   }
 
   // Shared sections (notes, examples, word analysis)
-  renderNotesSection(document.getElementById('wd-notes-section'), word.notes);
-  renderVocabDetail(document.getElementById('wd-examples-section'), word.examples);
-  renderWordAnalysis(document.getElementById('wd-word-analysis-section'), word);
+  renderNotesSection(document.getElementById('wd-notes-section'), word.notes, word.id);
+  renderVocabDetail(document.getElementById('wd-examples-section'), word.examples, word.id);
+  renderWordAnalysis(document.getElementById('wd-word-analysis-section'), word, word.id);
 
   // Cards section
   renderWordDetailCards(word.cards || [], word.id);
@@ -3128,9 +3128,42 @@ async function toggleReviewCat(cardId) {
   }
 }
 
-function renderVocabDetail(container, examples) {
+function _getActiveWordId() {
+  return _currentWordId ?? wordDetails?.id ?? card?.word_id ?? null;
+}
+
+async function regenFields(wordId, fields, containerId) {
+  const el = document.getElementById(containerId);
+  const btn = el?.querySelector('.field-regen-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    await api('POST', `/api/word/${wordId}/regenerate-fields`, { fields });
+    const updated = await api('GET', `/api/word/${wordId}`);
+    if (_currentWordId === wordId) {
+      updated.cards = wordDetails?.cards || [];
+      renderWordDetail(updated);
+    } else {
+      if (wordDetails?.id === wordId) wordDetails = updated;
+      const target = document.getElementById(containerId);
+      if (!target) return;
+      if (fields.includes('notes'))    renderNotesSection(target, updated.notes, wordId);
+      else if (fields.includes('examples')) renderVocabDetail(target, updated.examples, wordId);
+      else renderWordAnalysis(target, updated, wordId);
+      const body = document.getElementById(containerId + '-body');
+      const arrow = document.getElementById(containerId + '-body-arrow');
+      if (body)  body.style.display = 'block';
+      if (arrow) arrow.textContent = '▼';
+    }
+  } catch (e) {
+    showError('Regeneration failed: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '↺'; }
+  }
+}
+
+function renderVocabDetail(container, examples, wordId) {
   const el = container ?? document.getElementById('examples-section');
   const items = examples ?? wordDetails?.examples ?? [];
+  const wid = wordId ?? _getActiveWordId();
   const bodyId = el.id + '-body';
   if (items.length > 0) {
     const html = items.map(ex => {
@@ -3141,23 +3174,26 @@ function renderVocabDetail(container, examples) {
       h += `</div>`;
       return h;
     }).join('');
+    const regenBtn = wid ? `<button class="field-regen-btn" onclick="event.stopPropagation();regenFields(${wid},['examples'],'${el.id}')" title="Regenerate examples">↺</button>` : '';
     el.innerHTML =
-      `<div class="section-label section-toggle" onclick="toggleSection('${bodyId}')">` +
-        `<span id="${bodyId}-arrow">▶</span> Examples</div>` +
+      `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
+        `<span><span id="${bodyId}-arrow">▶</span> Examples</span>${regenBtn}</div>` +
       `<div id="${bodyId}" style="display:none">${html}</div>`;
   } else {
     el.innerHTML = '';
   }
 }
 
-function renderNotesSection(container, notes) {
+function renderNotesSection(container, notes, wordId) {
   const el = container ?? document.getElementById('notes-section');
   const text = notes ?? card?.notes;
+  const wid = wordId ?? _getActiveWordId();
   const bodyId = el.id + '-body';
   if (text) {
+    const regenBtn = wid ? `<button class="field-regen-btn" onclick="event.stopPropagation();regenFields(${wid},['notes'],'${el.id}')" title="Regenerate notes">↺</button>` : '';
     el.innerHTML =
-      `<div class="section-label section-toggle" onclick="toggleSection('${bodyId}')">` +
-        `<span id="${bodyId}-arrow">▶</span> Notes</div>` +
+      `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
+        `<span><span id="${bodyId}-arrow">▶</span> Notes</span>${regenBtn}</div>` +
       `<div id="${bodyId}" class="notes-body" style="display:none">${renderMarkdown(text)}</div>`;
     el.style.display = '';
   } else {
@@ -3166,7 +3202,7 @@ function renderNotesSection(container, notes) {
   }
 }
 
-function renderWordAnalysis(container, wordData) {
+function renderWordAnalysis(container, wordData, wordId) {
   const el = container ?? document.getElementById('word-analysis-section');
   const wd = wordData ?? wordDetails;
   const nt = wd?.note_type ?? card?.note_type;
@@ -3270,9 +3306,11 @@ function renderWordAnalysis(container, wordData) {
       `</div>`;
   }).join('');
 
+  const wid = wordId ?? _getActiveWordId();
+  const regenBtn = wid ? `<button class="field-regen-btn" onclick="event.stopPropagation();regenFields(${wid},['etymology','compounds'],'${el.id}')" title="Regenerate etymology &amp; compounds">↺</button>` : '';
   el.innerHTML =
-    `<div class="section-label section-toggle" onclick="toggleSection('${bodyId}')">` +
-      `<span id="${bodyId}-arrow">▶</span> Word Analysis</div>` +
+    `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
+      `<span><span id="${bodyId}-arrow">▶</span> Word Analysis</span>${regenBtn}</div>` +
     `<div id="${bodyId}" class="wa-list" style="display:none">${wordCards}</div>`;
 }
 

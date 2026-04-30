@@ -342,6 +342,139 @@ def _patch_missing(sentences: list[dict], missing_word_ids: list[int],
                           "sentence_en": "", "sentence_de": "", "sentence_fr": ""})
 
 
+def regenerate_entry_fields(
+    word: dict,
+    characters: list[dict],
+    fields: list[str],
+    model: str = DEFAULT_MODEL,
+) -> dict:
+    """
+    Regenerate specified fields for a vocabulary entry using SKILL.md format.
+
+    fields: subset of ["notes", "examples", "etymology", "compounds"]
+    Returns a dict with a subset of:
+      notes:      str  (German prose)
+      examples:   list[{zh, pinyin, english, de}]
+      characters: list[{char, etymology?, compounds?}]
+    """
+    if not fields:
+        return {}
+
+    note_type = word.get("note_type", "vocabulary")
+    word_zh   = word.get("word_zh", "")
+    trad      = word.get("traditional", "")
+    pinyin_   = word.get("pinyin", "")
+    eng       = word.get("definition", "")
+    de        = word.get("definition_de", "")
+    hsk       = word.get("hsk_level", "")
+    register  = word.get("register", "")
+
+    want_notes    = "notes" in fields
+    want_examples = "examples" in fields
+    want_etym     = "etymology" in fields
+    want_comp     = "compounds" in fields
+    want_chars    = want_etym or want_comp
+
+    # --- Entry header ---
+    trad_line = f" / traditional: {trad}" if trad and trad != word_zh else ""
+    entry_block = (
+        f"type: {note_type}\n"
+        f"simplified: {word_zh}{trad_line}\n"
+        f"pinyin: {pinyin_}\n"
+        f"english: {eng}\n"
+        f"german: {de}\n"
+        f"hsk: {hsk}\n"
+        f"register: {register}"
+    )
+
+    # --- Character list (only when needed) ---
+    char_block = ""
+    if want_chars and characters:
+        lines = [
+            f"  - {c['char']} (pinyin: {c.get('pinyin', '')}, HSK {c.get('hsk_level', '?')})"
+            for c in characters
+        ]
+        char_block = "\nCharacters:\n" + "\n".join(lines)
+
+    # --- Per-field instructions ---
+    sections: list[str] = []
+
+    if want_notes:
+        if note_type == "sentence":
+            sections.append(
+                "NOTES: Write a German explanation for this sentence (2-3 paragraphs).\n"
+                "Include: breakdown of key vocabulary + grammar; list key components as "
+                "「- 词语 (pinyin) — meaning」; explain grammar structures used."
+            )
+        else:
+            sections.append(
+                "NOTES: Write German usage notes (2-4 paragraphs). Include:\n"
+                "- Opening sentence on what the word means and how it's used\n"
+                "- **Häufige Ausdrücke:** with 3-5 collocations (「- 词语 (pinyin) — German meaning」)\n"
+                "- **Wichtiger Unterschied:** comparing with a similar word (if applicable)\n"
+                "- **Kulturelle Anmerkung:** (if relevant)"
+            )
+
+    if want_examples:
+        sections.append(
+            "EXAMPLES: Generate 3-4 example sentences. Each must use the target word verbatim.\n"
+            "Each example: {\"zh\": \"<sentence>\", \"pinyin\": \"<full pinyin>\", "
+            "\"english\": \"<translation>\", \"de\": \"<German translation>\"}"
+        )
+
+    if want_chars:
+        char_field_lines = []
+        if want_etym:
+            char_field_lines.append(
+                "  - etymology: 2-4 sentences German PROSE (NO bullet points) on components, "
+                "historical origin, meaning evolution"
+            )
+        if want_comp:
+            char_field_lines.append(
+                "  - compounds: 3-5 common compound words using this character. "
+                "Each: {\"simplified\": \"词\", \"pinyin\": \"...\", \"meaning\": \"German (NO colons)\"}"
+            )
+        sections.append("CHARACTER DATA: For each character above:\n" + "\n".join(char_field_lines))
+
+    # --- JSON template ---
+    json_keys = []
+    if want_notes:
+        json_keys.append('  "notes": "<German prose>"')
+    if want_examples:
+        json_keys.append('  "examples": [{"zh": "...", "pinyin": "...", "english": "...", "de": "..."}]')
+    if want_chars:
+        char_obj_keys = '"char": "X"'
+        if want_etym:
+            char_obj_keys += ', "etymology": "..."'
+        if want_comp:
+            char_obj_keys += ', "compounds": [{"simplified": "...", "pinyin": "...", "meaning": "..."}]'
+        json_keys.append(f'  "characters": [{{{char_obj_keys}}}]')
+
+    json_template = "{\n" + ",\n".join(json_keys) + "\n}"
+
+    prompt = (
+        f"You are a Chinese dictionary expert generating SRS flashcard content.\n\n"
+        f"Entry:\n{entry_block}{char_block}\n\n"
+        f"Generate ONLY the fields listed. All German text must be in German.\n\n"
+        + "\n\n".join(sections)
+        + f"\n\nReturn ONLY valid JSON with exactly these top-level keys:\n{json_template}"
+    )
+
+    logger.info("[%s] regenerate_entry_fields: %s fields=%s", model, word_zh, fields)
+    raw = _call_api(model, [{"role": "user", "content": prompt}], max_tokens=1800,
+                    purpose=f"regen:{word_zh}")
+
+    json_match = re.search(r'\{.*\}', raw, re.DOTALL)
+    if json_match:
+        raw = json_match.group(0)
+
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError) as e:
+        logger.error("regenerate_entry_fields: JSON parse error for %s: %s", word_zh, e)
+        return {}
+
+
 def generate_character_info(char: str, pinyin: str, model: str = DEFAULT_MODEL) -> dict:
     """
     Generate etymology and translation for a single Chinese character.

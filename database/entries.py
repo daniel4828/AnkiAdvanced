@@ -193,6 +193,13 @@ def insert_word_relation(word_id: int, related_zh: str,
     conn.close()
 
 
+def delete_word_examples(word_id: int) -> None:
+    conn = get_db()
+    conn.execute("DELETE FROM entry_examples WHERE word_id = ?", (word_id,))
+    conn.commit()
+    conn.close()
+
+
 def get_word_examples(word_id: int) -> list[dict]:
     conn = get_db()
     rows = conn.execute(

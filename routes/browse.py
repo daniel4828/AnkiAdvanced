@@ -50,6 +50,78 @@ def _apply_enrich_result(word: dict, characters: list, result: dict) -> None:
             database.update_character(existing["char_id"], updates)
 
 
+@router.post("/api/word/{word_id}/regenerate-fields")
+def regenerate_word_fields(word_id: int, body: dict):
+    """Regenerate one or more fields for a vocabulary entry using AI.
+
+    body: {"fields": ["notes", "examples", "etymology", "compounds"]}
+    Supports both simple words and multi-component entries (chengyu/expression/sentence).
+    """
+    fields = body.get("fields", [])
+    valid = {"notes", "examples", "etymology", "compounds"}
+    fields = [f for f in fields if f in valid]
+    if not fields:
+        raise HTTPException(status_code=400, detail=f"fields must be a non-empty subset of {sorted(valid)}")
+
+    word = database.get_word(word_id)
+    if not word:
+        raise HTTPException(status_code=404, detail="Word not found")
+
+    want_char_data = "etymology" in fields or "compounds" in fields
+
+    components = database.get_note_components(word_id)
+    if components:
+        # Multi-component entry: regenerate notes on the top-level entry,
+        # but character fields are regenerated on each component separately.
+        if "notes" in fields or "examples" in fields:
+            chars = database.get_word_characters(word_id)
+            result = ai.regenerate_entry_fields(word, chars, [f for f in fields if f in ("notes", "examples")])
+            _apply_regen_result(word_id, result, fields=fields, characters=chars)
+
+        if want_char_data:
+            for comp in components:
+                comp_chars = database.get_word_characters(comp["id"])
+                comp_fields = [f for f in fields if f in ("etymology", "compounds")]
+                result = ai.regenerate_entry_fields(comp, comp_chars, comp_fields)
+                _apply_regen_result(comp["id"], result, fields=comp_fields, characters=comp_chars)
+    else:
+        characters = database.get_word_characters(word_id)
+        result = ai.regenerate_entry_fields(word, characters, fields)
+        _apply_regen_result(word_id, result, fields=fields, characters=characters)
+
+    return database.get_word_full(word_id)
+
+
+def _apply_regen_result(word_id: int, result: dict, fields: list, characters: list) -> None:
+    if "notes" in fields and result.get("notes"):
+        database.update_word(word_id, {"notes": result["notes"]})
+
+    if "examples" in fields and result.get("examples"):
+        database.delete_word_examples(word_id)
+        for i, ex in enumerate(result["examples"]):
+            if ex.get("zh"):
+                database.insert_word_example(
+                    word_id,
+                    ex["zh"],
+                    ex.get("pinyin"),
+                    ex.get("english"),
+                    ex.get("de"),
+                    position=i,
+                )
+
+    char_map = {c["char"]: c for c in characters}
+    for char_data in result.get("characters", []):
+        ch = char_data.get("char")
+        if not ch or ch not in char_map:
+            continue
+        existing = char_map[ch]
+        char_id = existing["char_id"]
+        if "etymology" in fields and char_data.get("etymology"):
+            database.update_character(char_id, {"etymology": char_data["etymology"]})
+        if "compounds" in fields and char_data.get("compounds"):
+            database.upsert_character_compounds(char_id, char_data["compounds"])
+
+
 @router.post("/api/word/{word_id}/ai-enrich")
 def ai_enrich_word(word_id: int):
     word = database.get_word(word_id)
