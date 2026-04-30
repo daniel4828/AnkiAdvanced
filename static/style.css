@@ -1369,7 +1369,7 @@ main.browse-open {
 }
 .wa-compound-pin { font-size: 11px; color: var(--muted); }
 .wa-compound-meaning { font-size: 11px; color: var(--muted); font-style: italic; }
-.wa-compound-hl { text-decoration: underline; }
+.wa-compound-hl { font-weight: 700; }
 
 /* ── Creating: front input ───────────────────────────── */
 .sentence-en-front {
