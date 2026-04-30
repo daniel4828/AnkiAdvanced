@@ -3132,13 +3132,185 @@ function _getActiveWordId() {
   return _currentWordId ?? wordDetails?.id ?? card?.word_id ?? null;
 }
 
+// ── Regen preview modal ──────────────────────────────────────────────────────
+let _regenState = null; // { wordId, fields, containerId }
+
 async function regenFields(wordId, fields, containerId) {
   const el = document.getElementById(containerId);
   const btn = el?.querySelector('.field-regen-btn');
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
   try {
-    await api('POST', `/api/word/${wordId}/regenerate-fields`, { fields });
-    const updated = await api('GET', `/api/word/${wordId}`);
+    const preview = await api('POST', `/api/word/${wordId}/regenerate-fields`, { fields, preview: true });
+    _regenState = { wordId, fields, containerId };
+    _showRegenPreviewModal(preview);
+  } catch (e) {
+    showError('Regeneration failed: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '↺'; }
+  }
+}
+
+function _showRegenPreviewModal(previewData) {
+  _closeRegenPreviewModal();
+  const { fields, result } = previewData;
+  const overlay = document.createElement('div');
+  overlay.id = 'regen-preview-overlay';
+  overlay.className = 'regen-preview-overlay';
+  overlay.onclick = (e) => { if (e.target === overlay) _closeRegenPreviewModal(); };
+
+  const wantEtym = fields.includes('etymology');
+  const wantComp = fields.includes('compounds');
+
+  let bodyHtml = '';
+
+  if (fields.includes('notes')) {
+    const text = (result.notes || '').replace(/"/g, '&quot;');
+    bodyHtml += `<div>
+      <div class="regen-section-label">Notes</div>
+      <textarea id="regen-notes-text" class="regen-notes-textarea">${result.notes || ''}</textarea>
+    </div>`;
+  }
+
+  if (fields.includes('examples')) {
+    const exRows = (result.examples || []).map((ex, i) => _regenExampleRowHtml(ex, i)).join('');
+    bodyHtml += `<div>
+      <div class="regen-section-label">Examples</div>
+      <div class="regen-example-labels">
+        <span>ZH</span><span>Pinyin</span><span>English</span><span>DE</span><span></span>
+      </div>
+      <div id="regen-examples-list">${exRows}</div>
+      <button class="regen-add-btn" onclick="_addRegenExample()">+ Add example</button>
+    </div>`;
+  }
+
+  if (wantEtym || wantComp) {
+    const chars = result.characters || [];
+    const charSections = chars.map(c => {
+      const charEsc = (c.char || '').replace(/'/g, "\\'");
+      let inner = `<div class="regen-char-header">${c.char || ''}</div>`;
+      if (wantEtym) {
+        inner += `<textarea class="regen-etym-textarea" data-field="etymology" placeholder="Etymology…">${c.etymology || ''}</textarea>`;
+      }
+      if (wantComp) {
+        const cpRows = (c.compounds || []).map(cp => _regenCompoundRowHtml(cp)).join('');
+        inner += `<div class="regen-compound-labels">
+          <span>Simplified</span><span>Pinyin</span><span>Meaning</span><span></span>
+        </div>
+        <div class="regen-compounds-list">${cpRows}</div>
+        <button class="regen-add-btn" onclick="_addRegenCompound(this)">+ Add compound</button>`;
+      }
+      return `<div class="regen-char-group" data-char-id="${c.char_id || ''}" data-char="${charEsc}">${inner}</div>`;
+    }).join('');
+    bodyHtml += `<div>
+      <div class="regen-section-label">Characters</div>
+      <div id="regen-chars-list">${charSections}</div>
+    </div>`;
+  }
+
+  overlay.innerHTML = `<div class="regen-preview-modal" onclick="event.stopPropagation()">
+    <div class="regen-preview-header">
+      <span>AI Preview</span>
+      <button onclick="_closeRegenPreviewModal()">×</button>
+    </div>
+    <div class="regen-preview-body">${bodyHtml}</div>
+    <div class="regen-preview-footer">
+      <button class="regen-btn regen-btn-regenerate" id="regen-btn-regen" onclick="_rerunRegen()">↺ Regenerate</button>
+      <button class="regen-btn regen-btn-reject" onclick="_closeRegenPreviewModal()">✗ Reject</button>
+      <button class="regen-btn regen-btn-apply" id="regen-btn-apply" onclick="_applyRegenResult()">✓ Apply</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function _regenExampleRowHtml(ex, idx) {
+  const esc = s => (s || '').replace(/"/g, '&quot;');
+  return `<div class="regen-example-row">
+    <input type="text" data-field="zh" value="${esc(ex.zh)}" placeholder="中文">
+    <input type="text" data-field="pinyin" value="${esc(ex.pinyin)}" placeholder="pīnyīn">
+    <input type="text" data-field="english" value="${esc(ex.english)}" placeholder="English">
+    <input type="text" data-field="de" value="${esc(ex.de)}" placeholder="Deutsch">
+    <button class="regen-row-del" onclick="this.closest('.regen-example-row').remove()">−</button>
+  </div>`;
+}
+
+function _regenCompoundRowHtml(cp) {
+  const esc = s => (s || '').replace(/"/g, '&quot;');
+  return `<div class="regen-compound-row">
+    <input type="text" data-field="simplified" value="${esc(cp.simplified || cp.compound_zh)}" placeholder="词">
+    <input type="text" data-field="pinyin" value="${esc(cp.pinyin)}" placeholder="pīnyīn">
+    <input type="text" data-field="meaning" value="${esc(cp.meaning)}" placeholder="Bedeutung">
+    <button class="regen-row-del" onclick="this.closest('.regen-compound-row').remove()">−</button>
+  </div>`;
+}
+
+function _addRegenExample() {
+  const list = document.getElementById('regen-examples-list');
+  if (list) list.insertAdjacentHTML('beforeend', _regenExampleRowHtml({}, list.children.length));
+}
+
+function _addRegenCompound(btn) {
+  const list = btn.previousElementSibling;
+  if (list) list.insertAdjacentHTML('beforeend', _regenCompoundRowHtml({}));
+}
+
+function _closeRegenPreviewModal() {
+  document.getElementById('regen-preview-overlay')?.remove();
+}
+
+function _getRegenResultFromModal() {
+  const result = {};
+  const fields = _regenState?.fields || [];
+
+  if (fields.includes('notes')) {
+    result.notes = document.getElementById('regen-notes-text')?.value?.trim() || '';
+  }
+
+  if (fields.includes('examples')) {
+    const rows = document.querySelectorAll('#regen-examples-list .regen-example-row');
+    result.examples = Array.from(rows).map(row => ({
+      zh:      row.querySelector('[data-field="zh"]')?.value?.trim() || '',
+      pinyin:  row.querySelector('[data-field="pinyin"]')?.value?.trim() || '',
+      english: row.querySelector('[data-field="english"]')?.value?.trim() || '',
+      de:      row.querySelector('[data-field="de"]')?.value?.trim() || '',
+    })).filter(ex => ex.zh);
+  }
+
+  if (fields.includes('etymology') || fields.includes('compounds')) {
+    const charGroups = document.querySelectorAll('#regen-chars-list .regen-char-group');
+    result.characters = Array.from(charGroups).map(group => {
+      const charResult = {
+        char:    group.dataset.char,
+        char_id: parseInt(group.dataset.charId) || undefined,
+      };
+      if (fields.includes('etymology')) {
+        charResult.etymology = group.querySelector('[data-field="etymology"]')?.value?.trim() || '';
+      }
+      if (fields.includes('compounds')) {
+        const cpRows = group.querySelectorAll('.regen-compound-row');
+        charResult.compounds = Array.from(cpRows).map(row => ({
+          simplified: row.querySelector('[data-field="simplified"]')?.value?.trim() || '',
+          pinyin:     row.querySelector('[data-field="pinyin"]')?.value?.trim() || '',
+          meaning:    row.querySelector('[data-field="meaning"]')?.value?.trim() || '',
+        })).filter(c => c.simplified);
+      }
+      return charResult;
+    });
+  }
+
+  return result;
+}
+
+async function _applyRegenResult() {
+  const { wordId, fields, containerId } = _regenState || {};
+  if (!wordId) return;
+  const applyBtn = document.getElementById('regen-btn-apply');
+  const regenBtn = document.getElementById('regen-btn-regen');
+  if (applyBtn) applyBtn.disabled = true;
+  if (regenBtn) regenBtn.disabled = true;
+  try {
+    const result = _getRegenResultFromModal();
+    const updated = await api('POST', `/api/word/${wordId}/apply-regen-result`, { fields, result });
+    _closeRegenPreviewModal();
     if (_currentWordId === wordId) {
       updated.cards = wordDetails?.cards || [];
       renderWordDetail(updated);
@@ -3146,17 +3318,36 @@ async function regenFields(wordId, fields, containerId) {
       if (wordDetails?.id === wordId) wordDetails = updated;
       const target = document.getElementById(containerId);
       if (!target) return;
-      if (fields.includes('notes'))    renderNotesSection(target, updated.notes, wordId);
+      if (fields.includes('notes'))         renderNotesSection(target, updated.notes, wordId);
       else if (fields.includes('examples')) renderVocabDetail(target, updated.examples, wordId);
-      else renderWordAnalysis(target, updated, wordId);
-      const body = document.getElementById(containerId + '-body');
+      else                                  renderWordAnalysis(target, updated, wordId);
+      const body  = document.getElementById(containerId + '-body');
       const arrow = document.getElementById(containerId + '-body-arrow');
       if (body)  body.style.display = 'block';
       if (arrow) arrow.textContent = '▼';
     }
   } catch (e) {
+    showError('Apply failed: ' + e.message);
+    if (applyBtn) applyBtn.disabled = false;
+    if (regenBtn) regenBtn.disabled = false;
+  }
+}
+
+async function _rerunRegen() {
+  const { wordId, fields, containerId } = _regenState || {};
+  if (!wordId) return;
+  const regenBtn = document.getElementById('regen-btn-regen');
+  const applyBtn = document.getElementById('regen-btn-apply');
+  if (regenBtn) { regenBtn.disabled = true; regenBtn.textContent = '…'; }
+  if (applyBtn) applyBtn.disabled = true;
+  try {
+    const preview = await api('POST', `/api/word/${wordId}/regenerate-fields`, { fields, preview: true });
+    _regenState = { wordId, fields, containerId };
+    _showRegenPreviewModal(preview);
+  } catch (e) {
     showError('Regeneration failed: ' + e.message);
-    if (btn) { btn.disabled = false; btn.textContent = '↺'; }
+    if (regenBtn) { regenBtn.disabled = false; regenBtn.textContent = '↺ Regenerate'; }
+    if (applyBtn) applyBtn.disabled = false;
   }
 }
 

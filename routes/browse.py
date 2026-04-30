@@ -50,55 +50,55 @@ def _apply_enrich_result(word: dict, characters: list, result: dict) -> None:
             database.update_character(existing["char_id"], updates)
 
 
-@router.post("/api/word/{word_id}/regenerate-fields")
-def regenerate_word_fields(word_id: int, body: dict):
-    """Regenerate one or more fields for a vocabulary entry using AI.
+def _enrich_chars_with_id(char_results: list, db_chars: list, output: list) -> None:
+    """Match AI char results to DB chars by character string, attach char_id, append to output."""
+    char_map = {c["char"]: c for c in db_chars}
+    for char_data in char_results:
+        ch = char_data.get("char")
+        if ch and ch in char_map:
+            char_data["char_id"] = char_map[ch]["char_id"]
+            output.append(char_data)
 
-    body: {"fields": ["notes", "examples", "etymology", "compounds"]}
-    Supports both simple words and multi-component entries (chengyu/expression/sentence).
+
+def _run_regen_ai(word_id: int, word: dict, fields: list) -> tuple[dict, list]:
+    """Run AI field regeneration and return (top_result, all_characters_enriched).
+
+    top_result  — notes/examples for the top-level entry.
+    all_characters — list of {char, char_id, etymology?, compounds?} across all components.
     """
-    fields = body.get("fields", [])
-    valid = {"notes", "examples", "etymology", "compounds"}
-    fields = [f for f in fields if f in valid]
-    if not fields:
-        raise HTTPException(status_code=400, detail=f"fields must be a non-empty subset of {sorted(valid)}")
-
-    word = database.get_word(word_id)
-    if not word:
-        raise HTTPException(status_code=404, detail="Word not found")
-
     want_char_data = "etymology" in fields or "compounds" in fields
-
     components = database.get_note_components(word_id)
+    top_result: dict = {}
+    all_characters: list = []
+
     if components:
-        # Multi-component entry: regenerate notes on the top-level entry,
-        # but character fields are regenerated on each component separately.
         if "notes" in fields or "examples" in fields:
             chars = database.get_word_characters(word_id)
-            result = ai.regenerate_entry_fields(word, chars, [f for f in fields if f in ("notes", "examples")])
-            _apply_regen_result(word_id, result, fields=fields, characters=chars)
+            top_fields = [f for f in fields if f in ("notes", "examples")]
+            top_result = ai.regenerate_entry_fields(word, chars, top_fields)
 
         if want_char_data:
+            comp_fields = [f for f in fields if f in ("etymology", "compounds")]
             for comp in components:
                 comp_chars = database.get_word_characters(comp["id"])
-                comp_fields = [f for f in fields if f in ("etymology", "compounds")]
                 result = ai.regenerate_entry_fields(comp, comp_chars, comp_fields)
-                _apply_regen_result(comp["id"], result, fields=comp_fields, characters=comp_chars)
+                _enrich_chars_with_id(result.get("characters", []), comp_chars, all_characters)
     else:
         characters = database.get_word_characters(word_id)
-        result = ai.regenerate_entry_fields(word, characters, fields)
-        _apply_regen_result(word_id, result, fields=fields, characters=characters)
+        top_result = ai.regenerate_entry_fields(word, characters, fields)
+        _enrich_chars_with_id(top_result.get("characters", []), characters, all_characters)
 
-    return database.get_word_full(word_id)
+    return top_result, all_characters
 
 
-def _apply_regen_result(word_id: int, result: dict, fields: list, characters: list) -> None:
-    if "notes" in fields and result.get("notes"):
-        database.update_word(word_id, {"notes": result["notes"]})
+def _save_regen_result(word_id: int, fields: list, top_result: dict, all_characters: list) -> None:
+    """Persist regen result to the database."""
+    if "notes" in fields and top_result.get("notes"):
+        database.update_word(word_id, {"notes": top_result["notes"]})
 
-    if "examples" in fields and result.get("examples"):
+    if "examples" in fields and top_result.get("examples"):
         database.delete_word_examples(word_id)
-        for i, ex in enumerate(result["examples"]):
+        for i, ex in enumerate(top_result["examples"]):
             if ex.get("zh"):
                 database.insert_word_example(
                     word_id,
@@ -109,17 +109,66 @@ def _apply_regen_result(word_id: int, result: dict, fields: list, characters: li
                     position=i,
                 )
 
-    char_map = {c["char"]: c for c in characters}
-    for char_data in result.get("characters", []):
-        ch = char_data.get("char")
-        if not ch or ch not in char_map:
+    for char_data in all_characters:
+        char_id = char_data.get("char_id")
+        if not char_id:
             continue
-        existing = char_map[ch]
-        char_id = existing["char_id"]
         if "etymology" in fields and char_data.get("etymology"):
             database.update_character(char_id, {"etymology": char_data["etymology"]})
         if "compounds" in fields and char_data.get("compounds"):
             database.upsert_character_compounds(char_id, char_data["compounds"])
+
+
+@router.post("/api/word/{word_id}/regenerate-fields")
+def regenerate_word_fields(word_id: int, body: dict):
+    """Regenerate one or more fields for a vocabulary entry using AI.
+
+    body: {"fields": [...], "preview": false}
+    When preview=true, returns raw AI result without saving (for the frontend preview modal).
+    fields: subset of ["notes", "examples", "etymology", "compounds"]
+    """
+    fields = body.get("fields", [])
+    preview = body.get("preview", False)
+    valid = {"notes", "examples", "etymology", "compounds"}
+    fields = [f for f in fields if f in valid]
+    if not fields:
+        raise HTTPException(status_code=400, detail=f"fields must be a non-empty subset of {sorted(valid)}")
+
+    word = database.get_word(word_id)
+    if not word:
+        raise HTTPException(status_code=404, detail="Word not found")
+
+    top_result, all_characters = _run_regen_ai(word_id, word, fields)
+
+    if preview:
+        aggregated: dict = {}
+        if top_result.get("notes"):    aggregated["notes"] = top_result["notes"]
+        if top_result.get("examples"): aggregated["examples"] = top_result["examples"]
+        if all_characters:             aggregated["characters"] = all_characters
+        return {"fields": fields, "result": aggregated}
+
+    _save_regen_result(word_id, fields, top_result, all_characters)
+    return database.get_word_full(word_id)
+
+
+@router.post("/api/word/{word_id}/apply-regen-result")
+def apply_regen_result(word_id: int, body: dict):
+    """Apply a (possibly user-edited) AI regen result returned by preview mode."""
+    fields = body.get("fields", [])
+    result = body.get("result", {})
+    valid = {"notes", "examples", "etymology", "compounds"}
+    fields = [f for f in fields if f in valid]
+    if not fields:
+        raise HTTPException(status_code=400, detail="fields required")
+
+    word = database.get_word(word_id)
+    if not word:
+        raise HTTPException(status_code=404, detail="Word not found")
+
+    top_result = {k: result[k] for k in ("notes", "examples") if k in result}
+    all_characters = result.get("characters", [])
+    _save_regen_result(word_id, fields, top_result, all_characters)
+    return database.get_word_full(word_id)
 
 
 @router.post("/api/word/{word_id}/ai-enrich")
