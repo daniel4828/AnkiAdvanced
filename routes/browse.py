@@ -54,13 +54,26 @@ def _apply_enrich_result(word: dict, characters: list, result: dict) -> None:
 
 
 def _enrich_chars_with_id(char_results: list, db_chars: list, output: list) -> None:
-    """Match AI char results to DB chars by character string, attach char_id, append to output."""
+    """Match AI char results to DB chars by character string, attach char_id, append to output.
+
+    If a character isn't in entry_characters for this word, fall back to looking it up
+    directly in the characters table (handles expressions with no entry_characters rows).
+    """
     char_map = {c["char"]: c for c in db_chars}
     for char_data in char_results:
         ch = char_data.get("char")
-        if ch and ch in char_map:
+        if not ch:
+            continue
+        if ch in char_map:
             char_data["char_id"] = char_map[ch]["char_id"]
-            output.append(char_data)
+        else:
+            # Fallback: look up by character string in the characters table
+            rec = database.get_character(ch)
+            if rec:
+                char_data["char_id"] = rec["id"]
+            else:
+                char_data["char_id"] = None  # preview-only, won't be saved
+        output.append(char_data)
 
 
 def _run_regen_ai(word_id: int, word: dict, fields: list) -> tuple[dict, list]:
@@ -74,8 +87,6 @@ def _run_regen_ai(word_id: int, word: dict, fields: list) -> tuple[dict, list]:
     top_result: dict = {}
     all_characters: list = []
 
-    logger.info("regen word_id=%s fields=%s components=%s", word_id, fields, [c.get("word_zh") for c in components])
-
     if components:
         if "notes" in fields or "examples" in fields:
             chars = database.get_word_characters(word_id)
@@ -86,15 +97,11 @@ def _run_regen_ai(word_id: int, word: dict, fields: list) -> tuple[dict, list]:
             comp_fields = [f for f in fields if f in ("etymology", "compounds")]
             for comp in components:
                 comp_chars = database.get_word_characters(comp["id"])
-                print(f"[REGEN] comp={comp.get('word_zh')!r} comp_chars={[c.get('char') for c in comp_chars]}", flush=True)
                 result = ai.regenerate_entry_fields(comp, comp_chars, comp_fields)
-                print(f"[REGEN] comp result keys={list(result.keys())} chars_returned={[c.get('char') for c in result.get('characters', [])]}", flush=True)
                 _enrich_chars_with_id(result.get("characters", []), comp_chars, all_characters)
     else:
         characters = database.get_word_characters(word_id)
-        print(f"[REGEN] no components, chars={[c.get('char') for c in characters]}", flush=True)
         top_result = ai.regenerate_entry_fields(word, characters, fields)
-        print(f"[REGEN] top_result keys={list(top_result.keys())} chars_returned={[c.get('char') for c in top_result.get('characters', [])]}", flush=True)
         _enrich_chars_with_id(top_result.get("characters", []), characters, all_characters)
 
     print(f"[REGEN] FINAL all_characters count={len(all_characters)} chars={[c.get('char') for c in all_characters]}", flush=True)
@@ -155,7 +162,6 @@ def regenerate_word_fields(word_id: int, body: dict):
         if top_result.get("notes"):    aggregated["notes"] = top_result["notes"]
         if top_result.get("examples"): aggregated["examples"] = top_result["examples"]
         if all_characters:             aggregated["characters"] = all_characters
-        logger.info("regen preview response: fields=%s result_keys=%s", fields, list(aggregated.keys()))
         return {"fields": fields, "result": aggregated}
 
     _save_regen_result(word_id, fields, top_result, all_characters)
