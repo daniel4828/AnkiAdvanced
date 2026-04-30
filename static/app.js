@@ -1530,8 +1530,8 @@ function renderWordDetail(word) {
   document.getElementById('wd-pinyin').textContent = word.pinyin || '';
   document.getElementById('wd-def').textContent = word.definition || '';
   const posEl = document.getElementById('wd-pos');
-  posEl.textContent = word.pos || '';
-  posEl.style.display = word.pos ? 'inline-block' : 'none';
+  posEl.textContent = word.pos || '—';
+  posEl.style.display = 'inline-block';
   const regEl = document.getElementById('wd-register');
   const regLabels = {
     spoken: '口语', written: '书面语', both: '通用',

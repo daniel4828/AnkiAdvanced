@@ -899,7 +899,6 @@ main.browse-open {
   flex-shrink: 0;
 }
 .section-label-row:hover .field-regen-btn { opacity: 0.7; }
-#wd-def-block:hover .field-regen-btn { opacity: 0.7; }
 .field-regen-btn:hover { opacity: 1 !important; color: var(--primary); }
 .field-regen-btn:disabled { cursor: wait; opacity: 0.4 !important; }
 .section-empty { color: var(--muted); font-size: 12px; padding: 6px 0; }
@@ -2233,7 +2232,19 @@ main.browse-open {
   padding: 20px 18px 16px;
   text-align: center;
   margin-bottom: 12px;
+  position: relative;
 }
+#wd-def-regen {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+}
+#wd-def-regen .field-regen-btn {
+  opacity: 0.45;
+  font-size: 16px;
+  padding: 2px 6px;
+}
+#wd-def-regen .field-regen-btn:hover { opacity: 1 !important; color: var(--primary); }
 .wd-edit-btn {
   margin-top: 12px;
   padding: 5px 18px;
