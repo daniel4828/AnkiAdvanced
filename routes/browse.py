@@ -1,4 +1,5 @@
 import json as _json
+import logging
 
 import ai
 import database
@@ -6,6 +7,8 @@ import importer
 from fastapi import APIRouter, HTTPException
 from pypinyin import pinyin as _pinyin, Style
 from .utils import queue_mgr as _queue_mgr
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -71,23 +74,31 @@ def _run_regen_ai(word_id: int, word: dict, fields: list) -> tuple[dict, list]:
     top_result: dict = {}
     all_characters: list = []
 
+    logger.info("regen word_id=%s fields=%s components=%s", word_id, fields, [c.get("word_zh") for c in components])
+
     if components:
         if "notes" in fields or "examples" in fields:
             chars = database.get_word_characters(word_id)
             top_fields = [f for f in fields if f in ("notes", "examples")]
             top_result = ai.regenerate_entry_fields(word, chars, top_fields)
+            logger.info("regen top_result keys=%s", list(top_result.keys()))
 
         if want_char_data:
             comp_fields = [f for f in fields if f in ("etymology", "compounds")]
             for comp in components:
                 comp_chars = database.get_word_characters(comp["id"])
+                logger.info("regen comp=%s comp_chars=%s", comp.get("word_zh"), [c.get("char") for c in comp_chars])
                 result = ai.regenerate_entry_fields(comp, comp_chars, comp_fields)
+                logger.info("regen comp result keys=%s chars_returned=%s", list(result.keys()), [c.get("char") for c in result.get("characters", [])])
                 _enrich_chars_with_id(result.get("characters", []), comp_chars, all_characters)
     else:
         characters = database.get_word_characters(word_id)
+        logger.info("regen chars=%s", [c.get("char") for c in characters])
         top_result = ai.regenerate_entry_fields(word, characters, fields)
+        logger.info("regen top_result keys=%s chars_returned=%s", list(top_result.keys()), [c.get("char") for c in top_result.get("characters", [])])
         _enrich_chars_with_id(top_result.get("characters", []), characters, all_characters)
 
+    logger.info("regen all_characters count=%s chars=%s", len(all_characters), [c.get("char") for c in all_characters])
     return top_result, all_characters
 
 
@@ -145,6 +156,7 @@ def regenerate_word_fields(word_id: int, body: dict):
         if top_result.get("notes"):    aggregated["notes"] = top_result["notes"]
         if top_result.get("examples"): aggregated["examples"] = top_result["examples"]
         if all_characters:             aggregated["characters"] = all_characters
+        logger.info("regen preview response: fields=%s result_keys=%s", fields, list(aggregated.keys()))
         return {"fields": fields, "result": aggregated}
 
     _save_regen_result(word_id, fields, top_result, all_characters)
