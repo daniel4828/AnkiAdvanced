@@ -76,10 +76,14 @@ def _enrich_chars_with_id(char_results: list, db_chars: list, output: list) -> N
         output.append(char_data)
 
 
+_TOP_FIELDS = {"notes", "examples", "definition", "definition_zh", "definition_de", "definition_fr", "pos"}
+_CHAR_FIELDS = {"etymology", "compounds"}
+
+
 def _run_regen_ai(word_id: int, word: dict, fields: list) -> tuple[dict, list]:
     """Run AI field regeneration and return (top_result, all_characters_enriched).
 
-    top_result  — notes/examples for the top-level entry.
+    top_result  — notes/examples/definition/pos for the top-level entry.
     all_characters — list of {char, char_id, etymology?, compounds?} across all components.
     """
     want_char_data = "etymology" in fields or "compounds" in fields
@@ -88,9 +92,9 @@ def _run_regen_ai(word_id: int, word: dict, fields: list) -> tuple[dict, list]:
     all_characters: list = []
 
     if components:
-        if "notes" in fields or "examples" in fields:
+        top_fields = [f for f in fields if f in _TOP_FIELDS]
+        if top_fields:
             chars = database.get_word_characters(word_id)
-            top_fields = [f for f in fields if f in ("notes", "examples")]
             top_result = ai.regenerate_entry_fields(word, chars, top_fields)
 
         if want_char_data:
@@ -110,6 +114,11 @@ def _run_regen_ai(word_id: int, word: dict, fields: list) -> tuple[dict, list]:
 
 def _save_regen_result(word_id: int, fields: list, top_result: dict, all_characters: list) -> None:
     """Persist regen result to the database."""
+    def_updates = {f: top_result[f] for f in ("definition", "definition_zh", "definition_de", "definition_fr", "pos")
+                   if f in fields and top_result.get(f)}
+    if def_updates:
+        database.update_word(word_id, def_updates)
+
     if "notes" in fields and top_result.get("notes"):
         database.update_word(word_id, {"notes": top_result["notes"]})
 
@@ -146,7 +155,7 @@ def regenerate_word_fields(word_id: int, body: dict):
     """
     fields = body.get("fields", [])
     preview = body.get("preview", False)
-    valid = {"notes", "examples", "etymology", "compounds"}
+    valid = _TOP_FIELDS | _CHAR_FIELDS
     fields = [f for f in fields if f in valid]
     if not fields:
         raise HTTPException(status_code=400, detail=f"fields must be a non-empty subset of {sorted(valid)}")
@@ -159,9 +168,11 @@ def regenerate_word_fields(word_id: int, body: dict):
 
     if preview:
         aggregated: dict = {}
-        if top_result.get("notes"):    aggregated["notes"] = top_result["notes"]
-        if top_result.get("examples"): aggregated["examples"] = top_result["examples"]
-        if all_characters:             aggregated["characters"] = all_characters
+        for f in ("pos", "definition", "definition_zh", "definition_de", "definition_fr", "notes", "examples"):
+            if top_result.get(f):
+                aggregated[f] = top_result[f]
+        if all_characters:
+            aggregated["characters"] = all_characters
         return {"fields": fields, "result": aggregated}
 
     _save_regen_result(word_id, fields, top_result, all_characters)
@@ -173,7 +184,7 @@ def apply_regen_result(word_id: int, body: dict):
     """Apply a (possibly user-edited) AI regen result returned by preview mode."""
     fields = body.get("fields", [])
     result = body.get("result", {})
-    valid = {"notes", "examples", "etymology", "compounds"}
+    valid = _TOP_FIELDS | _CHAR_FIELDS
     fields = [f for f in fields if f in valid]
     if not fields:
         raise HTTPException(status_code=400, detail="fields required")
@@ -182,7 +193,8 @@ def apply_regen_result(word_id: int, body: dict):
     if not word:
         raise HTTPException(status_code=404, detail="Word not found")
 
-    top_result = {k: result[k] for k in ("notes", "examples") if k in result}
+    top_keys = ("pos", "definition", "definition_zh", "definition_de", "definition_fr", "notes", "examples")
+    top_result = {k: result[k] for k in top_keys if k in result}
     all_characters = result.get("characters", [])
     _save_regen_result(word_id, fields, top_result, all_characters)
     return database.get_word_full(word_id)

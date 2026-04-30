@@ -374,6 +374,7 @@ def regenerate_entry_fields(
     want_etym     = "etymology" in fields
     want_comp     = "compounds" in fields
     want_chars    = want_etym or want_comp
+    want_def      = any(f in fields for f in ("definition", "definition_zh", "definition_de", "definition_fr", "pos"))
 
     # --- Entry header ---
     trad_line = f" / traditional: {trad}" if trad and trad != word_zh else ""
@@ -398,6 +399,20 @@ def regenerate_entry_fields(
 
     # --- Per-field instructions ---
     sections: list[str] = []
+
+    if want_def:
+        def_lines = ["Generate concise one-line definitions. Keep each under 10 words."]
+        if "pos" in fields:
+            def_lines.append('- pos: part of speech abbreviation (e.g. "v.", "n.", "adj.", "adv.", "expr.", "pron.", "conj.")')
+        if "definition" in fields:
+            def_lines.append('- definition: English definition (e.g. "to study; to learn")')
+        if "definition_zh" in fields:
+            def_lines.append('- definition_zh: Chinese definition (e.g. "学习；研究")')
+        if "definition_de" in fields:
+            def_lines.append('- definition_de: German definition (e.g. "studieren; lernen")')
+        if "definition_fr" in fields:
+            def_lines.append('- definition_fr: French definition (e.g. "étudier; apprendre")')
+        sections.append("DEFINITION FIELDS:\n" + "\n".join(def_lines))
 
     if want_notes:
         if note_type == "sentence":
@@ -438,6 +453,16 @@ def regenerate_entry_fields(
 
     # --- JSON template ---
     json_keys = []
+    if "pos" in fields:
+        json_keys.append('  "pos": "v."')
+    if "definition" in fields:
+        json_keys.append('  "definition": "<English>"')
+    if "definition_zh" in fields:
+        json_keys.append('  "definition_zh": "<中文>"')
+    if "definition_de" in fields:
+        json_keys.append('  "definition_de": "<Deutsch>"')
+    if "definition_fr" in fields:
+        json_keys.append('  "definition_fr": "<français>"')
     if want_notes:
         json_keys.append('  "notes": "<German prose>"')
     if want_examples:

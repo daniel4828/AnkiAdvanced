@@ -326,14 +326,17 @@
     <div class="wd-header">
       <div class="wd-hanzi" id="wd-hanzi"></div>
       <div class="wd-pinyin" id="wd-pinyin"></div>
-      <div class="wd-pos-def-row">
-        <span class="word-pos" id="wd-pos" style="display:none"></span>
-        <span class="word-register" id="wd-register" style="display:none"></span>
-        <span class="wd-def" id="wd-def"></span>
+      <div id="wd-def-block">
+        <div class="wd-pos-def-row">
+          <span class="word-pos" id="wd-pos" style="display:none"></span>
+          <span class="word-register" id="wd-register" style="display:none"></span>
+          <span class="wd-def" id="wd-def"></span>
+          <span id="wd-def-regen"></span>
+        </div>
+        <div class="wd-def-zh" id="wd-def-zh" style="display:none"></div>
+        <div class="wd-def-fr" id="wd-def-fr" style="display:none"></div>
+        <div class="wd-def-de" id="wd-def-de" style="display:none"></div>
       </div>
-      <div class="wd-def-zh" id="wd-def-zh" style="display:none"></div>
-      <div class="wd-def-fr" id="wd-def-fr" style="display:none"></div>
-      <div class="wd-def-de" id="wd-def-de" style="display:none"></div>
       <button class="wd-edit-btn" id="wd-edit-btn">Edit</button>
       <button class="wd-back-review-btn" id="wd-back-review-btn" style="display:none" onclick="goBack()">← Review</button>
     </div>

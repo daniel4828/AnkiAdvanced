@@ -1554,6 +1554,13 @@ function renderWordDetail(word) {
   defFrEl.textContent = word.definition_fr ? `🇫🇷 ${word.definition_fr}` : '';
   defFrEl.style.display = word.definition_fr ? 'block' : 'none';
 
+  const defRegenEl = document.getElementById('wd-def-regen');
+  if (defRegenEl) {
+    defRegenEl.innerHTML = word.id
+      ? `<button class="field-regen-btn" onclick="event.stopPropagation();regenFields(${word.id},['definition','definition_zh','definition_de','definition_fr','pos'],'wd-def-block')" title="Regenerate definitions & part of speech">↺</button>`
+      : '';
+  }
+
   // Synonyms / antonyms section — collapsible, clickable
   const relEl = document.getElementById('wd-relations-section');
   const synonyms = (word.relations || []).filter(r => r.relation_type === 'synonym');
@@ -3163,6 +3170,23 @@ function _showRegenPreviewModal(previewData) {
 
   let bodyHtml = '';
 
+  const DEF_FIELDS = ['definition', 'definition_zh', 'definition_de', 'definition_fr', 'pos'];
+  if (fields.some(f => DEF_FIELDS.includes(f))) {
+    const esc = s => (s || '').replace(/"/g, '&quot;');
+    let defHtml = '';
+    if (fields.includes('pos'))
+      defHtml += `<div class="regen-def-row"><label>POS</label><input type="text" id="regen-pos" value="${esc(result.pos)}" placeholder="n. / v. / adj."></div>`;
+    if (fields.includes('definition'))
+      defHtml += `<div class="regen-def-row"><label>EN</label><input type="text" id="regen-def" value="${esc(result.definition)}" placeholder="English definition"></div>`;
+    if (fields.includes('definition_zh'))
+      defHtml += `<div class="regen-def-row"><label>ZH</label><input type="text" id="regen-def-zh" value="${esc(result.definition_zh)}" placeholder="中文释义"></div>`;
+    if (fields.includes('definition_de'))
+      defHtml += `<div class="regen-def-row"><label>DE</label><input type="text" id="regen-def-de" value="${esc(result.definition_de)}" placeholder="Deutsche Definition"></div>`;
+    if (fields.includes('definition_fr'))
+      defHtml += `<div class="regen-def-row"><label>FR</label><input type="text" id="regen-def-fr" value="${esc(result.definition_fr)}" placeholder="Définition française"></div>`;
+    bodyHtml += `<div><div class="regen-section-label">Definitions &amp; Part of Speech</div><div class="regen-def-group">${defHtml}</div></div>`;
+  }
+
   if (fields.includes('notes')) {
     const text = (result.notes || '').replace(/"/g, '&quot;');
     bodyHtml += `<div>
@@ -3261,6 +3285,15 @@ function _getRegenResultFromModal() {
   const result = {};
   const fields = _regenState?.fields || [];
 
+  const DEF_FIELDS = ['definition', 'definition_zh', 'definition_de', 'definition_fr', 'pos'];
+  if (fields.some(f => DEF_FIELDS.includes(f))) {
+    if (fields.includes('pos'))           result.pos           = document.getElementById('regen-pos')?.value?.trim()    || '';
+    if (fields.includes('definition'))    result.definition    = document.getElementById('regen-def')?.value?.trim()    || '';
+    if (fields.includes('definition_zh')) result.definition_zh = document.getElementById('regen-def-zh')?.value?.trim() || '';
+    if (fields.includes('definition_de')) result.definition_de = document.getElementById('regen-def-de')?.value?.trim() || '';
+    if (fields.includes('definition_fr')) result.definition_fr = document.getElementById('regen-def-fr')?.value?.trim() || '';
+  }
+
   if (fields.includes('notes')) {
     result.notes = document.getElementById('regen-notes-text')?.value?.trim() || '';
   }
@@ -3318,7 +3351,19 @@ async function _applyRegenResult() {
       if (wordDetails?.id === wordId) wordDetails = updated;
       const target = document.getElementById(containerId);
       if (!target) return;
-      if (fields.includes('notes'))         renderNotesSection(target, updated.notes, wordId);
+      const DEF_FIELDS = ['definition', 'definition_zh', 'definition_de', 'definition_fr', 'pos'];
+      if (fields.some(f => DEF_FIELDS.includes(f))) {
+        const posEl = document.getElementById('wd-pos');
+        if (posEl) { posEl.textContent = updated.pos || ''; posEl.style.display = updated.pos ? 'inline-block' : 'none'; }
+        const defEl = document.getElementById('wd-def');
+        if (defEl) defEl.textContent = updated.definition || '';
+        const defZhEl = document.getElementById('wd-def-zh');
+        if (defZhEl) { defZhEl.textContent = updated.definition_zh || ''; defZhEl.style.display = updated.definition_zh ? 'block' : 'none'; }
+        const defDeEl = document.getElementById('wd-def-de');
+        if (defDeEl) { defDeEl.textContent = updated.definition_de ? `🇩🇪 ${updated.definition_de}` : ''; defDeEl.style.display = updated.definition_de ? 'block' : 'none'; }
+        const defFrEl = document.getElementById('wd-def-fr');
+        if (defFrEl) { defFrEl.textContent = updated.definition_fr ? `🇫🇷 ${updated.definition_fr}` : ''; defFrEl.style.display = updated.definition_fr ? 'block' : 'none'; }
+      } else if (fields.includes('notes'))         renderNotesSection(target, updated.notes, wordId);
       else if (fields.includes('examples')) renderVocabDetail(target, updated.examples, wordId);
       else                                  renderWordAnalysis(target, updated, wordId);
       const body  = document.getElementById(containerId + '-body');
