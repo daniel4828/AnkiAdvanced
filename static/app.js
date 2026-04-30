@@ -3356,23 +3356,21 @@ function renderVocabDetail(container, examples, wordId) {
   const items = examples ?? wordDetails?.examples ?? [];
   const wid = wordId ?? _getActiveWordId();
   const bodyId = el.id + '-body';
-  if (items.length > 0) {
-    const html = items.map(ex => {
-      let h = `<div class="example-item">`;
-      h += `<div class="example-zh">${ex.example_zh || ''}</div>`;
-      if (ex.example_pinyin) h += `<div class="example-pin">${ex.example_pinyin}</div>`;
-      if (ex.example_de)     h += `<div class="example-de">${ex.example_de}</div>`;
-      h += `</div>`;
-      return h;
-    }).join('');
-    const regenBtn = wid ? `<button class="field-regen-btn" onclick="event.stopPropagation();regenFields(${wid},['examples'],'${el.id}')" title="Regenerate examples">↺</button>` : '';
-    el.innerHTML =
-      `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
-        `<span><span id="${bodyId}-arrow">▶</span> Examples</span>${regenBtn}</div>` +
-      `<div id="${bodyId}" style="display:none">${html}</div>`;
-  } else {
-    el.innerHTML = '';
-  }
+  const regenBtn = wid ? `<button class="field-regen-btn" onclick="event.stopPropagation();regenFields(${wid},['examples'],'${el.id}')" title="Regenerate examples">↺</button>` : '';
+  const html = items.length > 0
+    ? items.map(ex => {
+        let h = `<div class="example-item">`;
+        h += `<div class="example-zh">${ex.example_zh || ''}</div>`;
+        if (ex.example_pinyin) h += `<div class="example-pin">${ex.example_pinyin}</div>`;
+        if (ex.example_de)     h += `<div class="example-de">${ex.example_de}</div>`;
+        h += `</div>`;
+        return h;
+      }).join('')
+    : `<div class="section-empty">—</div>`;
+  el.innerHTML =
+    `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
+      `<span><span id="${bodyId}-arrow">▶</span> Examples</span>${regenBtn}</div>` +
+    `<div id="${bodyId}" style="display:none">${html}</div>`;
 }
 
 function renderNotesSection(container, notes, wordId) {
@@ -3380,17 +3378,15 @@ function renderNotesSection(container, notes, wordId) {
   const text = notes ?? card?.notes;
   const wid = wordId ?? _getActiveWordId();
   const bodyId = el.id + '-body';
-  if (text) {
-    const regenBtn = wid ? `<button class="field-regen-btn" onclick="event.stopPropagation();regenFields(${wid},['notes'],'${el.id}')" title="Regenerate notes">↺</button>` : '';
-    el.innerHTML =
-      `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
-        `<span><span id="${bodyId}-arrow">▶</span> Notes</span>${regenBtn}</div>` +
-      `<div id="${bodyId}" class="notes-body" style="display:none">${renderMarkdown(text)}</div>`;
-    el.style.display = '';
-  } else {
-    el.innerHTML = '';
-    el.style.display = 'none';
-  }
+  const regenBtn = wid ? `<button class="field-regen-btn" onclick="event.stopPropagation();regenFields(${wid},['notes'],'${el.id}')" title="Regenerate notes">↺</button>` : '';
+  const bodyContent = text
+    ? `<div class="notes-body">${renderMarkdown(text)}</div>`
+    : `<div class="section-empty">—</div>`;
+  el.innerHTML =
+    `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
+      `<span><span id="${bodyId}-arrow">▶</span> Notes</span>${regenBtn}</div>` +
+    `<div id="${bodyId}" style="display:none">${bodyContent}</div>`;
+  el.style.display = '';
 }
 
 function renderWordAnalysis(container, wordData, wordId) {
@@ -3421,8 +3417,14 @@ function renderWordAnalysis(container, wordData, wordId) {
     }];
   }
 
+  const wid = wordId ?? _getActiveWordId();
+  const regenBtnWA = wid ? `<button class="field-regen-btn" onclick="event.stopPropagation();regenFields(${wid},['etymology','compounds'],'${el.id}')" title="Regenerate etymology &amp; compounds">↺</button>` : '';
+
   if (wordGroups.length === 0) {
-    el.innerHTML = '';
+    el.innerHTML =
+      `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
+        `<span><span id="${bodyId}-arrow">▶</span> Word Analysis</span>${regenBtnWA}</div>` +
+      `<div id="${bodyId}" class="wa-list" style="display:none"><div class="section-empty">—</div></div>`;
     return;
   }
 
@@ -3497,11 +3499,9 @@ function renderWordAnalysis(container, wordData, wordId) {
       `</div>`;
   }).join('');
 
-  const wid = wordId ?? _getActiveWordId();
-  const regenBtn = wid ? `<button class="field-regen-btn" onclick="event.stopPropagation();regenFields(${wid},['etymology','compounds'],'${el.id}')" title="Regenerate etymology &amp; compounds">↺</button>` : '';
   el.innerHTML =
     `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
-      `<span><span id="${bodyId}-arrow">▶</span> Word Analysis</span>${regenBtn}</div>` +
+      `<span><span id="${bodyId}-arrow">▶</span> Word Analysis</span>${regenBtnWA}</div>` +
     `<div id="${bodyId}" class="wa-list" style="display:none">${wordCards}</div>`;
 }
 

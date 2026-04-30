@@ -901,6 +901,7 @@ main.browse-open {
 .section-label-row:hover .field-regen-btn { opacity: 0.7; }
 .field-regen-btn:hover { opacity: 1 !important; color: var(--primary); }
 .field-regen-btn:disabled { cursor: wait; opacity: 0.4 !important; }
+.section-empty { color: var(--muted); font-size: 12px; padding: 6px 0; }
 
 /* Regen preview modal */
 .regen-preview-overlay {
