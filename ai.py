@@ -161,6 +161,7 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
 
 Rules:
 - Each target word MUST appear verbatim in at least one sentence
+- Write the sentences in the same order as the target word list above
 - For items marked [SENTENCE]: use that exact text as the sentence, unchanged
 - Use proper Chinese punctuation — include commas（，）where natural pauses occur
 - Use only HSK 1-{max_hsk} vocabulary for non-target words
