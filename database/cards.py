@@ -1180,19 +1180,3 @@ def get_card_calendar_data(card_id: int) -> dict:
     }
 
 
-def get_cards_by_word_ids(word_ids: list[int], category: str) -> list[dict]:
-    """Return [{word_id, card_id}] for each word_id that has a non-deleted card in category."""
-    if not word_ids:
-        return []
-    conn = get_db()
-    placeholders = ",".join("?" * len(word_ids))
-    rows = conn.execute(
-        f"""SELECT word_id, id AS card_id FROM cards
-            WHERE word_id IN ({placeholders})
-              AND category = ?
-              AND deleted_at IS NULL
-            ORDER BY word_id""",
-        (*word_ids, category),
-    ).fetchall()
-    conn.close()
-    return [dict(r) for r in rows]

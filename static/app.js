@@ -3990,107 +3990,8 @@ function diffClozeAnswer(userInput, targetWord) {
   return { html, pct };
 }
 
-// ── Multi-word sentence rating UI ────────────────────────────────────────────
-
-// State: {word_id → rating} for the current multi-word sentence
-const _multiRatings = {};
-let _multiRatingFocused = null;   // word_id currently in "rating mode", or null
-
-function _setMultiFocusedWord(wordId) {
-  _multiRatingFocused = wordId;
-  document.querySelectorAll('#multi-rating-rows .multi-rating-row').forEach(row => {
-    row.classList.toggle('row-focused', Number(row.dataset.wordId) === wordId);
-  });
-}
-
-function _clearMultiFocus() {
-  _multiRatingFocused = null;
-  document.querySelectorAll('#multi-rating-rows .multi-rating-row').forEach(row => {
-    row.classList.remove('row-focused');
-  });
-}
-
-function _autoAdvanceMultiFocus() {
-  const rows = [...document.querySelectorAll('#multi-rating-rows .multi-rating-row')];
-  const next = rows.find(r => _multiRatings[Number(r.dataset.wordId)] === undefined);
-  if (next) _setMultiFocusedWord(Number(next.dataset.wordId));
-  else _clearMultiFocus();
-}
-
 function _renderMultiRatingIfNeeded() {
-  document.getElementById('rating-row').style.display  = '';
-  document.getElementById('multi-rating').style.display = 'none';
-}
-
-function _pickMultiRating(wordId, rating, btn) {
-  // Deselect other buttons in this row, select this one
-  const row = btn.closest('.multi-rating-row');
-  row.querySelectorAll('.multi-r-btn').forEach(b => b.classList.remove('selected'));
-  btn.classList.add('selected');
-  row.classList.add('rated');
-  _multiRatings[wordId] = rating;
-
-  // Enable submit when all words have a rating
-  const allWords = document.querySelectorAll('#multi-rating-rows .multi-rating-row');
-  const allRated = [...allWords].every(r => _multiRatings[Number(r.dataset.wordId)] !== undefined);
-  document.getElementById('multi-rating-submit').disabled = !allRated;
-}
-
-async function submitMultiRating() {
-  document.querySelectorAll('.r-btn').forEach(b => b.disabled = true);
-  if (_timerStart) {
-    _sessionTotalMs += Date.now() - _timerStart;
-    _sessionRatedCount++;
-    _updateAvgTimeBadge();
-  }
-
-  // Build batch payload: current card first, then co-words
-  // We need the actual card IDs for all words — look them up from the queue/story
-  const allWordIds = Object.keys(_multiRatings).map(Number);
-  // card.id corresponds to card.word_id; for co-occurring words we need their card IDs.
-  // We'll use a helper endpoint to get card IDs by word_id + category.
-  let batchItems;
-  try {
-    const coWordIds = allWordIds.filter(wid => wid !== card.word_id);
-    let cardIdMap = { [card.word_id]: card.id };
-    if (coWordIds.length > 0) {
-      // Fetch card IDs for co-words in the same category
-      const idsRes = await api('GET',
-        `/api/cards/by-word?word_ids=${coWordIds.join(',')}&category=${encodeURIComponent(category)}`);
-      for (const entry of (idsRes || [])) cardIdMap[entry.word_id] = entry.card_id;
-    }
-    batchItems = allWordIds
-      .filter(wid => cardIdMap[wid] != null)
-      .map(wid => ({ card_id: cardIdMap[wid], rating: _multiRatings[wid] }));
-  } catch (e) {
-    showError('Failed to look up card IDs: ' + e.message);
-    document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
-    return;
-  }
-
-  try {
-    let url = `/api/review/batch`;
-    const params = [];
-    if (unfinishedMode) params.push('unfinished_mode=true');
-    else if (rootDeckId) params.push(`root_deck_id=${rootDeckId}`);
-    else if (deckId) params.push(`parent_deck_id=${deckId}`);
-    if (params.length) url += '?' + params.join('&');
-
-    const result = await api('POST', url, batchItems);
-    _sessionReviewedCount++;
-    if (!result.next_card) {
-      rootDeckId = null;
-      unfinishedMode = false;
-      showView('done');
-      return;
-    }
-    if (unfinishedMode || rootDeckId) category = result.next_card.category;
-    loadCard(result.next_card, result.counts);
-    document.getElementById('undo-btn').disabled = false;
-  } catch (e) {
-    showError('Submit failed: ' + e.message);
-    document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
-  }
+  document.getElementById('rating-row').style.display = '';
 }
 
 // ── Submit rating ───────────────────────────────────────────────────────────
@@ -5877,12 +5778,6 @@ document.addEventListener('keydown', async e => {
   const inInput = _isEditableFocusTarget(document.activeElement);
 
   if (e.key === 'Escape') {
-    // Exit multi-word rating focus mode
-    if (_multiRatingFocused !== null) {
-      e.preventDefault();
-      _clearMultiFocus();
-      return;
-    }
     const storyOverlay = document.getElementById('story-modal-overlay');
     if (storyOverlay && storyOverlay.style.display !== 'none') {
       e.preventDefault();
@@ -6003,26 +5898,8 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); if (!backVisible) revealAnswer();
     } else if (['1','2','3','4'].includes(e.key) && backVisible) {
       e.preventDefault();
-      const multiVisible = document.getElementById('multi-rating')?.style.display !== 'none';
-      if (multiVisible) {
-        const wordRows = [...document.querySelectorAll('#multi-rating-rows .multi-rating-row')];
-        if (_multiRatingFocused !== null) {
-          // In rating mode: 1-4 pick the rating for the focused word
-          const btn = document.querySelector(
-            `#multi-rating-rows .multi-rating-row[data-word-id="${_multiRatingFocused}"] .multi-r-btn[data-r="${e.key}"]`
-          );
-          if (btn) { _pickMultiRating(_multiRatingFocused, Number(e.key), btn); _autoAdvanceMultiFocus(); }
-        } else {
-          // Not in rating mode: 1-N select which word to focus
-          const idx = Number(e.key) - 1;
-          if (idx >= 0 && idx < wordRows.length) {
-            _setMultiFocusedWord(Number(wordRows[idx].dataset.wordId));
-          }
-        }
-      } else {
-        const btns = document.querySelectorAll('.r-btn');
-        if (btns.length && !btns[0].disabled) rate(Number(e.key));
-      }
+      const btns = document.querySelectorAll('.r-btn');
+      if (btns.length && !btns[0].disabled) rate(Number(e.key));
     } else if (e.key === 'z') {
       const undoBtn = document.getElementById('undo-btn');
       if (undoBtn && !undoBtn.disabled) { e.preventDefault(); undoReview(); }
