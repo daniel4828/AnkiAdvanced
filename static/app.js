@@ -4018,46 +4018,8 @@ function _autoAdvanceMultiFocus() {
 }
 
 function _renderMultiRatingIfNeeded() {
-  const ratingRow  = document.getElementById('rating-row');
-  const multiBlock = document.getElementById('multi-rating');
-  const coWords = (sentence?.words || []).filter(w => w.word_id !== card?.word_id);
-
-  if (!sentence || coWords.length === 0) {
-    // Single-word (or no sentence): use normal rating row
-    ratingRow.style.display  = '';
-    multiBlock.style.display = 'none';
-    return;
-  }
-
-  // Multi-word sentence: hide normal buttons, show multi-rating block
-  ratingRow.style.display  = 'none';
-  multiBlock.style.display = '';
-
-  // Clear previous selections and focus state
-  Object.keys(_multiRatings).forEach(k => delete _multiRatings[k]);
-  _multiRatingFocused = null;
-  document.getElementById('multi-rating-submit').disabled = true;
-
-  const allWords = [{ word_id: card.word_id, word_zh: card.word_zh }, ...coWords];
-  const iv = card.intervals || {};
-  const container = document.getElementById('multi-rating-rows');
-  container.innerHTML = allWords.map(w => {
-    const isMain = w.word_id === card.word_id;
-    const label = isMain ? `${w.word_zh} ★` : w.word_zh;
-    return `<div class="multi-rating-row" data-word-id="${w.word_id}">
-      <span class="multi-word-label${isMain ? ' multi-word-main' : ''}">${label}</span>
-      <div class="multi-btn-group">
-        ${[1,2,3,4].map(r => {
-          const names = ['Again','Hard','Good','Easy'];
-          const ivLabel = (isMain && iv[r]) ? `<small>${iv[r]}</small>` : '';
-          return `<button class="r-btn r-${names[r-1].toLowerCase()} multi-r-btn"
-                    data-word="${w.word_id}" data-r="${r}"
-                    onclick="_pickMultiRating(${w.word_id},${r},this)">
-                    ${names[r-1]}${ivLabel}</button>`;
-        }).join('')}
-      </div>
-    </div>`;
-  }).join('');
+  document.getElementById('rating-row').style.display  = '';
+  document.getElementById('multi-rating').style.display = 'none';
 }
 
 function _pickMultiRating(wordId, rating, btn) {
