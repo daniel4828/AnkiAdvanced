@@ -232,11 +232,13 @@ def preview_yaml_content(content: str) -> dict:
         existing = database.get_word_by_zh(word_zh)
         if existing and database.word_has_cards(existing["id"]):
             summary["duplicate"] += 1
+            deck_names = database.get_word_deck_names(existing["id"])
             result_entries.append({
                 "simplified": word_zh, "note_type": note_type,
                 "english": english, "hsk": hsk,
                 "status": "duplicate", "reason": None,
                 "raw_yaml": raw,
+                "current_decks": deck_names,
             })
         else:
             summary["ok"] += 1

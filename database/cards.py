@@ -83,7 +83,9 @@ def move_cards_to_deck(word_id: int, target_deck_ids: dict,
         if deck_id is None:
             continue
         cur = conn.execute(
-            """UPDATE cards SET deck_id=?
+            """UPDATE cards SET deck_id=?,
+               state=CASE WHEN state='suspended' THEN COALESCE(pre_suspend_state,'new') ELSE state END,
+               pre_suspend_state=CASE WHEN state='suspended' THEN NULL ELSE pre_suspend_state END
                WHERE word_id=? AND category=? AND deleted_at IS NULL""",
             (deck_id, word_id, cat),
         )
