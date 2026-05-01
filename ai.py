@@ -173,7 +173,7 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
 
 Rules:
 - Each target word MUST appear verbatim in exactly one sentence
-- Each sentence MUST contain EXACTLY ONE target word — never put two or more target words in the same sentence
+- You may combine multiple target words into a single sentence when they fit naturally — this is encouraged
 - For items marked [USE AS-IS]: use that text verbatim as sentence_zh; include its word_id in word_ids
 - Use proper Chinese punctuation — include commas（，）where natural pauses occur
 - Use only HSK 1-{max_hsk} vocabulary for non-target words
@@ -182,23 +182,14 @@ Rules:
 - NEVER use ASCII double-quote characters (") inside Chinese sentences — use 「」or （）instead if quoting is needed
 - Return ONLY valid JSON array of sentence objects, no explanation, no markdown:
 [
-  {{
-    "word_ids": [<integer>, ...]{grammar_frag_field},
-    "sentence_zh": "<Chinese sentence>",
-    "tokens": [["<word_or_punct>", <word_id or null>], ...]
-  }},
+  {{"word_ids": [<integer>, ...]{grammar_frag_field}, "sentence_zh": "<Chinese sentence>"}},
   ...
-]
-- "tokens": segment sentence_zh into natural words (NOT individual characters). Each token is [text, word_id_or_null].
-  Assign a target word's word_id to the token whose text matches it exactly; use null for all other tokens.
-  Joining all token texts must exactly reproduce sentence_zh.
-  CRITICAL: If a target word appears inside a larger compound word, you MUST split that compound so the target word is its own separate token.
-  Example: target="款", sentence has "新款" → tokens must be ["新", null], ["款", word_id] — NEVER ["新款", null]."""
+]"""
 
     logger.info("[%s] generate_story: %d 张卡片 mode=%s", model, len(cards), mode)
     logger.debug("Prompt:\n%s", prompt)
 
-    max_tokens = len(cards) * 250 + 200
+    max_tokens = len(cards) * 150 + 200
     if not model.startswith("claude-"):
         max_tokens = min(max_tokens, 8192)
 
