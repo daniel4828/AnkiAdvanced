@@ -3383,6 +3383,7 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 }
 .cal-cell.cal-today { outline: 2px solid var(--primary, #6366f1); outline-offset: -2px; border-radius: 4px; }
 .cal-cell.cal-empty { pointer-events: none; border-color: transparent; background: none; }
+.cal-cell.cal-has-future { background: #e5e7eb; }
 .cal-day-num {
   font-size: 0.65rem;
   color: var(--text-muted);

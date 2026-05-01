@@ -160,7 +160,8 @@ function _renderCal() {
       const isToday = dateStr === todayStr;
       const info = dayMap[dateStr];
 
-      html += `<div class="cal-cell${isToday ? ' cal-today' : ''}">`;
+      const hasFutureDue = dateStr > todayStr && info?.dues?.length > 0;
+      html += `<div class="cal-cell${isToday ? ' cal-today' : ''}${hasFutureDue ? ' cal-has-future' : ''}">`;
       if (info) {
         html += '<div class="cal-chips">';
         for (const r of info.ratings) {
