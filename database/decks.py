@@ -261,3 +261,16 @@ def get_or_create_deck_path(path: str) -> int:
     for segment in segments:
         parent_id = get_or_create_deck(segment, parent_id=parent_id)
     return parent_id
+
+
+def get_word_deck_names(word_id: int) -> list[str]:
+    """Return the unique deck names (leaf only) where cards for this word live."""
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT DISTINCT d.name FROM cards c
+           JOIN decks d ON d.id = c.deck_id
+           WHERE c.word_id = ? AND c.deleted_at IS NULL AND d.deleted_at IS NULL""",
+        (word_id,),
+    ).fetchall()
+    conn.close()
+    return [r["name"] for r in rows]
