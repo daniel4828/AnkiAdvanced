@@ -1967,6 +1967,8 @@ function renderCostModal(data) {
       const model = c.model
         .replace('claude-', '')
         .replace('-20251001', '')
+        .replace('deepseek-v4-flash', 'DeepSeek V4 Flash')
+        .replace('deepseek-v4-pro', 'DeepSeek V4 Pro')
         .replace('deepseek-chat', 'DeepSeek V3')
         .replace('deepseek-reasoner', 'DeepSeek R1')
         .replace('glm-4-flash', 'GLM-4-Flash')
@@ -2382,7 +2384,7 @@ function _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode) {
   const p = new URLSearchParams();
   if (topic)                              p.set('topic', topic);
   if (maxHsk !== 3)                       p.set('max_hsk', maxHsk);
-  if (model && model !== 'deepseek-chat') p.set('model', model);
+  if (model && model !== 'deepseek-v4-flash') p.set('model', model);
   if (grammarFocus)                       p.set('grammar_focus', grammarFocus);
   if (grammarFocus && grammarPct !== 75)  p.set('grammar_pct', grammarPct);
   if (mode && mode !== 'story')           p.set('mode', mode);
@@ -3347,6 +3349,7 @@ async function _applyRegenResult() {
     if (wordDetails?.id === wordId) wordDetails = updated;
     const DEF_FIELDS = ['definition', 'definition_zh', 'definition_de', 'definition_fr', 'pos'];
     const isDefRegen = fields.some(f => DEF_FIELDS.includes(f));
+    console.log('[apply] wordId=', wordId, '_currentWordId=', _currentWordId, 'fields=', fields, 'containerId=', containerId, 'isDefRegen=', isDefRegen);
     if (isDefRegen && _currentWordId === wordId) {
       // Definition/POS regen: full re-render is safe (header is always visible)
       updated.cards = wordDetails?.cards || [];
@@ -3354,6 +3357,7 @@ async function _applyRegenResult() {
     } else {
       // Section regen (notes/examples/etymology/compounds): targeted re-render to keep section open
       const target = document.getElementById(containerId);
+      console.log('[apply] target=', target, 'containerId=', containerId);
       if (target) {
         if (isDefRegen) {
           const posEl = document.getElementById('wd-pos');
@@ -3371,6 +3375,7 @@ async function _applyRegenResult() {
         else                                    renderWordAnalysis(target, updated, wordId);
         const body  = document.getElementById(containerId + '-body');
         const arrow = document.getElementById(containerId + '-body-arrow');
+        console.log('[apply] body=', body, 'arrow=', arrow);
         if (body)  body.style.display = 'block';
         if (arrow) arrow.textContent = '▼';
       }

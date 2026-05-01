@@ -21,7 +21,7 @@ import database
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "deepseek-chat"
+DEFAULT_MODEL = "deepseek-v4-flash"
 
 # Per-session story generation progress: key → {phase, msg, percent, translate_warn?}
 _story_progress: dict[str, dict] = {}
@@ -530,7 +530,7 @@ Return ONLY valid JSON, no explanation, no markdown:
         return {"etymology": "", "translation": ""}
 
 
-_ENRICH_MODEL = "deepseek-chat"
+_ENRICH_MODEL = "deepseek-v4-flash"
 
 
 def enrich_word(word: dict, characters: list[dict], model: str = DEFAULT_MODEL) -> dict:

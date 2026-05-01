@@ -102,7 +102,8 @@ def _generate_story_sentences(cards: list, *, topic, max_hsk, model, progress_ke
 ALLOWED_MODELS = {
     "glm-4-flash",
     "glm-4-air",
-    "deepseek-chat",
+    "deepseek-v4-flash",
+    "deepseek-v4-pro",
     "qwen-turbo",
     "claude-haiku-4-5-20251001",
     "claude-sonnet-4-6",
