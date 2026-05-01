@@ -4989,8 +4989,12 @@ function _importRenderTable() {
         dupAction === 'move_import' ? `
         <span style="margin-left:4px;font-size:11px;color:var(--clr-muted,#888)">→ import deck</span>
         ${catCheckboxes}` : '';
+      const currentDecksHtml = (e.current_decks && e.current_decks.length)
+        ? `<span style="font-size:10px;color:var(--clr-muted,#888);margin-right:4px" title="Currently in: ${_ea(e.current_decks.join(', '))}">📂 ${_ea(e.current_decks.join(', '))}</span>`
+        : '';
       midCols = `<td colspan="4" style="padding:2px 6px">
         <div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px">
+          ${currentDecksHtml}
           <select style="font-size:11px" onchange="importSetDupAction(${_ea(JSON.stringify(e.simplified))}, this.value)">
             <option value="skip"${dupAction==='skip'?' selected':''}>Skip</option>
             <option value="reset"${dupAction==='reset'?' selected':''}>Reset progress</option>
