@@ -3620,9 +3620,18 @@ function _getTargetPositions(zh) {
 
 function _initListenHint() {
   const slider = document.getElementById('listen-hint-slider');
-  slider.value = 3;
-  document.getElementById('listen-hint-pct').textContent = 'HSK 3+';
-  _loadHskLevels().then(() => _renderListenHint(3));
+  const saved = parseInt(localStorage.getItem('listenHintDefault') ?? '3', 10);
+  slider.value = saved;
+  document.getElementById('listen-hint-pct').textContent = saved === 0 ? 'All' : `HSK ${saved}+`;
+  _loadHskLevels().then(() => _renderListenHint(saved));
+}
+
+function saveListenHintDefault() {
+  const val = parseInt(document.getElementById('listen-hint-slider').value, 10);
+  localStorage.setItem('listenHintDefault', val);
+  const btn = document.getElementById('hint-save-btn');
+  btn.classList.add('saved');
+  setTimeout(() => btn.classList.remove('saved'), 1200);
 }
 
 function _renderListenHint(threshold) {
