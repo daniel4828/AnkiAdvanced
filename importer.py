@@ -304,7 +304,9 @@ def _make_leaf_decks(leaf_parent: str, parent_id: int) -> dict:
 
 
 def _strip_ellipsis(word_zh: str) -> str:
-    return word_zh.strip('…')
+    # Replace internal Chinese ellipsis (……) with ASCII ... used by the SRS
+    word_zh = word_zh.replace('……', '...').replace('…', '...')
+    return word_zh.strip('.')
 
 
 def _build_word_dict(entry: dict, source: str, note_type: str = "vocabulary") -> dict:
