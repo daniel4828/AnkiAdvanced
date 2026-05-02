@@ -481,14 +481,16 @@ main.browse-open {
 .hint-save-btn {
   background: none;
   border: none;
+  -webkit-appearance: none;
+  appearance: none;
   cursor: pointer;
-  font-size: 14px;
-  color: var(--text-muted, #aaa);
+  font-size: 16px;
+  color: var(--text-muted, #ccc);
   padding: 0 2px;
   line-height: 1;
   transition: color 0.15s;
 }
-.hint-save-btn:hover { color: var(--primary, #4a90d9); }
+.hint-save-btn:hover { color: #f5a623; }
 .hint-save-btn.saved { color: #f5a623; }
 .back-play-group {
   display: flex;

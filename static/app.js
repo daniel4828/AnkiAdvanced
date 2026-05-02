@@ -3618,20 +3618,31 @@ function _getTargetPositions(zh) {
   return positions;
 }
 
+function _hintSavedDefault() {
+  return parseInt(localStorage.getItem('listenHintDefault') ?? '3', 10);
+}
+
+function _updateHintStar(currentVal) {
+  const btn = document.getElementById('hint-save-btn');
+  if (!btn) return;
+  const isSaved = currentVal === _hintSavedDefault();
+  btn.textContent = isSaved ? '★' : '☆';
+  btn.classList.toggle('saved', isSaved);
+}
+
 function _initListenHint() {
   const slider = document.getElementById('listen-hint-slider');
-  const saved = parseInt(localStorage.getItem('listenHintDefault') ?? '3', 10);
+  const saved = _hintSavedDefault();
   slider.value = saved;
   document.getElementById('listen-hint-pct').textContent = saved === 0 ? 'All' : `HSK ${saved}+`;
+  _updateHintStar(saved);
   _loadHskLevels().then(() => _renderListenHint(saved));
 }
 
 function saveListenHintDefault() {
   const val = parseInt(document.getElementById('listen-hint-slider').value, 10);
   localStorage.setItem('listenHintDefault', val);
-  const btn = document.getElementById('hint-save-btn');
-  btn.classList.add('saved');
-  setTimeout(() => btn.classList.remove('saved'), 1200);
+  _updateHintStar(val);
 }
 
 function _renderListenHint(threshold) {
@@ -3689,6 +3700,7 @@ function _renderListenHint(threshold) {
 function onListenHintSlider(val) {
   const lvl = parseInt(val, 10);
   document.getElementById('listen-hint-pct').textContent = lvl === 0 ? 'All' : `HSK ${lvl}+`;
+  _updateHintStar(lvl);
   _renderListenHint(lvl);
 }
 
