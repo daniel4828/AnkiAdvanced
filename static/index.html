@@ -119,9 +119,10 @@
               <div class="listen-hint-sentence" id="listen-hint-sentence"></div>
               <div class="listen-hint-slider-row">
                 <span class="listen-hint-label">Hint</span>
-                <input type="range" id="listen-hint-slider" min="0" max="6" value="5"
+                <input type="range" id="listen-hint-slider" min="0" max="6" value="3"
                        oninput="onListenHintSlider(this.value)">
-                <span class="listen-hint-pct" id="listen-hint-pct">HSK 5+</span>
+                <span class="listen-hint-pct" id="listen-hint-pct">HSK 3+</span>
+                <button class="hint-save-btn" id="hint-save-btn" onclick="saveListenHintDefault()" title="Save as default">☆</button>
               </div>
             </div>
             <!-- Creating: English/German context sentence (shown above Chinese for cloze) -->
@@ -187,15 +188,6 @@
               <button class="r-btn r-good"  onclick="rate(3)">Good<small id="int-3"></small></button>
               <button class="r-btn r-easy"  onclick="rate(4)">Easy<small id="int-4"></small></button>
             </div>
-            <!-- Multi-word mode: one rating row per vocab word, then a submit button -->
-            <div class="multi-rating" id="multi-rating" style="display:none">
-              <div class="multi-rating-rows" id="multi-rating-rows"></div>
-              <div class="multi-rating-submit-row">
-                <button class="multi-rating-submit r-btn r-good" id="multi-rating-submit"
-                        onclick="submitMultiRating()" disabled>Submit all ratings</button>
-              </div>
-            </div>
-
             <!-- Word summary: character, pinyin, pos, definition -->
             <div class="vocab-detail">
               <div class="word-big" id="word-zh"></div>

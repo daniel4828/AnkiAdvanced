@@ -478,6 +478,20 @@ main.browse-open {
   accent-color: var(--primary, #4a90d9);
   cursor: pointer;
 }
+.hint-save-btn {
+  background: none;
+  border: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--text-muted, #ccc);
+  padding: 0 2px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.hint-save-btn:hover { color: #f5a623; }
+.hint-save-btn.saved { color: #f5a623; }
 .back-play-group {
   display: flex;
   align-items: center;
@@ -3383,6 +3397,7 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 }
 .cal-cell.cal-today { outline: 2px solid var(--primary, #6366f1); outline-offset: -2px; border-radius: 4px; }
 .cal-cell.cal-empty { pointer-events: none; border-color: transparent; background: none; }
+.cal-cell.cal-has-future { background: #e5e7eb; }
 .cal-day-num {
   font-size: 0.65rem;
   color: var(--text-muted);

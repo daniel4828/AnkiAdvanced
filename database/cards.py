@@ -83,7 +83,9 @@ def move_cards_to_deck(word_id: int, target_deck_ids: dict,
         if deck_id is None:
             continue
         cur = conn.execute(
-            """UPDATE cards SET deck_id=?
+            """UPDATE cards SET deck_id=?,
+               state=CASE WHEN state='suspended' THEN COALESCE(pre_suspend_state,'new') ELSE state END,
+               pre_suspend_state=CASE WHEN state='suspended' THEN NULL ELSE pre_suspend_state END
                WHERE word_id=? AND category=? AND deleted_at IS NULL""",
             (deck_id, word_id, cat),
         )
@@ -1178,19 +1180,3 @@ def get_card_calendar_data(card_id: int) -> dict:
     }
 
 
-def get_cards_by_word_ids(word_ids: list[int], category: str) -> list[dict]:
-    """Return [{word_id, card_id}] for each word_id that has a non-deleted card in category."""
-    if not word_ids:
-        return []
-    conn = get_db()
-    placeholders = ",".join("?" * len(word_ids))
-    rows = conn.execute(
-        f"""SELECT word_id, id AS card_id FROM cards
-            WHERE word_id IN ({placeholders})
-              AND category = ?
-              AND deleted_at IS NULL
-            ORDER BY word_id""",
-        (*word_ids, category),
-    ).fetchall()
-    conn.close()
-    return [dict(r) for r in rows]

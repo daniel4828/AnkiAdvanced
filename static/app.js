@@ -160,7 +160,8 @@ function _renderCal() {
       const isToday = dateStr === todayStr;
       const info = dayMap[dateStr];
 
-      html += `<div class="cal-cell${isToday ? ' cal-today' : ''}">`;
+      const hasFutureDue = dateStr > todayStr && info?.dues?.length > 0;
+      html += `<div class="cal-cell${isToday ? ' cal-today' : ''}${hasFutureDue ? ' cal-has-future' : ''}">`;
       if (info) {
         html += '<div class="cal-chips">';
         for (const r of info.ratings) {
@@ -3617,11 +3618,31 @@ function _getTargetPositions(zh) {
   return positions;
 }
 
+function _hintSavedDefault() {
+  return parseInt(localStorage.getItem('listenHintDefault') ?? '3', 10);
+}
+
+function _updateHintStar(currentVal) {
+  const btn = document.getElementById('hint-save-btn');
+  if (!btn) return;
+  const isSaved = currentVal === _hintSavedDefault();
+  btn.textContent = isSaved ? '★' : '☆';
+  btn.classList.toggle('saved', isSaved);
+}
+
 function _initListenHint() {
-  _loadHskLevels().then(() => {
-    const threshold = parseInt(document.getElementById('listen-hint-slider').value, 10);
-    _renderListenHint(threshold);
-  });
+  const slider = document.getElementById('listen-hint-slider');
+  const saved = _hintSavedDefault();
+  slider.value = saved;
+  document.getElementById('listen-hint-pct').textContent = saved === 0 ? 'All' : `HSK ${saved}+`;
+  _updateHintStar(saved);
+  _loadHskLevels().then(() => _renderListenHint(saved));
+}
+
+function saveListenHintDefault() {
+  const val = parseInt(document.getElementById('listen-hint-slider').value, 10);
+  localStorage.setItem('listenHintDefault', val);
+  _updateHintStar(val);
 }
 
 function _renderListenHint(threshold) {
@@ -3679,6 +3700,7 @@ function _renderListenHint(threshold) {
 function onListenHintSlider(val) {
   const lvl = parseInt(val, 10);
   document.getElementById('listen-hint-pct').textContent = lvl === 0 ? 'All' : `HSK ${lvl}+`;
+  _updateHintStar(lvl);
   _renderListenHint(lvl);
 }
 
@@ -3787,7 +3809,7 @@ async function _buildWordBank() {
   const expectedCount = targetParts ? targetParts.length : 1;
   if (targetCount < expectedCount) order.push({ type: 'target', word: targetParts ? targetParts[targetCount] : target });
 
-  const MAX_TILES = 4;
+  const MAX_TILES = 3;
   const isWord = tok => /[\u4E00-\u9FFF\u3400-\u4DBF]/.test(tok.char);
   const allChars = order.filter(it => it.type === 'char');
   // Punctuation tokens are always pre-placed — only real words become tiles
@@ -3989,145 +4011,8 @@ function diffClozeAnswer(userInput, targetWord) {
   return { html, pct };
 }
 
-// ── Multi-word sentence rating UI ────────────────────────────────────────────
-
-// State: {word_id → rating} for the current multi-word sentence
-const _multiRatings = {};
-let _multiRatingFocused = null;   // word_id currently in "rating mode", or null
-
-function _setMultiFocusedWord(wordId) {
-  _multiRatingFocused = wordId;
-  document.querySelectorAll('#multi-rating-rows .multi-rating-row').forEach(row => {
-    row.classList.toggle('row-focused', Number(row.dataset.wordId) === wordId);
-  });
-}
-
-function _clearMultiFocus() {
-  _multiRatingFocused = null;
-  document.querySelectorAll('#multi-rating-rows .multi-rating-row').forEach(row => {
-    row.classList.remove('row-focused');
-  });
-}
-
-function _autoAdvanceMultiFocus() {
-  const rows = [...document.querySelectorAll('#multi-rating-rows .multi-rating-row')];
-  const next = rows.find(r => _multiRatings[Number(r.dataset.wordId)] === undefined);
-  if (next) _setMultiFocusedWord(Number(next.dataset.wordId));
-  else _clearMultiFocus();
-}
-
 function _renderMultiRatingIfNeeded() {
-  const ratingRow  = document.getElementById('rating-row');
-  const multiBlock = document.getElementById('multi-rating');
-  const coWords = (sentence?.words || []).filter(w => w.word_id !== card?.word_id);
-
-  if (!sentence || coWords.length === 0) {
-    // Single-word (or no sentence): use normal rating row
-    ratingRow.style.display  = '';
-    multiBlock.style.display = 'none';
-    return;
-  }
-
-  // Multi-word sentence: hide normal buttons, show multi-rating block
-  ratingRow.style.display  = 'none';
-  multiBlock.style.display = '';
-
-  // Clear previous selections and focus state
-  Object.keys(_multiRatings).forEach(k => delete _multiRatings[k]);
-  _multiRatingFocused = null;
-  document.getElementById('multi-rating-submit').disabled = true;
-
-  const allWords = [{ word_id: card.word_id, word_zh: card.word_zh }, ...coWords];
-  const iv = card.intervals || {};
-  const container = document.getElementById('multi-rating-rows');
-  container.innerHTML = allWords.map(w => {
-    const isMain = w.word_id === card.word_id;
-    const label = isMain ? `${w.word_zh} ★` : w.word_zh;
-    return `<div class="multi-rating-row" data-word-id="${w.word_id}">
-      <span class="multi-word-label${isMain ? ' multi-word-main' : ''}">${label}</span>
-      <div class="multi-btn-group">
-        ${[1,2,3,4].map(r => {
-          const names = ['Again','Hard','Good','Easy'];
-          const ivLabel = (isMain && iv[r]) ? `<small>${iv[r]}</small>` : '';
-          return `<button class="r-btn r-${names[r-1].toLowerCase()} multi-r-btn"
-                    data-word="${w.word_id}" data-r="${r}"
-                    onclick="_pickMultiRating(${w.word_id},${r},this)">
-                    ${names[r-1]}${ivLabel}</button>`;
-        }).join('')}
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function _pickMultiRating(wordId, rating, btn) {
-  // Deselect other buttons in this row, select this one
-  const row = btn.closest('.multi-rating-row');
-  row.querySelectorAll('.multi-r-btn').forEach(b => b.classList.remove('selected'));
-  btn.classList.add('selected');
-  row.classList.add('rated');
-  _multiRatings[wordId] = rating;
-
-  // Enable submit when all words have a rating
-  const allWords = document.querySelectorAll('#multi-rating-rows .multi-rating-row');
-  const allRated = [...allWords].every(r => _multiRatings[Number(r.dataset.wordId)] !== undefined);
-  document.getElementById('multi-rating-submit').disabled = !allRated;
-}
-
-async function submitMultiRating() {
-  document.querySelectorAll('.r-btn').forEach(b => b.disabled = true);
-  if (_timerStart) {
-    _sessionTotalMs += Date.now() - _timerStart;
-    _sessionRatedCount++;
-    _updateAvgTimeBadge();
-  }
-
-  // Build batch payload: current card first, then co-words
-  // We need the actual card IDs for all words — look them up from the queue/story
-  const allWordIds = Object.keys(_multiRatings).map(Number);
-  // card.id corresponds to card.word_id; for co-occurring words we need their card IDs.
-  // We'll use a helper endpoint to get card IDs by word_id + category.
-  let batchItems;
-  try {
-    const coWordIds = allWordIds.filter(wid => wid !== card.word_id);
-    let cardIdMap = { [card.word_id]: card.id };
-    if (coWordIds.length > 0) {
-      // Fetch card IDs for co-words in the same category
-      const idsRes = await api('GET',
-        `/api/cards/by-word?word_ids=${coWordIds.join(',')}&category=${encodeURIComponent(category)}`);
-      for (const entry of (idsRes || [])) cardIdMap[entry.word_id] = entry.card_id;
-    }
-    batchItems = allWordIds
-      .filter(wid => cardIdMap[wid] != null)
-      .map(wid => ({ card_id: cardIdMap[wid], rating: _multiRatings[wid] }));
-  } catch (e) {
-    showError('Failed to look up card IDs: ' + e.message);
-    document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
-    return;
-  }
-
-  try {
-    let url = `/api/review/batch`;
-    const params = [];
-    if (unfinishedMode) params.push('unfinished_mode=true');
-    else if (rootDeckId) params.push(`root_deck_id=${rootDeckId}`);
-    else if (deckId) params.push(`parent_deck_id=${deckId}`);
-    if (params.length) url += '?' + params.join('&');
-
-    const result = await api('POST', url, batchItems);
-    _sessionReviewedCount++;
-    if (!result.next_card) {
-      rootDeckId = null;
-      unfinishedMode = false;
-      showView('done');
-      return;
-    }
-    if (unfinishedMode || rootDeckId) category = result.next_card.category;
-    loadCard(result.next_card, result.counts);
-    document.getElementById('undo-btn').disabled = false;
-  } catch (e) {
-    showError('Submit failed: ' + e.message);
-    document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
-  }
+  document.getElementById('rating-row').style.display = '';
 }
 
 // ── Submit rating ───────────────────────────────────────────────────────────
@@ -4989,8 +4874,12 @@ function _importRenderTable() {
         dupAction === 'move_import' ? `
         <span style="margin-left:4px;font-size:11px;color:var(--clr-muted,#888)">→ import deck</span>
         ${catCheckboxes}` : '';
+      const currentDecksHtml = (e.current_decks && e.current_decks.length)
+        ? `<span style="font-size:10px;color:var(--clr-muted,#888);margin-right:4px" title="Currently in: ${_ea(e.current_decks.join(', '))}">📂 ${_ea(e.current_decks.join(', '))}</span>`
+        : '';
       midCols = `<td colspan="4" style="padding:2px 6px">
         <div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px">
+          ${currentDecksHtml}
           <select style="font-size:11px" onchange="importSetDupAction(${_ea(JSON.stringify(e.simplified))}, this.value)">
             <option value="skip"${dupAction==='skip'?' selected':''}>Skip</option>
             <option value="reset"${dupAction==='reset'?' selected':''}>Reset progress</option>
@@ -5910,12 +5799,6 @@ document.addEventListener('keydown', async e => {
   const inInput = _isEditableFocusTarget(document.activeElement);
 
   if (e.key === 'Escape') {
-    // Exit multi-word rating focus mode
-    if (_multiRatingFocused !== null) {
-      e.preventDefault();
-      _clearMultiFocus();
-      return;
-    }
     const storyOverlay = document.getElementById('story-modal-overlay');
     if (storyOverlay && storyOverlay.style.display !== 'none') {
       e.preventDefault();
@@ -6036,26 +5919,8 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); if (!backVisible) revealAnswer();
     } else if (['1','2','3','4'].includes(e.key) && backVisible) {
       e.preventDefault();
-      const multiVisible = document.getElementById('multi-rating')?.style.display !== 'none';
-      if (multiVisible) {
-        const wordRows = [...document.querySelectorAll('#multi-rating-rows .multi-rating-row')];
-        if (_multiRatingFocused !== null) {
-          // In rating mode: 1-4 pick the rating for the focused word
-          const btn = document.querySelector(
-            `#multi-rating-rows .multi-rating-row[data-word-id="${_multiRatingFocused}"] .multi-r-btn[data-r="${e.key}"]`
-          );
-          if (btn) { _pickMultiRating(_multiRatingFocused, Number(e.key), btn); _autoAdvanceMultiFocus(); }
-        } else {
-          // Not in rating mode: 1-N select which word to focus
-          const idx = Number(e.key) - 1;
-          if (idx >= 0 && idx < wordRows.length) {
-            _setMultiFocusedWord(Number(wordRows[idx].dataset.wordId));
-          }
-        }
-      } else {
-        const btns = document.querySelectorAll('.r-btn');
-        if (btns.length && !btns[0].disabled) rate(Number(e.key));
-      }
+      const btns = document.querySelectorAll('.r-btn');
+      if (btns.length && !btns[0].disabled) rate(Number(e.key));
     } else if (e.key === 'z') {
       const undoBtn = document.getElementById('undo-btn');
       if (undoBtn && !undoBtn.disabled) { e.preventDefault(); undoReview(); }

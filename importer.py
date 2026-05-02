@@ -232,11 +232,13 @@ def preview_yaml_content(content: str) -> dict:
         existing = database.get_word_by_zh(word_zh)
         if existing and database.word_has_cards(existing["id"]):
             summary["duplicate"] += 1
+            deck_names = database.get_word_deck_names(existing["id"])
             result_entries.append({
                 "simplified": word_zh, "note_type": note_type,
                 "english": english, "hsk": hsk,
                 "status": "duplicate", "reason": None,
                 "raw_yaml": raw,
+                "current_decks": deck_names,
             })
         else:
             summary["ok"] += 1
@@ -302,7 +304,9 @@ def _make_leaf_decks(leaf_parent: str, parent_id: int) -> dict:
 
 
 def _strip_ellipsis(word_zh: str) -> str:
-    return word_zh.strip('…')
+    # Replace internal Chinese ellipsis (……) with ASCII ... used by the SRS
+    word_zh = word_zh.replace('……', '...').replace('…', '...')
+    return word_zh.strip('.')
 
 
 def _build_word_dict(entry: dict, source: str, note_type: str = "vocabulary") -> dict:
