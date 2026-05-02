@@ -3619,10 +3619,10 @@ function _getTargetPositions(zh) {
 }
 
 function _initListenHint() {
-  _loadHskLevels().then(() => {
-    const threshold = parseInt(document.getElementById('listen-hint-slider').value, 10);
-    _renderListenHint(threshold);
-  });
+  const slider = document.getElementById('listen-hint-slider');
+  slider.value = 3;
+  document.getElementById('listen-hint-pct').textContent = 'HSK 3+';
+  _loadHskLevels().then(() => _renderListenHint(3));
 }
 
 function _renderListenHint(threshold) {
