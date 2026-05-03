@@ -105,6 +105,21 @@ def _run_regen_ai(word_id: int, word: dict, fields: list) -> tuple[dict, list]:
                 _enrich_chars_with_id(result.get("characters", []), comp_chars, all_characters)
     else:
         characters = database.get_word_characters(word_id)
+        if want_char_data and not characters:
+            # No entry_characters linked — derive from word_zh so the AI knows which chars to analyze
+            for ch in word.get("word_zh", ""):
+                basic = database.get_character(ch)
+                if basic:
+                    full = database.get_character_by_id(basic["id"])
+                    if full:
+                        characters.append({
+                            "char_id": full["id"],
+                            "char": ch,
+                            "pinyin": full.get("pinyin", ""),
+                            "hsk_level": full.get("hsk_level", ""),
+                            "etymology": full.get("etymology", ""),
+                            "compounds": full.get("compounds", []),
+                        })
         top_result = ai.regenerate_entry_fields(word, characters, fields)
         _enrich_chars_with_id(top_result.get("characters", []), characters, all_characters)
 
@@ -135,10 +150,13 @@ def _save_regen_result(word_id: int, fields: list, top_result: dict, all_charact
                     position=i,
                 )
 
-    for char_data in all_characters:
+    existing_chars = {c["char_id"] for c in database.get_word_characters(word_id)}
+    for i, char_data in enumerate(all_characters):
         char_id = char_data.get("char_id")
         if not char_id:
             continue
+        if char_id not in existing_chars:
+            database.insert_word_character(word_id, char_id, i, None)
         if "etymology" in fields and char_data.get("etymology"):
             database.update_character(char_id, {"etymology": char_data["etymology"]})
         if "compounds" in fields and char_data.get("compounds"):
