@@ -83,7 +83,10 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str) -> str:
             output_tokens=resp.usage.completion_tokens,
             purpose=purpose,
         )
-        return resp.choices[0].message.content.strip()
+        choice = resp.choices[0]
+        if choice.finish_reason == "length":
+            logger.warning("[%s] response truncated (finish_reason=length, max_tokens=%d)", model, max_tokens)
+        return (choice.message.content or "").strip()
 
 
 # ---------------------------------------------------------------------------
