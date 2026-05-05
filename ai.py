@@ -179,7 +179,7 @@ Return ONLY a numbered list of Chinese sentences, no explanation:
     logger.info("[%s] generate_story: %d 张卡片 mode=%s", model, len(cards), mode)
     logger.debug("Prompt:\n%s", prompt)
 
-    max_tokens = len(cards) * 150 + 200
+    max_tokens = len(cards) * 200 + 200
     if not model.startswith("claude-"):
         max_tokens = min(max_tokens, 8192)
 
