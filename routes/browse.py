@@ -105,21 +105,24 @@ def _run_regen_ai(word_id: int, word: dict, fields: list) -> tuple[dict, list]:
                 _enrich_chars_with_id(result.get("characters", []), comp_chars, all_characters)
     else:
         characters = database.get_word_characters(word_id)
-        if want_char_data and not characters:
-            # No entry_characters linked — derive from word_zh so the AI knows which chars to analyze
+        if want_char_data:
+            # Supplement with any characters from word_zh not yet in entry_characters
+            existing_in_db = {c["char"] for c in characters}
             for ch in word.get("word_zh", ""):
-                basic = database.get_character(ch)
-                if basic:
-                    full = database.get_character_by_id(basic["id"])
-                    if full:
-                        characters.append({
-                            "char_id": full["id"],
-                            "char": ch,
-                            "pinyin": full.get("pinyin", ""),
-                            "hsk_level": full.get("hsk_level", ""),
-                            "etymology": full.get("etymology", ""),
-                            "compounds": full.get("compounds", []),
-                        })
+                if ch not in existing_in_db:
+                    basic = database.get_character(ch)
+                    if basic:
+                        full = database.get_character_by_id(basic["id"])
+                        if full:
+                            characters.append({
+                                "char_id": full["id"],
+                                "char": ch,
+                                "pinyin": full.get("pinyin", ""),
+                                "hsk_level": full.get("hsk_level", ""),
+                                "etymology": full.get("etymology", ""),
+                                "compounds": full.get("compounds", []),
+                            })
+                            existing_in_db.add(ch)
         top_result = ai.regenerate_entry_fields(word, characters, fields)
         _enrich_chars_with_id(top_result.get("characters", []), characters, all_characters)
 

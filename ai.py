@@ -83,7 +83,15 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str) -> str:
             output_tokens=resp.usage.completion_tokens,
             purpose=purpose,
         )
-        return resp.choices[0].message.content.strip()
+        choice = resp.choices[0]
+        if choice.finish_reason == "length":
+            logger.warning("[%s] response truncated (finish_reason=length, max_tokens=%d)", model, max_tokens)
+        content = choice.message.content
+        if not content:
+            reasoning = getattr(choice.message, "reasoning_content", None)
+            logger.warning("[%s] content=None (reasoning_tokens=%d)", model,
+                           len(reasoning) if reasoning else 0)
+        return (content or "").strip()
 
 
 # ---------------------------------------------------------------------------
@@ -176,9 +184,7 @@ Return ONLY a numbered list of Chinese sentences, no explanation:
     logger.info("[%s] generate_story: %d 张卡片 mode=%s", model, len(cards), mode)
     logger.debug("Prompt:\n%s", prompt)
 
-    max_tokens = len(cards) * 150 + 200
-    if not model.startswith("claude-"):
-        max_tokens = min(max_tokens, 8192)
+    max_tokens = 8192
 
     card_by_id = {c["word_id"]: c for c in cards}
     t_start = time.time()
@@ -225,7 +231,7 @@ Return ONLY a numbered list of Chinese sentences, no explanation:
                           percent=0)
             missing_ratio = len(missing_ids) / len(cards)
             last_partial = (parsed, missing_ids)
-            if attempt >= 1 and missing_ratio < 0.03:
+            if missing_ratio < 0.05:
                 _patch_missing(parsed, missing_ids, card_by_id)
                 _set_progress(progress_key, phase="translating",
                               msg="Translating sentences…", percent=88)
