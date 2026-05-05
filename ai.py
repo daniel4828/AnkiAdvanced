@@ -233,7 +233,7 @@ Return ONLY a numbered list of Chinese sentences, no explanation:
                           percent=0)
             missing_ratio = len(missing_ids) / len(cards)
             last_partial = (parsed, missing_ids)
-            if attempt >= 1 and missing_ratio < 0.03:
+            if missing_ratio < 0.05:
                 _patch_missing(parsed, missing_ids, card_by_id)
                 _set_progress(progress_key, phase="translating",
                               msg="Translating sentences…", percent=88)
