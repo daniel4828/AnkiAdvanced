@@ -86,7 +86,12 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str) -> str:
         choice = resp.choices[0]
         if choice.finish_reason == "length":
             logger.warning("[%s] response truncated (finish_reason=length, max_tokens=%d)", model, max_tokens)
-        return (choice.message.content or "").strip()
+        content = choice.message.content
+        if not content:
+            reasoning = getattr(choice.message, "reasoning_content", None)
+            logger.warning("[%s] content=None (reasoning_tokens=%d)", model,
+                           len(reasoning) if reasoning else 0)
+        return (content or "").strip()
 
 
 # ---------------------------------------------------------------------------
