@@ -274,6 +274,7 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
     from itertools import groupby
 
     today = anki_today().isoformat()
+    tomorrow = (date.fromisoformat(today) + timedelta(days=1)).isoformat()
     now = datetime.now().isoformat(timespec="seconds")
     conn = get_db()
 
@@ -294,11 +295,11 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
              AND c.deleted_at IS NULL
              AND (c.buried_until IS NULL OR c.buried_until < ?)
              AND (
-               (c.state IN ('learning', 'relearn') AND c.due <= ?)
+               (c.state IN ('learning', 'relearn') AND c.due < ?)
                OR (c.state = 'review' AND c.due <= ?)
                OR (c.state = 'new' AND c.due <= ?)
              )""",
-        (deck_id, category, today, now, today, today),
+        (deck_id, category, today, tomorrow, today, today),
     ).fetchall()
 
     all_cards = [dict(r) for r in rows]
