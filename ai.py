@@ -164,7 +164,7 @@ Rules:
 - Write the sentences in the same order as the target word list above
 - For items marked [SENTENCE]: use that exact text as the sentence, unchanged
 - Use proper Chinese punctuation — include commas（，）where natural pauses occur
-- Use only HSK 1-{max_hsk} vocabulary for non-target words
+- Use only HSK 1-{max_hsk} vocabulary for non-target words; each sentence must contain exactly ONE target word from the list — do not use other target words from the list in that sentence
 - Keep each sentence short and simple
 {style_rule}
 - NEVER use ASCII double-quote characters (") inside Chinese sentences — use 「」or （）instead
