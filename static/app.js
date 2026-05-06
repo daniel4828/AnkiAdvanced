@@ -4853,7 +4853,7 @@ function _importRenderTable() {
     const isDuplicate = e.status === 'duplicate';
     let midCols;
     if (isDuplicate) {
-      const dupAction = cfg.duplicate_action || 'skip';
+      const dupAction = cfg.duplicate_action || 'move_import';
       const moveTarget = cfg.move_target || '';
       const moveCats = cfg.move_categories || null; // null = all
       const catChecked = (cat) => (!moveCats || moveCats.includes(cat)) ? 'checked' : '';

@@ -55,6 +55,11 @@ def _openai_client(model: str) -> openai.OpenAI:
     raise ValueError(f"Unknown provider for model: {model}")
 
 
+def _is_reasoning_model(model: str) -> bool:
+    """Return True if the model uses an internal reasoning/thinking phase before output."""
+    return any(s in model.lower() for s in ("r1", "reasoner", "v4-flash", "thinking", "v3-flash"))
+
+
 def _call_api(model: str, messages: list, max_tokens: int, purpose: str) -> str:
     """Call the appropriate provider, log usage, and return the raw text response."""
     t0 = time.time()
@@ -75,22 +80,39 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str) -> str:
         client = _openai_client(model)
         resp = client.chat.completions.create(model=model, max_tokens=max_tokens, messages=messages)
         elapsed = time.time() - t0
-        logger.info("[%s] API call done in %.1fs — in=%d out=%d purpose=%s",
-                    model, elapsed, resp.usage.prompt_tokens, resp.usage.completion_tokens, purpose)
+        choice = resp.choices[0]
+        content = choice.message.content
+        reasoning = getattr(choice.message, "reasoning_content", None)
+        reasoning_chars = len(reasoning) if reasoning else 0
+
+        logger.info("[%s] API call done in %.1fs — in=%d out=%d reasoning_chars=%d purpose=%s",
+                    model, elapsed,
+                    resp.usage.prompt_tokens, resp.usage.completion_tokens,
+                    reasoning_chars, purpose)
         database.log_api_call(
             model=resp.model,
             input_tokens=resp.usage.prompt_tokens,
             output_tokens=resp.usage.completion_tokens,
             purpose=purpose,
         )
-        choice = resp.choices[0]
+
         if choice.finish_reason == "length":
-            logger.warning("[%s] response truncated (finish_reason=length, max_tokens=%d)", model, max_tokens)
-        content = choice.message.content
-        if not content:
-            reasoning = getattr(choice.message, "reasoning_content", None)
-            logger.warning("[%s] content=None (reasoning_tokens=%d)", model,
-                           len(reasoning) if reasoning else 0)
+            if reasoning_chars > 0 and not content:
+                logger.warning(
+                    "[%s] Reasoning model exhausted max_tokens=%d on thinking "
+                    "(%d reasoning chars) — no content produced. "
+                    "Increase max_tokens for this model.",
+                    model, max_tokens, reasoning_chars,
+                )
+                logger.debug("[%s] reasoning snippet: %.500s…", model, reasoning)
+            else:
+                logger.warning("[%s] response truncated (finish_reason=length, max_tokens=%d, "
+                               "content_chars=%d)", model, max_tokens, len(content or ""))
+
+        if not content and not reasoning:
+            logger.warning("[%s] empty response — no content and no reasoning (purpose=%s)",
+                           model, purpose)
+
         return (content or "").strip()
 
 
@@ -181,10 +203,13 @@ Return ONLY a numbered list of Chinese sentences, no explanation:
 1. ...
 2. ..."""
 
-    logger.info("[%s] generate_story: %d 张卡片 mode=%s", model, len(cards), mode)
-    logger.debug("Prompt:\n%s", prompt)
+    # Reasoning models (e.g. deepseek-v4-flash) spend tokens on internal thinking
+    # before writing output — they need a much larger budget to avoid content=None.
+    max_tokens = 32768 if _is_reasoning_model(model) else 8192
 
-    max_tokens = 8192
+    logger.info("[%s] generate_story: %d 张卡片 mode=%s max_tokens=%d reasoning_model=%s",
+                model, len(cards), mode, max_tokens, _is_reasoning_model(model))
+    logger.debug("Prompt:\n%s", prompt)
 
     card_by_id = {c["word_id"]: c for c in cards}
     t_start = time.time()
@@ -207,7 +232,15 @@ Return ONLY a numbered list of Chinese sentences, no explanation:
                 sentences_zh.append(m.group(1).strip())
 
         if not sentences_zh:
-            logger.error("generate_story: no numbered sentences found in response")
+            if not raw:
+                logger.error("generate_story: attempt %d — empty response from API "
+                             "(model=%s, max_tokens=%d). "
+                             "If this is a reasoning model, it may have exhausted its token budget on thinking.",
+                             attempt + 1, model, max_tokens)
+            else:
+                logger.error("generate_story: attempt %d — no numbered sentences found "
+                             "(response was %d chars):\n%.500s…",
+                             attempt + 1, len(raw), raw)
             continue
 
         # Match target words to sentences by string search
