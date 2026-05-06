@@ -55,13 +55,14 @@ def _openai_client(model: str) -> openai.OpenAI:
     raise ValueError(f"Unknown provider for model: {model}")
 
 
-def _is_reasoning_model(model: str) -> bool:
-    """Return True if the model uses an internal reasoning/thinking phase before output."""
-    return any(s in model.lower() for s in ("r1", "reasoner", "v4-flash", "thinking", "v3-flash"))
+def _call_api(model: str, messages: list, max_tokens: int, purpose: str,
+              thinking: bool = False) -> str:
+    """Call the appropriate provider, log usage, and return the raw text response.
 
-
-def _call_api(model: str, messages: list, max_tokens: int, purpose: str) -> str:
-    """Call the appropriate provider, log usage, and return the raw text response."""
+    thinking: enable DeepSeek thinking/reasoning mode (default False — disabled).
+              deepseek-v4-flash defaults to thinking=on server-side, so we must
+              explicitly disable it for tasks that don't need chain-of-thought.
+    """
     t0 = time.time()
     if model.startswith("claude-"):
         client = anthropic.Anthropic()
@@ -78,7 +79,13 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str) -> str:
         return msg.content[0].text.strip()
     else:
         client = _openai_client(model)
-        resp = client.chat.completions.create(model=model, max_tokens=max_tokens, messages=messages)
+        extra: dict = {}
+        if model.startswith("deepseek-"):
+            extra["extra_body"] = {"thinking": {"type": "enabled" if thinking else "disabled"}}
+            logger.debug("[%s] thinking=%s", model, thinking)
+        resp = client.chat.completions.create(
+            model=model, max_tokens=max_tokens, messages=messages, **extra
+        )
         elapsed = time.time() - t0
         choice = resp.choices[0]
         content = choice.message.content
@@ -99,12 +106,10 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str) -> str:
         if choice.finish_reason == "length":
             if reasoning_chars > 0 and not content:
                 logger.warning(
-                    "[%s] Reasoning model exhausted max_tokens=%d on thinking "
-                    "(%d reasoning chars) — no content produced. "
-                    "Increase max_tokens for this model.",
+                    "[%s] thinking mode exhausted max_tokens=%d (%d reasoning chars) "
+                    "— no content produced. Pass thinking=False or increase max_tokens.",
                     model, max_tokens, reasoning_chars,
                 )
-                logger.debug("[%s] reasoning snippet: %.500s…", model, reasoning)
             else:
                 logger.warning("[%s] response truncated (finish_reason=length, max_tokens=%d, "
                                "content_chars=%d)", model, max_tokens, len(content or ""))
@@ -203,12 +208,9 @@ Return ONLY a numbered list of Chinese sentences, no explanation:
 1. ...
 2. ..."""
 
-    # Reasoning models (e.g. deepseek-v4-flash) spend tokens on internal thinking
-    # before writing output — they need a much larger budget to avoid content=None.
-    max_tokens = 32768 if _is_reasoning_model(model) else 8192
+    max_tokens = 8192
 
-    logger.info("[%s] generate_story: %d 张卡片 mode=%s max_tokens=%d reasoning_model=%s",
-                model, len(cards), mode, max_tokens, _is_reasoning_model(model))
+    logger.info("[%s] generate_story: %d 张卡片 mode=%s", model, len(cards), mode)
     logger.debug("Prompt:\n%s", prompt)
 
     card_by_id = {c["word_id"]: c for c in cards}
