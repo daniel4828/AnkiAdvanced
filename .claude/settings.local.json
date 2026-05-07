@@ -115,7 +115,8 @@
       "Bash(launchctl unload *)",
       "Bash(launchctl start *)",
       "Bash(cat /Users/daniel/Documents/AnkiAdvanced/ldn174.md)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "WebFetch(domain:api-docs.deepseek.com)"
     ]
   },
   "hooks": {
