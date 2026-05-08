@@ -5037,6 +5037,16 @@ function importSetAllSuspended(category, suspended) {
   _importRenderTable();
 }
 
+function selectDailyDeck() {
+  const today = new Date().toISOString().slice(0, 10);
+  const input = document.getElementById('import-deck-path');
+  input.value = today;
+  const isNew = !(window._deckSuggestions || []).some(s => s.toLowerCase() === today.toLowerCase());
+  document.getElementById('deck-picker-new-badge').style.display = isNew ? '' : 'none';
+  document.getElementById('deck-picker-dropdown').style.display = 'none';
+  importApplyGlobalDeck();
+}
+
 function importApplyGlobalDeck() {
   // Keep datalist in sync so new deck names appear in the move-target autocomplete
   const importDeckPath = document.getElementById('import-deck-path').value.trim();
