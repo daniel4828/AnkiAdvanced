@@ -1397,9 +1397,73 @@ main.browse-open {
   color: var(--text);
   cursor: default;
 }
+.wa-compound-clickable {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.wa-compound-clickable:hover {
+  background: var(--accent-faint, #e8f0fe);
+  color: var(--accent, #1a73e8);
+}
 .wa-compound-pin { font-size: 11px; color: var(--muted); }
 .wa-compound-meaning { font-size: 11px; color: var(--muted); font-style: italic; }
 .wa-compound-hl { font-weight: 700; }
+
+/* ── Quick-add compound word menu ───────────────────────────────────────── */
+.quick-add-menu {
+  position: fixed;
+  z-index: 9000;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border, #ddd);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  padding: 10px 14px;
+  min-width: 190px;
+  max-width: 260px;
+}
+.qa-word {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.qa-pin { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 6px; }
+.qa-meaning { font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 6px; }
+.qa-deck-label {
+  font-size: 11px;
+  color: var(--accent, #1a73e8);
+  margin-bottom: 8px;
+}
+.qa-add-btn {
+  width: 100%;
+  padding: 6px 0;
+  background: var(--accent, #1a73e8);
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.qa-add-btn:hover { opacity: 0.88; }
+.qa-add-btn:disabled { opacity: 0.55; cursor: default; }
+
+/* ── Quick-add result banner ─────────────────────────────────────────────── */
+.quick-add-banner {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9100;
+  padding: 9px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  pointer-events: none;
+  display: none;
+}
+.quick-add-banner.qa-success { background: #1e8e3e; color: #fff; }
+.quick-add-banner.qa-info    { background: #555; color: #fff; }
 
 /* ── Creating: front input ───────────────────────────── */
 .sentence-en-front {

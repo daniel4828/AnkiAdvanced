@@ -3531,7 +3531,10 @@ function renderWordAnalysis(container, wordData, wordId) {
             const highlightedZh = (cp.compound_zh || '').split('').map(ch =>
               ch === c.char ? `<span class="wa-compound-hl">${ch}</span>` : ch
             ).join('');
-            return `<span class="wa-compound-item">${highlightedZh}` +
+            const zhEsc = (cp.compound_zh || '').replace(/'/g, "\\'");
+            const pinEsc = (cp.pinyin || '').replace(/'/g, "\\'");
+            const meanEsc = (cp.meaning || '').replace(/'/g, "\\'");
+            return `<span class="wa-compound-item wa-compound-clickable" onclick="event.stopPropagation();openQuickAddMenu(event,'${zhEsc}','${pinEsc}','${meanEsc}')">${highlightedZh}` +
               (cp.pinyin ? ` <span class="wa-compound-pin">${cp.pinyin}</span>` : '') +
               (cp.meaning ? ` <span class="wa-compound-meaning">${cp.meaning}</span>` : '') +
               `</span>`;
@@ -3569,6 +3572,82 @@ function renderWordAnalysis(container, wordData, wordId) {
 
 function _callRenderWordAnalysis() {
   renderWordAnalysis();
+}
+
+// ── Quick-add compound word to tomorrow's Daily deck ────────────────────────
+
+let _quickAddMenu = null;
+
+function openQuickAddMenu(event, wordZh, pinyin, meaning) {
+  closeQuickAddMenu();
+
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toLocaleDateString('sv-SE');
+
+  const menu = document.createElement('div');
+  menu.id = 'quick-add-menu';
+  menu.className = 'quick-add-menu';
+  menu.innerHTML =
+    `<div class="qa-word">${wordZh}` +
+      (pinyin ? ` <span class="qa-pin">${pinyin}</span>` : '') +
+    `</div>` +
+    (meaning ? `<div class="qa-meaning">${meaning}</div>` : '') +
+    `<div class="qa-deck-label">Daily::${tomorrowStr}</div>` +
+    `<button class="qa-add-btn" onclick="doQuickAdd('${wordZh.replace(/'/g,"\\'")}','${pinyin.replace(/'/g,"\\'")}','${meaning.replace(/'/g,"\\'")}',this)">+ Add to Daily deck</button>`;
+
+  document.body.appendChild(menu);
+  _quickAddMenu = menu;
+
+  // Position near the click
+  const x = Math.min(event.clientX, window.innerWidth - 220);
+  const y = event.clientY + 8;
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+
+  // Close on outside click
+  setTimeout(() => document.addEventListener('click', closeQuickAddMenu, { once: true }), 0);
+}
+
+function closeQuickAddMenu() {
+  if (_quickAddMenu) {
+    _quickAddMenu.remove();
+    _quickAddMenu = null;
+  }
+}
+
+async function doQuickAdd(wordZh, pinyin, meaning, btn) {
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    const result = await api('POST', '/api/quick-add-word', { word_zh: wordZh, pinyin, meaning });
+    closeQuickAddMenu();
+    const msgs = {
+      created:        `✓ "${wordZh}" added to ${result.deck_path}`,
+      added_to_deck:  `✓ "${wordZh}" added to ${result.deck_path}`,
+      already_in_deck:`"${wordZh}" is already in ${result.deck_path}`,
+    };
+    showQuickAddBanner(msgs[result.status] || `✓ Done`, result.status === 'already_in_deck');
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '+ Add to Daily deck';
+    showError(e.message || 'Failed to add word');
+  }
+}
+
+function showQuickAddBanner(msg, isInfo) {
+  let el = document.getElementById('quick-add-banner');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'quick-add-banner';
+    el.className = 'quick-add-banner';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.className = 'quick-add-banner' + (isInfo ? ' qa-info' : ' qa-success');
+  el.style.display = 'block';
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(() => { el.style.display = 'none'; }, 3500);
 }
 
 // ── Listening hint slider (HSK-aware) ───────────────────────────────────────
