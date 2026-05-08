@@ -1,7 +1,9 @@
 import json
 import logging
 import os
+from datetime import date, timedelta
 
+import ai
 import database
 import importer
 from fastapi import APIRouter, Form, HTTPException, UploadFile
@@ -161,3 +163,61 @@ async def import_from_directory(
         "errors": errors,
         "files_processed": len(yaml_files),
     }
+
+
+@router.post("/api/quick-add-word")
+def quick_add_word(body: dict):
+    """Add a compound word to tomorrow's Daily deck with AI-generated fields.
+
+    Body: { word_zh, pinyin?, meaning? }
+    Returns: { status: "created"|"added_to_deck"|"already_in_deck", entry_id, deck_path, deck_id }
+    """
+    word_zh = (body.get("word_zh") or "").strip()
+    if not word_zh:
+        raise HTTPException(status_code=400, detail="word_zh is required")
+
+    pinyin = (body.get("pinyin") or "").strip()
+    meaning = (body.get("meaning") or "").strip()
+
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    deck_path = f"Daily::{tomorrow}"
+    deck_id = database.get_or_create_deck_path(deck_path)
+
+    existing = database.get_word_by_zh(word_zh)
+    if existing:
+        entry_id = existing["id"]
+        conn = database.get_db()
+        already = conn.execute(
+            "SELECT id FROM cards WHERE word_id = ? AND deck_id = ? AND deleted_at IS NULL LIMIT 1",
+            (entry_id, deck_id),
+        ).fetchone()
+        conn.close()
+        if already:
+            return {"status": "already_in_deck", "entry_id": entry_id,
+                    "deck_path": deck_path, "deck_id": deck_id}
+        status = "added_to_deck"
+    else:
+        word_data = {
+            "word_zh": word_zh,
+            "pinyin": pinyin,
+            "definition": meaning,
+            "note_type": "vocabulary",
+        }
+        if not os.environ.get("DISABLE_AI"):
+            try:
+                result = ai.regenerate_entry_fields(
+                    word_data, [], ["definition", "definition_zh", "definition_de", "pos"]
+                )
+                for field in ("definition", "definition_zh", "definition_de", "pos"):
+                    if result.get(field):
+                        word_data[field] = result[field]
+            except Exception as exc:
+                logger.warning("quick_add_word: AI generation failed for %r: %s", word_zh, exc)
+
+        entry_id = database.insert_word(word_data)
+        status = "created"
+
+    for category in ("listening", "reading", "writing"):
+        database.insert_card(entry_id, category, deck_id, state="new", due=tomorrow)
+
+    return {"status": status, "entry_id": entry_id, "deck_path": deck_path, "deck_id": deck_id}
