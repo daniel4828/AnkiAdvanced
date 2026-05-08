@@ -3593,7 +3593,7 @@ function openQuickAddMenu(event, wordZh, pinyin, meaning) {
       (pinyin ? ` <span class="qa-pin">${pinyin}</span>` : '') +
     `</div>` +
     (meaning ? `<div class="qa-meaning">${meaning}</div>` : '') +
-    `<div class="qa-deck-label">Daily::${tomorrowStr}</div>` +
+    `<div class="qa-deck-label">daily::${tomorrowStr}</div>` +
     `<button class="qa-add-btn" onclick="doQuickAdd('${wordZh.replace(/'/g,"\\'")}','${pinyin.replace(/'/g,"\\'")}','${meaning.replace(/'/g,"\\'")}',this)">+ Add to Daily deck</button>`;
 
   document.body.appendChild(menu);
@@ -5118,7 +5118,7 @@ function importSetAllSuspended(category, suspended) {
 
 function selectDailyDeck() {
   const today = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD in local time
-  deckPickerSelect('Daily::' + today);
+  deckPickerSelect('daily::' + today);
   importApplyGlobalDeck();
 }
 
