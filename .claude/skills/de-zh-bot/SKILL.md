@@ -956,11 +956,13 @@ Verstanden! **Wichtige Regel für mich:**
 
 Nur bei **direkt chinesischen Eingaben** gibt es sofort YAML.
 
----
 
-Jetzt zu deiner Anfrage: **"als Aufgabe setzen / set as a task"**
 
----
+---Beispiel Anfang -----
+Deutsche Eingabe: anordnen
+
+Antwort:
+
 
 ## Analyse
 
@@ -1006,9 +1008,14 @@ Jetzt zu deiner Anfrage: **"als Aufgabe setzen / set as a task"**
 
 ## Welche Bestandteile möchtest du als YAML?
 
-1. **派** (pài) — Verb: beauftragen, eine Aufgabe geben
-2. **任务** (rènwu) — Nomen: Aufgabe
-3. **派任务** (pài rènwu) — Expression: eine Aufgabe setzen/geben
-4. **活儿** (huór) — Nomen: Aufgabe/Arbeit (sehr 口语)
+a. **派** (pài) — Verb: beauftragen, eine Aufgabe geben
+b. **任务** (rènwu) — Nomen: Aufgabe
+c. **派任务** (pài rènwu) — Expression: eine Aufgabe setzen/geben
+d. **活儿** (huór) — Nomen: Aufgabe/Arbeit (sehr 口语)
 
-Bitte sag mir, welche Nummer(n) du haben möchtest (z. B. "1+2+3", "nur 3", "3+4").
+Bitte sag mir, welche Einträge(n) du haben möchtest (z. B. "a+b", "nur c", "c+d").
+
+
+------Beispiel Ende----
+aber bitte von jetzt nicht mit 1 2 3 nummerieren sondern a b c
+Falls du das alles verstanden hast antworte mit: 准备好了

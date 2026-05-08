@@ -52,10 +52,10 @@ def preview_intervals(card: dict) -> dict:
         else:
             hard = _fmt_min(r_steps[step_index] * 1.5)
         if step_index >= len(r_steps) - 1:
-            good = _fmt_day(_fuzz_interval(max(min_int, interval)))
+            good = _fmt_day(max(min_int, interval))
         else:
             good = _fmt_min(r_steps[step_index + 1])
-        easy = _fmt_day(_fuzz_interval(max(min_int, interval)))
+        easy = _fmt_day(max(min_int, math.floor(interval * ease)))
 
     else:
         again = hard = good = easy = "—"
@@ -334,9 +334,16 @@ def _handle_relearn(card: dict, preset: dict, rating: int) -> dict:
     idx = c["step_index"]
     last = len(steps) - 1
 
-    if rating == 4 or idx >= last:  # Easy or last step — back to review
+    if rating == 4:  # Easy — skip steps, apply ease bonus
+        raw = max(preset["minimum_interval"], math.floor(c["interval"] * c["ease"]))
         c["state"] = "review"
-        c["interval"] = _fuzz_interval(c["interval"])
+        c["interval"] = _fuzz_interval(raw)
+        c["due"] = next_review_due(c["interval"])
+        c["step_index"] = 0
+        c["repetitions"] += 1
+    elif idx >= last:  # Good at last step — back to review at stored interval
+        c["state"] = "review"
+        c["interval"] = _fuzz_interval(max(preset["minimum_interval"], c["interval"]))
         c["due"] = next_review_due(c["interval"])
         c["step_index"] = 0
         c["repetitions"] += 1

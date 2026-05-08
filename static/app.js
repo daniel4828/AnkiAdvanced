@@ -1591,10 +1591,10 @@ function renderWordDetail(word) {
     relEl.innerHTML = '';
   }
 
-  // Shared sections (notes, examples, word analysis)
+  // Shared sections (notes, word analysis, examples)
   renderNotesSection(document.getElementById('wd-notes-section'), word.notes, word.id);
-  renderVocabDetail(document.getElementById('wd-examples-section'), word.examples, word.id);
   renderWordAnalysis(document.getElementById('wd-word-analysis-section'), word, word.id);
+  renderVocabDetail(document.getElementById('wd-examples-section'), word.examples, word.id);
 
   // Cards section
   renderWordDetailCards(word.cards || [], word.id);
@@ -2773,9 +2773,10 @@ function showFront() {
   const wordDefHint = document.getElementById('creating-word-def');
   if (isCreating) {
     const parts = [];
+    if (card.definition) parts.push(`🇬🇧 ${card.definition}`);
     if (card.definition_fr) parts.push(`🇫🇷 ${card.definition_fr}`);
     if (card.definition_de) parts.push(`🇩🇪 ${card.definition_de}`);
-    const defText = parts.length ? parts.join('<br>') : (card.definition || '');
+    const defText = parts.join('<br>');
     wordDefHint.innerHTML = defText;
     wordDefHint.style.display = defText ? 'block' : 'none';
   } else {
@@ -2999,9 +3000,9 @@ function revealAnswer() {
   _renderMultiRatingIfNeeded();
 
   // Populate character breakdown, examples, notes, grammar, and word analysis
-  renderVocabDetail();
   renderNotesSection();
   _callRenderWordAnalysis();
+  renderVocabDetail();
   renderReviewCatRow();
 
   // Auto-play audio on reveal for all categories
@@ -3012,9 +3013,15 @@ function revealAnswer() {
 function toggleSection(id) {
   const body = document.getElementById(id);
   const arrow = document.getElementById(id + '-arrow');
-  const open = body.style.display !== 'none';
-  body.style.display = open ? 'none' : 'block';
-  arrow.textContent = open ? '▶' : '▼';
+  if (body.dataset.peek) {
+    const isPeek = body.classList.contains('section-peek');
+    body.classList.toggle('section-peek', !isPeek);
+    arrow.textContent = isPeek ? '▼' : '▶';
+  } else {
+    const open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : 'block';
+    arrow.textContent = open ? '▶' : '▼';
+  }
 }
 
 // ── Interactive sentence/chengyu rendering ───────────────────────────────────
@@ -3440,7 +3447,7 @@ function renderNotesSection(container, notes, wordId) {
   el.innerHTML =
     `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
       `<span><span id="${bodyId}-arrow">▶</span> Notes</span>${regenBtn}</div>` +
-    `<div id="${bodyId}" style="display:none">${bodyContent}</div>`;
+    `<div id="${bodyId}" class="section-peek" data-peek="1">${bodyContent}</div>`;
   el.style.display = '';
 }
 
@@ -3479,7 +3486,7 @@ function renderWordAnalysis(container, wordData, wordId) {
     el.innerHTML =
       `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
         `<span><span id="${bodyId}-arrow">▶</span> Word Analysis</span>${regenBtnWA}</div>` +
-      `<div id="${bodyId}" class="wa-list" style="display:none"><div class="section-empty">—</div></div>`;
+      `<div id="${bodyId}" class="wa-list section-peek" data-peek="1"><div class="section-empty">—</div></div>`;
     return;
   }
 
@@ -3557,7 +3564,7 @@ function renderWordAnalysis(container, wordData, wordId) {
   el.innerHTML =
     `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
       `<span><span id="${bodyId}-arrow">▶</span> Word Analysis</span>${regenBtnWA}</div>` +
-    `<div id="${bodyId}" class="wa-list" style="display:none">${wordCards}</div>`;
+    `<div id="${bodyId}" class="wa-list section-peek" data-peek="1">${wordCards}</div>`;
 }
 
 function _callRenderWordAnalysis() {
@@ -3686,6 +3693,8 @@ function _renderListenHint(threshold) {
     const ch = zh[i];
     if (!isCjk(ch)) {
       html += ch;
+    } else if (threshold === 0) {
+      html += ch; // "All" mode: reveal every character including target vocab
     } else if (targetPositions.has(i)) {
       html += `<span class="hint-blank">_</span>`;
     } else if (revealPositions.has(i)) {
@@ -4853,7 +4862,7 @@ function _importRenderTable() {
     const isDuplicate = e.status === 'duplicate';
     let midCols;
     if (isDuplicate) {
-      const dupAction = cfg.duplicate_action || 'skip';
+      const dupAction = cfg.duplicate_action || 'move_import';
       const moveTarget = cfg.move_target || '';
       const moveCats = cfg.move_categories || null; // null = all
       const catChecked = (cat) => (!moveCats || moveCats.includes(cat)) ? 'checked' : '';

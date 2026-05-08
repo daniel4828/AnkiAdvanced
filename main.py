@@ -92,6 +92,7 @@ logging.root.setLevel(os.environ.get("LOG_LEVEL", "INFO").upper())
 logging.root.addHandler(_handler)
 logger = logging.getLogger("main")
 logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
 # ---------------------------------------------------------------------------
