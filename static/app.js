@@ -2773,9 +2773,10 @@ function showFront() {
   const wordDefHint = document.getElementById('creating-word-def');
   if (isCreating) {
     const parts = [];
+    if (card.definition) parts.push(`🇬🇧 ${card.definition}`);
     if (card.definition_fr) parts.push(`🇫🇷 ${card.definition_fr}`);
     if (card.definition_de) parts.push(`🇩🇪 ${card.definition_de}`);
-    const defText = parts.length ? parts.join('<br>') : (card.definition || '');
+    const defText = parts.join('<br>');
     wordDefHint.innerHTML = defText;
     wordDefHint.style.display = defText ? 'block' : 'none';
   } else {
@@ -3686,6 +3687,8 @@ function _renderListenHint(threshold) {
     const ch = zh[i];
     if (!isCjk(ch)) {
       html += ch;
+    } else if (threshold === 0) {
+      html += ch; // "All" mode: reveal every character including target vocab
     } else if (targetPositions.has(i)) {
       html += `<span class="hint-blank">_</span>`;
     } else if (revealPositions.has(i)) {
