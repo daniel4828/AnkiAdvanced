@@ -1591,10 +1591,10 @@ function renderWordDetail(word) {
     relEl.innerHTML = '';
   }
 
-  // Shared sections (notes, examples, word analysis)
+  // Shared sections (notes, word analysis, examples)
   renderNotesSection(document.getElementById('wd-notes-section'), word.notes, word.id);
-  renderVocabDetail(document.getElementById('wd-examples-section'), word.examples, word.id);
   renderWordAnalysis(document.getElementById('wd-word-analysis-section'), word, word.id);
+  renderVocabDetail(document.getElementById('wd-examples-section'), word.examples, word.id);
 
   // Cards section
   renderWordDetailCards(word.cards || [], word.id);
@@ -3000,9 +3000,9 @@ function revealAnswer() {
   _renderMultiRatingIfNeeded();
 
   // Populate character breakdown, examples, notes, grammar, and word analysis
-  renderVocabDetail();
   renderNotesSection();
   _callRenderWordAnalysis();
+  renderVocabDetail();
   renderReviewCatRow();
 
   // Auto-play audio on reveal for all categories
@@ -3013,9 +3013,15 @@ function revealAnswer() {
 function toggleSection(id) {
   const body = document.getElementById(id);
   const arrow = document.getElementById(id + '-arrow');
-  const open = body.style.display !== 'none';
-  body.style.display = open ? 'none' : 'block';
-  arrow.textContent = open ? '▶' : '▼';
+  if (body.dataset.peek) {
+    const isPeek = body.classList.contains('section-peek');
+    body.classList.toggle('section-peek', !isPeek);
+    arrow.textContent = isPeek ? '▼' : '▶';
+  } else {
+    const open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : 'block';
+    arrow.textContent = open ? '▶' : '▼';
+  }
 }
 
 // ── Interactive sentence/chengyu rendering ───────────────────────────────────
@@ -3441,7 +3447,7 @@ function renderNotesSection(container, notes, wordId) {
   el.innerHTML =
     `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
       `<span><span id="${bodyId}-arrow">▶</span> Notes</span>${regenBtn}</div>` +
-    `<div id="${bodyId}" style="display:none">${bodyContent}</div>`;
+    `<div id="${bodyId}" class="section-peek" data-peek="1">${bodyContent}</div>`;
   el.style.display = '';
 }
 
@@ -3480,7 +3486,7 @@ function renderWordAnalysis(container, wordData, wordId) {
     el.innerHTML =
       `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
         `<span><span id="${bodyId}-arrow">▶</span> Word Analysis</span>${regenBtnWA}</div>` +
-      `<div id="${bodyId}" class="wa-list" style="display:none"><div class="section-empty">—</div></div>`;
+      `<div id="${bodyId}" class="wa-list section-peek" data-peek="1"><div class="section-empty">—</div></div>`;
     return;
   }
 
@@ -3558,7 +3564,7 @@ function renderWordAnalysis(container, wordData, wordId) {
   el.innerHTML =
     `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
       `<span><span id="${bodyId}-arrow">▶</span> Word Analysis</span>${regenBtnWA}</div>` +
-    `<div id="${bodyId}" class="wa-list" style="display:none">${wordCards}</div>`;
+    `<div id="${bodyId}" class="wa-list section-peek" data-peek="1">${wordCards}</div>`;
 }
 
 function _callRenderWordAnalysis() {

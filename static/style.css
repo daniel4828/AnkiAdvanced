@@ -895,6 +895,23 @@ main.browse-open {
 }
 .section-toggle:hover { color: var(--primary); }
 
+.section-peek {
+  display: block;
+  max-height: 72px;
+  overflow: hidden;
+  position: relative;
+}
+.section-peek::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  background: linear-gradient(transparent, var(--card));
+  pointer-events: none;
+}
+
 .section-label-row {
   display: flex;
   align-items: center;
