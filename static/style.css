@@ -871,7 +871,7 @@ main.browse-open {
 .edit-notes { resize: vertical; min-height: 60px; line-height: 1.5; }
 
 .notes-body {
-  font-size: 14px;
+  font-size: 16px;
   color: var(--text);
   line-height: 1.6;
   padding: 8px 0 4px;
