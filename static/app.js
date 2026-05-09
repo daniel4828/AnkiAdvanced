@@ -3806,10 +3806,10 @@ function _renderListenHint(threshold) {
     const ch = zh[i];
     if (!isCjk(ch)) {
       html += ch;
-    } else if (threshold === 0) {
-      html += ch; // "All" mode: reveal every character including target vocab
     } else if (targetPositions.has(i)) {
       html += `<span class="hint-blank">_</span>`;
+    } else if (threshold === 0) {
+      html += ch; // "All" mode: reveal all non-target characters
     } else if (revealPositions.has(i)) {
       html += ch;
     } else {
