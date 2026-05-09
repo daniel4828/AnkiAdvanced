@@ -3649,6 +3649,8 @@ details[open] .cat-override-summary::before { content: '▼ '; }
     grid-column: 3;
     grid-row: 1;
     overflow: hidden;
+    height: 100%;
+    box-sizing: border-box;
   }
 
   /* Fill the panel: vocab-content stretches to remaining tile height */
@@ -3674,7 +3676,7 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   #word-analysis-section-body.section-open,
   #examples-section-body.section-open {
     flex: 1;
-    min-height: 0;
+    height: 0;
     max-height: none;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
