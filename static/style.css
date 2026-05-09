@@ -3648,41 +3648,15 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   #review-vocab-panel {
     grid-column: 3;
     grid-row: 1;
-    overflow: hidden;
-    height: 100%;
-    box-sizing: border-box;
+    overflow-y: auto;
   }
 
-  /* Fill the panel: vocab-content stretches to remaining tile height */
-  #vocab-content {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* Each section gets an equal share of the available height */
-  #notes-section,
-  #word-analysis-section,
-  #examples-section {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* Open state fills its section and is scrollable */
+  /* Open state: remove max-height so full content shows (panel scrolls) */
   #notes-section-body.section-open,
   #word-analysis-section-body.section-open,
   #examples-section-body.section-open {
-    flex: 1;
-    height: 0;
     max-height: none;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
   }
-
-  .edit-card-btn { flex-shrink: 0; }
 }
 
 /* ── Confetti (100% score celebration) ──────────────────── */
