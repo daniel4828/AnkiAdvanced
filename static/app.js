@@ -851,8 +851,7 @@ function renderDeckRows(decks, depth, sortMode) {
     if (deck.category && (!deck.children || deck.children.length === 0)) return '';
 
     const structChildren = (deck.children || [])
-      .filter(c => !(c.category && (!c.children || c.children.length === 0)))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .filter(c => !(c.category && (!c.children || c.children.length === 0)));
     const hasStructChildren = structChildren.length > 0;
     const isCollapsed = collapsed.has(deck.id);
     const indent = depth * 18;
@@ -890,7 +889,7 @@ function renderDeckRows(decks, depth, sortMode) {
       </div>`;
 
     const childRows = hasStructChildren && !isCollapsed
-      ? renderDeckRows(structChildren, depth + 1)
+      ? renderDeckRows(structChildren, depth + 1, mode)
       : '';
 
     return row + childRows;
