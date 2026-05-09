@@ -819,7 +819,7 @@ function renderDecks(decks) {
 
   // ── Regular Decks section ─────────────────────────────────────────────────
   const deckSortMode = localStorage.getItem('deckSortMode') || 'name';
-  const sortLabel = deckSortMode === 'due' ? 'Sort: Due ↓' : 'Sort: A→Z';
+  const sortLabel = deckSortMode === 'due' ? 'Sort: Due ↓' : deckSortMode === 'name-desc' ? 'Sort: Z→A' : 'Sort: A→Z';
   const regularHtml = renderDeckRows(regularDecks, 0, deckSortMode);
   if (regularHtml.trim()) {
     html += `<div class="section-label section-label-row">Decks<button class="deck-sort-btn" onclick="toggleDeckSort()">${sortLabel}</button></div><div class="tree-card">${regularHtml}</div>`;
@@ -830,7 +830,8 @@ function renderDecks(decks) {
 
 function toggleDeckSort() {
   const cur = localStorage.getItem('deckSortMode') || 'name';
-  localStorage.setItem('deckSortMode', cur === 'name' ? 'due' : 'name');
+  const next = cur === 'name' ? 'name-desc' : cur === 'name-desc' ? 'due' : 'name';
+  localStorage.setItem('deckSortMode', next);
   renderDecks(_cachedDecks);
 }
 
@@ -842,6 +843,7 @@ function renderDeckRows(decks, depth, sortMode) {
       const dueB = (b.counts?.new || 0) + (b.counts?.learning || 0) + (b.counts?.review || 0);
       return dueB - dueA || a.name.localeCompare(b.name);
     }
+    if (mode === 'name-desc') return b.name.localeCompare(a.name);
     return a.name.localeCompare(b.name);
   });
   return sorted.map(deck => {
