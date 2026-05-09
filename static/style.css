@@ -3670,20 +3670,14 @@ details[open] .cat-override-summary::before { content: '▼ '; }
     overflow: hidden;
   }
 
-  /* Body always fills its section in desktop layout, regardless of peek/open state */
-  #notes-section-body,
-  #word-analysis-section-body,
-  #examples-section-body {
+  /* Open state fills its section; peek keeps the limited max-height */
+  #notes-section-body.section-open,
+  #word-analysis-section-body.section-open,
+  #examples-section-body.section-open {
     flex: 1;
     min-height: 0;
     max-height: none;
-  }
-
-  /* Remove the mobile max-height when inside the fill sections */
-  #notes-section .section-peek,
-  #word-analysis-section .section-peek,
-  #examples-section .section-peek {
-    max-height: none;
+    overflow: hidden;
   }
 
   .edit-card-btn { flex-shrink: 0; }
