@@ -818,16 +818,32 @@ function renderDecks(decks) {
   }
 
   // ── Regular Decks section ─────────────────────────────────────────────────
-  const regularHtml = renderDeckRows(regularDecks, 0);
+  const deckSortMode = localStorage.getItem('deckSortMode') || 'name';
+  const sortLabel = deckSortMode === 'due' ? 'Sort: Due ↓' : 'Sort: A→Z';
+  const regularHtml = renderDeckRows(regularDecks, 0, deckSortMode);
   if (regularHtml.trim()) {
-    html += `<div class="section-label">Decks</div><div class="tree-card">${regularHtml}</div>`;
+    html += `<div class="section-label section-label-row">Decks<button class="deck-sort-btn" onclick="toggleDeckSort()">${sortLabel}</button></div><div class="tree-card">${regularHtml}</div>`;
   }
 
   document.getElementById('view-decks').innerHTML = navRow + html;
 }
 
-function renderDeckRows(decks, depth) {
-  const sorted = [...decks].sort((a, b) => a.name.localeCompare(b.name));
+function toggleDeckSort() {
+  const cur = localStorage.getItem('deckSortMode') || 'name';
+  localStorage.setItem('deckSortMode', cur === 'name' ? 'due' : 'name');
+  renderDecks(_cachedDecks);
+}
+
+function renderDeckRows(decks, depth, sortMode) {
+  const mode = sortMode || 'name';
+  const sorted = [...decks].sort((a, b) => {
+    if (mode === 'due') {
+      const dueA = (a.counts?.new || 0) + (a.counts?.learning || 0) + (a.counts?.review || 0);
+      const dueB = (b.counts?.new || 0) + (b.counts?.learning || 0) + (b.counts?.review || 0);
+      return dueB - dueA || a.name.localeCompare(b.name);
+    }
+    return a.name.localeCompare(b.name);
+  });
   return sorted.map(deck => {
     // Category leaf decks are consumed as pills — not rendered as rows
     if (deck.category && (!deck.children || deck.children.length === 0)) return '';
@@ -3583,7 +3599,7 @@ function openQuickAddMenu(event, wordZh, pinyin, meaning) {
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const tomorrowStr = tomorrow.toLocaleDateString('sv-SE');
+  const tomorrowStr = String(tomorrow.getMonth() + 1).padStart(2, '0') + '-' + String(tomorrow.getDate()).padStart(2, '0');
 
   const menu = document.createElement('div');
   menu.id = 'quick-add-menu';
@@ -5117,8 +5133,9 @@ function importSetAllSuspended(category, suspended) {
 }
 
 function selectDailyDeck() {
-  const today = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD in local time
-  deckPickerSelect('daily::' + today);
+  const d = new Date();
+  const mmdd = String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  deckPickerSelect('daily::' + mmdd);
   importApplyGlobalDeck();
 }
 

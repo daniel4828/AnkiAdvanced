@@ -932,6 +932,17 @@ main.browse-open {
 .section-label-row:hover .field-regen-btn { opacity: 0.7; }
 .field-regen-btn:hover { opacity: 1 !important; color: var(--primary); }
 .field-regen-btn:disabled { cursor: wait; opacity: 0.4 !important; }
+.deck-sort-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 500;
+}
+.deck-sort-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
 .section-empty { color: var(--muted); font-size: 12px; padding: 6px 0; }
 
 /* Regen preview modal */
