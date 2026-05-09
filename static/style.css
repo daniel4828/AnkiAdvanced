@@ -3670,13 +3670,20 @@ details[open] .cat-override-summary::before { content: '▼ '; }
     overflow: hidden;
   }
 
-  /* In the desktop fill layout, peek body fills its section instead of max-height */
+  /* Body always fills its section in desktop layout, regardless of peek/open state */
+  #notes-section-body,
+  #word-analysis-section-body,
+  #examples-section-body {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+  }
+
+  /* Remove the mobile max-height when inside the fill sections */
   #notes-section .section-peek,
   #word-analysis-section .section-peek,
   #examples-section .section-peek {
     max-height: none;
-    flex: 1;
-    min-height: 0;
   }
 
   .edit-card-btn { flex-shrink: 0; }

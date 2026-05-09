@@ -3031,9 +3031,24 @@ function toggleSection(id) {
   const body = document.getElementById(id);
   const arrow = document.getElementById(id + '-arrow');
   if (body.dataset.peek) {
-    const isPeek = body.classList.contains('section-peek');
-    body.classList.toggle('section-peek', !isPeek);
-    arrow.textContent = isPeek ? '▼' : '▶';
+    // Three-state cycle for peek sections: peek → open → closed → peek
+    const state = body.dataset.state || 'peek';
+    if (state === 'peek') {
+      body.classList.remove('section-peek');
+      body.style.display = '';
+      body.dataset.state = 'open';
+      arrow.textContent = '▼';
+    } else if (state === 'open') {
+      body.style.display = 'none';
+      body.classList.remove('section-peek');
+      body.dataset.state = 'closed';
+      arrow.textContent = '▶';
+    } else {
+      body.classList.add('section-peek');
+      body.style.display = '';
+      body.dataset.state = 'peek';
+      arrow.textContent = '▶';
+    }
   } else {
     const open = body.style.display !== 'none';
     body.style.display = open ? 'none' : 'block';
@@ -3464,7 +3479,7 @@ function renderNotesSection(container, notes, wordId) {
   el.innerHTML =
     `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
       `<span><span id="${bodyId}-arrow">▶</span> Notes</span>${regenBtn}</div>` +
-    `<div id="${bodyId}" class="section-peek" data-peek="1">${bodyContent}</div>`;
+    `<div id="${bodyId}" class="section-peek" data-peek="1" data-state="peek">${bodyContent}</div>`;
   el.style.display = '';
 }
 
@@ -3503,7 +3518,7 @@ function renderWordAnalysis(container, wordData, wordId) {
     el.innerHTML =
       `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
         `<span><span id="${bodyId}-arrow">▶</span> Word Analysis</span>${regenBtnWA}</div>` +
-      `<div id="${bodyId}" class="wa-list section-peek" data-peek="1"><div class="section-empty">—</div></div>`;
+      `<div id="${bodyId}" class="wa-list section-peek" data-peek="1" data-state="peek"><div class="section-empty">—</div></div>`;
     return;
   }
 
@@ -3584,7 +3599,7 @@ function renderWordAnalysis(container, wordData, wordId) {
   el.innerHTML =
     `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
       `<span><span id="${bodyId}-arrow">▶</span> Word Analysis</span>${regenBtnWA}</div>` +
-    `<div id="${bodyId}" class="wa-list section-peek" data-peek="1">${wordCards}</div>`;
+    `<div id="${bodyId}" class="wa-list section-peek" data-peek="1" data-state="peek">${wordCards}</div>`;
 }
 
 function _callRenderWordAnalysis() {
