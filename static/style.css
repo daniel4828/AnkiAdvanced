@@ -3667,7 +3667,6 @@ details[open] .cat-override-summary::before { content: '▼ '; }
     min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
   }
 
   /* Open state fills its section and is scrollable */
@@ -3678,6 +3677,7 @@ details[open] .cat-override-summary::before { content: '▼ '; }
     min-height: 0;
     max-height: none;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .edit-card-btn { flex-shrink: 0; }
