@@ -23,6 +23,7 @@ def _key_and_build(
     category: str | None = None,
     root_deck_id: int | None = None,
     deck_id: int | None = None,
+    parent_for_multi: int | None = None,
 ):
     """Return (queue_key, build_fn) for the given review context."""
     if root_deck_id:
@@ -30,7 +31,8 @@ def _key_and_build(
         build_fn = lambda: database.get_due_cards_any_cat(root_deck_id)
     elif ids and len(ids) > 1:
         key = ("multi", tuple(sorted(ids)), category)
-        build_fn = lambda: database.get_due_cards_multi(ids, category)
+        _root = parent_for_multi
+        build_fn = lambda: database.get_due_cards_multi(ids, category, root_deck_id=_root)
     else:
         actual = (ids[0] if ids else deck_id)
         key = ("single", actual, category)
@@ -58,14 +60,14 @@ def _next_card_from_queue(key, build_fn) -> dict | None:
 @router.get("/api/today/{deck_id}/{category}")
 def get_today(deck_id: int, category: str):
     ids = leaf_ids(deck_id, category)
-    key, build_fn = _key_and_build(ids=ids, category=category)
+    key, build_fn = _key_and_build(ids=ids, category=category, parent_for_multi=deck_id)
 
     card = _next_card_from_queue(key, build_fn)
 
     if len(ids) == 1:
         counts = database.count_due(ids[0], category)
     else:
-        counts = database.count_due_multi(ids, category)
+        counts = database.count_due_multi(ids, category, root_deck_id=deck_id)
 
     parent_id = database.get_parent_deck_id(deck_id)
     counts["by_cat"] = database.count_due_by_category(parent_id or deck_id)
@@ -177,7 +179,7 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
         queue_key, build_fn = _key_and_build(root_deck_id=root_deck_id)
     elif parent_deck_id:
         ids = leaf_ids(parent_deck_id, cat)
-        queue_key, build_fn = _key_and_build(ids=ids, category=cat)
+        queue_key, build_fn = _key_and_build(ids=ids, category=cat, parent_for_multi=parent_deck_id)
     else:
         queue_key, build_fn = _key_and_build(deck_id=deck_id, category=cat)
 
@@ -206,7 +208,7 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
     elif parent_deck_id:
         _queue_mgr.after_review(queue_key, card_id, updated, newly_buried)
         next_card = _next_card_from_queue(queue_key, build_fn)
-        counts = database.count_due_multi(ids, cat)
+        counts = database.count_due_multi(ids, cat, root_deck_id=parent_deck_id)
         counts["by_cat"] = database.count_due_by_category(parent_deck_id)
     else:
         _queue_mgr.after_review(queue_key, card_id, updated, newly_buried)

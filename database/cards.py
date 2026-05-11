@@ -157,6 +157,10 @@ def get_card(card_id: int) -> dict | None:
     return card
 
 
+def _count_new_introduced_today_multi(conn, deck_ids: list[int], category: str, today: str) -> int:
+    return sum(_count_new_introduced_today(conn, did, category, today) for did in deck_ids)
+
+
 def _count_new_introduced_today(conn, deck_id: int, category: str, today: str) -> int:
     """Cards whose very first review log entry is today (introduced as new today)."""
     return conn.execute(
@@ -586,6 +590,25 @@ def get_due_cards_any_cat(root_deck_id: int) -> list[dict]:
     if not all_cards:
         return []
 
+    # Apply root deck's per-category new cap across all leaf decks combined
+    today = anki_today().isoformat()
+    conn = get_db()
+    cats_in_tree = {cat for _, cat in leaf_pairs}
+    for cat in cats_in_tree:
+        cat_deck_ids = [did for did, c in leaf_pairs if c == cat]
+        if len(cat_deck_ids) <= 1:
+            continue
+        root_preset = get_preset_for_deck(root_deck_id, cat)
+        if not root_preset:
+            continue
+        root_new_done = _count_new_introduced_today_multi(conn, cat_deck_ids, cat, today)
+        root_new_remaining = max(0, root_preset["new_per_day"] - root_new_done)
+        cat_new = [c for c in all_cards if c["state"] == "new" and c["category"] == cat]
+        if len(cat_new) > root_new_remaining:
+            remove_ids = {c["id"] for c in cat_new[root_new_remaining:]}
+            all_cards = [c for c in all_cards if c["id"] not in remove_ids]
+    conn.close()
+
     # Build category order index from root deck's preset
     preset = get_preset_for_deck(root_deck_id)
     order_str = preset.get("category_order", "listening,reading,creating")
@@ -652,16 +675,35 @@ def count_due_by_category(root_deck_id: int) -> dict:
             result[category] = {"new": 0, "learning": 0, "review": 0}
         for k in ("new", "learning", "review"):
             result[category][k] += c[k]
+
+    # Apply root deck's per-category new cap (Anki parent-deck behaviour)
+    today = anki_today().isoformat()
+    conn = get_db()
+    for category in result:
+        cat_deck_ids = [did for did, cat in leaf_pairs if cat == category]
+        if len(cat_deck_ids) <= 1:
+            continue
+        root_preset = get_preset_for_deck(root_deck_id, category)
+        if not root_preset:
+            continue
+        root_new_done = _count_new_introduced_today_multi(conn, cat_deck_ids, category, today)
+        root_new_remaining = max(0, root_preset["new_per_day"] - root_new_done)
+        result[category]["new"] = min(result[category]["new"], root_new_remaining)
+    conn.close()
+
     return result
 
 
-def get_due_cards_multi(deck_ids: list[int], category: str, *, sibling_suppression: bool = False) -> list[dict]:
+def get_due_cards_multi(deck_ids: list[int], category: str, *, root_deck_id: int | None = None, sibling_suppression: bool = False) -> list[dict]:
     """Due cards across multiple decks, merged and priority-sorted.
 
     Learning cards always come first (sorted by due), then review and new cards
     are combined according to new_review_order: "mixed" interleaves new cards
     evenly among review cards; "reviews_first" appends new cards after reviews;
     "new_first" prepends new cards before reviews.
+
+    root_deck_id: if provided, its new_per_day limit acts as a combined cap
+    across all leaf decks (Anki parent-deck behaviour).
     """
     all_cards = []
     for deck_id in deck_ids:
@@ -670,6 +712,18 @@ def get_due_cards_multi(deck_ids: list[int], category: str, *, sibling_suppressi
     learning_cards = [c for c in all_cards if c["state"] in ("learning", "relearn")]
     review_cards   = [c for c in all_cards if c["state"] == "review"]
     new_cards      = [c for c in all_cards if c["state"] == "new"]
+
+    # Apply parent deck's combined new-card cap (Anki-style)
+    if root_deck_id is not None and len(deck_ids) > 1:
+        root_preset = get_preset_for_deck(root_deck_id, category)
+        if root_preset:
+            root_new_limit = root_preset["new_per_day"]
+            today = anki_today().isoformat()
+            conn = get_db()
+            root_new_done = _count_new_introduced_today_multi(conn, deck_ids, category, today)
+            conn.close()
+            root_new_remaining = max(0, root_new_limit - root_new_done)
+            new_cards = new_cards[:root_new_remaining]
 
     learning_cards.sort(key=lambda c: c["due"])
     review_cards.sort(key=lambda c: c["due"])
@@ -694,13 +748,24 @@ def get_next_card_multi(deck_ids: list[int], category: str) -> dict | None:
     return cards[0] if cards else None
 
 
-def count_due_multi(deck_ids: list[int], category: str) -> dict:
+def count_due_multi(deck_ids: list[int], category: str, *, root_deck_id: int | None = None) -> dict:
     """Aggregate due counts across multiple decks."""
     total = {"new": 0, "learning": 0, "review": 0}
     for deck_id in deck_ids:
         c = count_due(deck_id, category)
         for k in total:
             total[k] += c[k]
+
+    if root_deck_id is not None and len(deck_ids) > 1:
+        root_preset = get_preset_for_deck(root_deck_id, category)
+        if root_preset:
+            root_new_limit = root_preset["new_per_day"]
+            today = anki_today().isoformat()
+            conn = get_db()
+            root_new_done = _count_new_introduced_today_multi(conn, deck_ids, category, today)
+            conn.close()
+            total["new"] = min(total["new"], max(0, root_new_limit - root_new_done))
+
     return total
 
 
