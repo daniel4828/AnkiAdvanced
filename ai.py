@@ -203,6 +203,7 @@ Rules:
 - Keep each sentence short and simple
 {style_rule}
 - NEVER use ASCII double-quote characters (") inside Chinese sentences — use 「」or （）instead
+- NEVER use markdown formatting (**bold**, _italic_, etc.) anywhere in the output — write plain text only
 
 Return ONLY a numbered list of Chinese sentences, no explanation:
 1. ...

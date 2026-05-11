@@ -818,23 +818,40 @@ function renderDecks(decks) {
   }
 
   // ── Regular Decks section ─────────────────────────────────────────────────
-  const regularHtml = renderDeckRows(regularDecks, 0);
+  const deckSortMode = localStorage.getItem('deckSortMode') || 'name';
+  const sortLabel = deckSortMode === 'due' ? 'Sort: Due ↓' : deckSortMode === 'name-desc' ? 'Sort: Z→A' : 'Sort: A→Z';
+  const regularHtml = renderDeckRows(regularDecks, 0, deckSortMode);
   if (regularHtml.trim()) {
-    html += `<div class="section-label">Decks</div><div class="tree-card">${regularHtml}</div>`;
+    html += `<div class="section-label section-label-row">Decks<button class="deck-sort-btn" onclick="toggleDeckSort()">${sortLabel}</button></div><div class="tree-card">${regularHtml}</div>`;
   }
 
   document.getElementById('view-decks').innerHTML = navRow + html;
 }
 
-function renderDeckRows(decks, depth) {
-  const sorted = [...decks].sort((a, b) => a.name.localeCompare(b.name));
+function toggleDeckSort() {
+  const cur = localStorage.getItem('deckSortMode') || 'name';
+  const next = cur === 'name' ? 'name-desc' : cur === 'name-desc' ? 'due' : 'name';
+  localStorage.setItem('deckSortMode', next);
+  renderDecks(_cachedDecks);
+}
+
+function renderDeckRows(decks, depth, sortMode) {
+  const mode = sortMode || 'name';
+  const sorted = [...decks].sort((a, b) => {
+    if (mode === 'due') {
+      const dueA = (a.counts?.new || 0) + (a.counts?.learning || 0) + (a.counts?.review || 0);
+      const dueB = (b.counts?.new || 0) + (b.counts?.learning || 0) + (b.counts?.review || 0);
+      return dueB - dueA || a.name.localeCompare(b.name);
+    }
+    if (mode === 'name-desc') return b.name.localeCompare(a.name);
+    return a.name.localeCompare(b.name);
+  });
   return sorted.map(deck => {
     // Category leaf decks are consumed as pills — not rendered as rows
     if (deck.category && (!deck.children || deck.children.length === 0)) return '';
 
     const structChildren = (deck.children || [])
-      .filter(c => !(c.category && (!c.children || c.children.length === 0)))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .filter(c => !(c.category && (!c.children || c.children.length === 0)));
     const hasStructChildren = structChildren.length > 0;
     const isCollapsed = collapsed.has(deck.id);
     const indent = depth * 18;
@@ -872,7 +889,7 @@ function renderDeckRows(decks, depth) {
       </div>`;
 
     const childRows = hasStructChildren && !isCollapsed
-      ? renderDeckRows(structChildren, depth + 1)
+      ? renderDeckRows(structChildren, depth + 1, mode)
       : '';
 
     return row + childRows;
@@ -3014,9 +3031,26 @@ function toggleSection(id) {
   const body = document.getElementById(id);
   const arrow = document.getElementById(id + '-arrow');
   if (body.dataset.peek) {
-    const isPeek = body.classList.contains('section-peek');
-    body.classList.toggle('section-peek', !isPeek);
-    arrow.textContent = isPeek ? '▼' : '▶';
+    // Three-state cycle: peek → open → closed → peek
+    const state = body.dataset.state || 'peek';
+    if (state === 'peek') {
+      body.classList.remove('section-peek');
+      body.classList.add('section-open');
+      body.style.display = '';
+      body.dataset.state = 'open';
+      arrow.textContent = '▼';
+    } else if (state === 'open') {
+      body.classList.remove('section-open');
+      body.style.display = 'none';
+      body.dataset.state = 'closed';
+      arrow.textContent = '▶';
+    } else {
+      body.classList.add('section-peek');
+      body.classList.remove('section-open');
+      body.style.display = '';
+      body.dataset.state = 'peek';
+      arrow.textContent = '▷';
+    }
   } else {
     const open = body.style.display !== 'none';
     body.style.display = open ? 'none' : 'block';
@@ -3446,8 +3480,8 @@ function renderNotesSection(container, notes, wordId) {
     : `<div class="section-empty">—</div>`;
   el.innerHTML =
     `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
-      `<span><span id="${bodyId}-arrow">▶</span> Notes</span>${regenBtn}</div>` +
-    `<div id="${bodyId}" class="section-peek" data-peek="1">${bodyContent}</div>`;
+      `<span><span id="${bodyId}-arrow">▷</span> Notes</span>${regenBtn}</div>` +
+    `<div id="${bodyId}" class="section-peek" data-peek="1" data-state="peek">${bodyContent}</div>`;
   el.style.display = '';
 }
 
@@ -3485,8 +3519,8 @@ function renderWordAnalysis(container, wordData, wordId) {
   if (wordGroups.length === 0) {
     el.innerHTML =
       `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
-        `<span><span id="${bodyId}-arrow">▶</span> Word Analysis</span>${regenBtnWA}</div>` +
-      `<div id="${bodyId}" class="wa-list section-peek" data-peek="1"><div class="section-empty">—</div></div>`;
+        `<span><span id="${bodyId}-arrow">▷</span> Word Analysis</span>${regenBtnWA}</div>` +
+      `<div id="${bodyId}" class="wa-list section-peek" data-peek="1" data-state="peek"><div class="section-empty">—</div></div>`;
     return;
   }
 
@@ -3531,7 +3565,10 @@ function renderWordAnalysis(container, wordData, wordId) {
             const highlightedZh = (cp.compound_zh || '').split('').map(ch =>
               ch === c.char ? `<span class="wa-compound-hl">${ch}</span>` : ch
             ).join('');
-            return `<span class="wa-compound-item">${highlightedZh}` +
+            const zhEsc = (cp.compound_zh || '').replace(/'/g, "\\'");
+            const pinEsc = (cp.pinyin || '').replace(/'/g, "\\'");
+            const meanEsc = (cp.meaning || '').replace(/'/g, "\\'");
+            return `<span class="wa-compound-item wa-compound-clickable" onclick="event.stopPropagation();openQuickAddMenu(event,'${zhEsc}','${pinEsc}','${meanEsc}')">${highlightedZh}` +
               (cp.pinyin ? ` <span class="wa-compound-pin">${cp.pinyin}</span>` : '') +
               (cp.meaning ? ` <span class="wa-compound-meaning">${cp.meaning}</span>` : '') +
               `</span>`;
@@ -3563,12 +3600,88 @@ function renderWordAnalysis(container, wordData, wordId) {
 
   el.innerHTML =
     `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
-      `<span><span id="${bodyId}-arrow">▶</span> Word Analysis</span>${regenBtnWA}</div>` +
-    `<div id="${bodyId}" class="wa-list section-peek" data-peek="1">${wordCards}</div>`;
+      `<span><span id="${bodyId}-arrow">▷</span> Word Analysis</span>${regenBtnWA}</div>` +
+    `<div id="${bodyId}" class="wa-list section-peek" data-peek="1" data-state="peek">${wordCards}</div>`;
 }
 
 function _callRenderWordAnalysis() {
   renderWordAnalysis();
+}
+
+// ── Quick-add compound word to tomorrow's Daily deck ────────────────────────
+
+let _quickAddMenu = null;
+
+function openQuickAddMenu(event, wordZh, pinyin, meaning) {
+  closeQuickAddMenu();
+
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = String(tomorrow.getMonth() + 1).padStart(2, '0') + '-' + String(tomorrow.getDate()).padStart(2, '0');
+
+  const menu = document.createElement('div');
+  menu.id = 'quick-add-menu';
+  menu.className = 'quick-add-menu';
+  menu.innerHTML =
+    `<div class="qa-word">${wordZh}` +
+      (pinyin ? ` <span class="qa-pin">${pinyin}</span>` : '') +
+    `</div>` +
+    (meaning ? `<div class="qa-meaning">${meaning}</div>` : '') +
+    `<div class="qa-deck-label">daily::${tomorrowStr}</div>` +
+    `<button class="qa-add-btn" onclick="doQuickAdd('${wordZh.replace(/'/g,"\\'")}','${pinyin.replace(/'/g,"\\'")}','${meaning.replace(/'/g,"\\'")}',this)">+ Add to Daily deck</button>`;
+
+  document.body.appendChild(menu);
+  _quickAddMenu = menu;
+
+  // Position near the click
+  const x = Math.min(event.clientX, window.innerWidth - 220);
+  const y = event.clientY + 8;
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+
+  // Close on outside click
+  setTimeout(() => document.addEventListener('click', closeQuickAddMenu, { once: true }), 0);
+}
+
+function closeQuickAddMenu() {
+  if (_quickAddMenu) {
+    _quickAddMenu.remove();
+    _quickAddMenu = null;
+  }
+}
+
+async function doQuickAdd(wordZh, pinyin, meaning, btn) {
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    const result = await api('POST', '/api/quick-add-word', { word_zh: wordZh, pinyin, meaning });
+    closeQuickAddMenu();
+    const msgs = {
+      created:        `✓ "${wordZh}" added to ${result.deck_path}`,
+      added_to_deck:  `✓ "${wordZh}" added to ${result.deck_path}`,
+      already_in_deck:`"${wordZh}" is already in ${result.deck_path}`,
+    };
+    showQuickAddBanner(msgs[result.status] || `✓ Done`, result.status === 'already_in_deck');
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '+ Add to Daily deck';
+    showError(e.message || 'Failed to add word');
+  }
+}
+
+function showQuickAddBanner(msg, isInfo) {
+  let el = document.getElementById('quick-add-banner');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'quick-add-banner';
+    el.className = 'quick-add-banner';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.className = 'quick-add-banner' + (isInfo ? ' qa-info' : ' qa-success');
+  el.style.display = 'block';
+  clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(() => { el.style.display = 'none'; }, 3500);
 }
 
 // ── Listening hint slider (HSK-aware) ───────────────────────────────────────
@@ -3693,10 +3806,10 @@ function _renderListenHint(threshold) {
     const ch = zh[i];
     if (!isCjk(ch)) {
       html += ch;
-    } else if (threshold === 0) {
-      html += ch; // "All" mode: reveal every character including target vocab
     } else if (targetPositions.has(i)) {
       html += `<span class="hint-blank">_</span>`;
+    } else if (threshold === 0) {
+      html += ch; // "All" mode: reveal all non-target characters
     } else if (revealPositions.has(i)) {
       html += ch;
     } else {
@@ -5035,6 +5148,13 @@ function importSetAllSuspended(category, suspended) {
     _cardConfigs[e.simplified] = { ...cfg, suspended: susp };
   });
   _importRenderTable();
+}
+
+function selectDailyDeck() {
+  const d = new Date();
+  const mmdd = String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  deckPickerSelect('daily::' + mmdd);
+  importApplyGlobalDeck();
 }
 
 function importApplyGlobalDeck() {

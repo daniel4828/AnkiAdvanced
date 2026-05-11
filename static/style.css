@@ -871,7 +871,7 @@ main.browse-open {
 .edit-notes { resize: vertical; min-height: 60px; line-height: 1.5; }
 
 .notes-body {
-  font-size: 14px;
+  font-size: 16px;
   color: var(--text);
   line-height: 1.6;
   padding: 8px 0 4px;
@@ -897,7 +897,7 @@ main.browse-open {
 
 .section-peek {
   display: block;
-  max-height: 72px;
+  max-height: 200px;
   overflow: hidden;
   position: relative;
 }
@@ -907,7 +907,7 @@ main.browse-open {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 32px;
+  height: 40px;
   background: linear-gradient(transparent, var(--card));
   pointer-events: none;
 }
@@ -932,6 +932,17 @@ main.browse-open {
 .section-label-row:hover .field-regen-btn { opacity: 0.7; }
 .field-regen-btn:hover { opacity: 1 !important; color: var(--primary); }
 .field-regen-btn:disabled { cursor: wait; opacity: 0.4 !important; }
+.deck-sort-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 500;
+}
+.deck-sort-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
 .section-empty { color: var(--muted); font-size: 12px; padding: 6px 0; }
 
 /* Regen preview modal */
@@ -1397,9 +1408,73 @@ main.browse-open {
   color: var(--text);
   cursor: default;
 }
+.wa-compound-clickable {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.wa-compound-clickable:hover {
+  background: var(--accent-faint, #e8f0fe);
+  color: var(--accent, #1a73e8);
+}
 .wa-compound-pin { font-size: 11px; color: var(--muted); }
 .wa-compound-meaning { font-size: 11px; color: var(--muted); font-style: italic; }
 .wa-compound-hl { font-weight: 700; }
+
+/* ── Quick-add compound word menu ───────────────────────────────────────── */
+.quick-add-menu {
+  position: fixed;
+  z-index: 9000;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border, #ddd);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  padding: 10px 14px;
+  min-width: 190px;
+  max-width: 260px;
+}
+.qa-word {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.qa-pin { font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 6px; }
+.qa-meaning { font-size: 12px; color: var(--muted); font-style: italic; margin-bottom: 6px; }
+.qa-deck-label {
+  font-size: 11px;
+  color: var(--accent, #1a73e8);
+  margin-bottom: 8px;
+}
+.qa-add-btn {
+  width: 100%;
+  padding: 6px 0;
+  background: var(--accent, #1a73e8);
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.qa-add-btn:hover { opacity: 0.88; }
+.qa-add-btn:disabled { opacity: 0.55; cursor: default; }
+
+/* ── Quick-add result banner ─────────────────────────────────────────────── */
+.quick-add-banner {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9100;
+  padding: 9px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  pointer-events: none;
+  display: none;
+}
+.quick-add-banner.qa-success { background: #1e8e3e; color: #fff; }
+.quick-add-banner.qa-info    { background: #555; color: #fff; }
 
 /* ── Creating: front input ───────────────────────────── */
 .sentence-en-front {
@@ -3574,6 +3649,13 @@ details[open] .cat-override-summary::before { content: '▼ '; }
     grid-column: 3;
     grid-row: 1;
     overflow-y: auto;
+  }
+
+  /* Open state: remove max-height so full content shows (panel scrolls) */
+  #notes-section-body.section-open,
+  #word-analysis-section-body.section-open,
+  #examples-section-body.section-open {
+    max-height: none;
   }
 }
 
