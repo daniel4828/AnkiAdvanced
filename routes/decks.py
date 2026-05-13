@@ -3,6 +3,7 @@ import logging
 import database
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from .utils import queue_mgr
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -216,6 +217,7 @@ def get_deck_preset(deck_id: int, category: str | None = None):
 def update_deck_preset(deck_id: int, fields: dict):
     deck = database.get_deck(deck_id)
     database.update_preset(deck["preset_id"], fields)
+    queue_mgr.invalidate()
     return database.get_preset(deck["preset_id"])
 
 
@@ -281,6 +283,7 @@ def set_preset_category_override(preset_id: int, category: str, fields: dict):
     if category not in VALID_CATEGORIES:
         raise HTTPException(status_code=400, detail="Invalid category")
     database.set_category_override(preset_id, category, fields)
+    queue_mgr.invalidate()
     overrides = database.get_category_overrides(preset_id)
     return overrides.get(category, {})
 
@@ -290,4 +293,5 @@ def delete_preset_category_override(preset_id: int, category: str):
     if category not in VALID_CATEGORIES:
         raise HTTPException(status_code=400, detail="Invalid category")
     database.delete_category_override(preset_id, category)
+    queue_mgr.invalidate()
     return {"ok": True}
