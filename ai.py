@@ -202,7 +202,8 @@ Rules:
 - Use only HSK 1-{max_hsk} vocabulary for non-target words; each sentence must contain exactly ONE target word from the list — do not use other target words from the list in that sentence
 - Keep each sentence short and simple
 {style_rule}
-- NEVER use ASCII double-quote characters (") inside Chinese sentences — use 「」or （）instead
+- NEVER use ASCII double-quote characters (") inside Chinese sentences — use （）instead
+- NEVER wrap target words with 「」 or any brackets — write them as plain text embedded naturally in the sentence
 - NEVER use markdown formatting (**bold**, _italic_, etc.) anywhere in the output — write plain text only
 
 Return ONLY a numbered list of Chinese sentences, no explanation:
