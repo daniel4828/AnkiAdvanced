@@ -2349,11 +2349,13 @@ async function startReview(id, cat, name, noStory = false, quick = false) {
 
 async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story') {
   if (quickMode) {
-    setLoading('Loading…', false);
+    setLoading('Loading audio…', true);
     try {
       const todayData = await api('GET', `/api/today/${deckId}/${category}`);
       if (!todayData.card) { showView('done'); return; }
-      fetch(`/api/preload-session/${deckId}/${category}?quick=true`, { method: 'POST' }).catch(() => {});
+      try {
+        await fetch(`/api/preload-session/${deckId}/${category}?quick=true`, { method: 'POST' });
+      } catch (_) {}
       showView('review');
       loadCard(todayData.card, todayData.counts);
     } catch (e) {
