@@ -301,7 +301,7 @@ def preload(text: str):
 async def preload_session(deck_id: int, category: str, quick: bool = False):
     progress_key = f"{deck_id}/{category}"
     if quick:
-        ids = leaf_ids(deck_id) or [deck_id]
+        ids = leaf_ids(deck_id, category) or [deck_id]
         cards = database.get_due_cards_multi(ids, category) if len(ids) > 1 else database.get_due_cards(ids[0], category)
         texts = [c["word_zh"] for c in cards if c.get("word_zh")]
         logger.info("tts  quick preloading %d word audio files", len(texts))
