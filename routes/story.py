@@ -298,20 +298,28 @@ def preload(text: str):
 
 
 @router.post("/api/preload-session/{deck_id}/{category}")
-async def preload_session(deck_id: int, category: str):
-    today = database.anki_today().isoformat()
-    story = database.get_active_story(today, category, deck_id)
+async def preload_session(deck_id: int, category: str, quick: bool = False):
     progress_key = f"{deck_id}/{category}"
-    if story:
-        sentences = _add_tokens(database.get_story_sentences(story["id"]))
-        texts = [s["sentence_zh"] for s in sentences if s.get("sentence_zh")]
-        logger.info("tts  preloading %d sentences", len(texts))
+    if quick:
+        cards = database.get_due_cards(deck_id, category)
+        texts = [c["word_zh"] for c in cards if c.get("word_zh")]
+        logger.info("tts  quick preloading %d word audio files", len(texts))
         try:
             await tts.preload_all_async(texts, progress_key=progress_key)
-            logger.info("tts  preload done")
         except Exception as e:
-            logger.warning("tts  preload error: %s", e)
-    # Clear progress entry after completion
+            logger.warning("tts  quick preload error: %s", e)
+    else:
+        today = database.anki_today().isoformat()
+        story = database.get_active_story(today, category, deck_id)
+        if story:
+            sentences = _add_tokens(database.get_story_sentences(story["id"]))
+            texts = [s["sentence_zh"] for s in sentences if s.get("sentence_zh")]
+            logger.info("tts  preloading %d sentences", len(texts))
+            try:
+                await tts.preload_all_async(texts, progress_key=progress_key)
+                logger.info("tts  preload done")
+            except Exception as e:
+                logger.warning("tts  preload error: %s", e)
     tts._preload_progress.pop(progress_key, None)
     return {"ok": True}
 

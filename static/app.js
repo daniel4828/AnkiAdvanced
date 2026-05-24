@@ -2353,6 +2353,7 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mo
     try {
       const todayData = await api('GET', `/api/today/${deckId}/${category}`);
       if (!todayData.card) { showView('done'); return; }
+      fetch(`/api/preload-session/${deckId}/${category}?quick=true`, { method: 'POST' }).catch(() => {});
       showView('review');
       loadCard(todayData.card, todayData.counts);
     } catch (e) {
