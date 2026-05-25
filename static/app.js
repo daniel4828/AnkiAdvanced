@@ -3319,6 +3319,7 @@ function _showRegenPreviewModal(previewData) {
       <button onclick="_closeRegenPreviewModal()">×</button>
     </div>
     <div class="regen-preview-body">${bodyHtml}</div>
+    <div id="regen-modal-error" style="display:none;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:8px 12px;margin:8px 16px;font-size:13px"></div>
     <div class="regen-preview-footer">
       <button class="regen-btn regen-btn-regenerate" id="regen-btn-regen" onclick="_rerunRegen()">↺ Regenerate</button>
       <button class="regen-btn regen-btn-reject" onclick="_closeRegenPreviewModal()">✗ Reject</button>
@@ -3469,7 +3470,9 @@ async function _applyRegenResult() {
       }
     }
   } catch (e) {
-    showError('Apply failed: ' + e.message);
+    const modalErr = document.getElementById('regen-modal-error');
+    if (modalErr) { modalErr.textContent = 'Apply failed: ' + e.message; modalErr.style.display = 'block'; }
+    else showError('Apply failed: ' + e.message);
     if (applyBtn) applyBtn.disabled = false;
     if (regenBtn) regenBtn.disabled = false;
   }
