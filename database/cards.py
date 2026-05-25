@@ -1142,6 +1142,134 @@ def toggle_category_suspension(deck_id: int, category: str) -> dict:
     return {"all_suspended": not has_active}
 
 
+def count_due_all_decks() -> dict:
+    """Bulk count due cards for ALL decks in 4 queries instead of ~4 per deck.
+
+    Returns {(deck_id, category): {new, learning, review, learning_future}}.
+    Also returns suspension flags as a second dict:
+    {(deck_id, category): all_suspended_bool}.
+    """
+    today = anki_today().isoformat()
+    now = datetime.now().isoformat(timespec="seconds")
+    today_end = (anki_today() + timedelta(days=1)).isoformat()
+
+    conn = get_db()
+
+    # 1. Due cards grouped by (deck_id, category, state)
+    due_rows = conn.execute(
+        """SELECT c.deck_id, c.category, c.state, COUNT(*) AS cnt
+           FROM cards c
+           WHERE c.state != 'suspended'
+             AND c.deleted_at IS NULL
+             AND (c.buried_until IS NULL OR c.buried_until < ?)
+             AND (
+               (c.state IN ('learning', 'relearn') AND c.due <= ?)
+               OR (c.state = 'review' AND c.due <= ?)
+               OR (c.state = 'new' AND c.due <= ?)
+             )
+           GROUP BY c.deck_id, c.category, c.state""",
+        (today, now, today, today),
+    ).fetchall()
+
+    # 2. Future learning cards grouped by (deck_id, category)
+    future_rows = conn.execute(
+        """SELECT deck_id, category, COUNT(*) AS cnt
+           FROM cards
+           WHERE state IN ('learning', 'relearn')
+             AND due > ?
+             AND deleted_at IS NULL
+             AND (buried_until IS NULL OR buried_until < ?)
+           GROUP BY deck_id, category""",
+        (now, today),
+    ).fetchall()
+
+    # 3. New cards introduced today grouped by (deck_id, category)
+    new_today_rows = conn.execute(
+        """SELECT c.deck_id, c.category, COUNT(DISTINCT c.id) AS cnt
+           FROM cards c
+           WHERE EXISTS (
+               SELECT 1 FROM review_log rl
+               WHERE rl.card_id = c.id
+                 AND rl.reviewed_at >= ?
+                 AND rl.reviewed_at < ?
+           )
+           AND NOT EXISTS (
+               SELECT 1 FROM review_log rl
+               WHERE rl.card_id = c.id
+                 AND rl.reviewed_at < ?
+           )
+           GROUP BY c.deck_id, c.category""",
+        (today, today_end, today),
+    ).fetchall()
+
+    # 4. new_per_day limit per (deck_id, category) with category overrides
+    limit_rows = conn.execute(
+        """SELECT d.id AS deck_id, d.category,
+                  COALESCE(pco.new_per_day, p.new_per_day, 20) AS new_per_day
+           FROM decks d
+           JOIN deck_presets p ON p.id = d.preset_id
+           LEFT JOIN preset_category_overrides pco
+             ON pco.preset_id = d.preset_id AND pco.category = d.category
+           WHERE d.deleted_at IS NULL""",
+    ).fetchall()
+
+    # 5. Suspension flags: all cards suspended per (deck_id, category)?
+    susp_rows = conn.execute(
+        """SELECT c.deck_id, c.category,
+                  COUNT(*) AS total,
+                  SUM(CASE WHEN c.state = 'suspended' THEN 1 ELSE 0 END) AS suspended_count
+           FROM cards c
+           JOIN entries e ON e.id = c.word_id
+           WHERE c.deleted_at IS NULL
+             AND e.note_type != 'sentence'
+           GROUP BY c.deck_id, c.category""",
+    ).fetchall()
+
+    conn.close()
+
+    # Build counts dict
+    counts: dict[tuple, dict] = {}
+    for row in due_rows:
+        key = (row["deck_id"], row["category"])
+        if key not in counts:
+            counts[key] = {"new_raw": 0, "learning": 0, "review": 0, "learning_future": 0}
+        s = row["state"]
+        if s in ("learning", "relearn"):
+            counts[key]["learning"] += row["cnt"]
+        elif s == "review":
+            counts[key]["review"] += row["cnt"]
+        elif s == "new":
+            counts[key]["new_raw"] += row["cnt"]
+
+    for row in future_rows:
+        key = (row["deck_id"], row["category"])
+        if key not in counts:
+            counts[key] = {"new_raw": 0, "learning": 0, "review": 0, "learning_future": 0}
+        counts[key]["learning_future"] = row["cnt"]
+
+    new_today: dict[tuple, int] = {
+        (r["deck_id"], r["category"]): r["cnt"] for r in new_today_rows
+    }
+    new_limits: dict[tuple, int] = {
+        (r["deck_id"], r["category"]): r["new_per_day"] for r in limit_rows
+    }
+
+    for key, c in counts.items():
+        limit = new_limits.get(key, 20)
+        done = new_today.get(key, 0)
+        c["new"] = min(c.pop("new_raw", 0), max(0, limit - done))
+
+    # Build suspension flags dict
+    susp_flags: dict[tuple, bool] = {}
+    for row in susp_rows:
+        key = (row["deck_id"], row["category"])
+        total = row["total"] or 0
+        suspended = row["suspended_count"] or 0
+        susp_flags[key] = total > 0 and total == suspended
+
+    return counts, susp_flags
+
+
 def get_deck_all_suspended(deck_id: int) -> bool:
     """Return True if ALL non-sentence cards in deck and all descendant decks are suspended."""
     conn = get_db()
