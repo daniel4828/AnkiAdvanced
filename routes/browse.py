@@ -153,19 +153,37 @@ def _save_regen_result(word_id: int, fields: list, top_result: dict, all_charact
                     position=i,
                 )
 
-    existing_chars = {c["char_id"] for c in database.get_word_characters(word_id)}
+    # Build a map from character string → component word_id so characters get linked
+    # to the correct component word (e.g. for 漏洞: '漏'→12175, '洞'→12176).
+    # Falls back to the parent word_id for characters without a matching component.
+    components = database.get_note_components(word_id)
+    comp_word_id_by_char = {comp["word_zh"]: comp["id"] for comp in components}
+    # Cache existing chars per target word to avoid redundant DB reads
+    existing_by_word: dict[int, set] = {}
+
     for i, char_data in enumerate(all_characters):
         char_id = char_data.get("char_id")
+        ch = char_data.get("char", "")
         if not char_id:
-            ch = char_data.get("char", "")
             if ch:
                 rec = database.get_character(ch)
                 if rec:
                     char_id = rec["id"]
+                elif ch:
+                    char_id = database.upsert_character({
+                        "char": ch, "traditional": None, "pinyin": None,
+                        "hsk_level": None, "etymology": None, "other_meanings": None,
+                    })
         if not char_id:
             continue
-        if char_id not in existing_chars:
-            database.insert_word_character(word_id, char_id, i, None)
+        target_word_id = comp_word_id_by_char.get(ch, word_id)
+        if target_word_id not in existing_by_word:
+            existing_by_word[target_word_id] = {
+                c["char_id"] for c in database.get_word_characters(target_word_id)
+            }
+        if char_id not in existing_by_word[target_word_id]:
+            database.insert_word_character(target_word_id, char_id, i, None)
+            existing_by_word[target_word_id].add(char_id)
         if "etymology" in fields and char_data.get("etymology"):
             database.update_character(char_id, {"etymology": char_data["etymology"]})
         if "compounds" in fields and char_data.get("compounds"):
