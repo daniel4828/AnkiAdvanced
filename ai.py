@@ -418,6 +418,7 @@ def regenerate_entry_fields(
         )
 
     if want_chars:
+        n_chars = len(characters)
         char_field_lines = []
         if want_etym:
             char_field_lines.append(
@@ -429,7 +430,11 @@ def regenerate_entry_fields(
                 "  - compounds: 3-5 common compound words using this character. "
                 "Each: {\"simplified\": \"词\", \"pinyin\": \"...\", \"meaning\": \"German (NO colons)\"}"
             )
-        sections.append("CHARACTER DATA: For each character above:\n" + "\n".join(char_field_lines))
+        sections.append(
+            f"CHARACTER DATA: Return EXACTLY {n_chars} object(s) in the \"characters\" array — "
+            f"one per character listed above. Do NOT skip any character.\n"
+            + "\n".join(char_field_lines)
+        )
 
     # --- JSON template ---
     json_keys = []
@@ -453,7 +458,10 @@ def regenerate_entry_fields(
             char_obj_keys += ', "etymology": "..."'
         if want_comp:
             char_obj_keys += ', "compounds": [{"simplified": "...", "pinyin": "...", "meaning": "..."}]'
-        json_keys.append(f'  "characters": [{{{char_obj_keys}}}]')
+        # Show one example object per actual character so the AI knows the expected array length
+        char_example = "{" + char_obj_keys + "}"
+        char_array = ", ".join([char_example] * max(len(characters), 1))
+        json_keys.append(f'  "characters": [{char_array}]')
 
     json_template = "{\n" + ",\n".join(json_keys) + "\n}"
 
