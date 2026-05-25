@@ -3216,6 +3216,14 @@ function regenAllFields(wordId) {
   regenFields(wordId, allFields, 'wd-all');
 }
 
+function regenAllFieldsFromReview() {
+  const wordId = _getActiveWordId();
+  if (!wordId) return showError('No active word');
+  const allFields = ['definition', 'definition_zh', 'definition_de', 'definition_fr', 'pos',
+                     'notes', 'examples', 'etymology', 'compounds'];
+  regenFields(wordId, allFields, 'review-regen-all');
+}
+
 async function regenFields(wordId, fields, containerId) {
   const el = document.getElementById(containerId);
   const btn = el?.querySelector('.field-regen-btn');
@@ -3422,7 +3430,12 @@ async function _applyRegenResult() {
     const DEF_FIELDS = ['definition', 'definition_zh', 'definition_de', 'definition_fr', 'pos'];
     const isDefRegen = fields.some(f => DEF_FIELDS.includes(f));
     console.log('[apply] wordId=', wordId, '_currentWordId=', _currentWordId, 'fields=', fields, 'containerId=', containerId, 'isDefRegen=', isDefRegen);
-    if (containerId === 'wd-all' && _currentWordId === wordId) {
+    if (containerId === 'review-regen-all') {
+      // Re-render all review side-panel sections
+      renderNotesSection(null, updated.notes, wordId);
+      renderWordAnalysis(null, updated, wordId);
+      renderVocabDetail(null, updated.examples, wordId);
+    } else if (containerId === 'wd-all' && _currentWordId === wordId) {
       updated.cards = wordDetails?.cards || [];
       renderWordDetail(updated);
     } else if (isDefRegen && _currentWordId === wordId) {

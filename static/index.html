@@ -220,7 +220,10 @@
           <div id="notes-section"></div>
           <div id="word-analysis-section"></div>
           <div id="examples-section"></div>
-          <button class="edit-card-btn" id="edit-card-btn" onclick="openEditCard()">Edit card</button>
+          <div style="display:flex;gap:8px;justify-content:center">
+            <button class="edit-card-btn" id="edit-card-btn" onclick="openEditCard()">Edit card</button>
+            <button class="edit-card-btn" id="review-regen-all-btn" onclick="regenAllFieldsFromReview()" title="Regenerate all fields with AI">↺ All</button>
+          </div>
         </div>
       </div>
 
