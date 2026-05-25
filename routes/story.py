@@ -147,6 +147,7 @@ def get_story(deck_id: int, category: str,
     logger.info("story  GENERATE deck=%d cat=%s due_cards=%d topic=%r max_hsk=%d model=%s mode=%s",
                 deck_id, category, len(cards), topic, max_hsk, chosen_model, mode)
     if cards:
+        ai.fix_definition_commas(cards)
         progress_key = f"{deck_id}/{category}"
         ai._story_progress[progress_key] = {"phase": "starting", "msg": "Starting…", "percent": 5}
         last_error = None
@@ -197,6 +198,7 @@ def regenerate_story(deck_id: int, category: str,
                 deck_id, category, len(cards), topic, max_hsk, chosen_model, mode)
     if not cards:
         return None
+    ai.fix_definition_commas(cards)
     progress_key = f"{deck_id}/{category}"
     ai._story_progress[progress_key] = {"phase": "starting", "msg": "Starting…", "percent": 5}
     last_error = None

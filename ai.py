@@ -635,6 +635,90 @@ def _fallback_sentences(cards: list[dict]) -> list[dict]:
     return result
 
 
+_FIX_BATCH = 25  # words per DeepSeek call
+
+
+def _needs_comma_fix(text: str | None) -> bool:
+    if not text or len(text) < 15:
+        return False
+    return "," not in text and ";" not in text and "/" not in text
+
+
+def fix_definition_commas(cards: list[dict]) -> int:
+    """Add missing commas to English/German definitions of today's due words.
+
+    Sends batches to DeepSeek, updates entries in-place and in the DB.
+    Returns the number of entries actually updated.
+    """
+    to_fix = [
+        {"id": c["word_id"], "word_zh": c["word_zh"],
+         "en": c.get("definition"), "de": c.get("definition_de")}
+        for c in cards
+        if _needs_comma_fix(c.get("definition")) or _needs_comma_fix(c.get("definition_de"))
+    ]
+    # deduplicate by word_id
+    seen: set[int] = set()
+    unique: list[dict] = []
+    for item in to_fix:
+        if item["id"] not in seen:
+            seen.add(item["id"])
+            unique.append(item)
+
+    if not unique:
+        return 0
+
+    logger.info("fix_commas  %d entries need comma repair", len(unique))
+    total_fixed = 0
+
+    for i in range(0, len(unique), _FIX_BATCH):
+        batch = unique[i:i + _FIX_BATCH]
+        word_lines = "\n".join(
+            f'{item["word_zh"]} | EN: {item["en"] or ""} | DE: {item["de"] or ""}'
+            for item in batch
+        )
+        prompt = (
+            "The following Chinese vocabulary definitions are missing commas between "
+            "their separate meanings. Add commas (or slashes where a slash is the natural "
+            "separator) to make the meanings clearly distinct. Do not add or remove meanings, "
+            "only insert the missing punctuation.\n\n"
+            "Return ONLY a JSON array. Each element: "
+            '{"word_zh": "...", "en": "fixed English or null", "de": "fixed German or null"}\n\n'
+            f"Words:\n{word_lines}"
+        )
+        try:
+            raw = _call_api("deepseek-v4-flash",
+                            [{"role": "user", "content": prompt}],
+                            max_tokens=2000, purpose="fix_commas")
+            # extract JSON array from response
+            m = re.search(r"\[.*\]", raw, re.DOTALL)
+            if not m:
+                logger.warning("fix_commas  no JSON array in response")
+                continue
+            updates = json.loads(m.group())
+            id_map = {item["word_zh"]: item["id"] for item in batch}
+            for upd in updates:
+                wid = id_map.get(upd.get("word_zh"))
+                if not wid:
+                    continue
+                fields: dict = {}
+                if upd.get("en"):
+                    fields["definition"] = upd["en"]
+                if upd.get("de"):
+                    fields["definition_de"] = upd["de"]
+                if fields:
+                    database.update_word(wid, fields)
+                    # also patch the in-memory card dicts so the story prompt sees new values
+                    for c in cards:
+                        if c.get("word_id") == wid:
+                            c.update(fields)
+                    total_fixed += 1
+        except Exception as e:
+            logger.warning("fix_commas  batch error: %s", e)
+
+    logger.info("fix_commas  updated %d entries", total_fixed)
+    return total_fixed
+
+
 def estimate_story_tokens(num_cards: int) -> int:
     """Rough token estimate for generating a story with num_cards words.
 
