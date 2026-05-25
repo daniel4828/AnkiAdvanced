@@ -34,18 +34,37 @@ def _leaf_pairs(deck: dict) -> list[tuple[int, str]]:
 
 
 def _attach_counts(flat_decks: list) -> None:
-    """Compute due counts for leaf decks; deduplicated aggregate for parents."""
+    """Compute due counts for all decks using bulk queries (O(1) DB round-trips)."""
+    all_counts, susp_flags = database.count_due_all_decks()
+    empty = {"new": 0, "learning": 0, "review": 0, "learning_future": 0}
+
     for deck in flat_decks:
         if not deck.get("children"):
             cat = deck.get("category")
-            deck["counts"] = database.count_due(deck["id"], cat) if cat else {"new": 0, "learning": 0, "review": 0}
-            if cat in ("creating", "listening", "reading"):
-                deck["all_suspended"] = database.get_category_all_suspended(deck["id"], cat)
+            if cat:
+                deck["counts"] = all_counts.get((deck["id"], cat), dict(empty))
+                if cat in ("creating", "listening", "reading"):
+                    deck["all_suspended"] = susp_flags.get((deck["id"], cat), False)
+            else:
+                deck["counts"] = dict(empty)
+
     for deck in reversed(flat_decks):
         if deck.get("children"):
             pairs = _leaf_pairs(deck)
-            deck["counts"] = database.count_due_deduped(pairs) if pairs else {"new": 0, "learning": 0, "review": 0}
-            deck["deck_all_suspended"] = database.get_deck_all_suspended(deck["id"])
+            if pairs:
+                merged: dict = {"new": 0, "learning": 0, "review": 0, "learning_future": 0}
+                for did, cat in pairs:
+                    c = all_counts.get((did, cat), empty)
+                    for k in merged:
+                        merged[k] += c.get(k, 0)
+                deck["counts"] = merged
+                # all_suspended = every leaf's category is fully suspended
+                deck["deck_all_suspended"] = all(
+                    susp_flags.get((did, cat), False) for did, cat in pairs
+                )
+            else:
+                deck["counts"] = dict(empty)
+                deck["deck_all_suspended"] = False
 
 
 # ---------------------------------------------------------------------------

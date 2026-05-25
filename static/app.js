@@ -36,6 +36,7 @@ function renderMarkdown(text) {
 let deckId      = null;
 let rootDeckId      = null;   // set when studying all categories (mixed mode)
 let unfinishedMode  = false;  // set when studying the "Unfinished Cards" virtual deck
+let quickMode       = false;  // set when reviewing without AI story generation
 let deckName    = '';
 let category    = '';
 let card        = null;   // current card dict from API
@@ -366,11 +367,12 @@ function showView(name) {
     name === 'word-detail'  ? 'Word Detail' :
     name === 'hanzi-detail' ? 'Hanzi Detail' :
     name === 'stats'        ? 'Stats' : 'AnkiAdvanced';
+  if (name === 'decks') quickMode = false;
   const headerRegenBtn = document.getElementById('header-regen-btn');
-  if (headerRegenBtn) headerRegenBtn.style.display = (name === 'review' && !unfinishedMode) ? '' : 'none';
+  if (headerRegenBtn) headerRegenBtn.style.display = (name === 'review' && !unfinishedMode && !quickMode) ? '' : 'none';
   if (name === 'review') {
     const regenBtn = document.querySelector('.regen-btn');
-    if (regenBtn) regenBtn.style.display = unfinishedMode ? 'none' : '';
+    if (regenBtn) regenBtn.style.display = (unfinishedMode || quickMode) ? 'none' : '';
   }
 }
 
@@ -730,7 +732,7 @@ function buildCategoryButtons(deck) {
       const pillClass = allSusp ? 'cat-pill cat-pill-dimmed' : 'cat-pill';
       const title = allSusp ? `Unsuspend all ${label} cards` : `Suspend all ${label} cards`;
       const rr = _leavesRR([leaf]);
-      return `<span class="cat-pill-group"><button class="${badgeClass}" onclick="event.stopPropagation();toggleCategorySuspension(${leaf.id},'${cat}')" title="${title}">${badgeIcon}</button><span class="cat-pill-wrap"><button class="${pillClass}" onclick="event.stopPropagation();startReview(${leaf.id},'${cat}','${safeName}',${!!leaf.no_story})"><span class="cat-pill-label">${label}</span><span class="cat-pill-counts">${countHtml(c)}</span>${_catRRSpan(rr)}</button><button class="cat-pill-gear" onclick="event.stopPropagation();openOptions(${leaf.id})" title="Options">⚙</button></span></span>`;
+      return `<span class="cat-pill-group"><button class="${badgeClass}" onclick="event.stopPropagation();toggleCategorySuspension(${leaf.id},'${cat}')" title="${title}">${badgeIcon}</button><span class="cat-pill-wrap"><button class="${pillClass}" onclick="event.stopPropagation();startReview(${leaf.id},'${cat}','${safeName}',${!!leaf.no_story})"><span class="cat-pill-label">${label}</span><span class="cat-pill-counts">${countHtml(c)}</span>${_catRRSpan(rr)}</button><button class="cat-pill-quick" onclick="event.stopPropagation();startReview(${leaf.id},'${cat}','${safeName}',${!!leaf.no_story},true)" title="Quick review — no AI story">⚡</button><button class="cat-pill-gear" onclick="event.stopPropagation();openOptions(${leaf.id})" title="Options">⚙</button></span></span>`;
     }
     const c = aggregateCounts(deck, cat);
     const hasCards = getDeepCategoryLeaves(deck).some(l => l.category === cat);
@@ -742,7 +744,7 @@ function buildCategoryButtons(deck) {
     const pillClass = allSusp ? 'cat-pill cat-pill-dimmed' : 'cat-pill';
     const title = allSusp ? `Unsuspend all ${label} cards` : `Suspend all ${label} cards`;
     const rr = _leavesRR(leaves);
-    return `<span class="cat-pill-group"><button class="${badgeClass}" onclick="event.stopPropagation();toggleCategorySuspension(${deck.id},'${cat}')" title="${title}">${badgeIcon}</button><span class="cat-pill-wrap"><button class="${pillClass}" onclick="event.stopPropagation();startReview(${deck.id},'${cat}','${safeName}',${!!deck.no_story})"><span class="cat-pill-label">${label}</span><span class="cat-pill-counts">${countHtml(c)}</span>${_catRRSpan(rr)}</button><button class="cat-pill-gear" onclick="event.stopPropagation();openOptions(${deck.id})" title="Options">⚙</button></span></span>`;
+    return `<span class="cat-pill-group"><button class="${badgeClass}" onclick="event.stopPropagation();toggleCategorySuspension(${deck.id},'${cat}')" title="${title}">${badgeIcon}</button><span class="cat-pill-wrap"><button class="${pillClass}" onclick="event.stopPropagation();startReview(${deck.id},'${cat}','${safeName}',${!!deck.no_story})"><span class="cat-pill-label">${label}</span><span class="cat-pill-counts">${countHtml(c)}</span>${_catRRSpan(rr)}</button><button class="cat-pill-quick" onclick="event.stopPropagation();startReview(${deck.id},'${cat}','${safeName}',${!!deck.no_story},true)" title="Quick review — no AI story">⚡</button><button class="cat-pill-gear" onclick="event.stopPropagation();openOptions(${deck.id})" title="Options">⚙</button></span></span>`;
   }).join('');
 }
 
@@ -2312,7 +2314,8 @@ async function setDefaultPreset() {
 }
 
 // ── Start review session ────────────────────────────────────────────────────
-async function startReview(id, cat, name, noStory = false) {
+async function startReview(id, cat, name, noStory = false, quick = false) {
+  quickMode = quick;
   deckId   = id;
   category = cat;
   deckName = name;
@@ -2323,7 +2326,7 @@ async function startReview(id, cat, name, noStory = false) {
   _updateReviewRRBadge(id);
 
   try {
-    if (noStory) {
+    if (noStory || quick) {
       await _doStartReview(null, 2);
       return;
     }
@@ -2345,6 +2348,22 @@ async function startReview(id, cat, name, noStory = false) {
 }
 
 async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story') {
+  if (quickMode) {
+    setLoading('Loading audio…', true);
+    try {
+      const todayData = await api('GET', `/api/today/${deckId}/${category}`);
+      if (!todayData.card) { showView('done'); return; }
+      try {
+        await fetch(`/api/preload-session/${deckId}/${category}?quick=true`, { method: 'POST' });
+      } catch (_) {}
+      showView('review');
+      loadCard(todayData.card, todayData.counts);
+    } catch (e) {
+      showError('Failed to start session: ' + e.message);
+      showView('decks');
+    }
+    return;
+  }
   setLoading('Generating story…', true);
   setLoadingStep(10, null, 'Sending request to AI…');
   _startFakeProgress(10, 55, 45000);
@@ -2411,7 +2430,8 @@ function _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode) {
 }
 
 // ── Start mixed (all-category) review session ────────────────────────────────
-async function startReviewMixed(id, name, noStory = false) {
+async function startReviewMixed(id, name, noStory = false, quick = false) {
+  quickMode  = quick;
   rootDeckId = id;
   deckId     = id;
   deckName   = name;
@@ -2428,7 +2448,7 @@ async function startReviewMixed(id, name, noStory = false) {
       showView('done');
       return;
     }
-    if (noStory) {
+    if (noStory || quick) {
       await _doStartReviewMixed(null, 2, null, null, 50, 'story', true);
       return;
     }
@@ -2614,7 +2634,7 @@ function loadCard(c, counts) {
 
   // In unfinished mode or mixed mode: story may be from a different deck/category.
   // Async-load the correct story and update the display when it arrives.
-  if (!sentence && (unfinishedMode || rootDeckId)) {
+  if (!sentence && (unfinishedMode || rootDeckId) && !quickMode) {
     const snap = c;
     const storyDeckId = unfinishedMode ? c.deck_id : rootDeckId;
     fetch(`/api/story/${storyDeckId}/unified`)
@@ -2773,8 +2793,8 @@ function showFront() {
     hintWrap.style.display = 'none';
   }
 
-  // Word bank mode: creating category for non-sentence notes
-  const isCloze = isCreating && !isSentence;
+  // Word bank mode: creating category for non-sentence notes (disabled in quick mode)
+  const isCloze = isCreating && !isSentence && !quickMode;
 
   // Reading only: Chinese sentence on front
   const sentFront = document.getElementById('sentence-front');
@@ -2801,11 +2821,13 @@ function showFront() {
   }
 
   if (isCreating) {
-    if (isSentence) {
-      // Sentence notes: show the German/English source as prompt
-      const prompt = card.source_sentence || card.definition || '';
+    if (isSentence || quickMode) {
+      // Sentence notes or quick mode: text input
+      const prompt = isSentence
+        ? (card.source_sentence || card.definition || '')
+        : (card.definition_de || card.definition || '');
       document.getElementById('sentence-en-front').textContent = prompt;
-      document.getElementById('creating-input-label').textContent = 'Your translation in Chinese';
+      document.getElementById('creating-input-label').textContent = isSentence ? 'Your translation in Chinese' : 'Write the word in Chinese';
       document.getElementById('creating-input').placeholder = 'Type here…';
       const inp = document.getElementById('creating-input');
       inp.value = '';
@@ -2862,7 +2884,7 @@ function revealAnswer() {
 
   // Capture user input before hiding front
   if (isCreating) {
-    const isClozeMode = card.note_type !== 'sentence';
+    const isClozeMode = card.note_type !== 'sentence' && !quickMode;
     if (isClozeMode) {
       // Word bank mode: parse number sequence into reconstructed sentence
       const wbRaw = document.getElementById('word-bank-input').value.trim();

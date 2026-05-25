@@ -430,3 +430,18 @@ CREATE TABLE IF NOT EXISTS preset_category_overrides (
     leech_action        TEXT CHECK(leech_action IN ('suspend', 'tag')),
     UNIQUE(preset_id, category)
 );
+
+-- ---------------------------------------------------------------------------
+-- Performance indexes
+-- ---------------------------------------------------------------------------
+CREATE INDEX IF NOT EXISTS idx_cards_deck_cat_state
+    ON cards(deck_id, category, state);
+
+CREATE INDEX IF NOT EXISTS idx_cards_word_id
+    ON cards(word_id);
+
+CREATE INDEX IF NOT EXISTS idx_cards_due
+    ON cards(due);
+
+CREATE INDEX IF NOT EXISTS idx_review_log_card_date
+    ON review_log(card_id, reviewed_at);
