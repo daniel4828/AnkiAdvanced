@@ -78,8 +78,11 @@ def _fmt_day(days: int) -> str:
         return "1d"
     if days < 31:
         return f"{days}d"
-    months = round(days / 30)
-    if months < 12:
+    if days < 365:
+        months = days // 30
+        remaining = days % 30
+        if remaining > 0:
+            return f"{months}mo {remaining}d"
         return f"{months}mo"
     return f"{round(days / 365)}y"
 
