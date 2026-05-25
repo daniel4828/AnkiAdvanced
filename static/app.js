@@ -1546,6 +1546,8 @@ async function openWordDetail(wordId) {
 
 function renderWordDetail(word) {
   document.getElementById('wd-edit-btn').onclick = () => openWordEditModal(word);
+  const regenAllBtn = document.getElementById('wd-regen-all-btn');
+  if (regenAllBtn) regenAllBtn.onclick = () => word.id && regenAllFields(word.id);
   document.getElementById('wd-hanzi').textContent = word.word_zh || '';
   document.getElementById('wd-pinyin').textContent = word.pinyin || '';
   document.getElementById('wd-def').textContent = word.definition || '';
@@ -3208,6 +3210,12 @@ function _getActiveWordId() {
 // ── Regen preview modal ──────────────────────────────────────────────────────
 let _regenState = null; // { wordId, fields, containerId }
 
+function regenAllFields(wordId) {
+  const allFields = ['definition', 'definition_zh', 'definition_de', 'definition_fr', 'pos',
+                     'notes', 'examples', 'etymology', 'compounds'];
+  regenFields(wordId, allFields, 'wd-all');
+}
+
 async function regenFields(wordId, fields, containerId) {
   const el = document.getElementById(containerId);
   const btn = el?.querySelector('.field-regen-btn');
@@ -3414,7 +3422,10 @@ async function _applyRegenResult() {
     const DEF_FIELDS = ['definition', 'definition_zh', 'definition_de', 'definition_fr', 'pos'];
     const isDefRegen = fields.some(f => DEF_FIELDS.includes(f));
     console.log('[apply] wordId=', wordId, '_currentWordId=', _currentWordId, 'fields=', fields, 'containerId=', containerId, 'isDefRegen=', isDefRegen);
-    if (isDefRegen && _currentWordId === wordId) {
+    if (containerId === 'wd-all' && _currentWordId === wordId) {
+      updated.cards = wordDetails?.cards || [];
+      renderWordDetail(updated);
+    } else if (isDefRegen && _currentWordId === wordId) {
       // Definition/POS regen: full re-render is safe (header is always visible)
       updated.cards = wordDetails?.cards || [];
       renderWordDetail(updated);
