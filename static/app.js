@@ -3394,9 +3394,10 @@ function _getRegenResultFromModal() {
   if (fields.includes('etymology') || fields.includes('compounds')) {
     const charGroups = document.querySelectorAll('#regen-chars-list .regen-char-group');
     result.characters = Array.from(charGroups).map(group => {
+      const rawId = parseInt(group.dataset.charId);
       const charResult = {
         char:    group.dataset.char,
-        char_id: parseInt(group.dataset.charId) || undefined,
+        char_id: isNaN(rawId) ? null : rawId,
       };
       if (fields.includes('etymology')) {
         charResult.etymology = group.querySelector('[data-field="etymology"]')?.value?.trim() || '';

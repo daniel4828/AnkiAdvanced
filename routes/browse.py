@@ -157,6 +157,12 @@ def _save_regen_result(word_id: int, fields: list, top_result: dict, all_charact
     for i, char_data in enumerate(all_characters):
         char_id = char_data.get("char_id")
         if not char_id:
+            ch = char_data.get("char", "")
+            if ch:
+                rec = database.get_character(ch)
+                if rec:
+                    char_id = rec["id"]
+        if not char_id:
             continue
         if char_id not in existing_chars:
             database.insert_word_character(word_id, char_id, i, None)
