@@ -3597,7 +3597,11 @@ function renderWordAnalysis(container, wordData, wordId) {
     let header = zhSpan;
     if (comp.pinyin)     header += `<span class="wa-word-pin">${comp.pinyin}</span>`;
     if (comp.hsk_level)  header += `<span class="wa-hsk-badge">HSK ${comp.hsk_level}</span>`;
-    if (comp.definition) header += `<span class="wa-word-def">${comp.definition}</span>`;
+    const compDef = comp.definition || (() => {
+      try { const m = JSON.parse(comp.characters?.[0]?.other_meanings || '[]'); return m.slice(0, 2).join('; '); }
+      catch { return ''; }
+    })();
+    if (compDef) header += `<span class="wa-word-def">${compDef}</span>`;
 
     // Measure words row
     let mwHtml = '';
