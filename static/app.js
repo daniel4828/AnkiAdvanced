@@ -3624,8 +3624,12 @@ function renderWordAnalysis(container, wordData, wordId) {
         const charEsc = (c.char || '').replace(/'/g, "\\'");
         const pinEsc  = (c.pinyin || '').replace(/'/g, "\\'");
         let right = '';
-        if (c.pinyin)             right += `<span class="wa-char-pin">${c.pinyin}</span>`;
-        if (c.meaning_in_context) right += `<span class="wa-char-ctx">${c.meaning_in_context}</span>`;
+        if (c.pinyin) right += `<span class="wa-char-pin">${c.pinyin}</span>`;
+        const charMeaning = c.meaning_in_context || (() => {
+          try { const m = JSON.parse(c.other_meanings || '[]'); return m.slice(0, 2).join('; '); }
+          catch { return ''; }
+        })();
+        if (charMeaning) right += `<span class="wa-char-ctx">${charMeaning}</span>`;
         if (c.compounds?.length) {
           const cps = c.compounds.map(cp => {
             const highlightedZh = (cp.compound_zh || '').split('').map(ch =>
