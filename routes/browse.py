@@ -101,6 +101,27 @@ def _run_regen_ai(word_id: int, word: dict, fields: list) -> tuple[dict, list]:
             comp_fields = [f for f in fields if f in ("etymology", "compounds")]
             for comp in components:
                 comp_chars = database.get_word_characters(comp["id"])
+                if not comp_chars:
+                    # No chars linked yet — infer from the component's word_zh
+                    seen: set = set()
+                    for ch in comp.get("word_zh", ""):
+                        if ch in seen:
+                            continue
+                        seen.add(ch)
+                        basic = database.get_character(ch)
+                        if basic:
+                            full = database.get_character_by_id(basic["id"])
+                            if full:
+                                comp_chars.append({
+                                    "char_id": full["id"], "char": ch,
+                                    "pinyin": full.get("pinyin", ""),
+                                    "hsk_level": full.get("hsk_level", ""),
+                                    "etymology": full.get("etymology", ""),
+                                    "compounds": full.get("compounds", []),
+                                })
+                                continue
+                        comp_chars.append({"char_id": None, "char": ch,
+                                           "pinyin": "", "hsk_level": "", "etymology": "", "compounds": []})
                 result = ai.regenerate_entry_fields(comp, comp_chars, comp_fields)
                 _enrich_chars_with_id(result.get("characters", []), comp_chars, all_characters)
     else:
@@ -153,11 +174,14 @@ def _save_regen_result(word_id: int, fields: list, top_result: dict, all_charact
                     position=i,
                 )
 
-    # Build a map from character string → component word_id so characters get linked
-    # to the correct component word (e.g. for 漏洞: '漏'→12175, '洞'→12176).
-    # Falls back to the parent word_id for characters without a matching component.
+    # Build a map from individual character → component word_id.
+    # For a component like '田园', both '田' and '园' map to that component's word_id.
+    # Falls back to the parent word_id for characters with no matching component.
     components = database.get_note_components(word_id)
-    comp_word_id_by_char = {comp["word_zh"]: comp["id"] for comp in components}
+    comp_word_id_by_char: dict[str, int] = {}
+    for comp in components:
+        for ch in comp["word_zh"]:
+            comp_word_id_by_char.setdefault(ch, comp["id"])
     # Cache existing chars per target word to avoid redundant DB reads
     existing_by_word: dict[int, set] = {}
 
