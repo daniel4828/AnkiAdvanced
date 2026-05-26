@@ -3652,11 +3652,7 @@ function renderWordAnalysis(container, wordData, wordId) {
     return `<div class="wa-word-card">` +
       `<div class="wa-word-header">${header}</div>` +
       (mwHtml ? `<div class="wa-word-extra">${mwHtml}</div>` : '') +
-      (hasChars
-        ? `<div class="wa-chars-toggle section-toggle" onclick="toggleSection('${charBodyId}')">` +
-            `<span id="${charBodyId}-arrow">▼</span> Characters</div>` +
-          `<div id="${charBodyId}" class="wa-chars-list">${charBody}</div>`
-        : '') +
+      (hasChars ? `<div class="wa-chars-list">${charBody}</div>` : '') +
       `</div>`;
   }).join('');
 
@@ -6084,18 +6080,6 @@ document.addEventListener('keydown', async e => {
       document.getElementById(containerId)?.scrollIntoView({ behavior: 'smooth', block });
   };
 
-  const _toggleAllChars = () => {
-    const charLists = document.querySelectorAll('.wa-chars-list');
-    if (!charLists.length) return;
-    const opening = charLists[0].style.display === 'none';
-    charLists.forEach(el => {
-      const arrow = document.getElementById(el.id + '-arrow');
-      el.style.display = opening ? 'block' : 'none';
-      if (arrow) arrow.textContent = opening ? '▼' : '▶';
-    });
-    if (opening) charLists[charLists.length - 1].scrollIntoView({ behavior: 'smooth', block: 'end' });
-  };
-
   // Review shortcuts
   const reviewView = document.getElementById('view-review');
   if (reviewView && reviewView.style.display !== 'none') {
@@ -6121,8 +6105,6 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); _toggleAndScroll('notes-section-body', 'notes-section');
     } else if (backVisible && e.key === 'w') {
       e.preventDefault(); _toggleAndScroll('word-analysis-section-body', 'word-analysis-section', 'end');
-    } else if (backVisible && e.key === 'h') {
-      e.preventDefault(); _toggleAllChars();
     } else if (e.key === 'q') {
       e.preventDefault(); _adjustListenHintSlider(-1);
     } else if (e.key === 'w') {
@@ -6154,8 +6136,6 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); _toggleAndScroll('wd-notes-section-body', 'wd-notes-section');
     } else if (e.key === 'w') {
       e.preventDefault(); _toggleAndScroll('wd-word-analysis-section-body', 'wd-word-analysis-section', 'end');
-    } else if (e.key === 'c') {
-      e.preventDefault(); _toggleAllChars();
     } else if (e.key === 'C') {
       e.preventDefault(); if (_currentWordId) regenAllFields(_currentWordId);
     } else if (e.key === 'r') {
