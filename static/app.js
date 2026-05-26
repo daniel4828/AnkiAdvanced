@@ -3581,8 +3581,8 @@ function renderWordAnalysis(container, wordData, wordId) {
   if (wordGroups.length === 0) {
     el.innerHTML =
       `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
-        `<span><span id="${bodyId}-arrow">▷</span> Word Analysis</span>${regenBtnWA}</div>` +
-      `<div id="${bodyId}" class="wa-list section-peek" data-peek="1" data-state="peek"><div class="section-empty">—</div></div>`;
+        `<span><span id="${bodyId}-arrow">▼</span> Word Analysis</span>${regenBtnWA}</div>` +
+      `<div id="${bodyId}" class="wa-list section-open" data-peek="1" data-state="open"><div class="section-empty">—</div></div>`;
     return;
   }
 
@@ -3658,8 +3658,8 @@ function renderWordAnalysis(container, wordData, wordId) {
 
   el.innerHTML =
     `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
-      `<span><span id="${bodyId}-arrow">▷</span> Word Analysis</span>${regenBtnWA}</div>` +
-    `<div id="${bodyId}" class="wa-list section-peek" data-peek="1" data-state="peek">${wordCards}</div>`;
+      `<span><span id="${bodyId}-arrow">▼</span> Word Analysis</span>${regenBtnWA}</div>` +
+    `<div id="${bodyId}" class="wa-list section-open" data-peek="1" data-state="open">${wordCards}</div>`;
 }
 
 function _callRenderWordAnalysis() {
