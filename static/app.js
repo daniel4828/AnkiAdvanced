@@ -3547,6 +3547,18 @@ function renderWordAnalysis(container, wordData, wordId) {
   let wordGroups = [];
   if (isMultiWord) {
     wordGroups = wd?.components || [];
+    // chengyu/sentence with no components: fall back to characters linked directly to the entry
+    if (wordGroups.length === 0 && wd?.characters?.length > 0) {
+      wordGroups = [{
+        id: wd.id,
+        word_zh:       wd.word_zh    || card?.word_zh,
+        pinyin:        wd.pinyin     || card?.pinyin,
+        hsk_level:     wd.hsk_level  || card?.hsk_level,
+        definition:    wd.definition || card?.definition,
+        measure_words: wd.measure_words || [],
+        characters:    wd.characters || [],
+      }];
+    }
   } else if (wd?.components?.length > 0) {
     // New-format vocabulary: word_analyses stored as components (each with own characters)
     wordGroups = wd.components;
