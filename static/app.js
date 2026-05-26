@@ -6133,6 +6133,8 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); _toggleSuspendCat('listening');
     } else if (e.key === 'c') {
       e.preventDefault(); _toggleSuspendCat('creating');
+    } else if (e.key === 'C') {
+      e.preventDefault(); regenAllFieldsFromReview();
     } else if (e.key === 'D') {
       e.preventDefault();
       if (await showConfirm('Delete this card?')) reviewCardAction('delete');
@@ -6154,6 +6156,8 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); _toggleAndScroll('wd-word-analysis-section-body', 'wd-word-analysis-section', 'end');
     } else if (e.key === 'c') {
       e.preventDefault(); _toggleAllChars();
+    } else if (e.key === 'C') {
+      e.preventDefault(); if (_currentWordId) regenAllFields(_currentWordId);
     } else if (e.key === 'r') {
       e.preventDefault(); _toggleAndScroll('wd-relations-body', 'wd-relations-section');
     }
