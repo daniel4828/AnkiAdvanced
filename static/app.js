@@ -1830,7 +1830,7 @@ async function confirmHanziRegen() {
             : c
         );
       }
-      renderVocabDetail();
+      _callRenderWordAnalysis();
     } else {
       if (_currentWordId) await openWordDetail(_currentWordId);
     }
