@@ -3289,11 +3289,16 @@ function _showRegenPreviewModal(previewData) {
     </div>`;
   }
 
-  if (wantEtym || wantComp) {
+  const wantMeanings = fields.includes('other_meanings');
+  if (wantEtym || wantComp || wantMeanings) {
     const chars = result.characters || [];
     const charSections = chars.map(c => {
       const charEsc = (c.char || '').replace(/'/g, "\\'");
       let inner = `<div class="regen-char-header">${c.char || ''}</div>`;
+      if (wantMeanings) {
+        const meanVal = Array.isArray(c.other_meanings) ? c.other_meanings.join(', ') : (c.other_meanings || '');
+        inner += `<input type="text" class="regen-meanings-input" data-field="other_meanings" placeholder="Bedeutungen (kommagetrennt)" value="${meanVal.replace(/"/g, '&quot;')}">`;
+      }
       if (wantEtym) {
         inner += `<textarea class="regen-etym-textarea" data-field="etymology" placeholder="Etymology…">${c.etymology || ''}</textarea>`;
       }
@@ -3399,6 +3404,10 @@ function _getRegenResultFromModal() {
         char:    group.dataset.char,
         char_id: isNaN(rawId) ? null : rawId,
       };
+      if (fields.includes('other_meanings')) {
+        const raw = group.querySelector('[data-field="other_meanings"]')?.value?.trim() || '';
+        charResult.other_meanings = raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
+      }
       if (fields.includes('etymology')) {
         charResult.etymology = group.querySelector('[data-field="etymology"]')?.value?.trim() || '';
       }
@@ -3576,7 +3585,7 @@ function renderWordAnalysis(container, wordData, wordId) {
   }
 
   const wid = wordId ?? _getActiveWordId();
-  const regenBtnWA = wid ? `<button class="field-regen-btn" onclick="event.stopPropagation();regenFields(${wid},['etymology','compounds'],'${el.id}')" title="Regenerate etymology &amp; compounds">↺</button>` : '';
+  const regenBtnWA = wid ? `<button class="field-regen-btn" onclick="event.stopPropagation();regenFields(${wid},['etymology','compounds','other_meanings'],'${el.id}')" title="Regenerate etymology, compounds &amp; meanings">↺</button>` : '';
 
   if (wordGroups.length === 0) {
     el.innerHTML =

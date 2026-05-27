@@ -77,7 +77,7 @@ def _enrich_chars_with_id(char_results: list, db_chars: list, output: list) -> N
 
 
 _TOP_FIELDS = {"notes", "examples", "definition", "definition_zh", "definition_de", "definition_fr", "pos"}
-_CHAR_FIELDS = {"etymology", "compounds"}
+_CHAR_FIELDS = {"etymology", "compounds", "other_meanings"}
 
 
 def _run_regen_ai(word_id: int, word: dict, fields: list) -> tuple[dict, list]:
@@ -214,6 +214,10 @@ def _save_regen_result(word_id: int, fields: list, top_result: dict, all_charact
             database.update_character(char_id, {"etymology": char_data["etymology"]})
         if "compounds" in fields and char_data.get("compounds"):
             database.upsert_character_compounds(char_id, char_data["compounds"])
+        if "other_meanings" in fields and char_data.get("other_meanings"):
+            meanings = char_data["other_meanings"]
+            if isinstance(meanings, list):
+                database.update_character(char_id, {"other_meanings": _json.dumps(meanings, ensure_ascii=False)})
 
 
 @router.post("/api/word/{word_id}/regenerate-fields")

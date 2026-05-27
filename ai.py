@@ -353,7 +353,8 @@ def regenerate_entry_fields(
     want_examples = "examples" in fields
     want_etym     = "etymology" in fields
     want_comp     = "compounds" in fields
-    want_chars    = want_etym or want_comp
+    want_meanings = "other_meanings" in fields
+    want_chars    = want_etym or want_comp or want_meanings
     want_def      = any(f in fields for f in ("definition", "definition_zh", "definition_de", "definition_fr", "pos"))
 
     # --- Entry header ---
@@ -430,6 +431,11 @@ def regenerate_entry_fields(
                 "  - compounds: 3-5 common compound words using this character. "
                 "Each: {\"simplified\": \"词\", \"pinyin\": \"...\", \"meaning\": \"German (NO colons)\"}"
             )
+        if want_meanings:
+            char_field_lines.append(
+                "  - other_meanings: array of 2-4 short German strings giving the core meaning(s) of this single character "
+                "(e.g. [\"tragen\", \"mitnehmen\", \"begleiten\"])"
+            )
         sections.append(
             f"CHARACTER DATA: Return EXACTLY {n_chars} object(s) in the \"characters\" array — "
             f"one per character listed above. Do NOT skip any character.\n"
@@ -458,6 +464,8 @@ def regenerate_entry_fields(
             char_obj_keys += ', "etymology": "..."'
         if want_comp:
             char_obj_keys += ', "compounds": [{"simplified": "...", "pinyin": "...", "meaning": "..."}]'
+        if want_meanings:
+            char_obj_keys += ', "other_meanings": ["...", "..."]'
         # Show one example object per actual character so the AI knows the expected array length
         char_example = "{" + char_obj_keys + "}"
         char_array = ", ".join([char_example] * max(len(characters), 1))
