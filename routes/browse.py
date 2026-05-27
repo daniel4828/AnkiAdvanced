@@ -132,18 +132,20 @@ def _run_regen_ai(word_id: int, word: dict, fields: list) -> tuple[dict, list]:
             for ch in word.get("word_zh", ""):
                 if ch not in existing_in_db:
                     basic = database.get_character(ch)
-                    if basic:
-                        full = database.get_character_by_id(basic["id"])
-                        if full:
-                            characters.append({
-                                "char_id": full["id"],
-                                "char": ch,
-                                "pinyin": full.get("pinyin", ""),
-                                "hsk_level": full.get("hsk_level", ""),
-                                "etymology": full.get("etymology", ""),
-                                "compounds": full.get("compounds", []),
-                            })
-                            existing_in_db.add(ch)
+                    full = database.get_character_by_id(basic["id"]) if basic else None
+                    if full:
+                        characters.append({
+                            "char_id": full["id"],
+                            "char": ch,
+                            "pinyin": full.get("pinyin", ""),
+                            "hsk_level": full.get("hsk_level", ""),
+                            "etymology": full.get("etymology", ""),
+                            "compounds": full.get("compounds", []),
+                        })
+                    else:
+                        characters.append({"char_id": None, "char": ch,
+                                           "pinyin": "", "hsk_level": "", "etymology": "", "compounds": []})
+                    existing_in_db.add(ch)
         top_result = ai.regenerate_entry_fields(word, characters, fields)
         _enrich_chars_with_id(top_result.get("characters", []), characters, all_characters)
 
