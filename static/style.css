@@ -453,6 +453,7 @@ main.browse-open {
 }
 .listen-hint-sentence .hint-blank {
   color: var(--text-muted, #aaa);
+  margin: 0 1px;
 }
 .listen-hint-sentence .hint-blank-target {
   color: var(--primary, #4a90d9);
