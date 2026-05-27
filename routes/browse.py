@@ -101,6 +101,27 @@ def _run_regen_ai(word_id: int, word: dict, fields: list) -> tuple[dict, list]:
             comp_fields = [f for f in fields if f in ("etymology", "compounds")]
             for comp in components:
                 comp_chars = database.get_word_characters(comp["id"])
+                if not comp_chars:
+                    # No chars linked yet — infer from the component's word_zh
+                    seen: set = set()
+                    for ch in comp.get("word_zh", ""):
+                        if ch in seen:
+                            continue
+                        seen.add(ch)
+                        basic = database.get_character(ch)
+                        if basic:
+                            full = database.get_character_by_id(basic["id"])
+                            if full:
+                                comp_chars.append({
+                                    "char_id": full["id"], "char": ch,
+                                    "pinyin": full.get("pinyin", ""),
+                                    "hsk_level": full.get("hsk_level", ""),
+                                    "etymology": full.get("etymology", ""),
+                                    "compounds": full.get("compounds", []),
+                                })
+                                continue
+                        comp_chars.append({"char_id": None, "char": ch,
+                                           "pinyin": "", "hsk_level": "", "etymology": "", "compounds": []})
                 result = ai.regenerate_entry_fields(comp, comp_chars, comp_fields)
                 _enrich_chars_with_id(result.get("characters", []), comp_chars, all_characters)
     else:
@@ -153,13 +174,40 @@ def _save_regen_result(word_id: int, fields: list, top_result: dict, all_charact
                     position=i,
                 )
 
-    existing_chars = {c["char_id"] for c in database.get_word_characters(word_id)}
+    # Build a map from individual character → component word_id.
+    # For a component like '田园', both '田' and '园' map to that component's word_id.
+    # Falls back to the parent word_id for characters with no matching component.
+    components = database.get_note_components(word_id)
+    comp_word_id_by_char: dict[str, int] = {}
+    for comp in components:
+        for ch in comp["word_zh"]:
+            comp_word_id_by_char.setdefault(ch, comp["id"])
+    # Cache existing chars per target word to avoid redundant DB reads
+    existing_by_word: dict[int, set] = {}
+
     for i, char_data in enumerate(all_characters):
         char_id = char_data.get("char_id")
+        ch = char_data.get("char", "")
+        if not char_id:
+            if ch:
+                rec = database.get_character(ch)
+                if rec:
+                    char_id = rec["id"]
+                elif ch:
+                    char_id = database.upsert_character({
+                        "char": ch, "traditional": None, "pinyin": None,
+                        "hsk_level": None, "etymology": None, "other_meanings": None,
+                    })
         if not char_id:
             continue
-        if char_id not in existing_chars:
-            database.insert_word_character(word_id, char_id, i, None)
+        target_word_id = comp_word_id_by_char.get(ch, word_id)
+        if target_word_id not in existing_by_word:
+            existing_by_word[target_word_id] = {
+                c["char_id"] for c in database.get_word_characters(target_word_id)
+            }
+        if char_id not in existing_by_word[target_word_id]:
+            database.insert_word_character(target_word_id, char_id, i, None)
+            existing_by_word[target_word_id].add(char_id)
         if "etymology" in fields and char_data.get("etymology"):
             database.update_character(char_id, {"etymology": char_data["etymology"]})
         if "compounds" in fields and char_data.get("compounds"):

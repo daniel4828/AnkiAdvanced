@@ -418,6 +418,7 @@ def regenerate_entry_fields(
         )
 
     if want_chars:
+        n_chars = len(characters)
         char_field_lines = []
         if want_etym:
             char_field_lines.append(
@@ -429,7 +430,11 @@ def regenerate_entry_fields(
                 "  - compounds: 3-5 common compound words using this character. "
                 "Each: {\"simplified\": \"词\", \"pinyin\": \"...\", \"meaning\": \"German (NO colons)\"}"
             )
-        sections.append("CHARACTER DATA: For each character above:\n" + "\n".join(char_field_lines))
+        sections.append(
+            f"CHARACTER DATA: Return EXACTLY {n_chars} object(s) in the \"characters\" array — "
+            f"one per character listed above. Do NOT skip any character.\n"
+            + "\n".join(char_field_lines)
+        )
 
     # --- JSON template ---
     json_keys = []
@@ -453,7 +458,10 @@ def regenerate_entry_fields(
             char_obj_keys += ', "etymology": "..."'
         if want_comp:
             char_obj_keys += ', "compounds": [{"simplified": "...", "pinyin": "...", "meaning": "..."}]'
-        json_keys.append(f'  "characters": [{{{char_obj_keys}}}]')
+        # Show one example object per actual character so the AI knows the expected array length
+        char_example = "{" + char_obj_keys + "}"
+        char_array = ", ".join([char_example] * max(len(characters), 1))
+        json_keys.append(f'  "characters": [{char_array}]')
 
     json_template = "{\n" + ",\n".join(json_keys) + "\n}"
 
@@ -633,6 +641,90 @@ def _fallback_sentences(cards: list[dict]) -> list[dict]:
     ]
     _fill_translations(result)
     return result
+
+
+_FIX_BATCH = 25  # words per DeepSeek call
+
+
+def _needs_comma_fix(text: str | None) -> bool:
+    if not text or len(text) < 15:
+        return False
+    return "," not in text and ";" not in text and "/" not in text
+
+
+def fix_definition_commas(cards: list[dict]) -> int:
+    """Add missing commas to English/German definitions of today's due words.
+
+    Sends batches to DeepSeek, updates entries in-place and in the DB.
+    Returns the number of entries actually updated.
+    """
+    to_fix = [
+        {"id": c["word_id"], "word_zh": c["word_zh"],
+         "en": c.get("definition"), "de": c.get("definition_de")}
+        for c in cards
+        if _needs_comma_fix(c.get("definition")) or _needs_comma_fix(c.get("definition_de"))
+    ]
+    # deduplicate by word_id
+    seen: set[int] = set()
+    unique: list[dict] = []
+    for item in to_fix:
+        if item["id"] not in seen:
+            seen.add(item["id"])
+            unique.append(item)
+
+    if not unique:
+        return 0
+
+    logger.info("fix_commas  %d entries need comma repair", len(unique))
+    total_fixed = 0
+
+    for i in range(0, len(unique), _FIX_BATCH):
+        batch = unique[i:i + _FIX_BATCH]
+        word_lines = "\n".join(
+            f'{item["word_zh"]} | EN: {item["en"] or ""} | DE: {item["de"] or ""}'
+            for item in batch
+        )
+        prompt = (
+            "The following Chinese vocabulary definitions are missing commas between "
+            "their separate meanings. Add commas (or slashes where a slash is the natural "
+            "separator) to make the meanings clearly distinct. Do not add or remove meanings, "
+            "only insert the missing punctuation.\n\n"
+            "Return ONLY a JSON array. Each element: "
+            '{"word_zh": "...", "en": "fixed English or null", "de": "fixed German or null"}\n\n'
+            f"Words:\n{word_lines}"
+        )
+        try:
+            raw = _call_api("deepseek-v4-flash",
+                            [{"role": "user", "content": prompt}],
+                            max_tokens=2000, purpose="fix_commas")
+            # extract JSON array from response
+            m = re.search(r"\[.*\]", raw, re.DOTALL)
+            if not m:
+                logger.warning("fix_commas  no JSON array in response")
+                continue
+            updates = json.loads(m.group())
+            id_map = {item["word_zh"]: item["id"] for item in batch}
+            for upd in updates:
+                wid = id_map.get(upd.get("word_zh"))
+                if not wid:
+                    continue
+                fields: dict = {}
+                if upd.get("en"):
+                    fields["definition"] = upd["en"]
+                if upd.get("de"):
+                    fields["definition_de"] = upd["de"]
+                if fields:
+                    database.update_word(wid, fields)
+                    # also patch the in-memory card dicts so the story prompt sees new values
+                    for c in cards:
+                        if c.get("word_id") == wid:
+                            c.update(fields)
+                    total_fixed += 1
+        except Exception as e:
+            logger.warning("fix_commas  batch error: %s", e)
+
+    logger.info("fix_commas  updated %d entries", total_fixed)
+    return total_fixed
 
 
 def estimate_story_tokens(num_cards: int) -> int:

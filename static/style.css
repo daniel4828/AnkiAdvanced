@@ -453,6 +453,10 @@ main.browse-open {
 }
 .listen-hint-sentence .hint-blank {
   color: var(--text-muted, #aaa);
+  margin: 0 1px;
+}
+.listen-hint-sentence .hint-blank-target {
+  color: var(--primary, #4a90d9);
 }
 .listen-hint-slider-row {
   display: flex;
@@ -2377,6 +2381,7 @@ main.browse-open {
   transition: border-color 0.12s, color 0.12s;
 }
 .wd-edit-btn:hover { border-color: var(--primary); color: var(--primary); }
+.wd-regen-all-btn { margin-left: 6px; }
 .wd-hanzi  { font-size: 44px; font-weight: 700; line-height: 1.1; }
 .wd-pinyin { font-size: 16px; color: var(--muted); margin: 4px 0 8px; }
 .wd-pos-def-row {

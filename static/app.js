@@ -1546,6 +1546,8 @@ async function openWordDetail(wordId) {
 
 function renderWordDetail(word) {
   document.getElementById('wd-edit-btn').onclick = () => openWordEditModal(word);
+  const regenAllBtn = document.getElementById('wd-regen-all-btn');
+  if (regenAllBtn) regenAllBtn.onclick = () => word.id && regenAllFields(word.id);
   document.getElementById('wd-hanzi').textContent = word.word_zh || '';
   document.getElementById('wd-pinyin').textContent = word.pinyin || '';
   document.getElementById('wd-def').textContent = word.definition || '';
@@ -3208,6 +3210,20 @@ function _getActiveWordId() {
 // ── Regen preview modal ──────────────────────────────────────────────────────
 let _regenState = null; // { wordId, fields, containerId }
 
+function regenAllFields(wordId) {
+  const allFields = ['definition', 'definition_zh', 'definition_de', 'definition_fr', 'pos',
+                     'notes', 'examples', 'etymology', 'compounds'];
+  regenFields(wordId, allFields, 'wd-all');
+}
+
+function regenAllFieldsFromReview() {
+  const wordId = _getActiveWordId();
+  if (!wordId) return showError('No active word');
+  const allFields = ['definition', 'definition_zh', 'definition_de', 'definition_fr', 'pos',
+                     'notes', 'examples', 'etymology', 'compounds'];
+  regenFields(wordId, allFields, 'review-regen-all');
+}
+
 async function regenFields(wordId, fields, containerId) {
   const el = document.getElementById(containerId);
   const btn = el?.querySelector('.field-regen-btn');
@@ -3303,6 +3319,7 @@ function _showRegenPreviewModal(previewData) {
       <button onclick="_closeRegenPreviewModal()">×</button>
     </div>
     <div class="regen-preview-body">${bodyHtml}</div>
+    <div id="regen-modal-error" style="display:none;color:#b91c1c;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:8px 12px;margin:8px 16px;font-size:13px"></div>
     <div class="regen-preview-footer">
       <button class="regen-btn regen-btn-regenerate" id="regen-btn-regen" onclick="_rerunRegen()">↺ Regenerate</button>
       <button class="regen-btn regen-btn-reject" onclick="_closeRegenPreviewModal()">✗ Reject</button>
@@ -3377,9 +3394,10 @@ function _getRegenResultFromModal() {
   if (fields.includes('etymology') || fields.includes('compounds')) {
     const charGroups = document.querySelectorAll('#regen-chars-list .regen-char-group');
     result.characters = Array.from(charGroups).map(group => {
+      const rawId = parseInt(group.dataset.charId);
       const charResult = {
         char:    group.dataset.char,
-        char_id: parseInt(group.dataset.charId) || undefined,
+        char_id: isNaN(rawId) ? null : rawId,
       };
       if (fields.includes('etymology')) {
         charResult.etymology = group.querySelector('[data-field="etymology"]')?.value?.trim() || '';
@@ -3414,7 +3432,15 @@ async function _applyRegenResult() {
     const DEF_FIELDS = ['definition', 'definition_zh', 'definition_de', 'definition_fr', 'pos'];
     const isDefRegen = fields.some(f => DEF_FIELDS.includes(f));
     console.log('[apply] wordId=', wordId, '_currentWordId=', _currentWordId, 'fields=', fields, 'containerId=', containerId, 'isDefRegen=', isDefRegen);
-    if (isDefRegen && _currentWordId === wordId) {
+    if (containerId === 'review-regen-all') {
+      // Re-render all review side-panel sections
+      renderNotesSection(null, updated.notes, wordId);
+      renderWordAnalysis(null, updated, wordId);
+      renderVocabDetail(null, updated.examples, wordId);
+    } else if (containerId === 'wd-all' && _currentWordId === wordId) {
+      updated.cards = wordDetails?.cards || [];
+      renderWordDetail(updated);
+    } else if (isDefRegen && _currentWordId === wordId) {
       // Definition/POS regen: full re-render is safe (header is always visible)
       updated.cards = wordDetails?.cards || [];
       renderWordDetail(updated);
@@ -3445,7 +3471,9 @@ async function _applyRegenResult() {
       }
     }
   } catch (e) {
-    showError('Apply failed: ' + e.message);
+    const modalErr = document.getElementById('regen-modal-error');
+    if (modalErr) { modalErr.textContent = 'Apply failed: ' + e.message; modalErr.style.display = 'block'; }
+    else showError('Apply failed: ' + e.message);
     if (applyBtn) applyBtn.disabled = false;
     if (regenBtn) regenBtn.disabled = false;
   }
@@ -3519,6 +3547,18 @@ function renderWordAnalysis(container, wordData, wordId) {
   let wordGroups = [];
   if (isMultiWord) {
     wordGroups = wd?.components || [];
+    // chengyu/sentence with no components: fall back to characters linked directly to the entry
+    if (wordGroups.length === 0 && wd?.characters?.length > 0) {
+      wordGroups = [{
+        id: wd.id,
+        word_zh:       wd.word_zh    || card?.word_zh,
+        pinyin:        wd.pinyin     || card?.pinyin,
+        hsk_level:     wd.hsk_level  || card?.hsk_level,
+        definition:    wd.definition || card?.definition,
+        measure_words: wd.measure_words || [],
+        characters:    wd.characters || [],
+      }];
+    }
   } else if (wd?.components?.length > 0) {
     // New-format vocabulary: word_analyses stored as components (each with own characters)
     wordGroups = wd.components;
@@ -3541,8 +3581,8 @@ function renderWordAnalysis(container, wordData, wordId) {
   if (wordGroups.length === 0) {
     el.innerHTML =
       `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
-        `<span><span id="${bodyId}-arrow">▷</span> Word Analysis</span>${regenBtnWA}</div>` +
-      `<div id="${bodyId}" class="wa-list section-peek" data-peek="1" data-state="peek"><div class="section-empty">—</div></div>`;
+        `<span><span id="${bodyId}-arrow">▼</span> Word Analysis</span>${regenBtnWA}</div>` +
+      `<div id="${bodyId}" class="wa-list section-open" data-peek="1" data-state="open"><div class="section-empty">—</div></div>`;
     return;
   }
 
@@ -3557,7 +3597,11 @@ function renderWordAnalysis(container, wordData, wordId) {
     let header = zhSpan;
     if (comp.pinyin)     header += `<span class="wa-word-pin">${comp.pinyin}</span>`;
     if (comp.hsk_level)  header += `<span class="wa-hsk-badge">HSK ${comp.hsk_level}</span>`;
-    if (comp.definition) header += `<span class="wa-word-def">${comp.definition}</span>`;
+    const compDef = comp.definition || (() => {
+      try { const m = JSON.parse(comp.characters?.[0]?.other_meanings || '[]'); return m.slice(0, 2).join('; '); }
+      catch { return ''; }
+    })();
+    if (compDef) header += `<span class="wa-word-def">${compDef}</span>`;
 
     // Measure words row
     let mwHtml = '';
@@ -3580,8 +3624,12 @@ function renderWordAnalysis(container, wordData, wordId) {
         const charEsc = (c.char || '').replace(/'/g, "\\'");
         const pinEsc  = (c.pinyin || '').replace(/'/g, "\\'");
         let right = '';
-        if (c.pinyin)             right += `<span class="wa-char-pin">${c.pinyin}</span>`;
-        if (c.meaning_in_context) right += `<span class="wa-char-ctx">${c.meaning_in_context}</span>`;
+        if (c.pinyin) right += `<span class="wa-char-pin">${c.pinyin}</span>`;
+        const charMeaning = c.meaning_in_context || (() => {
+          try { const m = JSON.parse(c.other_meanings || '[]'); return m.slice(0, 2).join('; '); }
+          catch { return ''; }
+        })();
+        if (charMeaning) right += `<span class="wa-char-ctx">${charMeaning}</span>`;
         if (c.compounds?.length) {
           const cps = c.compounds.map(cp => {
             const highlightedZh = (cp.compound_zh || '').split('').map(ch =>
@@ -3612,18 +3660,14 @@ function renderWordAnalysis(container, wordData, wordId) {
     return `<div class="wa-word-card">` +
       `<div class="wa-word-header">${header}</div>` +
       (mwHtml ? `<div class="wa-word-extra">${mwHtml}</div>` : '') +
-      (hasChars
-        ? `<div class="wa-chars-toggle section-toggle" onclick="toggleSection('${charBodyId}')">` +
-            `<span id="${charBodyId}-arrow">▼</span> Characters</div>` +
-          `<div id="${charBodyId}" class="wa-chars-list">${charBody}</div>`
-        : '') +
+      (hasChars ? `<div class="wa-chars-list">${charBody}</div>` : '') +
       `</div>`;
   }).join('');
 
   el.innerHTML =
     `<div class="section-label section-label-row section-toggle" onclick="toggleSection('${bodyId}')">` +
-      `<span><span id="${bodyId}-arrow">▷</span> Word Analysis</span>${regenBtnWA}</div>` +
-    `<div id="${bodyId}" class="wa-list section-peek" data-peek="1" data-state="peek">${wordCards}</div>`;
+      `<span><span id="${bodyId}-arrow">▼</span> Word Analysis</span>${regenBtnWA}</div>` +
+    `<div id="${bodyId}" class="wa-list section-open" data-peek="1" data-state="open">${wordCards}</div>`;
 }
 
 function _callRenderWordAnalysis() {
@@ -3829,7 +3873,7 @@ function _renderListenHint(threshold) {
     if (!isCjk(ch)) {
       html += ch;
     } else if (targetPositions.has(i)) {
-      html += `<span class="hint-blank">_</span>`;
+      html += `<span class="hint-blank hint-blank-target">_</span>`;
     } else if (threshold === 0) {
       html += ch; // "All" mode: reveal all non-target characters
     } else if (revealPositions.has(i)) {
@@ -6044,18 +6088,6 @@ document.addEventListener('keydown', async e => {
       document.getElementById(containerId)?.scrollIntoView({ behavior: 'smooth', block });
   };
 
-  const _toggleAllChars = () => {
-    const charLists = document.querySelectorAll('.wa-chars-list');
-    if (!charLists.length) return;
-    const opening = charLists[0].style.display === 'none';
-    charLists.forEach(el => {
-      const arrow = document.getElementById(el.id + '-arrow');
-      el.style.display = opening ? 'block' : 'none';
-      if (arrow) arrow.textContent = opening ? '▼' : '▶';
-    });
-    if (opening) charLists[charLists.length - 1].scrollIntoView({ behavior: 'smooth', block: 'end' });
-  };
-
   // Review shortcuts
   const reviewView = document.getElementById('view-review');
   if (reviewView && reviewView.style.display !== 'none') {
@@ -6081,8 +6113,6 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); _toggleAndScroll('notes-section-body', 'notes-section');
     } else if (backVisible && e.key === 'w') {
       e.preventDefault(); _toggleAndScroll('word-analysis-section-body', 'word-analysis-section', 'end');
-    } else if (backVisible && e.key === 'h') {
-      e.preventDefault(); _toggleAllChars();
     } else if (e.key === 'q') {
       e.preventDefault(); _adjustListenHintSlider(-1);
     } else if (e.key === 'w') {
@@ -6093,6 +6123,8 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); _toggleSuspendCat('listening');
     } else if (e.key === 'c') {
       e.preventDefault(); _toggleSuspendCat('creating');
+    } else if (e.key === 'C') {
+      e.preventDefault(); regenAllFieldsFromReview();
     } else if (e.key === 'D') {
       e.preventDefault();
       if (await showConfirm('Delete this card?')) reviewCardAction('delete');
@@ -6112,8 +6144,8 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); _toggleAndScroll('wd-notes-section-body', 'wd-notes-section');
     } else if (e.key === 'w') {
       e.preventDefault(); _toggleAndScroll('wd-word-analysis-section-body', 'wd-word-analysis-section', 'end');
-    } else if (e.key === 'c') {
-      e.preventDefault(); _toggleAllChars();
+    } else if (e.key === 'C') {
+      e.preventDefault(); if (_currentWordId) regenAllFields(_currentWordId);
     } else if (e.key === 'r') {
       e.preventDefault(); _toggleAndScroll('wd-relations-body', 'wd-relations-section');
     }
