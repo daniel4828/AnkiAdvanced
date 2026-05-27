@@ -421,6 +421,11 @@ def regenerate_entry_fields(
     if want_chars:
         n_chars = len(characters)
         char_field_lines = []
+        if want_meanings:
+            char_field_lines.append(
+                "  - other_meanings: array of 2-4 short German strings giving the core meaning(s) of this single character "
+                "(e.g. [\"tragen\", \"mitnehmen\", \"begleiten\"]). REQUIRED — do not omit."
+            )
         if want_etym:
             char_field_lines.append(
                 "  - etymology: 2-4 sentences German PROSE (NO bullet points) on components, "
@@ -430,11 +435,6 @@ def regenerate_entry_fields(
             char_field_lines.append(
                 "  - compounds: 3-5 common compound words using this character. "
                 "Each: {\"simplified\": \"词\", \"pinyin\": \"...\", \"meaning\": \"German (NO colons)\"}"
-            )
-        if want_meanings:
-            char_field_lines.append(
-                "  - other_meanings: array of 2-4 short German strings giving the core meaning(s) of this single character "
-                "(e.g. [\"tragen\", \"mitnehmen\", \"begleiten\"])"
             )
         sections.append(
             f"CHARACTER DATA: Return EXACTLY {n_chars} object(s) in the \"characters\" array — "
@@ -460,12 +460,12 @@ def regenerate_entry_fields(
         json_keys.append('  "examples": [{"zh": "...", "pinyin": "...", "english": "...", "de": "..."}]')
     if want_chars:
         char_obj_keys = '"char": "X"'
+        if want_meanings:
+            char_obj_keys += ', "other_meanings": ["...", "..."]'
         if want_etym:
             char_obj_keys += ', "etymology": "..."'
         if want_comp:
             char_obj_keys += ', "compounds": [{"simplified": "...", "pinyin": "...", "meaning": "..."}]'
-        if want_meanings:
-            char_obj_keys += ', "other_meanings": ["...", "..."]'
         # Show one example object per actual character so the AI knows the expected array length
         char_example = "{" + char_obj_keys + "}"
         char_array = ", ".join([char_example] * max(len(characters), 1))
@@ -482,7 +482,7 @@ def regenerate_entry_fields(
     )
 
     logger.info("[%s] regenerate_entry_fields: %s fields=%s", model, word_zh, fields)
-    raw = _call_api(model, [{"role": "user", "content": prompt}], max_tokens=1800,
+    raw = _call_api(model, [{"role": "user", "content": prompt}], max_tokens=2400,
                     purpose=f"regen:{word_zh}")
 
     json_match = re.search(r'\{.*\}', raw, re.DOTALL)
