@@ -3873,7 +3873,7 @@ function _renderListenHint(threshold) {
     if (!isCjk(ch)) {
       html += ch;
     } else if (targetPositions.has(i)) {
-      html += `<span class="hint-blank">_</span>`;
+      html += `<span class="hint-blank hint-blank-target">_</span>`;
     } else if (threshold === 0) {
       html += ch; // "All" mode: reveal all non-target characters
     } else if (revealPositions.has(i)) {

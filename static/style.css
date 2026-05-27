@@ -454,6 +454,9 @@ main.browse-open {
 .listen-hint-sentence .hint-blank {
   color: var(--text-muted, #aaa);
 }
+.listen-hint-sentence .hint-blank-target {
+  color: var(--primary, #4a90d9);
+}
 .listen-hint-slider-row {
   display: flex;
   align-items: center;
