@@ -1015,6 +1015,13 @@ main.browse-open {
 .regen-char-header {
   font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px;
 }
+.regen-meanings-input {
+  width: 100%; box-sizing: border-box;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); padding: 6px 10px; font-family: inherit; font-size: 12px;
+  margin-bottom: 8px;
+}
+.regen-meanings-input:focus { outline: none; border-color: var(--primary); }
 .regen-etym-textarea {
   width: 100%; box-sizing: border-box; min-height: 72px; resize: vertical;
   background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
