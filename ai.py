@@ -256,6 +256,7 @@ Return ONLY a numbered list of Chinese sentences, no explanation:
                 if wid not in seen_ids and _word_in_sentence(card["word_zh"], s_zh):
                     word_ids.append(wid)
                     seen_ids.add(wid)
+                    break  # one target word per sentence
             parsed.append({"word_ids": word_ids, "sentence_zh": s_zh, "tokens": []})
 
         missing_ids = [wid for wid in word_id_set if wid not in seen_ids]
