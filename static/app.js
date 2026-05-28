@@ -6161,7 +6161,7 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); _toggleSuspendCat('creating');
     } else if (e.key === 'C') {
       e.preventDefault(); regenAllFieldsFromReview();
-    } else if (e.key === 'D') {
+    } else if (e.key === 'D' || e.key === '7') {
       e.preventDefault();
       if (await showConfirm('Delete this card?')) reviewCardAction('delete');
     } else if (e.key === 'o') {
