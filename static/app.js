@@ -6163,7 +6163,7 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); regenAllFieldsFromReview();
     } else if (e.key === 'D' || e.key === '7') {
       e.preventDefault();
-      if (await showConfirm('Delete this card?')) reviewCardAction('delete');
+      reviewCardAction('delete');
     } else if (e.key === 'o') {
       e.preventDefault();
       if (deckId) openOptions(deckId);
