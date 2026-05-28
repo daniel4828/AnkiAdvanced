@@ -4006,29 +4006,10 @@ async function _buildWordBank() {
   const expectedCount = targetParts ? targetParts.length : 1;
   if (targetCount < expectedCount) order.push({ type: 'target', word: targetParts ? targetParts[targetCount] : target });
 
-  const MAX_TILES = 1;
-  const isWord = tok => /[\u4E00-\u9FFF\u3400-\u4DBF]/.test(tok.char);
+  // All non-target characters are pre-placed; no filler tiles or distractors
   const allChars = order.filter(it => it.type === 'char');
-  // Punctuation tokens are always pre-placed — only real words become tiles
-  allChars.forEach(c => { if (!isWord(c)) c.type = 'pre'; });
-  const wordTokens = allChars.filter(c => c.type === 'char');
-  if (wordTokens.length > MAX_TILES) {
-    const tileIdxSet = new Set();
-    while (tileIdxSet.size < MAX_TILES) tileIdxSet.add(Math.floor(Math.random() * wordTokens.length));
-    wordTokens.forEach((c, i) => { if (!tileIdxSet.has(i)) c.type = 'pre'; });
-  }
-  const tileChars = order.filter(it => it.type === 'char');
-  const shuffled  = [...tileChars].sort(() => Math.random() - 0.5);
-
-  // Fetch a random distractor word from the database and insert at a random position
-  try {
-    const resp = await fetch(`/api/words/random?exclude=${encodeURIComponent(target)}`);
-    const data = await resp.json();
-    if (data.word && !shuffled.some(t => t.char === data.word)) {
-      const pos = Math.floor(Math.random() * (shuffled.length + 1));
-      shuffled.splice(pos, 0, { type: 'char', char: data.word, num: -1 });
-    }
-  } catch (_) { /* skip distractor if fetch fails */ }
+  allChars.forEach(c => { c.type = 'pre'; });
+  const shuffled = [];
 
   shuffled.forEach((item, n) => { item.num = n + 1; });
 
