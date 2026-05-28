@@ -5294,6 +5294,8 @@ function closeImportModal() {
   document.getElementById('import-modal').style.display = 'none';
   const btn = document.getElementById('import-submit-btn');
   btn.onclick = doImport;
+  btn.disabled = false;
+  btn.textContent = 'Import';
   _resizeHandlesInited = false;
   _deckBPath = null;
   document.getElementById('import-deck-b-path').value = '';
