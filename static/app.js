@@ -2807,6 +2807,7 @@ function showFront() {
   document.getElementById('sentence-en-front').style.display   = isCreating ? 'flex' : 'none';
   document.getElementById('creating-input-wrap').style.display = (isCreating && !isCloze) ? 'flex' : 'none';
   document.getElementById('word-bank-wrap').style.display      = isCloze ? 'flex' : 'none';
+  if (isCloze) _initWordBankSlider();
 
   // Creating: show FR and DE (both always visible); fallback EN if neither exists
   const wordDefHint = document.getElementById('creating-word-def');
@@ -3840,6 +3841,41 @@ function saveListenHintDefault() {
   _updateHintStar(val);
 }
 
+// ── Word bank tile count slider ───────────────────────────────────────────────
+function _wordBankTileDefault() {
+  return parseInt(localStorage.getItem('wordBankTiles') ?? '0', 10);
+}
+
+function _updateWordBankStar(val) {
+  const btn = document.getElementById('word-bank-save-btn');
+  if (!btn) return;
+  const isSaved = val === _wordBankTileDefault();
+  btn.textContent = isSaved ? '★' : '☆';
+  btn.classList.toggle('saved', isSaved);
+}
+
+function _initWordBankSlider() {
+  const slider = document.getElementById('word-bank-slider');
+  if (!slider) return;
+  const saved = _wordBankTileDefault();
+  slider.value = saved;
+  document.getElementById('word-bank-slider-pct').textContent = saved;
+  _updateWordBankStar(saved);
+}
+
+function onWordBankSlider(val) {
+  const n = parseInt(val, 10);
+  document.getElementById('word-bank-slider-pct').textContent = n;
+  _updateWordBankStar(n);
+  renderWordBankUI();
+}
+
+function saveWordBankDefault() {
+  const val = parseInt(document.getElementById('word-bank-slider').value, 10);
+  localStorage.setItem('wordBankTiles', val);
+  _updateWordBankStar(val);
+}
+
 function _renderListenHint(threshold) {
   // Sentence notes are excluded from stories; fall back to card.word_zh (the sentence itself).
   const isSentenceNote = card?.note_type === 'sentence';
@@ -4006,10 +4042,9 @@ async function _buildWordBank() {
   const expectedCount = targetParts ? targetParts.length : 1;
   if (targetCount < expectedCount) order.push({ type: 'target', word: targetParts ? targetParts[targetCount] : target });
 
-  const MAX_TILES = 1;
-  const isWord = tok => /[\u4E00-\u9FFF\u3400-\u4DBF]/.test(tok.char);
+  const MAX_TILES = parseInt(document.getElementById('word-bank-slider')?.value ?? _wordBankTileDefault(), 10);
+  const isWord = tok => /[一-鿿㐀-䶿]/.test(tok.char);
   const allChars = order.filter(it => it.type === 'char');
-  // Punctuation tokens are always pre-placed — only real words become tiles
   allChars.forEach(c => { if (!isWord(c)) c.type = 'pre'; });
   const wordTokens = allChars.filter(c => c.type === 'char');
   if (wordTokens.length > MAX_TILES) {
@@ -4019,16 +4054,6 @@ async function _buildWordBank() {
   }
   const tileChars = order.filter(it => it.type === 'char');
   const shuffled  = [...tileChars].sort(() => Math.random() - 0.5);
-
-  // Fetch a random distractor word from the database and insert at a random position
-  try {
-    const resp = await fetch(`/api/words/random?exclude=${encodeURIComponent(target)}`);
-    const data = await resp.json();
-    if (data.word && !shuffled.some(t => t.char === data.word)) {
-      const pos = Math.floor(Math.random() * (shuffled.length + 1));
-      shuffled.splice(pos, 0, { type: 'char', char: data.word, num: -1 });
-    }
-  } catch (_) { /* skip distractor if fetch fails */ }
 
   shuffled.forEach((item, n) => { item.num = n + 1; });
 
@@ -4142,7 +4167,7 @@ function wordBankAddToken(num) {
 
 async function renderWordBankUI() {
   await _buildWordBank();
-  if (!wordBankTokens.length) return; // sentence not loaded yet
+  if (!wordBankOrder.length) return; // sentence not loaded yet
 
   // Sentence skeleton: pre-placed tokens shown as text, blanks for tiles/target (data-slot for live update)
   const skelEl = document.getElementById('word-bank-skeleton');
@@ -5294,6 +5319,8 @@ function closeImportModal() {
   document.getElementById('import-modal').style.display = 'none';
   const btn = document.getElementById('import-submit-btn');
   btn.onclick = doImport;
+  btn.disabled = false;
+  btn.textContent = 'Import';
   _resizeHandlesInited = false;
   _deckBPath = null;
   document.getElementById('import-deck-b-path').value = '';
@@ -6134,9 +6161,9 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); _toggleSuspendCat('creating');
     } else if (e.key === 'C') {
       e.preventDefault(); regenAllFieldsFromReview();
-    } else if (e.key === 'D') {
+    } else if (e.key === 'D' || e.key === '7') {
       e.preventDefault();
-      if (await showConfirm('Delete this card?')) reviewCardAction('delete');
+      reviewCardAction('delete');
     } else if (e.key === 'o') {
       e.preventDefault();
       if (deckId) openOptions(deckId);

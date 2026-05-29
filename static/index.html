@@ -139,6 +139,13 @@
             </div>
             <!-- Word bank (creating mode, non-sentence notes) -->
             <div id="word-bank-wrap" style="display:none">
+              <div class="listen-hint-slider-row" style="margin-bottom:6px">
+                <span class="listen-hint-label">Tiles</span>
+                <input type="range" id="word-bank-slider" min="0" max="6" value="0"
+                       oninput="onWordBankSlider(this.value)">
+                <span class="listen-hint-pct" id="word-bank-slider-pct">0</span>
+                <button class="hint-save-btn" id="word-bank-save-btn" onclick="saveWordBankDefault()" title="Save as default">☆</button>
+              </div>
               <div class="input-label">Reconstruct the sentence</div>
               <div class="word-bank-skeleton" id="word-bank-skeleton"></div>
               <div class="word-bank-tokens" id="word-bank-tokens"></div>
