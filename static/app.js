@@ -2810,17 +2810,26 @@ function showFront() {
   if (isCloze) _initWordBankSlider();
 
   // Creating: show FR and DE (both always visible); fallback EN if neither exists
-  const wordDefHint = document.getElementById('creating-word-def');
+  const wordDefHint   = document.getElementById('creating-word-def');
+  const wordDefHintWb = document.getElementById('creating-word-def-wb');
   if (isCreating) {
     const parts = [];
     if (card.definition) parts.push(`🇬🇧 ${card.definition}`);
     if (card.definition_fr) parts.push(`🇫🇷 ${card.definition_fr}`);
     if (card.definition_de) parts.push(`🇩🇪 ${card.definition_de}`);
     const defText = parts.join('<br>');
-    wordDefHint.innerHTML = defText;
-    wordDefHint.style.display = defText ? 'block' : 'none';
+    if (isCloze) {
+      wordDefHint.style.display = 'none';
+      wordDefHintWb.innerHTML = defText;
+      wordDefHintWb.style.display = defText ? 'block' : 'none';
+    } else {
+      wordDefHintWb.style.display = 'none';
+      wordDefHint.innerHTML = defText;
+      wordDefHint.style.display = defText ? 'block' : 'none';
+    }
   } else {
     wordDefHint.style.display = 'none';
+    wordDefHintWb.style.display = 'none';
   }
 
   if (isCreating) {
@@ -4252,6 +4261,10 @@ async function rate(rating) {
     else if (deckId) url += `&parent_deck_id=${deckId}`;
     const result = await api('POST', url);
     _sessionReviewedCount++;
+    api('GET', '/api/retention?days=0').then(r => {
+      _retentionData = r;
+      _updateReviewRRBadge(deckId);
+    }).catch(() => {});
     if (!result.next_card) {
       rootDeckId = null;
       unfinishedMode = false;
@@ -5423,6 +5436,7 @@ async function previewImport(yamlContent) {
           include: e.status !== 'invalid',
           deck_path: null,
           suspended: { ...IMPORT_DEFAULT_SUSPENDED },
+          ...(e.status === 'duplicate' ? { duplicate_action: 'move_import' } : {}),
         };
       }
     });
