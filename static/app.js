@@ -5423,6 +5423,7 @@ async function previewImport(yamlContent) {
           include: e.status !== 'invalid',
           deck_path: null,
           suspended: { ...IMPORT_DEFAULT_SUSPENDED },
+          ...(e.status === 'duplicate' ? { duplicate_action: 'move_import' } : {}),
         };
       }
     });
