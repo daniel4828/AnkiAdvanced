@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import datetime
 from .core import get_db
 from .cards import get_card
 
@@ -323,10 +324,11 @@ def insert_review(card_id: int, rating: int,
                   user_response: str | None = None,
                   ai_score: int | None = None) -> int:
     conn = get_db()
+    now = datetime.now().isoformat(timespec='seconds')
     cur = conn.execute(
-        """INSERT INTO review_log (card_id, rating, user_response, ai_score)
-           VALUES (?, ?, ?, ?)""",
-        (card_id, rating, user_response, ai_score),
+        """INSERT INTO review_log (card_id, rating, user_response, ai_score, reviewed_at)
+           VALUES (?, ?, ?, ?, ?)""",
+        (card_id, rating, user_response, ai_score, now),
     )
     conn.commit()
     log_id = cur.lastrowid
