@@ -380,6 +380,7 @@ main.browse-open {
   align-items: center;
   justify-content: center;
   min-height: 90px;
+  color: #000;
 }
 .sentence .hl { color: var(--primary); font-weight: 700; }
 .sentence .hl-secondary { color: var(--hard, #f59e0b); font-weight: 600; }
@@ -563,6 +564,11 @@ main.browse-open {
   padding: 2px 7px;
   cursor: default;
   white-space: nowrap;
+}
+
+.review-rr-badge.rr-no-data {
+  color: var(--muted);
+  border-color: var(--border);
 }
 
 /* Retention rate badge — deck list row */
@@ -1489,7 +1495,7 @@ main.browse-open {
 
 /* ── Creating: front input ───────────────────────────── */
 .sentence-en-front {
-  font-size: 20px;
+  font-size: 15px;
   line-height: 1.6;
   text-align: center;
   color: var(--text);
@@ -1499,7 +1505,7 @@ main.browse-open {
   justify-content: center;
 }
 .creating-word-def {
-  font-size: 15px;
+  font-size: 17px;
   color: var(--text-muted);
   text-align: center;
   font-style: italic;
@@ -1583,7 +1589,7 @@ main.browse-open {
   gap: 10px;
 }
 .word-bank-skeleton {
-  font-size: 22px;
+  font-size: 26px;
   line-height: 1.8;
   color: var(--text);
   padding: 6px 0;
@@ -1591,7 +1597,7 @@ main.browse-open {
   display: flex;
   gap: 2px;
 }
-.wb-skel-pre { color: var(--muted); }
+.wb-skel-pre { color: #000; }
 .wb-skel-blank {
   color: var(--primary);
   font-weight: 700;

@@ -645,14 +645,10 @@ function _updateReviewRRBadge(deckOrId) {
   }
   // Overall badge
   if (badge) {
-    if (rr.overall === null) {
-      badge.style.display = 'none';
-    } else {
-      badge.textContent = 'RR ' + _formatRR(rr.overall);
-      badge.className = 'review-rr-badge';
-      badge.title = _rrTooltip(rr);
-      badge.style.display = '';
-    }
+    badge.textContent = 'RR ' + _formatRR(rr.overall);
+    badge.className = 'review-rr-badge' + (rr.overall === null ? ' rr-no-data' : '');
+    badge.title = rr.overall === null ? 'No reviews yet today' : _rrTooltip(rr);
+    badge.style.display = '';
   }
   // Per-category spans
   const MAP = { reading: 'r', listening: 'l', creating: 'c' };
