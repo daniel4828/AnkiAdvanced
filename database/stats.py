@@ -147,7 +147,7 @@ def get_retention_bulk(days: int = 30) -> dict:
            FROM review_log rl
            JOIN cards c ON c.id = rl.card_id
            JOIN decks d ON d.id = c.deck_id
-           WHERE date(rl.reviewed_at) >= ?
+           WHERE date(datetime(rl.reviewed_at, 'localtime')) >= ?
            GROUP BY c.deck_id""",
         [since],
     ).fetchall()
