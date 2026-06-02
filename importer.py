@@ -755,11 +755,11 @@ def _validate_entry(word_zh: str, note_type: str) -> str | None:
     return None
 
 
-# Default per-category suspension: reading/listening active, creating suspended
+# Default per-category suspension: listening/creating active, reading suspended
 _DEFAULT_SUSPENDED: dict[str, bool] = {
-    "reading": False,
+    "reading": True,
     "listening": False,
-    "creating": True,
+    "creating": False,
 }
 
 
