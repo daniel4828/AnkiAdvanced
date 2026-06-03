@@ -171,6 +171,7 @@ function _renderCal() {
           html += `<span class="cal-chip cal-chip-${rCls}" title="${r.category}: ${rCls}">${letter}</span>`;
         }
         for (const f of info.dues) {
+          if (f.category === _calCategory) continue;
           const cCls = _CAT_CLASS[f.category] || '';
           const letter = _CAT_LETTER[f.category] || '?';
           html += `<span class="cal-chip cal-chip-due-${cCls}" title="${f.category} due">${letter}</span>`;
