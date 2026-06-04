@@ -161,21 +161,23 @@ function _renderCal() {
       const isToday = dateStr === todayStr;
       const info = dayMap[dateStr];
 
-      // Only count future dues that will actually render a chip — the current
-      // category's chip is suppressed below, so a date whose only due is the
-      // current category must not get the grey "has-future" background.
-      const hasFutureDue = dateStr > todayStr
-        && (info?.dues || []).some(f => f.category !== _calCategory);
+      // The current category's chip is suppressed (we're already reviewing it),
+      // so only ratings + other-category dues count as visible content. A date
+      // whose only due is the current category must render like an empty day:
+      // no grey "has-future" background, and its day number must still show.
+      const ratings     = info?.ratings || [];
+      const visibleDues = (info?.dues || []).filter(f => f.category !== _calCategory);
+      const hasVisible   = ratings.length > 0 || visibleDues.length > 0;
+      const hasFutureDue = dateStr > todayStr && visibleDues.length > 0;
       html += `<div class="cal-cell${isToday ? ' cal-today' : ''}${hasFutureDue ? ' cal-has-future' : ''}">`;
-      if (info) {
+      if (hasVisible) {
         html += '<div class="cal-chips">';
-        for (const r of info.ratings) {
+        for (const r of ratings) {
           const rCls = _RATING_CLASS[r.rating] || 'good';
           const letter = _CAT_LETTER[r.category] || '?';
           html += `<span class="cal-chip cal-chip-${rCls}" title="${r.category}: ${rCls}">${letter}</span>`;
         }
-        for (const f of info.dues) {
-          if (f.category === _calCategory) continue;
+        for (const f of visibleDues) {
           const cCls = _CAT_CLASS[f.category] || '';
           const letter = _CAT_LETTER[f.category] || '?';
           html += `<span class="cal-chip cal-chip-due-${cCls}" title="${f.category} due">${letter}</span>`;
