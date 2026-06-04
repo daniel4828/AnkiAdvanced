@@ -161,7 +161,11 @@ function _renderCal() {
       const isToday = dateStr === todayStr;
       const info = dayMap[dateStr];
 
-      const hasFutureDue = dateStr > todayStr && info?.dues?.length > 0;
+      // Only count future dues that will actually render a chip — the current
+      // category's chip is suppressed below, so a date whose only due is the
+      // current category must not get the grey "has-future" background.
+      const hasFutureDue = dateStr > todayStr
+        && (info?.dues || []).some(f => f.category !== _calCategory);
       html += `<div class="cal-cell${isToday ? ' cal-today' : ''}${hasFutureDue ? ' cal-has-future' : ''}">`;
       if (info) {
         html += '<div class="cal-chips">';
