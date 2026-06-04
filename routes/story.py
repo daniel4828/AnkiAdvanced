@@ -1,4 +1,8 @@
+import json
 import logging
+import math
+import os
+import random
 
 import jieba
 import database
@@ -8,6 +12,8 @@ from fastapi import APIRouter
 from fastapi.responses import FileResponse
 
 from .utils import DISABLE_AI, leaf_ids
+
+KAHNEMAN_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "kahneman_chapters.json")
 
 # Suppress jieba's startup log messages
 jieba.setLogLevel(logging.ERROR)
@@ -123,7 +129,8 @@ def get_story(deck_id: int, category: str,
               topic: str | None = None, max_hsk: int = 3,
               model: str | None = None,
               grammar_focus: str | None = None, grammar_pct: int = 75,
-              mode: str = "story"):
+              mode: str = "story",
+              chapter_ids: str | None = None):
     if database.is_sentences_deck(deck_id):
         return None
 
@@ -152,10 +159,15 @@ def get_story(deck_id: int, category: str,
         ai._story_progress[progress_key] = {"phase": "starting", "msg": "Starting…", "percent": 5}
         last_error = None
         try:
-            sentences, prompt_text = _generate_story_sentences(
-                cards, topic=topic, max_hsk=max_hsk, model=chosen_model,
-                progress_key=progress_key, grammar_focus=grammar_focus,
-                grammar_pct=grammar_pct, mode=mode)
+            if mode == "kahneman":
+                parsed_chapter_ids = [int(x) for x in chapter_ids.split(",") if x.strip()] if chapter_ids else []
+                sentences, prompt_text = _generate_kahneman_story_sentences(
+                    cards, parsed_chapter_ids, model=chosen_model, progress_key=progress_key)
+            else:
+                sentences, prompt_text = _generate_story_sentences(
+                    cards, topic=topic, max_hsk=max_hsk, model=chosen_model,
+                    progress_key=progress_key, grammar_focus=grammar_focus,
+                    grammar_pct=grammar_pct, mode=mode)
             for i, s in enumerate(sentences):
                 s["position"] = i
             database.create_story(today, category, deck_id, sentences, prompt_text, topic)
@@ -186,7 +198,8 @@ def regenerate_story(deck_id: int, category: str,
                      topic: str | None = None, max_hsk: int = 3,
                      model: str | None = None,
                      grammar_focus: str | None = None, grammar_pct: int = 75,
-                     mode: str = "story"):
+                     mode: str = "story",
+                     chapter_ids: str | None = None):
     if database.is_sentences_deck(deck_id):
         return None
     if DISABLE_AI:
@@ -203,10 +216,15 @@ def regenerate_story(deck_id: int, category: str,
     ai._story_progress[progress_key] = {"phase": "starting", "msg": "Starting…", "percent": 5}
     last_error = None
     try:
-        sentences, prompt_text = _generate_story_sentences(
-            cards, topic=topic, max_hsk=max_hsk, model=chosen_model,
-            progress_key=progress_key, grammar_focus=grammar_focus,
-            grammar_pct=grammar_pct, mode=mode)
+        if mode == "kahneman":
+            parsed_chapter_ids = [int(x) for x in chapter_ids.split(",") if x.strip()] if chapter_ids else []
+            sentences, prompt_text = _generate_kahneman_story_sentences(
+                cards, parsed_chapter_ids, model=chosen_model, progress_key=progress_key)
+        else:
+            sentences, prompt_text = _generate_story_sentences(
+                cards, topic=topic, max_hsk=max_hsk, model=chosen_model,
+                progress_key=progress_key, grammar_focus=grammar_focus,
+                grammar_pct=grammar_pct, mode=mode)
         for i, s in enumerate(sentences):
             s["position"] = i
         database.create_story(today, category, deck_id, sentences, prompt_text, topic)
@@ -237,6 +255,72 @@ def get_history_story(deck_id: int, category: str):
     if story:
         story["sentences"] = _add_tokens(database.get_story_sentences(story["id"]))
     return story
+
+
+@router.get("/api/kahneman/chapters")
+def kahneman_chapters():
+    """Return all chapters from kahneman_chapters.json (without examples to reduce payload)."""
+    if not os.path.exists(KAHNEMAN_PATH):
+        return {"chapters": [], "available": False}
+    with open(KAHNEMAN_PATH, encoding="utf-8") as f:
+        data = json.load(f)
+    chapters = [
+        {k: v for k, v in ch.items() if k != "examples_zh"}
+        for ch in data.get("chapters", [])
+    ]
+    return {"chapters": chapters, "available": True}
+
+
+def _load_kahneman_chapter(chapter_id: int) -> dict | None:
+    if not os.path.exists(KAHNEMAN_PATH):
+        return None
+    with open(KAHNEMAN_PATH, encoding="utf-8") as f:
+        data = json.load(f)
+    for ch in data.get("chapters", []):
+        if ch.get("number") == chapter_id:
+            return ch
+    return None
+
+
+def _generate_kahneman_story_sentences(
+    cards: list, chapter_ids: list[int] | None,
+    model: str, progress_key: str | None,
+) -> tuple[list, str]:
+    """Distribute cards across selected chapters, call AI once per chapter, merge results."""
+    if not os.path.exists(KAHNEMAN_PATH):
+        raise RuntimeError("data/kahneman_chapters.json not found. Run python extract_kahneman.py first.")
+
+    with open(KAHNEMAN_PATH, encoding="utf-8") as f:
+        all_chapters = json.load(f).get("chapters", [])
+
+    if not all_chapters:
+        raise RuntimeError("kahneman_chapters.json is empty.")
+
+    if chapter_ids:
+        num_map = {ch["number"]: ch for ch in all_chapters}
+        selected = [num_map[cid] for cid in chapter_ids if cid in num_map]
+    else:
+        selected = random.sample(all_chapters, min(5, len(all_chapters)))
+
+    if not selected:
+        raise RuntimeError("No valid chapters selected.")
+
+    n = len(selected)
+    chunk_size = math.ceil(len(cards) / n)
+    chunks = [cards[i:i + chunk_size] for i in range(0, len(cards), chunk_size)]
+
+    all_sentences: list[dict] = []
+    prompt_summary = f"kahneman mode — {n} chapters"
+    for idx, (chapter, chunk) in enumerate(zip(selected, chunks)):
+        if not chunk:
+            continue
+        label = f" ({idx + 1}/{n})"
+        chapter_sentences = ai.generate_kahneman_sentences(
+            chunk, chapter, model=model, progress_key=progress_key, attempt_label=label
+        )
+        all_sentences.extend(chapter_sentences)
+
+    return all_sentences, prompt_summary
 
 
 @router.get("/api/story/{deck_id}/{category}/count")

@@ -736,6 +736,129 @@ def fix_definition_commas(cards: list[dict]) -> int:
     return total_fixed
 
 
+def generate_kahneman_sentences(
+    cards: list[dict],
+    chapter: dict,
+    model: str = DEFAULT_MODEL,
+    progress_key: str | None = None,
+    attempt_label: str = "",
+) -> list[dict]:
+    """Generate sentences in the style of Kahneman's "Speaking of..." chapter endings.
+
+    Each sentence uses one vocabulary word and implicitly reveals the cognitive bias
+    described in `chapter`. Returns list of sentence dicts with concept fields attached.
+
+    cards:   vocab cards assigned to this chapter (word_id, word_zh, pinyin, definition)
+    chapter: {number, title_zh, title_en, concept_zh, concept_en, examples_zh}
+    """
+    if not cards:
+        return []
+
+    def _word_in_sentence(word_zh: str, sentence_zh: str) -> bool:
+        if '...' in word_zh or '…' in word_zh:
+            chars = [c for c in word_zh if c not in '.…']
+            return all(c in sentence_zh for c in chars)
+        return word_zh in sentence_zh
+
+    examples_block = "\n".join(f"  {ex}" for ex in chapter.get("examples_zh", []))
+    word_list = "\n".join(
+        f"{i + 1}. {c['word_zh']}（{c.get('pinyin', '')}）— {c.get('definition', '')}"
+        for i, c in enumerate(cards)
+    )
+    concept_label = f"第{chapter['number']}章《{chapter['title_zh']}》：{chapter['concept_zh']}"
+
+    prompt = f"""任务：模仿《思考，快与慢》每章末尾"示例"部分的风格，写若干中文句子帮助HSK 4-5学习者复习词汇。
+每个句子应该是某人在日常情境中说的一句话，自然地透露出一种认知偏误或心理定势，而不直接点明偏误名称。
+
+本章概念：{concept_label}
+
+风格范例（模仿这种语气和结构）：
+{examples_block}
+
+目标词汇（每句话必须恰好包含其中一个，原文出现）：
+{word_list}
+
+规则：
+- 每句话恰好包含一个目标词汇，词汇必须以原文形式出现
+- 用自然口语风格，隐性透露本章所描述的认知偏误
+- 不要直接提及偏误名称或心理学术语
+- 非目标词汇只用HSK 1-2级词汇
+- 句子要简短（不超过20个字）
+- 不要使用markdown格式
+
+仅返回如下JSON数组，不加任何其他文字：
+[
+  {{"sentence_zh": "句子内容"}},
+  {{"sentence_zh": "句子内容"}}
+]"""
+
+    concept_en = f"Chapter {chapter['number']}: {chapter['title_en']}"
+    concept_zh = f"第{chapter['number']}章：{chapter['title_zh']}"
+
+    _set_progress(progress_key, phase="request", msg=f"生成第{chapter['number']}章句子…{attempt_label}", percent=20)
+
+    for attempt in range(3):
+        raw = _call_api(model, [{"role": "user", "content": prompt}], 4096, purpose="kahneman")
+
+        json_start = raw.find("[")
+        json_end = raw.rfind("]") + 1
+        if json_start == -1 or json_end == 0:
+            logger.warning("kahneman attempt %d: no JSON array found", attempt + 1)
+            continue
+
+        try:
+            items = json.loads(raw[json_start:json_end])
+        except json.JSONDecodeError as e:
+            logger.warning("kahneman attempt %d: JSON parse error: %s", attempt + 1, e)
+            continue
+
+        sentences = []
+        seen: set[int] = set()
+        for item in items:
+            s_zh = item.get("sentence_zh", "").strip()
+            if not s_zh:
+                continue
+            word_ids = []
+            for card in cards:
+                wid = card["word_id"]
+                if wid not in seen and _word_in_sentence(card["word_zh"], s_zh):
+                    word_ids.append(wid)
+                    seen.add(wid)
+                    break
+            sentences.append({
+                "word_ids": word_ids,
+                "sentence_zh": s_zh,
+                "sentence_en": "",
+                "concept_en": concept_en,
+                "concept_zh": concept_zh,
+                "tokens": [],
+            })
+
+        missing = [c["word_zh"] for c in cards if c["word_id"] not in seen]
+        if missing:
+            logger.warning("kahneman attempt %d: missing words: %s", attempt + 1, missing)
+            if attempt < 2:
+                continue
+
+        if sentences:
+            _fill_translations(sentences, progress_key=progress_key)
+            return sentences
+
+    # Fallback: one sentence per card
+    fallback = []
+    for card in cards:
+        fallback.append({
+            "word_ids": [card["word_id"]],
+            "sentence_zh": card.get("source_sentence") or f"我学了{card['word_zh']}这个词。",
+            "sentence_en": "",
+            "concept_en": concept_en,
+            "concept_zh": concept_zh,
+            "tokens": [],
+        })
+    _fill_translations(fallback, progress_key=progress_key)
+    return fallback
+
+
 def estimate_story_tokens(num_cards: int) -> int:
     """Rough token estimate for generating a story with num_cards words.
 

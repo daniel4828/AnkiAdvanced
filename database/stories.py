@@ -60,10 +60,12 @@ def create_story(date_str: str, category: str, deck_id: int,
     for s in sentences:
         tokens_json = json.dumps(s["tokens"], ensure_ascii=False) if s.get("tokens") else None
         sent_cur = conn.execute(
-            """INSERT INTO story_sentences (story_id, position, sentence_zh, sentence_en, sentence_de, sentence_fr, tokens)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO story_sentences
+               (story_id, position, sentence_zh, sentence_en, sentence_de, sentence_fr, tokens, concept_en, concept_zh)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (story_id, s["position"], s["sentence_zh"],
-             s.get("sentence_en", ""), s.get("sentence_de"), s.get("sentence_fr"), tokens_json),
+             s.get("sentence_en", ""), s.get("sentence_de"), s.get("sentence_fr"), tokens_json,
+             s.get("concept_en"), s.get("concept_zh")),
         )
         sentence_id = sent_cur.lastrowid
         for word_id in s.get("word_ids", []):
