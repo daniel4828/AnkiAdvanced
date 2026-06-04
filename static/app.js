@@ -2346,7 +2346,7 @@ async function startReview(id, cat, name, noStory = false, quick = false) {
   }
 }
 
-async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story') {
+async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null) {
   if (quickMode) {
     setLoading('Loading audio…', true);
     try {
@@ -2370,7 +2370,7 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mo
     const storyDeckId = rootDeckId || deckId;
     const storyCategory = rootDeckId ? 'unified' : category;
     _startStoryProgressPoll(storyDeckId, storyCategory);
-    const storyUrl = `/api/story/${storyDeckId}/${storyCategory}` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode);
+    const storyUrl = `/api/story/${storyDeckId}/${storyCategory}` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
     let todayData, storyData;
     try {
       [todayData, storyData] = await Promise.all([
@@ -2416,7 +2416,7 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mo
   }
 }
 
-function _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode) {
+function _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds) {
   const p = new URLSearchParams();
   if (topic)                              p.set('topic', topic);
   if (maxHsk !== 3)                       p.set('max_hsk', maxHsk);
@@ -2424,6 +2424,7 @@ function _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode) {
   if (grammarFocus)                       p.set('grammar_focus', grammarFocus);
   if (grammarFocus && grammarPct !== 75)  p.set('grammar_pct', grammarPct);
   if (mode && mode !== 'story')           p.set('mode', mode);
+  if (chapterIds && chapterIds.length)    p.set('chapter_ids', chapterIds.join(','));
   const s = p.toString();
   return s ? '?' + s : '';
 }
@@ -2468,7 +2469,7 @@ async function startReviewMixed(id, name, noStory = false, quick = false) {
   }
 }
 
-async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', noStory = false) {
+async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', noStory = false, chapterIds = null) {
   setLoading(noStory ? 'Loading…' : 'Generating stories…', !noStory);
   if (!noStory) {
     setLoadingStep(10, null, 'Sending request to AI…');
@@ -2488,7 +2489,7 @@ async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPc
     if (!noStory) {
       // Load a single unified story covering all categories (1 AI call instead of 3)
       try {
-        story = await api('GET', `/api/story/${rootDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode));
+        story = await api('GET', `/api/story/${rootDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds));
       } catch (e) {
         _stopFakeProgress(); _stopStoryProgressPoll();
         _showLoadingError('AI request failed', e.message);
@@ -2550,7 +2551,7 @@ async function startReviewUnfinished() {
   }
 }
 
-async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story') {
+async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null) {
   unfinishedMode = true;
   setLoading('Loading cards…');
   try {
@@ -2567,7 +2568,7 @@ async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, gram
     const firstDeckId = todayData.card.deck_id;
     // Load a single unified story for the first card's deck
     try {
-      story = await api('GET', `/api/story/${firstDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode));
+      story = await api('GET', `/api/story/${firstDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds));
     } catch (_) {}
     fetch(`/api/preload-session/${firstDeckId}/unified`, { method: 'POST' }).catch(() => {});
     showView('review');
@@ -4460,19 +4461,92 @@ function updateSetupMode() {
   const topicLabel = document.getElementById('setup-topic-label');
   const topicInput = document.getElementById('setup-topic');
   const btn = document.getElementById('setup-generate-btn');
+  const kahnemanSection = document.getElementById('setup-kahneman-section');
   if (mode === 'qa') {
     topicLabel.childNodes[0].textContent = 'Question ';
     topicInput.placeholder = 'e.g. How was life in ancient China?';
     btn.textContent = 'Generate answer';
+    topicLabel.style.display = '';
+    kahnemanSection.style.display = 'none';
   } else if (mode === 'expository') {
     topicLabel.childNodes[0].textContent = 'Topic ';
     topicInput.placeholder = 'e.g. The Second World War';
     btn.textContent = 'Generate text';
+    topicLabel.style.display = '';
+    kahnemanSection.style.display = 'none';
+  } else if (mode === 'kahneman') {
+    topicLabel.style.display = 'none';
+    kahnemanSection.style.display = 'block';
+    btn.textContent = 'Generate Kahneman';
+    _loadKahnemanChapters();
   } else {
     topicLabel.childNodes[0].textContent = 'Topic ';
     topicInput.placeholder = 'e.g. a day at a coffee shop';
     btn.textContent = 'Generate story';
+    topicLabel.style.display = '';
+    kahnemanSection.style.display = 'none';
   }
+}
+
+let _kahnemanChapters = null;
+
+async function _loadKahnemanChapters() {
+  const container = document.getElementById('setup-kahneman-chapters');
+  const loading = document.getElementById('setup-kahneman-loading');
+  if (_kahnemanChapters) { _renderKahnemanChapters(); return; }
+  container.style.display = 'none';
+  loading.style.display = 'block';
+  try {
+    const data = await api('GET', '/api/kahneman/chapters');
+    if (!data.available || !data.chapters.length) {
+      loading.textContent = 'No chapters found. Run python extract_kahneman.py first.';
+      return;
+    }
+    _kahnemanChapters = data.chapters;
+    loading.style.display = 'none';
+    container.style.display = 'block';
+    _renderKahnemanChapters();
+  } catch (e) {
+    loading.textContent = 'Failed to load chapters.';
+  }
+}
+
+function _renderKahnemanChapters() {
+  const container = document.getElementById('setup-kahneman-chapters');
+  if (!_kahnemanChapters) return;
+  container.innerHTML = _kahnemanChapters.map(ch => `
+    <label class="kahneman-chapter-row">
+      <input type="checkbox" class="kahneman-chapter-cb" value="${ch.number}" onchange="_updateKahnemanCount()">
+      <div class="kahneman-chapter-info">
+        <span class="kahneman-chapter-title">第${ch.number}章 ${ch.title_zh}</span>
+        <span class="kahneman-chapter-concept">${ch.concept_zh}</span>
+      </div>
+    </label>`).join('');
+  _updateKahnemanCount();
+}
+
+function _updateKahnemanCount() {
+  const checked = document.querySelectorAll('.kahneman-chapter-cb:checked').length;
+  const countEl = document.getElementById('setup-kahneman-count');
+  countEl.textContent = checked ? `(${checked} selected)` : '(none selected → random 5)';
+}
+
+function randomKahnemanChapters() {
+  if (!_kahnemanChapters) return;
+  const all = Array.from(document.querySelectorAll('.kahneman-chapter-cb'));
+  all.forEach(cb => { cb.checked = false; });
+  const indices = [];
+  while (indices.length < Math.min(5, all.length)) {
+    const i = Math.floor(Math.random() * all.length);
+    if (!indices.includes(i)) indices.push(i);
+  }
+  indices.forEach(i => { all[i].checked = true; });
+  _updateKahnemanCount();
+}
+
+function _getSelectedChapterIds() {
+  return Array.from(document.querySelectorAll('.kahneman-chapter-cb:checked'))
+    .map(cb => parseInt(cb.value));
 }
 
 function confirmStorySetup() {
@@ -4482,17 +4556,18 @@ function confirmStorySetup() {
   const grammarFocus = document.getElementById('setup-grammar').value.trim() || null;
   const grammarPct  = parseInt(document.getElementById('setup-grammar-pct').value, 10) || 75;
   const mode        = document.getElementById('setup-mode').value;
+  const chapterIds  = mode === 'kahneman' ? _getSelectedChapterIds() : null;
   _closeSetupModal();
   if (_setupIsDeckListRegen) {
-    _doRegenStoryForDeckList(_deckListRegenId, topic, maxHsk, model, grammarFocus, grammarPct, mode);
+    _doRegenStoryForDeckList(_deckListRegenId, topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
   } else if (_setupIsRegen) {
-    _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct, mode);
+    _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
   } else if (_setupIsUnfinished) {
-    _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct, mode);
+    _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
   } else if (_setupIsMixed) {
-    _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct, mode);
+    _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
   } else {
-    _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode);
+    _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
   }
 }
 
@@ -4517,11 +4592,16 @@ function openStoryModal() {
       s.word_zh,
       `<span class="story-target">${s.word_zh}</span>`
     );
-    const esc = encodeURIComponent(s.sentence_zh);
+    const conceptBadge = s.concept_zh
+      ? `<div class="story-concept-badge" title="${s.concept_en || ''}">
+           <span class="concept-name">${s.concept_zh}</span>
+         </div>`
+      : '';
     return `<div class="story-sentence${isCurrent ? ' story-sentence-current' : ''}" data-idx="${s.position}">
       <span class="story-num">${s.position + 1}</span>
       <div class="story-content">
         <div class="story-zh">${highlighted}</div>
+        ${conceptBadge}
         ${s.sentence_fr ? `<div class="story-fr">🇫🇷 ${s.sentence_fr}</div>` : ''}
         ${s.sentence_de ? `<div class="story-de">🇩🇪 ${s.sentence_de}</div>` : ''}
       </div>
@@ -4885,7 +4965,7 @@ async function regenerateStory() {
   }
 }
 
-async function _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story') {
+async function _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null) {
   setLoading('Regenerating story…', true);
   setLoadingStep(10, null, 'Sending request to AI…');
   _startFakeProgress(10, 55, 45000);
@@ -4895,7 +4975,7 @@ async function _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct
     _startStoryProgressPoll(storyDeckId, storyCategory);
     let storyData;
     try {
-      storyData = await api('POST', `/api/story/${storyDeckId}/${storyCategory}/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode));
+      storyData = await api('POST', `/api/story/${storyDeckId}/${storyCategory}/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds));
     } catch (e) {
       _stopFakeProgress(); _stopStoryProgressPoll();
       _showLoadingError('AI request failed', e.message);
@@ -4957,7 +5037,7 @@ async function regenerateStoryFromList(deckId) {
   document.getElementById('setup-topic').focus();
 }
 
-async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story') {
+async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null) {
   setLoading('Regenerating story…', true);
   setLoadingStep(10, null, 'Sending request to AI…');
   _startFakeProgress(10, 55, 45000);
@@ -4965,7 +5045,7 @@ async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model, grammarFoc
   try {
     let storyData;
     try {
-      storyData = await api('POST', `/api/story/${deckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode));
+      storyData = await api('POST', `/api/story/${deckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds));
     } catch (e) {
       _stopFakeProgress(); _stopStoryProgressPoll();
       _showLoadingError('AI request failed', e.message);

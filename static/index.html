@@ -148,6 +148,7 @@
               </div>
               <div class="input-label">Reconstruct the sentence</div>
               <div class="word-bank-skeleton" id="word-bank-skeleton"></div>
+              <div class="creating-word-def" id="creating-word-def-wb" style="display:none"></div>
               <div class="word-bank-tokens" id="word-bank-tokens"></div>
               <input type="text" id="word-bank-input"
                      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
@@ -585,8 +586,18 @@
         <option value="story">📖 Story — narrative with characters</option>
         <option value="qa">❓ Q&amp;A — answer a question</option>
         <option value="expository">📚 Expository — informative text</option>
+        <option value="kahneman">🧠 Kahneman — cognitive bias style</option>
       </select>
     </label>
+    <!-- Kahneman chapter selector (shown only in kahneman mode) -->
+    <div id="setup-kahneman-section" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <label class="edit-label" style="margin:0">Chapters <span style="font-weight:400;text-transform:none" id="setup-kahneman-count"></span></label>
+        <button class="edit-cancel-btn" style="padding:4px 10px;font-size:12px" onclick="randomKahnemanChapters()">🎲 Random 5</button>
+      </div>
+      <div id="setup-kahneman-chapters" style="max-height:220px;overflow-y:auto;border:1px solid var(--border,#ddd);border-radius:6px;padding:4px 0"></div>
+      <div id="setup-kahneman-loading" style="display:none;padding:12px;text-align:center;color:var(--muted,#888);font-size:13px">Loading chapters…</div>
+    </div>
     <label class="edit-label" id="setup-topic-label">Topic <span style="font-weight:400;text-transform:none">(optional)</span>
       <input class="edit-input" id="setup-topic" type="text" placeholder="e.g. a day at a coffee shop" onkeydown="if(event.key==='Enter')confirmStorySetup()">
     </label>
