@@ -598,7 +598,7 @@ Return ONLY valid JSON, no explanation, no markdown:
 # ---------------------------------------------------------------------------
 
 def _fill_translations(sentences: list[dict], progress_key: str | None = None) -> None:
-    """Translate sentence_zh → sentence_de and sentence_fr in-place using Google Translate."""
+    """Translate sentence_zh → sentence_de in-place using Google Translate."""
     try:
         import translator as _t
         texts = [s.get("sentence_zh", "") for s in sentences]
@@ -612,18 +612,14 @@ def _fill_translations(sentences: list[dict], progress_key: str | None = None) -
         de_results = _t.translate_batch(texts, target="de")
         logger.info("translate DE done in %.1fs (%d sentences)", time.time() - t0, total)
 
-        t1 = time.time()
-        fr_results = _t.translate_batch(texts, target="fr")
-        logger.info("translate FR done in %.1fs (%d sentences)", time.time() - t1, total)
-
         if progress_key and total > 0:
             _set_progress(progress_key, phase="translating",
                           msg=f"Translating… {total}/{total}", percent=92)
 
-        for s, de, fr in zip(sentences, de_results, fr_results):
+        for s, de in zip(sentences, de_results):
             s["sentence_de"] = de
-            s["sentence_fr"] = fr
             s.setdefault("sentence_en", "")
+            s.setdefault("sentence_fr", "")
     except Exception as e:
         err = str(e)
         vpn_hint = " (VPN issue?)" if any(k in err.lower() for k in ("eof", "connect", "timeout", "proxy", "ssl")) else ""
