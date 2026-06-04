@@ -3742,3 +3742,32 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   .kahneman-chapter-row:hover { background: var(--hover-bg, #2a2a2a); }
 }
 .concept-name { font-weight: 500; }
+
+/* Kahneman concept block shown on review card back */
+.sentence-concept-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px auto 0;
+  max-width: 520px;
+  padding: 8px 12px;
+  background: #ede9fe;
+  border: 1px solid #c4b5fd;
+  border-radius: 10px;
+  text-align: left;
+}
+.concept-chapter-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #5b21b6;
+}
+.concept-chapter-desc {
+  font-size: 12px;
+  color: #6d28d9;
+  line-height: 1.5;
+}
+@media (prefers-color-scheme: dark) {
+  .sentence-concept-section { background: #2e1065; border-color: #6d28d9; }
+  .concept-chapter-title { color: #c4b5fd; }
+  .concept-chapter-desc { color: #a78bfa; }
+}

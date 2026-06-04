@@ -3006,6 +3006,28 @@ function revealAnswer() {
     _sentDeEl.textContent = sentence?.sentence_de || '';
     _sentDeEl.style.display = sentence?.sentence_de ? '' : 'none';
   }
+
+  // Kahneman concept section
+  const _conceptEl = document.getElementById('sentence-concept');
+  if (!isSentenceNote && sentence?.concept_zh) {
+    const chNum = sentence.concept_en ? parseInt(sentence.concept_en.match(/Chapter (\d+)/)?.[1]) : null;
+    const renderConcept = (desc) => {
+      _conceptEl.innerHTML = `<span class="concept-chapter-title">${sentence.concept_zh}</span>`
+        + (desc ? `<span class="concept-chapter-desc">${desc}</span>` : '');
+      _conceptEl.style.display = '';
+    };
+    const cachedCh = chNum && _kahnemanChapters ? _kahnemanChapters.find(c => c.number === chNum) : null;
+    renderConcept(cachedCh?.concept_zh || '');
+    if (!cachedCh && chNum) {
+      _ensureKahnemanChapters().then(() => {
+        const ch = _kahnemanChapters?.find(c => c.number === chNum);
+        if (ch?.concept_zh) renderConcept(ch.concept_zh);
+      });
+    }
+  } else {
+    _conceptEl.style.display = 'none';
+    _conceptEl.innerHTML = '';
+  }
   const noteType = wordDetails?.note_type || card.note_type;
   const wordZhEl = document.getElementById('word-zh');
   const isMultiWord = noteType === 'sentence' || noteType === 'chengyu' || noteType === 'expression';
@@ -4489,6 +4511,14 @@ function updateSetupMode() {
 }
 
 let _kahnemanChapters = null;
+
+async function _ensureKahnemanChapters() {
+  if (_kahnemanChapters) return;
+  try {
+    const data = await api('GET', '/api/kahneman/chapters');
+    if (data.available && data.chapters.length) _kahnemanChapters = data.chapters;
+  } catch (e) { /* silent */ }
+}
 
 async function _loadKahnemanChapters() {
   const container = document.getElementById('setup-kahneman-chapters');
