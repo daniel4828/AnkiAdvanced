@@ -4528,8 +4528,8 @@ async function _ensureKahnemanChapters() {
   } catch (e) { /* silent */ }
 }
 
-// ── Kahneman examples popup (book's original quotes for a chapter) ──────────────
-const _kahnemanExamplesCache = {}; // chapter number → examples_zh[]
+// ── Kahneman examples popup (chapter summary + book's original quotes) ──────────
+const _kahnemanExamplesCache = {}; // chapter number → { summary, examples }
 
 async function openKahnemanExamples(chNum, conceptZh) {
   const overlay = document.getElementById('kahneman-examples-overlay');
@@ -4541,19 +4541,23 @@ async function openKahnemanExamples(chNum, conceptZh) {
   overlay.style.display = '';
   modal.style.display = '';
 
-  let examples = _kahnemanExamplesCache[chNum];
-  if (!examples) {
+  let chapter = _kahnemanExamplesCache[chNum];
+  if (!chapter) {
     try {
       const data = await api('GET', `/api/kahneman/chapter/${chNum}`);
-      examples = data.chapter?.examples_zh || [];
-      _kahnemanExamplesCache[chNum] = examples;
-    } catch (e) { examples = []; }
+      chapter = { summary: data.chapter?.concept_zh || '', examples: data.chapter?.examples_zh || [] };
+      _kahnemanExamplesCache[chNum] = chapter;
+    } catch (e) { chapter = { summary: '', examples: [] }; }
   }
   if (modal.style.display === 'none') return; // closed while loading
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  bodyEl.innerHTML = examples.length
-    ? examples.map(ex => `<p class="kahneman-example">${esc(ex)}</p>`).join('')
+  const summaryHtml = chapter.summary
+    ? `<div class="kahneman-summary">${esc(chapter.summary)}</div>` : '';
+  const examplesHtml = chapter.examples.length
+    ? `<div class="kahneman-examples-label">书中原句</div>`
+      + chapter.examples.map(ex => `<p class="kahneman-example">${esc(ex)}</p>`).join('')
     : '<div class="kahneman-examples-loading">本章暂无书中原句。</div>';
+  bodyEl.innerHTML = summaryHtml + examplesHtml;
 }
 
 function closeKahnemanExamples() {
