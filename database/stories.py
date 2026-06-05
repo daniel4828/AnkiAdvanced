@@ -92,6 +92,50 @@ def get_sentence_for_word(story_id: int, word_id: int) -> dict | None:
     return dict(row) if row else None
 
 
+def get_latest_sentence_for_word(word_id: int) -> dict | None:
+    """Return the most recent sentence (across all stories) that contains word_id.
+
+    Used as a fallback in mixed/"All" review when a cross-day card's word is not in
+    the currently loaded story. The returned dict matches get_story_sentences() shape
+    (word_ids, words, tokens), so it carries German/French translations too.
+    """
+    conn = get_db()
+    sent_row = conn.execute(
+        """SELECT ss.* FROM story_sentences ss
+           JOIN story_sentence_words sw ON sw.sentence_id = ss.id
+           JOIN stories s ON s.id = ss.story_id
+           WHERE sw.word_id = ?
+           ORDER BY s.generated_at DESC, ss.id DESC
+           LIMIT 1""",
+        (word_id,),
+    ).fetchone()
+    if sent_row is None:
+        conn.close()
+        return None
+
+    word_rows = conn.execute(
+        """SELECT e.id AS word_id, e.word_zh, e.definition
+           FROM story_sentence_words sw
+           JOIN entries e ON e.id = sw.word_id
+           WHERE sw.sentence_id = ?
+           ORDER BY sw.id""",
+        (sent_row["id"],),
+    ).fetchall()
+    conn.close()
+
+    wlist = [{"word_id": w["word_id"], "word_zh": w["word_zh"], "definition": w["definition"]}
+             for w in word_rows]
+    d = dict(sent_row)
+    d["word_ids"] = [w["word_id"] for w in wlist]
+    d["words"] = wlist
+    if wlist:
+        d["word_zh"] = wlist[0]["word_zh"]
+        d["definition"] = wlist[0]["definition"]
+    raw_tokens = d.get("tokens")
+    d["tokens"] = json.loads(raw_tokens) if raw_tokens else []
+    return d
+
+
 def get_story_sentences(story_id: int) -> list[dict]:
     """Return all sentences for a story, each with word_ids and words list."""
     conn = get_db()
