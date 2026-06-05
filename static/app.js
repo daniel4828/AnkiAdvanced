@@ -2637,6 +2637,31 @@ function loadCard(c, counts) {
   if (!sentence && (unfinishedMode || rootDeckId) && !quickMode) {
     const snap = c;
     const storyDeckId = unfinishedMode ? c.deck_id : rootDeckId;
+    // Push the freshly-found `sentence` into the visible UI (reading / cloze / sentence-note).
+    const applySentenceToUI = () => {
+      _updateStoryInfoRow();
+      const isListening  = category === 'listening';
+      const isCreating   = category === 'creating';
+      const isSentenceNt = card.note_type === 'sentence';
+      const isCloze      = isCreating && !isSentenceNt;
+      if (!isListening && !isCreating) {
+        // Reading: update sentence with full highlighted sentence
+        const sentFront = document.getElementById('sentence-front');
+        if (sentFront.style.display !== 'none') sentFront.innerHTML = renderSentence();
+      } else if (isCloze) {
+        // Word bank: sentence just loaded — update hint and rebuild token bank
+        const enFront = document.getElementById('sentence-en-front');
+        enFront.style.display = 'flex';
+        enFront.textContent = sentence.sentence_de || sentence.sentence_fr || '';
+        if (document.getElementById('word-bank-wrap').style.display !== 'none') {
+          renderWordBankUI();
+        }
+      } else if (isCreating && isSentenceNt) {
+        // Sentence notes: update English prompt
+        const inp = document.getElementById('sentence-en-front');
+        if (inp.style.display !== 'none') inp.textContent = sentence.sentence_de || sentence.sentence_fr || '';
+      }
+    };
     fetch(`/api/story/${storyDeckId}/unified`)
       .then(r => r.ok ? r.json() : null)
       .then(s => {
@@ -2645,30 +2670,19 @@ function loadCard(c, counts) {
         if (s?.sentences) {
           story    = s;
           sentence = story.sentences.find(s => s.word_ids?.includes(card.word_id)) || null;
-          if (sentence) {
-            _updateStoryInfoRow();
-            const isListening  = category === 'listening';
-            const isCreating   = category === 'creating';
-            const isSentenceNt = card.note_type === 'sentence';
-            const isCloze      = isCreating && !isSentenceNt;
-            if (!isListening && !isCreating) {
-              // Reading: update sentence with full highlighted sentence
-              const sentFront = document.getElementById('sentence-front');
-              if (sentFront.style.display !== 'none') sentFront.innerHTML = renderSentence();
-            } else if (isCloze) {
-              // Word bank: sentence just loaded — update hint and rebuild token bank
-              const enFront = document.getElementById('sentence-en-front');
-              enFront.style.display = 'flex';
-              enFront.textContent = sentence.sentence_de || sentence.sentence_fr || '';
-              if (document.getElementById('word-bank-wrap').style.display !== 'none') {
-                renderWordBankUI();
-              }
-            } else if (isCreating && isSentenceNt) {
-              // Sentence notes: update English prompt
-              const inp = document.getElementById('sentence-en-front');
-              if (inp.style.display !== 'none') inp.textContent = sentence.sentence_de || sentence.sentence_fr || '';
-            }
-          }
+        }
+        if (sentence) {
+          applySentenceToUI();
+        } else {
+          // Word not in this story (e.g. cross-day card in mixed review): fall back to
+          // the word's own most recent sentence, which carries the German translation.
+          fetch(`/api/sentence-for-word/${card.word_id}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(d => {
+              if (card !== snap || !d?.sentence) return;
+              sentence = d.sentence;
+              applySentenceToUI();
+            }).catch(() => {});
         }
         // Update listening hint now that sentence is loaded
         if (snap.category === 'listening' && document.getElementById('side-back').style.display === 'none') {

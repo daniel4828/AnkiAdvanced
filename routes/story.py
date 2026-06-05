@@ -257,6 +257,20 @@ def get_history_story(deck_id: int, category: str):
     return story
 
 
+@router.get("/api/sentence-for-word/{word_id}")
+def sentence_for_word(word_id: int):
+    """Return the most recent stored sentence containing this word (with translations).
+
+    Fallback for mixed/"All" review when a cross-day card's word is not in the
+    currently loaded story, so the card still shows its own correct sentence.
+    """
+    sentence = database.get_latest_sentence_for_word(word_id)
+    if sentence is None:
+        return {"sentence": None}
+    _add_tokens([sentence])
+    return {"sentence": sentence}
+
+
 @router.get("/api/kahneman/chapters")
 def kahneman_chapters():
     """Return all chapters from kahneman_chapters.json (without examples to reduce payload)."""
