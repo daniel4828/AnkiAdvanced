@@ -3031,9 +3031,11 @@ function revealAnswer() {
   const _conceptEl = document.getElementById('sentence-concept');
   if (!isSentenceNote && sentence?.concept_zh) {
     const chNum = sentence.concept_en ? parseInt(sentence.concept_en.match(/Chapter (\d+)/)?.[1]) : null;
-    const renderConcept = (desc) => {
-      _conceptEl.innerHTML = `<span class="concept-chapter-title">${sentence.concept_zh}</span>`
-        + (desc ? `<span class="concept-chapter-desc">${desc}</span>` : '')
+    const renderConcept = (ch) => {
+      _conceptEl.innerHTML =
+          (ch?.part_zh ? `<span class="concept-part-label">${ch.part_zh}</span>` : '')
+        + `<span class="concept-chapter-title">${sentence.concept_zh}</span>`
+        + (ch?.concept_zh ? `<span class="concept-chapter-desc">${ch.concept_zh}</span>` : '')
         + (chNum ? `<span class="concept-chapter-hint">点击查看书中原句 ›</span>` : '');
       _conceptEl.style.display = '';
       if (chNum) {
@@ -3045,11 +3047,11 @@ function revealAnswer() {
       }
     };
     const cachedCh = chNum && _kahnemanChapters ? _kahnemanChapters.find(c => c.number === chNum) : null;
-    renderConcept(cachedCh?.concept_zh || '');
+    renderConcept(cachedCh);
     if (!cachedCh && chNum) {
       _ensureKahnemanChapters().then(() => {
         const ch = _kahnemanChapters?.find(c => c.number === chNum);
-        if (ch?.concept_zh) renderConcept(ch.concept_zh);
+        if (ch) renderConcept(ch);
       });
     }
   } else {
@@ -4573,19 +4575,25 @@ async function openKahnemanExamples(chNum, conceptZh) {
   if (!chapter) {
     try {
       const data = await api('GET', `/api/kahneman/chapter/${chNum}`);
-      chapter = { summary: data.chapter?.concept_zh || '', examples: data.chapter?.examples_zh || [] };
+      chapter = {
+        summary: data.chapter?.concept_zh || '',
+        examples: data.chapter?.examples_zh || [],
+        part: data.chapter?.part_zh || '',
+      };
       _kahnemanExamplesCache[chNum] = chapter;
-    } catch (e) { chapter = { summary: '', examples: [] }; }
+    } catch (e) { chapter = { summary: '', examples: [], part: '' }; }
   }
   if (modal.style.display === 'none') return; // closed while loading
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const partHtml = chapter.part
+    ? `<div class="kahneman-part-label">${esc(chapter.part)}</div>` : '';
   const summaryHtml = chapter.summary
     ? `<div class="kahneman-summary">${esc(chapter.summary)}</div>` : '';
   const examplesHtml = chapter.examples.length
     ? `<div class="kahneman-examples-label">书中原句</div>`
       + chapter.examples.map(ex => `<p class="kahneman-example">${esc(ex)}</p>`).join('')
     : '<div class="kahneman-examples-loading">本章暂无书中原句。</div>';
-  bodyEl.innerHTML = summaryHtml + examplesHtml;
+  bodyEl.innerHTML = partHtml + summaryHtml + examplesHtml;
 }
 
 function closeKahnemanExamples() {
@@ -4617,14 +4625,23 @@ async function _loadKahnemanChapters() {
 function _renderKahnemanChapters() {
   const container = document.getElementById('setup-kahneman-chapters');
   if (!_kahnemanChapters) return;
-  container.innerHTML = _kahnemanChapters.map(ch => `
+  let lastPart = null;
+  container.innerHTML = _kahnemanChapters.map(ch => {
+    // Insert a part header before the first chapter of each book part.
+    let header = '';
+    if (ch.part_number != null && ch.part_number !== lastPart) {
+      lastPart = ch.part_number;
+      header = `<div class="kahneman-part-header">${ch.part_zh || ''}</div>`;
+    }
+    return header + `
     <label class="kahneman-chapter-row">
       <input type="checkbox" class="kahneman-chapter-cb" value="${ch.number}" onchange="_updateKahnemanCount()">
       <div class="kahneman-chapter-info">
         <span class="kahneman-chapter-title">第${ch.number}章 ${ch.title_zh}</span>
         <span class="kahneman-chapter-concept">${ch.concept_zh}</span>
       </div>
-    </label>`).join('');
+    </label>`;
+  }).join('');
   _updateKahnemanCount();
 }
 

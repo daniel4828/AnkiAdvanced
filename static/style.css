@@ -3724,6 +3724,32 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 .kahneman-chapter-title { font-size: 13px; font-weight: 600; color: var(--text, #222); }
 .kahneman-chapter-concept { font-size: 12px; color: var(--muted, #888); line-height: 1.4; }
 
+/* Book-part group header inside the chapter selector list */
+.kahneman-part-header {
+  padding: 8px 12px 5px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #6d28d9;
+  background: #f5f3ff;
+  border-bottom: 1px solid var(--border, #eee);
+}
+.kahneman-part-header:first-child { border-top: none; }
+@media (prefers-color-scheme: dark) {
+  .kahneman-part-header { color: #c4b5fd; background: #1e1b2e; }
+}
+
+/* Part label shown in the chapter-examples popup */
+.kahneman-part-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #7c3aed;
+  margin-bottom: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  .kahneman-part-label { color: #c4b5fd; }
+}
+
 /* ── Kahneman concept badge in story modal ──────────────── */
 .story-concept-badge {
   display: inline-flex;
@@ -3756,6 +3782,13 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   border-radius: 10px;
   text-align: left;
 }
+.concept-part-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #7c3aed;
+  text-transform: none;
+}
 .concept-chapter-title {
   font-size: 15px;
   font-weight: 700;
@@ -3776,6 +3809,7 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 .sentence-concept-section.concept-clickable:hover { background: #e0d7fb; border-color: #a78bfa; }
 @media (prefers-color-scheme: dark) {
   .sentence-concept-section { background: #2e1065; border-color: #6d28d9; }
+  .concept-part-label { color: #c4b5fd; }
   .concept-chapter-title { color: #c4b5fd; }
   .concept-chapter-desc { color: #a78bfa; }
   .concept-chapter-hint { color: #c4b5fd; }
