@@ -3766,8 +3766,73 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   color: #6d28d9;
   line-height: 1.5;
 }
+.concept-chapter-hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: #7c3aed;
+  margin-top: 2px;
+}
+.sentence-concept-section.concept-clickable { cursor: pointer; transition: background 0.12s, border-color 0.12s; }
+.sentence-concept-section.concept-clickable:hover { background: #e0d7fb; border-color: #a78bfa; }
 @media (prefers-color-scheme: dark) {
   .sentence-concept-section { background: #2e1065; border-color: #6d28d9; }
   .concept-chapter-title { color: #c4b5fd; }
   .concept-chapter-desc { color: #a78bfa; }
+  .concept-chapter-hint { color: #c4b5fd; }
+  .sentence-concept-section.concept-clickable:hover { background: #3b1378; border-color: #7c3aed; }
+}
+
+/* ── Kahneman examples popup (book's original quotes) ──────────────── */
+#kahneman-examples-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 200;
+}
+#kahneman-examples-modal {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 201;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  width: min(480px, 92vw);
+  max-height: 78vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 24px 24px;
+  gap: 14px;
+}
+.kahneman-examples-body { display: flex; flex-direction: column; gap: 10px; }
+.kahneman-summary {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #5b21b6;
+  padding: 10px 14px;
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+  border-radius: 8px;
+}
+.kahneman-examples-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--muted, #888);
+  margin-top: 4px;
+}
+.kahneman-example {
+  margin: 0;
+  padding: 10px 14px;
+  background: #ede9fe;
+  border-left: 3px solid #a78bfa;
+  border-radius: 8px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #4c1d95;
+}
+.kahneman-examples-loading { color: var(--muted, #888); font-size: 14px; text-align: center; padding: 12px; }
+@media (prefers-color-scheme: dark) {
+  .kahneman-example { background: #2e1065; border-left-color: #7c3aed; color: #ddd6fe; }
+  .kahneman-summary { background: #241047; border-color: #5b21b6; color: #c4b5fd; }
 }

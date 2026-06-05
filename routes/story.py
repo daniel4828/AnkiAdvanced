@@ -285,6 +285,15 @@ def kahneman_chapters():
     return {"chapters": chapters, "available": True}
 
 
+@router.get("/api/kahneman/chapter/{number}")
+def kahneman_chapter(number: int):
+    """Return one full chapter (including examples_zh — the book's original quotes)."""
+    ch = _load_kahneman_chapter(number)
+    if ch is None:
+        return {"chapter": None, "available": False}
+    return {"chapter": ch, "available": True}
+
+
 def _load_kahneman_chapter(chapter_id: int) -> dict | None:
     if not os.path.exists(KAHNEMAN_PATH):
         return None
