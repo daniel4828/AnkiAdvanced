@@ -4010,7 +4010,9 @@ function pickExtraBlankWord(zh, excludeWord) {
 // ── Word bank (creating mode, non-sentence notes) ─────────────────────────
 async function _buildWordBank() {
   const zh = sentence?.sentence_zh;
-  if (!zh || !card?.word_zh) return;
+  // No sentence for this card yet — clear stale state so the previous card's
+  // word bank doesn't linger on screen (renderWordBankUI clears the DOM too).
+  if (!zh || !card?.word_zh) { wordBankOrder = []; wordBankTokens = []; return; }
   const target = card.word_zh;
 
   // Separable words like "由...组成" — split into parts to match independently
@@ -4196,7 +4198,13 @@ function wordBankAddToken(num) {
 
 async function renderWordBankUI() {
   await _buildWordBank();
-  if (!wordBankOrder.length) return; // sentence not loaded yet
+  if (!wordBankOrder.length) {
+    // Sentence not loaded / no match — clear any stale skeleton + tiles from the
+    // previous card instead of leaving them on screen as a wrong sentence.
+    document.getElementById('word-bank-skeleton')?.replaceChildren();
+    document.getElementById('word-bank-tokens')?.replaceChildren();
+    return;
+  }
 
   // Sentence skeleton: pre-placed tokens shown as text, blanks for tiles/target (data-slot for live update)
   const skelEl = document.getElementById('word-bank-skeleton');
