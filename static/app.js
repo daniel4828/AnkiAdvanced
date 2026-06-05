@@ -4307,13 +4307,16 @@ function _renderMultiRatingIfNeeded() {
 // ── Submit rating ───────────────────────────────────────────────────────────
 async function rate(rating) {
   document.querySelectorAll('.r-btn').forEach(b => b.disabled = true);
+  let _cardMs = null;
   if (_timerStart) {
-    _sessionTotalMs += Date.now() - _timerStart;
+    _cardMs = Date.now() - _timerStart;
+    _sessionTotalMs += _cardMs;
     _sessionRatedCount++;
     _updateAvgTimeBadge();
   }
   try {
     let url = `/api/review?card_id=${card.id}&rating=${rating}`;
+    if (_cardMs != null) url += `&duration_ms=${_cardMs}`;
     if (unfinishedMode) url += `&unfinished_mode=true`;
     else if (rootDeckId) url += `&root_deck_id=${rootDeckId}`;
     else if (deckId) url += `&parent_deck_id=${deckId}`;
