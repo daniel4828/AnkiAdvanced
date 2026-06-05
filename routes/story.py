@@ -15,6 +15,36 @@ from .utils import DISABLE_AI, leaf_ids
 
 KAHNEMAN_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "kahneman_chapters.json")
 
+# 《思考，快与慢》原书的 5 个部分（Part）—— 按章节号区间划分。
+# 数据文件不存部分信息，统一在此按章节号计算，保证一致性。
+_KAHNEMAN_PARTS = [
+    (1, 9, 1, "两个系统", "Two Systems"),
+    (10, 18, 2, "启发法与偏见", "Heuristics and Biases"),
+    (19, 24, 3, "过度自信", "Overconfidence"),
+    (25, 34, 4, "选择", "Choices"),
+    (35, 38, 5, "两个自我", "Two Selves"),
+]
+
+# 部分序号 → 中文数字（用于「第一部分」等标签）
+_PART_CN_NUM = {1: "一", 2: "二", 3: "三", 4: "四", 5: "五"}
+# 部分序号 → 罗马数字（原书英文用「Part I.」格式）
+_PART_ROMAN = {1: "I", 2: "II", 3: "III", 4: "IV", 5: "V"}
+
+
+def _attach_part(chapter: dict) -> dict:
+    """Return a copy of `chapter` with part_number / part_zh / part_en attached."""
+    num = chapter.get("number")
+    for lo, hi, pnum, pzh, pen in _KAHNEMAN_PARTS:
+        if num is not None and lo <= num <= hi:
+            return {
+                **chapter,
+                "part_number": pnum,
+                "part_zh": f"第{_PART_CN_NUM[pnum]}部分 {pzh}",
+                "part_en": f"Part {_PART_ROMAN[pnum]}. {pen}",
+            }
+    return dict(chapter)
+
+
 # Suppress jieba's startup log messages
 jieba.setLogLevel(logging.ERROR)
 
@@ -279,7 +309,7 @@ def kahneman_chapters():
     with open(KAHNEMAN_PATH, encoding="utf-8") as f:
         data = json.load(f)
     chapters = [
-        {k: v for k, v in ch.items() if k != "examples_zh"}
+        _attach_part({k: v for k, v in ch.items() if k != "examples_zh"})
         for ch in data.get("chapters", [])
     ]
     return {"chapters": chapters, "available": True}
@@ -291,7 +321,7 @@ def kahneman_chapter(number: int):
     ch = _load_kahneman_chapter(number)
     if ch is None:
         return {"chapter": None, "available": False}
-    return {"chapter": ch, "available": True}
+    return {"chapter": _attach_part(ch), "available": True}
 
 
 def _load_kahneman_chapter(chapter_id: int) -> dict | None:
