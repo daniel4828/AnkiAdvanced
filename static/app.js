@@ -4627,15 +4627,20 @@ function _renderKahnemanChapters() {
   if (!_kahnemanChapters) return;
   let lastPart = null;
   container.innerHTML = _kahnemanChapters.map(ch => {
-    // Insert a part header before the first chapter of each book part.
+    // Insert a part header (with a select-all checkbox) before the first chapter of each part.
     let header = '';
     if (ch.part_number != null && ch.part_number !== lastPart) {
       lastPart = ch.part_number;
-      header = `<div class="kahneman-part-header">${ch.part_zh || ''}</div>`;
+      header = `
+      <label class="kahneman-part-header">
+        <input type="checkbox" class="kahneman-part-cb" data-part="${ch.part_number}"
+               onchange="_toggleKahnemanPart(${ch.part_number}, this.checked)">
+        <span class="kahneman-part-title">${ch.part_zh || ''}</span>
+      </label>`;
     }
     return header + `
     <label class="kahneman-chapter-row">
-      <input type="checkbox" class="kahneman-chapter-cb" value="${ch.number}" onchange="_updateKahnemanCount()">
+      <input type="checkbox" class="kahneman-chapter-cb" value="${ch.number}" data-part="${ch.part_number}" onchange="_updateKahnemanCount()">
       <div class="kahneman-chapter-info">
         <span class="kahneman-chapter-title">第${ch.number}章 ${ch.title_zh}</span>
         <span class="kahneman-chapter-concept">${ch.concept_zh}</span>
@@ -4645,10 +4650,24 @@ function _renderKahnemanChapters() {
   _updateKahnemanCount();
 }
 
+function _toggleKahnemanPart(partNum, checked) {
+  document.querySelectorAll(`.kahneman-chapter-cb[data-part="${partNum}"]`)
+    .forEach(cb => { cb.checked = checked; });
+  _updateKahnemanCount();
+}
+
 function _updateKahnemanCount() {
   const checked = document.querySelectorAll('.kahneman-chapter-cb:checked').length;
   const countEl = document.getElementById('setup-kahneman-count');
   countEl.textContent = checked ? `(${checked} selected)` : '(none selected → random 5)';
+  // Sync each part checkbox: checked if all chapters selected, indeterminate if some.
+  document.querySelectorAll('.kahneman-part-cb').forEach(partCb => {
+    const part = partCb.dataset.part;
+    const chapters = document.querySelectorAll(`.kahneman-chapter-cb[data-part="${part}"]`);
+    const sel = document.querySelectorAll(`.kahneman-chapter-cb[data-part="${part}"]:checked`).length;
+    partCb.checked = sel > 0 && sel === chapters.length;
+    partCb.indeterminate = sel > 0 && sel < chapters.length;
+  });
 }
 
 function randomKahnemanChapters() {

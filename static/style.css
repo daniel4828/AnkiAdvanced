@@ -3726,6 +3726,9 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 
 /* Book-part group header inside the chapter selector list */
 .kahneman-part-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 12px 5px;
   font-size: 12px;
   font-weight: 700;
@@ -3733,10 +3736,14 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   color: #6d28d9;
   background: #f5f3ff;
   border-bottom: 1px solid var(--border, #eee);
+  cursor: pointer;
 }
+.kahneman-part-header:hover { background: #ede9fe; }
+.kahneman-part-cb { flex-shrink: 0; cursor: pointer; }
 .kahneman-part-header:first-child { border-top: none; }
 @media (prefers-color-scheme: dark) {
   .kahneman-part-header { color: #c4b5fd; background: #1e1b2e; }
+  .kahneman-part-header:hover { background: #2a2540; }
 }
 
 /* Part label shown in the chapter-examples popup */
