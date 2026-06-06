@@ -6945,9 +6945,14 @@ function _hcalDayValue(date) {
 function _hcalColor(value, has, max) {
   if (!has || value == null) return 'var(--hcal-empty)';
   if (_hcalMetric === 'retention') {
-    // red (0) → amber (.5) → green (1)
-    const h = Math.round(value * 120);
-    return `hsl(${h}, 62%, 46%)`;
+    // Stretch the useful band (60%→100%) across the full red→amber→green spectrum,
+    // so the 80–95% range Daniel actually sees is clearly differentiated.
+    // Below 60% clamps to deep red; lightness also ramps for extra separation.
+    const FLOOR = 0.60;
+    const n = Math.max(0, Math.min(1, (value - FLOOR) / (1 - FLOOR)));
+    const h = Math.round(n * 120);          // 0=red … 60=amber … 120=green
+    const l = 36 + Math.round(n * 16);      // 36% (dark red) → 52% (bright green)
+    return `hsl(${h}, 70%, ${l}%)`;
   }
   // count-like metrics: 4 intensity buckets
   const palettes = {
@@ -7024,10 +7029,12 @@ function _hcalRenderHeatmap() {
 function _hcalLegend(max) {
   if (_hcalMetric === 'retention') {
     return `<div class="hcal-legend">
-      <span>0%</span>
-      <span class="hcal-leg-sw" style="background:hsl(0,62%,46%)"></span>
-      <span class="hcal-leg-sw" style="background:hsl(60,62%,46%)"></span>
-      <span class="hcal-leg-sw" style="background:hsl(120,62%,46%)"></span>
+      <span>≤60%</span>
+      <span class="hcal-leg-sw" style="background:${_hcalColor(0.60, true, 1)}"></span>
+      <span class="hcal-leg-sw" style="background:${_hcalColor(0.70, true, 1)}"></span>
+      <span class="hcal-leg-sw" style="background:${_hcalColor(0.80, true, 1)}"></span>
+      <span class="hcal-leg-sw" style="background:${_hcalColor(0.90, true, 1)}"></span>
+      <span class="hcal-leg-sw" style="background:${_hcalColor(1.00, true, 1)}"></span>
       <span>100%</span></div>`;
   }
   const unit = _hcalMetric === 'time' ? 'min' : _hcalMetric === 'future' ? 'due' : 'cards';
