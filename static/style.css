@@ -3883,6 +3883,8 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   padding: 14px 16px;
   margin: 0 0 18px;
 }
+/* Hide the container entirely if calendar.js never populated it */
+.cal-card:empty { display: none; }
 .cal-loading { color: var(--muted); font-size: 13px; padding: 8px 2px; }
 
 .cal-controls {
