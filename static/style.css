@@ -3770,13 +3770,21 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 .concept-name { font-weight: 500; }
 
 /* Kahneman concept block shown on review card back */
+.sentence-concept-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px auto 0;
+  max-width: 520px;
+}
 .sentence-concept-section {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin: 8px auto 0;
-  max-width: 520px;
-  padding: 8px 12px;
+  gap: 2px;
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 6px 12px;
   background: #ede9fe;
   border: 1px solid #c4b5fd;
   border-radius: 10px;
@@ -3790,7 +3798,7 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   text-transform: none;
 }
 .concept-chapter-title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   color: #5b21b6;
 }
@@ -3808,32 +3816,53 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 .sentence-concept-section.concept-clickable { cursor: pointer; transition: background 0.12s, border-color 0.12s; }
 .sentence-concept-section.concept-clickable:hover { background: #e0d7fb; border-color: #a78bfa; }
 
-.sentence-reasoning-wrap {
-  margin: 8px auto 0;
-  max-width: 520px;
-  text-align: left;
-}
 .sentence-reasoning-btn {
-  font-size: 13px;
-  font-weight: 600;
-  color: #7c3aed;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  font-size: 17px;
+  line-height: 1;
   background: #f3f0ff;
   border: 1px solid #c4b5fd;
-  border-radius: 8px;
-  padding: 5px 12px;
+  border-radius: 50%;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
+  transition: background 0.12s, border-color 0.12s, transform 0.08s;
 }
 .sentence-reasoning-btn:hover { background: #e0d7fb; border-color: #a78bfa; }
-.sentence-reasoning-body {
-  margin-top: 6px;
-  padding: 8px 12px;
-  background: #faf5ff;
-  border: 1px solid #ddd6fe;
-  border-radius: 10px;
-  font-size: 14px;
-  line-height: 1.6;
+.sentence-reasoning-btn:active { transform: scale(0.92); }
+
+#reasoning-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 200;
+}
+#reasoning-modal {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 201;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  width: min(440px, 92vw);
+  max-height: 78vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 24px 24px;
+  gap: 14px;
+}
+.reasoning-body {
+  font-size: 15px;
+  line-height: 1.7;
   color: #5b21b6;
+  padding: 12px 16px;
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+  border-radius: 8px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -3843,9 +3872,9 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   .concept-chapter-desc { color: #a78bfa; }
   .concept-chapter-hint { color: #c4b5fd; }
   .sentence-concept-section.concept-clickable:hover { background: #3b1378; border-color: #7c3aed; }
-  .sentence-reasoning-btn { background: #2e1065; border-color: #6d28d9; color: #c4b5fd; }
+  .sentence-reasoning-btn { background: #2e1065; border-color: #6d28d9; }
   .sentence-reasoning-btn:hover { background: #3b1378; border-color: #7c3aed; }
-  .sentence-reasoning-body { background: #1e1b4b; border-color: #4c1d95; color: #c4b5fd; }
+  .reasoning-body { background: #1e1b4b; border-color: #4c1d95; color: #c4b5fd; }
 }
 
 /* ── Kahneman examples popup (book's original quotes) ──────────────── */

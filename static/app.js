@@ -3027,17 +3027,16 @@ function revealAnswer() {
     _sentDeEl.style.display = sentence?.sentence_de ? '' : 'none';
   }
 
-  // Kahneman concept section
+  // Kahneman concept box (compact: part + chapter title only) + reasoning light bulb
+  const _conceptRow = document.getElementById('sentence-concept-row');
   const _conceptEl = document.getElementById('sentence-concept');
+  const _reasonBtn = document.getElementById('sentence-reasoning-btn');
   if (!isSentenceNote && sentence?.concept_zh) {
     const chNum = sentence.concept_en ? parseInt(sentence.concept_en.match(/Chapter (\d+)/)?.[1]) : null;
     const renderConcept = (ch) => {
       _conceptEl.innerHTML =
           (ch?.part_zh ? `<span class="concept-part-label">${ch.part_zh}</span>` : '')
-        + `<span class="concept-chapter-title">${sentence.concept_zh}</span>`
-        + (ch?.concept_zh ? `<span class="concept-chapter-desc">${ch.concept_zh}</span>` : '')
-        + (chNum ? `<span class="concept-chapter-hint">点击查看书中原句 ›</span>` : '');
-      _conceptEl.style.display = '';
+        + `<span class="concept-chapter-title">${sentence.concept_zh}</span>`;
       if (chNum) {
         _conceptEl.classList.add('concept-clickable');
         _conceptEl.onclick = () => openKahnemanExamples(chNum, sentence.concept_zh);
@@ -3054,23 +3053,15 @@ function revealAnswer() {
         if (ch) renderConcept(ch);
       });
     }
+    // Light bulb opens the per-sentence reasoning popup (only if reasoning exists)
+    _currentReasoning = sentence.reasoning_zh || '';
+    _reasonBtn.style.display = _currentReasoning ? '' : 'none';
+    _conceptRow.style.display = '';
   } else {
-    _conceptEl.style.display = 'none';
+    _conceptRow.style.display = 'none';
     _conceptEl.innerHTML = '';
-  }
-
-  // Per-sentence reasoning ("why this sentence reveals the chapter's bias")
-  const _reasonWrap = document.getElementById('sentence-reasoning-wrap');
-  const _reasonBody = document.getElementById('sentence-reasoning');
-  const _reasonBtn = document.getElementById('sentence-reasoning-btn');
-  if (!isSentenceNote && sentence?.reasoning_zh) {
-    _reasonBody.textContent = sentence.reasoning_zh;
-    _reasonBody.style.display = 'none';
-    _reasonBtn.textContent = '💡 为什么?';
-    _reasonWrap.style.display = '';
-  } else {
-    _reasonWrap.style.display = 'none';
-    _reasonBody.textContent = '';
+    _reasonBtn.style.display = 'none';
+    _currentReasoning = '';
   }
 
   const noteType = wordDetails?.note_type || card.note_type;
@@ -4616,12 +4607,18 @@ function closeKahnemanExamples() {
   document.getElementById('kahneman-examples-modal').style.display = 'none';
 }
 
-function toggleReasoning() {
-  const body = document.getElementById('sentence-reasoning');
-  const btn = document.getElementById('sentence-reasoning-btn');
-  const show = body.style.display === 'none';
-  body.style.display = show ? '' : 'none';
-  btn.textContent = show ? '💡 收起' : '💡 为什么?';
+let _currentReasoning = '';
+
+function openReasoning() {
+  if (!_currentReasoning) return;
+  document.getElementById('reasoning-body').textContent = _currentReasoning;
+  document.getElementById('reasoning-overlay').style.display = '';
+  document.getElementById('reasoning-modal').style.display = '';
+}
+
+function closeReasoning() {
+  document.getElementById('reasoning-overlay').style.display = 'none';
+  document.getElementById('reasoning-modal').style.display = 'none';
 }
 
 async function _loadKahnemanChapters() {

@@ -188,12 +188,10 @@
             <!-- French and German translation of the sentence -->
             <div class="sentence-fr" id="sentence-fr"></div>
             <div class="sentence-de" id="sentence-de"></div>
-            <!-- Kahneman chapter concept (shown only for Kahneman-mode sentences) -->
-            <div id="sentence-concept" class="sentence-concept-section" style="display:none"></div>
-            <!-- Per-sentence reasoning (why this sentence reveals the chapter's bias) -->
-            <div id="sentence-reasoning-wrap" class="sentence-reasoning-wrap" style="display:none">
-              <button id="sentence-reasoning-btn" class="sentence-reasoning-btn" onclick="toggleReasoning()">💡 为什么?</button>
-              <div id="sentence-reasoning" class="sentence-reasoning-body" style="display:none"></div>
+            <!-- Kahneman chapter concept + reasoning light bulb (Kahneman-mode only) -->
+            <div id="sentence-concept-row" class="sentence-concept-row" style="display:none">
+              <div id="sentence-concept" class="sentence-concept-section"></div>
+              <button id="sentence-reasoning-btn" class="sentence-reasoning-btn" title="为什么这句体现本章偏误?" onclick="openReasoning()" style="display:none">💡</button>
             </div>
 
             <!-- 3. Rating buttons (immediately visible after flip) -->
@@ -842,6 +840,16 @@
     <button class="edit-modal-close" onclick="closeKahnemanExamples()">✕</button>
   </div>
   <div id="kahneman-examples-body" class="kahneman-examples-body"></div>
+</div>
+
+<!-- Per-sentence reasoning popup (why this sentence reveals the chapter's bias) -->
+<div id="reasoning-overlay" onclick="closeReasoning()" style="display:none"></div>
+<div id="reasoning-modal" style="display:none">
+  <div class="edit-modal-header">
+    <span class="edit-modal-title">💡 为什么这句体现本章偏误?</span>
+    <button class="edit-modal-close" onclick="closeReasoning()">✕</button>
+  </div>
+  <div id="reasoning-body" class="reasoning-body"></div>
 </div>
 
 <!-- Hanzi regenerate confirm modal -->
