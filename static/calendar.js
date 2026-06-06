@@ -43,7 +43,11 @@ function initCalendar() {
   el.innerHTML = '<div class="cal-loading">Loading calendar…</div>';
   api('GET', '/api/calendar-stats?days=365')
     .then(d => { _calData = d; _calLoading = false; _calRender(); })
-    .catch(() => { _calLoading = false; el.innerHTML = ''; });
+    .catch(err => {
+      _calLoading = false;
+      el.innerHTML = `<div class="cal-loading">Calendar unavailable — ${
+        (err && err.message) || 'failed to load stats'}. Restart the server?</div>`;
+    });
 }
 
 // Force a refetch (e.g. after reviewing). Safe to call even if not mounted.
