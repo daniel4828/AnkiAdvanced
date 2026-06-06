@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AnkiAdvanced</title>
-  <link rel="stylesheet" href="/static/style.css?v=4">
+  <link rel="stylesheet" href="/static/style.css?v=5">
 </head>
 <body>
 
@@ -190,6 +190,11 @@
             <div class="sentence-de" id="sentence-de"></div>
             <!-- Kahneman chapter concept (shown only for Kahneman-mode sentences) -->
             <div id="sentence-concept" class="sentence-concept-section" style="display:none"></div>
+            <!-- Per-sentence reasoning (why this sentence reveals the chapter's bias) -->
+            <div id="sentence-reasoning-wrap" class="sentence-reasoning-wrap" style="display:none">
+              <button id="sentence-reasoning-btn" class="sentence-reasoning-btn" onclick="toggleReasoning()">💡 为什么?</button>
+              <div id="sentence-reasoning" class="sentence-reasoning-body" style="display:none"></div>
+            </div>
 
             <!-- 3. Rating buttons (immediately visible after flip) -->
             <div class="rating-row" id="rating-row">
@@ -536,7 +541,7 @@
 </div>
 
 <div id="word-tip" style="display:none"></div>
-<script src="/static/app.js?v=4"></script>
+<script src="/static/app.js?v=5"></script>
 
 <!-- Edit card modal -->
 <div id="edit-modal-overlay" onclick="closeEditCard()" style="display:none"></div>

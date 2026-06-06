@@ -3058,6 +3058,21 @@ function revealAnswer() {
     _conceptEl.style.display = 'none';
     _conceptEl.innerHTML = '';
   }
+
+  // Per-sentence reasoning ("why this sentence reveals the chapter's bias")
+  const _reasonWrap = document.getElementById('sentence-reasoning-wrap');
+  const _reasonBody = document.getElementById('sentence-reasoning');
+  const _reasonBtn = document.getElementById('sentence-reasoning-btn');
+  if (!isSentenceNote && sentence?.reasoning_zh) {
+    _reasonBody.textContent = sentence.reasoning_zh;
+    _reasonBody.style.display = 'none';
+    _reasonBtn.textContent = '💡 为什么?';
+    _reasonWrap.style.display = '';
+  } else {
+    _reasonWrap.style.display = 'none';
+    _reasonBody.textContent = '';
+  }
+
   const noteType = wordDetails?.note_type || card.note_type;
   const wordZhEl = document.getElementById('word-zh');
   const isMultiWord = noteType === 'sentence' || noteType === 'chengyu' || noteType === 'expression';
@@ -4599,6 +4614,14 @@ async function openKahnemanExamples(chNum, conceptZh) {
 function closeKahnemanExamples() {
   document.getElementById('kahneman-examples-overlay').style.display = 'none';
   document.getElementById('kahneman-examples-modal').style.display = 'none';
+}
+
+function toggleReasoning() {
+  const body = document.getElementById('sentence-reasoning');
+  const btn = document.getElementById('sentence-reasoning-btn');
+  const show = body.style.display === 'none';
+  body.style.display = show ? '' : 'none';
+  btn.textContent = show ? '💡 收起' : '💡 为什么?';
 }
 
 async function _loadKahnemanChapters() {
