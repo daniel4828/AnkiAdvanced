@@ -830,7 +830,9 @@ function renderDecks(decks) {
     html += `<div class="section-label section-label-row">Decks<button class="deck-sort-btn" onclick="toggleDeckSort()">${sortLabel}</button></div><div class="tree-card">${regularHtml}</div>`;
   }
 
-  document.getElementById('view-decks').innerHTML = navRow + html;
+  document.getElementById('view-decks').innerHTML =
+    navRow + '<div id="home-calendar" class="cal-card"></div>' + html;
+  initCalendar();
 }
 
 function toggleDeckSort() {
@@ -4322,6 +4324,7 @@ async function rate(rating) {
     else if (deckId) url += `&parent_deck_id=${deckId}`;
     const result = await api('POST', url);
     _sessionReviewedCount++;
+    if (typeof invalidateCalendar === 'function') invalidateCalendar();
     api('GET', '/api/retention?days=0').then(r => {
       _retentionData = r;
       _updateReviewRRBadge(deckId);
