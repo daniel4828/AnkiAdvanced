@@ -6945,14 +6945,20 @@ function _hcalDayValue(date) {
 function _hcalColor(value, has, max) {
   if (!has || value == null) return 'var(--hcal-empty)';
   if (_hcalMetric === 'retention') {
-    // Stretch the useful band (60%→100%) across the full red→amber→green spectrum,
-    // so the 80–95% range Daniel actually sees is clearly differentiated.
-    // Below 60% clamps to deep red; lightness also ramps for extra separation.
-    const FLOOR = 0.60;
-    const n = Math.max(0, Math.min(1, (value - FLOOR) / (1 - FLOOR)));
-    const h = Math.round(n * 120);          // 0=red … 60=amber … 120=green
-    const l = 36 + Math.round(n * 16);      // 36% (dark red) → 52% (bright green)
-    return `hsl(${h}, 70%, ${l}%)`;
+    // Almost all of Daniel's days fall in 80–90%, so concentrate the entire
+    // colour contrast there: 80%→90% sweeps the full red→amber→green spectrum,
+    // while everything below 80% / above 90% is compressed into a tiny near-red /
+    // near-green band (so those extremes look "almost the same", as requested).
+    let h;
+    if (value >= 0.90) {
+      h = 110 + Math.min(1, (value - 0.90) / 0.10) * 10;   // 110→120 (near-green)
+    } else if (value <= 0.80) {
+      h = Math.max(0, (value - 0.50) / 0.30) * 10;          // 0→10  (near-red)
+    } else {
+      h = 10 + ((value - 0.80) / 0.10) * 100;               // 10→110 (full sweep)
+    }
+    const l = 36 + Math.round(h / 120 * 16);                // darker red → brighter green
+    return `hsl(${Math.round(h)}, 70%, ${l}%)`;
   }
   // count-like metrics: 4 intensity buckets
   const palettes = {
@@ -7029,13 +7035,13 @@ function _hcalRenderHeatmap() {
 function _hcalLegend(max) {
   if (_hcalMetric === 'retention') {
     return `<div class="hcal-legend">
-      <span>≤60%</span>
-      <span class="hcal-leg-sw" style="background:${_hcalColor(0.60, true, 1)}"></span>
-      <span class="hcal-leg-sw" style="background:${_hcalColor(0.70, true, 1)}"></span>
+      <span>≤80%</span>
       <span class="hcal-leg-sw" style="background:${_hcalColor(0.80, true, 1)}"></span>
+      <span class="hcal-leg-sw" style="background:${_hcalColor(0.825, true, 1)}"></span>
+      <span class="hcal-leg-sw" style="background:${_hcalColor(0.85, true, 1)}"></span>
+      <span class="hcal-leg-sw" style="background:${_hcalColor(0.875, true, 1)}"></span>
       <span class="hcal-leg-sw" style="background:${_hcalColor(0.90, true, 1)}"></span>
-      <span class="hcal-leg-sw" style="background:${_hcalColor(1.00, true, 1)}"></span>
-      <span>100%</span></div>`;
+      <span>90%+</span></div>`;
   }
   const unit = _hcalMetric === 'time' ? 'min' : _hcalMetric === 'future' ? 'due' : 'cards';
   return `<div class="hcal-legend"><span>less</span>
