@@ -831,7 +831,7 @@ function renderDecks(decks) {
   }
 
   document.getElementById('view-decks').innerHTML =
-    navRow + '<div id="home-calendar" class="cal-card"></div>' + html;
+    navRow + '<div id="home-calendar" class="hcal-card"></div>' + html;
   if (typeof initHomeCalendar === 'function') initHomeCalendar();
 }
 
@@ -6874,12 +6874,12 @@ function initHomeCalendar() {
   if (_hcalData) { _hcalRender(); return; }
   if (_hcalLoading) return;
   _hcalLoading = true;
-  el.innerHTML = '<div class="cal-loading">Loading calendar…</div>';
+  el.innerHTML = '<div class="hcal-loading">Loading calendar…</div>';
   api('GET', '/api/calendar-stats?days=365')
     .then(d => { _hcalData = d; _hcalLoading = false; _hcalRender(); })
     .catch(err => {
       _hcalLoading = false;
-      el.innerHTML = `<div class="cal-loading">Calendar unavailable — ${
+      el.innerHTML = `<div class="hcal-loading">Calendar unavailable — ${
         (err && err.message) || 'failed to load stats'}. Restart the server?</div>`;
     });
 }
@@ -6893,19 +6893,19 @@ function _hcalRender() {
   if (!el || !_hcalData) return;
 
   const metricBtns = _HCAL_METRICS.map(m =>
-    `<button class="cal-seg-btn ${m.key === _hcalMetric ? 'active' : ''}"
+    `<button class="hcal-seg-btn ${m.key === _hcalMetric ? 'active' : ''}"
              onclick="hcalSetMetric('${m.key}')">${m.label}</button>`).join('');
   const modeBtns = [['heatmap', 'Heatmap'], ['graph', 'Graph']].map(([k, lbl]) =>
-    `<button class="cal-seg-btn ${k === _hcalMode ? 'active' : ''}"
+    `<button class="hcal-seg-btn ${k === _hcalMode ? 'active' : ''}"
              onclick="hcalSetMode('${k}')">${lbl}</button>`).join('');
 
   el.innerHTML = `
-    <div class="cal-controls">
-      <div class="cal-seg cal-seg-metric">${metricBtns}</div>
-      <div class="cal-seg cal-seg-mode">${modeBtns}</div>
+    <div class="hcal-controls">
+      <div class="hcal-seg hcal-seg-metric">${metricBtns}</div>
+      <div class="hcal-seg hcal-seg-mode">${modeBtns}</div>
     </div>
-    <div class="cal-body">${_hcalMode === 'heatmap' ? _hcalRenderHeatmap() : _hcalRenderGraph()}</div>
-    <div class="cal-detail" id="cal-detail">${_hcalRenderDetail()}</div>`;
+    <div class="hcal-body">${_hcalMode === 'heatmap' ? _hcalRenderHeatmap() : _hcalRenderGraph()}</div>
+    <div class="hcal-detail" id="hcal-detail">${_hcalRenderDetail()}</div>`;
 }
 
 function hcalSetMetric(m) {
@@ -6939,7 +6939,7 @@ function _hcalDayValue(date) {
 
 // Colour for a heatmap cell given its value and the window max.
 function _hcalColor(value, has, max) {
-  if (!has || value == null) return 'var(--cal-empty)';
+  if (!has || value == null) return 'var(--hcal-empty)';
   if (_hcalMetric === 'retention') {
     // red (0) → amber (.5) → green (1)
     const h = Math.round(value * 120);
@@ -6955,7 +6955,7 @@ function _hcalColor(value, has, max) {
   if (max <= 0) return pal[0];
   const frac = value / max;
   const idx = value <= 0 ? -1 : Math.min(pal.length - 1, Math.floor(frac * pal.length - 1e-9));
-  return idx < 0 ? 'var(--cal-empty)' : pal[Math.max(0, idx)];
+  return idx < 0 ? 'var(--hcal-empty)' : pal[Math.max(0, idx)];
 }
 
 // Window of dates for the current metric.
@@ -6989,49 +6989,49 @@ function _hcalRenderHeatmap() {
   let lastMonth = -1;
   const monthLabels = weeks.map(w => {
     const firstReal = w.find(c => c);
-    if (!firstReal) return '<span class="cal-month"></span>';
+    if (!firstReal) return '<span class="hcal-month"></span>';
     const m = _hcalParse(firstReal).getMonth();
     const dom = _hcalParse(firstReal).getDate();
-    if (m !== lastMonth && dom <= 7) { lastMonth = m; return `<span class="cal-month">${MONTHS[m]}</span>`; }
-    return '<span class="cal-month"></span>';
+    if (m !== lastMonth && dom <= 7) { lastMonth = m; return `<span class="hcal-month">${MONTHS[m]}</span>`; }
+    return '<span class="hcal-month"></span>';
   }).join('');
 
   const weekCols = weeks.map(w => {
     const days = w.map(date => {
-      if (!date) return '<span class="cal-day cal-pad"></span>';
+      if (!date) return '<span class="hcal-day hcal-pad"></span>';
       const { value, has } = _hcalDayValue(date);
       const color = _hcalColor(value, has, max);
-      const sel = date === _hcalSelectedDay ? ' cal-sel' : '';
-      return `<span class="cal-day${sel}" style="background:${color}"
+      const sel = date === _hcalSelectedDay ? ' hcal-sel' : '';
+      return `<span class="hcal-day${sel}" style="background:${color}"
                 onmouseenter="hcalShowTip(event,'${date}')" onmouseleave="hcalHideTip()"
                 onclick="hcalSelectDay('${date}')"></span>`;
     }).join('');
-    return `<span class="cal-week">${days}</span>`;
+    return `<span class="hcal-week">${days}</span>`;
   }).join('');
 
   return `
-    <div class="cal-heatmap-wrap">
-      <div class="cal-months">${monthLabels}</div>
-      <div class="cal-grid">${weekCols}</div>
+    <div class="hcal-heatmap-wrap">
+      <div class="hcal-months">${monthLabels}</div>
+      <div class="hcal-grid">${weekCols}</div>
       ${_hcalLegend(max)}
     </div>`;
 }
 
 function _hcalLegend(max) {
   if (_hcalMetric === 'retention') {
-    return `<div class="cal-legend">
+    return `<div class="hcal-legend">
       <span>0%</span>
-      <span class="cal-leg-sw" style="background:hsl(0,62%,46%)"></span>
-      <span class="cal-leg-sw" style="background:hsl(60,62%,46%)"></span>
-      <span class="cal-leg-sw" style="background:hsl(120,62%,46%)"></span>
+      <span class="hcal-leg-sw" style="background:hsl(0,62%,46%)"></span>
+      <span class="hcal-leg-sw" style="background:hsl(60,62%,46%)"></span>
+      <span class="hcal-leg-sw" style="background:hsl(120,62%,46%)"></span>
       <span>100%</span></div>`;
   }
   const unit = _hcalMetric === 'time' ? 'min' : _hcalMetric === 'future' ? 'due' : 'cards';
-  return `<div class="cal-legend"><span>less</span>
-    <span class="cal-leg-sw" style="background:${_hcalColor(max * 0.1, true, max)}"></span>
-    <span class="cal-leg-sw" style="background:${_hcalColor(max * 0.4, true, max)}"></span>
-    <span class="cal-leg-sw" style="background:${_hcalColor(max * 0.7, true, max)}"></span>
-    <span class="cal-leg-sw" style="background:${_hcalColor(max, true, max)}"></span>
+  return `<div class="hcal-legend"><span>less</span>
+    <span class="hcal-leg-sw" style="background:${_hcalColor(max * 0.1, true, max)}"></span>
+    <span class="hcal-leg-sw" style="background:${_hcalColor(max * 0.4, true, max)}"></span>
+    <span class="hcal-leg-sw" style="background:${_hcalColor(max * 0.7, true, max)}"></span>
+    <span class="hcal-leg-sw" style="background:${_hcalColor(max, true, max)}"></span>
     <span>more (${unit})</span></div>`;
 }
 
@@ -7058,26 +7058,26 @@ function _hcalRenderGraph() {
   const bars = items.map(it => {
     const h = it.has ? Math.max(2, Math.round(it.value / max * 100)) : 0;
     const color = it.has ? _hcalColor(it.value, it.has,
-      _hcalMetric === 'retention' ? 1 : max) : 'var(--cal-empty)';
-    const sel = it.date === _hcalSelectedDay ? ' cal-sel' : '';
-    return `<span class="cal-bar-col${sel}" onmouseenter="hcalShowTip(event,'${it.date}')"
+      _hcalMetric === 'retention' ? 1 : max) : 'var(--hcal-empty)';
+    const sel = it.date === _hcalSelectedDay ? ' hcal-sel' : '';
+    return `<span class="hcal-bar-col${sel}" onmouseenter="hcalShowTip(event,'${it.date}')"
               onmouseleave="hcalHideTip()" onclick="hcalSelectDay('${it.date}')">
-              <span class="cal-bar" style="height:${h}%;background:${color}"></span>
+              <span class="hcal-bar" style="height:${h}%;background:${color}"></span>
             </span>`;
   }).join('');
 
   const fmt = x => `${x.getMonth() + 1}/${x.getDate()}`;
   return `
-    <div class="cal-graph-wrap">
-      <div class="cal-graph">${bars}</div>
-      <div class="cal-graph-axis"><span>${fmt(start)}</span><span>${fmt(last)}</span></div>
+    <div class="hcal-graph-wrap">
+      <div class="hcal-graph">${bars}</div>
+      <div class="hcal-graph-axis"><span>${fmt(start)}</span><span>${fmt(last)}</span></div>
     </div>`;
 }
 
 // ── Floating tooltip ────────────────────────────────────────────────────────
 function _hcalTip() {
-  let t = document.getElementById('cal-tip');
-  if (!t) { t = document.createElement('div'); t.id = 'cal-tip'; t.className = 'cal-tip'; document.body.appendChild(t); }
+  let t = document.getElementById('hcal-tip');
+  if (!t) { t = document.createElement('div'); t.id = 'hcal-tip'; t.className = 'hcal-tip'; document.body.appendChild(t); }
   return t;
 }
 function hcalShowTip(ev, date) {
@@ -7093,7 +7093,7 @@ function hcalShowTip(ev, date) {
   t.style.left = left + 'px';
   t.style.top = top + 'px';
 }
-function hcalHideTip() { const t = document.getElementById('cal-tip'); if (t) t.style.display = 'none'; }
+function hcalHideTip() { const t = document.getElementById('hcal-tip'); if (t) t.style.display = 'none'; }
 
 function _hcalFmtTime(ms) {
   const s = Math.round(ms / 1000);
@@ -7108,26 +7108,26 @@ function _hcalTipHtml(date) {
 
   if (_hcalMetric === 'future') {
     const f = _hcalData.future[date];
-    if (!f) return `<div class="cal-tip-date">${nice}</div><div class="cal-tip-empty">nothing scheduled</div>`;
+    if (!f) return `<div class="hcal-tip-date">${nice}</div><div class="hcal-tip-empty">nothing scheduled</div>`;
     const cats = _HCAL_CATS.map(c => `${c.zh} ${f.by_cat[c.key] || 0}`).join(' · ');
-    return `<div class="cal-tip-date">${nice}</div>
-            <div class="cal-tip-big">${f.total} scheduled</div>
-            <div class="cal-tip-cats">${cats}</div>`;
+    return `<div class="hcal-tip-date">${nice}</div>
+            <div class="hcal-tip-big">${f.total} scheduled</div>
+            <div class="hcal-tip-cats">${cats}</div>`;
   }
 
   const d = _hcalData.by_date[date];
-  if (!d || d.total === 0) return `<div class="cal-tip-date">${nice}</div><div class="cal-tip-empty">no reviews</div>`;
+  if (!d || d.total === 0) return `<div class="hcal-tip-date">${nice}</div><div class="hcal-tip-empty">no reviews</div>`;
 
-  const head = `<div class="cal-tip-big">${d.cards} cards · ${_hcalFmtRR(d.correct, d.total)} retention</div>`;
+  const head = `<div class="hcal-tip-big">${d.cards} cards · ${_hcalFmtRR(d.correct, d.total)} retention</div>`;
   const time = d.timed_count > 0
-    ? `<div class="cal-tip-sub">${_hcalFmtTime(d.duration_ms)} total · ${_hcalFmtTime(d.duration_ms / d.timed_count)}/card</div>`
+    ? `<div class="hcal-tip-sub">${_hcalFmtTime(d.duration_ms)} total · ${_hcalFmtTime(d.duration_ms / d.timed_count)}/card</div>`
     : '';
   const rows = _HCAL_CATS.filter(c => d.by_cat[c.key]).map(c => {
     const cd = d.by_cat[c.key];
     const ph = `L ${_hcalFmtRR(cd.learning.correct, cd.learning.total)} · R ${_hcalFmtRR(cd.review.correct, cd.review.total)}`;
-    return `<div class="cal-tip-row"><b>${c.zh}</b> ${cd.cards}c · ${_hcalFmtRR(cd.correct, cd.total)} <span class="cal-tip-dim">(${ph})</span></div>`;
+    return `<div class="hcal-tip-row"><b>${c.zh}</b> ${cd.cards}c · ${_hcalFmtRR(cd.correct, cd.total)} <span class="hcal-tip-dim">(${ph})</span></div>`;
   }).join('');
-  return `<div class="cal-tip-date">${nice}</div>${head}${time}<div class="cal-tip-rows">${rows}</div>`;
+  return `<div class="hcal-tip-date">${nice}</div>${head}${time}<div class="hcal-tip-rows">${rows}</div>`;
 }
 
 // ── Click → detail panel ────────────────────────────────────────────────────
@@ -7144,15 +7144,15 @@ function _hcalRenderDetail() {
 
   if (_hcalMetric === 'future') {
     const f = _hcalData.future[date];
-    const body = !f ? '<div class="cal-tip-empty">Nothing scheduled.</div>'
-      : `<table class="cal-tbl"><tr><th></th><th>Scheduled</th></tr>${
+    const body = !f ? '<div class="hcal-tip-empty">Nothing scheduled.</div>'
+      : `<table class="hcal-tbl"><tr><th></th><th>Scheduled</th></tr>${
           _HCAL_CATS.map(c => `<tr><td>${c.zh} ${c.en}</td><td>${f.by_cat[c.key] || 0}</td></tr>`).join('')
-        }<tr class="cal-tbl-total"><td>Total</td><td>${f.total}</td></tr></table>`;
-    return `<div class="cal-detail-head">${nice}</div>${body}`;
+        }<tr class="hcal-tbl-total"><td>Total</td><td>${f.total}</td></tr></table>`;
+    return `<div class="hcal-detail-head">${nice}</div>${body}`;
   }
 
   const d = _hcalData.by_date[date];
-  if (!d || d.total === 0) return `<div class="cal-detail-head">${nice}</div><div class="cal-tip-empty">No reviews this day.</div>`;
+  if (!d || d.total === 0) return `<div class="hcal-detail-head">${nice}</div><div class="hcal-tip-empty">No reviews this day.</div>`;
 
   const catRows = _HCAL_CATS.map(c => {
     const cd = d.by_cat[c.key];
@@ -7165,22 +7165,22 @@ function _hcalRenderDetail() {
       <td>${_hcalFmtRR(cd.correct, cd.total)}</td>
       <td>${_hcalFmtRR(cd.learning.correct, cd.learning.total)}</td>
       <td>${_hcalFmtRR(cd.review.correct, cd.review.total)}</td>
-      <td>${avg} <span class="cal-tip-dim">/ ${tot}</span></td>
+      <td>${avg} <span class="hcal-tip-dim">/ ${tot}</span></td>
     </tr>`;
   }).join('');
 
   const totAvg = d.timed_count > 0 ? _hcalFmtTime(d.duration_ms / d.timed_count) : '—';
   const totTot = d.timed_count > 0 ? _hcalFmtTime(d.duration_ms) : '—';
   return `
-    <div class="cal-detail-head">${nice}</div>
-    <table class="cal-tbl">
+    <div class="hcal-detail-head">${nice}</div>
+    <table class="hcal-tbl">
       <tr><th>Category</th><th>Cards</th><th>Retention</th><th>Learn</th><th>Review</th><th>Avg / Total</th></tr>
       ${catRows}
-      <tr class="cal-tbl-total">
+      <tr class="hcal-tbl-total">
         <td>All</td><td>${d.cards}</td><td>${_hcalFmtRR(d.correct, d.total)}</td>
         <td>${_hcalFmtRR(d.learning.correct, d.learning.total)}</td>
         <td>${_hcalFmtRR(d.review.correct, d.review.total)}</td>
-        <td>${totAvg} <span class="cal-tip-dim">/ ${totTot}</span></td>
+        <td>${totAvg} <span class="hcal-tip-dim">/ ${totTot}</span></td>
       </tr>
     </table>`;
 }
