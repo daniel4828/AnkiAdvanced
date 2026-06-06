@@ -6906,6 +6906,10 @@ function _hcalRender() {
     </div>
     <div class="hcal-body">${_hcalMode === 'heatmap' ? _hcalRenderHeatmap() : _hcalRenderGraph()}</div>
     <div class="hcal-detail" id="hcal-detail">${_hcalRenderDetail()}</div>`;
+
+  // Past metrics: newest data is at the right edge → scroll there. Future: keep left (today first).
+  const wrap = el.querySelector('.hcal-heatmap-wrap, .hcal-graph-wrap');
+  if (wrap) wrap.scrollLeft = (_hcalMetric === 'future') ? 0 : wrap.scrollWidth;
 }
 
 function hcalSetMetric(m) {
