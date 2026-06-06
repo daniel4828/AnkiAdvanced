@@ -832,7 +832,7 @@ function renderDecks(decks) {
 
   document.getElementById('view-decks').innerHTML =
     navRow + '<div id="home-calendar" class="cal-card"></div>' + html;
-  initCalendar();
+  if (typeof initCalendar === 'function') initCalendar();
 }
 
 function toggleDeckSort() {
