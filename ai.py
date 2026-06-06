@@ -782,10 +782,16 @@ def generate_kahneman_sentences(
 - 句子要简短（不超过20个字）
 - 不要使用markdown格式
 
+另外，为每句话写一段简短的中文解释（reasoning_zh），说明这句话为什么体现了本章所描述的认知偏误。
+解释规则：
+- 用中文写，1-2句话，简明扼要
+- 可以点明偏误名称，帮助学习者理解
+- 面向HSK 4-5学习者，用词不要太难
+
 仅返回如下JSON数组，不加任何其他文字：
 [
-  {{"sentence_zh": "句子内容"}},
-  {{"sentence_zh": "句子内容"}}
+  {{"sentence_zh": "句子内容", "reasoning_zh": "解释内容"}},
+  {{"sentence_zh": "句子内容", "reasoning_zh": "解释内容"}}
 ]"""
 
     concept_en = f"Chapter {chapter['number']}: {chapter['title_en']}"
@@ -827,6 +833,7 @@ def generate_kahneman_sentences(
                 "sentence_en": "",
                 "concept_en": concept_en,
                 "concept_zh": concept_zh,
+                "reasoning_zh": item.get("reasoning_zh", "").strip(),
                 "tokens": [],
             })
 
@@ -849,6 +856,7 @@ def generate_kahneman_sentences(
             "sentence_en": "",
             "concept_en": concept_en,
             "concept_zh": concept_zh,
+            "reasoning_zh": "",
             "tokens": [],
         })
     _fill_translations(fallback, progress_key=progress_key)

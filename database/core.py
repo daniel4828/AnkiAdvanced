@@ -179,6 +179,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE story_sentences ADD COLUMN concept_en TEXT")
     if "concept_zh" not in ss_cols:
         conn.execute("ALTER TABLE story_sentences ADD COLUMN concept_zh TEXT")
+    if "reasoning_zh" not in ss_cols:
+        conn.execute("ALTER TABLE story_sentences ADD COLUMN reasoning_zh TEXT")
     if "word_id" in ss_cols:
         _migrate_story_sentences_multi_word(conn)
     existing_tables = {r["name"] for r in conn.execute(

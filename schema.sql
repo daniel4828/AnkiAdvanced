@@ -304,6 +304,7 @@ CREATE TABLE IF NOT EXISTS story_sentences (
     tokens      TEXT,
     concept_en  TEXT,
     concept_zh  TEXT,
+    reasoning_zh TEXT,
     UNIQUE(story_id, position)
 );
 
