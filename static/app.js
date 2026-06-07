@@ -4591,12 +4591,15 @@ async function openKahnemanExamples(chNum, conceptZh) {
         summary: data.chapter?.concept_zh || '',
         examples: data.chapter?.examples_zh || [],
         part: data.chapter?.part_zh || '',
+        titleEn: data.chapter?.title_en || '',
       };
       _kahnemanExamplesCache[chNum] = chapter;
     } catch (e) { chapter = { summary: '', examples: [], part: '' }; }
   }
   if (modal.style.display === 'none') return; // closed while loading
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const enHtml = chapter.titleEn
+    ? `<div class="kahneman-title-en">${esc(chapter.titleEn)}</div>` : '';
   const partHtml = chapter.part
     ? `<div class="kahneman-part-label">${esc(chapter.part)}</div>` : '';
   const summaryHtml = chapter.summary
@@ -4605,7 +4608,7 @@ async function openKahnemanExamples(chNum, conceptZh) {
     ? `<div class="kahneman-examples-label">书中原句</div>`
       + chapter.examples.map(ex => `<p class="kahneman-example">${esc(ex)}</p>`).join('')
     : '<div class="kahneman-examples-loading">本章暂无书中原句。</div>';
-  bodyEl.innerHTML = partHtml + summaryHtml + examplesHtml;
+  bodyEl.innerHTML = enHtml + partHtml + summaryHtml + examplesHtml;
 }
 
 function closeKahnemanExamples() {

@@ -3907,6 +3907,13 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   gap: 14px;
 }
 .kahneman-examples-body { display: flex; flex-direction: column; gap: 10px; }
+.kahneman-title-en {
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.4;
+  color: var(--muted, #888);
+  margin-top: -6px;
+}
 .kahneman-summary {
   font-size: 15px;
   line-height: 1.6;
