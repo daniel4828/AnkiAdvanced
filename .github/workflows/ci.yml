@@ -22,8 +22,8 @@ jobs:
         run: pip install fastapi uvicorn anthropic edge-tts pyyaml openai python-multipart
 
       - name: Check syntax (all Python files)
-        run: python -m py_compile database.py main.py srs.py importer.py ai.py tts.py
-             && for f in routes/*.py; do python -m py_compile "$f"; done
+        run: python -m py_compile main.py srs.py importer.py ai.py tts.py
+             && for f in database/*.py routes/*.py; do python -m py_compile "$f"; done
 
       - name: Import check (no crash on import)
         run: python -c "import database; import ai; import importer; import srs"
