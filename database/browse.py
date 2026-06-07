@@ -321,12 +321,14 @@ def get_all_cards_for_browse(filters: dict | None = None) -> list[dict]:
 
 def insert_review(card_id: int, rating: int,
                   user_response: str | None = None,
-                  ai_score: int | None = None) -> int:
+                  ai_score: int | None = None,
+                  duration_ms: int | None = None,
+                  state: str | None = None) -> int:
     conn = get_db()
     cur = conn.execute(
-        """INSERT INTO review_log (card_id, rating, user_response, ai_score)
-           VALUES (?, ?, ?, ?)""",
-        (card_id, rating, user_response, ai_score),
+        """INSERT INTO review_log (card_id, rating, user_response, ai_score, duration_ms, state)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (card_id, rating, user_response, ai_score, duration_ms, state),
     )
     conn.commit()
     log_id = cur.lastrowid

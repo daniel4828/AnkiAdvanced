@@ -830,7 +830,9 @@ function renderDecks(decks) {
     html += `<div class="section-label section-label-row">Decks<button class="deck-sort-btn" onclick="toggleDeckSort()">${sortLabel}</button></div><div class="tree-card">${regularHtml}</div>`;
   }
 
-  document.getElementById('view-decks').innerHTML = navRow + html;
+  document.getElementById('view-decks').innerHTML =
+    navRow + '<div id="home-calendar" class="hcal-card"></div>' + html;
+  if (typeof initHomeCalendar === 'function') initHomeCalendar();
 }
 
 function toggleDeckSort() {
@@ -4313,18 +4315,22 @@ function _renderMultiRatingIfNeeded() {
 // ── Submit rating ───────────────────────────────────────────────────────────
 async function rate(rating) {
   document.querySelectorAll('.r-btn').forEach(b => b.disabled = true);
+  let _cardMs = null;
   if (_timerStart) {
-    _sessionTotalMs += Date.now() - _timerStart;
+    _cardMs = Date.now() - _timerStart;
+    _sessionTotalMs += _cardMs;
     _sessionRatedCount++;
     _updateAvgTimeBadge();
   }
   try {
     let url = `/api/review?card_id=${card.id}&rating=${rating}`;
+    if (_cardMs != null) url += `&duration_ms=${_cardMs}`;
     if (unfinishedMode) url += `&unfinished_mode=true`;
     else if (rootDeckId) url += `&root_deck_id=${rootDeckId}`;
     else if (deckId) url += `&parent_deck_id=${deckId}`;
     const result = await api('POST', url);
     _sessionReviewedCount++;
+    if (typeof invalidateHomeCalendar === 'function') invalidateHomeCalendar();
     api('GET', '/api/retention?days=0').then(r => {
       _retentionData = r;
       _updateReviewRRBadge(deckId);
@@ -6862,3 +6868,375 @@ async function _restartServer() {
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 loadDecks();
+
+
+// ===== Home calendar heatmap (issue #307) — inlined here to dodge index.html caching =====
+// ============================================================================
+// Home-page calendar heatmap (issue #307)
+// Shows per-day study stats above the deck list. Four metrics (retention /
+// cards / time / future), two display modes (heatmap / graph), hover for a
+// day summary, click a day for a full breakdown.
+// ============================================================================
+
+let _hcalData = null;          // cached /api/calendar-stats response
+let _hcalLoading = false;
+let _hcalMetric = localStorage.getItem('calMetric') || 'retention';
+let _hcalMode   = localStorage.getItem('calMode')   || 'heatmap';
+let _hcalSelectedDay = null;   // 'YYYY-MM-DD' currently shown in the detail panel
+
+const _HCAL_CATS = [
+  { key: 'listening', zh: '听', en: 'Listening' },
+  { key: 'reading',   zh: '读', en: 'Reading'   },
+  { key: 'creating',  zh: '创', en: 'Creating'  },
+];
+const _HCAL_METRICS = [
+  { key: 'retention', label: 'Retention' },
+  { key: 'cards',     label: 'Cards'     },
+  { key: 'time',      label: 'Time'      },
+  { key: 'future',    label: 'Scheduled' },
+];
+
+// ── Date helpers (local, no timezone surprises) ─────────────────────────────
+function _hcalYmd(d) {
+  return d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+}
+function _hcalParse(s) { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); }
+function _hcalAddDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+function _hcalWeekday(d) { return (d.getDay() + 6) % 7; }   // Mon=0 … Sun=6
+
+// ── Entry point (called from renderDecks) ───────────────────────────────────
+function initHomeCalendar() {
+  const el = document.getElementById('home-calendar');
+  if (!el) return;
+  if (_hcalData) { _hcalRender(); return; }
+  if (_hcalLoading) return;
+  _hcalLoading = true;
+  el.innerHTML = '<div class="hcal-loading">Loading calendar…</div>';
+  api('GET', '/api/calendar-stats?days=365')
+    .then(d => { _hcalData = d; _hcalLoading = false; _hcalRender(); })
+    .catch(err => {
+      _hcalLoading = false;
+      el.innerHTML = `<div class="hcal-loading">Calendar unavailable — ${
+        (err && err.message) || 'failed to load stats'}. Restart the server?</div>`;
+    });
+}
+
+// Force a refetch (e.g. after reviewing). Safe to call even if not mounted.
+function invalidateHomeCalendar() { _hcalData = null; }
+
+// ── Top-level render ────────────────────────────────────────────────────────
+function _hcalRender() {
+  const el = document.getElementById('home-calendar');
+  if (!el || !_hcalData) return;
+
+  const metricBtns = _HCAL_METRICS.map(m =>
+    `<button class="hcal-seg-btn ${m.key === _hcalMetric ? 'active' : ''}"
+             onclick="hcalSetMetric('${m.key}')">${m.label}</button>`).join('');
+  const modeBtns = [['heatmap', 'Heatmap'], ['graph', 'Graph']].map(([k, lbl]) =>
+    `<button class="hcal-seg-btn ${k === _hcalMode ? 'active' : ''}"
+             onclick="hcalSetMode('${k}')">${lbl}</button>`).join('');
+
+  el.innerHTML = `
+    <div class="hcal-controls">
+      <div class="hcal-seg hcal-seg-metric">${metricBtns}</div>
+      <div class="hcal-seg hcal-seg-mode">${modeBtns}</div>
+    </div>
+    <div class="hcal-body">${_hcalMode === 'heatmap' ? _hcalRenderHeatmap() : _hcalRenderGraph()}</div>
+    <div class="hcal-detail" id="hcal-detail">${_hcalRenderDetail()}</div>`;
+
+  // Past metrics: newest data is at the right edge → scroll there. Future: keep left (today first).
+  const wrap = el.querySelector('.hcal-heatmap-wrap, .hcal-graph-wrap');
+  if (wrap) wrap.scrollLeft = (_hcalMetric === 'future') ? 0 : wrap.scrollWidth;
+}
+
+function hcalSetMetric(m) {
+  _hcalMetric = m; localStorage.setItem('calMetric', m);
+  _hcalSelectedDay = null; _hcalRender();
+}
+function hcalSetMode(m) {
+  _hcalMode = m; localStorage.setItem('calMode', m); _hcalRender();
+}
+
+// ── Per-day value extraction ────────────────────────────────────────────────
+// Returns {value, has} where value is null when there's nothing to show.
+function _hcalDayValue(date) {
+  if (_hcalMetric === 'future') {
+    const f = _hcalData.future[date];
+    return { value: f ? f.total : null, has: !!f };
+  }
+  const d = _hcalData.by_date[date];
+  if (!d) return { value: null, has: false };
+  if (_hcalMetric === 'retention') {
+    return { value: d.total > 0 ? d.correct / d.total : null, has: d.total > 0 };
+  }
+  if (_hcalMetric === 'cards') {
+    return { value: d.cards || 0, has: (d.cards || 0) > 0 };
+  }
+  if (_hcalMetric === 'time') {
+    return { value: d.duration_ms || 0, has: (d.duration_ms || 0) > 0 };
+  }
+  return { value: null, has: false };
+}
+
+// Colour for a heatmap cell given its value and the window max.
+function _hcalColor(value, has, max) {
+  if (!has || value == null) return 'var(--hcal-empty)';
+  if (_hcalMetric === 'retention') {
+    // Almost all of Daniel's days fall in 80–90%, so concentrate the entire
+    // colour contrast there: 80%→90% sweeps the full red→amber→green spectrum,
+    // while everything below 80% / above 90% is compressed into a tiny near-red /
+    // near-green band (so those extremes look "almost the same", as requested).
+    let h;
+    if (value >= 0.90) {
+      h = 110 + Math.min(1, (value - 0.90) / 0.10) * 10;   // 110→120 (near-green)
+    } else if (value <= 0.80) {
+      h = Math.max(0, (value - 0.50) / 0.30) * 10;          // 0→10  (near-red)
+    } else {
+      h = 10 + ((value - 0.80) / 0.10) * 100;               // 10→110 (full sweep)
+    }
+    const l = 36 + Math.round(h / 120 * 16);                // darker red → brighter green
+    return `hsl(${Math.round(h)}, 70%, ${l}%)`;
+  }
+  // count-like metrics: 4 intensity buckets
+  const palettes = {
+    cards:  ['#9be9a8', '#40c463', '#30a14e', '#216e39'],
+    time:   ['#9be9a8', '#40c463', '#30a14e', '#216e39'],
+    future: ['#b3c7ff', '#7aa2ff', '#4d7cff', '#2952cc'],
+  };
+  const pal = palettes[_hcalMetric] || palettes.cards;
+  if (max <= 0) return pal[0];
+  const frac = value / max;
+  const idx = value <= 0 ? -1 : Math.min(pal.length - 1, Math.floor(frac * pal.length - 1e-9));
+  return idx < 0 ? 'var(--hcal-empty)' : pal[Math.max(0, idx)];
+}
+
+// Window of dates for the current metric.
+function _hcalWindow() {
+  const today = _hcalParse(_hcalData.today);
+  if (_hcalMetric === 'future') {
+    return { start: today, end: _hcalAddDays(today, 90) };
+  }
+  return { start: _hcalAddDays(today, -364), end: today };
+}
+
+// ── Heatmap rendering ───────────────────────────────────────────────────────
+function _hcalRenderHeatmap() {
+  const { start, end } = _hcalWindow();
+
+  // Window max for count metrics
+  let max = 0;
+  for (let d = new Date(start); d <= end; d = _hcalAddDays(d, 1)) {
+    const { value, has } = _hcalDayValue(_hcalYmd(d));
+    if (has && _hcalMetric !== 'retention') max = Math.max(max, value);
+  }
+
+  // Build padded day list, then chunk into weekly columns
+  const cells = [];
+  for (let i = 0; i < _hcalWeekday(start); i++) cells.push(null);
+  for (let d = new Date(start); d <= end; d = _hcalAddDays(d, 1)) cells.push(_hcalYmd(d));
+  const weeks = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let lastMonth = -1;
+  const monthLabels = weeks.map(w => {
+    const firstReal = w.find(c => c);
+    if (!firstReal) return '<span class="hcal-month"></span>';
+    const m = _hcalParse(firstReal).getMonth();
+    const dom = _hcalParse(firstReal).getDate();
+    if (m !== lastMonth && dom <= 7) { lastMonth = m; return `<span class="hcal-month">${MONTHS[m]}</span>`; }
+    return '<span class="hcal-month"></span>';
+  }).join('');
+
+  const weekCols = weeks.map(w => {
+    const days = w.map(date => {
+      if (!date) return '<span class="hcal-day hcal-pad"></span>';
+      const { value, has } = _hcalDayValue(date);
+      const color = _hcalColor(value, has, max);
+      const sel = date === _hcalSelectedDay ? ' hcal-sel' : '';
+      return `<span class="hcal-day${sel}" style="background:${color}"
+                onmouseenter="hcalShowTip(event,'${date}')" onmouseleave="hcalHideTip()"
+                onclick="hcalSelectDay('${date}')"></span>`;
+    }).join('');
+    return `<span class="hcal-week">${days}</span>`;
+  }).join('');
+
+  return `
+    <div class="hcal-heatmap-wrap">
+      <div class="hcal-months">${monthLabels}</div>
+      <div class="hcal-grid">${weekCols}</div>
+      ${_hcalLegend(max)}
+    </div>`;
+}
+
+function _hcalLegend(max) {
+  if (_hcalMetric === 'retention') {
+    return `<div class="hcal-legend">
+      <span>≤80%</span>
+      <span class="hcal-leg-sw" style="background:${_hcalColor(0.80, true, 1)}"></span>
+      <span class="hcal-leg-sw" style="background:${_hcalColor(0.825, true, 1)}"></span>
+      <span class="hcal-leg-sw" style="background:${_hcalColor(0.85, true, 1)}"></span>
+      <span class="hcal-leg-sw" style="background:${_hcalColor(0.875, true, 1)}"></span>
+      <span class="hcal-leg-sw" style="background:${_hcalColor(0.90, true, 1)}"></span>
+      <span>90%+</span></div>`;
+  }
+  const unit = _hcalMetric === 'time' ? 'min' : _hcalMetric === 'future' ? 'due' : 'cards';
+  return `<div class="hcal-legend"><span>less</span>
+    <span class="hcal-leg-sw" style="background:${_hcalColor(max * 0.1, true, max)}"></span>
+    <span class="hcal-leg-sw" style="background:${_hcalColor(max * 0.4, true, max)}"></span>
+    <span class="hcal-leg-sw" style="background:${_hcalColor(max * 0.7, true, max)}"></span>
+    <span class="hcal-leg-sw" style="background:${_hcalColor(max, true, max)}"></span>
+    <span>more (${unit})</span></div>`;
+}
+
+// ── Graph rendering (vertical bars, x = time along the long axis) ────────────
+function _hcalRenderGraph() {
+  const { end } = _hcalWindow();
+  const span = _hcalMetric === 'future' ? 45 : 45;
+  const start = _hcalMetric === 'future' ? _hcalParse(_hcalData.today) : _hcalAddDays(end, -(span - 1));
+  const last  = _hcalMetric === 'future' ? _hcalAddDays(start, span - 1) : end;
+
+  const items = [];
+  let max = 0;
+  for (let d = new Date(start); d <= last; d = _hcalAddDays(d, 1)) {
+    const date = _hcalYmd(d);
+    const { value, has } = _hcalDayValue(date);
+    let v = 0;
+    if (has) v = _hcalMetric === 'retention' ? value : value;
+    if (_hcalMetric !== 'retention') max = Math.max(max, v);
+    items.push({ date, value: v, has });
+  }
+  if (_hcalMetric === 'retention') max = 1;
+  if (max <= 0) max = 1;
+
+  const bars = items.map(it => {
+    const h = it.has ? Math.max(2, Math.round(it.value / max * 100)) : 0;
+    const color = it.has ? _hcalColor(it.value, it.has,
+      _hcalMetric === 'retention' ? 1 : max) : 'var(--hcal-empty)';
+    const sel = it.date === _hcalSelectedDay ? ' hcal-sel' : '';
+    return `<span class="hcal-bar-col${sel}" onmouseenter="hcalShowTip(event,'${it.date}')"
+              onmouseleave="hcalHideTip()" onclick="hcalSelectDay('${it.date}')">
+              <span class="hcal-bar" style="height:${h}%;background:${color}"></span>
+            </span>`;
+  }).join('');
+
+  const fmt = x => `${x.getMonth() + 1}/${x.getDate()}`;
+  return `
+    <div class="hcal-graph-wrap">
+      <div class="hcal-graph">${bars}</div>
+      <div class="hcal-graph-axis"><span>${fmt(start)}</span><span>${fmt(last)}</span></div>
+    </div>`;
+}
+
+// ── Floating tooltip ────────────────────────────────────────────────────────
+function _hcalTip() {
+  let t = document.getElementById('hcal-tip');
+  if (!t) { t = document.createElement('div'); t.id = 'hcal-tip'; t.className = 'hcal-tip'; document.body.appendChild(t); }
+  return t;
+}
+function hcalShowTip(ev, date) {
+  const t = _hcalTip();
+  t.innerHTML = _hcalTipHtml(date);
+  t.style.display = 'block';
+  const r = ev.target.getBoundingClientRect();
+  const tw = t.offsetWidth, th = t.offsetHeight;
+  let left = r.left + r.width / 2 - tw / 2 + window.scrollX;
+  left = Math.max(6, Math.min(left, window.innerWidth - tw - 6 + window.scrollX));
+  let top = r.top + window.scrollY - th - 8;
+  if (top < window.scrollY + 4) top = r.bottom + window.scrollY + 8;
+  t.style.left = left + 'px';
+  t.style.top = top + 'px';
+}
+function hcalHideTip() { const t = document.getElementById('hcal-tip'); if (t) t.style.display = 'none'; }
+
+function _hcalFmtTime(ms) {
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}s`;
+}
+function _hcalFmtRR(c, tot) { return tot > 0 ? Math.round(c / tot * 100) + '%' : '—'; }
+
+function _hcalTipHtml(date) {
+  const nice = _hcalParse(date).toLocaleDateString(undefined,
+    { weekday: 'short', month: 'short', day: 'numeric' });
+
+  if (_hcalMetric === 'future') {
+    const f = _hcalData.future[date];
+    if (!f) return `<div class="hcal-tip-date">${nice}</div><div class="hcal-tip-empty">nothing scheduled</div>`;
+    const cats = _HCAL_CATS.map(c => `${c.zh} ${f.by_cat[c.key] || 0}`).join(' · ');
+    return `<div class="hcal-tip-date">${nice}</div>
+            <div class="hcal-tip-big">${f.total} scheduled</div>
+            <div class="hcal-tip-cats">${cats}</div>`;
+  }
+
+  const d = _hcalData.by_date[date];
+  if (!d || d.total === 0) return `<div class="hcal-tip-date">${nice}</div><div class="hcal-tip-empty">no reviews</div>`;
+
+  const head = `<div class="hcal-tip-big">${d.cards} cards · ${_hcalFmtRR(d.correct, d.total)} retention</div>`;
+  const time = d.timed_count > 0
+    ? `<div class="hcal-tip-sub">${_hcalFmtTime(d.duration_ms)} total · ${_hcalFmtTime(d.duration_ms / d.timed_count)}/card</div>`
+    : '';
+  const rows = _HCAL_CATS.filter(c => d.by_cat[c.key]).map(c => {
+    const cd = d.by_cat[c.key];
+    const ph = `L ${_hcalFmtRR(cd.learning.correct, cd.learning.total)} · R ${_hcalFmtRR(cd.review.correct, cd.review.total)}`;
+    return `<div class="hcal-tip-row"><b>${c.zh}</b> ${cd.cards}c · ${_hcalFmtRR(cd.correct, cd.total)} <span class="hcal-tip-dim">(${ph})</span></div>`;
+  }).join('');
+  return `<div class="hcal-tip-date">${nice}</div>${head}${time}<div class="hcal-tip-rows">${rows}</div>`;
+}
+
+// ── Click → detail panel ────────────────────────────────────────────────────
+function hcalSelectDay(date) {
+  _hcalSelectedDay = (_hcalSelectedDay === date) ? null : date;
+  _hcalRender();
+}
+
+function _hcalRenderDetail() {
+  if (!_hcalSelectedDay) return '';
+  const date = _hcalSelectedDay;
+  const nice = _hcalParse(date).toLocaleDateString(undefined,
+    { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  if (_hcalMetric === 'future') {
+    const f = _hcalData.future[date];
+    const body = !f ? '<div class="hcal-tip-empty">Nothing scheduled.</div>'
+      : `<table class="hcal-tbl"><tr><th></th><th>Scheduled</th></tr>${
+          _HCAL_CATS.map(c => `<tr><td>${c.zh} ${c.en}</td><td>${f.by_cat[c.key] || 0}</td></tr>`).join('')
+        }<tr class="hcal-tbl-total"><td>Total</td><td>${f.total}</td></tr></table>`;
+    return `<div class="hcal-detail-head">${nice}</div>${body}`;
+  }
+
+  const d = _hcalData.by_date[date];
+  if (!d || d.total === 0) return `<div class="hcal-detail-head">${nice}</div><div class="hcal-tip-empty">No reviews this day.</div>`;
+
+  const catRows = _HCAL_CATS.map(c => {
+    const cd = d.by_cat[c.key];
+    if (!cd) return `<tr><td>${c.zh} ${c.en}</td><td>0</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`;
+    const avg = cd.timed_count > 0 ? _hcalFmtTime(cd.duration_ms / cd.timed_count) : '—';
+    const tot = cd.timed_count > 0 ? _hcalFmtTime(cd.duration_ms) : '—';
+    return `<tr>
+      <td>${c.zh} ${c.en}</td>
+      <td>${cd.cards}</td>
+      <td>${_hcalFmtRR(cd.correct, cd.total)}</td>
+      <td>${_hcalFmtRR(cd.learning.correct, cd.learning.total)}</td>
+      <td>${_hcalFmtRR(cd.review.correct, cd.review.total)}</td>
+      <td>${avg} <span class="hcal-tip-dim">/ ${tot}</span></td>
+    </tr>`;
+  }).join('');
+
+  const totAvg = d.timed_count > 0 ? _hcalFmtTime(d.duration_ms / d.timed_count) : '—';
+  const totTot = d.timed_count > 0 ? _hcalFmtTime(d.duration_ms) : '—';
+  return `
+    <div class="hcal-detail-head">${nice}</div>
+    <table class="hcal-tbl">
+      <tr><th>Category</th><th>Cards</th><th>Retention</th><th>Learn</th><th>Review</th><th>Avg / Total</th></tr>
+      ${catRows}
+      <tr class="hcal-tbl-total">
+        <td>All</td><td>${d.cards}</td><td>${_hcalFmtRR(d.correct, d.total)}</td>
+        <td>${_hcalFmtRR(d.learning.correct, d.learning.total)}</td>
+        <td>${_hcalFmtRR(d.review.correct, d.review.total)}</td>
+        <td>${totAvg} <span class="hcal-tip-dim">/ ${totTot}</span></td>
+      </tr>
+    </table>`;
+}

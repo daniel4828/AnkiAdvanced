@@ -208,6 +208,13 @@ def init_db() -> None:
     if "pre_suspend_state" not in card_cols:
         conn.execute("ALTER TABLE cards ADD COLUMN pre_suspend_state TEXT")
 
+    # review_log: per-review timing + card state at review time (for calendar heatmap stats)
+    rl_cols = {r["name"] for r in conn.execute("PRAGMA table_info(review_log)").fetchall()}
+    if "duration_ms" not in rl_cols:
+        conn.execute("ALTER TABLE review_log ADD COLUMN duration_ms INTEGER")
+    if "state" not in rl_cols:
+        conn.execute("ALTER TABLE review_log ADD COLUMN state TEXT")
+
     preset_cols = {r["name"] for r in conn.execute("PRAGMA table_info(deck_presets)").fetchall()}
     if "new_gather_order" not in preset_cols:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN new_gather_order TEXT NOT NULL DEFAULT 'ascending_position'")

@@ -196,11 +196,13 @@ def calc_review(interval: int, ease: float,
 # ---------------------------------------------------------------------------
 
 def apply_review(card_id: int, rating: int,
-                 user_response: str | None = None) -> dict:
+                 user_response: str | None = None,
+                 duration_ms: int | None = None) -> dict:
     """Main entry point. Returns updated card dict."""
     card = database.get_card(card_id)
     if not card:
         raise ValueError(f"Card {card_id} not found")
+    state_before = card["state"]
 
     preset = {
         "learning_steps":      card["learning_steps"],
@@ -232,7 +234,10 @@ def apply_review(card_id: int, rating: int,
         repetitions=updated["repetitions"],
         lapses=updated["lapses"],
     )
-    log_id = database.insert_review(card_id, rating, user_response=user_response)
+    log_id = database.insert_review(
+        card_id, rating, user_response=user_response,
+        duration_ms=duration_ms, state=state_before,
+    )
     return database.get_card(card_id), log_id
 
 

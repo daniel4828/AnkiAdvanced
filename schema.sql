@@ -271,7 +271,9 @@ CREATE TABLE IF NOT EXISTS review_log (
     reviewed_at     TEXT NOT NULL DEFAULT (datetime('now')),
     rating          INTEGER NOT NULL CHECK(rating IN (1, 2, 3, 4)),
     user_response   TEXT,       -- what the user typed (creating category)
-    ai_score        INTEGER     -- future: AI evaluation score
+    ai_score        INTEGER,    -- future: AI evaluation score
+    duration_ms     INTEGER,    -- time spent on this review in milliseconds (NULL for legacy rows)
+    state           TEXT        -- card state at review time (new/learning/review/relearn) — NULL for legacy rows
 );
 
 -- ---------------------------------------------------------------------------
