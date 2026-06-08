@@ -6434,7 +6434,9 @@ document.addEventListener('keydown', async e => {
       e.preventDefault();
       if (deckId) openOptions(deckId);
     } else if (e.key === 'g') {
-      e.preventDefault(); openReasoning();
+      e.preventDefault();
+      const _rOpen = document.getElementById('reasoning-modal')?.style.display !== 'none';
+      if (_rOpen) closeReasoning(); else openReasoning();
     }
     return;
   }
