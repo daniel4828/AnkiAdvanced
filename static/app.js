@@ -6433,6 +6433,8 @@ document.addEventListener('keydown', async e => {
     } else if (e.key === 'o') {
       e.preventDefault();
       if (deckId) openOptions(deckId);
+    } else if (e.key === 'g') {
+      e.preventDefault(); openReasoning();
     }
     return;
   }
