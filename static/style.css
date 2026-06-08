@@ -3854,7 +3854,7 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   background: var(--card);
   border-radius: var(--radius);
   box-shadow: 0 8px 40px rgba(0,0,0,0.18);
-  width: min(440px, 92vw);
+  width: min(520px, 92vw);
   max-height: 78vh;
   overflow-y: auto;
   display: flex;
@@ -3863,8 +3863,8 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   gap: 14px;
 }
 .reasoning-body {
-  font-size: 15px;
-  line-height: 1.7;
+  font-size: 18px;
+  line-height: 1.8;
   color: #5b21b6;
   padding: 12px 16px;
   background: #f5f3ff;
