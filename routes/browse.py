@@ -481,6 +481,11 @@ def get_calendar_stats(days: int = 365, deck_id: int | None = None):
     return database.get_calendar_stats(days, deck_id)
 
 
+@router.get("/api/card-evolution")
+def get_card_evolution(days: int = 365, deck_id: int | None = None):
+    return database.get_card_evolution(days, deck_id)
+
+
 @router.get("/api/costs")
 def get_api_costs():
     return database.get_api_costs()

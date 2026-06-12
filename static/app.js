@@ -831,8 +831,10 @@ function renderDecks(decks) {
   }
 
   document.getElementById('view-decks').innerHTML =
-    navRow + '<div id="home-calendar" class="hcal-card"></div>' + html;
+    navRow + '<div id="home-calendar" class="hcal-card"></div>' +
+    '<div id="home-evolution" class="hcal-card"></div>' + html;
   if (typeof initHomeCalendar === 'function') initHomeCalendar();
+  if (typeof initHomeEvolution === 'function') initHomeEvolution();
 }
 
 function toggleDeckSort() {
@@ -4331,6 +4333,7 @@ async function rate(rating) {
     const result = await api('POST', url);
     _sessionReviewedCount++;
     if (typeof invalidateHomeCalendar === 'function') invalidateHomeCalendar();
+    if (typeof invalidateHomeEvolution === 'function') invalidateHomeEvolution();
     api('GET', '/api/retention?days=0').then(r => {
       _retentionData = r;
       _updateReviewRRBadge(deckId);
@@ -7253,4 +7256,177 @@ function _hcalRenderDetail() {
         <td>${totAvg} <span class="hcal-tip-dim">/ ${totTot}</span></td>
       </tr>
     </table>`;
+}
+
+// ============================================================================
+// Home-page card-evolution chart (issue #321)
+// Stacked area chart of card-state counts over time (New / Learning /
+// Learnt / Relearn), with Listening / Creating / All views.
+// ============================================================================
+
+let _evoData = null;           // cached /api/card-evolution response
+let _evoLoading = false;
+let _evoView = localStorage.getItem('evoView') || 'all';
+let _evoCalc = null;           // per-render geometry cache for tooltips
+
+// Stack order: bottom → top
+const _EVO_STATES = [
+  { key: 'review',   label: 'Learnt',   color: 'var(--good)'    },
+  { key: 'relearn',  label: 'Relearn',  color: 'var(--again)'   },
+  { key: 'learning', label: 'Learning', color: 'var(--hard)'    },
+  { key: 'new',      label: 'New',      color: 'var(--primary)' },
+];
+const _EVO_VIEWS = [['listening', 'Listening'], ['creating', 'Creating'], ['all', 'All']];
+
+function initHomeEvolution() {
+  const el = document.getElementById('home-evolution');
+  if (!el) return;
+  if (_evoData) { _evoRender(); return; }
+  if (_evoLoading) return;
+  _evoLoading = true;
+  el.innerHTML = '<div class="hcal-loading">Loading card evolution…</div>';
+  api('GET', '/api/card-evolution?days=365')
+    .then(d => { _evoData = d; _evoLoading = false; _evoRender(); })
+    .catch(err => {
+      _evoLoading = false;
+      el.innerHTML = `<div class="hcal-loading">Card evolution unavailable — ${
+        (err && err.message) || 'failed to load stats'}.</div>`;
+    });
+}
+
+// Force a refetch (e.g. after reviewing). Safe to call even if not mounted.
+function invalidateHomeEvolution() { _evoData = null; }
+
+function evoSetView(v) {
+  _evoView = v; localStorage.setItem('evoView', v); _evoRender();
+}
+
+// Sum the requested categories into one {state: [counts]} object.
+function _evoSeries() {
+  const n = _evoData.dates.length;
+  const out = {};
+  for (const s of _EVO_STATES) out[s.key] = new Array(n).fill(0);
+  const cats = _evoView === 'all' ? Object.keys(_evoData.series) : [_evoView];
+  for (const cat of cats) {
+    const sr = _evoData.series[cat];
+    if (!sr) continue;
+    for (const s of _EVO_STATES) {
+      const arr = sr[s.key] || [];
+      for (let i = 0; i < n; i++) out[s.key][i] += arr[i] || 0;
+    }
+  }
+  return out;
+}
+
+function _evoRender() {
+  const el = document.getElementById('home-evolution');
+  if (!el || !_evoData) return;
+
+  const sr = _evoSeries();
+  const allDates = _evoData.dates;
+  const totalsAll = allDates.map((_, i) =>
+    _EVO_STATES.reduce((a, s) => a + sr[s.key][i], 0));
+
+  // Trim leading days before the first card existed (young collections)
+  let first = totalsAll.findIndex(t => t > 0);
+  if (first < 0) first = 0;
+  first = Math.max(0, first - 1);
+  const dates = allDates.slice(first);
+  const series = {};
+  for (const s of _EVO_STATES) series[s.key] = sr[s.key].slice(first);
+  const n = dates.length;
+
+  const W = 730, H = 190, PAD_T = 10, PAD_B = 2;
+  let ymax = Math.max(1, ...totalsAll);
+  const step = ymax > 200 ? 100 : ymax > 50 ? 25 : 10;
+  ymax = Math.ceil(ymax / step) * step;
+
+  const x = i => (i / Math.max(1, n - 1)) * W;
+  const y = v => PAD_T + (1 - v / ymax) * (H - PAD_T - PAD_B);
+
+  let lower = new Array(n).fill(0);
+  const layers = _EVO_STATES.map(s => {
+    const upper = lower.map((v, i) => v + series[s.key][i]);
+    const top = upper.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`);
+    const bot = lower.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).reverse();
+    const pts = `${top.join(' ')} ${bot.join(' ')}`;
+    lower = upper;
+    return `<polygon points="${pts}" fill="${s.color}" fill-opacity="0.8"/>`;
+  }).join('');
+
+  const grid = [0.25, 0.5, 0.75, 1].map(f =>
+    `<line x1="0" y1="${y(ymax * f).toFixed(1)}" x2="${W}" y2="${y(ymax * f).toFixed(1)}"
+           stroke="var(--border)" stroke-width="0.6"/>`).join('');
+  const ylabels = [0.5, 1].map(f =>
+    `<span class="evo-ylabel" style="top:${(y(ymax * f) / H * 100).toFixed(2)}%">${
+      Math.round(ymax * f)}</span>`).join('');
+
+  const viewBtns = _EVO_VIEWS.map(([k, lbl]) =>
+    `<button class="hcal-seg-btn ${k === _evoView ? 'active' : ''}"
+             onclick="evoSetView('${k}')">${lbl}</button>`).join('');
+  const legend = _EVO_STATES.slice().reverse().map(s =>
+    `<span class="evo-leg"><span class="hcal-leg-sw" style="background:${s.color}"></span>${s.label}</span>`).join('');
+
+  const fmt = d => { const [, m, dd] = d.split('-'); return `${+m}/${+dd}`; };
+
+  _evoCalc = { dates, series, n };
+
+  el.innerHTML = `
+    <div class="hcal-controls">
+      <div class="hcal-seg">${viewBtns}</div>
+      <div class="evo-legend">${legend}</div>
+    </div>
+    <div class="evo-chart-wrap">
+      ${ylabels}
+      <svg class="evo-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"
+           onmousemove="evoMove(event)" onmouseleave="evoLeave()">
+        ${grid}${layers}
+        <line id="evo-cursor" x1="0" y1="0" x2="0" y2="${H}"
+              stroke="#1e293b" stroke-width="0.8" style="display:none"/>
+      </svg>
+      <div class="hcal-graph-axis"><span>${fmt(dates[0])}</span><span>${fmt(dates[n - 1])}</span></div>
+    </div>`;
+}
+
+function evoMove(ev) {
+  if (!_evoCalc) return;
+  const svg = ev.currentTarget;
+  const r = svg.getBoundingClientRect();
+  const { dates, series, n } = _evoCalc;
+  const i = Math.max(0, Math.min(n - 1,
+    Math.round((ev.clientX - r.left) / r.width * (n - 1))));
+
+  const cursor = svg.querySelector('#evo-cursor');
+  if (cursor) {
+    const cx = (i / Math.max(1, n - 1)) * 730;
+    cursor.setAttribute('x1', cx); cursor.setAttribute('x2', cx);
+    cursor.style.display = '';
+  }
+
+  const nice = _hcalParse(dates[i]).toLocaleDateString(undefined,
+    { weekday: 'short', month: 'short', day: 'numeric' });
+  let total = 0;
+  const rows = _EVO_STATES.slice().reverse().map(s => {
+    const v = series[s.key][i];
+    total += v;
+    return `<div class="hcal-tip-row"><span class="hcal-leg-sw" style="background:${
+      s.color};margin-right:5px"></span>${s.label}: <b>${v}</b></div>`;
+  }).join('');
+
+  const t = _hcalTip();
+  t.innerHTML = `<div class="hcal-tip-date">${nice}</div>
+                 <div class="hcal-tip-big">${total} cards</div>${rows}`;
+  t.style.display = 'block';
+  let left = ev.pageX - t.offsetWidth / 2;
+  left = Math.max(6, Math.min(left, window.scrollX + window.innerWidth - t.offsetWidth - 6));
+  let top = ev.pageY - t.offsetHeight - 14;
+  if (top < window.scrollY + 4) top = ev.pageY + 14;
+  t.style.left = left + 'px';
+  t.style.top = top + 'px';
+}
+
+function evoLeave() {
+  hcalHideTip();
+  const cursor = document.getElementById('evo-cursor');
+  if (cursor) cursor.style.display = 'none';
 }
