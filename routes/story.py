@@ -15,6 +15,9 @@ from .utils import DISABLE_AI, leaf_ids
 
 KAHNEMAN_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "kahneman_chapters.json")
 
+# 每次 Kahneman AI 调用最多处理的词数（词太多会漏词、句子质量下降）
+MAX_KAHNEMAN_BATCH = 10
+
 # 《思考，快与慢》原书的 5 个部分（Part）—— 按章节号区间划分。
 # 数据文件不存部分信息，统一在此按章节号计算，保证一致性。
 _KAHNEMAN_PARTS = [
@@ -359,15 +362,16 @@ def _generate_kahneman_story_sentences(
         raise RuntimeError("No valid chapters selected.")
 
     n = len(selected)
-    chunk_size = math.ceil(len(cards) / n)
+    # Cap words per AI call: large batches make the model skip words and dilute
+    # sentence quality. Extra batches cycle through the selected chapters.
+    chunk_size = min(math.ceil(len(cards) / n), MAX_KAHNEMAN_BATCH)
     chunks = [cards[i:i + chunk_size] for i in range(0, len(cards), chunk_size)]
 
     all_sentences: list[dict] = []
     prompt_summary = f"kahneman mode — {n} chapters"
-    for idx, (chapter, chunk) in enumerate(zip(selected, chunks)):
-        if not chunk:
-            continue
-        label = f" ({idx + 1}/{n})"
+    for idx, chunk in enumerate(chunks):
+        chapter = selected[idx % n]
+        label = f" ({idx + 1}/{len(chunks)})"
         chapter_sentences = ai.generate_kahneman_sentences(
             chunk, chapter, model=model, progress_key=progress_key, attempt_label=label
         )
