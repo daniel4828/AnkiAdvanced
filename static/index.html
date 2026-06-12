@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AnkiAdvanced</title>
-  <link rel="stylesheet" href="/static/style.css?v=4">
+  <link rel="stylesheet" href="/static/style.css?v=11">
 </head>
 <body>
 
@@ -188,8 +188,11 @@
             <!-- French and German translation of the sentence -->
             <div class="sentence-fr" id="sentence-fr"></div>
             <div class="sentence-de" id="sentence-de"></div>
-            <!-- Kahneman chapter concept (shown only for Kahneman-mode sentences) -->
-            <div id="sentence-concept" class="sentence-concept-section" style="display:none"></div>
+            <!-- Kahneman chapter concept + reasoning light bulb (Kahneman-mode only) -->
+            <div id="sentence-concept-row" class="sentence-concept-row" style="display:none">
+              <div id="sentence-concept" class="sentence-concept-section"></div>
+              <button id="sentence-reasoning-btn" class="sentence-reasoning-btn" title="为什么这句体现本章偏误? (快捷键: g)" onclick="openReasoning()" style="display:none">💡</button>
+            </div>
 
             <!-- 3. Rating buttons (immediately visible after flip) -->
             <div class="rating-row" id="rating-row">
@@ -536,7 +539,7 @@
 </div>
 
 <div id="word-tip" style="display:none"></div>
-<script src="/static/app.js?v=4"></script>
+<script src="/static/app.js?v=11"></script>
 
 <!-- Edit card modal -->
 <div id="edit-modal-overlay" onclick="closeEditCard()" style="display:none"></div>
@@ -837,6 +840,16 @@
     <button class="edit-modal-close" onclick="closeKahnemanExamples()">✕</button>
   </div>
   <div id="kahneman-examples-body" class="kahneman-examples-body"></div>
+</div>
+
+<!-- Per-sentence reasoning popup (why this sentence reveals the chapter's bias) -->
+<div id="reasoning-overlay" onclick="closeReasoning()" style="display:none"></div>
+<div id="reasoning-modal" style="display:none">
+  <div class="edit-modal-header">
+    <span class="edit-modal-title">💡 为什么这句体现本章偏误?</span>
+    <button class="edit-modal-close" onclick="closeReasoning()">✕</button>
+  </div>
+  <div id="reasoning-body" class="reasoning-body"></div>
 </div>
 
 <!-- Hanzi regenerate confirm modal -->

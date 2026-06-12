@@ -174,6 +174,121 @@ def get_retention_bulk(days: int = 30) -> dict:
     }
 
 
+def get_calendar_stats(days: int = 365, deck_id: int | None = None) -> dict:
+    """Per-day review statistics for the home-page calendar heatmap.
+
+    Days are bucketed by the Anki day boundary (local time, 4am cutoff) so they
+    line up with the rest of the app. Returns, for each day in the window:
+      - reviews / cards (distinct) studied, overall + per category
+      - retention (correct = rating > 1) overall, per category, and split by
+        phase (learning vs review) — both overall and per category
+      - total study time (duration_ms) and the count of timed reviews (for avg)
+    Plus `future`: cards scheduled for review from today onward (from cards.due).
+
+    Legacy review rows have NULL duration_ms / state: they still count toward
+    review/retention totals but are excluded from time and phase splits.
+    """
+    conn = get_db()
+    today = anki_today()
+    since = (today - _dt.timedelta(days=days)).isoformat()
+
+    deck_filter = "AND c.deck_id = ?" if deck_id else ""
+    params = [since] + ([deck_id] if deck_id else [])
+
+    # Anki-day bucket: UTC timestamp → local → shift back past the 4am cutoff.
+    day_expr = "date(datetime(rl.reviewed_at, 'localtime', '-4 hours'))"
+    rows = conn.execute(
+        f"""SELECT {day_expr} AS d, c.category AS cat, rl.rating AS rating,
+                   rl.state AS state, rl.duration_ms AS dur, rl.card_id AS card_id
+            FROM review_log rl
+            JOIN cards c ON c.id = rl.card_id
+            WHERE {day_expr} >= ? {deck_filter}""",
+        params,
+    ).fetchall()
+
+    def _new_cat() -> dict:
+        return {
+            "reviews": 0, "correct": 0, "total": 0,
+            "duration_ms": 0, "timed_count": 0, "_cards": set(),
+            "learning": {"correct": 0, "total": 0},
+            "review":   {"correct": 0, "total": 0},
+        }
+
+    by_date: dict[str, dict] = {}
+    for r in rows:
+        d = r["d"]
+        day = by_date.get(d)
+        if day is None:
+            day = by_date[d] = {
+                "reviews": 0, "correct": 0, "total": 0,
+                "duration_ms": 0, "timed_count": 0, "_cards": set(),
+                "learning": {"correct": 0, "total": 0},
+                "review":   {"correct": 0, "total": 0},
+                "by_cat": {},
+            }
+        cat = r["cat"]
+        c = day["by_cat"].get(cat)
+        if c is None:
+            c = day["by_cat"][cat] = _new_cat()
+
+        correct = 1 if r["rating"] > 1 else 0
+        for bucket in (day, c):
+            bucket["reviews"] += 1
+            bucket["total"]   += 1
+            bucket["correct"] += correct
+            bucket["_cards"].add(r["card_id"])
+            if r["dur"] is not None:
+                bucket["duration_ms"] += r["dur"]
+                bucket["timed_count"] += 1
+
+        # Phase split (learning/relearn/new = "learning"; review = "review")
+        phase = None
+        if r["state"] in ("new", "learning", "relearn"):
+            phase = "learning"
+        elif r["state"] == "review":
+            phase = "review"
+        if phase:
+            for bucket in (day, c):
+                bucket[phase]["total"]   += 1
+                bucket[phase]["correct"] += correct
+
+    # Finalize: replace card sets with counts
+    for day in by_date.values():
+        day["cards"] = len(day.pop("_cards"))
+        for c in day["by_cat"].values():
+            c["cards"] = len(c.pop("_cards"))
+
+    # Future scheduled reviews (today onward), grouped by due date + category
+    future_filter = "AND deck_id = ?" if deck_id else ""
+    future_params = [today.isoformat()] + ([deck_id] if deck_id else [])
+    future_rows = conn.execute(
+        f"""SELECT date(due) AS d, category AS cat, COUNT(*) AS cnt
+            FROM cards
+            WHERE state IN ('review', 'learning', 'relearn')
+              AND deleted_at IS NULL
+              AND date(due) >= ? {future_filter}
+            GROUP BY date(due), category""",
+        future_params,
+    ).fetchall()
+    conn.close()
+
+    future: dict[str, dict] = {}
+    for r in future_rows:
+        d = r["d"]
+        f = future.get(d)
+        if f is None:
+            f = future[d] = {"total": 0, "by_cat": {}}
+        f["total"] += r["cnt"]
+        f["by_cat"][r["cat"]] = r["cnt"]
+
+    return {
+        "days": days,
+        "today": today.isoformat(),
+        "by_date": by_date,
+        "future": future,
+    }
+
+
 def _calc_streak(conn: sqlite3.Connection, deck_id: int | None) -> int:
     deck_filter = "AND c.deck_id = ?" if deck_id else ""
     params = [deck_id] if deck_id else []

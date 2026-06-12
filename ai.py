@@ -757,43 +757,62 @@ def generate_kahneman_sentences(
         return word_zh in sentence_zh
 
     examples_block = "\n".join(f"  {ex}" for ex in chapter.get("examples_zh", []))
-    word_list = "\n".join(
-        f"{i + 1}. {c['word_zh']}（{c.get('pinyin', '')}）— {c.get('definition', '')}"
-        for i, c in enumerate(cards)
-    )
     concept_label = f"第{chapter['number']}章《{chapter['title_zh']}》：{chapter['concept_zh']}"
+    concept_en = f"Chapter {chapter['number']}: {chapter['title_en']}"
+    concept_zh = f"第{chapter['number']}章：{chapter['title_zh']}"
+    summary_zh = (chapter.get("summary_zh") or "").strip()
+    summary_block = f"\n本章机制与典型情境：\n{summary_zh}\n" if summary_zh else ""
 
-    prompt = f"""任务：模仿《思考，快与慢》每章末尾"示例"部分的风格，写若干中文句子帮助HSK 4-5学习者复习词汇。
+    def _build_prompt(batch: list[dict]) -> str:
+        word_list = "\n".join(
+            f"{i + 1}. {c['word_zh']}（{c.get('pinyin', '')}）— {c.get('definition', '')}"
+            for i, c in enumerate(batch)
+        )
+        return f"""任务：模仿《思考，快与慢》每章末尾"示例"部分的风格，写若干中文句子帮助HSK 4-5学习者复习词汇。
 每个句子应该是某人在日常情境中说的一句话，自然地透露出一种认知偏误或心理定势，而不直接点明偏误名称。
 
 本章概念：{concept_label}
-
+{summary_block}
 风格范例（模仿这种语气和结构）：
 {examples_block}
 
 目标词汇（每句话必须恰好包含其中一个，原文出现）：
 {word_list}
 
+写作步骤（对每个词汇按此顺序思考）：
+1. 先在 reasoning_zh 里确定：要展示本章偏误的哪个具体情境（谁、在什么场合、犯了什么思维错误）
+2. 再写 sentence_zh：把这个情境浓缩成某人说的一句话，并自然地包含目标词汇
+
 规则：
 - 每句话恰好包含一个目标词汇，词汇必须以原文形式出现
+- 每个目标词汇都必须有自己的句子，一个都不能漏
 - 用自然口语风格，隐性透露本章所描述的认知偏误
-- 不要直接提及偏误名称或心理学术语
-- 非目标词汇只用HSK 1-2级词汇
-- 句子要简短（不超过20个字）
+- 句子里不要直接提及偏误名称或心理学术语
+- 句子要简短（不超过28个字）
 - 不要使用markdown格式
 
-仅返回如下JSON数组，不加任何其他文字：
-[
-  {{"sentence_zh": "句子内容"}},
-  {{"sentence_zh": "句子内容"}}
-]"""
+reasoning_zh 的规则：
+- 用中文写，1-2句话，简明扼要，说明这句话为什么体现了本章的认知偏误
+- 可以点明偏误名称，帮助学习者理解
+- 面向HSK 4-5学习者，用词不要太难
 
-    concept_en = f"Chapter {chapter['number']}: {chapter['title_en']}"
-    concept_zh = f"第{chapter['number']}章：{chapter['title_zh']}"
+仅返回如下JSON数组，不加任何其他文字（reasoning_zh 在前，sentence_zh 在后）：
+[
+  {{"reasoning_zh": "解释内容", "sentence_zh": "句子内容"}},
+  {{"reasoning_zh": "解释内容", "sentence_zh": "句子内容"}}
+]"""
 
     _set_progress(progress_key, phase="request", msg=f"生成第{chapter['number']}章句子…{attempt_label}", percent=20)
 
+    sentences: list[dict] = []
+    remaining = list(cards)
+
+    # Incremental retries: keep good sentences, re-request only the words the
+    # model skipped — resending the full list just reproduces the same gaps.
     for attempt in range(3):
+        if not remaining:
+            break
+        prompt = _build_prompt(remaining)
         raw = _call_api(model, [{"role": "user", "content": prompt}], 4096, purpose="kahneman")
 
         json_start = raw.find("[")
@@ -808,51 +827,51 @@ def generate_kahneman_sentences(
             logger.warning("kahneman attempt %d: JSON parse error: %s", attempt + 1, e)
             continue
 
-        sentences = []
-        seen: set[int] = set()
         for item in items:
             s_zh = item.get("sentence_zh", "").strip()
             if not s_zh:
                 continue
-            word_ids = []
-            for card in cards:
-                wid = card["word_id"]
-                if wid not in seen and _word_in_sentence(card["word_zh"], s_zh):
-                    word_ids.append(wid)
-                    seen.add(wid)
+            matched = None
+            for card in remaining:
+                if _word_in_sentence(card["word_zh"], s_zh):
+                    matched = card
                     break
+            if matched is None:
+                # Sentence contains none of the still-missing words; keeping it
+                # would create an orphan once the word is re-requested.
+                continue
+            remaining.remove(matched)
             sentences.append({
-                "word_ids": word_ids,
+                "word_ids": [matched["word_id"]],
                 "sentence_zh": s_zh,
                 "sentence_en": "",
                 "concept_en": concept_en,
                 "concept_zh": concept_zh,
+                "reasoning_zh": item.get("reasoning_zh", "").strip(),
                 "tokens": [],
             })
 
-        missing = [c["word_zh"] for c in cards if c["word_id"] not in seen]
-        if missing:
-            logger.warning("kahneman attempt %d: missing words: %s", attempt + 1, missing)
-            if attempt < 2:
-                continue
+        if remaining:
+            logger.warning(
+                "kahneman attempt %d: missing words (will re-request): %s",
+                attempt + 1, [c["word_zh"] for c in remaining],
+            )
 
-        if sentences:
-            _fill_translations(sentences, progress_key=progress_key)
-            return sentences
-
-    # Fallback: one sentence per card
-    fallback = []
-    for card in cards:
-        fallback.append({
+    # Per-word fallback so every card ends up with a sentence.
+    for card in remaining:
+        logger.warning("kahneman: using fallback sentence for %s", card["word_zh"])
+        sentences.append({
             "word_ids": [card["word_id"]],
             "sentence_zh": card.get("source_sentence") or f"我学了{card['word_zh']}这个词。",
             "sentence_en": "",
             "concept_en": concept_en,
             "concept_zh": concept_zh,
+            "reasoning_zh": "",
             "tokens": [],
         })
-    _fill_translations(fallback, progress_key=progress_key)
-    return fallback
+
+    _fill_translations(sentences, progress_key=progress_key)
+    return sentences
 
 
 def estimate_story_tokens(num_cards: int) -> int:

@@ -3726,6 +3726,9 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 
 /* Book-part group header inside the chapter selector list */
 .kahneman-part-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 12px 5px;
   font-size: 12px;
   font-weight: 700;
@@ -3733,10 +3736,14 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   color: #6d28d9;
   background: #f5f3ff;
   border-bottom: 1px solid var(--border, #eee);
+  cursor: pointer;
 }
+.kahneman-part-header:hover { background: #ede9fe; }
+.kahneman-part-cb { flex-shrink: 0; cursor: pointer; }
 .kahneman-part-header:first-child { border-top: none; }
 @media (prefers-color-scheme: dark) {
   .kahneman-part-header { color: #c4b5fd; background: #1e1b2e; }
+  .kahneman-part-header:hover { background: #2a2540; }
 }
 
 /* Part label shown in the chapter-examples popup */
@@ -3770,13 +3777,21 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 .concept-name { font-weight: 500; }
 
 /* Kahneman concept block shown on review card back */
+.sentence-concept-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px auto 0;
+  max-width: 520px;
+}
 .sentence-concept-section {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin: 8px auto 0;
-  max-width: 520px;
-  padding: 8px 12px;
+  gap: 2px;
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 6px 12px;
   background: #ede9fe;
   border: 1px solid #c4b5fd;
   border-radius: 10px;
@@ -3790,7 +3805,7 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   text-transform: none;
 }
 .concept-chapter-title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   color: #5b21b6;
 }
@@ -3807,6 +3822,56 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 }
 .sentence-concept-section.concept-clickable { cursor: pointer; transition: background 0.12s, border-color 0.12s; }
 .sentence-concept-section.concept-clickable:hover { background: #e0d7fb; border-color: #a78bfa; }
+
+.sentence-reasoning-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  font-size: 17px;
+  line-height: 1;
+  background: #f3f0ff;
+  border: 1px solid #c4b5fd;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, transform 0.08s;
+}
+.sentence-reasoning-btn:hover { background: #e0d7fb; border-color: #a78bfa; }
+.sentence-reasoning-btn:active { transform: scale(0.92); }
+
+#reasoning-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 200;
+}
+#reasoning-modal {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 201;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  width: min(520px, 92vw);
+  max-height: 78vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 24px 24px;
+  gap: 14px;
+}
+.reasoning-body {
+  font-size: 18px;
+  line-height: 1.8;
+  color: #5b21b6;
+  padding: 12px 16px;
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+  border-radius: 8px;
+}
+
 @media (prefers-color-scheme: dark) {
   .sentence-concept-section { background: #2e1065; border-color: #6d28d9; }
   .concept-part-label { color: #c4b5fd; }
@@ -3814,6 +3879,9 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   .concept-chapter-desc { color: #a78bfa; }
   .concept-chapter-hint { color: #c4b5fd; }
   .sentence-concept-section.concept-clickable:hover { background: #3b1378; border-color: #7c3aed; }
+  .sentence-reasoning-btn { background: #2e1065; border-color: #6d28d9; }
+  .sentence-reasoning-btn:hover { background: #3b1378; border-color: #7c3aed; }
+  .reasoning-body { background: #1e1b4b; border-color: #4c1d95; color: #c4b5fd; }
 }
 
 /* ── Kahneman examples popup (book's original quotes) ──────────────── */
@@ -3839,6 +3907,13 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   gap: 14px;
 }
 .kahneman-examples-body { display: flex; flex-direction: column; gap: 10px; }
+.kahneman-title-en {
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.4;
+  color: var(--muted, #888);
+  margin-top: -6px;
+}
 .kahneman-summary {
   font-size: 15px;
   line-height: 1.6;
@@ -3855,6 +3930,10 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   color: var(--muted, #888);
   margin-top: 4px;
 }
+.kahneman-detail {
+  font-size: 15px;
+  line-height: 1.7;
+}
 .kahneman-example {
   margin: 0;
   padding: 10px 14px;
@@ -3869,4 +3948,122 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 @media (prefers-color-scheme: dark) {
   .kahneman-example { background: #2e1065; border-left-color: #7c3aed; color: #ddd6fe; }
   .kahneman-summary { background: #241047; border-color: #5b21b6; color: #c4b5fd; }
+}
+
+/* ============================================================================
+   Home-page calendar heatmap (issue #307)
+   ========================================================================== */
+:root { --hcal-empty: #ebedf0; }
+
+.hcal-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin: 0 0 18px;
+}
+/* Hide the container entirely if calendar.js never populated it */
+.hcal-card:empty { display: none; }
+.hcal-loading { color: var(--muted); font-size: 13px; padding: 8px 2px; }
+
+.hcal-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.hcal-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.hcal-seg-btn {
+  border: none;
+  background: var(--card);
+  color: var(--muted);
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border-right: 1px solid var(--border);
+}
+.hcal-seg-btn:last-child { border-right: none; }
+.hcal-seg-btn:hover { background: var(--bg); }
+.hcal-seg-btn.active { background: #6366f1; color: #fff; }
+
+/* ── Heatmap ── */
+.hcal-heatmap-wrap { overflow-x: auto; padding-bottom: 4px; }
+.hcal-months { display: flex; gap: 3px; margin-left: 0; height: 14px; }
+.hcal-month { width: 13px; font-size: 9px; color: var(--muted); flex: 0 0 13px; white-space: nowrap; }
+.hcal-grid { display: flex; gap: 3px; }
+.hcal-week { display: flex; flex-direction: column; gap: 3px; }
+.hcal-day {
+  width: 13px; height: 13px;
+  border-radius: 3px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+.hcal-day:hover { outline: 1.5px solid #1e293b; outline-offset: 0; }
+.hcal-day.hcal-pad { background: transparent !important; cursor: default; }
+.hcal-day.hcal-sel { outline: 2px solid #6366f1; outline-offset: 0; }
+
+.hcal-legend {
+  display: flex; align-items: center; gap: 5px;
+  margin-top: 8px; font-size: 10px; color: var(--muted);
+}
+.hcal-leg-sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+/* ── Graph (vertical bars) ── */
+.hcal-graph-wrap { width: 100%; }
+.hcal-graph {
+  display: flex; align-items: flex-end; gap: 2px;
+  height: 140px;
+  border-bottom: 1px solid var(--border);
+}
+.hcal-bar-col {
+  flex: 1 1 0; min-width: 3px;
+  height: 100%;
+  display: flex; align-items: flex-end;
+  cursor: pointer;
+}
+.hcal-bar { width: 100%; border-radius: 2px 2px 0 0; transition: opacity .1s; }
+.hcal-bar-col:hover .hcal-bar { opacity: .75; }
+.hcal-bar-col.hcal-sel .hcal-bar { outline: 2px solid #6366f1; }
+.hcal-graph-axis { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+/* ── Floating tooltip ── */
+.hcal-tip {
+  position: absolute; z-index: 1000; display: none;
+  background: #1e293b; color: #f8fafc;
+  border-radius: 8px; padding: 8px 10px;
+  font-size: 12px; line-height: 1.45;
+  box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  pointer-events: none; max-width: 240px;
+}
+.hcal-tip-date { font-weight: 700; margin-bottom: 3px; }
+.hcal-tip-big { font-size: 13px; font-weight: 600; }
+.hcal-tip-sub { color: #cbd5e1; font-size: 11px; }
+.hcal-tip-cats { color: #cbd5e1; margin-top: 2px; }
+.hcal-tip-rows { margin-top: 4px; }
+.hcal-tip-row { font-size: 11px; }
+.hcal-tip-dim { color: #94a3b8; }
+.hcal-tip-empty { color: #94a3b8; font-size: 11px; }
+
+/* ── Detail panel ── */
+.hcal-detail:empty { display: none; }
+.hcal-detail {
+  margin-top: 12px; padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.hcal-detail-head { font-weight: 700; font-size: 13px; margin-bottom: 8px; color: var(--text); }
+.hcal-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.hcal-tbl th {
+  text-align: left; color: var(--muted); font-weight: 600;
+  padding: 3px 8px 3px 0; border-bottom: 1px solid var(--border);
+}
+.hcal-tbl td { padding: 4px 8px 4px 0; border-bottom: 1px solid var(--border); color: var(--text); }
+.hcal-tbl-total td { font-weight: 700; border-bottom: none; }
+
+@media (prefers-color-scheme: dark) {
+  :root { --hcal-empty: #1f2933; }
+  .hcal-seg-btn.active { background: #6366f1; }
+  .hcal-day:hover { outline-color: #cbd5e1; }
 }
