@@ -3930,6 +3930,10 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   color: var(--muted, #888);
   margin-top: 4px;
 }
+.kahneman-detail {
+  font-size: 15px;
+  line-height: 1.7;
+}
 .kahneman-example {
   margin: 0;
   padding: 10px 14px;

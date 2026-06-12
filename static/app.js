@@ -4589,6 +4589,7 @@ async function openKahnemanExamples(chNum, conceptZh) {
       const data = await api('GET', `/api/kahneman/chapter/${chNum}`);
       chapter = {
         summary: data.chapter?.concept_zh || '',
+        detail: data.chapter?.summary_zh || '',
         examples: data.chapter?.examples_zh || [],
         part: data.chapter?.part_zh || '',
         titleEn: data.chapter?.title_en || '',
@@ -4604,11 +4605,15 @@ async function openKahnemanExamples(chNum, conceptZh) {
     ? `<div class="kahneman-part-label">${esc(chapter.part)}</div>` : '';
   const summaryHtml = chapter.summary
     ? `<div class="kahneman-summary">${esc(chapter.summary)}</div>` : '';
+  const detailHtml = chapter.detail
+    ? `<div class="kahneman-examples-label">本章机制与典型情境</div>`
+      + `<div class="kahneman-detail">${esc(chapter.detail)}</div>`
+    : '';
   const examplesHtml = chapter.examples.length
     ? `<div class="kahneman-examples-label">书中原句</div>`
       + chapter.examples.map(ex => `<p class="kahneman-example">${esc(ex)}</p>`).join('')
     : '<div class="kahneman-examples-loading">本章暂无书中原句。</div>';
-  bodyEl.innerHTML = enHtml + partHtml + summaryHtml + examplesHtml;
+  bodyEl.innerHTML = enHtml + partHtml + summaryHtml + detailHtml + examplesHtml;
 }
 
 function closeKahnemanExamples() {
