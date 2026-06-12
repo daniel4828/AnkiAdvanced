@@ -4062,6 +4062,19 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 .hcal-tbl td { padding: 4px 8px 4px 0; border-bottom: 1px solid var(--border); color: var(--text); }
 .hcal-tbl-total td { font-weight: 700; border-bottom: none; }
 
+/* ── Card-evolution chart (issue #321) ── */
+.evo-chart-wrap { position: relative; }
+.evo-svg { display: block; width: 100%; height: 190px; }
+.evo-legend {
+  display: inline-flex; align-items: center; gap: 12px;
+  font-size: 11px; color: var(--muted);
+}
+.evo-leg { display: inline-flex; align-items: center; gap: 4px; }
+.evo-ylabel {
+  position: absolute; left: 4px; transform: translateY(2px);
+  font-size: 9px; color: var(--muted); pointer-events: none;
+}
+
 @media (prefers-color-scheme: dark) {
   :root { --hcal-empty: #1f2933; }
   .hcal-seg-btn.active { background: #6366f1; }
