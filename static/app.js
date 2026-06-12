@@ -2918,9 +2918,9 @@ function revealAnswer() {
   if (isCreating) {
     const isClozeMode = card.note_type !== 'sentence' && !quickMode;
     if (isClozeMode) {
-      // Word bank mode: parse number sequence into reconstructed sentence
       const wbRaw = document.getElementById('word-bank-input').value.trim();
-      userInput = _parseWordBankInput(wbRaw).join('');
+      // No sentence to reconstruct: the input holds the typed word directly.
+      userInput = wordBankOrder.length ? _parseWordBankInput(wbRaw).join('') : wbRaw;
     } else {
       userInput = document.getElementById('creating-input').value.trim();
     }
@@ -4236,13 +4236,23 @@ function wordBankAddToken(num) {
 
 async function renderWordBankUI() {
   await _buildWordBank();
+  const inp = document.getElementById('word-bank-input');
+  // Always reset stale state from the previous card before (re)rendering.
+  inp.value = '';
+  userInput = '';
+
   if (!wordBankOrder.length) {
-    // Sentence not loaded / no match — clear any stale skeleton + tiles from the
-    // previous card instead of leaving them on screen as a wrong sentence.
+    // No sentence to reconstruct — fall back to typing the word directly.
     document.getElementById('word-bank-skeleton')?.replaceChildren();
     document.getElementById('word-bank-tokens')?.replaceChildren();
+    document.getElementById('word-bank-label').textContent = 'Write the word in Chinese';
+    inp.placeholder = 'Type here…';
+    setTimeout(() => inp.focus(), 80);
     return;
   }
+
+  document.getElementById('word-bank-label').textContent = 'Reconstruct the sentence';
+  inp.placeholder = 'Fill blanks left to right: tile numbers + target word (e.g. 3 1 努力 2 5 4)';
 
   // Sentence skeleton: pre-placed tokens shown as text, blanks for tiles/target (data-slot for live update)
   const skelEl = document.getElementById('word-bank-skeleton');
@@ -4262,9 +4272,6 @@ async function renderWordBankUI() {
     + `</button>`
   ).join('');
 
-  const inp = document.getElementById('word-bank-input');
-  inp.value = '';
-  userInput = '';
   setTimeout(() => inp.focus(), 80);
 }
 
