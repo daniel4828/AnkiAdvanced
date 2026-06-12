@@ -102,8 +102,8 @@ function _buildCalDayMap() {
   return map;
 }
 
-function _renderCal() {
-  const timelineEl = document.getElementById('cal-timeline');
+function _renderCal(timelineId = 'cal-timeline', panelId = 'review-cal-panel') {
+  const timelineEl = document.getElementById(timelineId);
   if (!timelineEl) return;
 
   const today = new Date();
@@ -203,9 +203,9 @@ function _renderCal() {
 
   // Scroll to first reviewed month (or today if no history)
   const scrollTargetId = firstMonthId || todayMonthId;
-  if (scrollTargetId) {
+  if (scrollTargetId && panelId) {
     requestAnimationFrame(() => {
-      const panel = document.getElementById('review-cal-panel');
+      const panel = document.getElementById(panelId);
       const el    = document.getElementById(scrollTargetId);
       if (panel && el) {
         const panelRect = panel.getBoundingClientRect();
@@ -216,21 +216,180 @@ function _renderCal() {
   }
 }
 
-async function _loadCardCalendar(cardId, category) {
+async function _loadCardTile(cardId, category) {
   const panel = document.getElementById('review-cal-panel');
   _calData     = null;
+  _ctlData     = null;
   _calCategory = category || null;
+  _ctlCategory = category || null;
   if (panel) panel.style.display = 'none';
   try {
-    const data = await api('GET', `/api/cards/${cardId}/calendar`);
-    if (!data) return;
-    _calData = data;
+    const [cal, tl] = await Promise.all([
+      api('GET', `/api/cards/${cardId}/calendar`),
+      api('GET', `/api/cards/${cardId}/timeline`).catch(() => null),
+    ]);
+    if (!cal && !tl) return;
+    _calData = cal;
+    _ctlData = tl;
     const today = new Date();
     _calYear  = today.getFullYear();
     _calMonth = today.getMonth();
-    _renderCal();
+    _renderCardTile();
     if (panel) panel.style.display = '';
   } catch (e) { /* silently skip if unavailable */ }
+}
+
+// ── Card interval graph + graph/calendar tile toggle (issue #323) ───────────
+let _ctlData     = null;   // {cards} from /api/cards/{id}/timeline (review view)
+let _ctlCategory = null;   // category of the card being reviewed
+let _cardTileMode = localStorage.getItem('cardTileMode') || 'graph';
+
+const _CGRAPH_COLOR = {
+  new: 'var(--primary)', learning: 'var(--hard)',
+  review: 'var(--good)', relearn: 'var(--again)',
+};
+const _CGRAPH_LABEL = { new: 'New', learning: 'Learning', review: 'Learnt', relearn: 'Relearn' };
+const _CGRAPH_RATING = { 1: 'Again', 2: 'Hard', 3: 'Good', 4: 'Easy' };
+
+function setCardTileMode(m) {
+  _cardTileMode = m;
+  localStorage.setItem('cardTileMode', m);
+  _renderCardTile();
+  _wdRenderCardTile();
+}
+
+// Review-view tile: switch between interval graph and calendar
+function _renderCardTile() {
+  const g = document.getElementById('card-graph');
+  const c = document.getElementById('card-calendar');
+  if (!g || !c) return;
+  const bg = document.getElementById('ctile-btn-graph');
+  const bc = document.getElementById('ctile-btn-calendar');
+  if (bg) bg.classList.toggle('active', _cardTileMode === 'graph');
+  if (bc) bc.classList.toggle('active', _cardTileMode !== 'graph');
+  if (_cardTileMode === 'graph') {
+    c.style.display = 'none';
+    g.style.display = '';
+    const cards = _ctlData?.cards || [];
+    const card = cards.find(k => k.category === _ctlCategory) || cards[0];
+    g.innerHTML = _cardGraphHtml(card);
+  } else {
+    g.style.display = 'none';
+    c.style.display = '';
+    if (_calData) _renderCal();
+  }
+}
+
+// Shared SVG renderer: x = time, y = interval (days), colored by card state
+function _cardGraphHtml(card) {
+  const pts = (card?.points || []).slice();
+  if (card?.scheduled) pts.push({ ...card.scheduled, scheduled: true });
+  if (!pts.length) return '<div class="cgraph-empty">No reviews yet.</div>';
+
+  const W = 340, H = 150, PT = 8, PB = 6, PL = 6, PR = 8;
+  const t = s => new Date(s.replace(' ', 'T')).getTime();
+  const t0 = t(pts[0].at);
+  let t1 = t(pts[pts.length - 1].at);
+  if (t1 <= t0) t1 = t0 + 86400000;
+  let ymax = Math.max(1, ...pts.map(p => p.gap));
+  ymax = ymax <= 5 ? Math.ceil(ymax) : ymax <= 30 ? Math.ceil(ymax / 5) * 5 : Math.ceil(ymax / 10) * 10;
+
+  const x = p => PL + (t(p.at) - t0) / (t1 - t0) * (W - PL - PR);
+  const y = p => PT + (1 - p.gap / ymax) * (H - PT - PB);
+
+  let svg = [0.5, 1].map(f => {
+    const gy = (PT + (1 - f) * (H - PT - PB)).toFixed(1);
+    return `<line x1="${PL}" y1="${gy}" x2="${W - PR}" y2="${gy}" stroke="var(--border)" stroke-width="0.6"/>`;
+  }).join('');
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i];
+    const color = _CGRAPH_COLOR[b.state] || 'var(--muted)';
+    svg += `<line x1="${x(a).toFixed(1)}" y1="${y(a).toFixed(1)}" x2="${x(b).toFixed(1)}" y2="${y(b).toFixed(1)}"
+              stroke="${color}" stroke-width="1.8" stroke-linecap="round"${b.scheduled ? ' stroke-dasharray="4 3"' : ''}/>`;
+  }
+  svg += pts.map(p => {
+    const color = _CGRAPH_COLOR[p.state] || 'var(--muted)';
+    const day = p.at.slice(0, 10);
+    const tip = p.scheduled
+      ? `${day} · due · interval ${p.gap}d`
+      : `${day} · interval ${p.gap}d · ${_CGRAPH_RATING[p.rating] || ''} · ${_CGRAPH_LABEL[p.state] || p.state}`;
+    return `<circle cx="${x(p).toFixed(1)}" cy="${y(p).toFixed(1)}" r="3"
+              fill="${p.scheduled ? 'var(--card)' : color}" stroke="${color}" stroke-width="1.5"><title>${tip}</title></circle>`;
+  }).join('');
+
+  const legend = Object.keys(_CGRAPH_LABEL).map(k =>
+    `<span class="evo-leg"><span class="hcal-leg-sw" style="background:${_CGRAPH_COLOR[k]}"></span>${_CGRAPH_LABEL[k]}</span>`).join('');
+  const fmtD = s => { const [m, d] = s.slice(5, 10).split('-'); return `${+m}/${+d}`; };
+  return `
+    <div class="cgraph-wrap">
+      <span class="cgraph-ymax">${ymax}d</span>
+      <svg class="cgraph-svg" viewBox="0 0 ${W} ${H}">${svg}</svg>
+      <div class="hcal-graph-axis"><span>${fmtD(pts[0].at)}</span><span>${fmtD(pts[pts.length - 1].at)}</span></div>
+      <div class="cgraph-legend">${legend}<span class="evo-leg">╌╌ scheduled</span></div>
+    </div>`;
+}
+
+// ── Word-detail tile (browse) ────────────────────────────────────────────────
+let _wdTlData  = null;
+let _wdCalData = null;
+let _wdCat     = null;
+
+function _wdLoadCardTile(cards) {
+  const el = document.getElementById('wd-card-tile-section');
+  if (!el) return;
+  _wdTlData = null;
+  _wdCalData = null;
+  const withId = (cards || []).filter(c => c.id);
+  if (!withId.length) { el.innerHTML = ''; return; }
+  _wdCat = withId[0].category;
+  el.innerHTML = '<div class="hcal-loading">Loading schedule…</div>';
+  Promise.all([
+    api('GET', `/api/cards/${withId[0].id}/timeline`),
+    api('GET', `/api/cards/${withId[0].id}/calendar`),
+  ]).then(([tl, cal]) => {
+    _wdTlData = tl;
+    _wdCalData = cal;
+    const withPts = (tl?.cards || []).find(c => c.points.length);
+    if (withPts) _wdCat = withPts.category;
+    _wdRenderCardTile();
+  }).catch(() => { el.innerHTML = ''; });
+}
+
+function wdSetTileCat(cat) { _wdCat = cat; _wdRenderCardTile(); }
+
+function _wdRenderCardTile() {
+  const el = document.getElementById('wd-card-tile-section');
+  if (!el || !_wdTlData) return;
+  const isGraph = _cardTileMode === 'graph';
+  const catBtns = (_wdTlData.cards || []).map(c =>
+    `<button class="hcal-seg-btn ${c.category === _wdCat ? 'active' : ''}"
+             onclick="wdSetTileCat('${c.category}')">${_CAT_LETTER[c.category] || c.category}</button>`).join('');
+  el.innerHTML = `
+    <div class="section-label">Schedule</div>
+    <div class="wd-card-tile">
+      <div class="card-tile-head">
+        <div class="hcal-seg">
+          <button class="hcal-seg-btn ${isGraph ? 'active' : ''}" onclick="setCardTileMode('graph')">Graph</button>
+          <button class="hcal-seg-btn ${!isGraph ? 'active' : ''}" onclick="setCardTileMode('calendar')">Calendar</button>
+        </div>
+        ${isGraph ? `<div class="hcal-seg">${catBtns}</div>` : ''}
+      </div>
+      <div id="wd-tile-body"></div>
+    </div>`;
+  const body = document.getElementById('wd-tile-body');
+  if (isGraph) {
+    const cards = _wdTlData.cards || [];
+    const card = cards.find(c => c.category === _wdCat) || cards[0];
+    body.innerHTML = _cardGraphHtml(card);
+  } else {
+    body.innerHTML = `<div class="card-calendar wd-cal-scroll" id="wd-cal-scroll"><div id="wd-cal-timeline"></div></div>`;
+    const saved = _calData, savedCat = _calCategory;
+    _calData = _wdCalData;
+    _calCategory = null;
+    _renderCal('wd-cal-timeline', 'wd-cal-scroll');
+    _calData = saved;
+    _calCategory = savedCat;
+  }
 }
 
 // ── Card timer ──────────────────────────────────────────────────────────────
@@ -1626,6 +1785,9 @@ function renderWordDetail(word) {
 
   // Cards section
   renderWordDetailCards(word.cards || [], word.id);
+
+  // Schedule tile (interval graph / calendar)
+  _wdLoadCardTile(word.cards || []);
 }
 
 function renderWordDetailCards(cards, wordId) {
@@ -2773,7 +2935,7 @@ function loadCard(c, counts) {
 
   showFront();
   _startTimer();
-  _loadCardCalendar(c.id, c.category);
+  _loadCardTile(c.id, c.category);
 
   // Auto-play audio for the listening category.
   // If sentence is missing and a story fetch is in flight, defer to the fetch callback above.
