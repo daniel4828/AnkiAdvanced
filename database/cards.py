@@ -1376,3 +1376,94 @@ def get_card_calendar_data(card_id: int) -> dict:
     }
 
 
+def get_card_timeline_data(card_id: int) -> dict:
+    """Per-card interval timeline for all category cards of the same word.
+
+    review_log does not store intervals, so the y-value of each point is the
+    real elapsed time since the previous review (in days, 0 for the first
+    review). The card's state at each point is replayed with the SM-2 state
+    machine (see stats._next_state); recorded review_log.state values
+    recalibrate the replay and the card's current state pins the end.
+
+    Each card gets a final scheduled point at its due date with the current
+    interval, so the graph extends into the future.
+    """
+    from .stats import _next_state, _EVOLUTION_STATES
+
+    conn = get_db()
+    word_row = conn.execute("SELECT word_id FROM cards WHERE id = ?", (card_id,)).fetchone()
+    if not word_row:
+        conn.close()
+        return {"cards": []}
+
+    cards = conn.execute(
+        """SELECT c.id, c.deck_id, c.category, c.state, c.pre_suspend_state,
+                  c.interval, c.due
+           FROM cards c
+           WHERE c.word_id = ? AND c.deleted_at IS NULL
+           ORDER BY c.category""",
+        (word_row["word_id"],),
+    ).fetchall()
+
+    result = []
+    for c in cards:
+        rows = conn.execute(
+            """SELECT datetime(reviewed_at, 'localtime') AS at, rating, state
+               FROM review_log WHERE card_id = ? ORDER BY reviewed_at""",
+            (c["id"],),
+        ).fetchall()
+
+        preset = get_preset_for_deck(c["deck_id"], c["category"]) or {}
+        n_learn = max(1, len(str(preset.get("learning_steps", "1 10")).split()))
+        n_relearn = max(1, len(str(preset.get("relearning_steps", "10")).split()))
+
+        final = c["state"]
+        if final == "suspended":
+            final = c["pre_suspend_state"]
+
+        points = []
+        state, step = "new", 0
+        prev_dt = None
+        for r in rows:
+            if r["state"] in _EVOLUTION_STATES and r["state"] != state:
+                state, step = r["state"], 0  # recalibrate from recorded truth
+            state, step = _next_state(state, step, r["rating"], n_learn, n_relearn)
+            dt = datetime.fromisoformat(r["at"])
+            gap = (dt - prev_dt).total_seconds() / 86400 if prev_dt else 0.0
+            points.append({
+                "at": r["at"],
+                "gap": round(gap, 2),
+                "rating": r["rating"],
+                "state": state,
+            })
+            prev_dt = dt
+        if points and final in _EVOLUTION_STATES:
+            points[-1]["state"] = final  # pin the end to the card's real state
+
+        # Scheduled point: where the card is due next (skip new/suspended cards)
+        scheduled = None
+        if points and c["state"] in ("learning", "relearn", "review"):
+            due_raw = c["due"]
+            due_dt = datetime.fromisoformat(due_raw) if len(due_raw) > 10 \
+                else datetime.fromisoformat(due_raw + "T04:00:00")
+            gap = max(0.0, (due_dt - prev_dt).total_seconds() / 86400)
+            scheduled = {
+                "at": due_dt.isoformat(sep=" "),
+                "gap": round(c["interval"], 2) if c["state"] == "review" else round(gap, 2),
+                "state": c["state"],
+            }
+
+        result.append({
+            "card_id": c["id"],
+            "category": c["category"],
+            "state": c["state"],
+            "interval": c["interval"],
+            "due": c["due"],
+            "points": points,
+            "scheduled": scheduled,
+        })
+
+    conn.close()
+    return {"cards": result}
+
+
