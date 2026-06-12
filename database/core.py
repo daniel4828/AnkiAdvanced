@@ -179,6 +179,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE story_sentences ADD COLUMN concept_en TEXT")
     if "concept_zh" not in ss_cols:
         conn.execute("ALTER TABLE story_sentences ADD COLUMN concept_zh TEXT")
+    if "reasoning_zh" not in ss_cols:
+        conn.execute("ALTER TABLE story_sentences ADD COLUMN reasoning_zh TEXT")
     if "word_id" in ss_cols:
         _migrate_story_sentences_multi_word(conn)
     existing_tables = {r["name"] for r in conn.execute(
@@ -205,6 +207,13 @@ def init_db() -> None:
         conn.execute("ALTER TABLE cards ADD COLUMN deleted_at TEXT")
     if "pre_suspend_state" not in card_cols:
         conn.execute("ALTER TABLE cards ADD COLUMN pre_suspend_state TEXT")
+
+    # review_log: per-review timing + card state at review time (for calendar heatmap stats)
+    rl_cols = {r["name"] for r in conn.execute("PRAGMA table_info(review_log)").fetchall()}
+    if "duration_ms" not in rl_cols:
+        conn.execute("ALTER TABLE review_log ADD COLUMN duration_ms INTEGER")
+    if "state" not in rl_cols:
+        conn.execute("ALTER TABLE review_log ADD COLUMN state TEXT")
 
     preset_cols = {r["name"] for r in conn.execute("PRAGMA table_info(deck_presets)").fetchall()}
     if "new_gather_order" not in preset_cols:

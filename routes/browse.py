@@ -476,6 +476,11 @@ def get_retention(days: int = 30):
     return database.get_retention_bulk(days)
 
 
+@router.get("/api/calendar-stats")
+def get_calendar_stats(days: int = 365, deck_id: int | None = None):
+    return database.get_calendar_stats(days, deck_id)
+
+
 @router.get("/api/costs")
 def get_api_costs():
     return database.get_api_costs()
