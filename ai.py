@@ -760,6 +760,8 @@ def generate_kahneman_sentences(
     concept_label = f"第{chapter['number']}章《{chapter['title_zh']}》：{chapter['concept_zh']}"
     concept_en = f"Chapter {chapter['number']}: {chapter['title_en']}"
     concept_zh = f"第{chapter['number']}章：{chapter['title_zh']}"
+    summary_zh = (chapter.get("summary_zh") or "").strip()
+    summary_block = f"\n本章机制与典型情境：\n{summary_zh}\n" if summary_zh else ""
 
     def _build_prompt(batch: list[dict]) -> str:
         word_list = "\n".join(
@@ -770,32 +772,35 @@ def generate_kahneman_sentences(
 每个句子应该是某人在日常情境中说的一句话，自然地透露出一种认知偏误或心理定势，而不直接点明偏误名称。
 
 本章概念：{concept_label}
-
+{summary_block}
 风格范例（模仿这种语气和结构）：
 {examples_block}
 
 目标词汇（每句话必须恰好包含其中一个，原文出现）：
 {word_list}
 
+写作步骤（对每个词汇按此顺序思考）：
+1. 先在 reasoning_zh 里确定：要展示本章偏误的哪个具体情境（谁、在什么场合、犯了什么思维错误）
+2. 再写 sentence_zh：把这个情境浓缩成某人说的一句话，并自然地包含目标词汇
+
 规则：
 - 每句话恰好包含一个目标词汇，词汇必须以原文形式出现
 - 每个目标词汇都必须有自己的句子，一个都不能漏
 - 用自然口语风格，隐性透露本章所描述的认知偏误
-- 不要直接提及偏误名称或心理学术语
-- 非目标词汇只用HSK 1-2级词汇
-- 句子要简短（不超过20个字）
+- 句子里不要直接提及偏误名称或心理学术语
+- 非目标词汇只用HSK 1-3级词汇
+- 句子要简短（不超过28个字）
 - 不要使用markdown格式
 
-另外，为每句话写一段简短的中文解释（reasoning_zh），说明这句话为什么体现了本章所描述的认知偏误。
-解释规则：
-- 用中文写，1-2句话，简明扼要
+reasoning_zh 的规则：
+- 用中文写，1-2句话，简明扼要，说明这句话为什么体现了本章的认知偏误
 - 可以点明偏误名称，帮助学习者理解
 - 面向HSK 4-5学习者，用词不要太难
 
-仅返回如下JSON数组，不加任何其他文字：
+仅返回如下JSON数组，不加任何其他文字（reasoning_zh 在前，sentence_zh 在后）：
 [
-  {{"sentence_zh": "句子内容", "reasoning_zh": "解释内容"}},
-  {{"sentence_zh": "句子内容", "reasoning_zh": "解释内容"}}
+  {{"reasoning_zh": "解释内容", "sentence_zh": "句子内容"}},
+  {{"reasoning_zh": "解释内容", "sentence_zh": "句子内容"}}
 ]"""
 
     _set_progress(progress_key, phase="request", msg=f"生成第{chapter['number']}章句子…{attempt_label}", percent=20)
