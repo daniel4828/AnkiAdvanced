@@ -5284,7 +5284,7 @@ let _conflictEdits = {};       // {word_zh: {field: value}} custom edits
 let _conflictSelections = {};  // {word_zh: "keep"|"update"}
 
 // Default per-category suspension states (creating active, others suspended)
-const IMPORT_DEFAULT_SUSPENDED = { reading: false, listening: false, creating: true };
+const IMPORT_DEFAULT_SUSPENDED = { reading: true, listening: false, creating: false };
 
 const NOTE_TYPE_LABEL = { vocabulary: 'Word', sentence: 'Sentence', chengyu: '成语', expression: 'Expr' };
 const STATUS_ICON  = { ok: '✓', duplicate: '⚠', invalid: '✕' };
@@ -5711,6 +5711,8 @@ async function previewImport(yamlContent) {
 
     // Show deck picker + Import button now that YAML is valid
     document.getElementById('import-deck-section').style.display = '';
+    // Auto-select today's daily deck as the target, unless the user already chose one.
+    if (!document.getElementById('import-deck-path').value.trim()) selectDailyDeck();
     const submitBtn = document.getElementById('import-submit-btn');
     submitBtn.textContent = 'Import';
     submitBtn.onclick = doImport;
