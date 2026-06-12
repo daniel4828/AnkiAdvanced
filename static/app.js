@@ -3280,7 +3280,7 @@ let _regenState = null; // { wordId, fields, containerId }
 
 function regenAllFields(wordId) {
   const allFields = ['definition', 'definition_zh', 'definition_de', 'definition_fr', 'pos',
-                     'notes', 'examples', 'etymology', 'compounds'];
+                     'notes', 'examples', 'etymology', 'compounds', 'other_meanings'];
   regenFields(wordId, allFields, 'wd-all');
 }
 
@@ -3288,7 +3288,7 @@ function regenAllFieldsFromReview() {
   const wordId = _getActiveWordId();
   if (!wordId) return showError('No active word');
   const allFields = ['definition', 'definition_zh', 'definition_de', 'definition_fr', 'pos',
-                     'notes', 'examples', 'etymology', 'compounds'];
+                     'notes', 'examples', 'etymology', 'compounds', 'other_meanings'];
   regenFields(wordId, allFields, 'review-regen-all');
 }
 
