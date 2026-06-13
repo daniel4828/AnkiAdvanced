@@ -207,6 +207,14 @@ def init_db() -> None:
         conn.execute("ALTER TABLE cards ADD COLUMN deleted_at TEXT")
     if "pre_suspend_state" not in card_cols:
         conn.execute("ALTER TABLE cards ADD COLUMN pre_suspend_state TEXT")
+    # Leech tracking: Again presses during learning, + a flag marking leech suspends.
+    # Absence of is_leech signals a fresh install of this feature → run the one-time
+    # historical backfill below (after preset thresholds are migrated).
+    need_leech_backfill = "is_leech" not in card_cols
+    if "learning_again_count" not in card_cols:
+        conn.execute("ALTER TABLE cards ADD COLUMN learning_again_count INTEGER NOT NULL DEFAULT 0")
+    if "is_leech" not in card_cols:
+        conn.execute("ALTER TABLE cards ADD COLUMN is_leech INTEGER NOT NULL DEFAULT 0")
 
     # review_log: per-review timing + card state at review time (for calendar heatmap stats)
     rl_cols = {r["name"] for r in conn.execute("PRAGMA table_info(review_log)").fetchall()}
@@ -250,6 +258,11 @@ def init_db() -> None:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN sibling_separation INTEGER NOT NULL DEFAULT 3")
     if "sibling_factor" not in preset_cols:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN sibling_factor REAL NOT NULL DEFAULT 0.2")
+    if "learning_leech_threshold" not in preset_cols:
+        conn.execute("ALTER TABLE deck_presets ADD COLUMN learning_leech_threshold INTEGER NOT NULL DEFAULT 6")
+        # Lower the review-leech threshold from the legacy default (8) to the new
+        # default (3) for presets that never tuned it away from 8.
+        conn.execute("UPDATE deck_presets SET leech_threshold = 3 WHERE leech_threshold = 8")
 
     conn.execute("""CREATE TABLE IF NOT EXISTS preset_category_overrides (
         id                  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -263,9 +276,41 @@ def init_db() -> None:
         relearning_steps    TEXT,
         minimum_interval    INTEGER,
         leech_threshold     INTEGER,
+        learning_leech_threshold INTEGER,
         leech_action        TEXT CHECK(leech_action IN ('suspend', 'tag')),
         UNIQUE(preset_id, category)
     )""")
+    override_cols = {r["name"] for r in conn.execute("PRAGMA table_info(preset_category_overrides)").fetchall()}
+    if "learning_leech_threshold" not in override_cols:
+        conn.execute("ALTER TABLE preset_category_overrides ADD COLUMN learning_leech_threshold INTEGER")
+
+    # ── One-time historical leech backfill ─────────────────────────────────────
+    # Retroactively flag cards that already exceed their deck's leech thresholds,
+    # so past Again presses count too. Runs once, when is_leech is first added.
+    if need_leech_backfill:
+        # Reconstruct learning Again presses from the review log (rating=1 while the
+        # card was in new/learning/relearn). Logs with NULL state can't be classified
+        # and are skipped — review-state lapses are already tracked in cards.lapses.
+        conn.execute(
+            """UPDATE cards SET learning_again_count = (
+                   SELECT COUNT(*) FROM review_log r
+                   WHERE r.card_id = cards.id AND r.rating = 1
+                     AND r.state IN ('new', 'learning', 'relearn')
+               )"""
+        )
+        # Suspend + flag every active card already over either threshold.
+        conn.execute(
+            """UPDATE cards
+                  SET pre_suspend_state = state, state = 'suspended', is_leech = 1
+                WHERE state != 'suspended' AND deleted_at IS NULL
+                  AND id IN (
+                      SELECT c.id FROM cards c
+                      JOIN decks d ON d.id = c.deck_id
+                      JOIN deck_presets p ON p.id = d.preset_id
+                      WHERE c.lapses >= p.leech_threshold
+                         OR c.learning_again_count >= p.learning_leech_threshold
+                  )"""
+        )
 
     # Normalize legacy due values: learning/relearn cards whose due datetime
     # falls on a future Anki day should store just the date (no time component).

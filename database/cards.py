@@ -128,7 +128,7 @@ def get_card(card_id: int) -> dict | None:
                   p.id AS preset_id,
                   p.learning_steps, p.graduating_interval, p.easy_interval,
                   p.relearning_steps, p.minimum_interval,
-                  p.leech_threshold, p.leech_action,
+                  p.leech_threshold, p.learning_leech_threshold, p.leech_action,
                   p.new_per_day, p.reviews_per_day
            FROM cards c
            JOIN entries w ON w.id = c.word_id
@@ -487,14 +487,24 @@ def update_word(word_id: int, fields: dict) -> None:
 
 def update_card(card_id: int, *, state: str, due: str,
                 step_index: int, interval: int,
-                ease: float, repetitions: int, lapses: int) -> None:
+                ease: float, repetitions: int, lapses: int,
+                learning_again_count: int | None = None) -> None:
     conn = get_db()
-    conn.execute(
-        """UPDATE cards SET state=?, due=?, step_index=?, interval=?,
-                            ease=?, repetitions=?, lapses=?
-           WHERE id=?""",
-        (state, due, step_index, interval, ease, repetitions, lapses, card_id),
-    )
+    if learning_again_count is None:
+        conn.execute(
+            """UPDATE cards SET state=?, due=?, step_index=?, interval=?,
+                                ease=?, repetitions=?, lapses=?
+               WHERE id=?""",
+            (state, due, step_index, interval, ease, repetitions, lapses, card_id),
+        )
+    else:
+        conn.execute(
+            """UPDATE cards SET state=?, due=?, step_index=?, interval=?,
+                                ease=?, repetitions=?, lapses=?, learning_again_count=?
+               WHERE id=?""",
+            (state, due, step_index, interval, ease, repetitions, lapses,
+             learning_again_count, card_id),
+        )
     conn.commit()
     conn.close()
 
