@@ -1131,6 +1131,7 @@ function _filteredBrowseWords() {
     words = words.filter(w => w.cards.some(c => leafIds.has(c.deck_id)));
   }
   if (_browseCardStatus === 'learning')   words = words.filter(w => w.cards.length > 0);
+  if (_browseCardStatus === 'leech')      words = words.filter(w => w.cards.some(c => c.is_leech));
   if (_browseCardStatus === 'reference')  words = words.filter(w => w.cards.length === 0);
   return words;
 }
@@ -1641,6 +1642,7 @@ function renderWordDetailCards(cards, wordId) {
         <div class="wd-card-head">
           <span class="wd-cat-label">${CAT_FULL[c.category] || c.category}</span>
           <span class="badge badge-${c.state}">${c.state}</span>
+          ${c.is_leech ? '<span class="badge badge-leech" title="Suspended as a leech">leech</span>' : ''}
           ${isBuried ? '<span class="badge badge-buried">buried</span>' : ''}
           <div class="wd-card-menu-wrap">
             <button class="wd-menu-btn" onclick="toggleCardMenu(${c.id}, event)">⋯</button>
@@ -2106,6 +2108,7 @@ function loadPresetFields(preset) {
   document.getElementById('opt-easy-int').value        = preset.easy_interval;
   document.getElementById('opt-relearn-steps').value   = preset.relearning_steps;
   document.getElementById('opt-leech').value           = preset.leech_threshold;
+  document.getElementById('opt-learning-leech').value  = preset.learning_leech_threshold;
   document.getElementById('opt-new-gather-order').value        = preset.new_gather_order                || 'ascending_position';
   document.getElementById('opt-new-sort-order').value          = preset.new_sort_order                  || 'card_type_gathered';
   document.getElementById('opt-new-review-order').value        = preset.new_review_order                || 'mixed';
@@ -2266,6 +2269,7 @@ async function saveOptions() {
     easy_interval:       parseInt(document.getElementById('opt-easy-int').value),
     relearning_steps:    document.getElementById('opt-relearn-steps').value.trim(),
     leech_threshold:     parseInt(document.getElementById('opt-leech').value),
+    learning_leech_threshold: parseInt(document.getElementById('opt-learning-leech').value),
     new_gather_order:               document.getElementById('opt-new-gather-order').value,
     new_sort_order:                 document.getElementById('opt-new-sort-order').value,
     new_review_order:               document.getElementById('opt-new-review-order').value,

@@ -285,6 +285,7 @@
         <div class="bs-section-head">Status</div>
         <button class="bs-status-item bs-active" id="bss-all"       onclick="setBrowseStatusFilter('all')">All Entries</button>
         <button class="bs-status-item" id="bss-learning"  onclick="setBrowseStatusFilter('learning')">Learning</button>
+        <button class="bs-status-item" id="bss-leech"     onclick="setBrowseStatusFilter('leech')">Leeched</button>
         <button class="bs-status-item" id="bss-reference" onclick="setBrowseStatusFilter('reference')">Reference</button>
       </div>
       <div class="bs-section">
@@ -413,7 +414,8 @@
     <div class="opt-group">
       <div class="opt-group-label">Lapses</div>
       <div class="opt-row"><span class="opt-label">Relearning steps (minutes)</span><input class="opt-input wide" id="opt-relearn-steps" type="text"></div>
-      <div class="opt-row"><span class="opt-label">Leech threshold (lapses)</span>  <input class="opt-input" id="opt-leech"         type="number" min="1"></div>
+      <div class="opt-row"><span class="opt-label">Leech threshold (review lapses)</span>  <input class="opt-input" id="opt-leech"         type="number" min="1"></div>
+      <div class="opt-row"><span class="opt-label">Learning leech threshold (Again presses)</span>  <input class="opt-input" id="opt-learning-leech" type="number" min="1"></div>
     </div>
 
     <div class="opt-group">

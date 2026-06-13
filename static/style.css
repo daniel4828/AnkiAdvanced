@@ -2342,6 +2342,7 @@ main.browse-open {
 .badge-relearn  { background: #fee2e2; color: #b91c1c; }
 .badge-suspended{ background: #f1f5f9; color: #64748b; }
 .badge-buried   { background: #e0e7ff; color: #4338ca; }
+.badge-leech    { background: #fde68a; color: #92400e; }
 
 /* ── Word / Hanzi detail views (break out of narrow main) ── */
 #view-word-detail, #view-hanzi-detail {
