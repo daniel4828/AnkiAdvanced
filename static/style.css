@@ -4095,6 +4095,16 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   margin-bottom: 12px;
   border-bottom: 1px solid var(--border);
 }
+
+/* Review side panel: pin the graph on top, let only the calendar scroll so
+   the graph never gets pushed out of view by the auto-scroll-to-first-month. */
+#review-cal-panel { overflow-y: hidden; }
+#review-cal-panel #card-graph { flex: 0 0 auto; }
+#review-cal-panel #card-calendar {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
 .wd-card-tile {
   background: var(--card);
   border: 1px solid var(--border);

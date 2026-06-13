@@ -258,7 +258,9 @@ function _renderCardTile() {
     const card = cards.find(k => k.category === _ctlCategory) || cards[0];
     g.innerHTML = _cardGraphHtml(card);
   }
-  if (_calData) _renderCal();
+  // Scroll the calendar's own container (not the outer panel) so the graph
+  // above it stays visible instead of being pushed out of view.
+  if (_calData) _renderCal('cal-timeline', 'card-calendar');
 }
 
 // Shared SVG renderer: x = time, y = interval (days), colored by card state
