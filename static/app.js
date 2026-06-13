@@ -71,6 +71,30 @@ let _calData     = null;   // {history, future} from API
 let _calYear     = null;
 let _calMonth    = null;   // 0-based
 let _calCategory = null;   // current card's category — shown on today even if not in dues
+let _calTimeline = null;   // {cards} from /api/cards/{id}/timeline — for per-day state borders
+let _calFocusCat = null;   // focus category — its chips stay full, other categories fade
+
+// Fade level for non-focus category chips — user-adjustable, persisted.
+let _calFade = (() => {
+  const v = parseFloat(localStorage.getItem('calFade'));
+  return v >= 0.15 && v <= 1 ? v : 0.55;
+})();
+function _calFadeApply() { document.documentElement.style.setProperty('--cal-fade', _calFade); }
+function setCalFade(v) {
+  _calFade = parseFloat(v);
+  localStorage.setItem('calFade', _calFade);
+  _calFadeApply();
+  document.querySelectorAll('.cal-fade-input').forEach(el => {
+    if (parseFloat(el.value) !== _calFade) el.value = _calFade;
+  });
+}
+function _calFadeSliderHtml() {
+  return `<label class="cal-fade-ctl" title="Other-category opacity">
+    <span>Fade</span>
+    <input type="range" class="cal-fade-input" min="0.15" max="1" step="0.05"
+           value="${_calFade}" oninput="setCalFade(this.value)">
+  </label>`;
+}
 
 const _RATING_CLASS = { 1: 'again', 2: 'hard', 3: 'good', 4: 'easy' };
 const _CAT_CLASS    = { listening: 'listening', reading: 'reading', creating: 'creating' };
@@ -102,9 +126,18 @@ function _buildCalDayMap() {
   return map;
 }
 
-function _renderCal() {
-  const timelineEl = document.getElementById('cal-timeline');
+function _renderCal(timelineId = 'cal-timeline', panelId = 'review-cal-panel') {
+  const timelineEl = document.getElementById(timelineId);
   if (!timelineEl) return;
+  _calFadeApply();
+
+  // Per-(category, date) card state, for the colored chip borders. Built from
+  // the timeline data so each review chip shows the state the card was in then.
+  const stateByCatDate = {};
+  for (const card of (_calTimeline?.cards || [])) {
+    const m = stateByCatDate[card.category] = {};
+    for (const p of (card.points || [])) m[p.at.slice(0, 10)] = p.state;
+  }
 
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
@@ -175,12 +208,18 @@ function _renderCal() {
         for (const r of ratings) {
           const rCls = _RATING_CLASS[r.rating] || 'good';
           const letter = _CAT_LETTER[r.category] || '?';
-          html += `<span class="cal-chip cal-chip-${rCls}" title="${r.category}: ${rCls}">${letter}</span>`;
+          const st = stateByCatDate[r.category]?.[dateStr];
+          const faded = (_calFocusCat && r.category !== _calFocusCat) ? ' cal-chip-faded' : '';
+          const cls = `cal-chip cal-chip-${rCls}${st ? ' cal-chip-state' : ''}${faded}`;
+          const style = st ? ` style="border-color:${_STATE_COLOR[st]}"` : '';
+          const stTip = st ? ` · ${_CGRAPH_LABEL[st] || st}` : '';
+          html += `<span class="${cls}"${style} title="${r.category}: ${rCls}${stTip}">${letter}</span>`;
         }
         for (const f of visibleDues) {
           const cCls = _CAT_CLASS[f.category] || '';
           const letter = _CAT_LETTER[f.category] || '?';
-          html += `<span class="cal-chip cal-chip-due-${cCls}" title="${f.category} due">${letter}</span>`;
+          const faded = (_calFocusCat && f.category !== _calFocusCat) ? ' cal-chip-faded' : '';
+          html += `<span class="cal-chip cal-chip-due-${cCls}${faded}" title="${f.category} due">${letter}</span>`;
         }
         html += '</div>';
       } else if (isToday && _calCategory) {
@@ -203,9 +242,9 @@ function _renderCal() {
 
   // Scroll to first reviewed month (or today if no history)
   const scrollTargetId = firstMonthId || todayMonthId;
-  if (scrollTargetId) {
+  if (scrollTargetId && panelId) {
     requestAnimationFrame(() => {
-      const panel = document.getElementById('review-cal-panel');
+      const panel = document.getElementById(panelId);
       const el    = document.getElementById(scrollTargetId);
       if (panel && el) {
         const panelRect = panel.getBoundingClientRect();
@@ -216,21 +255,180 @@ function _renderCal() {
   }
 }
 
-async function _loadCardCalendar(cardId, category) {
+async function _loadCardTile(cardId, category) {
   const panel = document.getElementById('review-cal-panel');
   _calData     = null;
+  _ctlData     = null;
   _calCategory = category || null;
+  _ctlCategory = category || null;
   if (panel) panel.style.display = 'none';
   try {
-    const data = await api('GET', `/api/cards/${cardId}/calendar`);
-    if (!data) return;
-    _calData = data;
+    const [cal, tl] = await Promise.all([
+      api('GET', `/api/cards/${cardId}/calendar`),
+      api('GET', `/api/cards/${cardId}/timeline`).catch(() => null),
+    ]);
+    if (!cal && !tl) return;
+    _calData = cal;
+    _ctlData = tl;
     const today = new Date();
     _calYear  = today.getFullYear();
     _calMonth = today.getMonth();
-    _renderCal();
+    _renderCardTile();
     if (panel) panel.style.display = '';
   } catch (e) { /* silently skip if unavailable */ }
+}
+
+// ── Card interval graph + calendar (issue #323) — graph on top, calendar below
+let _ctlData     = null;   // {cards} from /api/cards/{id}/timeline (review view)
+let _ctlCategory = null;   // category of the card being reviewed
+
+// Colorblind-safe card-state palette (Okabe-Ito). Avoids the green/red/orange/
+// purple cluster entirely — those mid-tones are unreliable for red-green CB.
+// Instead it separates states on the two axes Daniel can read: blue↔yellow hue
+// and lightness. Learnt vs Relearn = blue vs orange (the safest pairing); New
+// vs Learnt = light blue vs dark blue (separated by lightness); Learning = black.
+const _STATE_COLOR = {
+  new:      '#56B4E9',  // sky blue (light)
+  learning: '#000000',  // black
+  review:   '#0072B2',  // blue (dark)
+  relearn:  '#D55E00',  // vermillion / orange
+};
+const _CGRAPH_COLOR = _STATE_COLOR;
+const _CGRAPH_LABEL = { new: 'New', learning: 'Learning', review: 'Learnt', relearn: 'Relearn' };
+const _CGRAPH_RATING = { 1: 'Again', 2: 'Hard', 3: 'Good', 4: 'Easy' };
+
+// Review-view tile: interval graph stacked above the calendar
+function _renderCardTile() {
+  const g = document.getElementById('card-graph');
+  if (g) {
+    const cards = _ctlData?.cards || [];
+    const card = cards.find(k => k.category === _ctlCategory) || cards[0];
+    g.innerHTML = _cardGraphHtml(card);
+  }
+  // Scroll the calendar's own container (not the outer panel) so the graph
+  // above it stays visible instead of being pushed out of view.
+  const fadeRow = document.getElementById('cal-fade-row');
+  if (fadeRow) fadeRow.innerHTML = _calFadeSliderHtml();
+  _calTimeline = _ctlData;
+  _calFocusCat = _ctlCategory;
+  if (_calData) _renderCal('cal-timeline', 'card-calendar');
+}
+
+// Format a scheduled interval (in days) for tooltips: sub-day → min/h, else days.
+function _fmtIval(days) {
+  if (days >= 1) return `${Math.round(days)}d`;
+  const mins = Math.round(days * 1440);
+  if (mins < 60) return `${mins}m`;
+  return `${Math.round(mins / 60)}h`;
+}
+
+// Shared SVG renderer: x = time, y = interval (days), colored by card state
+function _cardGraphHtml(card) {
+  const pts = (card?.points || []).slice();
+  if (card?.scheduled) pts.push({ ...card.scheduled, scheduled: true });
+  if (!pts.length) return '<div class="cgraph-empty">No reviews yet.</div>';
+
+  const W = 340, H = 150, PT = 8, PB = 6, PL = 6, PR = 8;
+  const t = s => new Date(s.replace(' ', 'T')).getTime();
+  const t0 = t(pts[0].at);
+  let t1 = t(pts[pts.length - 1].at);
+  if (t1 <= t0) t1 = t0 + 86400000;
+  let ymax = Math.max(1, ...pts.map(p => p.gap));
+  ymax = ymax <= 5 ? Math.ceil(ymax) : ymax <= 30 ? Math.ceil(ymax / 5) * 5 : Math.ceil(ymax / 10) * 10;
+
+  const x = p => PL + (t(p.at) - t0) / (t1 - t0) * (W - PL - PR);
+  const y = p => PT + (1 - p.gap / ymax) * (H - PT - PB);
+
+  let svg = [0.5, 1].map(f => {
+    const gy = (PT + (1 - f) * (H - PT - PB)).toFixed(1);
+    return `<line x1="${PL}" y1="${gy}" x2="${W - PR}" y2="${gy}" stroke="var(--border)" stroke-width="0.6"/>`;
+  }).join('');
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i];
+    const color = _CGRAPH_COLOR[b.state] || 'var(--muted)';
+    svg += `<line x1="${x(a).toFixed(1)}" y1="${y(a).toFixed(1)}" x2="${x(b).toFixed(1)}" y2="${y(b).toFixed(1)}"
+              stroke="${color}" stroke-width="1.8" stroke-linecap="round"${b.scheduled ? ' stroke-dasharray="4 3"' : ''}/>`;
+  }
+  svg += pts.map(p => {
+    const color = _CGRAPH_COLOR[p.state] || 'var(--muted)';
+    const day = p.at.slice(0, 10);
+    const tip = p.scheduled
+      ? `${day} · due · interval ${_fmtIval(p.gap)}`
+      : `${day} · interval ${_fmtIval(p.gap)} · ${_CGRAPH_RATING[p.rating] || ''} · ${_CGRAPH_LABEL[p.state] || p.state}`;
+    return `<circle cx="${x(p).toFixed(1)}" cy="${y(p).toFixed(1)}" r="3"
+              fill="${p.scheduled ? 'var(--card)' : color}" stroke="${color}" stroke-width="1.5"><title>${tip}</title></circle>`;
+  }).join('');
+
+  const legend = Object.keys(_CGRAPH_LABEL).map(k =>
+    `<span class="evo-leg"><span class="hcal-leg-sw" style="background:${_CGRAPH_COLOR[k]}"></span>${_CGRAPH_LABEL[k]}</span>`).join('');
+  const fmtD = s => { const [m, d] = s.slice(5, 10).split('-'); return `${+m}/${+d}`; };
+  return `
+    <div class="cgraph-wrap">
+      <span class="cgraph-ymax">${ymax}d</span>
+      <svg class="cgraph-svg" viewBox="0 0 ${W} ${H}">${svg}</svg>
+      <div class="hcal-graph-axis"><span>${fmtD(pts[0].at)}</span><span>${fmtD(pts[pts.length - 1].at)}</span></div>
+      <div class="cgraph-legend">${legend}<span class="evo-leg">╌╌ scheduled</span></div>
+    </div>`;
+}
+
+// ── Word-detail tile (browse) ────────────────────────────────────────────────
+let _wdTlData  = null;
+let _wdCalData = null;
+let _wdCat     = null;
+
+function _wdLoadCardTile(cards) {
+  const el = document.getElementById('wd-card-tile-section');
+  if (!el) return;
+  _wdTlData = null;
+  _wdCalData = null;
+  const withId = (cards || []).filter(c => c.id);
+  if (!withId.length) { el.innerHTML = ''; return; }
+  _wdCat = withId[0].category;
+  el.innerHTML = '<div class="hcal-loading">Loading schedule…</div>';
+  Promise.all([
+    api('GET', `/api/cards/${withId[0].id}/timeline`),
+    api('GET', `/api/cards/${withId[0].id}/calendar`),
+  ]).then(([tl, cal]) => {
+    _wdTlData = tl;
+    _wdCalData = cal;
+    const withPts = (tl?.cards || []).find(c => c.points.length);
+    if (withPts) _wdCat = withPts.category;
+    _wdRenderCardTile();
+  }).catch(() => { el.innerHTML = ''; });
+}
+
+function wdSetTileCat(cat) { _wdCat = cat; _wdRenderCardTile(); }
+
+function _wdRenderCardTile() {
+  const el = document.getElementById('wd-card-tile-section');
+  if (!el || !_wdTlData) return;
+  const catBtns = (_wdTlData.cards || []).map(c =>
+    `<button class="hcal-seg-btn ${c.category === _wdCat ? 'active' : ''}"
+             onclick="wdSetTileCat('${c.category}')">${_CAT_LETTER[c.category] || c.category}</button>`).join('');
+  const cards = _wdTlData.cards || [];
+  const card = cards.find(c => c.category === _wdCat) || cards[0];
+  el.innerHTML = `
+    <div class="section-label">Schedule</div>
+    <div class="wd-card-tile">
+      <div class="card-tile-head">
+        <div class="hcal-seg">${catBtns}</div>
+        ${_calFadeSliderHtml()}
+      </div>
+      <div id="wd-tile-graph">${_cardGraphHtml(card)}</div>
+      <div class="card-calendar wd-cal-scroll" id="wd-cal-scroll"><div id="wd-cal-timeline"></div></div>
+    </div>`;
+  if (_wdCalData) {
+    const saved = _calData, savedCat = _calCategory, savedTl = _calTimeline, savedFocus = _calFocusCat;
+    _calData = _wdCalData;
+    _calCategory = null;
+    _calTimeline = _wdTlData;
+    _calFocusCat = _wdCat;
+    _renderCal('wd-cal-timeline', 'wd-cal-scroll');
+    _calData = saved;
+    _calCategory = savedCat;
+    _calTimeline = savedTl;
+    _calFocusCat = savedFocus;
+  }
 }
 
 // ── Card timer ──────────────────────────────────────────────────────────────
@@ -1626,6 +1824,9 @@ function renderWordDetail(word) {
 
   // Cards section
   renderWordDetailCards(word.cards || [], word.id);
+
+  // Schedule tile (interval graph / calendar)
+  _wdLoadCardTile(word.cards || []);
 }
 
 function renderWordDetailCards(cards, wordId) {
@@ -2773,7 +2974,7 @@ function loadCard(c, counts) {
 
   showFront();
   _startTimer();
-  _loadCardCalendar(c.id, c.category);
+  _loadCardTile(c.id, c.category);
 
   // Auto-play audio for the listening category.
   // If sentence is missing and a story fetch is in flight, defer to the fetch callback above.
@@ -7269,12 +7470,12 @@ let _evoLoading = false;
 let _evoView = localStorage.getItem('evoView') || 'all';
 let _evoCalc = null;           // per-render geometry cache for tooltips
 
-// Stack order: bottom → top
+// Stack order: bottom → top. Colors from the shared colorblind-safe palette.
 const _EVO_STATES = [
-  { key: 'review',   label: 'Learnt',   color: 'var(--good)'    },
-  { key: 'relearn',  label: 'Relearn',  color: 'var(--again)'   },
-  { key: 'learning', label: 'Learning', color: 'var(--hard)'    },
-  { key: 'new',      label: 'New',      color: 'var(--primary)' },
+  { key: 'review',   label: 'Learnt',   color: _STATE_COLOR.review   },
+  { key: 'relearn',  label: 'Relearn',  color: _STATE_COLOR.relearn  },
+  { key: 'learning', label: 'Learning', color: _STATE_COLOR.learning },
+  { key: 'new',      label: 'New',      color: _STATE_COLOR.new      },
 ];
 const _EVO_VIEWS = [['listening', 'Listening'], ['creating', 'Creating'], ['all', 'All']];
 
