@@ -74,6 +74,28 @@ let _calCategory = null;   // current card's category — shown on today even if
 let _calTimeline = null;   // {cards} from /api/cards/{id}/timeline — for per-day state borders
 let _calFocusCat = null;   // focus category — its chips stay full, other categories fade
 
+// Fade level for non-focus category chips — user-adjustable, persisted.
+let _calFade = (() => {
+  const v = parseFloat(localStorage.getItem('calFade'));
+  return v >= 0.15 && v <= 1 ? v : 0.55;
+})();
+function _calFadeApply() { document.documentElement.style.setProperty('--cal-fade', _calFade); }
+function setCalFade(v) {
+  _calFade = parseFloat(v);
+  localStorage.setItem('calFade', _calFade);
+  _calFadeApply();
+  document.querySelectorAll('.cal-fade-input').forEach(el => {
+    if (parseFloat(el.value) !== _calFade) el.value = _calFade;
+  });
+}
+function _calFadeSliderHtml() {
+  return `<label class="cal-fade-ctl" title="Other-category opacity">
+    <span>Fade</span>
+    <input type="range" class="cal-fade-input" min="0.15" max="1" step="0.05"
+           value="${_calFade}" oninput="setCalFade(this.value)">
+  </label>`;
+}
+
 const _RATING_CLASS = { 1: 'again', 2: 'hard', 3: 'good', 4: 'easy' };
 const _CAT_CLASS    = { listening: 'listening', reading: 'reading', creating: 'creating' };
 
@@ -107,6 +129,7 @@ function _buildCalDayMap() {
 function _renderCal(timelineId = 'cal-timeline', panelId = 'review-cal-panel') {
   const timelineEl = document.getElementById(timelineId);
   if (!timelineEl) return;
+  _calFadeApply();
 
   // Per-(category, date) card state, for the colored chip borders. Built from
   // the timeline data so each review chip shows the state the card was in then.
@@ -259,14 +282,16 @@ async function _loadCardTile(cardId, category) {
 let _ctlData     = null;   // {cards} from /api/cards/{id}/timeline (review view)
 let _ctlCategory = null;   // category of the card being reviewed
 
-// Colorblind-safe card-state palette (Okabe-Ito based). Avoids the orange/green
-// pairing Daniel can't tell apart: Learning is black (not orange), Relearn is
-// reddish-purple (not red) so it stays distinct from the green "Learnt".
+// Colorblind-safe card-state palette (Okabe-Ito). Avoids the green/red/orange/
+// purple cluster entirely — those mid-tones are unreliable for red-green CB.
+// Instead it separates states on the two axes Daniel can read: blue↔yellow hue
+// and lightness. Learnt vs Relearn = blue vs orange (the safest pairing); New
+// vs Learnt = light blue vs dark blue (separated by lightness); Learning = black.
 const _STATE_COLOR = {
-  new:      '#0072B2',  // blue
-  learning: '#111111',  // black
-  review:   '#009E73',  // bluish green
-  relearn:  '#CC79A7',  // reddish purple
+  new:      '#56B4E9',  // sky blue (light)
+  learning: '#000000',  // black
+  review:   '#0072B2',  // blue (dark)
+  relearn:  '#D55E00',  // vermillion / orange
 };
 const _CGRAPH_COLOR = _STATE_COLOR;
 const _CGRAPH_LABEL = { new: 'New', learning: 'Learning', review: 'Learnt', relearn: 'Relearn' };
@@ -282,6 +307,8 @@ function _renderCardTile() {
   }
   // Scroll the calendar's own container (not the outer panel) so the graph
   // above it stays visible instead of being pushed out of view.
+  const fadeRow = document.getElementById('cal-fade-row');
+  if (fadeRow) fadeRow.innerHTML = _calFadeSliderHtml();
   _calTimeline = _ctlData;
   _calFocusCat = _ctlCategory;
   if (_calData) _renderCal('cal-timeline', 'card-calendar');
@@ -385,6 +412,7 @@ function _wdRenderCardTile() {
     <div class="wd-card-tile">
       <div class="card-tile-head">
         <div class="hcal-seg">${catBtns}</div>
+        ${_calFadeSliderHtml()}
       </div>
       <div id="wd-tile-graph">${_cardGraphHtml(card)}</div>
       <div class="card-calendar wd-cal-scroll" id="wd-cal-scroll"><div id="wd-cal-timeline"></div></div>

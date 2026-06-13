@@ -3559,8 +3559,16 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 }
 /* Colored border = card state on that day (colorblind-safe palette, see graph) */
 .cal-chip-state { border: 2px solid; }
-/* Non-focus category chips fade so the current category stands out */
-.cal-chip-faded { opacity: 0.3; }
+/* Non-focus category chips fade so the current category stands out.
+   Opacity is user-adjustable via the small slider (CSS var, persisted). */
+.cal-chip-faded { opacity: var(--cal-fade, 0.55); }
+
+.cal-fade-ctl {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--muted);
+}
+.cal-fade-ctl input[type="range"] { width: 64px; height: 14px; cursor: pointer; }
+.cal-fade-row { margin: 8px 0 4px; }
 /* Past review chips — background = rating */
 .cal-chip-again { background: #ef4444; }
 .cal-chip-hard  { background: #f97316; }
