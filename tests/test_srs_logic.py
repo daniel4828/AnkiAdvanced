@@ -24,11 +24,12 @@ DEFAULT_PRESET = {
     "relearning_steps":    "10",
     "minimum_interval":    1,
     "leech_threshold":     8,
+    "learning_leech_threshold": 6,
     "leech_action":        "suspend",
 }
 
 def make_card(state="new", step_index=0, interval=1, ease=2.5, lapses=0,
-              repetitions=0):
+              repetitions=0, learning_again_count=0):
     return {
         "id": 1,
         "state":        state,
@@ -37,6 +38,7 @@ def make_card(state="new", step_index=0, interval=1, ease=2.5, lapses=0,
         "ease":         ease,
         "lapses":       lapses,
         "repetitions":  repetitions,
+        "learning_again_count": learning_again_count,
         "due":          "2026-01-01",
     }
 
