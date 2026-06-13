@@ -3555,7 +3555,12 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   color: #fff;
   letter-spacing: 0;
   line-height: 1;
+  box-sizing: border-box;
 }
+/* Colored border = card state on that day (colorblind-safe palette, see graph) */
+.cal-chip-state { border: 2px solid; }
+/* Non-focus category chips fade so the current category stands out */
+.cal-chip-faded { opacity: 0.3; }
 /* Past review chips — background = rating */
 .cal-chip-again { background: #ef4444; }
 .cal-chip-hard  { background: #f97316; }

@@ -71,6 +71,8 @@ let _calData     = null;   // {history, future} from API
 let _calYear     = null;
 let _calMonth    = null;   // 0-based
 let _calCategory = null;   // current card's category — shown on today even if not in dues
+let _calTimeline = null;   // {cards} from /api/cards/{id}/timeline — for per-day state borders
+let _calFocusCat = null;   // focus category — its chips stay full, other categories fade
 
 const _RATING_CLASS = { 1: 'again', 2: 'hard', 3: 'good', 4: 'easy' };
 const _CAT_CLASS    = { listening: 'listening', reading: 'reading', creating: 'creating' };
@@ -105,6 +107,14 @@ function _buildCalDayMap() {
 function _renderCal(timelineId = 'cal-timeline', panelId = 'review-cal-panel') {
   const timelineEl = document.getElementById(timelineId);
   if (!timelineEl) return;
+
+  // Per-(category, date) card state, for the colored chip borders. Built from
+  // the timeline data so each review chip shows the state the card was in then.
+  const stateByCatDate = {};
+  for (const card of (_calTimeline?.cards || [])) {
+    const m = stateByCatDate[card.category] = {};
+    for (const p of (card.points || [])) m[p.at.slice(0, 10)] = p.state;
+  }
 
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
@@ -175,12 +185,18 @@ function _renderCal(timelineId = 'cal-timeline', panelId = 'review-cal-panel') {
         for (const r of ratings) {
           const rCls = _RATING_CLASS[r.rating] || 'good';
           const letter = _CAT_LETTER[r.category] || '?';
-          html += `<span class="cal-chip cal-chip-${rCls}" title="${r.category}: ${rCls}">${letter}</span>`;
+          const st = stateByCatDate[r.category]?.[dateStr];
+          const faded = (_calFocusCat && r.category !== _calFocusCat) ? ' cal-chip-faded' : '';
+          const cls = `cal-chip cal-chip-${rCls}${st ? ' cal-chip-state' : ''}${faded}`;
+          const style = st ? ` style="border-color:${_STATE_COLOR[st]}"` : '';
+          const stTip = st ? ` · ${_CGRAPH_LABEL[st] || st}` : '';
+          html += `<span class="${cls}"${style} title="${r.category}: ${rCls}${stTip}">${letter}</span>`;
         }
         for (const f of visibleDues) {
           const cCls = _CAT_CLASS[f.category] || '';
           const letter = _CAT_LETTER[f.category] || '?';
-          html += `<span class="cal-chip cal-chip-due-${cCls}" title="${f.category} due">${letter}</span>`;
+          const faded = (_calFocusCat && f.category !== _calFocusCat) ? ' cal-chip-faded' : '';
+          html += `<span class="cal-chip cal-chip-due-${cCls}${faded}" title="${f.category} due">${letter}</span>`;
         }
         html += '</div>';
       } else if (isToday && _calCategory) {
@@ -243,10 +259,16 @@ async function _loadCardTile(cardId, category) {
 let _ctlData     = null;   // {cards} from /api/cards/{id}/timeline (review view)
 let _ctlCategory = null;   // category of the card being reviewed
 
-const _CGRAPH_COLOR = {
-  new: 'var(--primary)', learning: 'var(--hard)',
-  review: 'var(--good)', relearn: 'var(--again)',
+// Colorblind-safe card-state palette (Okabe-Ito based). Avoids the orange/green
+// pairing Daniel can't tell apart: Learning is black (not orange), Relearn is
+// reddish-purple (not red) so it stays distinct from the green "Learnt".
+const _STATE_COLOR = {
+  new:      '#0072B2',  // blue
+  learning: '#111111',  // black
+  review:   '#009E73',  // bluish green
+  relearn:  '#CC79A7',  // reddish purple
 };
+const _CGRAPH_COLOR = _STATE_COLOR;
 const _CGRAPH_LABEL = { new: 'New', learning: 'Learning', review: 'Learnt', relearn: 'Relearn' };
 const _CGRAPH_RATING = { 1: 'Again', 2: 'Hard', 3: 'Good', 4: 'Easy' };
 
@@ -260,6 +282,8 @@ function _renderCardTile() {
   }
   // Scroll the calendar's own container (not the outer panel) so the graph
   // above it stays visible instead of being pushed out of view.
+  _calTimeline = _ctlData;
+  _calFocusCat = _ctlCategory;
   if (_calData) _renderCal('cal-timeline', 'card-calendar');
 }
 
@@ -366,12 +390,16 @@ function _wdRenderCardTile() {
       <div class="card-calendar wd-cal-scroll" id="wd-cal-scroll"><div id="wd-cal-timeline"></div></div>
     </div>`;
   if (_wdCalData) {
-    const saved = _calData, savedCat = _calCategory;
+    const saved = _calData, savedCat = _calCategory, savedTl = _calTimeline, savedFocus = _calFocusCat;
     _calData = _wdCalData;
     _calCategory = null;
+    _calTimeline = _wdTlData;
+    _calFocusCat = _wdCat;
     _renderCal('wd-cal-timeline', 'wd-cal-scroll');
     _calData = saved;
     _calCategory = savedCat;
+    _calTimeline = savedTl;
+    _calFocusCat = savedFocus;
   }
 }
 
@@ -7414,12 +7442,12 @@ let _evoLoading = false;
 let _evoView = localStorage.getItem('evoView') || 'all';
 let _evoCalc = null;           // per-render geometry cache for tooltips
 
-// Stack order: bottom → top
+// Stack order: bottom → top. Colors from the shared colorblind-safe palette.
 const _EVO_STATES = [
-  { key: 'review',   label: 'Learnt',   color: 'var(--good)'    },
-  { key: 'relearn',  label: 'Relearn',  color: 'var(--again)'   },
-  { key: 'learning', label: 'Learning', color: 'var(--hard)'    },
-  { key: 'new',      label: 'New',      color: 'var(--primary)' },
+  { key: 'review',   label: 'Learnt',   color: _STATE_COLOR.review   },
+  { key: 'relearn',  label: 'Relearn',  color: _STATE_COLOR.relearn  },
+  { key: 'learning', label: 'Learning', color: _STATE_COLOR.learning },
+  { key: 'new',      label: 'New',      color: _STATE_COLOR.new      },
 ];
 const _EVO_VIEWS = [['listening', 'Listening'], ['creating', 'Creating'], ['all', 'All']];
 
