@@ -263,6 +263,14 @@ function _renderCardTile() {
   if (_calData) _renderCal('cal-timeline', 'card-calendar');
 }
 
+// Format a scheduled interval (in days) for tooltips: sub-day → min/h, else days.
+function _fmtIval(days) {
+  if (days >= 1) return `${Math.round(days)}d`;
+  const mins = Math.round(days * 1440);
+  if (mins < 60) return `${mins}m`;
+  return `${Math.round(mins / 60)}h`;
+}
+
 // Shared SVG renderer: x = time, y = interval (days), colored by card state
 function _cardGraphHtml(card) {
   const pts = (card?.points || []).slice();
@@ -294,8 +302,8 @@ function _cardGraphHtml(card) {
     const color = _CGRAPH_COLOR[p.state] || 'var(--muted)';
     const day = p.at.slice(0, 10);
     const tip = p.scheduled
-      ? `${day} · due · interval ${p.gap}d`
-      : `${day} · interval ${p.gap}d · ${_CGRAPH_RATING[p.rating] || ''} · ${_CGRAPH_LABEL[p.state] || p.state}`;
+      ? `${day} · due · interval ${_fmtIval(p.gap)}`
+      : `${day} · interval ${_fmtIval(p.gap)} · ${_CGRAPH_RATING[p.rating] || ''} · ${_CGRAPH_LABEL[p.state] || p.state}`;
     return `<circle cx="${x(p).toFixed(1)}" cy="${y(p).toFixed(1)}" r="3"
               fill="${p.scheduled ? 'var(--card)' : color}" stroke="${color}" stroke-width="1.5"><title>${tip}</title></circle>`;
   }).join('');

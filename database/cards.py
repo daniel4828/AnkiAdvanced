@@ -1376,19 +1376,107 @@ def get_card_calendar_data(card_id: int) -> dict:
     }
 
 
+def _parse_step_minutes(steps_str: str) -> list[float]:
+    """Parse a learning/relearning step string to minutes.
+
+    Mirrors srs._parse_steps: plain numbers and "m" are minutes, "d" is days
+    (×1440). Malformed tokens are skipped; empty input falls back to [1].
+    """
+    out = []
+    for s in str(steps_str).strip().split():
+        try:
+            if s.endswith("d"):
+                out.append(float(s[:-1]) * 1440)
+            elif s.endswith("m"):
+                out.append(float(s[:-1]))
+            else:
+                out.append(float(s))
+        except ValueError:
+            continue
+    return out or [1.0]
+
+
+def _replay_schedule_step(state, step, interval, ease, rating, P):
+    """Pure SM-2 replay of one review (no fuzz, no DB).
+
+    Returns (new_state, new_step, new_interval, new_ease, gap_days) where
+    gap_days is the scheduled delay until the card's next due — i.e. the
+    interval the scheduler assigned. Learning/relearn steps are sub-day
+    (minutes/1440); review intervals are whole days.
+    """
+    ls, rs = P["learning_steps"], P["relearning_steps"]
+
+    if state in ("new", "learning"):
+        if rating == 4:                         # Easy → graduate
+            return ("review", 0, P["easy_interval"], ease, float(P["easy_interval"]))
+        if rating == 1:                         # Again → back to step 0
+            return ("learning", 0, interval, ease, ls[0] / 1440)
+        if rating == 2:                         # Hard → repeat step
+            if step == 0 and len(ls) > 1:
+                delay = (ls[0] + ls[1]) / 2
+            elif len(ls) == 1:
+                delay = ls[0] * 1.5
+            else:
+                delay = ls[step]
+            return ("learning", step, interval, ease, delay / 1440)
+        if step >= len(ls) - 1:                 # Good on last step → graduate
+            return ("review", 0, P["graduating_interval"], ease, float(P["graduating_interval"]))
+        return ("learning", step + 1, interval, ease, ls[step + 1] / 1440)
+
+    if state == "review":
+        if rating == 1:                         # Again → lapse + relearn
+            ne = max(1.3, ease - 0.20)
+            iv = max(P["minimum_interval"], int(interval * 0.5))
+            return ("relearn", 0, iv, ne, rs[0] / 1440)
+        if rating == 2:                         # Hard
+            ne = max(1.3, ease - 0.15)
+            iv = max(P["minimum_interval"], int(interval * 1.2))
+            return ("review", 0, iv, ne, float(iv))
+        if rating == 3:                         # Good
+            iv = max(P["minimum_interval"], int(interval * ease))
+            return ("review", 0, iv, ease, float(iv))
+        ne = ease + 0.15                        # Easy
+        iv = max(P["minimum_interval"], int(interval * ne * 1.3))
+        return ("review", 0, iv, ne, float(iv))
+
+    if state == "relearn":
+        if rating == 1:
+            return ("relearn", 0, interval, ease, rs[0] / 1440)
+        if rating == 2:
+            if step == 0 and len(rs) > 1:
+                delay = (rs[0] + rs[1]) / 2
+            elif len(rs) == 1:
+                delay = rs[0] * 1.5
+            else:
+                delay = rs[step]
+            return ("relearn", step, interval, ease, delay / 1440)
+        if rating == 4:                         # Easy → review
+            iv = max(P["minimum_interval"], int(interval * ease))
+            return ("review", 0, iv, ease, float(iv))
+        if step >= len(rs) - 1:                 # Good on last step → review
+            iv = max(P["minimum_interval"], interval)
+            return ("review", 0, iv, ease, float(iv))
+        return ("relearn", step + 1, interval, ease, rs[step + 1] / 1440)
+
+    return (state, step, interval, ease, float(interval))
+
+
 def get_card_timeline_data(card_id: int) -> dict:
     """Per-card interval timeline for all category cards of the same word.
 
-    review_log does not store intervals, so the y-value of each point is the
-    real elapsed time since the previous review (in days, 0 for the first
-    review). The card's state at each point is replayed with the SM-2 state
-    machine (see stats._next_state); recorded review_log.state values
-    recalibrate the replay and the card's current state pins the end.
+    The y-value of each point is the *scheduled* SRS interval the card was
+    given after that review (whole days for review cards, sub-day for
+    learning/relearn steps), reconstructed by replaying the full SM-2
+    scheduler over the rating history (review_log stores ratings, not
+    intervals). This is what Anki's card-info graph shows and — unlike the
+    raw elapsed time between reviews — diverges per card by ease/rating even
+    when several cards are studied together on the same days.
 
-    Each card gets a final scheduled point at its due date with the current
-    interval, so the graph extends into the future.
+    Recorded review_log.state values recalibrate the replayed state, and the
+    card's current state pins the end. Each card gets a final dashed point at
+    its real due date with the current interval.
     """
-    from .stats import _next_state, _EVOLUTION_STATES
+    from .stats import _EVOLUTION_STATES
 
     conn = get_db()
     word_row = conn.execute("SELECT word_id FROM cards WHERE id = ?", (card_id,)).fetchone()
@@ -1414,42 +1502,48 @@ def get_card_timeline_data(card_id: int) -> dict:
         ).fetchall()
 
         preset = get_preset_for_deck(c["deck_id"], c["category"]) or {}
-        n_learn = max(1, len(str(preset.get("learning_steps", "1 10")).split()))
-        n_relearn = max(1, len(str(preset.get("relearning_steps", "10")).split()))
+        P = {
+            "learning_steps":      _parse_step_minutes(preset.get("learning_steps", "1 10")),
+            "relearning_steps":    _parse_step_minutes(preset.get("relearning_steps", "10")),
+            "graduating_interval": preset.get("graduating_interval", 1),
+            "easy_interval":       preset.get("easy_interval", 4),
+            "minimum_interval":    preset.get("minimum_interval", 1),
+        }
 
         final = c["state"]
         if final == "suspended":
             final = c["pre_suspend_state"]
 
         points = []
-        state, step = "new", 0
-        prev_dt = None
+        state, step, interval, ease = "new", 0, 0, 2.5
         for r in rows:
             if r["state"] in _EVOLUTION_STATES and r["state"] != state:
                 state, step = r["state"], 0  # recalibrate from recorded truth
-            state, step = _next_state(state, step, r["rating"], n_learn, n_relearn)
-            dt = datetime.fromisoformat(r["at"])
-            gap = (dt - prev_dt).total_seconds() / 86400 if prev_dt else 0.0
+            state, step, interval, ease, gap = _replay_schedule_step(
+                state, step, interval, ease, r["rating"], P)
             points.append({
                 "at": r["at"],
-                "gap": round(gap, 2),
+                "gap": round(gap, 3),
                 "rating": r["rating"],
                 "state": state,
             })
-            prev_dt = dt
         if points and final in _EVOLUTION_STATES:
             points[-1]["state"] = final  # pin the end to the card's real state
 
-        # Scheduled point: where the card is due next (skip new/suspended cards)
+        # Final dashed point: the card's real current interval, plotted at its due date
         scheduled = None
         if points and c["state"] in ("learning", "relearn", "review"):
             due_raw = c["due"]
             due_dt = datetime.fromisoformat(due_raw) if len(due_raw) > 10 \
                 else datetime.fromisoformat(due_raw + "T04:00:00")
-            gap = max(0.0, (due_dt - prev_dt).total_seconds() / 86400)
+            if c["state"] == "review":
+                gap = float(c["interval"])
+            else:
+                last_dt = datetime.fromisoformat(rows[-1]["at"])
+                gap = max(0.0, (due_dt - last_dt).total_seconds() / 86400)
             scheduled = {
                 "at": due_dt.isoformat(sep=" "),
-                "gap": round(c["interval"], 2) if c["state"] == "review" else round(gap, 2),
+                "gap": round(gap, 3),
                 "state": c["state"],
             }
 
