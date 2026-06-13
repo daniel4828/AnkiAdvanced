@@ -239,10 +239,9 @@ async function _loadCardTile(cardId, category) {
   } catch (e) { /* silently skip if unavailable */ }
 }
 
-// ── Card interval graph + graph/calendar tile toggle (issue #323) ───────────
+// ── Card interval graph + calendar (issue #323) — graph on top, calendar below
 let _ctlData     = null;   // {cards} from /api/cards/{id}/timeline (review view)
 let _ctlCategory = null;   // category of the card being reviewed
-let _cardTileMode = localStorage.getItem('cardTileMode') || 'graph';
 
 const _CGRAPH_COLOR = {
   new: 'var(--primary)', learning: 'var(--hard)',
@@ -251,33 +250,15 @@ const _CGRAPH_COLOR = {
 const _CGRAPH_LABEL = { new: 'New', learning: 'Learning', review: 'Learnt', relearn: 'Relearn' };
 const _CGRAPH_RATING = { 1: 'Again', 2: 'Hard', 3: 'Good', 4: 'Easy' };
 
-function setCardTileMode(m) {
-  _cardTileMode = m;
-  localStorage.setItem('cardTileMode', m);
-  _renderCardTile();
-  _wdRenderCardTile();
-}
-
-// Review-view tile: switch between interval graph and calendar
+// Review-view tile: interval graph stacked above the calendar
 function _renderCardTile() {
   const g = document.getElementById('card-graph');
-  const c = document.getElementById('card-calendar');
-  if (!g || !c) return;
-  const bg = document.getElementById('ctile-btn-graph');
-  const bc = document.getElementById('ctile-btn-calendar');
-  if (bg) bg.classList.toggle('active', _cardTileMode === 'graph');
-  if (bc) bc.classList.toggle('active', _cardTileMode !== 'graph');
-  if (_cardTileMode === 'graph') {
-    c.style.display = 'none';
-    g.style.display = '';
+  if (g) {
     const cards = _ctlData?.cards || [];
     const card = cards.find(k => k.category === _ctlCategory) || cards[0];
     g.innerHTML = _cardGraphHtml(card);
-  } else {
-    g.style.display = 'none';
-    c.style.display = '';
-    if (_calData) _renderCal();
   }
+  if (_calData) _renderCal();
 }
 
 // Shared SVG renderer: x = time, y = interval (days), colored by card state
@@ -360,29 +341,21 @@ function wdSetTileCat(cat) { _wdCat = cat; _wdRenderCardTile(); }
 function _wdRenderCardTile() {
   const el = document.getElementById('wd-card-tile-section');
   if (!el || !_wdTlData) return;
-  const isGraph = _cardTileMode === 'graph';
   const catBtns = (_wdTlData.cards || []).map(c =>
     `<button class="hcal-seg-btn ${c.category === _wdCat ? 'active' : ''}"
              onclick="wdSetTileCat('${c.category}')">${_CAT_LETTER[c.category] || c.category}</button>`).join('');
+  const cards = _wdTlData.cards || [];
+  const card = cards.find(c => c.category === _wdCat) || cards[0];
   el.innerHTML = `
     <div class="section-label">Schedule</div>
     <div class="wd-card-tile">
       <div class="card-tile-head">
-        <div class="hcal-seg">
-          <button class="hcal-seg-btn ${isGraph ? 'active' : ''}" onclick="setCardTileMode('graph')">Graph</button>
-          <button class="hcal-seg-btn ${!isGraph ? 'active' : ''}" onclick="setCardTileMode('calendar')">Calendar</button>
-        </div>
-        ${isGraph ? `<div class="hcal-seg">${catBtns}</div>` : ''}
+        <div class="hcal-seg">${catBtns}</div>
       </div>
-      <div id="wd-tile-body"></div>
+      <div id="wd-tile-graph">${_cardGraphHtml(card)}</div>
+      <div class="card-calendar wd-cal-scroll" id="wd-cal-scroll"><div id="wd-cal-timeline"></div></div>
     </div>`;
-  const body = document.getElementById('wd-tile-body');
-  if (isGraph) {
-    const cards = _wdTlData.cards || [];
-    const card = cards.find(c => c.category === _wdCat) || cards[0];
-    body.innerHTML = _cardGraphHtml(card);
-  } else {
-    body.innerHTML = `<div class="card-calendar wd-cal-scroll" id="wd-cal-scroll"><div id="wd-cal-timeline"></div></div>`;
+  if (_wdCalData) {
     const saved = _calData, savedCat = _calCategory;
     _calData = _wdCalData;
     _calCategory = null;

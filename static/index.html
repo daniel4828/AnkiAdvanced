@@ -240,16 +240,10 @@
         </div>
       </div>
 
-      <!-- LEFT: Card tile — interval graph / calendar toggle (hidden until data loads) -->
+      <!-- LEFT: Card tile — interval graph on top, calendar below (hidden until data loads) -->
       <div class="review-side-tile review-cal-tile" id="review-cal-panel" style="display:none">
-        <div class="card-tile-head">
-          <div class="hcal-seg">
-            <button class="hcal-seg-btn" id="ctile-btn-graph" onclick="setCardTileMode('graph')">Graph</button>
-            <button class="hcal-seg-btn" id="ctile-btn-calendar" onclick="setCardTileMode('calendar')">Calendar</button>
-          </div>
-        </div>
-        <div id="card-graph" class="card-graph" style="display:none"></div>
-        <div id="card-calendar" class="card-calendar" style="display:none">
+        <div id="card-graph" class="card-graph"></div>
+        <div id="card-calendar" class="card-calendar">
           <div id="cal-timeline"></div>
           <div class="cal-legend">
             <span class="cal-legend-item"><span class="cal-legend-swatch cal-chip-again"></span>Again</span>

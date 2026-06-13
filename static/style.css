@@ -4088,6 +4088,13 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   margin-top: 6px; font-size: 11px; color: var(--muted);
 }
 .cgraph-empty { color: var(--muted); font-size: 12px; padding: 8px 2px; }
+
+/* Graph sits above the calendar in the same tile — separate them */
+#card-graph, #wd-tile-graph {
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
 .wd-card-tile {
   background: var(--card);
   border: 1px solid var(--border);
