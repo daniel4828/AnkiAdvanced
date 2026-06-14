@@ -244,7 +244,15 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
             "Card #%d %s SUSPENDED (lapses=%d)",
             card_before["id"], card_before["word_zh"], updated["lapses"],
         )
-    return {"next_card": next_card, "counts": counts}
+    state_from = card_before["state"]
+    state_to   = updated["state"]
+    transition = {
+        "from":    state_from,
+        "to":      state_to,
+        "changed": state_from != state_to,
+        "leech":   bool(updated.get("is_leech")) and state_to == "suspended",
+    }
+    return {"next_card": next_card, "counts": counts, "transition": transition}
 
 
 
