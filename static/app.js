@@ -387,6 +387,11 @@ function _cardGraphHtml(card) {
     svg += `<line x1="${x(a).toFixed(1)}" y1="${y(a).toFixed(1)}" x2="${x(b).toFixed(1)}" y2="${y(b).toFixed(1)}"
               stroke="${color}" stroke-width="2.8" stroke-linecap="round"${b.scheduled ? ' stroke-dasharray="5 4"' : ''}/>`;
   }
+  // Small tick under every data point so the x-axis marks the days with data
+  const baseY = (H - PB).toFixed(1);
+  svg += pts.map(p =>
+    `<line x1="${x(p).toFixed(1)}" y1="${baseY}" x2="${x(p).toFixed(1)}" y2="${(H - PB + 3).toFixed(1)}"
+           stroke="var(--muted)" stroke-width="0.8" opacity="0.7"/>`).join('');
   svg += pts.map(p => {
     const color = _CGRAPH_COLOR[p.state] || 'var(--muted)';
     const day = p.at.slice(0, 10);
@@ -400,11 +405,33 @@ function _cardGraphHtml(card) {
   const legend = Object.keys(_CGRAPH_LABEL).map(k =>
     `<span class="evo-leg"><span class="hcal-leg-sw" style="background:${_CGRAPH_COLOR[k]}"></span>${_CGRAPH_LABEL[k]}</span>`).join('');
   const fmtD = s => { const [m, d] = s.slice(5, 10).split('-'); return `${+m}/${+d}`; };
+
+  // Label each data point's date along the x-axis, thinning so labels never
+  // overlap (keep one only if far enough from the last kept), always keeping
+  // the first and last point.
+  const MIN_GAP = 30;  // viewBox units between adjacent labels
+  const keep = [];
+  let lastX = -Infinity;
+  for (const p of pts) {
+    const px = x(p);
+    if (px - lastX >= MIN_GAP) { keep.push({ p, px }); lastX = px; }
+  }
+  const lastPt = pts[pts.length - 1];
+  if (!keep.length || keep[keep.length - 1].p !== lastPt) {
+    const lpx = x(lastPt);
+    if (keep.length && lpx - keep[keep.length - 1].px < MIN_GAP) keep.pop();
+    keep.push({ p: lastPt, px: lpx });
+  }
+  const xlabels = keep.map(({ p, px }) => {
+    const pct = Math.min(97.5, Math.max(2.5, px / W * 100));  // clamp so edge labels aren't clipped
+    return `<span class="cgraph-xlabel" style="left:${pct.toFixed(2)}%">${fmtD(p.at)}</span>`;
+  }).join('');
+
   return `
     <div class="cgraph-wrap">
       <span class="cgraph-ymax">${ymax}d</span>
       <svg class="cgraph-svg" viewBox="0 0 ${W} ${H}">${svg}</svg>
-      <div class="hcal-graph-axis"><span>${fmtD(pts[0].at)}</span><span>${fmtD(pts[pts.length - 1].at)}</span></div>
+      <div class="cgraph-xaxis">${xlabels}</div>
       <div class="cgraph-legend">${legend}<span class="evo-leg">╌╌ scheduled</span></div>
     </div>`;
 }
