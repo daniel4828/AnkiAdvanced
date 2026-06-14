@@ -46,6 +46,7 @@ let wordDetails = null;   // full word data: examples + characters
 let _currentWordId = null; // word ID open in word-detail view
 let _prevView = null;      // view we came from before opening word-detail
 let _sessionReviewedCount = 0; // cards rated this session (for clap animation)
+let _sessionReviewedIds = [];  // card ids reviewed this session (for summary graph)
 let userInput   = '';     // creating category: what the user typed
 let clozeExtraWord = ''; // extra word blanked in cloze front (revealed on back)
 let wordBankTokens = [];  // [{char, num}] shuffled non-target tokens
@@ -418,6 +419,106 @@ function _cardGraphHtml(card) {
       <svg class="cgraph-svg" viewBox="0 0 ${W} ${H}">${svg}</svg>
       <div class="cgraph-xaxis">${xlabels}</div>
       <div class="cgraph-legend">${legend}<span class="evo-leg">╌╌ scheduled</span></div>
+    </div>`;
+}
+
+// ── Session summary graph (issue #337) ───────────────────────────────────────
+// Overlays every reviewed card's interval timeline. Hover a line → its word;
+// click → open that card's browse (word detail).
+
+// Distinct line colours, cycled per card. Chosen to stay separable for Daniel's
+// red-green CB (no red/green pairs adjacent; spans blue↔orange↔purple).
+const _SUMMARY_PALETTE = [
+  '#0072B2', '#E69F00', '#CC79A7', '#56B4E9',
+  '#9467bd', '#8c564b', '#117733', '#882255',
+];
+
+async function openSessionSummary() {
+  const ids = [...new Set(_sessionReviewedIds)];
+  const body = document.getElementById('session-summary-body');
+  document.getElementById('session-summary-overlay').style.display = 'block';
+  document.getElementById('session-summary-modal').style.display = 'block';
+  if (!ids.length) {
+    body.innerHTML = '<div class="cgraph-empty">No cards reviewed yet this session.</div>';
+    return;
+  }
+  body.innerHTML = '<div class="cgraph-empty">Loading…</div>';
+  try {
+    const data = await api('POST', '/api/session-timelines', { ids });
+    body.innerHTML = _sessionSummaryHtml(data.cards || []);
+  } catch (e) {
+    body.innerHTML = `<div class="cgraph-empty">Failed to load: ${e.message}</div>`;
+  }
+}
+
+function closeSessionSummary() {
+  document.getElementById('session-summary-overlay').style.display = 'none';
+  document.getElementById('session-summary-modal').style.display = 'none';
+}
+
+function sumLineClick(wordId) {
+  closeSessionSummary();
+  openWordDetail(wordId);
+}
+
+function _sessionSummaryHtml(cards) {
+  // Keep only cards that actually have a line to draw
+  const drawn = cards.filter(c => (c.points || []).length);
+  if (!drawn.length) return '<div class="cgraph-empty">No interval history yet for these cards.</div>';
+
+  const W = 600, H = 340, PT = 14, PB = 20, PL = 30, PR = 14;
+  const t = s => new Date(s.replace(' ', 'T')).getTime();
+
+  // Each card's full point list (reviews + the scheduled due point)
+  const series = drawn.map(c => {
+    const pts = (c.points || []).slice();
+    if (c.scheduled) pts.push({ ...c.scheduled, scheduled: true });
+    return { card: c, pts };
+  });
+
+  const allPts = series.flatMap(s => s.pts);
+  let t0 = Math.min(...allPts.map(p => t(p.at)));
+  let t1 = Math.max(...allPts.map(p => t(p.at)));
+  if (t1 <= t0) t1 = t0 + 86400000;
+  const ymax = Math.max(1, ...allPts.map(p => p.gap));
+
+  const x = p => PL + (t(p.at) - t0) / (t1 - t0) * (W - PL - PR);
+  // sqrt scale on y so short and long intervals are both legible
+  const y = p => PT + (1 - Math.sqrt(p.gap) / Math.sqrt(ymax)) * (H - PT - PB);
+
+  // Horizontal gridlines + interval labels at a few sqrt-spaced levels
+  let svg = '';
+  const yTicks = [0, ymax * 0.25, ymax * 0.5, ymax].map(v => Math.round(v));
+  for (const v of [...new Set(yTicks)]) {
+    const gy = (PT + (1 - Math.sqrt(v) / Math.sqrt(ymax)) * (H - PT - PB)).toFixed(1);
+    svg += `<line x1="${PL}" y1="${gy}" x2="${W - PR}" y2="${gy}" stroke="var(--border)" stroke-width="0.6"/>`;
+    svg += `<text x="${PL - 4}" y="${(+gy + 3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--muted)">${v}d</text>`;
+  }
+
+  // One group per card: polyline (+dashed scheduled tail), hover shows the word
+  series.forEach((s, i) => {
+    const color = _SUMMARY_PALETTE[i % _SUMMARY_PALETTE.length];
+    const real = s.card.points.map(p => `${x(p).toFixed(1)},${y(p).toFixed(1)}`).join(' ');
+    let body = `<polyline points="${real}" fill="none" stroke="${color}"/>`;
+    if (s.card.scheduled && s.card.points.length) {
+      const a = s.card.points[s.card.points.length - 1], b = s.card.scheduled;
+      body += `<line x1="${x(a).toFixed(1)}" y1="${y(a).toFixed(1)}" x2="${x(b).toFixed(1)}" y2="${y(b).toFixed(1)}"
+                 stroke="${color}" stroke-dasharray="4 3"/>`;
+    }
+    body += s.pts.map(p => `<circle cx="${x(p).toFixed(1)}" cy="${y(p).toFixed(1)}" r="2.5" fill="${color}"/>`).join('');
+    const label = `${s.card.word_zh}${s.card.pinyin ? ' ' + s.card.pinyin : ''} · ${_CGRAPH_LABEL[s.card.state] || s.card.state}`;
+    svg += `<g class="sum-card" onclick="sumLineClick(${s.card.word_id})"><title>${label}</title>${body}</g>`;
+  });
+
+  const fmtD = s => { const [m, d] = s.slice(5, 10).split('-'); return `${+m}/${+d}`; };
+  const d0 = new Date(t0), d1 = new Date(t1);
+  const iso = dt => dt.toISOString().slice(0, 10);
+
+  return `
+    <div class="session-summary-info">${drawn.length} cards · y = scheduled interval (days) · hover a line to see the word, click to open it</div>
+    <div class="cgraph-wrap">
+      <svg class="session-summary-svg" viewBox="0 0 ${W} ${H}">${svg}</svg>
+      <div class="hcal-graph-axis"><span>${fmtD(iso(d0))}</span><span>${fmtD(iso(d1))}</span></div>
     </div>`;
 }
 
@@ -2584,6 +2685,7 @@ async function startReview(id, cat, name, noStory = false, quick = false) {
   category = cat;
   deckName = name;
   _sessionReviewedCount = 0;
+  _sessionReviewedIds = [];
   _sessionTotalMs = 0;
   _sessionRatedCount = 0;
   _updateAvgTimeBadge();
@@ -2702,6 +2804,7 @@ async function startReviewMixed(id, name, noStory = false, quick = false) {
   deckName   = name;
   story      = null;
   _sessionReviewedCount = 0;
+  _sessionReviewedIds = [];
   _sessionTotalMs = 0;
   _sessionRatedCount = 0;
   _updateAvgTimeBadge();
@@ -4585,8 +4688,10 @@ async function rate(rating) {
     if (unfinishedMode) url += `&unfinished_mode=true`;
     else if (rootDeckId) url += `&root_deck_id=${rootDeckId}`;
     else if (deckId) url += `&parent_deck_id=${deckId}`;
+    const reviewedId = card.id;
     const result = await api('POST', url);
     _sessionReviewedCount++;
+    if (reviewedId != null) _sessionReviewedIds.push(reviewedId);
     if (result.transition?.changed) showStateChangeAnim(result.transition);
     if (typeof invalidateHomeCalendar === 'function') invalidateHomeCalendar();
     if (typeof invalidateHomeEvolution === 'function') invalidateHomeEvolution();
@@ -6549,6 +6654,7 @@ function _hasOpenModal() {
     'hanzi-edit-modal-overlay',
     'conflict-modal-overlay',
     'kahneman-examples-overlay',
+    'session-summary-overlay',
   ];
   return modalIds.some(_isVisible);
 }
@@ -6557,6 +6663,12 @@ document.addEventListener('keydown', async e => {
   const inInput = _isEditableFocusTarget(document.activeElement);
 
   if (e.key === 'Escape') {
+    const sessOverlay = document.getElementById('session-summary-overlay');
+    if (sessOverlay && sessOverlay.style.display !== 'none') {
+      e.preventDefault();
+      closeSessionSummary();
+      return;
+    }
     const kahnemanOverlay = document.getElementById('kahneman-examples-overlay');
     if (kahnemanOverlay && kahnemanOverlay.style.display !== 'none') {
       e.preventDefault();

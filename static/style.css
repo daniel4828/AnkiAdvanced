@@ -4138,6 +4138,31 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 }
 .cgraph-empty { color: var(--muted); font-size: 12px; padding: 8px 2px; }
 
+/* ── Session summary graph (issue #337) ─────────────────────────────────────*/
+#session-summary-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100; }
+#session-summary-modal {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 101;
+  background: var(--card);
+  border-radius: 18px;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.22);
+  width: min(680px, 94vw);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 18px 18px;
+}
+.session-summary-body { overflow: auto; }
+.session-summary-info { font-size: 11px; color: var(--muted); margin: 2px 0 8px; }
+.session-summary-svg { display: block; width: 100%; height: auto; }
+/* Each card is one group: dimmed by default, full opacity + thicker on hover */
+.sum-card { opacity: 0.42; cursor: pointer; transition: opacity 0.1s; }
+.sum-card:hover { opacity: 1; }
+.sum-card polyline, .sum-card line { stroke-width: 2; fill: none; }
+.sum-card:hover polyline, .sum-card:hover line { stroke-width: 3.6; }
+
 /* Graph sits above the calendar in the same tile — separate them */
 #card-graph, #wd-tile-graph {
   padding-bottom: 12px;
