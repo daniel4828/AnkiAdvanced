@@ -89,11 +89,9 @@ function setCalFade(v) {
   });
 }
 function _calFadeSliderHtml() {
-  return `<label class="cal-fade-ctl" title="Other-category opacity">
-    <span>Fade</span>
-    <input type="range" class="cal-fade-input" min="0.15" max="1" step="0.05"
-           value="${_calFade}" oninput="setCalFade(this.value)">
-  </label>`;
+  // The redesigned calendar marks the focus category by enlarging its dot
+  // instead of fading the others, so the opacity slider is no longer needed.
+  return '';
 }
 
 const _RATING_CLASS = { 1: 'again', 2: 'hard', 3: 'good', 4: 'easy' };
@@ -102,6 +100,25 @@ const _CAT_CLASS    = { listening: 'listening', reading: 'reading', creating: 'c
 function _calKey(dateStr) { return dateStr; }  // "YYYY-MM-DD"
 
 const _CAT_LETTER = { listening: '听', reading: '读', creating: '创' };
+
+// Fixed slot order for the calendar dots: position alone encodes the category,
+// so no glyph is needed in the dense grid (listening · reading · creating).
+const _CAL_CATS = ['listening', 'reading', 'creating'];
+
+// Sticky legend shown above the month grid (shared by review + word-detail cals).
+// Dot colour = card state (colorblind-safe); filled = reviewed, hollow = due.
+function _calLegendHtml() {
+  const states = [['new', 'New'], ['learning', 'Learning'], ['review', 'Learnt'], ['relearn', 'Relearn']];
+  const sw = states.map(([k, l]) =>
+    `<span class="cal-leg-item"><span class="cal-leg-dot" style="background:${_STATE_COLOR[k]};border-color:${_STATE_COLOR[k]}"></span>${l}</span>`).join('');
+  return `<div class="cal-legend2">${sw}`
+    + `<span class="cal-leg-sep"></span>`
+    + `<span class="cal-leg-item"><span class="cal-leg-dot cal-leg-filled"></span>done</span>`
+    + `<span class="cal-leg-item"><span class="cal-leg-dot cal-leg-hollow"></span>due</span>`
+    + `<span class="cal-leg-sep"></span>`
+    + `<span class="cal-leg-item">听·读·创 = slots L→R</span>`
+    + `</div>`;
+}
 
 function _buildCalDayMap() {
   // Deduplicate: per (date, category) keep only the last review
@@ -167,7 +184,7 @@ function _renderCal(timelineId = 'cal-timeline', panelId = 'review-cal-panel') {
     }
   }
 
-  let html = '';
+  let html = _calLegendHtml();
   let yr = startDate.getFullYear(), mo = startDate.getMonth();
   const endYr = endDate.getFullYear(), endMo = endDate.getMonth();
   let todayMonthId = null;
@@ -194,40 +211,36 @@ function _renderCal(timelineId = 'cal-timeline', panelId = 'review-cal-panel') {
       const isToday = dateStr === todayStr;
       const info = dayMap[dateStr];
 
-      // The current category's chip is suppressed (we're already reviewing it),
-      // so only ratings + other-category dues count as visible content. A date
-      // whose only due is the current category must render like an empty day:
-      // no grey "has-future" background, and its day number must still show.
+      // Fixed 3-slot dots (listening · reading · creating). The current category's
+      // future due is suppressed except on today (we're already reviewing it).
       const ratings     = info?.ratings || [];
-      const visibleDues = (info?.dues || []).filter(f => f.category !== _calCategory);
-      const hasVisible   = ratings.length > 0 || visibleDues.length > 0;
-      const hasFutureDue = dateStr > todayStr && visibleDues.length > 0;
-      html += `<div class="cal-cell${isToday ? ' cal-today' : ''}${hasFutureDue ? ' cal-has-future' : ''}">`;
+      const visibleDues = (info?.dues || []).filter(
+        f => f.category !== _calCategory || dateStr === todayStr);
+      const hasVisible  = ratings.length > 0 || visibleDues.length > 0;
+      html += `<div class="cal-cell${isToday ? ' cal-today' : ''}">`;
+      html += `<span class="cal-daynum${isToday ? ' cal-daynum-today' : ''}">${d}</span>`;
       if (hasVisible) {
-        html += '<div class="cal-chips">';
-        for (const r of ratings) {
-          const rCls = _RATING_CLASS[r.rating] || 'good';
-          const letter = _CAT_LETTER[r.category] || '?';
-          const st = stateByCatDate[r.category]?.[dateStr];
-          const faded = (_calFocusCat && r.category !== _calFocusCat) ? ' cal-chip-faded' : '';
-          const cls = `cal-chip cal-chip-${rCls}${st ? ' cal-chip-state' : ''}${faded}`;
-          const style = st ? ` style="border-color:${_STATE_COLOR[st]}"` : '';
-          const stTip = st ? ` · ${_CGRAPH_LABEL[st] || st}` : '';
-          html += `<span class="${cls}"${style} title="${r.category}: ${rCls}${stTip}">${letter}</span>`;
-        }
-        for (const f of visibleDues) {
-          const cCls = _CAT_CLASS[f.category] || '';
-          const letter = _CAT_LETTER[f.category] || '?';
-          const faded = (_calFocusCat && f.category !== _calFocusCat) ? ' cal-chip-faded' : '';
-          html += `<span class="cal-chip cal-chip-due-${cCls}${faded}" title="${f.category} due">${letter}</span>`;
+        html += '<div class="cal-dots">';
+        for (const cat of _CAL_CATS) {
+          const past  = ratings.find(r => r.category === cat);
+          const due   = visibleDues.find(f => f.category === cat);
+          const focus = (cat === _calFocusCat) ? ' cal-dot-focus' : '';
+          const glyph = _CAT_LETTER[cat] || cat;
+          if (past) {
+            const st    = stateByCatDate[cat]?.[dateStr];
+            const color = st ? _STATE_COLOR[st] : 'var(--muted)';
+            const rTip  = _CGRAPH_RATING[past.rating] || '';
+            const stTip = st ? ` · ${_CGRAPH_LABEL[st] || st}` : '';
+            html += `<span class="cal-dot cal-dot-done${focus}" style="background:${color};border-color:${color}" title="${glyph} · ${rTip}${stTip}"></span>`;
+          } else if (due) {
+            const color = due.state ? _STATE_COLOR[due.state] : 'var(--muted)';
+            const stTip = due.state ? ` · ${_CGRAPH_LABEL[due.state] || due.state}` : '';
+            html += `<span class="cal-dot cal-dot-due${focus}" style="border-color:${color}" title="${glyph} · due${stTip}"></span>`;
+          } else {
+            html += '<span class="cal-dot cal-dot-empty"></span>';
+          }
         }
         html += '</div>';
-      } else if (isToday && _calCategory) {
-        const letter = _CAT_LETTER[_calCategory] || '?';
-        const cCls   = _CAT_CLASS[_calCategory]  || '';
-        html += `<div class="cal-chips"><span class="cal-chip cal-chip-due-${cCls}" title="${_calCategory} today">${letter}</span></div>`;
-      } else {
-        html += `<span class="cal-day-num${isToday ? ' cal-day-num-today' : ''}">${d}</span>`;
       }
       html += '</div>';
     }
