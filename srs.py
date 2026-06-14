@@ -211,6 +211,7 @@ def apply_review(card_id: int, rating: int,
         "relearning_steps":    card["relearning_steps"],
         "minimum_interval":    card["minimum_interval"],
         "leech_threshold":     card["leech_threshold"],
+        "learning_leech_threshold": card["learning_leech_threshold"],
         "leech_action":        card["leech_action"],
     }
 
@@ -233,6 +234,7 @@ def apply_review(card_id: int, rating: int,
         ease=updated["ease"],
         repetitions=updated["repetitions"],
         lapses=updated["lapses"],
+        learning_again_count=updated.get("learning_again_count"),
     )
     log_id = database.insert_review(
         card_id, rating, user_response=user_response,
@@ -258,6 +260,8 @@ def _handle_learning(card: dict, preset: dict, rating: int) -> dict:
         c["state"] = "learning"
         c["step_index"] = 0
         c["due"] = next_learning_due(steps, 0)
+        c["learning_again_count"] = c.get("learning_again_count", 0) + 1
+        _check_learning_leech(c, preset)
         return c
 
     if rating == 2:  # Hard — stay on current step, slow delay
@@ -325,6 +329,8 @@ def _handle_relearn(card: dict, preset: dict, rating: int) -> dict:
         c["state"] = "relearn"
         c["step_index"] = 0
         c["due"] = next_learning_due(steps, 0)
+        c["learning_again_count"] = c.get("learning_again_count", 0) + 1
+        _check_learning_leech(c, preset)
         return c
 
     if rating == 2:  # Hard — repeat current step
@@ -364,8 +370,19 @@ def _handle_relearn(card: dict, preset: dict, rating: int) -> dict:
 
 
 def _check_leech(card: dict, preset: dict) -> None:
-    """Suspend card if lapses >= leech_threshold."""
+    """Flag a review-state leech once lapses reach leech_threshold."""
     if card["lapses"] >= preset["leech_threshold"]:
-        if preset["leech_action"] == "suspend":
-            database.suspend_card(card["id"])
-            card["state"] = "suspended"
+        _apply_leech(card, preset)
+
+
+def _check_learning_leech(card: dict, preset: dict) -> None:
+    """Flag a learning/relearn leech once Again presses reach the threshold."""
+    if card.get("learning_again_count", 0) >= preset["learning_leech_threshold"]:
+        _apply_leech(card, preset)
+
+
+def _apply_leech(card: dict, preset: dict) -> None:
+    """Suspend + flag the card when leech_action is 'suspend'."""
+    if preset["leech_action"] == "suspend":
+        database.mark_leech_suspend(card["id"])
+        card["state"] = "suspended"

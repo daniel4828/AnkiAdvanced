@@ -40,7 +40,10 @@ CREATE TABLE IF NOT EXISTS deck_presets (
     randomize_story_order   INTEGER NOT NULL DEFAULT 0,
 
     -- Leech settings
-    leech_threshold         INTEGER NOT NULL DEFAULT 8,
+    -- leech_threshold: review-state lapses before a card is flagged as a leech
+    leech_threshold         INTEGER NOT NULL DEFAULT 3,
+    -- learning_leech_threshold: Again presses in learning/relearn before flagging
+    learning_leech_threshold INTEGER NOT NULL DEFAULT 6,
     leech_action            TEXT NOT NULL DEFAULT 'suspend'
                                 CHECK(leech_action IN ('suspend', 'tag')),
 
@@ -250,6 +253,12 @@ CREATE TABLE IF NOT EXISTS cards (
     repetitions INTEGER NOT NULL DEFAULT 0,
     lapses      INTEGER NOT NULL DEFAULT 0,
 
+    -- Again presses while in new/learning/relearn (drives the learning leech check)
+    learning_again_count INTEGER NOT NULL DEFAULT 0,
+
+    -- set to 1 when the card was suspended by leech detection (vs. manual suspend)
+    is_leech    INTEGER NOT NULL DEFAULT 0,
+
     -- Temporary burial: card is hidden until this date (resets automatically next day)
     buried_until TEXT,
 
@@ -432,6 +441,7 @@ CREATE TABLE IF NOT EXISTS preset_category_overrides (
     relearning_steps    TEXT,
     minimum_interval    INTEGER,
     leech_threshold     INTEGER,
+    learning_leech_threshold INTEGER,
     leech_action        TEXT CHECK(leech_action IN ('suspend', 'tag')),
     UNIQUE(preset_id, category)
 );

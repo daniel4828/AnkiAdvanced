@@ -71,6 +71,30 @@ let _calData     = null;   // {history, future} from API
 let _calYear     = null;
 let _calMonth    = null;   // 0-based
 let _calCategory = null;   // current card's category — shown on today even if not in dues
+let _calTimeline = null;   // {cards} from /api/cards/{id}/timeline — for per-day state borders
+let _calFocusCat = null;   // focus category — its chips stay full, other categories fade
+
+// Fade level for non-focus category chips — user-adjustable, persisted.
+let _calFade = (() => {
+  const v = parseFloat(localStorage.getItem('calFade'));
+  return v >= 0.15 && v <= 1 ? v : 0.55;
+})();
+function _calFadeApply() { document.documentElement.style.setProperty('--cal-fade', _calFade); }
+function setCalFade(v) {
+  _calFade = parseFloat(v);
+  localStorage.setItem('calFade', _calFade);
+  _calFadeApply();
+  document.querySelectorAll('.cal-fade-input').forEach(el => {
+    if (parseFloat(el.value) !== _calFade) el.value = _calFade;
+  });
+}
+function _calFadeSliderHtml() {
+  return `<label class="cal-fade-ctl" title="Other-category opacity">
+    <span>Fade</span>
+    <input type="range" class="cal-fade-input" min="0.15" max="1" step="0.05"
+           value="${_calFade}" oninput="setCalFade(this.value)">
+  </label>`;
+}
 
 const _RATING_CLASS = { 1: 'again', 2: 'hard', 3: 'good', 4: 'easy' };
 const _CAT_CLASS    = { listening: 'listening', reading: 'reading', creating: 'creating' };
@@ -102,9 +126,18 @@ function _buildCalDayMap() {
   return map;
 }
 
-function _renderCal() {
-  const timelineEl = document.getElementById('cal-timeline');
+function _renderCal(timelineId = 'cal-timeline', panelId = 'review-cal-panel') {
+  const timelineEl = document.getElementById(timelineId);
   if (!timelineEl) return;
+  _calFadeApply();
+
+  // Per-(category, date) card state, for the colored chip borders. Built from
+  // the timeline data so each review chip shows the state the card was in then.
+  const stateByCatDate = {};
+  for (const card of (_calTimeline?.cards || [])) {
+    const m = stateByCatDate[card.category] = {};
+    for (const p of (card.points || [])) m[p.at.slice(0, 10)] = p.state;
+  }
 
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
@@ -175,12 +208,18 @@ function _renderCal() {
         for (const r of ratings) {
           const rCls = _RATING_CLASS[r.rating] || 'good';
           const letter = _CAT_LETTER[r.category] || '?';
-          html += `<span class="cal-chip cal-chip-${rCls}" title="${r.category}: ${rCls}">${letter}</span>`;
+          const st = stateByCatDate[r.category]?.[dateStr];
+          const faded = (_calFocusCat && r.category !== _calFocusCat) ? ' cal-chip-faded' : '';
+          const cls = `cal-chip cal-chip-${rCls}${st ? ' cal-chip-state' : ''}${faded}`;
+          const style = st ? ` style="border-color:${_STATE_COLOR[st]}"` : '';
+          const stTip = st ? ` · ${_CGRAPH_LABEL[st] || st}` : '';
+          html += `<span class="${cls}"${style} title="${r.category}: ${rCls}${stTip}">${letter}</span>`;
         }
         for (const f of visibleDues) {
           const cCls = _CAT_CLASS[f.category] || '';
           const letter = _CAT_LETTER[f.category] || '?';
-          html += `<span class="cal-chip cal-chip-due-${cCls}" title="${f.category} due">${letter}</span>`;
+          const faded = (_calFocusCat && f.category !== _calFocusCat) ? ' cal-chip-faded' : '';
+          html += `<span class="cal-chip cal-chip-due-${cCls}${faded}" title="${f.category} due">${letter}</span>`;
         }
         html += '</div>';
       } else if (isToday && _calCategory) {
@@ -203,9 +242,9 @@ function _renderCal() {
 
   // Scroll to first reviewed month (or today if no history)
   const scrollTargetId = firstMonthId || todayMonthId;
-  if (scrollTargetId) {
+  if (scrollTargetId && panelId) {
     requestAnimationFrame(() => {
-      const panel = document.getElementById('review-cal-panel');
+      const panel = document.getElementById(panelId);
       const el    = document.getElementById(scrollTargetId);
       if (panel && el) {
         const panelRect = panel.getBoundingClientRect();
@@ -216,21 +255,181 @@ function _renderCal() {
   }
 }
 
-async function _loadCardCalendar(cardId, category) {
+async function _loadCardTile(cardId, category) {
   const panel = document.getElementById('review-cal-panel');
   _calData     = null;
+  _ctlData     = null;
   _calCategory = category || null;
+  _ctlCategory = category || null;
   if (panel) panel.style.display = 'none';
   try {
-    const data = await api('GET', `/api/cards/${cardId}/calendar`);
-    if (!data) return;
-    _calData = data;
+    const [cal, tl] = await Promise.all([
+      api('GET', `/api/cards/${cardId}/calendar`),
+      api('GET', `/api/cards/${cardId}/timeline`).catch(() => null),
+    ]);
+    if (!cal && !tl) return;
+    _calData = cal;
+    _ctlData = tl;
     const today = new Date();
     _calYear  = today.getFullYear();
     _calMonth = today.getMonth();
-    _renderCal();
+    _renderCardTile();
     if (panel) panel.style.display = '';
   } catch (e) { /* silently skip if unavailable */ }
+}
+
+// ── Card interval graph + calendar (issue #323) — graph on top, calendar below
+let _ctlData     = null;   // {cards} from /api/cards/{id}/timeline (review view)
+let _ctlCategory = null;   // category of the card being reviewed
+
+// Colorblind-safe card-state palette (Okabe-Ito). Tuned for Daniel's red-green
+// CB: no green, no red, and — crucially — no black, since black vs dark-blue is
+// the pair he could not tell apart on thin lines. The four states now sit on
+// hues he reads reliably: light sky blue, orange, dark blue, magenta. The two
+// blues are kept far apart in lightness; orange↔magenta differ on the blue↔
+// yellow axis. Every pair is distinguishable under deuteranopia/protanopia.
+const _STATE_COLOR = {
+  new:      '#56B4E9',  // sky blue (light)
+  learning: '#E69F00',  // orange
+  review:   '#0072B2',  // blue (dark)
+  relearn:  '#CC79A7',  // magenta / reddish purple
+};
+const _CGRAPH_COLOR = _STATE_COLOR;
+const _CGRAPH_LABEL = { new: 'New', learning: 'Learning', review: 'Learnt', relearn: 'Relearn' };
+const _CGRAPH_RATING = { 1: 'Again', 2: 'Hard', 3: 'Good', 4: 'Easy' };
+
+// Review-view tile: interval graph stacked above the calendar
+function _renderCardTile() {
+  const g = document.getElementById('card-graph');
+  if (g) {
+    const cards = _ctlData?.cards || [];
+    const card = cards.find(k => k.category === _ctlCategory) || cards[0];
+    g.innerHTML = _cardGraphHtml(card);
+  }
+  // Scroll the calendar's own container (not the outer panel) so the graph
+  // above it stays visible instead of being pushed out of view.
+  const fadeRow = document.getElementById('cal-fade-row');
+  if (fadeRow) fadeRow.innerHTML = _calFadeSliderHtml();
+  _calTimeline = _ctlData;
+  _calFocusCat = _ctlCategory;
+  if (_calData) _renderCal('cal-timeline', 'card-calendar');
+}
+
+// Format a scheduled interval (in days) for tooltips: sub-day → min/h, else days.
+function _fmtIval(days) {
+  if (days >= 1) return `${Math.round(days)}d`;
+  const mins = Math.round(days * 1440);
+  if (mins < 60) return `${mins}m`;
+  return `${Math.round(mins / 60)}h`;
+}
+
+// Shared SVG renderer: x = time, y = interval (days), colored by card state
+function _cardGraphHtml(card) {
+  const pts = (card?.points || []).slice();
+  if (card?.scheduled) pts.push({ ...card.scheduled, scheduled: true });
+  if (!pts.length) return '<div class="cgraph-empty">No reviews yet.</div>';
+
+  const W = 340, H = 150, PT = 8, PB = 6, PL = 6, PR = 8;
+  const t = s => new Date(s.replace(' ', 'T')).getTime();
+  const t0 = t(pts[0].at);
+  let t1 = t(pts[pts.length - 1].at);
+  if (t1 <= t0) t1 = t0 + 86400000;
+  let ymax = Math.max(1, ...pts.map(p => p.gap));
+  ymax = ymax <= 5 ? Math.ceil(ymax) : ymax <= 30 ? Math.ceil(ymax / 5) * 5 : Math.ceil(ymax / 10) * 10;
+
+  const x = p => PL + (t(p.at) - t0) / (t1 - t0) * (W - PL - PR);
+  const y = p => PT + (1 - p.gap / ymax) * (H - PT - PB);
+
+  let svg = [0.5, 1].map(f => {
+    const gy = (PT + (1 - f) * (H - PT - PB)).toFixed(1);
+    return `<line x1="${PL}" y1="${gy}" x2="${W - PR}" y2="${gy}" stroke="var(--border)" stroke-width="0.6"/>`;
+  }).join('');
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i];
+    const color = _CGRAPH_COLOR[b.state] || 'var(--muted)';
+    svg += `<line x1="${x(a).toFixed(1)}" y1="${y(a).toFixed(1)}" x2="${x(b).toFixed(1)}" y2="${y(b).toFixed(1)}"
+              stroke="${color}" stroke-width="2.8" stroke-linecap="round"${b.scheduled ? ' stroke-dasharray="5 4"' : ''}/>`;
+  }
+  svg += pts.map(p => {
+    const color = _CGRAPH_COLOR[p.state] || 'var(--muted)';
+    const day = p.at.slice(0, 10);
+    const tip = p.scheduled
+      ? `${day} · due · interval ${_fmtIval(p.gap)}`
+      : `${day} · interval ${_fmtIval(p.gap)} · ${_CGRAPH_RATING[p.rating] || ''} · ${_CGRAPH_LABEL[p.state] || p.state}`;
+    return `<circle cx="${x(p).toFixed(1)}" cy="${y(p).toFixed(1)}" r="4"
+              fill="${p.scheduled ? 'var(--card)' : color}" stroke="${color}" stroke-width="2.2"><title>${tip}</title></circle>`;
+  }).join('');
+
+  const legend = Object.keys(_CGRAPH_LABEL).map(k =>
+    `<span class="evo-leg"><span class="hcal-leg-sw" style="background:${_CGRAPH_COLOR[k]}"></span>${_CGRAPH_LABEL[k]}</span>`).join('');
+  const fmtD = s => { const [m, d] = s.slice(5, 10).split('-'); return `${+m}/${+d}`; };
+  return `
+    <div class="cgraph-wrap">
+      <span class="cgraph-ymax">${ymax}d</span>
+      <svg class="cgraph-svg" viewBox="0 0 ${W} ${H}">${svg}</svg>
+      <div class="hcal-graph-axis"><span>${fmtD(pts[0].at)}</span><span>${fmtD(pts[pts.length - 1].at)}</span></div>
+      <div class="cgraph-legend">${legend}<span class="evo-leg">╌╌ scheduled</span></div>
+    </div>`;
+}
+
+// ── Word-detail tile (browse) ────────────────────────────────────────────────
+let _wdTlData  = null;
+let _wdCalData = null;
+let _wdCat     = null;
+
+function _wdLoadCardTile(cards) {
+  const el = document.getElementById('wd-card-tile-section');
+  if (!el) return;
+  _wdTlData = null;
+  _wdCalData = null;
+  const withId = (cards || []).filter(c => c.id);
+  if (!withId.length) { el.innerHTML = ''; return; }
+  _wdCat = withId[0].category;
+  el.innerHTML = '<div class="hcal-loading">Loading schedule…</div>';
+  Promise.all([
+    api('GET', `/api/cards/${withId[0].id}/timeline`),
+    api('GET', `/api/cards/${withId[0].id}/calendar`),
+  ]).then(([tl, cal]) => {
+    _wdTlData = tl;
+    _wdCalData = cal;
+    const withPts = (tl?.cards || []).find(c => c.points.length);
+    if (withPts) _wdCat = withPts.category;
+    _wdRenderCardTile();
+  }).catch(() => { el.innerHTML = ''; });
+}
+
+function wdSetTileCat(cat) { _wdCat = cat; _wdRenderCardTile(); }
+
+function _wdRenderCardTile() {
+  const el = document.getElementById('wd-card-tile-section');
+  if (!el || !_wdTlData) return;
+  const catBtns = (_wdTlData.cards || []).map(c =>
+    `<button class="hcal-seg-btn ${c.category === _wdCat ? 'active' : ''}"
+             onclick="wdSetTileCat('${c.category}')">${_CAT_LETTER[c.category] || c.category}</button>`).join('');
+  const cards = _wdTlData.cards || [];
+  const card = cards.find(c => c.category === _wdCat) || cards[0];
+  el.innerHTML = `
+    <div class="section-label">Schedule</div>
+    <div class="wd-card-tile">
+      <div class="card-tile-head">
+        <div class="hcal-seg">${catBtns}</div>
+        ${_calFadeSliderHtml()}
+      </div>
+      <div id="wd-tile-graph">${_cardGraphHtml(card)}</div>
+      <div class="card-calendar wd-cal-scroll" id="wd-cal-scroll"><div id="wd-cal-timeline"></div></div>
+    </div>`;
+  if (_wdCalData) {
+    const saved = _calData, savedCat = _calCategory, savedTl = _calTimeline, savedFocus = _calFocusCat;
+    _calData = _wdCalData;
+    _calCategory = null;
+    _calTimeline = _wdTlData;
+    _calFocusCat = _wdCat;
+    _renderCal('wd-cal-timeline', 'wd-cal-scroll');
+    _calData = saved;
+    _calCategory = savedCat;
+    _calTimeline = savedTl;
+    _calFocusCat = savedFocus;
+  }
 }
 
 // ── Card timer ──────────────────────────────────────────────────────────────
@@ -831,8 +1030,10 @@ function renderDecks(decks) {
   }
 
   document.getElementById('view-decks').innerHTML =
-    navRow + '<div id="home-calendar" class="hcal-card"></div>' + html;
+    navRow + '<div id="home-calendar" class="hcal-card"></div>' +
+    '<div id="home-evolution" class="hcal-card"></div>' + html;
   if (typeof initHomeCalendar === 'function') initHomeCalendar();
+  if (typeof initHomeEvolution === 'function') initHomeEvolution();
 }
 
 function toggleDeckSort() {
@@ -1131,6 +1332,7 @@ function _filteredBrowseWords() {
     words = words.filter(w => w.cards.some(c => leafIds.has(c.deck_id)));
   }
   if (_browseCardStatus === 'learning')   words = words.filter(w => w.cards.length > 0);
+  if (_browseCardStatus === 'leech')      words = words.filter(w => w.cards.some(c => c.is_leech));
   if (_browseCardStatus === 'reference')  words = words.filter(w => w.cards.length === 0);
   return words;
 }
@@ -1624,6 +1826,9 @@ function renderWordDetail(word) {
 
   // Cards section
   renderWordDetailCards(word.cards || [], word.id);
+
+  // Schedule tile (interval graph / calendar)
+  _wdLoadCardTile(word.cards || []);
 }
 
 function renderWordDetailCards(cards, wordId) {
@@ -1641,6 +1846,7 @@ function renderWordDetailCards(cards, wordId) {
         <div class="wd-card-head">
           <span class="wd-cat-label">${CAT_FULL[c.category] || c.category}</span>
           <span class="badge badge-${c.state}">${c.state}</span>
+          ${c.is_leech ? '<span class="badge badge-leech" title="Suspended as a leech">leech</span>' : ''}
           ${isBuried ? '<span class="badge badge-buried">buried</span>' : ''}
           <div class="wd-card-menu-wrap">
             <button class="wd-menu-btn" onclick="toggleCardMenu(${c.id}, event)">⋯</button>
@@ -2106,6 +2312,7 @@ function loadPresetFields(preset) {
   document.getElementById('opt-easy-int').value        = preset.easy_interval;
   document.getElementById('opt-relearn-steps').value   = preset.relearning_steps;
   document.getElementById('opt-leech').value           = preset.leech_threshold;
+  document.getElementById('opt-learning-leech').value  = preset.learning_leech_threshold;
   document.getElementById('opt-new-gather-order').value        = preset.new_gather_order                || 'ascending_position';
   document.getElementById('opt-new-sort-order').value          = preset.new_sort_order                  || 'card_type_gathered';
   document.getElementById('opt-new-review-order').value        = preset.new_review_order                || 'mixed';
@@ -2266,6 +2473,7 @@ async function saveOptions() {
     easy_interval:       parseInt(document.getElementById('opt-easy-int').value),
     relearning_steps:    document.getElementById('opt-relearn-steps').value.trim(),
     leech_threshold:     parseInt(document.getElementById('opt-leech').value),
+    learning_leech_threshold: parseInt(document.getElementById('opt-learning-leech').value),
     new_gather_order:               document.getElementById('opt-new-gather-order').value,
     new_sort_order:                 document.getElementById('opt-new-sort-order').value,
     new_review_order:               document.getElementById('opt-new-review-order').value,
@@ -2771,7 +2979,7 @@ function loadCard(c, counts) {
 
   showFront();
   _startTimer();
-  _loadCardCalendar(c.id, c.category);
+  _loadCardTile(c.id, c.category);
 
   // Auto-play audio for the listening category.
   // If sentence is missing and a story fetch is in flight, defer to the fetch callback above.
@@ -4331,6 +4539,7 @@ async function rate(rating) {
     const result = await api('POST', url);
     _sessionReviewedCount++;
     if (typeof invalidateHomeCalendar === 'function') invalidateHomeCalendar();
+    if (typeof invalidateHomeEvolution === 'function') invalidateHomeEvolution();
     api('GET', '/api/retention?days=0').then(r => {
       _retentionData = r;
       _updateReviewRRBadge(deckId);
@@ -7253,4 +7462,177 @@ function _hcalRenderDetail() {
         <td>${totAvg} <span class="hcal-tip-dim">/ ${totTot}</span></td>
       </tr>
     </table>`;
+}
+
+// ============================================================================
+// Home-page card-evolution chart (issue #321)
+// Stacked area chart of card-state counts over time (New / Learning /
+// Learnt / Relearn), with Listening / Creating / All views.
+// ============================================================================
+
+let _evoData = null;           // cached /api/card-evolution response
+let _evoLoading = false;
+let _evoView = localStorage.getItem('evoView') || 'all';
+let _evoCalc = null;           // per-render geometry cache for tooltips
+
+// Stack order: bottom → top. Colors from the shared colorblind-safe palette.
+const _EVO_STATES = [
+  { key: 'review',   label: 'Learnt',   color: _STATE_COLOR.review   },
+  { key: 'relearn',  label: 'Relearn',  color: _STATE_COLOR.relearn  },
+  { key: 'learning', label: 'Learning', color: _STATE_COLOR.learning },
+  { key: 'new',      label: 'New',      color: _STATE_COLOR.new      },
+];
+const _EVO_VIEWS = [['listening', 'Listening'], ['creating', 'Creating'], ['all', 'All']];
+
+function initHomeEvolution() {
+  const el = document.getElementById('home-evolution');
+  if (!el) return;
+  if (_evoData) { _evoRender(); return; }
+  if (_evoLoading) return;
+  _evoLoading = true;
+  el.innerHTML = '<div class="hcal-loading">Loading card evolution…</div>';
+  api('GET', '/api/card-evolution?days=365')
+    .then(d => { _evoData = d; _evoLoading = false; _evoRender(); })
+    .catch(err => {
+      _evoLoading = false;
+      el.innerHTML = `<div class="hcal-loading">Card evolution unavailable — ${
+        (err && err.message) || 'failed to load stats'}.</div>`;
+    });
+}
+
+// Force a refetch (e.g. after reviewing). Safe to call even if not mounted.
+function invalidateHomeEvolution() { _evoData = null; }
+
+function evoSetView(v) {
+  _evoView = v; localStorage.setItem('evoView', v); _evoRender();
+}
+
+// Sum the requested categories into one {state: [counts]} object.
+function _evoSeries() {
+  const n = _evoData.dates.length;
+  const out = {};
+  for (const s of _EVO_STATES) out[s.key] = new Array(n).fill(0);
+  const cats = _evoView === 'all' ? Object.keys(_evoData.series) : [_evoView];
+  for (const cat of cats) {
+    const sr = _evoData.series[cat];
+    if (!sr) continue;
+    for (const s of _EVO_STATES) {
+      const arr = sr[s.key] || [];
+      for (let i = 0; i < n; i++) out[s.key][i] += arr[i] || 0;
+    }
+  }
+  return out;
+}
+
+function _evoRender() {
+  const el = document.getElementById('home-evolution');
+  if (!el || !_evoData) return;
+
+  const sr = _evoSeries();
+  const allDates = _evoData.dates;
+  const totalsAll = allDates.map((_, i) =>
+    _EVO_STATES.reduce((a, s) => a + sr[s.key][i], 0));
+
+  // Trim leading days before the first card existed (young collections)
+  let first = totalsAll.findIndex(t => t > 0);
+  if (first < 0) first = 0;
+  first = Math.max(0, first - 1);
+  const dates = allDates.slice(first);
+  const series = {};
+  for (const s of _EVO_STATES) series[s.key] = sr[s.key].slice(first);
+  const n = dates.length;
+
+  const W = 730, H = 190, PAD_T = 10, PAD_B = 2;
+  let ymax = Math.max(1, ...totalsAll);
+  const step = ymax > 200 ? 100 : ymax > 50 ? 25 : 10;
+  ymax = Math.ceil(ymax / step) * step;
+
+  const x = i => (i / Math.max(1, n - 1)) * W;
+  const y = v => PAD_T + (1 - v / ymax) * (H - PAD_T - PAD_B);
+
+  let lower = new Array(n).fill(0);
+  const layers = _EVO_STATES.map(s => {
+    const upper = lower.map((v, i) => v + series[s.key][i]);
+    const top = upper.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`);
+    const bot = lower.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).reverse();
+    const pts = `${top.join(' ')} ${bot.join(' ')}`;
+    lower = upper;
+    return `<polygon points="${pts}" fill="${s.color}" fill-opacity="0.8"/>`;
+  }).join('');
+
+  const grid = [0.25, 0.5, 0.75, 1].map(f =>
+    `<line x1="0" y1="${y(ymax * f).toFixed(1)}" x2="${W}" y2="${y(ymax * f).toFixed(1)}"
+           stroke="var(--border)" stroke-width="0.6"/>`).join('');
+  const ylabels = [0.5, 1].map(f =>
+    `<span class="evo-ylabel" style="top:${(y(ymax * f) / H * 100).toFixed(2)}%">${
+      Math.round(ymax * f)}</span>`).join('');
+
+  const viewBtns = _EVO_VIEWS.map(([k, lbl]) =>
+    `<button class="hcal-seg-btn ${k === _evoView ? 'active' : ''}"
+             onclick="evoSetView('${k}')">${lbl}</button>`).join('');
+  const legend = _EVO_STATES.slice().reverse().map(s =>
+    `<span class="evo-leg"><span class="hcal-leg-sw" style="background:${s.color}"></span>${s.label}</span>`).join('');
+
+  const fmt = d => { const [, m, dd] = d.split('-'); return `${+m}/${+dd}`; };
+
+  _evoCalc = { dates, series, n };
+
+  el.innerHTML = `
+    <div class="hcal-controls">
+      <div class="hcal-seg">${viewBtns}</div>
+      <div class="evo-legend">${legend}</div>
+    </div>
+    <div class="evo-chart-wrap">
+      ${ylabels}
+      <svg class="evo-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"
+           onmousemove="evoMove(event)" onmouseleave="evoLeave()">
+        ${grid}${layers}
+        <line id="evo-cursor" x1="0" y1="0" x2="0" y2="${H}"
+              stroke="#1e293b" stroke-width="0.8" style="display:none"/>
+      </svg>
+      <div class="hcal-graph-axis"><span>${fmt(dates[0])}</span><span>${fmt(dates[n - 1])}</span></div>
+    </div>`;
+}
+
+function evoMove(ev) {
+  if (!_evoCalc) return;
+  const svg = ev.currentTarget;
+  const r = svg.getBoundingClientRect();
+  const { dates, series, n } = _evoCalc;
+  const i = Math.max(0, Math.min(n - 1,
+    Math.round((ev.clientX - r.left) / r.width * (n - 1))));
+
+  const cursor = svg.querySelector('#evo-cursor');
+  if (cursor) {
+    const cx = (i / Math.max(1, n - 1)) * 730;
+    cursor.setAttribute('x1', cx); cursor.setAttribute('x2', cx);
+    cursor.style.display = '';
+  }
+
+  const nice = _hcalParse(dates[i]).toLocaleDateString(undefined,
+    { weekday: 'short', month: 'short', day: 'numeric' });
+  let total = 0;
+  const rows = _EVO_STATES.slice().reverse().map(s => {
+    const v = series[s.key][i];
+    total += v;
+    return `<div class="hcal-tip-row"><span class="hcal-leg-sw" style="background:${
+      s.color};margin-right:5px"></span>${s.label}: <b>${v}</b></div>`;
+  }).join('');
+
+  const t = _hcalTip();
+  t.innerHTML = `<div class="hcal-tip-date">${nice}</div>
+                 <div class="hcal-tip-big">${total} cards</div>${rows}`;
+  t.style.display = 'block';
+  let left = ev.pageX - t.offsetWidth / 2;
+  left = Math.max(6, Math.min(left, window.scrollX + window.innerWidth - t.offsetWidth - 6));
+  let top = ev.pageY - t.offsetHeight - 14;
+  if (top < window.scrollY + 4) top = ev.pageY + 14;
+  t.style.left = left + 'px';
+  t.style.top = top + 'px';
+}
+
+function evoLeave() {
+  hcalHideTip();
+  const cursor = document.getElementById('evo-cursor');
+  if (cursor) cursor.style.display = 'none';
 }

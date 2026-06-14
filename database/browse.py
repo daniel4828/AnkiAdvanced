@@ -13,6 +13,7 @@ def get_words_for_browse() -> list[dict]:
         SELECT w.id, w.word_zh, w.pinyin, w.definition, w.definition_de, w.pos, w.hsk_level, w.note_type,
                c.id as card_id, c.category, c.state, c.interval, c.ease,
                c.due, c.lapses, c.step_index, c.deck_id,
+               c.is_leech, c.learning_again_count,
                d.name as deck_name
         FROM entries w
         LEFT JOIN cards c ON c.word_id = w.id AND c.deleted_at IS NULL
@@ -49,6 +50,8 @@ def get_words_for_browse() -> list[dict]:
                 "lapses": r["lapses"],
                 "step_index": r["step_index"],
                 "deck_id": r["deck_id"],
+                "is_leech": r["is_leech"],
+                "learning_again_count": r["learning_again_count"],
                 "deck_name": r["deck_name"],
             })
     return list(words.values())
@@ -100,19 +103,44 @@ def get_cards_for_word(word_id: int) -> list[dict]:
 
 
 def suspend_card(card_id: int) -> None:
-    """Unconditionally suspend a card (used by leech detection)."""
+    """Unconditionally suspend a card."""
     conn = get_db()
     conn.execute("UPDATE cards SET state='suspended' WHERE id=?", (card_id,))
     conn.commit()
     conn.close()
 
 
-def toggle_card_suspension(card_id: int) -> dict:
-    """Toggle a card between suspended and new."""
+def mark_leech_suspend(card_id: int) -> None:
+    """Suspend a card flagged as a leech, preserving its prior state for restore."""
     conn = get_db()
-    cur = conn.execute("SELECT state FROM cards WHERE id=?", (card_id,)).fetchone()
-    new_state = "new" if cur and cur["state"] == "suspended" else "suspended"
-    conn.execute("UPDATE cards SET state=? WHERE id=?", (new_state, card_id))
+    conn.execute(
+        """UPDATE cards
+              SET pre_suspend_state = state, state = 'suspended', is_leech = 1
+            WHERE id = ? AND state != 'suspended'""",
+        (card_id,),
+    )
+    conn.commit()
+    conn.close()
+
+
+def toggle_card_suspension(card_id: int) -> dict:
+    """Toggle a card between suspended and new.
+
+    Unsuspending a leech clears its leech flag and resets the Again counters,
+    giving the card a fresh start instead of immediately re-triggering.
+    """
+    conn = get_db()
+    cur = conn.execute("SELECT state, is_leech FROM cards WHERE id=?", (card_id,)).fetchone()
+    if cur and cur["state"] == "suspended":
+        if cur["is_leech"]:
+            conn.execute(
+                "UPDATE cards SET state='new', is_leech=0, lapses=0, learning_again_count=0 WHERE id=?",
+                (card_id,),
+            )
+        else:
+            conn.execute("UPDATE cards SET state='new' WHERE id=?", (card_id,))
+    else:
+        conn.execute("UPDATE cards SET state='suspended' WHERE id=?", (card_id,))
     conn.commit()
     conn.close()
     return get_card(card_id)
@@ -123,7 +151,8 @@ def reset_card(card_id: int) -> dict:
     conn = get_db()
     conn.execute(
         """UPDATE cards SET state='new', step_index=0, interval=1,
-                            ease=2.5, lapses=0, due=date('now'), buried_until=NULL
+                            ease=2.5, lapses=0, learning_again_count=0, is_leech=0,
+                            due=date('now'), buried_until=NULL
            WHERE id=?""",
         (card_id,),
     )
@@ -297,6 +326,8 @@ def get_all_cards_for_browse(filters: dict | None = None) -> list[dict]:
         if filters.get("state"):
             where.append("c.state = ?")
             params.append(filters["state"])
+        if filters.get("leech"):
+            where.append("c.is_leech = 1")
         if filters.get("search_text"):
             where.append("(w.word_zh LIKE ? OR w.definition LIKE ? OR w.pinyin LIKE ?)")
             q = f"%{filters['search_text']}%"
