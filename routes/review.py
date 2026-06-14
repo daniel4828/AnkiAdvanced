@@ -331,3 +331,10 @@ def get_card_calendar(card_id: int):
 @router.get("/api/cards/{card_id}/timeline")
 def get_card_timeline(card_id: int):
     return database.get_card_timeline_data(card_id)
+
+
+@router.post("/api/session-timelines")
+def session_timelines(body: dict):
+    """Interval timelines for the cards reviewed in one session (summary graph)."""
+    ids = [int(i) for i in body.get("ids", [])]
+    return database.get_session_timelines(ids)
