@@ -19,7 +19,8 @@ def default_preset() -> dict:
         "insertion_order": "sequential",
         "bury_siblings": 1,
         "randomize_story_order": 0,
-        "leech_threshold": 8,
+        "leech_threshold": 3,
+        "learning_leech_threshold": 6,
         "leech_action": "suspend",
         "new_gather_order": "ascending_position",
         "new_sort_order": "card_type_gathered",
@@ -132,7 +133,7 @@ def get_preset_for_deck(deck_id: int, category: str | None = None) -> dict:
 _OVERRIDE_FIELDS = {
     "new_per_day", "reviews_per_day", "learning_steps",
     "graduating_interval", "easy_interval", "relearning_steps",
-    "minimum_interval", "leech_threshold", "leech_action",
+    "minimum_interval", "leech_threshold", "learning_leech_threshold", "leech_action",
 }
 
 
@@ -200,7 +201,7 @@ def insert_preset(preset: dict) -> int:
            (name, new_per_day, reviews_per_day,
             learning_steps, graduating_interval, easy_interval,
             relearning_steps, minimum_interval, insertion_order,
-            bury_siblings, randomize_story_order, leech_threshold, leech_action,
+            bury_siblings, randomize_story_order, leech_threshold, learning_leech_threshold, leech_action,
             new_gather_order, new_sort_order, new_review_order,
             interday_learning_review_order, review_sort_order,
             bury_new_siblings, bury_review_siblings, bury_interday_siblings,
@@ -208,7 +209,7 @@ def insert_preset(preset: dict) -> int:
            VALUES (:name, :new_per_day, :reviews_per_day,
                    :learning_steps, :graduating_interval, :easy_interval,
                    :relearning_steps, :minimum_interval, :insertion_order,
-                   :bury_siblings, :randomize_story_order, :leech_threshold, :leech_action,
+                   :bury_siblings, :randomize_story_order, :leech_threshold, :learning_leech_threshold, :leech_action,
                    :new_gather_order, :new_sort_order, :new_review_order,
                    :interday_learning_review_order, :review_sort_order,
                    :bury_new_siblings, :bury_review_siblings, :bury_interday_siblings,
@@ -226,7 +227,7 @@ def update_preset(preset_id: int, fields: dict) -> None:
         "name", "new_per_day", "reviews_per_day",
         "learning_steps", "graduating_interval", "easy_interval",
         "relearning_steps", "minimum_interval", "insertion_order",
-        "bury_siblings", "randomize_story_order", "leech_threshold", "leech_action",
+        "bury_siblings", "randomize_story_order", "leech_threshold", "learning_leech_threshold", "leech_action",
         "new_gather_order", "new_sort_order", "new_review_order",
         "interday_learning_review_order", "review_sort_order",
         "bury_new_siblings", "bury_review_siblings", "bury_interday_siblings",

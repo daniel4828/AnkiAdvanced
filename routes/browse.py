@@ -382,6 +382,13 @@ def toggle_suspend(card_id: int):
     return database.toggle_card_suspension(card_id)
 
 
+@router.post("/api/cards/{card_id}/leech")
+def leech_card_endpoint(card_id: int):
+    """Manually flag a card as a leech (suspend + is_leech=1)."""
+    database.mark_leech_suspend(card_id)
+    return database.get_card(card_id)
+
+
 @router.post("/api/cards/{card_id}/reset")
 def reset_card_endpoint(card_id: int):
     return database.reset_card(card_id)
@@ -479,6 +486,11 @@ def get_retention(days: int = 30):
 @router.get("/api/calendar-stats")
 def get_calendar_stats(days: int = 365, deck_id: int | None = None):
     return database.get_calendar_stats(days, deck_id)
+
+
+@router.get("/api/card-evolution")
+def get_card_evolution(days: int = 365, deck_id: int | None = None):
+    return database.get_card_evolution(days, deck_id)
 
 
 @router.get("/api/costs")

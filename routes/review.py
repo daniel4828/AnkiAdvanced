@@ -244,7 +244,15 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
             "Card #%d %s SUSPENDED (lapses=%d)",
             card_before["id"], card_before["word_zh"], updated["lapses"],
         )
-    return {"next_card": next_card, "counts": counts}
+    state_from = card_before["state"]
+    state_to   = updated["state"]
+    transition = {
+        "from":    state_from,
+        "to":      state_to,
+        "changed": state_from != state_to,
+        "leech":   bool(updated.get("is_leech")) and state_to == "suspended",
+    }
+    return {"next_card": next_card, "counts": counts, "transition": transition}
 
 
 
@@ -318,3 +326,15 @@ def unbury_card(card_id: int):
 @router.get("/api/cards/{card_id}/calendar")
 def get_card_calendar(card_id: int):
     return database.get_card_calendar_data(card_id)
+
+
+@router.get("/api/cards/{card_id}/timeline")
+def get_card_timeline(card_id: int):
+    return database.get_card_timeline_data(card_id)
+
+
+@router.post("/api/session-timelines")
+def session_timelines(body: dict):
+    """Interval timelines for the cards reviewed in one session (summary graph)."""
+    ids = [int(i) for i in body.get("ids", [])]
+    return database.get_session_timelines(ids)

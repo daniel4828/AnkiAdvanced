@@ -47,6 +47,7 @@
     <span id="review-rr-badge" class="review-rr-badge" style="display:none" title="Daily retention rate"></span>
     <span id="avg-time-badge" class="review-rr-badge" style="display:none" title="Average time per card this session"></span>
     <button class="undo-btn" id="undo-btn" onclick="undoReview()" title="Undo last rating [Z]" disabled>↩ Undo</button>
+    <button class="undo-btn" id="session-graph-btn" onclick="openSessionSummary()" title="Graph of cards reviewed this session">📈 Session</button>
   </div>
   <div class="header-right">
     <button id="header-regen-btn" onclick="regenerateStory()" title="Regenerate story" style="display:none">↺</button>
@@ -101,6 +102,7 @@
                 <div class="wd-card-menu" id="review-card-menu" style="display:none">
                   <button class="wd-menu-item" onclick="reviewCardAction('bury')">Bury until tomorrow</button>
                   <button class="wd-menu-item" id="review-suspend-btn" onclick="reviewCardAction('suspend')">Suspend</button>
+                  <button class="wd-menu-item" onclick="reviewCardAction('leech')">Mark as leech (⇧L)</button>
                   <button class="wd-menu-item wd-menu-item-danger" onclick="reviewCardAction('delete')">Delete card</button>
                 </div>
               </div>
@@ -240,8 +242,10 @@
         </div>
       </div>
 
-      <!-- LEFT: Calendar tile (hidden until data loads; shown on desktop to the left via order) -->
+      <!-- LEFT: Card tile — interval graph on top, calendar below (hidden until data loads) -->
       <div class="review-side-tile review-cal-tile" id="review-cal-panel" style="display:none">
+        <div id="card-graph" class="card-graph"></div>
+        <div id="cal-fade-row" class="cal-fade-row"></div>
         <div id="card-calendar" class="card-calendar">
           <div id="cal-timeline"></div>
           <div class="cal-legend">
@@ -267,6 +271,7 @@
     <p>暂时没有需要复习的卡片了。</p>
     <div style="display:flex;flex-direction:column;gap:12px;align-items:center">
       <button id="done-story-btn" class="btn-primary" onclick="openStoryModal()">View Full Story</button>
+      <button class="btn-secondary" onclick="openSessionSummary()">📈 Session Graph</button>
       <button class="btn-secondary" onclick="goBack()">Back to Decks</button>
     </div>
   </div>
@@ -285,6 +290,7 @@
         <div class="bs-section-head">Status</div>
         <button class="bs-status-item bs-active" id="bss-all"       onclick="setBrowseStatusFilter('all')">All Entries</button>
         <button class="bs-status-item" id="bss-learning"  onclick="setBrowseStatusFilter('learning')">Learning</button>
+        <button class="bs-status-item" id="bss-leech"     onclick="setBrowseStatusFilter('leech')">Leeched</button>
         <button class="bs-status-item" id="bss-reference" onclick="setBrowseStatusFilter('reference')">Reference</button>
       </div>
       <div class="bs-section">
@@ -355,6 +361,7 @@
       <div id="wd-word-analysis-section"></div>
       <div id="wd-examples-section"></div>
       <div id="wd-cards-section"></div>
+      <div id="wd-card-tile-section"></div>
     </div>
   </div>
 
@@ -413,7 +420,8 @@
     <div class="opt-group">
       <div class="opt-group-label">Lapses</div>
       <div class="opt-row"><span class="opt-label">Relearning steps (minutes)</span><input class="opt-input wide" id="opt-relearn-steps" type="text"></div>
-      <div class="opt-row"><span class="opt-label">Leech threshold (lapses)</span>  <input class="opt-input" id="opt-leech"         type="number" min="1"></div>
+      <div class="opt-row"><span class="opt-label">Leech threshold (review lapses)</span>  <input class="opt-input" id="opt-leech"         type="number" min="1"></div>
+      <div class="opt-row"><span class="opt-label">Learning leech threshold (Again presses)</span>  <input class="opt-input" id="opt-learning-leech" type="number" min="1"></div>
     </div>
 
     <div class="opt-group">
@@ -850,6 +858,16 @@
     <button class="edit-modal-close" onclick="closeReasoning()">✕</button>
   </div>
   <div id="reasoning-body" class="reasoning-body"></div>
+</div>
+
+<!-- Session summary graph modal: interval timelines of all cards reviewed -->
+<div id="session-summary-overlay" onclick="closeSessionSummary()" style="display:none"></div>
+<div id="session-summary-modal" style="display:none">
+  <div class="edit-modal-header">
+    <span class="edit-modal-title">📈 Session — reviewed cards</span>
+    <button class="edit-modal-close" onclick="closeSessionSummary()">✕</button>
+  </div>
+  <div id="session-summary-body" class="session-summary-body"></div>
 </div>
 
 <!-- Hanzi regenerate confirm modal -->

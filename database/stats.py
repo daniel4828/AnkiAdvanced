@@ -289,6 +289,170 @@ def get_calendar_stats(days: int = 365, deck_id: int | None = None) -> dict:
     }
 
 
+_EVOLUTION_STATES = ("new", "learning", "review", "relearn")
+
+
+def _next_state(state: str, step: int, rating: int,
+                n_learn: int, n_relearn: int) -> tuple[str, int]:
+    """SM-2 state transition for one review (states only, no intervals)."""
+    if state in ("new", "learning"):
+        if rating == 1:
+            return ("learning", 0)
+        if rating == 2:
+            return ("learning", step)
+        if rating == 3:
+            if step + 1 >= n_learn:
+                return ("review", 0)
+            return ("learning", step + 1)
+        return ("review", 0)  # Easy graduates immediately
+    if state == "review":
+        return ("relearn", 0) if rating == 1 else ("review", 0)
+    if state == "relearn":
+        if rating == 1:
+            return ("relearn", 0)
+        if rating == 2:
+            return ("relearn", step)
+        if rating == 3:
+            if step + 1 >= n_relearn:
+                return ("review", 0)
+            return ("relearn", step + 1)
+        return ("review", 0)
+    return (state, step)
+
+
+def get_card_evolution(days: int = 365, deck_id: int | None = None) -> dict:
+    """Per-day card-state counts over time, reconstructed from review_log.
+
+    Most legacy review rows have NULL state, so the history is rebuilt by
+    replaying the SM-2 state machine over each card's rating sequence (using
+    the deck preset's learning/relearning step counts). Rows that *do* record
+    a state recalibrate the replay, and the card's current state pins the end
+    of the timeline. Before the first review a card is 'new' (from the
+    entry's date_added). Suspended cards count under their pre_suspend_state
+    (or stay in their last replayed state when that is unset).
+
+    Days use the Anki boundary (local time, 4am cutoff) like get_calendar_stats.
+
+    Returns:
+        {
+          "days": int, "today": "YYYY-MM-DD",
+          "dates": ["YYYY-MM-DD", ...],            # oldest → today, len == days
+          "series": {category: {state: [int, ...]}}  # aligned with dates
+        }
+    """
+    conn = get_db()
+    today = anki_today()
+    dates = [(today - _dt.timedelta(days=days - 1 - i)).isoformat()
+             for i in range(days)]
+
+    deck_filter = "AND c.deck_id = ?" if deck_id else ""
+    params = [deck_id] if deck_id else []
+    day_of = "date(datetime({col}, 'localtime', '-4 hours'))"
+
+    cards = conn.execute(
+        f"""SELECT c.id, c.deck_id, c.category, c.state, c.pre_suspend_state,
+                   {day_of.format(col='e.date_added')} AS created
+            FROM cards c JOIN entries e ON e.id = c.word_id
+            WHERE c.deleted_at IS NULL {deck_filter}""",
+        params,
+    ).fetchall()
+
+    reviews = conn.execute(
+        f"""SELECT rl.card_id, {day_of.format(col='rl.reviewed_at')} AS d,
+                   rl.state, rl.rating
+            FROM review_log rl
+            JOIN cards c ON c.id = rl.card_id
+            WHERE c.deleted_at IS NULL {deck_filter}
+            ORDER BY rl.card_id, rl.reviewed_at""",
+        params,
+    ).fetchall()
+
+    # Learning/relearning step counts per deck (category override wins)
+    preset_rows = conn.execute(
+        """SELECT d.id AS deck_id,
+                  p.learning_steps, p.relearning_steps,
+                  o.learning_steps AS o_ls, o.relearning_steps AS o_rs
+           FROM decks d
+           JOIN deck_presets p ON p.id = d.preset_id
+           LEFT JOIN preset_category_overrides o
+                  ON o.preset_id = d.preset_id AND o.category = d.category"""
+    ).fetchall()
+    conn.close()
+
+    steps_by_deck = {
+        r["deck_id"]: (
+            max(1, len((r["o_ls"] or r["learning_steps"]).split())),
+            max(1, len((r["o_rs"] or r["relearning_steps"]).split())),
+        )
+        for r in preset_rows
+    }
+
+    revs_by_card: dict[int, list] = {}
+    for r in reviews:
+        revs_by_card.setdefault(r["card_id"], []).append(
+            (r["d"], r["state"], r["rating"]))
+
+    # deltas[category][day][state] — state-count changes taking effect that day
+    deltas: dict[str, dict[str, dict[str, int]]] = {}
+    for c in cards:
+        final = c["state"]
+        if final == "suspended":
+            final = c["pre_suspend_state"]
+        n_learn, n_relearn = steps_by_deck.get(c["deck_id"], (2, 1))
+        rl = revs_by_card.get(c["id"], [])
+
+        # Checkpoints: (day, state the card holds from the end of that day on)
+        seq = [(c["created"], "new")]
+        state, step = "new", 0
+        for day, recorded, rating in rl:
+            if recorded in _EVOLUTION_STATES and recorded != state:
+                state, step = recorded, 0  # recalibrate from recorded truth
+            state, step = _next_state(state, step, rating, n_learn, n_relearn)
+            seq.append((day, state))
+        if rl and final in _EVOLUTION_STATES:
+            seq[-1] = (seq[-1][0], final)  # pin the end to the card's real state
+
+        # Several checkpoints on one day: the last one wins
+        last_for_day: dict[str, str] = {}
+        for day, st in seq:
+            last_for_day[day] = st
+
+        cat_deltas = deltas.setdefault(c["category"], {})
+        prev = None
+        for day in sorted(last_for_day):
+            st = last_for_day[day]
+            if st == prev:
+                continue
+            d = cat_deltas.setdefault(day, {})
+            if prev is not None:
+                d[prev] = d.get(prev, 0) - 1
+            d[st] = d.get(st, 0) + 1
+            prev = st
+
+    # Accumulate deltas into daily series (deltas before the window roll into day 0)
+    series: dict[str, dict[str, list[int]]] = {}
+    for cat, cat_deltas in deltas.items():
+        running = dict.fromkeys(_EVOLUTION_STATES, 0)
+        out = {s: [] for s in _EVOLUTION_STATES}
+        delta_days = sorted(cat_deltas)
+        idx = 0
+        for date_str in dates:
+            while idx < len(delta_days) and delta_days[idx] <= date_str:
+                for s, n in cat_deltas[delta_days[idx]].items():
+                    running[s] += n
+                idx += 1
+            for s in _EVOLUTION_STATES:
+                out[s].append(running[s])
+        series[cat] = out
+
+    return {
+        "days": days,
+        "today": today.isoformat(),
+        "dates": dates,
+        "series": series,
+    }
+
+
 def _calc_streak(conn: sqlite3.Connection, deck_id: int | None) -> int:
     deck_filter = "AND c.deck_id = ?" if deck_id else ""
     params = [deck_id] if deck_id else []
