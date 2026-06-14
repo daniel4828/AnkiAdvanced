@@ -203,6 +203,10 @@
               <button class="r-btn r-good"  onclick="rate(3)">Good<small id="int-3"></small></button>
               <button class="r-btn r-easy"  onclick="rate(4)">Easy<small id="int-4"></small></button>
             </div>
+            <!-- FSRS scheduler inspector trigger (Shift+S) -->
+            <div class="fsrs-inspect-row">
+              <button class="fsrs-inspect-btn" onclick="toggleFsrsInspector()" title="复习调度详情 / FSRS scheduler (Shift+S)">🔬 Scheduler</button>
+            </div>
             <!-- Word summary: character, pinyin, pos, definition -->
             <div class="vocab-detail">
               <div class="word-big" id="word-zh"></div>
@@ -982,5 +986,16 @@
 <div class="deck-picker-dropdown" id="deck-picker-dropdown" style="display:none"></div>
 <div class="deck-picker-dropdown" id="deck-b-picker-dropdown" style="display:none"></div>
 <div class="deck-picker-dropdown" id="wd-deck-picker-dd" style="display:none"></div>
+
+<!-- FSRS scheduler inspector (Shift+S) -->
+<div id="fsrs-inspector-overlay" onclick="if(event.target===this)closeFsrsInspector()" style="display:none">
+  <div id="fsrs-inspector">
+    <div class="fsrs-insp-header">
+      <span class="fsrs-insp-title">🔬 FSRS Scheduler</span>
+      <button class="fsrs-insp-close" onclick="closeFsrsInspector()" title="关闭 (Shift+S / Esc)">✕</button>
+    </div>
+    <div id="fsrs-insp-body"></div>
+  </div>
+</div>
 </body>
 </html>

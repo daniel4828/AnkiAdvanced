@@ -6670,10 +6670,101 @@ function _hasOpenModal() {
   return modalIds.some(_isVisible);
 }
 
+// ── FSRS scheduler inspector (Shift+S) ──────────────────────────────────────
+const _RATING_NAMES = { 1: 'Again', 2: 'Hard', 3: 'Good', 4: 'Easy' };
+
+function _fsrsInspectorOpen() {
+  const ov = document.getElementById('fsrs-inspector-overlay');
+  return ov && ov.style.display !== 'none' && ov.style.display !== '';
+}
+function toggleFsrsInspector() {
+  if (_fsrsInspectorOpen()) closeFsrsInspector();
+  else openFsrsInspector();
+}
+function openFsrsInspector() {
+  const ov = document.getElementById('fsrs-inspector-overlay');
+  if (!ov) return;
+  renderFsrsInspector();
+  ov.style.display = 'flex';
+}
+function closeFsrsInspector() {
+  const ov = document.getElementById('fsrs-inspector-overlay');
+  if (ov) ov.style.display = 'none';
+}
+
+function _fsrsFmtIvl(d) {
+  if (d == null) return '—';
+  if (d < 1) return '<1d';
+  if (d < 31) return d + 'd';
+  if (d < 365) { const m = Math.floor(d / 30), r = d % 30; return r ? `${m}mo ${r}d` : `${m}mo`; }
+  return (d / 365).toFixed(1).replace(/\.0$/, '') + 'y';
+}
+function _fsrsParam(k, v, title) {
+  const t = title ? ` title="${title}"` : '';
+  return `<div class="fsrs-param"${t}><span class="k">${k}</span><span class="v">${v}</span></div>`;
+}
+
+function renderFsrsInspector() {
+  const body = document.getElementById('fsrs-insp-body');
+  if (!body) return;
+  if (!card) { body.innerHTML = '<div class="fsrs-note">没有正在复习的卡片。</div>'; return; }
+  const f = card.fsrs;
+  if (!f) { body.innerHTML = '<div class="fsrs-note">这张卡没有 FSRS 数据。</div>'; return; }
+
+  const word = card.word_zh ? `「${card.word_zh}」` : '';
+  const S = f.stability, D = f.difficulty, R = f.retrievability;
+  let html = '';
+
+  if (!f.enabled) html += `<div class="fsrs-note">⚠️ 该牌组未启用 FSRS（仍用旧版 SM-2）。</div>`;
+
+  html += `<div class="fsrs-section-label">当前参数 ${word} · ${f.state}</div>`;
+  html += '<div class="fsrs-params">';
+  html += _fsrsParam('Stability 稳定性', S != null ? S.toFixed(2) + ' d' : '—', '记忆能撑多少天（衰减到 90%）');
+  html += _fsrsParam('Difficulty 难度', D != null ? D.toFixed(2) + ' /10' : '—', '1–10，越高越难；每次向中值回归');
+  html += _fsrsParam('Elapsed 已过', f.elapsed_days + ' d', '距上次复习的天数');
+  html += _fsrsParam('Desired R 目标', Math.round(f.desired_retention * 100) + '%', '目标记忆率，决定所有间隔');
+  if (R != null) {
+    html += `<div class="fsrs-param full"><span class="k">Retrievability 当前可提取性</span><span class="v">${(R * 100).toFixed(1)}%</span></div>`;
+    html += `<div class="fsrs-param full" style="background:transparent;padding:0"><div class="fsrs-bar"><i style="width:${Math.round(R * 100)}%"></i></div></div>`;
+  }
+  html += '</div>';
+
+  if (f.ratings && Object.keys(f.ratings).length) {
+    html += `<div class="fsrs-section-label">点每个评分会发生什么</div>`;
+    html += '<table class="fsrs-table"><thead><tr><th>评分</th><th>新 S</th><th>新 D</th><th>下次间隔</th></tr></thead><tbody>';
+    [1, 2, 3, 4].forEach(r => {
+      const e = f.ratings[String(r)];
+      if (!e) return;
+      const note = r === 1 ? ' <span style="color:var(--muted);font-weight:400">(先进重学)</span>' : '';
+      html += `<tr class="r-row-${r}"><td class="rate-cell">${_RATING_NAMES[r]}</td><td>${e.stability}</td><td>${e.difficulty}</td><td class="ivl">${_fsrsFmtIvl(e.interval)}${note}</td></tr>`;
+    });
+    html += '</tbody></table>';
+  } else {
+    html += `<div class="fsrs-note">这张卡还在学习/重学阶段，按钮间隔由分钟级步骤决定，尚未进入 FSRS 记忆模型。</div>`;
+  }
+
+  html += `<div class="fsrs-section-label">参数如何代入公式</div>`;
+  html += `<div class="fsrs-formula">
+    <b>1. 可提取性</b> R = (1 + 19/81 · t/S)<sup>−0.5</sup>，t=${f.elapsed_days}，S=${S != null ? S.toFixed(1) : '—'} → R=${R != null ? (R * 100).toFixed(1) + '%' : '—'}<br>
+    <b>2. 答对 →</b> 稳定性增长，<code>等得越久(R越低)、难度越低，奖励越大</code>；Hard 打折、Easy 加成。<br>
+    <b>3. 答错(Again) →</b> 稳定性温和下降（不砍半），难度上升。<br>
+    <b>4. 下次间隔</b> = 让 R 衰减到目标 ${Math.round(f.desired_retention * 100)}% 所需天数 ≈ 新的 S。<br>
+    <b>5. 难度</b> 每次都向中值回归 → 不会永久卡死（无 ease 地狱）。
+  </div>`;
+  html += `<div class="fsrs-note">间隔已强制 Again < Hard ≤ Good < Easy 单调。按 Shift+S 或 Esc 关闭。</div>`;
+
+  body.innerHTML = html;
+}
+
 document.addEventListener('keydown', async e => {
   const inInput = _isEditableFocusTarget(document.activeElement);
 
   if (e.key === 'Escape') {
+    if (_fsrsInspectorOpen()) {
+      e.preventDefault();
+      closeFsrsInspector();
+      return;
+    }
     const sessOverlay = document.getElementById('session-summary-overlay');
     if (sessOverlay && sessOverlay.style.display !== 'none') {
       e.preventDefault();
@@ -6723,6 +6814,12 @@ document.addEventListener('keydown', async e => {
 
   if (e.key === 'R' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
     if (!inInput) { e.preventDefault(); _restartServer(); }
+    return;
+  }
+
+  // Shift+S toggles the FSRS scheduler inspector
+  if (e.key === 'S' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    if (!inInput) { e.preventDefault(); toggleFsrsInspector(); }
     return;
   }
 
