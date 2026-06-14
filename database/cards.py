@@ -57,7 +57,8 @@ def reset_card_progress(word_id: int) -> int:
     cur = conn.execute(
         """UPDATE cards
            SET state='new', due=?, interval=0, ease=2.5,
-               step_index=0, lapses=0, buried_until=NULL
+               step_index=0, lapses=0, buried_until=NULL,
+               stability=NULL, difficulty=NULL, last_review=NULL
            WHERE word_id=? AND deleted_at IS NULL AND state != 'suspended'""",
         (today, word_id),
     )
@@ -129,6 +130,7 @@ def get_card(card_id: int) -> dict | None:
                   p.learning_steps, p.graduating_interval, p.easy_interval,
                   p.relearning_steps, p.minimum_interval,
                   p.leech_threshold, p.learning_leech_threshold, p.leech_action,
+                  p.desired_retention, p.maximum_interval, p.fsrs_weights, p.enable_fsrs,
                   p.new_per_day, p.reviews_per_day
            FROM cards c
            JOIN entries w ON w.id = c.word_id
@@ -485,26 +487,38 @@ def update_word(word_id: int, fields: dict) -> None:
     conn.close()
 
 
+_UNSET = object()
+
+
 def update_card(card_id: int, *, state: str, due: str,
                 step_index: int, interval: int,
                 ease: float, repetitions: int, lapses: int,
-                learning_again_count: int | None = None) -> None:
+                learning_again_count: int | None = None,
+                stability=_UNSET, difficulty=_UNSET, last_review=_UNSET) -> None:
+    """Update a card's scheduling state.
+
+    stability/difficulty/last_review are optional: omit them to leave the column
+    untouched, or pass an explicit value (including None) to set it. This keeps
+    legacy callers working while letting FSRS persist its memory state.
+    """
+    sets = ["state=?", "due=?", "step_index=?", "interval=?",
+            "ease=?", "repetitions=?", "lapses=?"]
+    vals = [state, due, step_index, interval, ease, repetitions, lapses]
+    if learning_again_count is not None:
+        sets.append("learning_again_count=?")
+        vals.append(learning_again_count)
+    if stability is not _UNSET:
+        sets.append("stability=?")
+        vals.append(stability)
+    if difficulty is not _UNSET:
+        sets.append("difficulty=?")
+        vals.append(difficulty)
+    if last_review is not _UNSET:
+        sets.append("last_review=?")
+        vals.append(last_review)
+    vals.append(card_id)
     conn = get_db()
-    if learning_again_count is None:
-        conn.execute(
-            """UPDATE cards SET state=?, due=?, step_index=?, interval=?,
-                                ease=?, repetitions=?, lapses=?
-               WHERE id=?""",
-            (state, due, step_index, interval, ease, repetitions, lapses, card_id),
-        )
-    else:
-        conn.execute(
-            """UPDATE cards SET state=?, due=?, step_index=?, interval=?,
-                                ease=?, repetitions=?, lapses=?, learning_again_count=?
-               WHERE id=?""",
-            (state, due, step_index, interval, ease, repetitions, lapses,
-             learning_again_count, card_id),
-        )
+    conn.execute(f"UPDATE cards SET {', '.join(sets)} WHERE id=?", vals)
     conn.commit()
     conn.close()
 

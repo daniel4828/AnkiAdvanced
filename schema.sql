@@ -26,6 +26,16 @@ CREATE TABLE IF NOT EXISTS deck_presets (
     -- Review scheduling
     minimum_interval        INTEGER NOT NULL DEFAULT 1,
 
+    -- ── FSRS scheduling ──────────────────────────────────────────────────────
+    -- desired_retention: target recall probability that sets every interval
+    -- maximum_interval: hard cap on any computed interval (days)
+    -- fsrs_weights: space-separated 19-param vector (NULL = use built-in defaults)
+    -- enable_fsrs: 1 = FSRS memory model, 0 = legacy SM-2 (ease-based)
+    desired_retention       REAL NOT NULL DEFAULT 0.9,
+    maximum_interval        INTEGER NOT NULL DEFAULT 36500,
+    fsrs_weights            TEXT,
+    enable_fsrs             INTEGER NOT NULL DEFAULT 1,
+
     -- New card insertion order (legacy; superseded by new_gather_order)
     insertion_order         TEXT NOT NULL DEFAULT 'sequential'
                                 CHECK(insertion_order IN ('sequential', 'random')),
@@ -249,9 +259,14 @@ CREATE TABLE IF NOT EXISTS cards (
 
     step_index  INTEGER NOT NULL DEFAULT 0,
     interval    INTEGER NOT NULL DEFAULT 0,     -- days
-    ease        REAL    NOT NULL DEFAULT 2.5,
+    ease        REAL    NOT NULL DEFAULT 2.5,   -- SM-2 legacy; unused under FSRS scheduling
     repetitions INTEGER NOT NULL DEFAULT 0,
     lapses      INTEGER NOT NULL DEFAULT 0,
+
+    -- FSRS memory state (NULL until the card first graduates out of learning)
+    stability   REAL,                            -- days-to-90%-retention
+    difficulty  REAL,                            -- 1–10 intrinsic hardness
+    last_review TEXT,                            -- ISO date of the previous review (for elapsed-days / R)
 
     -- Again presses while in new/learning/relearn (drives the learning leech check)
     learning_again_count INTEGER NOT NULL DEFAULT 0,
