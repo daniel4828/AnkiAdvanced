@@ -3509,84 +3509,28 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   gap: 2px;
 }
 .cal-cell {
-  position: relative;
-  min-height: 40px;
+  min-height: 28px;
   border-radius: 4px;
   border: 1px solid var(--border, #e5e7eb);
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-start;
-  padding: 3px 3px 2px;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 1px;
   gap: 2px;
 }
 .cal-cell.cal-today { outline: 2px solid var(--primary, #6366f1); outline-offset: -2px; border-radius: 4px; }
 .cal-cell.cal-empty { pointer-events: none; border-color: transparent; background: none; }
-/* Day number sits top-left and is always visible */
-.cal-daynum {
-  font-size: 0.62rem;
+.cal-cell.cal-has-future { background: #e5e7eb; }
+.cal-day-num {
+  font-size: 0.65rem;
   color: var(--text-muted);
   line-height: 1;
-  align-self: flex-start;
 }
-.cal-daynum-today {
+.cal-day-num-today {
   color: var(--primary, #6366f1);
   font-weight: 700;
 }
-/* Fixed 3-slot dot row pinned to the bottom of the cell */
-.cal-dots {
-  display: flex;
-  gap: 4px;
-  justify-content: center;
-  align-items: center;
-  margin-top: auto;
-}
-.cal-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  box-sizing: border-box;
-  flex: 0 0 auto;
-}
-.cal-dot-done { border: 2px solid; }                 /* filled — bg+border set inline */
-.cal-dot-due  { background: var(--card, #fff); border: 2px solid; }  /* hollow ring */
-.cal-dot-empty {
-  width: 5px; height: 5px;
-  background: var(--border, #e5e7eb);
-  opacity: 0.5;
-}
-/* Focus category: enlarge + ring instead of fading the others (CB-friendlier) */
-.cal-dot-focus {
-  transform: scale(1.35);
-  box-shadow: 0 0 0 2px var(--card, #fff), 0 0 0 3px rgba(99, 102, 241, 0.55);
-}
-/* Sticky state legend above the months (shared by both calendars) */
-.cal-legend2 {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px 10px;
-  justify-content: center;
-  padding: 5px 4px;
-  margin-bottom: 4px;
-  background: var(--card, #fff);
-  border-bottom: 1px solid var(--border, #e5e7eb);
-  font-size: 11px;
-  color: var(--muted, #64748b);
-}
-.cal-leg-item { display: inline-flex; align-items: center; gap: 4px; }
-.cal-leg-dot {
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  box-sizing: border-box;
-  flex: 0 0 auto;
-}
-.cal-leg-filled { background: var(--muted, #94a3b8); border: 2px solid var(--muted, #94a3b8); }
-.cal-leg-hollow { background: var(--card, #fff);     border: 2px solid var(--muted, #94a3b8); }
-.cal-leg-sep { width: 1px; align-self: stretch; background: var(--border, #e5e7eb); margin: 0 2px; }
-
 /* ── State-change cue (issue #329) ──────────────────────────────────────────
    Floating Chinese word announcing a card's new state during review. */
 .state-anim {
@@ -3658,10 +3602,8 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 .cal-chip-hard  { background: #f97316; }
 .cal-chip-good  { background: #22c55e; }
 .cal-chip-easy  { background: #3b82f6; }
-/* Future due chips — plain black text, no background, no border */
-.cal-chip-due-listening,
-.cal-chip-due-reading,
-.cal-chip-due-creating  { background: transparent; border: none; color: var(--text, #1f2937); font-weight: 700; }
+/* Future due chips — hollow square (no glyph), category told via tooltip */
+.cal-chip-due { background: transparent; border: 1.5px solid var(--muted, #94a3b8); }
 .cal-legend {
   display: flex;
   gap: 8px;
