@@ -5237,6 +5237,7 @@ async function reviewCardAction(action) {
     } else {
       await api('POST', `/api/cards/${cardId}/${action}`);
     }
+    if (action === 'leech') showStateChangeAnim({ to: 'suspended' });
     let nextData;
     if (unfinishedMode) {
       nextData = await api('GET', '/api/today-unfinished');
@@ -6711,6 +6712,9 @@ document.addEventListener('keydown', async e => {
     } else if (e.key === 'D' || e.key === '7') {
       e.preventDefault();
       reviewCardAction('delete');
+    } else if (e.key === 'L') {
+      e.preventDefault();
+      reviewCardAction('leech');
     } else if (e.key === 'o') {
       e.preventDefault();
       if (deckId) openOptions(deckId);
