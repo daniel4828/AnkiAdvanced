@@ -282,16 +282,17 @@ async function _loadCardTile(cardId, category) {
 let _ctlData     = null;   // {cards} from /api/cards/{id}/timeline (review view)
 let _ctlCategory = null;   // category of the card being reviewed
 
-// Colorblind-safe card-state palette (Okabe-Ito). Avoids the green/red/orange/
-// purple cluster entirely — those mid-tones are unreliable for red-green CB.
-// Instead it separates states on the two axes Daniel can read: blue↔yellow hue
-// and lightness. Learnt vs Relearn = blue vs orange (the safest pairing); New
-// vs Learnt = light blue vs dark blue (separated by lightness); Learning = black.
+// Colorblind-safe card-state palette (Okabe-Ito). Tuned for Daniel's red-green
+// CB: no green, no red, and — crucially — no black, since black vs dark-blue is
+// the pair he could not tell apart on thin lines. The four states now sit on
+// hues he reads reliably: light sky blue, orange, dark blue, magenta. The two
+// blues are kept far apart in lightness; orange↔magenta differ on the blue↔
+// yellow axis. Every pair is distinguishable under deuteranopia/protanopia.
 const _STATE_COLOR = {
   new:      '#56B4E9',  // sky blue (light)
-  learning: '#000000',  // black
+  learning: '#E69F00',  // orange
   review:   '#0072B2',  // blue (dark)
-  relearn:  '#D55E00',  // vermillion / orange
+  relearn:  '#CC79A7',  // magenta / reddish purple
 };
 const _CGRAPH_COLOR = _STATE_COLOR;
 const _CGRAPH_LABEL = { new: 'New', learning: 'Learning', review: 'Learnt', relearn: 'Relearn' };
@@ -347,7 +348,7 @@ function _cardGraphHtml(card) {
     const a = pts[i - 1], b = pts[i];
     const color = _CGRAPH_COLOR[b.state] || 'var(--muted)';
     svg += `<line x1="${x(a).toFixed(1)}" y1="${y(a).toFixed(1)}" x2="${x(b).toFixed(1)}" y2="${y(b).toFixed(1)}"
-              stroke="${color}" stroke-width="1.8" stroke-linecap="round"${b.scheduled ? ' stroke-dasharray="4 3"' : ''}/>`;
+              stroke="${color}" stroke-width="2.8" stroke-linecap="round"${b.scheduled ? ' stroke-dasharray="5 4"' : ''}/>`;
   }
   svg += pts.map(p => {
     const color = _CGRAPH_COLOR[p.state] || 'var(--muted)';
@@ -355,8 +356,8 @@ function _cardGraphHtml(card) {
     const tip = p.scheduled
       ? `${day} · due · interval ${_fmtIval(p.gap)}`
       : `${day} · interval ${_fmtIval(p.gap)} · ${_CGRAPH_RATING[p.rating] || ''} · ${_CGRAPH_LABEL[p.state] || p.state}`;
-    return `<circle cx="${x(p).toFixed(1)}" cy="${y(p).toFixed(1)}" r="3"
-              fill="${p.scheduled ? 'var(--card)' : color}" stroke="${color}" stroke-width="1.5"><title>${tip}</title></circle>`;
+    return `<circle cx="${x(p).toFixed(1)}" cy="${y(p).toFixed(1)}" r="4"
+              fill="${p.scheduled ? 'var(--card)' : color}" stroke="${color}" stroke-width="2.2"><title>${tip}</title></circle>`;
   }).join('');
 
   const legend = Object.keys(_CGRAPH_LABEL).map(k =>
