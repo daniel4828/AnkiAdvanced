@@ -308,6 +308,30 @@ const _STATE_COLOR = {
   relearn:  '#CC79A7',  // magenta / reddish purple
 };
 const _CGRAPH_COLOR = _STATE_COLOR;
+
+// Chinese label + colour shown when a card's state changes during review.
+// 'suspended' here always means a leech (review can only suspend via leech).
+const _STATE_ANIM = {
+  new:       { text: '新词',     color: _STATE_COLOR.new },
+  learning:  { text: '学习中',   color: _STATE_COLOR.learning },
+  review:    { text: '学会了',   color: _STATE_COLOR.review },
+  relearn:   { text: '重新学习', color: _STATE_COLOR.relearn },
+  suspended: { text: '难词！',   color: '#b45309' },
+};
+
+// Floating Chinese state-change cue: fades + scales in, drifts up, removes itself.
+function showStateChangeAnim(transition) {
+  const info = _STATE_ANIM[transition?.to];
+  if (!info) return;
+  const el = document.createElement('div');
+  el.className = 'state-anim';
+  el.textContent = info.text;
+  el.style.color = info.color;
+  document.body.appendChild(el);
+  el.addEventListener('animationend', () => el.remove(), { once: true });
+  // Safety net in case animationend never fires (e.g. reduced-motion)
+  setTimeout(() => el.remove(), 2000);
+}
 const _CGRAPH_LABEL = { new: 'New', learning: 'Learning', review: 'Learnt', relearn: 'Relearn' };
 const _CGRAPH_RATING = { 1: 'Again', 2: 'Hard', 3: 'Good', 4: 'Easy' };
 
@@ -4551,6 +4575,7 @@ async function rate(rating) {
     else if (deckId) url += `&parent_deck_id=${deckId}`;
     const result = await api('POST', url);
     _sessionReviewedCount++;
+    if (result.transition?.changed) showStateChangeAnim(result.transition);
     if (typeof invalidateHomeCalendar === 'function') invalidateHomeCalendar();
     if (typeof invalidateHomeEvolution === 'function') invalidateHomeEvolution();
     api('GET', '/api/retention?days=0').then(r => {
