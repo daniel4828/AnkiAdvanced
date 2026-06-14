@@ -46,6 +46,7 @@ let wordDetails = null;   // full word data: examples + characters
 let _currentWordId = null; // word ID open in word-detail view
 let _prevView = null;      // view we came from before opening word-detail
 let _sessionReviewedCount = 0; // cards rated this session (for clap animation)
+let _sessionReviewedIds = [];  // card ids reviewed this session (for summary graph)
 let userInput   = '';     // creating category: what the user typed
 let clozeExtraWord = ''; // extra word blanked in cloze front (revealed on back)
 let wordBankTokens = [];  // [{char, num}] shuffled non-target tokens
@@ -63,6 +64,7 @@ let _retentionData = null;  // cached result from GET /api/retention
 let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
 let _timerInterval = null;
 let _timerStart = null;
+const _TIMER_CAP_MS = 40000;  // beyond this the user is likely doing something else
 let _sessionTotalMs = 0;
 let _sessionRatedCount = 0;
 
@@ -77,7 +79,7 @@ let _calFocusCat = null;   // focus category — its chips stay full, other cate
 // Fade level for non-focus category chips — user-adjustable, persisted.
 let _calFade = (() => {
   const v = parseFloat(localStorage.getItem('calFade'));
-  return v >= 0.15 && v <= 1 ? v : 0.55;
+  return v >= 0.15 && v <= 1 ? v : 0.3;
 })();
 function _calFadeApply() { document.documentElement.style.setProperty('--cal-fade', _calFade); }
 function setCalFade(v) {
@@ -89,9 +91,11 @@ function setCalFade(v) {
   });
 }
 function _calFadeSliderHtml() {
-  // The redesigned calendar marks the focus category by enlarging its dot
-  // instead of fading the others, so the opacity slider is no longer needed.
-  return '';
+  return `<label class="cal-fade-ctl" title="Other-category opacity">
+    <span>Fade</span>
+    <input type="range" class="cal-fade-input" min="0.15" max="1" step="0.05"
+           value="${_calFade}" oninput="setCalFade(this.value)">
+  </label>`;
 }
 
 const _RATING_CLASS = { 1: 'again', 2: 'hard', 3: 'good', 4: 'easy' };
@@ -100,25 +104,6 @@ const _CAT_CLASS    = { listening: 'listening', reading: 'reading', creating: 'c
 function _calKey(dateStr) { return dateStr; }  // "YYYY-MM-DD"
 
 const _CAT_LETTER = { listening: '听', reading: '读', creating: '创' };
-
-// Fixed slot order for the calendar dots: position alone encodes the category,
-// so no glyph is needed in the dense grid (listening · reading · creating).
-const _CAL_CATS = ['listening', 'reading', 'creating'];
-
-// Sticky legend shown above the month grid (shared by review + word-detail cals).
-// Dot colour = card state (colorblind-safe); filled = reviewed, hollow = due.
-function _calLegendHtml() {
-  const states = [['new', 'New'], ['learning', 'Learning'], ['review', 'Learnt'], ['relearn', 'Relearn']];
-  const sw = states.map(([k, l]) =>
-    `<span class="cal-leg-item"><span class="cal-leg-dot" style="background:${_STATE_COLOR[k]};border-color:${_STATE_COLOR[k]}"></span>${l}</span>`).join('');
-  return `<div class="cal-legend2">${sw}`
-    + `<span class="cal-leg-sep"></span>`
-    + `<span class="cal-leg-item"><span class="cal-leg-dot cal-leg-filled"></span>done</span>`
-    + `<span class="cal-leg-item"><span class="cal-leg-dot cal-leg-hollow"></span>due</span>`
-    + `<span class="cal-leg-sep"></span>`
-    + `<span class="cal-leg-item">听·读·创 = slots L→R</span>`
-    + `</div>`;
-}
 
 function _buildCalDayMap() {
   // Deduplicate: per (date, category) keep only the last review
@@ -184,7 +169,7 @@ function _renderCal(timelineId = 'cal-timeline', panelId = 'review-cal-panel') {
     }
   }
 
-  let html = _calLegendHtml();
+  let html = '';
   let yr = startDate.getFullYear(), mo = startDate.getMonth();
   const endYr = endDate.getFullYear(), endMo = endDate.getMonth();
   let todayMonthId = null;
@@ -211,36 +196,38 @@ function _renderCal(timelineId = 'cal-timeline', panelId = 'review-cal-panel') {
       const isToday = dateStr === todayStr;
       const info = dayMap[dateStr];
 
-      // Fixed 3-slot dots (listening · reading · creating). The current category's
-      // future due is suppressed except on today (we're already reviewing it).
+      // The current category's chip is suppressed (we're already reviewing it),
+      // so only ratings + other-category dues count as visible content. A date
+      // whose only due is the current category must render like an empty day:
+      // no grey "has-future" background, and its day number must still show.
       const ratings     = info?.ratings || [];
-      const visibleDues = (info?.dues || []).filter(
-        f => f.category !== _calCategory || dateStr === todayStr);
-      const hasVisible  = ratings.length > 0 || visibleDues.length > 0;
-      html += `<div class="cal-cell${isToday ? ' cal-today' : ''}">`;
-      html += `<span class="cal-daynum${isToday ? ' cal-daynum-today' : ''}">${d}</span>`;
+      const visibleDues = (info?.dues || []).filter(f => f.category !== _calCategory);
+      const hasVisible   = ratings.length > 0 || visibleDues.length > 0;
+      const hasFutureDue = dateStr > todayStr && visibleDues.length > 0;
+      html += `<div class="cal-cell${isToday ? ' cal-today' : ''}${hasFutureDue ? ' cal-has-future' : ''}">`;
       if (hasVisible) {
-        html += '<div class="cal-dots">';
-        for (const cat of _CAL_CATS) {
-          const past  = ratings.find(r => r.category === cat);
-          const due   = visibleDues.find(f => f.category === cat);
-          const focus = (cat === _calFocusCat) ? ' cal-dot-focus' : '';
-          const glyph = _CAT_LETTER[cat] || cat;
-          if (past) {
-            const st    = stateByCatDate[cat]?.[dateStr];
-            const color = st ? _STATE_COLOR[st] : 'var(--muted)';
-            const rTip  = _CGRAPH_RATING[past.rating] || '';
-            const stTip = st ? ` · ${_CGRAPH_LABEL[st] || st}` : '';
-            html += `<span class="cal-dot cal-dot-done${focus}" style="background:${color};border-color:${color}" title="${glyph} · ${rTip}${stTip}"></span>`;
-          } else if (due) {
-            const color = due.state ? _STATE_COLOR[due.state] : 'var(--muted)';
-            const stTip = due.state ? ` · ${_CGRAPH_LABEL[due.state] || due.state}` : '';
-            html += `<span class="cal-dot cal-dot-due${focus}" style="border-color:${color}" title="${glyph} · due${stTip}"></span>`;
-          } else {
-            html += '<span class="cal-dot cal-dot-empty"></span>';
-          }
+        html += '<div class="cal-chips">';
+        for (const r of ratings) {
+          const rCls = _RATING_CLASS[r.rating] || 'good';
+          const st = stateByCatDate[r.category]?.[dateStr];
+          const faded = (_calFocusCat && r.category !== _calFocusCat) ? ' cal-chip-faded' : '';
+          const cls = `cal-chip cal-chip-${rCls}${st ? ' cal-chip-state' : ''}${faded}`;
+          const style = st ? ` style="border-color:${_STATE_COLOR[st]}"` : '';
+          const stTip = st ? ` · ${_CGRAPH_LABEL[st] || st}` : '';
+          // No category glyph: the active category shows full colour, others fade.
+          html += `<span class="${cls}"${style} title="${r.category}: ${rCls}${stTip}"></span>`;
+        }
+        for (const f of visibleDues) {
+          const cCls = _CAT_CLASS[f.category] || '';
+          const faded = (_calFocusCat && f.category !== _calFocusCat) ? ' cal-chip-faded' : '';
+          html += `<span class="cal-chip cal-chip-due cal-chip-due-${cCls}${faded}" title="${f.category} due"></span>`;
         }
         html += '</div>';
+      } else if (isToday && _calCategory) {
+        const cCls = _CAT_CLASS[_calCategory] || '';
+        html += `<div class="cal-chips"><span class="cal-chip cal-chip-due cal-chip-due-${cCls}" title="${_calCategory} today"></span></div>`;
+      } else {
+        html += `<span class="cal-day-num${isToday ? ' cal-day-num-today' : ''}">${d}</span>`;
       }
       html += '</div>';
     }
@@ -436,6 +423,106 @@ function _cardGraphHtml(card) {
     </div>`;
 }
 
+// ── Session summary graph (issue #337) ───────────────────────────────────────
+// Overlays every reviewed card's interval timeline. Hover a line → its word;
+// click → open that card's browse (word detail).
+
+// Distinct line colours, cycled per card. Chosen to stay separable for Daniel's
+// red-green CB (no red/green pairs adjacent; spans blue↔orange↔purple).
+const _SUMMARY_PALETTE = [
+  '#0072B2', '#E69F00', '#CC79A7', '#56B4E9',
+  '#9467bd', '#8c564b', '#117733', '#882255',
+];
+
+async function openSessionSummary() {
+  const ids = [...new Set(_sessionReviewedIds)];
+  const body = document.getElementById('session-summary-body');
+  document.getElementById('session-summary-overlay').style.display = 'block';
+  document.getElementById('session-summary-modal').style.display = 'block';
+  if (!ids.length) {
+    body.innerHTML = '<div class="cgraph-empty">No cards reviewed yet this session.</div>';
+    return;
+  }
+  body.innerHTML = '<div class="cgraph-empty">Loading…</div>';
+  try {
+    const data = await api('POST', '/api/session-timelines', { ids });
+    body.innerHTML = _sessionSummaryHtml(data.cards || []);
+  } catch (e) {
+    body.innerHTML = `<div class="cgraph-empty">Failed to load: ${e.message}</div>`;
+  }
+}
+
+function closeSessionSummary() {
+  document.getElementById('session-summary-overlay').style.display = 'none';
+  document.getElementById('session-summary-modal').style.display = 'none';
+}
+
+function sumLineClick(wordId) {
+  closeSessionSummary();
+  openWordDetail(wordId);
+}
+
+function _sessionSummaryHtml(cards) {
+  // Keep only cards that actually have a line to draw
+  const drawn = cards.filter(c => (c.points || []).length);
+  if (!drawn.length) return '<div class="cgraph-empty">No interval history yet for these cards.</div>';
+
+  const W = 600, H = 340, PT = 14, PB = 20, PL = 30, PR = 14;
+  const t = s => new Date(s.replace(' ', 'T')).getTime();
+
+  // Each card's full point list (reviews + the scheduled due point)
+  const series = drawn.map(c => {
+    const pts = (c.points || []).slice();
+    if (c.scheduled) pts.push({ ...c.scheduled, scheduled: true });
+    return { card: c, pts };
+  });
+
+  const allPts = series.flatMap(s => s.pts);
+  let t0 = Math.min(...allPts.map(p => t(p.at)));
+  let t1 = Math.max(...allPts.map(p => t(p.at)));
+  if (t1 <= t0) t1 = t0 + 86400000;
+  const ymax = Math.max(1, ...allPts.map(p => p.gap));
+
+  const x = p => PL + (t(p.at) - t0) / (t1 - t0) * (W - PL - PR);
+  // sqrt scale on y so short and long intervals are both legible
+  const y = p => PT + (1 - Math.sqrt(p.gap) / Math.sqrt(ymax)) * (H - PT - PB);
+
+  // Horizontal gridlines + interval labels at a few sqrt-spaced levels
+  let svg = '';
+  const yTicks = [0, ymax * 0.25, ymax * 0.5, ymax].map(v => Math.round(v));
+  for (const v of [...new Set(yTicks)]) {
+    const gy = (PT + (1 - Math.sqrt(v) / Math.sqrt(ymax)) * (H - PT - PB)).toFixed(1);
+    svg += `<line x1="${PL}" y1="${gy}" x2="${W - PR}" y2="${gy}" stroke="var(--border)" stroke-width="0.6"/>`;
+    svg += `<text x="${PL - 4}" y="${(+gy + 3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--muted)">${v}d</text>`;
+  }
+
+  // One group per card: polyline (+dashed scheduled tail), hover shows the word
+  series.forEach((s, i) => {
+    const color = _SUMMARY_PALETTE[i % _SUMMARY_PALETTE.length];
+    const real = s.card.points.map(p => `${x(p).toFixed(1)},${y(p).toFixed(1)}`).join(' ');
+    let body = `<polyline points="${real}" fill="none" stroke="${color}"/>`;
+    if (s.card.scheduled && s.card.points.length) {
+      const a = s.card.points[s.card.points.length - 1], b = s.card.scheduled;
+      body += `<line x1="${x(a).toFixed(1)}" y1="${y(a).toFixed(1)}" x2="${x(b).toFixed(1)}" y2="${y(b).toFixed(1)}"
+                 stroke="${color}" stroke-dasharray="4 3"/>`;
+    }
+    body += s.pts.map(p => `<circle cx="${x(p).toFixed(1)}" cy="${y(p).toFixed(1)}" r="2.5" fill="${color}"/>`).join('');
+    const label = `${s.card.word_zh}${s.card.pinyin ? ' ' + s.card.pinyin : ''} · ${_CGRAPH_LABEL[s.card.state] || s.card.state}`;
+    svg += `<g class="sum-card" onclick="sumLineClick(${s.card.word_id})"><title>${label}</title>${body}</g>`;
+  });
+
+  const fmtD = s => { const [m, d] = s.slice(5, 10).split('-'); return `${+m}/${+d}`; };
+  const d0 = new Date(t0), d1 = new Date(t1);
+  const iso = dt => dt.toISOString().slice(0, 10);
+
+  return `
+    <div class="session-summary-info">${drawn.length} cards · y = scheduled interval (days) · hover a line to see the word, click to open it</div>
+    <div class="cgraph-wrap">
+      <svg class="session-summary-svg" viewBox="0 0 ${W} ${H}">${svg}</svg>
+      <div class="hcal-graph-axis"><span>${fmtD(iso(d0))}</span><span>${fmtD(iso(d1))}</span></div>
+    </div>`;
+}
+
 // ── Word-detail tile (browse) ────────────────────────────────────────────────
 let _wdTlData  = null;
 let _wdCalData = null;
@@ -501,10 +588,19 @@ function _startTimer() {
   _stopTimer();
   _timerStart = Date.now();
   const el = document.getElementById('card-timer');
+  el.classList.remove('card-timer-capped');
   el.textContent = '0s';
   el.style.display = 'block';
   _timerInterval = setInterval(() => {
-    const s = Math.floor((Date.now() - _timerStart) / 1000);
+    const ms = Date.now() - _timerStart;
+    if (ms >= _TIMER_CAP_MS) {
+      // Freeze at the cap — the time past 40s won't count toward the average.
+      el.textContent = '40s';
+      el.classList.add('card-timer-capped');
+      clearInterval(_timerInterval); _timerInterval = null;
+      return;
+    }
+    const s = Math.floor(ms / 1000);
     el.textContent = s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${s % 60}s`;
   }, 1000);
 }
@@ -2599,6 +2695,7 @@ async function startReview(id, cat, name, noStory = false, quick = false) {
   category = cat;
   deckName = name;
   _sessionReviewedCount = 0;
+  _sessionReviewedIds = [];
   _sessionTotalMs = 0;
   _sessionRatedCount = 0;
   _updateAvgTimeBadge();
@@ -2717,6 +2814,7 @@ async function startReviewMixed(id, name, noStory = false, quick = false) {
   deckName   = name;
   story      = null;
   _sessionReviewedCount = 0;
+  _sessionReviewedIds = [];
   _sessionTotalMs = 0;
   _sessionRatedCount = 0;
   _updateAvgTimeBadge();
@@ -3183,7 +3281,7 @@ function diffAnswer(userInput, correct, wordZh) {
 
 // ── Back of card ────────────────────────────────────────────────────────────
 function revealAnswer() {
-  _stopTimer();
+  // Keep the timer running on the back side (it freezes at the 40s cap).
   const isCreating = category === 'creating';
 
   // Capture user input before hiding front
@@ -4589,7 +4687,8 @@ async function rate(rating) {
   document.querySelectorAll('.r-btn').forEach(b => b.disabled = true);
   let _cardMs = null;
   if (_timerStart) {
-    _cardMs = Date.now() - _timerStart;
+    // Cap at 40s: time spent past that likely isn't real study time.
+    _cardMs = Math.min(Date.now() - _timerStart, _TIMER_CAP_MS);
     _sessionTotalMs += _cardMs;
     _sessionRatedCount++;
     _updateAvgTimeBadge();
@@ -4600,8 +4699,10 @@ async function rate(rating) {
     if (unfinishedMode) url += `&unfinished_mode=true`;
     else if (rootDeckId) url += `&root_deck_id=${rootDeckId}`;
     else if (deckId) url += `&parent_deck_id=${deckId}`;
+    const reviewedId = card.id;
     const result = await api('POST', url);
     _sessionReviewedCount++;
+    if (reviewedId != null) _sessionReviewedIds.push(reviewedId);
     if (result.transition?.changed) showStateChangeAnim(result.transition);
     if (typeof invalidateHomeCalendar === 'function') invalidateHomeCalendar();
     if (typeof invalidateHomeEvolution === 'function') invalidateHomeEvolution();
@@ -6564,6 +6665,7 @@ function _hasOpenModal() {
     'hanzi-edit-modal-overlay',
     'conflict-modal-overlay',
     'kahneman-examples-overlay',
+    'session-summary-overlay',
   ];
   return modalIds.some(_isVisible);
 }
@@ -6572,6 +6674,12 @@ document.addEventListener('keydown', async e => {
   const inInput = _isEditableFocusTarget(document.activeElement);
 
   if (e.key === 'Escape') {
+    const sessOverlay = document.getElementById('session-summary-overlay');
+    if (sessOverlay && sessOverlay.style.display !== 'none') {
+      e.preventDefault();
+      closeSessionSummary();
+      return;
+    }
     const kahnemanOverlay = document.getElementById('kahneman-examples-overlay');
     if (kahnemanOverlay && kahnemanOverlay.style.display !== 'none') {
       e.preventDefault();

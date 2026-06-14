@@ -1571,3 +1571,91 @@ def get_card_timeline_data(card_id: int) -> dict:
     return {"cards": result}
 
 
+def get_session_timelines(card_ids: list[int]) -> dict:
+    """Interval timelines for an explicit list of cards (one review session).
+
+    Like get_card_timeline_data but keyed by card id (not word) and tagged with
+    each card's word label, so the session summary graph can show which card a
+    line is and link to it. Cards with no reviews yet are skipped.
+    """
+    from .stats import _EVOLUTION_STATES
+
+    if not card_ids:
+        return {"cards": []}
+
+    conn = get_db()
+    ph = ",".join("?" * len(card_ids))
+    cards = conn.execute(
+        f"""SELECT c.id, c.word_id, c.deck_id, c.category, c.state,
+                   c.pre_suspend_state, c.interval, c.due,
+                   w.word_zh, w.pinyin
+            FROM cards c JOIN entries w ON w.id = c.word_id
+            WHERE c.id IN ({ph}) AND c.deleted_at IS NULL""",
+        card_ids,
+    ).fetchall()
+
+    result = []
+    for c in cards:
+        rows = conn.execute(
+            """SELECT datetime(reviewed_at, 'localtime') AS at, rating, state
+               FROM review_log WHERE card_id = ? ORDER BY reviewed_at""",
+            (c["id"],),
+        ).fetchall()
+        if not rows:
+            continue
+
+        preset = get_preset_for_deck(c["deck_id"], c["category"]) or {}
+        P = {
+            "learning_steps":      _parse_step_minutes(preset.get("learning_steps", "1 10")),
+            "relearning_steps":    _parse_step_minutes(preset.get("relearning_steps", "10")),
+            "graduating_interval": preset.get("graduating_interval", 1),
+            "easy_interval":       preset.get("easy_interval", 4),
+            "minimum_interval":    preset.get("minimum_interval", 1),
+        }
+
+        final = c["state"]
+        if final == "suspended":
+            final = c["pre_suspend_state"]
+
+        points = []
+        state, step, interval, ease = "new", 0, 0, 2.5
+        for r in rows:
+            if r["state"] in _EVOLUTION_STATES and r["state"] != state:
+                state, step = r["state"], 0
+            state, step, interval, ease, gap = _replay_schedule_step(
+                state, step, interval, ease, r["rating"], P)
+            points.append({"at": r["at"], "gap": round(gap, 3),
+                           "rating": r["rating"], "state": state})
+        if points and final in _EVOLUTION_STATES:
+            points[-1]["state"] = final
+
+        scheduled = None
+        if points and c["state"] in ("learning", "relearn", "review"):
+            due_raw = c["due"]
+            due_dt = datetime.fromisoformat(due_raw) if len(due_raw) > 10 \
+                else datetime.fromisoformat(due_raw + "T04:00:00")
+            if c["state"] == "review":
+                gap = float(c["interval"])
+            else:
+                last_dt = datetime.fromisoformat(rows[-1]["at"])
+                gap = max(0.0, (due_dt - last_dt).total_seconds() / 86400)
+            scheduled = {"at": due_dt.isoformat(sep=" "), "gap": round(gap, 3),
+                         "state": c["state"]}
+
+        result.append({
+            "card_id":  c["id"],
+            "word_id":  c["word_id"],
+            "word_zh":  c["word_zh"],
+            "pinyin":   c["pinyin"],
+            "category": c["category"],
+            "state":    c["state"],
+            "interval": c["interval"],
+            "due":      c["due"],
+            "points":   points,
+            "scheduled": scheduled,
+        })
+
+    conn.close()
+    return {"cards": result}
+
+

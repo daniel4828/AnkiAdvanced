@@ -47,6 +47,7 @@
     <span id="review-rr-badge" class="review-rr-badge" style="display:none" title="Daily retention rate"></span>
     <span id="avg-time-badge" class="review-rr-badge" style="display:none" title="Average time per card this session"></span>
     <button class="undo-btn" id="undo-btn" onclick="undoReview()" title="Undo last rating [Z]" disabled>↩ Undo</button>
+    <button class="undo-btn" id="session-graph-btn" onclick="openSessionSummary()" title="Graph of cards reviewed this session">📈 Session</button>
   </div>
   <div class="header-right">
     <button id="header-regen-btn" onclick="regenerateStory()" title="Regenerate story" style="display:none">↺</button>
@@ -247,6 +248,16 @@
         <div id="cal-fade-row" class="cal-fade-row"></div>
         <div id="card-calendar" class="card-calendar">
           <div id="cal-timeline"></div>
+          <div class="cal-legend">
+            <span class="cal-legend-item"><span class="cal-legend-swatch cal-chip-again"></span>Again</span>
+            <span class="cal-legend-item"><span class="cal-legend-swatch cal-chip-hard"></span>Hard</span>
+            <span class="cal-legend-item"><span class="cal-legend-swatch cal-chip-good"></span>Good</span>
+            <span class="cal-legend-item"><span class="cal-legend-swatch cal-chip-easy"></span>Easy</span>
+            <span class="cal-legend-sep"></span>
+            <span class="cal-legend-item cal-legend-cat">听 Listening</span>
+            <span class="cal-legend-item cal-legend-cat">读 Reading</span>
+            <span class="cal-legend-item cal-legend-cat">创 Creating</span>
+          </div>
         </div>
       </div><!-- /review-cal-panel -->
 
@@ -260,6 +271,7 @@
     <p>暂时没有需要复习的卡片了。</p>
     <div style="display:flex;flex-direction:column;gap:12px;align-items:center">
       <button id="done-story-btn" class="btn-primary" onclick="openStoryModal()">View Full Story</button>
+      <button class="btn-secondary" onclick="openSessionSummary()">📈 Session Graph</button>
       <button class="btn-secondary" onclick="goBack()">Back to Decks</button>
     </div>
   </div>
@@ -846,6 +858,16 @@
     <button class="edit-modal-close" onclick="closeReasoning()">✕</button>
   </div>
   <div id="reasoning-body" class="reasoning-body"></div>
+</div>
+
+<!-- Session summary graph modal: interval timelines of all cards reviewed -->
+<div id="session-summary-overlay" onclick="closeSessionSummary()" style="display:none"></div>
+<div id="session-summary-modal" style="display:none">
+  <div class="edit-modal-header">
+    <span class="edit-modal-title">📈 Session — reviewed cards</span>
+    <button class="edit-modal-close" onclick="closeSessionSummary()">✕</button>
+  </div>
+  <div id="session-summary-body" class="session-summary-body"></div>
 </div>
 
 <!-- Hanzi regenerate confirm modal -->
