@@ -240,8 +240,10 @@
         </div>
       </div>
 
-      <!-- LEFT: Calendar tile (hidden until data loads; shown on desktop to the left via order) -->
+      <!-- LEFT: Card tile — interval graph on top, calendar below (hidden until data loads) -->
       <div class="review-side-tile review-cal-tile" id="review-cal-panel" style="display:none">
+        <div id="card-graph" class="card-graph"></div>
+        <div id="cal-fade-row" class="cal-fade-row"></div>
         <div id="card-calendar" class="card-calendar">
           <div id="cal-timeline"></div>
           <div class="cal-legend">
@@ -356,6 +358,7 @@
       <div id="wd-word-analysis-section"></div>
       <div id="wd-examples-section"></div>
       <div id="wd-cards-section"></div>
+      <div id="wd-card-tile-section"></div>
     </div>
   </div>
 

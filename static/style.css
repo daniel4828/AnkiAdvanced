@@ -3556,7 +3556,20 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   color: #fff;
   letter-spacing: 0;
   line-height: 1;
+  box-sizing: border-box;
 }
+/* Colored border = card state on that day (colorblind-safe palette, see graph) */
+.cal-chip-state { border: 2px solid; }
+/* Non-focus category chips fade so the current category stands out.
+   Opacity is user-adjustable via the small slider (CSS var, persisted). */
+.cal-chip-faded { opacity: var(--cal-fade, 0.55); }
+
+.cal-fade-ctl {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--muted);
+}
+.cal-fade-ctl input[type="range"] { width: 64px; height: 14px; cursor: pointer; }
+.cal-fade-row { margin: 8px 0 4px; }
 /* Past review chips — background = rating */
 .cal-chip-again { background: #ef4444; }
 .cal-chip-hard  { background: #f97316; }
@@ -4062,6 +4075,57 @@ details[open] .cat-override-summary::before { content: '▼ '; }
 }
 .hcal-tbl td { padding: 4px 8px 4px 0; border-bottom: 1px solid var(--border); color: var(--text); }
 .hcal-tbl-total td { font-weight: 700; border-bottom: none; }
+
+/* ── Card-evolution chart (issue #321) ── */
+.evo-chart-wrap { position: relative; }
+.evo-svg { display: block; width: 100%; height: 190px; }
+.evo-legend {
+  display: inline-flex; align-items: center; gap: 12px;
+  font-size: 11px; color: var(--muted);
+}
+.evo-leg { display: inline-flex; align-items: center; gap: 4px; }
+.evo-ylabel {
+  position: absolute; left: 4px; transform: translateY(2px);
+  font-size: 9px; color: var(--muted); pointer-events: none;
+}
+
+/* ── Per-card interval graph + tile toggle (issue #323) ── */
+.card-tile-head {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 8px; flex-wrap: wrap; margin-bottom: 8px;
+}
+.cgraph-wrap { position: relative; }
+.cgraph-svg { display: block; width: 100%; height: auto; }
+.cgraph-ymax { position: absolute; top: 0; left: 4px; font-size: 9px; color: var(--muted); }
+.cgraph-legend {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  margin-top: 6px; font-size: 11px; color: var(--muted);
+}
+.cgraph-empty { color: var(--muted); font-size: 12px; padding: 8px 2px; }
+
+/* Graph sits above the calendar in the same tile — separate them */
+#card-graph, #wd-tile-graph {
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Review side panel: pin the graph on top, let only the calendar scroll so
+   the graph never gets pushed out of view by the auto-scroll-to-first-month. */
+#review-cal-panel { overflow-y: hidden; }
+#review-cal-panel #card-graph { flex: 0 0 auto; }
+#review-cal-panel #card-calendar {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.wd-card-tile {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.wd-cal-scroll { max-height: 340px; overflow-y: auto; }
 
 @media (prefers-color-scheme: dark) {
   :root { --hcal-empty: #1f2933; }

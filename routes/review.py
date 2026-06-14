@@ -318,3 +318,8 @@ def unbury_card(card_id: int):
 @router.get("/api/cards/{card_id}/calendar")
 def get_card_calendar(card_id: int):
     return database.get_card_calendar_data(card_id)
+
+
+@router.get("/api/cards/{card_id}/timeline")
+def get_card_timeline(card_id: int):
+    return database.get_card_timeline_data(card_id)
