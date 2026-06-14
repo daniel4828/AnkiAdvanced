@@ -334,6 +334,8 @@ main.browse-open {
   min-width: 24px;
   text-align: right;
 }
+/* Capped at 40s — amber to signal the timer (and average) stopped counting */
+#card-timer.card-timer-capped { color: #b45309; opacity: 1; }
 .card-deck-path {
   width: 100%;
   font-size: 11px;

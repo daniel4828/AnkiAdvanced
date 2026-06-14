@@ -64,6 +64,7 @@ let _retentionData = null;  // cached result from GET /api/retention
 let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
 let _timerInterval = null;
 let _timerStart = null;
+const _TIMER_CAP_MS = 40000;  // beyond this the user is likely doing something else
 let _sessionTotalMs = 0;
 let _sessionRatedCount = 0;
 
@@ -587,10 +588,19 @@ function _startTimer() {
   _stopTimer();
   _timerStart = Date.now();
   const el = document.getElementById('card-timer');
+  el.classList.remove('card-timer-capped');
   el.textContent = '0s';
   el.style.display = 'block';
   _timerInterval = setInterval(() => {
-    const s = Math.floor((Date.now() - _timerStart) / 1000);
+    const ms = Date.now() - _timerStart;
+    if (ms >= _TIMER_CAP_MS) {
+      // Freeze at the cap — the time past 40s won't count toward the average.
+      el.textContent = '40s';
+      el.classList.add('card-timer-capped');
+      clearInterval(_timerInterval); _timerInterval = null;
+      return;
+    }
+    const s = Math.floor(ms / 1000);
     el.textContent = s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${s % 60}s`;
   }, 1000);
 }
@@ -3271,7 +3281,7 @@ function diffAnswer(userInput, correct, wordZh) {
 
 // ── Back of card ────────────────────────────────────────────────────────────
 function revealAnswer() {
-  _stopTimer();
+  // Keep the timer running on the back side (it freezes at the 40s cap).
   const isCreating = category === 'creating';
 
   // Capture user input before hiding front
@@ -4677,7 +4687,8 @@ async function rate(rating) {
   document.querySelectorAll('.r-btn').forEach(b => b.disabled = true);
   let _cardMs = null;
   if (_timerStart) {
-    _cardMs = Date.now() - _timerStart;
+    // Cap at 40s: time spent past that likely isn't real study time.
+    _cardMs = Math.min(Date.now() - _timerStart, _TIMER_CAP_MS);
     _sessionTotalMs += _cardMs;
     _sessionRatedCount++;
     _updateAvgTimeBadge();
