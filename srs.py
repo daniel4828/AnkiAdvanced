@@ -86,17 +86,20 @@ def preview_intervals(card: dict) -> dict:
     min_int    = card.get("minimum_interval", 1)
 
     if state in ("new", "learning"):
+        # Clamp: a card's stored step_index may exceed the current step count if
+        # the steps were shortened after the card entered learning.
+        si = min(step_index, len(l_steps) - 1)
         again = _fmt_min(l_steps[0])
-        if step_index == 0 and len(l_steps) > 1:
+        if si == 0 and len(l_steps) > 1:
             hard = _fmt_min((l_steps[0] + l_steps[1]) / 2)
         elif len(l_steps) == 1:
             hard = _fmt_min(l_steps[0] * 1.5)
         else:
-            hard = _fmt_min(l_steps[step_index])
-        if step_index >= len(l_steps) - 1:
+            hard = _fmt_min(l_steps[si])
+        if si >= len(l_steps) - 1:
             good = _fmt_day(_graduate_interval(card, 3))
         else:
-            good = _fmt_min(l_steps[step_index + 1])
+            good = _fmt_min(l_steps[si + 1])
         easy = _fmt_day(_graduate_interval(card, 4))
 
     elif state == "review":
@@ -116,15 +119,16 @@ def preview_intervals(card: dict) -> dict:
             easy  = _fmt_day(max(min_int, math.floor(interval * ease * 1.3)))
 
     elif state == "relearn":
+        si = min(step_index, len(r_steps) - 1)
         again = _fmt_min(r_steps[0])
-        if step_index == 0 and len(r_steps) > 1:
+        if si == 0 and len(r_steps) > 1:
             hard = _fmt_min((r_steps[0] + r_steps[1]) / 2)
         else:
-            hard = _fmt_min(r_steps[step_index] * 1.5)
-        if step_index >= len(r_steps) - 1:
+            hard = _fmt_min(r_steps[si] * 1.5)
+        if si >= len(r_steps) - 1:
             good = _fmt_day(_relearn_graduate_interval(card, 3))
         else:
-            good = _fmt_min(r_steps[step_index + 1])
+            good = _fmt_min(r_steps[si + 1])
         easy = _fmt_day(_relearn_graduate_interval(card, 4))
 
     else:
@@ -376,6 +380,9 @@ def _handle_learning(card: dict, preset: dict, rating: int) -> dict:
     phase: initial stability/difficulty are seeded from the graduating rating."""
     steps = _parse_steps(preset["learning_steps"])
     c = dict(card)
+    # Clamp a stale step_index (steps may have been shortened after this card
+    # entered learning) so step lookups below can never go out of range.
+    c["step_index"] = min(c.get("step_index", 0), len(steps) - 1)
     w, dr, mx = _fsrs_cfg(preset)
     use_fsrs = _fsrs_enabled(preset)
 
@@ -497,6 +504,8 @@ def _handle_relearn(card: dict, preset: dict, rating: int) -> dict:
     sub-day spacing only. On graduation the stored stability sets the interval."""
     steps = _parse_steps(preset["relearning_steps"])
     c = dict(card)
+    # Clamp a stale step_index (relearn steps may have been shortened).
+    c["step_index"] = min(c.get("step_index", 0), len(steps) - 1)
 
     if rating == 1:  # Again — reset relearn
         c["state"] = "relearn"
