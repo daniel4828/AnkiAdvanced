@@ -6,6 +6,13 @@ import database
 import fsrs
 
 
+# When a card has a single learning step, "Hard" can't advance to a next step,
+# so it repeats with a slower delay. We use ~1 day (instead of step×1.5) so a
+# half-remembered new card comes back tomorrow rather than in minutes, while
+# "Good" still graduates straight into FSRS.
+LEARNING_HARD_SINGLE_STEP_MINUTES = 1440  # 1 day
+
+
 # ---------------------------------------------------------------------------
 # FSRS configuration helpers
 # ---------------------------------------------------------------------------
@@ -93,7 +100,7 @@ def preview_intervals(card: dict) -> dict:
         if si == 0 and len(l_steps) > 1:
             hard = _fmt_min((l_steps[0] + l_steps[1]) / 2)
         elif len(l_steps) == 1:
-            hard = _fmt_min(l_steps[0] * 1.5)
+            hard = _fmt_min(LEARNING_HARD_SINGLE_STEP_MINUTES)
         else:
             hard = _fmt_min(l_steps[si])
         if si >= len(l_steps) - 1:
@@ -417,7 +424,7 @@ def _handle_learning(card: dict, preset: dict, rating: int) -> dict:
         if idx == 0 and len(steps) > 1:
             delay = (steps[0] + steps[1]) / 2
         elif len(steps) == 1:
-            delay = steps[0] * 1.5
+            delay = LEARNING_HARD_SINGLE_STEP_MINUTES
         else:
             delay = steps[idx]
         c["due"] = _smart_due(datetime.now() + timedelta(minutes=delay))
