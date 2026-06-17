@@ -217,7 +217,72 @@ def quick_add_word(body: dict):
         entry_id = database.insert_word(word_data)
         status = "created"
 
-    for category in ("listening", "reading", "writing"):
+    for category in ("listening", "reading", "creating"):
         database.insert_card(entry_id, category, deck_id, state="new", due=tomorrow)
 
     return {"status": status, "entry_id": entry_id, "deck_path": deck_path, "deck_id": deck_id}
+
+
+@router.post("/api/save-word")
+def save_word(body: dict):
+    """Stage a compound word in the fixed 'Saved' deck as suspended cards.
+
+    Unlike /api/quick-add-word this does NOT call the AI and does NOT activate
+    the cards — content is generated later on demand, and the word only enters
+    the study algorithm when promoted to a Daily deck (see /api/saved/{id}/promote).
+
+    Body: { word_zh, pinyin?, meaning? }
+    Returns: { status: "saved"|"already_saved"|"exists_elsewhere", entry_id, saved_deck_id }
+    """
+    word_zh = (body.get("word_zh") or "").strip()
+    if not word_zh:
+        raise HTTPException(status_code=400, detail="word_zh is required")
+
+    pinyin = (body.get("pinyin") or "").strip()
+    meaning = (body.get("meaning") or "").strip()
+
+    saved_deck_id = database.get_or_create_saved_deck()
+
+    existing = database.get_word_by_zh(word_zh)
+    if existing:
+        entry_id = existing["id"]
+        conn = database.get_db()
+        deck_ids = {
+            r["deck_id"] for r in conn.execute(
+                "SELECT deck_id FROM cards WHERE word_id=? AND deleted_at IS NULL",
+                (entry_id,),
+            ).fetchall()
+        }
+        conn.close()
+        if saved_deck_id in deck_ids:
+            return {"status": "already_saved", "entry_id": entry_id, "saved_deck_id": saved_deck_id}
+        if deck_ids:
+            # Word already lives in a real deck — nothing to stage.
+            return {"status": "exists_elsewhere", "entry_id": entry_id, "saved_deck_id": saved_deck_id}
+    else:
+        entry_id = database.insert_word({
+            "word_zh": word_zh,
+            "pinyin": pinyin,
+            "definition": meaning,
+            "note_type": "vocabulary",
+        })
+
+    for category in ("listening", "reading", "creating"):
+        database.insert_card(entry_id, category, saved_deck_id, state="suspended")
+
+    return {"status": "saved", "entry_id": entry_id, "saved_deck_id": saved_deck_id}
+
+
+@router.post("/api/saved/{word_id}/promote")
+def promote_saved(word_id: int):
+    """Move a saved word's suspended cards into tomorrow's Daily deck as active new cards."""
+    saved_deck_id = database.get_or_create_saved_deck()
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    deck_path = f"Daily::{tomorrow}"
+    daily_deck_id = database.get_or_create_deck_path(deck_path)
+
+    count = database.promote_saved_word(word_id, daily_deck_id, saved_deck_id, tomorrow)
+    if not count:
+        raise HTTPException(status_code=404, detail="No saved cards found for this word")
+
+    return {"status": "promoted", "count": count, "deck_path": deck_path, "deck_id": daily_deck_id}

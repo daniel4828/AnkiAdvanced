@@ -101,8 +101,13 @@ def get_today_mixed(deck_id: int):
 @router.post("/api/review")
 def submit_review(card_id: int, rating: int, user_response: str | None = None,
                   root_deck_id: int | None = None, unfinished_mode: bool = False,
-                  parent_deck_id: int | None = None, duration_ms: int | None = None):
+                  parent_deck_id: int | None = None, duration_ms: int | None = None,
+                  next_note: str | None = None):
     card_before = database.get_card(card_id)
+    # Persist the free-text "note for next time" the user left on this card
+    # (None means "leave the existing note untouched"; "" clears it).
+    if next_note is not None:
+        database.set_card_note(card_id, next_note)
     updated, log_id = srs.apply_review(card_id, rating, user_response=user_response,
                                        duration_ms=duration_ms)
     deck_id = updated["deck_id"]

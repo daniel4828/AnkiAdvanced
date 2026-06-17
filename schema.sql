@@ -35,9 +35,13 @@ CREATE TABLE IF NOT EXISTS deck_presets (
     maximum_interval        INTEGER NOT NULL DEFAULT 36500,
     fsrs_weights            TEXT,
     enable_fsrs             INTEGER NOT NULL DEFAULT 1,
-    -- When 1, a single-step learning/relearn card's "Hard" schedules ~1 day
-    -- instead of step×1.5, so a half-remembered card returns tomorrow.
+    -- When 1, a single-step learning/relearn card's "Hard" schedules
+    -- learning_hard_days (default 1 day) instead of step×1.5, so a
+    -- half-remembered card returns after that many days.
     learning_hard_1d        INTEGER NOT NULL DEFAULT 1,
+    -- How many days "Hard" delays a learning/relearn card when learning_hard_1d
+    -- is on. Fractional allowed (e.g. 0.5 = half a day).
+    learning_hard_days      REAL NOT NULL DEFAULT 1,
 
     -- New card insertion order (legacy; superseded by new_gather_order)
     insertion_order         TEXT NOT NULL DEFAULT 'sequential'
@@ -285,6 +289,9 @@ CREATE TABLE IF NOT EXISTS cards (
 
     -- saved before suspension so it can be restored on unsuspend
     pre_suspend_state TEXT,
+
+    -- free-text note the user leaves for the next time this card comes up
+    next_note TEXT,
 
     UNIQUE(word_id, category)
 );
