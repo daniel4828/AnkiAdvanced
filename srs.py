@@ -373,6 +373,7 @@ def apply_review(card_id: int, rating: int,
         "fsrs_weights":        card.get("fsrs_weights"),
         "enable_fsrs":         card.get("enable_fsrs", 1),
         "learning_hard_1d":    card.get("learning_hard_1d", 1),
+        "learning_hard_days":  card.get("learning_hard_days", 1),
     }
 
     if card["state"] in ("new", "learning"):
