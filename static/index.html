@@ -203,6 +203,10 @@
               <button class="r-btn r-good"  onclick="rate(3)">Good<small id="int-3"></small></button>
               <button class="r-btn r-easy"  onclick="rate(4)">Easy<small id="int-4"></small></button>
             </div>
+            <!-- FSRS scheduler inspector trigger (Shift+S) -->
+            <div class="fsrs-inspect-row">
+              <button class="fsrs-inspect-btn" onclick="toggleFsrsInspector()" title="复习调度详情 / FSRS scheduler (Shift+S)">🔬 Scheduler</button>
+            </div>
             <!-- Word summary: character, pinyin, pos, definition -->
             <div class="vocab-detail">
               <div class="word-big" id="word-zh"></div>
@@ -412,9 +416,23 @@
 
     <div class="opt-group">
       <div class="opt-group-label">Learning</div>
-      <div class="opt-row"><span class="opt-label">Steps (minutes, space-separated)</span><input class="opt-input wide" id="opt-learn-steps"  type="text"></div>
-      <div class="opt-row"><span class="opt-label">Graduating interval (days)</span>       <input class="opt-input" id="opt-grad-int"     type="number" min="1"></div>
-      <div class="opt-row"><span class="opt-label">Easy interval (days)</span>              <input class="opt-input" id="opt-easy-int"     type="number" min="1"></div>
+      <div class="opt-row"><span class="opt-label">Steps (minutes, space-separated) <span class="info-i" data-info="learning_steps">i</span></span><input class="opt-input wide" id="opt-learn-steps"  type="text"></div>
+      <div class="opt-row sched-sm2"><span class="opt-label">Graduating interval (days) <span class="info-i" data-info="graduating_interval">i</span></span>       <input class="opt-input" id="opt-grad-int"     type="number" min="1"></div>
+      <div class="opt-row sched-sm2"><span class="opt-label">Easy interval (days) <span class="info-i" data-info="easy_interval">i</span></span>              <input class="opt-input" id="opt-easy-int"     type="number" min="1"></div>
+    </div>
+
+    <div class="opt-group">
+      <div class="opt-group-label">Scheduler</div>
+      <div class="opt-row">
+        <span class="opt-label">Enable FSRS <span class="info-i" data-info="enable_fsrs">i</span><br><span style="font-weight:400;font-size:11px;color:var(--muted)">off = legacy SM-2 (ease-based)</span></span>
+        <input type="checkbox" id="opt-enable-fsrs" style="width:18px;height:18px;cursor:pointer" onchange="applySchedulerVisibility()">
+      </div>
+      <div class="opt-row">
+        <span class="opt-label">Hard = 1 day <span class="info-i" data-info="hard_1d">i</span><br><span style="font-weight:400;font-size:11px;color:var(--muted)">learning Hard returns tomorrow instead of minutes</span></span>
+        <input type="checkbox" id="opt-hard-1d" style="width:18px;height:18px;cursor:pointer">
+      </div>
+      <div class="opt-row sched-fsrs"><span class="opt-label">Desired retention (%) <span class="info-i" data-info="desired_retention">i</span><br><span style="font-weight:400;font-size:11px;color:var(--muted)">target recall; higher = shorter intervals</span></span><input class="opt-input" id="opt-desired-retention" type="number" min="70" max="99" step="1"></div>
+      <div class="opt-row sched-fsrs"><span class="opt-label">Maximum interval (days) <span class="info-i" data-info="maximum_interval">i</span><br><span style="font-weight:400;font-size:11px;color:var(--muted)">cap on how far out a review is scheduled</span></span><input class="opt-input" id="opt-max-int" type="number" min="1" step="1"></div>
     </div>
 
     <div class="opt-group">
@@ -434,8 +452,8 @@
             <div class="opt-row"><span class="opt-label">New / day</span>              <input class="opt-input" data-field="new_per_day"         type="number" min="0" placeholder="default"></div>
             <div class="opt-row"><span class="opt-label">Reviews / day</span>          <input class="opt-input" data-field="reviews_per_day"     type="number" min="0" placeholder="default"></div>
             <div class="opt-row"><span class="opt-label">Steps (min)</span>            <input class="opt-input wide" data-field="learning_steps" type="text"   placeholder="default"></div>
-            <div class="opt-row"><span class="opt-label">Graduating interval (days)</span><input class="opt-input" data-field="graduating_interval" type="number" min="1" placeholder="default"></div>
-            <div class="opt-row"><span class="opt-label">Easy interval (days)</span>  <input class="opt-input" data-field="easy_interval"        type="number" min="1" placeholder="default"></div>
+            <div class="opt-row sched-sm2"><span class="opt-label">Graduating interval (days)</span><input class="opt-input" data-field="graduating_interval" type="number" min="1" placeholder="default"></div>
+            <div class="opt-row sched-sm2"><span class="opt-label">Easy interval (days)</span>  <input class="opt-input" data-field="easy_interval"        type="number" min="1" placeholder="default"></div>
             <div class="opt-row"><span class="opt-label">Relearning steps (min)</span><input class="opt-input wide" data-field="relearning_steps" type="text"  placeholder="default"></div>
           </div>
         </details>
@@ -446,8 +464,8 @@
             <div class="opt-row"><span class="opt-label">New / day</span>              <input class="opt-input" data-field="new_per_day"         type="number" min="0" placeholder="default"></div>
             <div class="opt-row"><span class="opt-label">Reviews / day</span>          <input class="opt-input" data-field="reviews_per_day"     type="number" min="0" placeholder="default"></div>
             <div class="opt-row"><span class="opt-label">Steps (min)</span>            <input class="opt-input wide" data-field="learning_steps" type="text"   placeholder="default"></div>
-            <div class="opt-row"><span class="opt-label">Graduating interval (days)</span><input class="opt-input" data-field="graduating_interval" type="number" min="1" placeholder="default"></div>
-            <div class="opt-row"><span class="opt-label">Easy interval (days)</span>  <input class="opt-input" data-field="easy_interval"        type="number" min="1" placeholder="default"></div>
+            <div class="opt-row sched-sm2"><span class="opt-label">Graduating interval (days)</span><input class="opt-input" data-field="graduating_interval" type="number" min="1" placeholder="default"></div>
+            <div class="opt-row sched-sm2"><span class="opt-label">Easy interval (days)</span>  <input class="opt-input" data-field="easy_interval"        type="number" min="1" placeholder="default"></div>
             <div class="opt-row"><span class="opt-label">Relearning steps (min)</span><input class="opt-input wide" data-field="relearning_steps" type="text"  placeholder="default"></div>
           </div>
         </details>
@@ -458,8 +476,8 @@
             <div class="opt-row"><span class="opt-label">New / day</span>              <input class="opt-input" data-field="new_per_day"         type="number" min="0" placeholder="default"></div>
             <div class="opt-row"><span class="opt-label">Reviews / day</span>          <input class="opt-input" data-field="reviews_per_day"     type="number" min="0" placeholder="default"></div>
             <div class="opt-row"><span class="opt-label">Steps (min)</span>            <input class="opt-input wide" data-field="learning_steps" type="text"   placeholder="default"></div>
-            <div class="opt-row"><span class="opt-label">Graduating interval (days)</span><input class="opt-input" data-field="graduating_interval" type="number" min="1" placeholder="default"></div>
-            <div class="opt-row"><span class="opt-label">Easy interval (days)</span>  <input class="opt-input" data-field="easy_interval"        type="number" min="1" placeholder="default"></div>
+            <div class="opt-row sched-sm2"><span class="opt-label">Graduating interval (days)</span><input class="opt-input" data-field="graduating_interval" type="number" min="1" placeholder="default"></div>
+            <div class="opt-row sched-sm2"><span class="opt-label">Easy interval (days)</span>  <input class="opt-input" data-field="easy_interval"        type="number" min="1" placeholder="default"></div>
             <div class="opt-row"><span class="opt-label">Relearning steps (min)</span><input class="opt-input wide" data-field="relearning_steps" type="text"  placeholder="default"></div>
           </div>
         </details>
@@ -982,5 +1000,22 @@
 <div class="deck-picker-dropdown" id="deck-picker-dropdown" style="display:none"></div>
 <div class="deck-picker-dropdown" id="deck-b-picker-dropdown" style="display:none"></div>
 <div class="deck-picker-dropdown" id="wd-deck-picker-dd" style="display:none"></div>
+
+<!-- FSRS scheduler inspector (Shift+S) -->
+<div id="fsrs-inspector-overlay" onclick="if(event.target===this)closeFsrsInspector()" style="display:none">
+  <div id="fsrs-inspector">
+    <div class="fsrs-insp-header">
+      <span class="fsrs-insp-title">🔬 FSRS Scheduler</span>
+      <button class="fsrs-insp-close" onclick="closeFsrsInspector()" title="关闭 (Shift+S / Esc)">✕</button>
+    </div>
+    <div id="fsrs-insp-body"></div>
+  </div>
+</div>
+
+<!-- Field info popover (clickable ⓘ on settings fields) -->
+<div id="info-pop" style="display:none">
+  <div id="info-pop-title"></div>
+  <div id="info-pop-body"></div>
+</div>
 </body>
 </html>

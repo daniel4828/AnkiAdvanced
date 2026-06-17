@@ -2463,6 +2463,68 @@ function _getCategoryOrderUI() {
 
 let currentPresetId = null;
 
+// Show only the fields relevant to the chosen scheduler.
+// FSRS on  → hide .sched-sm2 (graduating/easy interval)
+// FSRS off → hide .sched-fsrs (desired retention, maximum interval)
+function applySchedulerVisibility() {
+  const fsrs = document.getElementById('opt-enable-fsrs').checked;
+  document.querySelectorAll('.sched-sm2').forEach(el => { el.style.display = fsrs ? 'none' : ''; });
+  document.querySelectorAll('.sched-fsrs').forEach(el => { el.style.display = fsrs ? '' : 'none'; });
+}
+
+// Clickable ⓘ explanations for scheduling fields.
+const INFO_TEXT = {
+  enable_fsrs: ['Enable FSRS',
+    'FSRS is a modern scheduler that models each card with Stability and Difficulty to predict the best review time. Turn it off to fall back to the legacy SM-2 (ease-factor) algorithm. Switching hides the fields that don\'t apply to the chosen scheduler.'],
+  hard_1d: ['Hard = 1 day',
+    'While a card is still in learning or relearning, pressing Hard sends it to tomorrow (1 day) instead of repeating in a few minutes. Applies to both schedulers.'],
+  learning_steps: ['Learning steps',
+    'The sub-day intervals (in minutes) a new card steps through before it graduates to review. Example: "10m" means one 10-minute step. Used by both schedulers.'],
+  graduating_interval: ['Graduating interval (SM-2 only)',
+    'The interval (in days) a card gets the first time it leaves learning with Good. Only used by SM-2 — under FSRS the first interval is computed from the card\'s initial stability instead.'],
+  easy_interval: ['Easy interval (SM-2 only)',
+    'The interval (in days) a learning card jumps to when rated Easy. Only used by SM-2 — under FSRS this is computed from stability.'],
+  desired_retention: ['Desired retention (FSRS only)',
+    'The probability you want of still recalling a card when it comes due, e.g. 90%. Higher retention = shorter intervals and more reviews; lower = longer intervals, fewer reviews but more lapses. This is the main FSRS knob.'],
+  maximum_interval: ['Maximum interval (FSRS only)',
+    'An upper cap (in days) on how far into the future a review can be scheduled. Default 36500 (~100 years) effectively means no cap.'],
+};
+
+function showInfoPop(target, key) {
+  const info = INFO_TEXT[key];
+  if (!info) return;
+  const pop = document.getElementById('info-pop');
+  document.getElementById('info-pop-title').textContent = info[0];
+  document.getElementById('info-pop-body').textContent  = info[1];
+  pop.style.display = 'block';
+  // Position below the icon, kept inside the viewport.
+  const r = target.getBoundingClientRect();
+  pop.style.visibility = 'hidden';
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let left = r.left;
+  if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+  let top = r.bottom + 6;
+  if (top + ph > window.innerHeight - 8) top = r.top - ph - 6;
+  pop.style.left = Math.max(8, left) + 'px';
+  pop.style.top  = Math.max(8, top) + 'px';
+  pop.style.visibility = 'visible';
+}
+function hideInfoPop() { document.getElementById('info-pop').style.display = 'none'; }
+
+document.addEventListener('click', (e) => {
+  const icon = e.target.closest('.info-i');
+  if (icon) {
+    e.stopPropagation();
+    const pop = document.getElementById('info-pop');
+    const same = pop.style.display === 'block' && pop.dataset.key === icon.dataset.info;
+    if (same) { hideInfoPop(); return; }
+    pop.dataset.key = icon.dataset.info;
+    showInfoPop(icon, icon.dataset.info);
+    return;
+  }
+  if (!e.target.closest('#info-pop')) hideInfoPop();
+});
+
 function loadPresetFields(preset) {
   currentPresetId = preset.id;
   document.getElementById('opt-new-per-day').value     = preset.new_per_day;
@@ -2483,6 +2545,11 @@ function loadPresetFields(preset) {
   document.getElementById('opt-bury-interday').checked = !!preset.bury_interday_siblings;
   document.getElementById('opt-sibling-sep').value     = preset.sibling_separation ?? 3;
   document.getElementById('opt-sibling-factor').value  = preset.sibling_factor ?? 0.2;
+  document.getElementById('opt-enable-fsrs').checked   = preset.enable_fsrs == null ? true : !!preset.enable_fsrs;
+  document.getElementById('opt-hard-1d').checked       = preset.learning_hard_1d == null ? true : !!preset.learning_hard_1d;
+  document.getElementById('opt-desired-retention').value = Math.round((preset.desired_retention ?? 0.9) * 100);
+  document.getElementById('opt-max-int').value         = preset.maximum_interval ?? 36500;
+  applySchedulerVisibility();
 
   // Category order
   const order = (preset.category_order || 'listening,reading,creating').split(',').map(s => s.trim());
@@ -2644,6 +2711,10 @@ async function saveOptions() {
     bury_interday_siblings: document.getElementById('opt-bury-interday').checked ? 1 : 0,
     sibling_separation:     parseInt(document.getElementById('opt-sibling-sep').value) || 3,
     sibling_factor:         parseFloat(document.getElementById('opt-sibling-factor').value) || 0.2,
+    enable_fsrs:            document.getElementById('opt-enable-fsrs').checked ? 1 : 0,
+    learning_hard_1d:       document.getElementById('opt-hard-1d').checked ? 1 : 0,
+    desired_retention:      Math.min(0.99, Math.max(0.70, (parseInt(document.getElementById('opt-desired-retention').value) || 90) / 100)),
+    maximum_interval:       Math.max(1, parseInt(document.getElementById('opt-max-int').value) || 36500),
     category_order: _getCategoryOrderUI(),
   };
   // Warn if a story for today already exists — order settings change would cause mismatch
@@ -6670,10 +6741,101 @@ function _hasOpenModal() {
   return modalIds.some(_isVisible);
 }
 
+// ── FSRS scheduler inspector (Shift+S) ──────────────────────────────────────
+const _RATING_NAMES = { 1: 'Again', 2: 'Hard', 3: 'Good', 4: 'Easy' };
+
+function _fsrsInspectorOpen() {
+  const ov = document.getElementById('fsrs-inspector-overlay');
+  return ov && ov.style.display !== 'none' && ov.style.display !== '';
+}
+function toggleFsrsInspector() {
+  if (_fsrsInspectorOpen()) closeFsrsInspector();
+  else openFsrsInspector();
+}
+function openFsrsInspector() {
+  const ov = document.getElementById('fsrs-inspector-overlay');
+  if (!ov) return;
+  renderFsrsInspector();
+  ov.style.display = 'flex';
+}
+function closeFsrsInspector() {
+  const ov = document.getElementById('fsrs-inspector-overlay');
+  if (ov) ov.style.display = 'none';
+}
+
+function _fsrsFmtIvl(d) {
+  if (d == null) return '—';
+  if (d < 1) return '<1d';
+  if (d < 31) return d + 'd';
+  if (d < 365) { const m = Math.floor(d / 30), r = d % 30; return r ? `${m}mo ${r}d` : `${m}mo`; }
+  return (d / 365).toFixed(1).replace(/\.0$/, '') + 'y';
+}
+function _fsrsParam(k, v, title) {
+  const t = title ? ` title="${title}"` : '';
+  return `<div class="fsrs-param"${t}><span class="k">${k}</span><span class="v">${v}</span></div>`;
+}
+
+function renderFsrsInspector() {
+  const body = document.getElementById('fsrs-insp-body');
+  if (!body) return;
+  if (!card) { body.innerHTML = '<div class="fsrs-note">没有正在复习的卡片。</div>'; return; }
+  const f = card.fsrs;
+  if (!f) { body.innerHTML = '<div class="fsrs-note">这张卡没有 FSRS 数据。</div>'; return; }
+
+  const word = card.word_zh ? `「${card.word_zh}」` : '';
+  const S = f.stability, D = f.difficulty, R = f.retrievability;
+  let html = '';
+
+  if (!f.enabled) html += `<div class="fsrs-note">⚠️ 该牌组未启用 FSRS（仍用旧版 SM-2）。</div>`;
+
+  html += `<div class="fsrs-section-label">当前参数 ${word} · ${f.state}</div>`;
+  html += '<div class="fsrs-params">';
+  html += _fsrsParam('Stability 稳定性', S != null ? S.toFixed(2) + ' d' : '—', '记忆能撑多少天（衰减到 90%）');
+  html += _fsrsParam('Difficulty 难度', D != null ? D.toFixed(2) + ' /10' : '—', '1–10，越高越难；每次向中值回归');
+  html += _fsrsParam('Elapsed 已过', f.elapsed_days + ' d', '距上次复习的天数');
+  html += _fsrsParam('Desired R 目标', Math.round(f.desired_retention * 100) + '%', '目标记忆率，决定所有间隔');
+  if (R != null) {
+    html += `<div class="fsrs-param full"><span class="k">Retrievability 当前可提取性</span><span class="v">${(R * 100).toFixed(1)}%</span></div>`;
+    html += `<div class="fsrs-param full" style="background:transparent;padding:0"><div class="fsrs-bar"><i style="width:${Math.round(R * 100)}%"></i></div></div>`;
+  }
+  html += '</div>';
+
+  if (f.ratings && Object.keys(f.ratings).length) {
+    html += `<div class="fsrs-section-label">点每个评分会发生什么</div>`;
+    html += '<table class="fsrs-table"><thead><tr><th>评分</th><th>新 S</th><th>新 D</th><th>下次间隔</th></tr></thead><tbody>';
+    [1, 2, 3, 4].forEach(r => {
+      const e = f.ratings[String(r)];
+      if (!e) return;
+      const note = r === 1 ? ' <span style="color:var(--muted);font-weight:400">(先进重学)</span>' : '';
+      html += `<tr class="r-row-${r}"><td class="rate-cell">${_RATING_NAMES[r]}</td><td>${e.stability}</td><td>${e.difficulty}</td><td class="ivl">${_fsrsFmtIvl(e.interval)}${note}</td></tr>`;
+    });
+    html += '</tbody></table>';
+  } else {
+    html += `<div class="fsrs-note">这张卡还在学习/重学阶段，按钮间隔由分钟级步骤决定，尚未进入 FSRS 记忆模型。</div>`;
+  }
+
+  html += `<div class="fsrs-section-label">参数如何代入公式</div>`;
+  html += `<div class="fsrs-formula">
+    <b>1. 可提取性</b> R = (1 + 19/81 · t/S)<sup>−0.5</sup>，t=${f.elapsed_days}，S=${S != null ? S.toFixed(1) : '—'} → R=${R != null ? (R * 100).toFixed(1) + '%' : '—'}<br>
+    <b>2. 答对 →</b> 稳定性增长，<code>等得越久(R越低)、难度越低，奖励越大</code>；Hard 打折、Easy 加成。<br>
+    <b>3. 答错(Again) →</b> 稳定性温和下降（不砍半），难度上升。<br>
+    <b>4. 下次间隔</b> = 让 R 衰减到目标 ${Math.round(f.desired_retention * 100)}% 所需天数 ≈ 新的 S。<br>
+    <b>5. 难度</b> 每次都向中值回归 → 不会永久卡死（无 ease 地狱）。
+  </div>`;
+  html += `<div class="fsrs-note">间隔已强制 Again < Hard ≤ Good < Easy 单调。按 Shift+S 或 Esc 关闭。</div>`;
+
+  body.innerHTML = html;
+}
+
 document.addEventListener('keydown', async e => {
   const inInput = _isEditableFocusTarget(document.activeElement);
 
   if (e.key === 'Escape') {
+    if (_fsrsInspectorOpen()) {
+      e.preventDefault();
+      closeFsrsInspector();
+      return;
+    }
     const sessOverlay = document.getElementById('session-summary-overlay');
     if (sessOverlay && sessOverlay.style.display !== 'none') {
       e.preventDefault();
@@ -6723,6 +6885,12 @@ document.addEventListener('keydown', async e => {
 
   if (e.key === 'R' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
     if (!inInput) { e.preventDefault(); _restartServer(); }
+    return;
+  }
+
+  // Shift+S toggles the FSRS scheduler inspector
+  if (e.key === 'S' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    if (!inInput) { e.preventDefault(); toggleFsrsInspector(); }
     return;
   }
 

@@ -3,6 +3,77 @@ import random
 from datetime import datetime, timedelta, time as dtime
 
 import database
+import fsrs
+
+
+# When a card has a single learning step, "Hard" can't advance to a next step,
+# so it repeats with a slower delay. We use ~1 day (instead of step×1.5) so a
+# half-remembered new card comes back tomorrow rather than in minutes, while
+# "Good" still graduates straight into FSRS.
+LEARNING_HARD_SINGLE_STEP_MINUTES = 1440  # 1 day
+
+
+# ---------------------------------------------------------------------------
+# FSRS configuration helpers
+# ---------------------------------------------------------------------------
+
+def _fsrs_cfg(card: dict) -> tuple[list[float], float, int]:
+    """Extract (weights, desired_retention, maximum_interval) from a card dict."""
+    w = fsrs.parse_weights(card.get("fsrs_weights"))
+    dr = card.get("desired_retention") or 0.9
+    mx = card.get("maximum_interval") or 36500
+    return w, dr, mx
+
+
+def _fsrs_enabled(card: dict) -> bool:
+    val = card.get("enable_fsrs", 1)
+    return bool(val) if val is not None else True
+
+
+def _hard_1d_enabled(card: dict) -> bool:
+    val = card.get("learning_hard_1d", 1)
+    return bool(val) if val is not None else True
+
+
+def _elapsed_days(card: dict) -> int:
+    """Days since the previous review, for computing retrievability.
+
+    Falls back to the scheduled interval (assume reviewed on time) when no
+    last_review timestamp is stored yet — true for freshly seeded cards.
+    """
+    lr = card.get("last_review")
+    if lr:
+        try:
+            d = datetime.fromisoformat(lr[:10]).date()
+            return max(0, (database.anki_today() - d).days)
+        except (ValueError, TypeError):
+            pass
+    return max(0, card.get("interval") or 0)
+
+
+def _graduate_interval(card: dict, rating: int) -> int:
+    """Day-interval when a learning card graduates with the given rating.
+
+    Under FSRS this comes from the initial stability; otherwise the legacy
+    graduating/easy interval preset values."""
+    if not _fsrs_enabled(card):
+        base = card.get("easy_interval", 4) if rating == 4 else card.get("graduating_interval", 1)
+        return max(1, base)
+    w, dr, mx = _fsrs_cfg(card)
+    s = fsrs.init_stability(w, rating)
+    return fsrs.next_interval(s, dr, mx)
+
+
+def _relearn_graduate_interval(card: dict, rating: int) -> int:
+    """Day-interval when a relearn card returns to review (Good/Easy)."""
+    if not _fsrs_enabled(card) or not card.get("stability"):
+        base = max(card.get("minimum_interval", 1), card.get("interval", 1))
+        return base if rating != 4 else max(base, math.floor(base * card.get("ease", 2.5)))
+    w, dr, mx = _fsrs_cfg(card)
+    s = card["stability"]
+    if rating == 4:
+        s = fsrs.next_short_term_stability(w, s, 4)
+    return max(card.get("minimum_interval", 1), fsrs.next_interval(s, dr, mx))
 
 
 # ---------------------------------------------------------------------------
@@ -14,48 +85,69 @@ def preview_intervals(card: dict) -> dict:
     """
     Returns {1: "1m", 2: "5m", 3: "10m", 4: "4d"} for the four ratings.
     Requires a full card dict (with preset fields) from database.get_card().
+
+    Deterministic: no random fuzz is applied here, so the labels exactly match
+    what the user will see (fuzz is only applied when a rating is committed).
     """
-    state       = card["state"]
-    step_index  = card.get("step_index", 0)
-    interval    = card.get("interval", 0)
-    ease        = card.get("ease", 2.5)
-    l_steps     = _parse_steps(card.get("learning_steps",  "1 10"))
-    r_steps     = _parse_steps(card.get("relearning_steps", "10"))
-    grad_int    = card.get("graduating_interval", 1)
-    easy_int    = card.get("easy_interval",       4)
-    min_int     = card.get("minimum_interval",    1)
+    state      = card["state"]
+    step_index = card.get("step_index", 0)
+    interval   = card.get("interval", 0)
+    ease       = card.get("ease", 2.5)
+    l_steps    = _parse_steps(card.get("learning_steps",  "1 10"))
+    r_steps    = _parse_steps(card.get("relearning_steps", "10"))
+    min_int    = card.get("minimum_interval", 1)
 
     if state in ("new", "learning"):
+        # Clamp: a card's stored step_index may exceed the current step count if
+        # the steps were shortened after the card entered learning.
+        si = min(step_index, len(l_steps) - 1)
         again = _fmt_min(l_steps[0])
-        if step_index == 0 and len(l_steps) > 1:
+        if _hard_1d_enabled(card):
+            hard = _fmt_min(LEARNING_HARD_SINGLE_STEP_MINUTES)
+        elif si == 0 and len(l_steps) > 1:
             hard = _fmt_min((l_steps[0] + l_steps[1]) / 2)
         elif len(l_steps) == 1:
             hard = _fmt_min(l_steps[0] * 1.5)
         else:
-            hard = _fmt_min(l_steps[step_index])
-        if step_index >= len(l_steps) - 1:
-            good = _fmt_day(_fuzz_interval(grad_int))
+            hard = _fmt_min(l_steps[si])
+        if si >= len(l_steps) - 1:
+            good = _fmt_day(_graduate_interval(card, 3))
         else:
-            good = _fmt_min(l_steps[step_index + 1])
-        easy = _fmt_day(_fuzz_interval(easy_int))
+            good = _fmt_min(l_steps[si + 1])
+        easy = _fmt_day(_graduate_interval(card, 4))
 
     elif state == "review":
-        again = _fmt_min(r_steps[0])
-        hard  = _fmt_day(max(min_int, _fuzz_interval(math.floor(interval * 1.2))))
-        good  = _fmt_day(max(min_int, _fuzz_interval(math.floor(interval * ease))))
-        easy  = _fmt_day(max(min_int, _fuzz_interval(math.floor(interval * ease * 1.3))))
+        if _fsrs_enabled(card) and card.get("stability"):
+            w, dr, mx = _fsrs_cfg(card)
+            ivs = fsrs.review_intervals(
+                w, card["difficulty"], card["stability"], _elapsed_days(card), dr, mx
+            )
+            again = _fmt_min(r_steps[0])
+            hard  = _fmt_day(ivs[2])
+            good  = _fmt_day(ivs[3])
+            easy  = _fmt_day(ivs[4])
+        else:
+            again = _fmt_min(r_steps[0])
+            hard  = _fmt_day(max(min_int, math.floor(interval * 1.2)))
+            good  = _fmt_day(max(min_int, math.floor(interval * ease)))
+            easy  = _fmt_day(max(min_int, math.floor(interval * ease * 1.3)))
 
     elif state == "relearn":
+        si = min(step_index, len(r_steps) - 1)
         again = _fmt_min(r_steps[0])
-        if step_index == 0 and len(r_steps) > 1:
+        if _hard_1d_enabled(card):
+            hard = _fmt_min(LEARNING_HARD_SINGLE_STEP_MINUTES)
+        elif si == 0 and len(r_steps) > 1:
             hard = _fmt_min((r_steps[0] + r_steps[1]) / 2)
+        elif len(r_steps) == 1:
+            hard = _fmt_min(r_steps[0] * 1.5)
         else:
-            hard = _fmt_min(r_steps[step_index] * 1.5)
-        if step_index >= len(r_steps) - 1:
-            good = _fmt_day(max(min_int, interval))
+            hard = _fmt_min(r_steps[si] * 1.5)
+        if si >= len(r_steps) - 1:
+            good = _fmt_day(_relearn_graduate_interval(card, 3))
         else:
-            good = _fmt_min(r_steps[step_index + 1])
-        easy = _fmt_day(max(min_int, math.floor(interval * ease)))
+            good = _fmt_min(r_steps[si + 1])
+        easy = _fmt_day(_relearn_graduate_interval(card, 4))
 
     else:
         again = hard = good = easy = "—"
@@ -166,7 +258,7 @@ def next_review_due(interval: int) -> str:
 
 def calc_review(interval: int, ease: float,
                 lapses: int, rating: int) -> tuple[int, float, int]:
-    """SM-2 variant for review cards.
+    """SM-2 variant for review cards (legacy fallback when enable_fsrs = 0).
 
     Returns (new_interval, new_ease, new_lapses).
     Caller handles state transition to 'relearn' for rating=1.
@@ -192,6 +284,57 @@ def calc_review(interval: int, ease: float,
 
 
 # ---------------------------------------------------------------------------
+# Scheduler inspector — structured breakdown for the in-review FSRS panel
+# ---------------------------------------------------------------------------
+
+def explain_card(card: dict) -> dict:
+    """Return the card's current FSRS parameters and a per-rating breakdown of
+    what each button would do, for the Shift+S inspector popup.
+
+    For review-state cards this includes retrievability and the resulting
+    stability/difficulty/interval per rating. Other states return the current
+    state with no review math (the buttons there follow learning steps)."""
+    enabled = _fsrs_enabled(card)
+    w, dr, mx = _fsrs_cfg(card)
+    el = _elapsed_days(card)
+    S = card.get("stability")
+    D = card.get("difficulty")
+    state = card["state"]
+
+    info = {
+        "enabled": enabled,
+        "state": state,
+        "desired_retention": dr,
+        "maximum_interval": mx,
+        "stability": S,
+        "difficulty": D,
+        "elapsed_days": el,
+        "last_review": card.get("last_review"),
+        "retrievability": None,
+        "ratings": {},
+    }
+
+    if enabled and S and D is not None and state == "review":
+        R = fsrs.retrievability(el, S)
+        info["retrievability"] = R
+        ivs = fsrs.review_intervals(w, D, S, el, dr, mx)
+        for rating in (1, 2, 3, 4):
+            new_s, new_d = fsrs.review_state(w, D, S, el, rating)
+            entry = {
+                "stability": round(new_s, 2),
+                "difficulty": round(new_d, 2),
+            }
+            if rating == 1:
+                entry["interval"] = fsrs.next_interval(new_s, dr, mx)
+                entry["note"] = "lapse"  # → relearn steps first
+            else:
+                entry["interval"] = ivs[rating]
+            info["ratings"][str(rating)] = entry
+
+    return info
+
+
+# ---------------------------------------------------------------------------
 # Orchestration — calls database.py
 # ---------------------------------------------------------------------------
 
@@ -211,8 +354,12 @@ def apply_review(card_id: int, rating: int,
         "relearning_steps":    card["relearning_steps"],
         "minimum_interval":    card["minimum_interval"],
         "leech_threshold":     card["leech_threshold"],
-        "learning_leech_threshold": card["learning_leech_threshold"],
         "leech_action":        card["leech_action"],
+        "desired_retention":   card.get("desired_retention", 0.9),
+        "maximum_interval":    card.get("maximum_interval", 36500),
+        "fsrs_weights":        card.get("fsrs_weights"),
+        "enable_fsrs":         card.get("enable_fsrs", 1),
+        "learning_hard_1d":    card.get("learning_hard_1d", 1),
     }
 
     if card["state"] in ("new", "learning"):
@@ -234,7 +381,9 @@ def apply_review(card_id: int, rating: int,
         ease=updated["ease"],
         repetitions=updated["repetitions"],
         lapses=updated["lapses"],
-        learning_again_count=updated.get("learning_again_count"),
+        stability=updated.get("stability"),
+        difficulty=updated.get("difficulty"),
+        last_review=updated.get("last_review"),
     )
     log_id = database.insert_review(
         card_id, rating, user_response=user_response,
@@ -244,30 +393,49 @@ def apply_review(card_id: int, rating: int,
 
 
 def _handle_learning(card: dict, preset: dict, rating: int) -> dict:
-    """Advance through learning steps, or graduate."""
+    """Advance through learning steps, or graduate.
+
+    On graduation (Good at last step, or Easy) the card enters the FSRS review
+    phase: initial stability/difficulty are seeded from the graduating rating."""
     steps = _parse_steps(preset["learning_steps"])
     c = dict(card)
+    # Clamp a stale step_index (steps may have been shortened after this card
+    # entered learning) so step lookups below can never go out of range.
+    c["step_index"] = min(c.get("step_index", 0), len(steps) - 1)
+    w, dr, mx = _fsrs_cfg(preset)
+    use_fsrs = _fsrs_enabled(preset)
 
-    if rating == 4:  # Easy — graduate immediately
+    def _graduate(grad_rating: int) -> None:
         c["state"] = "review"
-        c["interval"] = _fuzz_interval(preset["easy_interval"])
-        c["due"] = next_review_due(c["interval"])
         c["step_index"] = 0
         c["repetitions"] += 1
+        c["last_review"] = database.anki_today().isoformat()
+        if use_fsrs:
+            s = fsrs.init_stability(w, grad_rating)
+            c["stability"] = s
+            c["difficulty"] = fsrs.init_difficulty(w, grad_rating)
+            base = fsrs.next_interval(s, dr, mx)
+        else:
+            base = preset["easy_interval"] if grad_rating == 4 else preset["graduating_interval"]
+        c["interval"] = _fuzz_interval(max(1, base))
+        c["due"] = next_review_due(c["interval"])
+
+    if rating == 4:  # Easy — graduate immediately
+        _graduate(4)
         return c
 
     if rating == 1:  # Again — reset to step 0
         c["state"] = "learning"
         c["step_index"] = 0
         c["due"] = next_learning_due(steps, 0)
-        c["learning_again_count"] = c.get("learning_again_count", 0) + 1
-        _check_learning_leech(c, preset)
         return c
 
     if rating == 2:  # Hard — stay on current step, slow delay
         c["state"] = "learning"
         idx = c["step_index"]
-        if idx == 0 and len(steps) > 1:
+        if _hard_1d_enabled(preset):
+            delay = LEARNING_HARD_SINGLE_STEP_MINUTES
+        elif idx == 0 and len(steps) > 1:
             delay = (steps[0] + steps[1]) / 2
         elif len(steps) == 1:
             delay = steps[0] * 1.5
@@ -281,11 +449,7 @@ def _handle_learning(card: dict, preset: dict, rating: int) -> dict:
     last = len(steps) - 1
 
     if idx >= last:  # Graduate
-        c["state"] = "review"
-        c["interval"] = _fuzz_interval(preset["graduating_interval"])
-        c["due"] = next_review_due(c["interval"])
-        c["step_index"] = 0
-        c["repetitions"] += 1
+        _graduate(3)
     else:
         c["step_index"] = idx + 1
         c["state"] = "learning"
@@ -295,7 +459,41 @@ def _handle_learning(card: dict, preset: dict, rating: int) -> dict:
 
 
 def _handle_review(card: dict, preset: dict, rating: int) -> dict:
-    """Apply SM-2. Again → lapse + relearn."""
+    """Apply the review-phase scheduler (FSRS, or SM-2 fallback)."""
+    if not _fsrs_enabled(preset) or not card.get("stability"):
+        return _handle_review_sm2(card, preset, rating)
+
+    c = dict(card)
+    w, dr, mx = _fsrs_cfg(preset)
+    el = _elapsed_days(card)
+    new_s, new_d = fsrs.review_state(w, card["difficulty"], card["stability"], el, rating)
+
+    c["difficulty"] = new_d
+    c["stability"] = new_s
+    c["last_review"] = database.anki_today().isoformat()
+
+    if rating == 1:  # Lapse → relearn
+        c["lapses"] = c["lapses"] + 1
+        c["interval"] = max(preset["minimum_interval"], fsrs.next_interval(new_s, dr, mx))
+        c["state"] = "relearn"
+        c["step_index"] = 0
+        relearn_steps = _parse_steps(preset["relearning_steps"])
+        c["due"] = next_learning_due(relearn_steps, 0)
+        _check_leech(c, preset)
+    else:
+        # Use the monotonic, ordering-enforced interval so the committed value
+        # matches the previewed button (fuzz aside).
+        ivs = fsrs.review_intervals(w, card["difficulty"], card["stability"], el, dr, mx)
+        c["interval"] = max(preset["minimum_interval"], _fuzz_interval(ivs[rating]))
+        c["state"] = "review"
+        c["due"] = next_review_due(c["interval"])
+        c["repetitions"] += 1
+
+    return c
+
+
+def _handle_review_sm2(card: dict, preset: dict, rating: int) -> dict:
+    """Legacy SM-2 review handler (used only when enable_fsrs = 0)."""
     c = dict(card)
     new_interval, new_ease, new_lapses = calc_review(
         c["interval"], c["ease"], c["lapses"], rating
@@ -321,22 +519,27 @@ def _handle_review(card: dict, preset: dict, rating: int) -> dict:
 
 
 def _handle_relearn(card: dict, preset: dict, rating: int) -> dict:
-    """Advance through relearning steps. Completion → back to review."""
+    """Advance through relearning steps. Completion → back to review.
+
+    Stability/difficulty were set when the card lapsed; the relearn steps are
+    sub-day spacing only. On graduation the stored stability sets the interval."""
     steps = _parse_steps(preset["relearning_steps"])
     c = dict(card)
+    # Clamp a stale step_index (relearn steps may have been shortened).
+    c["step_index"] = min(c.get("step_index", 0), len(steps) - 1)
 
     if rating == 1:  # Again — reset relearn
         c["state"] = "relearn"
         c["step_index"] = 0
         c["due"] = next_learning_due(steps, 0)
-        c["learning_again_count"] = c.get("learning_again_count", 0) + 1
-        _check_learning_leech(c, preset)
         return c
 
     if rating == 2:  # Hard — repeat current step
         c["state"] = "relearn"
         idx = c["step_index"]
-        if idx == 0 and len(steps) > 1:
+        if _hard_1d_enabled(preset):
+            delay = LEARNING_HARD_SINGLE_STEP_MINUTES
+        elif idx == 0 and len(steps) > 1:
             delay = (steps[0] + steps[1]) / 2
         elif len(steps) == 1:
             delay = steps[0] * 1.5
@@ -348,19 +551,21 @@ def _handle_relearn(card: dict, preset: dict, rating: int) -> dict:
     idx = c["step_index"]
     last = len(steps) - 1
 
-    if rating == 4:  # Easy — skip steps, apply ease bonus
-        raw = max(preset["minimum_interval"], math.floor(c["interval"] * c["ease"]))
+    def _graduate(grad_rating: int) -> None:
         c["state"] = "review"
-        c["interval"] = _fuzz_interval(raw)
+        c["interval"] = _fuzz_interval(_relearn_graduate_interval(card, grad_rating))
         c["due"] = next_review_due(c["interval"])
         c["step_index"] = 0
         c["repetitions"] += 1
-    elif idx >= last:  # Good at last step — back to review at stored interval
-        c["state"] = "review"
-        c["interval"] = _fuzz_interval(max(preset["minimum_interval"], c["interval"]))
-        c["due"] = next_review_due(c["interval"])
-        c["step_index"] = 0
-        c["repetitions"] += 1
+        c["last_review"] = database.anki_today().isoformat()
+        if _fsrs_enabled(preset) and card.get("stability") and grad_rating == 4:
+            w, _, _ = _fsrs_cfg(preset)
+            c["stability"] = fsrs.next_short_term_stability(w, card["stability"], 4)
+
+    if rating == 4:  # Easy — skip steps, graduate with bonus
+        _graduate(4)
+    elif idx >= last:  # Good at last step — back to review
+        _graduate(3)
     else:
         c["step_index"] = idx + 1
         c["state"] = "relearn"
@@ -370,19 +575,8 @@ def _handle_relearn(card: dict, preset: dict, rating: int) -> dict:
 
 
 def _check_leech(card: dict, preset: dict) -> None:
-    """Flag a review-state leech once lapses reach leech_threshold."""
+    """Suspend card if lapses >= leech_threshold."""
     if card["lapses"] >= preset["leech_threshold"]:
-        _apply_leech(card, preset)
-
-
-def _check_learning_leech(card: dict, preset: dict) -> None:
-    """Flag a learning/relearn leech once Again presses reach the threshold."""
-    if card.get("learning_again_count", 0) >= preset["learning_leech_threshold"]:
-        _apply_leech(card, preset)
-
-
-def _apply_leech(card: dict, preset: dict) -> None:
-    """Suspend + flag the card when leech_action is 'suspend'."""
-    if preset["leech_action"] == "suspend":
-        database.mark_leech_suspend(card["id"])
-        card["state"] = "suspended"
+        if preset["leech_action"] == "suspend":
+            database.suspend_card(card["id"])
+            card["state"] = "suspended"

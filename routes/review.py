@@ -50,6 +50,7 @@ def _next_card_from_queue(key, build_fn) -> dict | None:
     card = database.get_card(card_id)
     if card:
         card["intervals"] = srs.preview_intervals(card)
+        card["fsrs"] = srs.explain_card(card)
     return card
 
 
@@ -79,6 +80,7 @@ def get_today_unfinished():
     card = database.get_next_unfinished_card()
     if card:
         card["intervals"] = srs.preview_intervals(card)
+        card["fsrs"] = srs.explain_card(card)
     return {"card": card, "counts": database.count_unfinished()}
 
 
@@ -200,6 +202,7 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
         next_card = database.get_next_unfinished_card()
         if next_card:
             next_card["intervals"] = srs.preview_intervals(next_card)
+            next_card["fsrs"] = srs.explain_card(next_card)
         counts = database.count_unfinished()
     elif root_deck_id:
         _queue_mgr.after_review(queue_key, card_id, updated, newly_buried)
@@ -275,6 +278,9 @@ def undo_review():
         ease=cb["ease"],
         repetitions=cb["repetitions"],
         lapses=cb["lapses"],
+        stability=cb.get("stability"),
+        difficulty=cb.get("difficulty"),
+        last_review=cb.get("last_review"),
     )
     database.delete_review_log(entry["log_id"])
 
@@ -288,6 +294,7 @@ def undo_review():
     # Return the restored card so the frontend can show it
     restored = database.get_card(cb["id"])
     restored["intervals"] = srs.preview_intervals(restored)
+    restored["fsrs"] = srs.explain_card(restored)
 
     deck_id         = entry["deck_id"]
     cat             = entry["category"]

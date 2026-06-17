@@ -216,6 +216,16 @@ def init_db() -> None:
     if "is_leech" not in card_cols:
         conn.execute("ALTER TABLE cards ADD COLUMN is_leech INTEGER NOT NULL DEFAULT 0")
 
+    # FSRS memory state. Absence of `stability` signals a pre-FSRS database →
+    # seed existing review/relearn cards from their SM-2 interval/ease below.
+    need_fsrs_seed = "stability" not in card_cols
+    if "stability" not in card_cols:
+        conn.execute("ALTER TABLE cards ADD COLUMN stability REAL")
+    if "difficulty" not in card_cols:
+        conn.execute("ALTER TABLE cards ADD COLUMN difficulty REAL")
+    if "last_review" not in card_cols:
+        conn.execute("ALTER TABLE cards ADD COLUMN last_review TEXT")
+
     # review_log: per-review timing + card state at review time (for calendar heatmap stats)
     rl_cols = {r["name"] for r in conn.execute("PRAGMA table_info(review_log)").fetchall()}
     if "duration_ms" not in rl_cols:
@@ -263,6 +273,16 @@ def init_db() -> None:
         # Lower the review-leech threshold from the legacy default (8) to the new
         # default (3) for presets that never tuned it away from 8.
         conn.execute("UPDATE deck_presets SET leech_threshold = 3 WHERE leech_threshold = 8")
+    if "desired_retention" not in preset_cols:
+        conn.execute("ALTER TABLE deck_presets ADD COLUMN desired_retention REAL NOT NULL DEFAULT 0.9")
+    if "maximum_interval" not in preset_cols:
+        conn.execute("ALTER TABLE deck_presets ADD COLUMN maximum_interval INTEGER NOT NULL DEFAULT 36500")
+    if "fsrs_weights" not in preset_cols:
+        conn.execute("ALTER TABLE deck_presets ADD COLUMN fsrs_weights TEXT")
+    if "enable_fsrs" not in preset_cols:
+        conn.execute("ALTER TABLE deck_presets ADD COLUMN enable_fsrs INTEGER NOT NULL DEFAULT 1")
+    if "learning_hard_1d" not in preset_cols:
+        conn.execute("ALTER TABLE deck_presets ADD COLUMN learning_hard_1d INTEGER NOT NULL DEFAULT 1")
 
     conn.execute("""CREATE TABLE IF NOT EXISTS preset_category_overrides (
         id                  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -310,6 +330,20 @@ def init_db() -> None:
                       WHERE c.lapses >= p.leech_threshold
                          OR c.learning_again_count >= p.learning_leech_threshold
                   )"""
+        )
+
+    # ── One-time FSRS seeding ──────────────────────────────────────────────────
+    # Convert existing SM-2 state into FSRS memory state so no progress is lost:
+    #   stability  ← current interval (already ≈ days-to-90%-retention)
+    #   difficulty ← mapped from ease (low ease = hard card = high difficulty)
+    # last_review stays NULL; the first FSRS review then assumes an on-time
+    # elapsed (= interval) and self-corrects from there.
+    if need_fsrs_seed:
+        conn.execute(
+            """UPDATE cards
+               SET stability  = MAX(interval, 0.5),
+                   difficulty = MAX(1.0, MIN(10.0, 11.0 - (ease - 1.3) * 6.5))
+               WHERE state IN ('review', 'relearn') AND stability IS NULL"""
         )
 
     # Normalize legacy due values: learning/relearn cards whose due datetime
