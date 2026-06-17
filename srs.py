@@ -30,6 +30,16 @@ def _fsrs_enabled(card: dict) -> bool:
     return bool(val) if val is not None else True
 
 
+def _hard_1d_enabled(card: dict) -> bool:
+    val = card.get("learning_hard_1d", 1)
+    return bool(val) if val is not None else True
+
+
+def _single_step_hard_delay(card: dict, step0: float) -> float:
+    """Hard delay (minutes) for a single-step learning/relearn card."""
+    return LEARNING_HARD_SINGLE_STEP_MINUTES if _hard_1d_enabled(card) else step0 * 1.5
+
+
 def _elapsed_days(card: dict) -> int:
     """Days since the previous review, for computing retrievability.
 
@@ -100,7 +110,7 @@ def preview_intervals(card: dict) -> dict:
         if si == 0 and len(l_steps) > 1:
             hard = _fmt_min((l_steps[0] + l_steps[1]) / 2)
         elif len(l_steps) == 1:
-            hard = _fmt_min(LEARNING_HARD_SINGLE_STEP_MINUTES)
+            hard = _fmt_min(_single_step_hard_delay(card, l_steps[0]))
         else:
             hard = _fmt_min(l_steps[si])
         if si >= len(l_steps) - 1:
@@ -130,6 +140,8 @@ def preview_intervals(card: dict) -> dict:
         again = _fmt_min(r_steps[0])
         if si == 0 and len(r_steps) > 1:
             hard = _fmt_min((r_steps[0] + r_steps[1]) / 2)
+        elif len(r_steps) == 1:
+            hard = _fmt_min(_single_step_hard_delay(card, r_steps[0]))
         else:
             hard = _fmt_min(r_steps[si] * 1.5)
         if si >= len(r_steps) - 1:
@@ -348,6 +360,7 @@ def apply_review(card_id: int, rating: int,
         "maximum_interval":    card.get("maximum_interval", 36500),
         "fsrs_weights":        card.get("fsrs_weights"),
         "enable_fsrs":         card.get("enable_fsrs", 1),
+        "learning_hard_1d":    card.get("learning_hard_1d", 1),
     }
 
     if card["state"] in ("new", "learning"):
@@ -424,7 +437,7 @@ def _handle_learning(card: dict, preset: dict, rating: int) -> dict:
         if idx == 0 and len(steps) > 1:
             delay = (steps[0] + steps[1]) / 2
         elif len(steps) == 1:
-            delay = LEARNING_HARD_SINGLE_STEP_MINUTES
+            delay = _single_step_hard_delay(preset, steps[0])
         else:
             delay = steps[idx]
         c["due"] = _smart_due(datetime.now() + timedelta(minutes=delay))
@@ -526,7 +539,7 @@ def _handle_relearn(card: dict, preset: dict, rating: int) -> dict:
         if idx == 0 and len(steps) > 1:
             delay = (steps[0] + steps[1]) / 2
         elif len(steps) == 1:
-            delay = steps[0] * 1.5
+            delay = _single_step_hard_delay(preset, steps[0])
         else:
             delay = steps[idx]
         c["due"] = _smart_due(datetime.now() + timedelta(minutes=delay))

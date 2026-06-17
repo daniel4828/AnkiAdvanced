@@ -35,6 +35,9 @@ CREATE TABLE IF NOT EXISTS deck_presets (
     maximum_interval        INTEGER NOT NULL DEFAULT 36500,
     fsrs_weights            TEXT,
     enable_fsrs             INTEGER NOT NULL DEFAULT 1,
+    -- When 1, a single-step learning/relearn card's "Hard" schedules ~1 day
+    -- instead of step×1.5, so a half-remembered card returns tomorrow.
+    learning_hard_1d        INTEGER NOT NULL DEFAULT 1,
 
     -- New card insertion order (legacy; superseded by new_gather_order)
     insertion_order         TEXT NOT NULL DEFAULT 'sequential'

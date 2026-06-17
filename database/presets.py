@@ -26,6 +26,7 @@ def default_preset() -> dict:
         "maximum_interval": 36500,
         "fsrs_weights": None,
         "enable_fsrs": 1,
+        "learning_hard_1d": 1,
         "new_gather_order": "ascending_position",
         "new_sort_order": "card_type_gathered",
         "new_review_order": "mixed",
@@ -203,6 +204,7 @@ def insert_preset(preset: dict) -> int:
     preset.setdefault("maximum_interval", 36500)
     preset.setdefault("fsrs_weights", None)
     preset.setdefault("enable_fsrs", 1)
+    preset.setdefault("learning_hard_1d", 1)
     conn = get_db()
     cur = conn.execute(
         """INSERT INTO deck_presets
@@ -210,7 +212,7 @@ def insert_preset(preset: dict) -> int:
             learning_steps, graduating_interval, easy_interval,
             relearning_steps, minimum_interval, insertion_order,
             bury_siblings, randomize_story_order, leech_threshold, learning_leech_threshold, leech_action,
-            desired_retention, maximum_interval, fsrs_weights, enable_fsrs,
+            desired_retention, maximum_interval, fsrs_weights, enable_fsrs, learning_hard_1d,
             new_gather_order, new_sort_order, new_review_order,
             interday_learning_review_order, review_sort_order,
             bury_new_siblings, bury_review_siblings, bury_interday_siblings,
@@ -219,7 +221,7 @@ def insert_preset(preset: dict) -> int:
                    :learning_steps, :graduating_interval, :easy_interval,
                    :relearning_steps, :minimum_interval, :insertion_order,
                    :bury_siblings, :randomize_story_order, :leech_threshold, :learning_leech_threshold, :leech_action,
-                   :desired_retention, :maximum_interval, :fsrs_weights, :enable_fsrs,
+                   :desired_retention, :maximum_interval, :fsrs_weights, :enable_fsrs, :learning_hard_1d,
                    :new_gather_order, :new_sort_order, :new_review_order,
                    :interday_learning_review_order, :review_sort_order,
                    :bury_new_siblings, :bury_review_siblings, :bury_interday_siblings,
@@ -238,7 +240,7 @@ def update_preset(preset_id: int, fields: dict) -> None:
         "learning_steps", "graduating_interval", "easy_interval",
         "relearning_steps", "minimum_interval", "insertion_order",
         "bury_siblings", "randomize_story_order", "leech_threshold", "learning_leech_threshold", "leech_action",
-        "desired_retention", "maximum_interval", "fsrs_weights", "enable_fsrs",
+        "desired_retention", "maximum_interval", "fsrs_weights", "enable_fsrs", "learning_hard_1d",
         "new_gather_order", "new_sort_order", "new_review_order",
         "interday_learning_review_order", "review_sort_order",
         "bury_new_siblings", "bury_review_siblings", "bury_interday_siblings",

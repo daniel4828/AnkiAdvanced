@@ -281,6 +281,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN fsrs_weights TEXT")
     if "enable_fsrs" not in preset_cols:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN enable_fsrs INTEGER NOT NULL DEFAULT 1")
+    if "learning_hard_1d" not in preset_cols:
+        conn.execute("ALTER TABLE deck_presets ADD COLUMN learning_hard_1d INTEGER NOT NULL DEFAULT 1")
 
     conn.execute("""CREATE TABLE IF NOT EXISTS preset_category_overrides (
         id                  INTEGER PRIMARY KEY AUTOINCREMENT,
