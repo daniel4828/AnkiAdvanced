@@ -2483,6 +2483,9 @@ function loadPresetFields(preset) {
   document.getElementById('opt-bury-interday').checked = !!preset.bury_interday_siblings;
   document.getElementById('opt-sibling-sep').value     = preset.sibling_separation ?? 3;
   document.getElementById('opt-sibling-factor').value  = preset.sibling_factor ?? 0.2;
+  document.getElementById('opt-enable-fsrs').checked   = preset.enable_fsrs == null ? true : !!preset.enable_fsrs;
+  document.getElementById('opt-hard-1d').checked       = preset.learning_hard_1d == null ? true : !!preset.learning_hard_1d;
+  document.getElementById('opt-desired-retention').value = Math.round((preset.desired_retention ?? 0.9) * 100);
 
   // Category order
   const order = (preset.category_order || 'listening,reading,creating').split(',').map(s => s.trim());
@@ -2644,6 +2647,9 @@ async function saveOptions() {
     bury_interday_siblings: document.getElementById('opt-bury-interday').checked ? 1 : 0,
     sibling_separation:     parseInt(document.getElementById('opt-sibling-sep').value) || 3,
     sibling_factor:         parseFloat(document.getElementById('opt-sibling-factor').value) || 0.2,
+    enable_fsrs:            document.getElementById('opt-enable-fsrs').checked ? 1 : 0,
+    learning_hard_1d:       document.getElementById('opt-hard-1d').checked ? 1 : 0,
+    desired_retention:      Math.min(0.99, Math.max(0.70, (parseInt(document.getElementById('opt-desired-retention').value) || 90) / 100)),
     category_order: _getCategoryOrderUI(),
   };
   // Warn if a story for today already exists — order settings change would cause mismatch
