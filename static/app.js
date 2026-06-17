@@ -2463,6 +2463,68 @@ function _getCategoryOrderUI() {
 
 let currentPresetId = null;
 
+// Show only the fields relevant to the chosen scheduler.
+// FSRS on  → hide .sched-sm2 (graduating/easy interval)
+// FSRS off → hide .sched-fsrs (desired retention, maximum interval)
+function applySchedulerVisibility() {
+  const fsrs = document.getElementById('opt-enable-fsrs').checked;
+  document.querySelectorAll('.sched-sm2').forEach(el => { el.style.display = fsrs ? 'none' : ''; });
+  document.querySelectorAll('.sched-fsrs').forEach(el => { el.style.display = fsrs ? '' : 'none'; });
+}
+
+// Clickable ⓘ explanations for scheduling fields.
+const INFO_TEXT = {
+  enable_fsrs: ['Enable FSRS',
+    'FSRS is a modern scheduler that models each card with Stability and Difficulty to predict the best review time. Turn it off to fall back to the legacy SM-2 (ease-factor) algorithm. Switching hides the fields that don\'t apply to the chosen scheduler.'],
+  hard_1d: ['Hard = 1 day',
+    'While a card is still in learning or relearning, pressing Hard sends it to tomorrow (1 day) instead of repeating in a few minutes. Applies to both schedulers.'],
+  learning_steps: ['Learning steps',
+    'The sub-day intervals (in minutes) a new card steps through before it graduates to review. Example: "10m" means one 10-minute step. Used by both schedulers.'],
+  graduating_interval: ['Graduating interval (SM-2 only)',
+    'The interval (in days) a card gets the first time it leaves learning with Good. Only used by SM-2 — under FSRS the first interval is computed from the card\'s initial stability instead.'],
+  easy_interval: ['Easy interval (SM-2 only)',
+    'The interval (in days) a learning card jumps to when rated Easy. Only used by SM-2 — under FSRS this is computed from stability.'],
+  desired_retention: ['Desired retention (FSRS only)',
+    'The probability you want of still recalling a card when it comes due, e.g. 90%. Higher retention = shorter intervals and more reviews; lower = longer intervals, fewer reviews but more lapses. This is the main FSRS knob.'],
+  maximum_interval: ['Maximum interval (FSRS only)',
+    'An upper cap (in days) on how far into the future a review can be scheduled. Default 36500 (~100 years) effectively means no cap.'],
+};
+
+function showInfoPop(target, key) {
+  const info = INFO_TEXT[key];
+  if (!info) return;
+  const pop = document.getElementById('info-pop');
+  document.getElementById('info-pop-title').textContent = info[0];
+  document.getElementById('info-pop-body').textContent  = info[1];
+  pop.style.display = 'block';
+  // Position below the icon, kept inside the viewport.
+  const r = target.getBoundingClientRect();
+  pop.style.visibility = 'hidden';
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let left = r.left;
+  if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+  let top = r.bottom + 6;
+  if (top + ph > window.innerHeight - 8) top = r.top - ph - 6;
+  pop.style.left = Math.max(8, left) + 'px';
+  pop.style.top  = Math.max(8, top) + 'px';
+  pop.style.visibility = 'visible';
+}
+function hideInfoPop() { document.getElementById('info-pop').style.display = 'none'; }
+
+document.addEventListener('click', (e) => {
+  const icon = e.target.closest('.info-i');
+  if (icon) {
+    e.stopPropagation();
+    const pop = document.getElementById('info-pop');
+    const same = pop.style.display === 'block' && pop.dataset.key === icon.dataset.info;
+    if (same) { hideInfoPop(); return; }
+    pop.dataset.key = icon.dataset.info;
+    showInfoPop(icon, icon.dataset.info);
+    return;
+  }
+  if (!e.target.closest('#info-pop')) hideInfoPop();
+});
+
 function loadPresetFields(preset) {
   currentPresetId = preset.id;
   document.getElementById('opt-new-per-day').value     = preset.new_per_day;
@@ -2486,6 +2548,8 @@ function loadPresetFields(preset) {
   document.getElementById('opt-enable-fsrs').checked   = preset.enable_fsrs == null ? true : !!preset.enable_fsrs;
   document.getElementById('opt-hard-1d').checked       = preset.learning_hard_1d == null ? true : !!preset.learning_hard_1d;
   document.getElementById('opt-desired-retention').value = Math.round((preset.desired_retention ?? 0.9) * 100);
+  document.getElementById('opt-max-int').value         = preset.maximum_interval ?? 36500;
+  applySchedulerVisibility();
 
   // Category order
   const order = (preset.category_order || 'listening,reading,creating').split(',').map(s => s.trim());
@@ -2650,6 +2714,7 @@ async function saveOptions() {
     enable_fsrs:            document.getElementById('opt-enable-fsrs').checked ? 1 : 0,
     learning_hard_1d:       document.getElementById('opt-hard-1d').checked ? 1 : 0,
     desired_retention:      Math.min(0.99, Math.max(0.70, (parseInt(document.getElementById('opt-desired-retention').value) || 90) / 100)),
+    maximum_interval:       Math.max(1, parseInt(document.getElementById('opt-max-int').value) || 36500),
     category_order: _getCategoryOrderUI(),
   };
   // Warn if a story for today already exists — order settings change would cause mismatch
