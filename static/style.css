@@ -1618,6 +1618,10 @@ main.browse-open {
   font-size: 14px;
   font-style: italic;
   letter-spacing: 0;
+  white-space: normal;
+  max-width: 13em;
+  line-height: 1.2;
+  text-align: center;
 }
 .word-bank-tokens {
   display: flex;
