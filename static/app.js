@@ -4643,7 +4643,11 @@ function updateWordBankPreview(text) {
   // Walk wordBankOrder to assign values to numbered slots
   let rawIdx = 0, slotIdx = 0;
   const usedNums = new Set();
-  document.querySelectorAll('.wb-skel-blank[data-slot]').forEach(span => span.textContent = '＿');
+  // Reset: empty target slot falls back to its faint German hint, others to ＿
+  document.querySelectorAll('.wb-skel-blank[data-slot]').forEach(span => {
+    if (span.dataset.de) { span.textContent = span.dataset.de; span.classList.add('wb-de-hint'); }
+    else span.textContent = '＿';
+  });
 
   for (const tok of wordBankOrder) {
     if (tok.type === 'pre') continue;
@@ -4656,7 +4660,8 @@ function updateWordBankPreview(text) {
       if (tile) { usedNums.add(tile.num); if (span) span.textContent = tile.char; }
       else if (span) span.textContent = part;
     } else {
-      if (span) span.textContent = part; // target word
+      // target word filled: replace faint German hint with the typed text
+      if (span) { span.textContent = part; span.classList.remove('wb-de-hint'); }
     }
   }
 
@@ -4688,10 +4693,19 @@ async function renderWordBankUI() {
   // Sentence skeleton: pre-placed tokens shown as text, blanks for tiles/target (data-slot for live update)
   const skelEl = document.getElementById('word-bank-skeleton');
   if (skelEl) {
+    const escAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // German hint shown faintly inside the target word's blank (first target only)
+    const deHint = (card.definition_de || '').trim();
+    let deShown = false;
     let slotIdx = 0;
     skelEl.innerHTML = wordBankOrder.map(tok => {
       if (tok.type === 'pre') return `<span class="wb-skel-pre">${tok.char}</span>`;
-      return `<span class="wb-skel-blank" data-slot="${slotIdx++}">＿</span>`;
+      const slot = slotIdx++;
+      if (tok.type === 'target' && deHint && !deShown) {
+        deShown = true;
+        return `<span class="wb-skel-blank wb-de-hint" data-slot="${slot}" data-de="${escAttr(deHint)}">${escAttr(deHint)}</span>`;
+      }
+      return `<span class="wb-skel-blank" data-slot="${slot}">＿</span>`;
     }).join('');
   }
 

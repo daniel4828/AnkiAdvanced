@@ -1610,6 +1610,15 @@ main.browse-open {
   font-weight: 700;
   letter-spacing: -2px;
 }
+/* Faint German translation shown inside the target word's blank as a hint */
+.wb-skel-blank.wb-de-hint {
+  color: #c2c2c2;
+  font-weight: 400;
+  font-size: 14px;
+  font-style: italic;
+  letter-spacing: 0;
+  vertical-align: baseline;
+}
 .word-bank-tokens {
   display: flex;
   flex-wrap: wrap;
