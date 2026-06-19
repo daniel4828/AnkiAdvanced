@@ -35,6 +35,19 @@ def _hard_1d_enabled(card: dict) -> bool:
     return bool(val) if val is not None else True
 
 
+def _hard_minutes(card: dict) -> int:
+    """Minutes that "Hard" delays a learning/relearn card when learning_hard_1d
+    is on — learning_hard_days (default 1 day), fractional days allowed."""
+    days = card.get("learning_hard_days", 1)
+    if days is None:
+        days = 1
+    try:
+        days = float(days)
+    except (TypeError, ValueError):
+        days = 1.0
+    return max(1, round(days * 1440))
+
+
 def _elapsed_days(card: dict) -> int:
     """Days since the previous review, for computing retrievability.
 
@@ -103,7 +116,7 @@ def preview_intervals(card: dict) -> dict:
         si = min(step_index, len(l_steps) - 1)
         again = _fmt_min(l_steps[0])
         if _hard_1d_enabled(card):
-            hard = _fmt_min(LEARNING_HARD_SINGLE_STEP_MINUTES)
+            hard = _fmt_min(_hard_minutes(card))
         elif si == 0 and len(l_steps) > 1:
             hard = _fmt_min((l_steps[0] + l_steps[1]) / 2)
         elif len(l_steps) == 1:
@@ -136,7 +149,7 @@ def preview_intervals(card: dict) -> dict:
         si = min(step_index, len(r_steps) - 1)
         again = _fmt_min(r_steps[0])
         if _hard_1d_enabled(card):
-            hard = _fmt_min(LEARNING_HARD_SINGLE_STEP_MINUTES)
+            hard = _fmt_min(_hard_minutes(card))
         elif si == 0 and len(r_steps) > 1:
             hard = _fmt_min((r_steps[0] + r_steps[1]) / 2)
         elif len(r_steps) == 1:
@@ -360,6 +373,7 @@ def apply_review(card_id: int, rating: int,
         "fsrs_weights":        card.get("fsrs_weights"),
         "enable_fsrs":         card.get("enable_fsrs", 1),
         "learning_hard_1d":    card.get("learning_hard_1d", 1),
+        "learning_hard_days":  card.get("learning_hard_days", 1),
     }
 
     if card["state"] in ("new", "learning"):
@@ -434,7 +448,7 @@ def _handle_learning(card: dict, preset: dict, rating: int) -> dict:
         c["state"] = "learning"
         idx = c["step_index"]
         if _hard_1d_enabled(preset):
-            delay = LEARNING_HARD_SINGLE_STEP_MINUTES
+            delay = _hard_minutes(preset)
         elif idx == 0 and len(steps) > 1:
             delay = (steps[0] + steps[1]) / 2
         elif len(steps) == 1:
@@ -538,7 +552,7 @@ def _handle_relearn(card: dict, preset: dict, rating: int) -> dict:
         c["state"] = "relearn"
         idx = c["step_index"]
         if _hard_1d_enabled(preset):
-            delay = LEARNING_HARD_SINGLE_STEP_MINUTES
+            delay = _hard_minutes(preset)
         elif idx == 0 and len(steps) > 1:
             delay = (steps[0] + steps[1]) / 2
         elif len(steps) == 1:

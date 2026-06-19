@@ -36,6 +36,41 @@ def insert_card(word_id: int, category: str, deck_id: int,
     return row["id"]
 
 
+def promote_saved_word(word_id: int, target_deck_id: int,
+                       saved_deck_id: int, due: str) -> int:
+    """Move a saved word's suspended cards out of the Saved deck into target_deck_id
+    as fresh 'new' cards due on `due`, clearing any scheduling state.
+
+    Returns the number of cards promoted.
+    """
+    conn = get_db()
+    cur = conn.execute(
+        """UPDATE cards
+           SET deck_id=?, state='new', due=?, step_index=0, interval=0,
+               ease=2.5, repetitions=0, lapses=0, stability=NULL, difficulty=NULL,
+               last_review=NULL, learning_again_count=0, is_leech=0,
+               buried_until=NULL, pre_suspend_state=NULL
+           WHERE word_id=? AND deck_id=? AND deleted_at IS NULL""",
+        (target_deck_id, due, word_id, saved_deck_id),
+    )
+    conn.commit()
+    count = cur.rowcount
+    conn.close()
+    return count
+
+
+def set_card_note(card_id: int, note: str | None) -> None:
+    """Store (or clear) the free-text 'note for next time' on a card.
+
+    Empty/blank strings are stored as NULL so the card shows no note next time.
+    """
+    note = (note or "").strip() or None
+    conn = get_db()
+    conn.execute("UPDATE cards SET next_note=? WHERE id=?", (note, card_id))
+    conn.commit()
+    conn.close()
+
+
 def move_card_to_deck(card_id: int, deck_id: int) -> bool:
     conn = get_db()
     cur = conn.execute(
@@ -131,7 +166,7 @@ def get_card(card_id: int) -> dict | None:
                   p.relearning_steps, p.minimum_interval,
                   p.leech_threshold, p.learning_leech_threshold, p.leech_action,
                   p.desired_retention, p.maximum_interval, p.fsrs_weights, p.enable_fsrs,
-                  p.learning_hard_1d,
+                  p.learning_hard_1d, p.learning_hard_days,
                   p.new_per_day, p.reviews_per_day
            FROM cards c
            JOIN entries w ON w.id = c.word_id

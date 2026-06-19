@@ -263,6 +263,12 @@ def get_or_create_deck_path(path: str) -> int:
     return parent_id
 
 
+def get_or_create_saved_deck() -> int:
+    """The fixed 'Saved' staging deck: holds suspended compound words the user
+    set aside for later (see /api/save-word). Promoting moves them to a Daily deck."""
+    return get_or_create_deck_path("Saved")
+
+
 def get_word_deck_names(word_id: int) -> list[str]:
     """Return the unique deck names (leaf only) where cards for this word live."""
     conn = get_db()

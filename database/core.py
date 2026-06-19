@@ -225,6 +225,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE cards ADD COLUMN difficulty REAL")
     if "last_review" not in card_cols:
         conn.execute("ALTER TABLE cards ADD COLUMN last_review TEXT")
+    if "next_note" not in card_cols:
+        conn.execute("ALTER TABLE cards ADD COLUMN next_note TEXT")
 
     # review_log: per-review timing + card state at review time (for calendar heatmap stats)
     rl_cols = {r["name"] for r in conn.execute("PRAGMA table_info(review_log)").fetchall()}
@@ -283,6 +285,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN enable_fsrs INTEGER NOT NULL DEFAULT 1")
     if "learning_hard_1d" not in preset_cols:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN learning_hard_1d INTEGER NOT NULL DEFAULT 1")
+    if "learning_hard_days" not in preset_cols:
+        conn.execute("ALTER TABLE deck_presets ADD COLUMN learning_hard_days REAL NOT NULL DEFAULT 1")
 
     conn.execute("""CREATE TABLE IF NOT EXISTS preset_category_overrides (
         id                  INTEGER PRIMARY KEY AUTOINCREMENT,

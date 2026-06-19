@@ -1274,10 +1274,21 @@ main.browse-open {
 .sentence-fr {
   flex: 1;
   text-align: center;
-  font-size: 14px;
+  font-size: 12px;
   color: var(--muted);
   font-style: italic;
   min-height: 18px;
+  /* De-emphasised so the eye is drawn to the Chinese, not the translation.
+     Still readable, and fully clears on hover/focus. */
+  opacity: 0.4;
+  filter: blur(1.1px);
+  letter-spacing: 0.2px;
+  transition: opacity 0.15s, filter 0.15s;
+}
+.sentence-de:hover,
+.sentence-fr:hover {
+  opacity: 0.9;
+  filter: none;
 }
 
 .char-row:last-child { border-bottom: none; }
@@ -1497,14 +1508,23 @@ main.browse-open {
 
 /* ── Creating: front input ───────────────────────────── */
 .sentence-en-front {
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.6;
   text-align: center;
-  color: var(--text);
+  color: var(--muted);
   min-height: 60px;
   display: flex;
   align-items: center;
   justify-content: center;
+  /* De-emphasised translation: present but not eye-catching, clears on hover. */
+  opacity: 0.4;
+  filter: blur(1.1px);
+  letter-spacing: 0.2px;
+  transition: opacity 0.15s, filter 0.15s;
+}
+.sentence-en-front:hover {
+  opacity: 0.9;
+  filter: none;
 }
 .creating-word-def {
   font-size: 17px;
@@ -2285,6 +2305,25 @@ main.browse-open {
   white-space: nowrap;
 }
 .bw-add-btn:hover { background: #dbeafe; }
+
+/* Saved-list per-row actions: Generate content / Add to Daily */
+.bw-saved-btn {
+  font-size: 11px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 4px;
+  padding: 2px 7px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.bw-saved-btn:hover { background: var(--bg); }
+.bw-saved-btn:disabled { opacity: 0.55; cursor: default; }
+.bw-saved-promote { border-color: var(--primary); color: var(--primary); }
+.bw-saved-promote:hover { background: #dbeafe; }
+
+/* "Save for later" button in the compound quick-add menu */
+.qa-save-btn { background: #f59e0b; margin-bottom: 6px; }
 
 /* ── Browse action bar ─────────────────────────────── */
 #browse-action-bar {
@@ -4302,3 +4341,19 @@ table.fsrs-table td.ivl { font-weight: 700; }
 }
 #info-pop-title { font-weight: 700; font-size: 13px; margin-bottom: 5px; }
 #info-pop-body  { font-size: 12px; line-height: 1.55; color: var(--muted); }
+
+/* ── "Note for next time" field under the rating buttons ─────────────────── */
+.next-note-row { margin: 10px auto 0; max-width: 520px; }
+.next-note-input {
+  width: 100%; box-sizing: border-box; resize: vertical;
+  min-height: 34px; padding: 7px 10px;
+  font: inherit; font-size: 13px; line-height: 1.4;
+  color: var(--text); background: var(--card);
+  border: 1px solid var(--border); border-radius: 8px;
+}
+.next-note-input::placeholder { color: var(--muted); }
+.next-note-input:focus { outline: none; border-color: #6366f1; }
+/* Highlight when a note was carried over from last time */
+.next-note-input.has-note {
+  border-color: #f59e0b; background: #fffbeb;
+}
