@@ -39,7 +39,9 @@ def _spawn_again_regen(card: dict) -> None:
     background so the card shows something new when it reappears (~1-10 min)."""
     if DISABLE_AI or card.get("note_type") == "sentence" or not card.get("word_id"):
         return
-    if card.get("category") not in ("listening", "reading"):
+    # All three vocab categories use story sentences (listening audio, reading text,
+    # creating cloze/word-bank), so regenerate a fresh sentence for any of them.
+    if card.get("category") not in ("listening", "reading", "creating"):
         return
 
     logger.info("again-regen  TRIGGER word=%s cat=%s — scheduling background regen",
