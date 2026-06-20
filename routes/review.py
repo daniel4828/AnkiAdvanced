@@ -29,6 +29,8 @@ def _attach_again_sentence(card: dict | None) -> dict | None:
         again = database.get_again_sentence_for_word(card["word_id"], today)
         if again:
             card["again_sentence"] = again
+            logger.debug("again-regen  HIT word=%s — showing regenerated sentence",
+                         card.get("word_zh"))
     return card
 
 
@@ -39,6 +41,9 @@ def _spawn_again_regen(card: dict) -> None:
         return
     if card.get("category") not in ("listening", "reading"):
         return
+
+    logger.info("again-regen  TRIGGER word=%s cat=%s — scheduling background regen",
+                card.get("word_zh"), card.get("category"))
 
     def _run() -> None:
         try:
