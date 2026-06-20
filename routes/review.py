@@ -5,7 +5,6 @@ from fastapi import APIRouter, HTTPException
 
 import database
 import srs
-import ai
 import tts
 from .utils import leaf_ids, queue_mgr as _queue_mgr, DISABLE_AI
 
@@ -43,16 +42,20 @@ def _spawn_again_regen(card: dict) -> None:
 
     def _run() -> None:
         try:
-            from .story import _add_tokens
-            sentences, _ = ai.generate_story([card], model=ai.DEFAULT_MODEL)
-            if not sentences:
-                return
-            _add_tokens(sentences)  # jieba tokens so the frontend can render it
+            from .story import generate_sentence_for_word
             today = database.anki_today().isoformat()
-            database.store_again_sentence(card["deck_id"], card["word_id"], sentences[0], today)
-            logger.info("again-regen  word=%s → new sentence stored", card.get("word_zh"))
+            # Reuse the deck story's generation settings (mode/topic/grammar/model;
+            # a random chapter for kahneman) so the new sentence matches its style
+            # instead of always being a plain story sentence.
+            gen_params = database.get_story_gen_params_for_word(card["word_id"], today)
+            sentence = generate_sentence_for_word(card, gen_params)
+            if not sentence:
+                return
+            database.store_again_sentence(card["deck_id"], card["word_id"], sentence, today)
+            logger.info("again-regen  word=%s mode=%s → new sentence stored",
+                        card.get("word_zh"), (gen_params or {}).get("mode", "story"))
             try:
-                tts.preload(sentences[0].get("sentence_zh", ""))
+                tts.preload(sentence.get("sentence_zh", ""))
             except Exception:
                 pass
         except Exception as e:
