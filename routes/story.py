@@ -163,7 +163,8 @@ def get_story(deck_id: int, category: str,
               model: str | None = None,
               grammar_focus: str | None = None, grammar_pct: int = 75,
               mode: str = "story",
-              chapter_ids: str | None = None):
+              chapter_ids: str | None = None,
+              no_generate: bool = False):
     if database.is_sentences_deck(deck_id):
         return None
 
@@ -176,6 +177,12 @@ def get_story(deck_id: int, category: str,
                     deck_id, category, len(story["sentences"]), story["id"])
         _log_story(story)
         return story
+
+    # Caller only wants an already-generated story (e.g. "use existing" mode):
+    # no cached story → return nothing instead of generating a new one.
+    if no_generate:
+        logger.info("story  NO-GEN (no_generate=1) deck=%d cat=%s — no cached story", deck_id, category)
+        return None
 
     if DISABLE_AI:
         logger.info("story  DISABLED (DISABLE_AI=1) deck=%d cat=%s", deck_id, category)
