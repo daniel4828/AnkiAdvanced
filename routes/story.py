@@ -190,7 +190,11 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
                 grammar_pct=grammar_pct, mode=mode)
         for i, s in enumerate(sentences):
             s["position"] = i
-        database.create_story(today, category, deck_id, sentences, prompt_text, topic)
+        gen_params = _gen_params_dict(
+            topic=topic, max_hsk=max_hsk, model=model,
+            grammar_focus=grammar_focus, grammar_pct=grammar_pct,
+            mode=mode, chapter_ids=chapter_ids)
+        database.create_story(today, category, deck_id, sentences, prompt_text, topic, gen_params)
         story = database.get_active_story(today, category, deck_id)
     except Exception as e:
         logger.error("story  generation error: %s", e)
@@ -238,6 +242,78 @@ def _start_background_generation(deck_id: int, category: str, today: str, cards:
                 _generating.discard(progress_key)
 
     threading.Thread(target=_run, daemon=True).start()
+
+
+def _gen_params_dict(*, topic, max_hsk, model, grammar_focus, grammar_pct,
+                     mode, chapter_ids) -> dict:
+    """Bundle the story generation settings persisted on each story row, so the
+    Again regeneration can reproduce the same style (see generate_sentence_for_word)."""
+    return {
+        "mode": mode,
+        "topic": topic,
+        "max_hsk": max_hsk,
+        "model": model,
+        "grammar_focus": grammar_focus,
+        "grammar_pct": grammar_pct,
+        "chapter_ids": chapter_ids,
+    }
+
+
+def _pick_kahneman_chapter(chapter_ids) -> dict | None:
+    """Pick one chapter to regenerate a single Again sentence in kahneman mode.
+
+    chapter_ids: the chapters the story was generated from (list/comma-string).
+    Picks one at random among them; falls back to a random chapter from the book.
+    """
+    if not os.path.exists(KAHNEMAN_PATH):
+        return None
+    with open(KAHNEMAN_PATH, encoding="utf-8") as f:
+        all_chapters = json.load(f).get("chapters", [])
+    if not all_chapters:
+        return None
+    ids: list[int] = []
+    if isinstance(chapter_ids, str):
+        ids = [int(x) for x in chapter_ids.split(",") if x.strip()]
+    elif isinstance(chapter_ids, (list, tuple)):
+        ids = [int(x) for x in chapter_ids]
+    if ids:
+        num_map = {ch["number"]: ch for ch in all_chapters}
+        pool = [num_map[i] for i in ids if i in num_map]
+        if pool:
+            return random.choice(pool)
+    return random.choice(all_chapters)
+
+
+def generate_sentence_for_word(card: dict, gen_params: dict | None) -> dict | None:
+    """Regenerate ONE sentence for a single word, honoring the deck story's
+    generation settings (mode/topic/grammar/model; a random chapter for kahneman).
+
+    Used by the Again background regeneration so the new sentence matches the deck's
+    style instead of always being a plain story sentence. Returns a tokenized
+    sentence dict (ready for store_again_sentence) or None.
+    """
+    gp = gen_params or {}
+    mode = gp.get("mode") or "story"
+    model = _validated_model(gp.get("model"))
+    try:
+        if mode == "kahneman":
+            chapter = _pick_kahneman_chapter(gp.get("chapter_ids"))
+            if chapter is not None:
+                sentences = ai.generate_kahneman_sentences([card], chapter, model=model)
+            else:  # book data missing → fall back to a plain sentence
+                sentences, _ = ai.generate_story([card], model=model)
+        else:
+            sentences, _ = ai.generate_story(
+                [card], topic=gp.get("topic"), max_hsk=gp.get("max_hsk", 2),
+                model=model, grammar_focus=gp.get("grammar_focus"),
+                grammar_pct=gp.get("grammar_pct", 75), mode=mode)
+    except Exception as e:
+        logger.warning("again-regen  generation error for word=%s: %s", card.get("word_zh"), e)
+        return None
+    if not sentences:
+        return None
+    _add_tokens(sentences)
+    return sentences[0]
 
 
 @router.get("/api/story/{deck_id}/{category}")
