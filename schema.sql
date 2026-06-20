@@ -316,7 +316,9 @@ CREATE TABLE IF NOT EXISTS review_log (
 CREATE TABLE IF NOT EXISTS stories (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     date            TEXT NOT NULL,  -- YYYY-MM-DD
-    category        TEXT NOT NULL CHECK(category IN ('listening', 'reading', 'creating', 'unified')),
+    -- 'again' = sentinel category for single-sentence regenerations triggered by an
+    -- Again rating; kept out of the normal per-category story queries (see stories.py).
+    category        TEXT NOT NULL CHECK(category IN ('listening', 'reading', 'creating', 'unified', 'again')),
     deck_id         INTEGER NOT NULL REFERENCES decks(id) ON DELETE CASCADE,
     generated_at    TEXT NOT NULL DEFAULT (datetime('now')),
     prompt_text     TEXT,         -- full AI prompt used to generate this story (NULL for legacy rows)

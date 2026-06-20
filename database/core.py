@@ -449,11 +449,12 @@ def _migrate_story_sentences_multi_word(conn: sqlite3.Connection) -> None:
 
 
 def _migrate_stories_category(conn: sqlite3.Connection) -> None:
-    """Add 'unified' to stories.category CHECK constraint if not already present."""
+    """Extend stories.category CHECK constraint to include 'unified' and 'again'."""
     row = conn.execute(
         "SELECT sql FROM sqlite_master WHERE type='table' AND name='stories'"
     ).fetchone()
-    if row and "'unified'" not in (row["sql"] or ""):
+    sql = row["sql"] if row else ""
+    if row and ("'unified'" not in (sql or "") or "'again'" not in (sql or "")):
         col_names = [r["name"] for r in conn.execute("PRAGMA table_info(stories)").fetchall()]
         cols_csv = ", ".join(col_names)
         conn.executescript(f"""
@@ -462,7 +463,7 @@ def _migrate_stories_category(conn: sqlite3.Connection) -> None:
                 id              INTEGER PRIMARY KEY AUTOINCREMENT,
                 date            TEXT NOT NULL,
                 category        TEXT NOT NULL
-                    CHECK(category IN ('listening', 'reading', 'creating', 'unified')),
+                    CHECK(category IN ('listening', 'reading', 'creating', 'unified', 'again')),
                 deck_id         INTEGER NOT NULL REFERENCES decks(id) ON DELETE CASCADE,
                 generated_at    TEXT NOT NULL DEFAULT (datetime('now')),
                 prompt_text     TEXT,
