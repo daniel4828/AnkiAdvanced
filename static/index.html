@@ -694,6 +694,31 @@
   </div>
 </div>
 
+<!-- Unfinished-deck start modal: pick card scope + story mode each time -->
+<div id="unfinished-modal-overlay" onclick="closeUnfinishedModal()" style="display:none"></div>
+<div id="unfinished-modal" style="display:none">
+  <div class="edit-modal-header">
+    <span class="edit-modal-title">Unfinished Cards</span>
+    <button class="edit-modal-close" onclick="closeUnfinishedModal()">✕</button>
+  </div>
+  <div class="edit-card-fields">
+    <div class="unf-group">
+      <div class="unf-group-label">Cards to include</div>
+      <label class="unf-radio"><input type="radio" name="unf-scope" value="unfinished"><span>Only unfinished <small>(learning / relearn due now)</small></span></label>
+      <label class="unf-radio"><input type="radio" name="unf-scope" value="all"><span>All due today <small>(includes new &amp; review)</small></span></label>
+    </div>
+    <div class="unf-group">
+      <div class="unf-group-label">Story</div>
+      <label class="unf-radio"><input type="radio" name="unf-story" value="existing"><span>Use existing story <small>(just the word if a card has none)</small></span></label>
+      <label class="unf-radio"><input type="radio" name="unf-story" value="new"><span>Generate a new story</span></label>
+    </div>
+  </div>
+  <div class="edit-card-actions">
+    <button class="edit-cancel-btn" onclick="closeUnfinishedModal()">Cancel</button>
+    <button class="edit-save-btn" onclick="confirmUnfinishedStart()">Start</button>
+  </div>
+</div>
+
 <!-- Cost modal -->
 <div id="cost-modal-overlay" onclick="closeCostModal()" style="display:none"></div>
 <div id="cost-modal" style="display:none">

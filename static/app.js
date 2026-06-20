@@ -36,6 +36,9 @@ function renderMarkdown(text) {
 let deckId      = null;
 let rootDeckId      = null;   // set when studying all categories (mixed mode)
 let unfinishedMode  = false;  // set when studying the "Unfinished Cards" virtual deck
+// Unfinished-deck options. Scope persists; story mode is re-chosen each session.
+let _unfinishedScope     = localStorage.getItem('unfinishedScope') || 'unfinished'; // 'unfinished' | 'all'
+let _unfinishedStoryMode = localStorage.getItem('unfinishedStoryMode') || 'existing'; // 'existing' | 'new'
 let quickMode       = false;  // set when reviewing without AI story generation
 let deckName    = '';
 let category    = '';
@@ -887,7 +890,7 @@ async function loadDecks() {
   setLoading('Loading decks…');
   try {
     const [decks, retention] = await Promise.all([
-      api('GET', '/api/decks'),
+      api('GET', `/api/decks?unfinished_scope=${_unfinishedScope}`),
       api('GET', '/api/retention?days=0').catch(() => null),
     ]);
     _cachedDecks = decks;
@@ -1137,10 +1140,11 @@ function renderDecks(decks) {
   for (const vd of virtualDecks) {
     if (vd.id === 'unfinished') {
       const c = vd.counts;
+      const total = (c.new || 0) + (c.learning || 0) + (c.review || 0);
       filteredHtml += `
-        <div class="filtered-row unfinished-entry" onclick="startReviewUnfinished()">
+        <div class="filtered-row unfinished-entry" onclick="openUnfinishedModal()">
           <span class="filtered-name">${vd.name}</span>
-          <span class="filtered-count">${c.learning}</span>
+          <span class="filtered-count">${total}</span>
         </div>`;
     }
   }
@@ -3015,6 +3019,29 @@ async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPc
   }
 }
 
+// ── Unfinished-deck start modal (scope + story choice) ───────────────────────
+function openUnfinishedModal() {
+  // Pre-select the persisted scope and last story mode
+  document.querySelector(`input[name="unf-scope"][value="${_unfinishedScope}"]`).checked = true;
+  document.querySelector(`input[name="unf-story"][value="${_unfinishedStoryMode}"]`).checked = true;
+  document.getElementById('unfinished-modal-overlay').style.display = 'block';
+  document.getElementById('unfinished-modal').style.display = 'flex';
+}
+
+function closeUnfinishedModal() {
+  document.getElementById('unfinished-modal-overlay').style.display = 'none';
+  document.getElementById('unfinished-modal').style.display = 'none';
+}
+
+function confirmUnfinishedStart() {
+  _unfinishedScope     = document.querySelector('input[name="unf-scope"]:checked')?.value || 'unfinished';
+  _unfinishedStoryMode = document.querySelector('input[name="unf-story"]:checked')?.value || 'existing';
+  localStorage.setItem('unfinishedScope', _unfinishedScope);
+  localStorage.setItem('unfinishedStoryMode', _unfinishedStoryMode);
+  closeUnfinishedModal();
+  startReviewUnfinished();
+}
+
 // ── Start "Unfinished Cards" review session ───────────────────────────────────
 async function startReviewUnfinished() {
   deckName = 'Unfinished Cards';
@@ -3024,7 +3051,7 @@ async function startReviewUnfinished() {
   _sessionRatedCount = 0;
   _updateAvgTimeBadge();
   try {
-    const counts = await api('GET', '/api/today-unfinished');
+    const counts = await api('GET', `/api/today-unfinished?scope=${_unfinishedScope}`);
     if (!counts.card) {
       showView('done');
       return;
@@ -3039,10 +3066,12 @@ async function startReviewUnfinished() {
 async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null) {
   unfinishedMode = true;
   setLoading('Loading cards…');
+  // In "existing" story mode, never trigger generation — fetch cached stories only.
+  const noGen = _unfinishedStoryMode === 'existing';
   try {
     const [combos, todayData] = await Promise.all([
-      api('GET', '/api/today-unfinished-decks'),
-      api('GET', '/api/today-unfinished'),
+      api('GET', `/api/today-unfinished-decks?scope=${_unfinishedScope}`),
+      api('GET', `/api/today-unfinished?scope=${_unfinishedScope}`),
     ]);
     if (!todayData.card) {
       unfinishedMode = false;
@@ -3051,11 +3080,13 @@ async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, gram
     }
     category = todayData.card.category;
     const firstDeckId = todayData.card.deck_id;
-    // Load a single unified story for the first card's deck
+    // Load the first card's deck story (generate only when story mode = "new")
     try {
-      story = await api('GET', `/api/story/${firstDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds));
+      let url = `/api/story/${firstDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
+      if (noGen) url += (url.includes('?') ? '&' : '?') + 'no_generate=true';
+      story = await api('GET', url);
     } catch (_) {}
-    fetch(`/api/preload-session/${firstDeckId}/unified`, { method: 'POST' }).catch(() => {});
+    if (!noGen) fetch(`/api/preload-session/${firstDeckId}/unified`, { method: 'POST' }).catch(() => {});
     showView('review');
     loadCard(todayData.card, todayData.counts);
   } catch (e) {
@@ -3154,11 +3185,14 @@ function loadCard(c, counts) {
         if (inp.style.display !== 'none') inp.textContent = sentence.sentence_de || sentence.sentence_fr || '';
       }
     };
-    fetch(`/api/story/${storyDeckId}/unified`)
+    // In unfinished "existing story" mode, only fetch a cached story (never generate).
+    const unfNoGen = unfinishedMode && _unfinishedStoryMode === 'existing';
+    const storyUrl = `/api/story/${storyDeckId}/unified` + (unfNoGen ? '?no_generate=true' : '');
+    fetch(storyUrl)
       .then(r => r.ok ? r.json() : null)
       .then(s => {
         if (card !== snap) return;
-        fetch(`/api/preload-session/${storyDeckId}/unified`, { method: 'POST' }).catch(() => {});
+        if (!unfNoGen) fetch(`/api/preload-session/${storyDeckId}/unified`, { method: 'POST' }).catch(() => {});
         if (s?.sentences) {
           story    = s;
           sentence = story.sentences.find(s => s.word_ids?.includes(card.word_id)) || null;
@@ -4849,7 +4883,7 @@ async function rate(rating) {
     if (_cardMs != null) url += `&duration_ms=${_cardMs}`;
     const noteInput = document.getElementById('next-note-input');
     if (noteInput) url += `&next_note=${encodeURIComponent(noteInput.value)}`;
-    if (unfinishedMode) url += `&unfinished_mode=true`;
+    if (unfinishedMode) url += `&unfinished_mode=true&unfinished_scope=${_unfinishedScope}`;
     else if (rootDeckId) url += `&root_deck_id=${rootDeckId}`;
     else if (deckId) url += `&parent_deck_id=${deckId}`;
     const reviewedId = card.id;
@@ -5494,7 +5528,7 @@ async function reviewCardAction(action) {
     if (action === 'leech') showStateChangeAnim({ to: 'suspended' });
     let nextData;
     if (unfinishedMode) {
-      nextData = await api('GET', '/api/today-unfinished');
+      nextData = await api('GET', `/api/today-unfinished?scope=${_unfinishedScope}`);
     } else if (rootDeckId) {
       nextData = await api('GET', `/api/today-mixed/${rootDeckId}`);
     } else {
@@ -5533,7 +5567,7 @@ async function editModalCardAction(action) {
     // Advance to next card
     let nextData;
     if (unfinishedMode) {
-      nextData = await api('GET', '/api/today-unfinished');
+      nextData = await api('GET', `/api/today-unfinished?scope=${_unfinishedScope}`);
     } else if (rootDeckId) {
       nextData = await api('GET', `/api/today-mixed/${rootDeckId}`);
     } else {
