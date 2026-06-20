@@ -167,6 +167,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE stories ADD COLUMN prompt_text TEXT")
     if "topic" not in story_cols:
         conn.execute("ALTER TABLE stories ADD COLUMN topic TEXT")
+    if "gen_params" not in story_cols:
+        conn.execute("ALTER TABLE stories ADD COLUMN gen_params TEXT")
     _migrate_stories_category(conn)
     ss_cols = {r["name"] for r in conn.execute("PRAGMA table_info(story_sentences)").fetchall()}
     if "sentence_de" not in ss_cols:
@@ -467,7 +469,8 @@ def _migrate_stories_category(conn: sqlite3.Connection) -> None:
                 deck_id         INTEGER NOT NULL REFERENCES decks(id) ON DELETE CASCADE,
                 generated_at    TEXT NOT NULL DEFAULT (datetime('now')),
                 prompt_text     TEXT,
-                topic           TEXT
+                topic           TEXT,
+                gen_params      TEXT
             );
             INSERT INTO _stories_new ({cols_csv}) SELECT {cols_csv} FROM stories;
             DROP TABLE stories;
