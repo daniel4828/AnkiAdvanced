@@ -36,6 +36,9 @@ function renderMarkdown(text) {
 let deckId      = null;
 let rootDeckId      = null;   // set when studying all categories (mixed mode)
 let unfinishedMode  = false;  // set when studying the "Unfinished Cards" virtual deck
+// Unfinished-deck options. Scope persists; story mode is re-chosen each session.
+let _unfinishedScope     = localStorage.getItem('unfinishedScope') || 'unfinished'; // 'unfinished' | 'all'
+let _unfinishedStoryMode = localStorage.getItem('unfinishedStoryMode') || 'existing'; // 'existing' | 'new'
 let quickMode       = false;  // set when reviewing without AI story generation
 let deckName    = '';
 let category    = '';
@@ -887,7 +890,7 @@ async function loadDecks() {
   setLoading('Loading decks…');
   try {
     const [decks, retention] = await Promise.all([
-      api('GET', '/api/decks'),
+      api('GET', `/api/decks?unfinished_scope=${_unfinishedScope}`),
       api('GET', '/api/retention?days=0').catch(() => null),
     ]);
     _cachedDecks = decks;
@@ -1137,10 +1140,11 @@ function renderDecks(decks) {
   for (const vd of virtualDecks) {
     if (vd.id === 'unfinished') {
       const c = vd.counts;
+      const total = (c.new || 0) + (c.learning || 0) + (c.review || 0);
       filteredHtml += `
-        <div class="filtered-row unfinished-entry" onclick="startReviewUnfinished()">
+        <div class="filtered-row unfinished-entry" onclick="openUnfinishedModal()">
           <span class="filtered-name">${vd.name}</span>
-          <span class="filtered-count">${c.learning}</span>
+          <span class="filtered-count">${total}</span>
         </div>`;
     }
   }
@@ -1445,7 +1449,7 @@ async function openQuickAddCard() {
 let _browseSearchTimer = null;
 let _browseMode       = 'notes';   // 'notes' | 'hanzi'
 let _browseFilter     = 'all';     // note_type or 'all'; for hanzi mode: 'all'
-let _browseCardStatus = 'all';     // 'all' | 'learning' | 'reference'
+let _browseCardStatus = 'all';     // 'all' | 'learning' | 'leech' | 'reference' | 'saved'
 let _browseDeckId     = null;      // deck filter (notes mode only)
 let _allHanzi         = [];        // cache
 
@@ -1494,6 +1498,7 @@ function _filteredBrowseWords() {
   if (_browseCardStatus === 'learning')   words = words.filter(w => w.cards.length > 0);
   if (_browseCardStatus === 'leech')      words = words.filter(w => w.cards.some(c => c.is_leech));
   if (_browseCardStatus === 'reference')  words = words.filter(w => w.cards.length === 0);
+  if (_browseCardStatus === 'saved')      words = words.filter(w => w.cards.some(c => c.deck_name === 'Saved'));
   return words;
 }
 
@@ -1662,7 +1667,11 @@ function _wordRow(w) {
   const def = (w.definition || '').slice(0, 60) + ((w.definition || '').length > 60 ? '…' : '');
   const sel = _browseSelected.has(w.id) ? ' bw-row-selected' : '';
   let rightHtml;
-  if (w.cards.length === 0) {
+  if (_browseCardStatus === 'saved') {
+    rightHtml =
+      `<button class="bw-saved-btn" onclick="event.stopPropagation();savedGenerate(${w.id},this)" title="Generate content with AI">✨ Generate</button>` +
+      `<button class="bw-saved-btn bw-saved-promote" onclick="event.stopPropagation();savedPromote(${w.id},this)" title="Add to tomorrow's Daily deck">→ Add to Daily</button>`;
+  } else if (w.cards.length === 0) {
     rightHtml = `<button class="bw-add-btn" onclick="openAddToDeckModal(event,${w.id})" title="添加到牌组">＋ 添加</button>`;
   } else {
     const CAT_LETTER = { listening: 'L', reading: 'R', creating: 'C' };
@@ -1687,6 +1696,38 @@ function _wordRow(w) {
       </div>
       <div class="bw-right">${rightHtml}</div>
     </div>`;
+}
+
+// Generate AI content for a saved word (stays in the Saved list, now filled in).
+async function savedGenerate(wordId, btn) {
+  btn.disabled = true;
+  const orig = btn.textContent;
+  btn.textContent = '…';
+  try {
+    await api('POST', `/api/word/${wordId}/ai-enrich`);
+    await _browseReload();
+    showQuickAddBanner('✨ Content generated', false);
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = orig;
+    showError('Generate failed: ' + e.message);
+  }
+}
+
+// Promote a saved word into tomorrow's Daily deck (leaves the Saved list).
+async function savedPromote(wordId, btn) {
+  btn.disabled = true;
+  const orig = btn.textContent;
+  btn.textContent = '…';
+  try {
+    const r = await api('POST', `/api/saved/${wordId}/promote`);
+    await _browseReload();
+    showQuickAddBanner(`→ Added to ${r.deck_path}`, false);
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = orig;
+    showError('Add to Daily failed: ' + e.message);
+  }
 }
 
 function onBrowseRowClick(e, wordId) {
@@ -2476,8 +2517,10 @@ function applySchedulerVisibility() {
 const INFO_TEXT = {
   enable_fsrs: ['Enable FSRS',
     'FSRS is a modern scheduler that models each card with Stability and Difficulty to predict the best review time. Turn it off to fall back to the legacy SM-2 (ease-factor) algorithm. Switching hides the fields that don\'t apply to the chosen scheduler.'],
-  hard_1d: ['Hard = 1 day',
-    'While a card is still in learning or relearning, pressing Hard sends it to tomorrow (1 day) instead of repeating in a few minutes. Applies to both schedulers.'],
+  hard_1d: ['Hard = fixed days',
+    'While a card is still in learning or relearning, pressing Hard sends it forward by a fixed number of days (set below) instead of repeating in a few minutes. Applies to both schedulers.'],
+  hard_days: ['Hard delay (days)',
+    'How many days Hard pushes a learning/relearning card forward when "Hard = fixed days" is enabled. Fractional values allowed (e.g. 0.5 = half a day).'],
   learning_steps: ['Learning steps',
     'The sub-day intervals (in minutes) a new card steps through before it graduates to review. Example: "10m" means one 10-minute step. Used by both schedulers.'],
   graduating_interval: ['Graduating interval (SM-2 only)',
@@ -2547,6 +2590,7 @@ function loadPresetFields(preset) {
   document.getElementById('opt-sibling-factor').value  = preset.sibling_factor ?? 0.2;
   document.getElementById('opt-enable-fsrs').checked   = preset.enable_fsrs == null ? true : !!preset.enable_fsrs;
   document.getElementById('opt-hard-1d').checked       = preset.learning_hard_1d == null ? true : !!preset.learning_hard_1d;
+  document.getElementById('opt-hard-days').value       = preset.learning_hard_days == null ? 1 : preset.learning_hard_days;
   document.getElementById('opt-desired-retention').value = Math.round((preset.desired_retention ?? 0.9) * 100);
   document.getElementById('opt-max-int').value         = preset.maximum_interval ?? 36500;
   applySchedulerVisibility();
@@ -2713,15 +2757,11 @@ async function saveOptions() {
     sibling_factor:         parseFloat(document.getElementById('opt-sibling-factor').value) || 0.2,
     enable_fsrs:            document.getElementById('opt-enable-fsrs').checked ? 1 : 0,
     learning_hard_1d:       document.getElementById('opt-hard-1d').checked ? 1 : 0,
+    learning_hard_days:     Math.max(0.1, parseFloat(document.getElementById('opt-hard-days').value) || 1),
     desired_retention:      Math.min(0.99, Math.max(0.70, (parseInt(document.getElementById('opt-desired-retention').value) || 90) / 100)),
     maximum_interval:       Math.max(1, parseInt(document.getElementById('opt-max-int').value) || 36500),
     category_order: _getCategoryOrderUI(),
   };
-  // Warn if a story for today already exists — order settings change would cause mismatch
-  if (story !== null) {
-    const ok = confirm('You have an active story. Changing sort settings will affect card order and may no longer match the story. Continue?');
-    if (!ok) return;
-  }
   try {
     const [savedPreset] = await Promise.all([
       api('PUT', `/api/decks/${optDeckId}/preset`, fields),
@@ -2979,6 +3019,29 @@ async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPc
   }
 }
 
+// ── Unfinished-deck start modal (scope + story choice) ───────────────────────
+function openUnfinishedModal() {
+  // Pre-select the persisted scope and last story mode
+  document.querySelector(`input[name="unf-scope"][value="${_unfinishedScope}"]`).checked = true;
+  document.querySelector(`input[name="unf-story"][value="${_unfinishedStoryMode}"]`).checked = true;
+  document.getElementById('unfinished-modal-overlay').style.display = 'block';
+  document.getElementById('unfinished-modal').style.display = 'flex';
+}
+
+function closeUnfinishedModal() {
+  document.getElementById('unfinished-modal-overlay').style.display = 'none';
+  document.getElementById('unfinished-modal').style.display = 'none';
+}
+
+function confirmUnfinishedStart() {
+  _unfinishedScope     = document.querySelector('input[name="unf-scope"]:checked')?.value || 'unfinished';
+  _unfinishedStoryMode = document.querySelector('input[name="unf-story"]:checked')?.value || 'existing';
+  localStorage.setItem('unfinishedScope', _unfinishedScope);
+  localStorage.setItem('unfinishedStoryMode', _unfinishedStoryMode);
+  closeUnfinishedModal();
+  startReviewUnfinished();
+}
+
 // ── Start "Unfinished Cards" review session ───────────────────────────────────
 async function startReviewUnfinished() {
   deckName = 'Unfinished Cards';
@@ -2988,7 +3051,7 @@ async function startReviewUnfinished() {
   _sessionRatedCount = 0;
   _updateAvgTimeBadge();
   try {
-    const counts = await api('GET', '/api/today-unfinished');
+    const counts = await api('GET', `/api/today-unfinished?scope=${_unfinishedScope}`);
     if (!counts.card) {
       showView('done');
       return;
@@ -3003,10 +3066,12 @@ async function startReviewUnfinished() {
 async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null) {
   unfinishedMode = true;
   setLoading('Loading cards…');
+  // In "existing" story mode, never trigger generation — fetch cached stories only.
+  const noGen = _unfinishedStoryMode === 'existing';
   try {
     const [combos, todayData] = await Promise.all([
-      api('GET', '/api/today-unfinished-decks'),
-      api('GET', '/api/today-unfinished'),
+      api('GET', `/api/today-unfinished-decks?scope=${_unfinishedScope}`),
+      api('GET', `/api/today-unfinished?scope=${_unfinishedScope}`),
     ]);
     if (!todayData.card) {
       unfinishedMode = false;
@@ -3015,11 +3080,13 @@ async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, gram
     }
     category = todayData.card.category;
     const firstDeckId = todayData.card.deck_id;
-    // Load a single unified story for the first card's deck
+    // Load the first card's deck story (generate only when story mode = "new")
     try {
-      story = await api('GET', `/api/story/${firstDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds));
+      let url = `/api/story/${firstDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
+      if (noGen) url += (url.includes('?') ? '&' : '?') + 'no_generate=true';
+      story = await api('GET', url);
     } catch (_) {}
-    fetch(`/api/preload-session/${firstDeckId}/unified`, { method: 'POST' }).catch(() => {});
+    if (!noGen) fetch(`/api/preload-session/${firstDeckId}/unified`, { method: 'POST' }).catch(() => {});
     showView('review');
     loadCard(todayData.card, todayData.counts);
   } catch (e) {
@@ -3077,6 +3144,13 @@ function loadCard(c, counts) {
     document.getElementById(`int-${r}`).textContent = iv[r] || '';
   });
 
+  // Pre-fill the "note for next time" left on this card last time (if any)
+  const noteInput = document.getElementById('next-note-input');
+  if (noteInput) {
+    noteInput.value = card.next_note || '';
+    noteInput.classList.toggle('has-note', !!(card.next_note || '').trim());
+  }
+
   // Find sentence for this card's word in the story.
   // If no match, leave sentence null — renderSentence() will show just the word.
   sentence = story?.sentences?.find(s => s.word_ids?.includes(card.word_id)) || null;
@@ -3111,11 +3185,14 @@ function loadCard(c, counts) {
         if (inp.style.display !== 'none') inp.textContent = sentence.sentence_de || sentence.sentence_fr || '';
       }
     };
-    fetch(`/api/story/${storyDeckId}/unified`)
+    // In unfinished "existing story" mode, only fetch a cached story (never generate).
+    const unfNoGen = unfinishedMode && _unfinishedStoryMode === 'existing';
+    const storyUrl = `/api/story/${storyDeckId}/unified` + (unfNoGen ? '?no_generate=true' : '');
+    fetch(storyUrl)
       .then(r => r.ok ? r.json() : null)
       .then(s => {
         if (card !== snap) return;
-        fetch(`/api/preload-session/${storyDeckId}/unified`, { method: 'POST' }).catch(() => {});
+        if (!unfNoGen) fetch(`/api/preload-session/${storyDeckId}/unified`, { method: 'POST' }).catch(() => {});
         if (s?.sentences) {
           story    = s;
           sentence = story.sentences.find(s => s.word_ids?.includes(card.word_id)) || null;
@@ -3458,17 +3535,16 @@ function revealAnswer() {
   // Sentence notes have no story — hide story button; show German/French translation
   const _sentFrEl = document.getElementById('sentence-fr');
   const _sentDeEl = document.getElementById('sentence-de');
+  // Fill in the translation text but keep it hidden by default — press u to toggle.
   if (isSentenceNote) {
     _sentFrEl.textContent = '';
-    _sentFrEl.style.display = 'none';
     _sentDeEl.textContent = card.definition || '';
-    _sentDeEl.style.display = card.definition ? '' : 'none';
   } else {
     _sentFrEl.textContent = sentence?.sentence_fr || '';
-    _sentFrEl.style.display = sentence?.sentence_fr ? '' : 'none';
     _sentDeEl.textContent = sentence?.sentence_de || '';
-    _sentDeEl.style.display = sentence?.sentence_de ? '' : 'none';
   }
+  _sentFrEl.style.display = 'none';
+  _sentDeEl.style.display = 'none';
 
   // Kahneman concept box (compact: part + chapter title only) + reasoning light bulb
   const _conceptRow = document.getElementById('sentence-concept-row');
@@ -4206,13 +4282,17 @@ function openQuickAddMenu(event, wordZh, pinyin, meaning) {
   const menu = document.createElement('div');
   menu.id = 'quick-add-menu';
   menu.className = 'quick-add-menu';
+  const wEsc = wordZh.replace(/'/g, "\\'");
+  const pEsc = pinyin.replace(/'/g, "\\'");
+  const mEsc = meaning.replace(/'/g, "\\'");
   menu.innerHTML =
     `<div class="qa-word">${wordZh}` +
       (pinyin ? ` <span class="qa-pin">${pinyin}</span>` : '') +
     `</div>` +
     (meaning ? `<div class="qa-meaning">${meaning}</div>` : '') +
-    `<div class="qa-deck-label">daily::${tomorrowStr}</div>` +
-    `<button class="qa-add-btn" onclick="doQuickAdd('${wordZh.replace(/'/g,"\\'")}','${pinyin.replace(/'/g,"\\'")}','${meaning.replace(/'/g,"\\'")}',this)">+ Add to Daily deck</button>`;
+    `<button class="qa-add-btn qa-save-btn" onclick="doSaveWord('${wEsc}','${pEsc}','${mEsc}',this)">★ Save for later</button>` +
+    `<div class="qa-deck-label">or add now to daily::${tomorrowStr}</div>` +
+    `<button class="qa-add-btn" onclick="doQuickAdd('${wEsc}','${pEsc}','${mEsc}',this)">+ Add to Daily deck</button>`;
 
   document.body.appendChild(menu);
   _quickAddMenu = menu;
@@ -4231,6 +4311,25 @@ function closeQuickAddMenu() {
   if (_quickAddMenu) {
     _quickAddMenu.remove();
     _quickAddMenu = null;
+  }
+}
+
+async function doSaveWord(wordZh, pinyin, meaning, btn) {
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    const result = await api('POST', '/api/save-word', { word_zh: wordZh, pinyin, meaning });
+    closeQuickAddMenu();
+    const msgs = {
+      saved:            `★ "${wordZh}" saved for later`,
+      already_saved:    `"${wordZh}" is already saved`,
+      exists_elsewhere: `"${wordZh}" is already in a deck`,
+    };
+    showQuickAddBanner(msgs[result.status] || '★ Saved', result.status !== 'saved');
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '★ Save for later';
+    showError(e.message || 'Failed to save word');
   }
 }
 
@@ -4643,7 +4742,11 @@ function updateWordBankPreview(text) {
   // Walk wordBankOrder to assign values to numbered slots
   let rawIdx = 0, slotIdx = 0;
   const usedNums = new Set();
-  document.querySelectorAll('.wb-skel-blank[data-slot]').forEach(span => span.textContent = '＿');
+  // Reset: empty target slot falls back to its faint German hint, others to ＿
+  document.querySelectorAll('.wb-skel-blank[data-slot]').forEach(span => {
+    if (span.dataset.de) { span.textContent = span.dataset.de; span.classList.add('wb-de-hint'); }
+    else span.textContent = '＿';
+  });
 
   for (const tok of wordBankOrder) {
     if (tok.type === 'pre') continue;
@@ -4656,7 +4759,8 @@ function updateWordBankPreview(text) {
       if (tile) { usedNums.add(tile.num); if (span) span.textContent = tile.char; }
       else if (span) span.textContent = part;
     } else {
-      if (span) span.textContent = part; // target word
+      // target word filled: replace faint German hint with the typed text
+      if (span) { span.textContent = part; span.classList.remove('wb-de-hint'); }
     }
   }
 
@@ -4688,10 +4792,19 @@ async function renderWordBankUI() {
   // Sentence skeleton: pre-placed tokens shown as text, blanks for tiles/target (data-slot for live update)
   const skelEl = document.getElementById('word-bank-skeleton');
   if (skelEl) {
+    const escAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // German hint shown faintly inside the target word's blank (first target only)
+    const deHint = (card.definition_de || '').trim();
+    let deShown = false;
     let slotIdx = 0;
     skelEl.innerHTML = wordBankOrder.map(tok => {
       if (tok.type === 'pre') return `<span class="wb-skel-pre">${tok.char}</span>`;
-      return `<span class="wb-skel-blank" data-slot="${slotIdx++}">＿</span>`;
+      const slot = slotIdx++;
+      if (tok.type === 'target' && deHint && !deShown) {
+        deShown = true;
+        return `<span class="wb-skel-blank wb-de-hint" data-slot="${slot}" data-de="${escAttr(deHint)}">${escAttr(deHint)}</span>`;
+      }
+      return `<span class="wb-skel-blank" data-slot="${slot}">＿</span>`;
     }).join('');
   }
 
@@ -4767,7 +4880,9 @@ async function rate(rating) {
   try {
     let url = `/api/review?card_id=${card.id}&rating=${rating}`;
     if (_cardMs != null) url += `&duration_ms=${_cardMs}`;
-    if (unfinishedMode) url += `&unfinished_mode=true`;
+    const noteInput = document.getElementById('next-note-input');
+    if (noteInput) url += `&next_note=${encodeURIComponent(noteInput.value)}`;
+    if (unfinishedMode) url += `&unfinished_mode=true&unfinished_scope=${_unfinishedScope}`;
     else if (rootDeckId) url += `&root_deck_id=${rootDeckId}`;
     else if (deckId) url += `&parent_deck_id=${deckId}`;
     const reviewedId = card.id;
@@ -4845,6 +4960,19 @@ async function togglePinyin() {
   if (!text) return;
   await _loadPinyinRow(text);
   row.classList.toggle('pinyin-revealed');
+}
+
+// ── Translation toggle (German/French sentence translation) ───────────────────
+// Hidden by default to save space; press u to show/hide. Only elements that
+// actually have text participate, and they toggle together as one group.
+function toggleTranslation() {
+  const fr = document.getElementById('sentence-fr');
+  const de = document.getElementById('sentence-de');
+  const anyVisible = (fr.textContent && fr.style.display !== 'none') ||
+                     (de.textContent && de.style.display !== 'none');
+  const show = !anyVisible;
+  fr.style.display = (show && fr.textContent) ? '' : 'none';
+  de.style.display = (show && de.textContent) ? '' : 'none';
 }
 
 // ── Story error modal ─────────────────────────────────────────────────────────
@@ -5412,7 +5540,7 @@ async function reviewCardAction(action) {
     if (action === 'leech') showStateChangeAnim({ to: 'suspended' });
     let nextData;
     if (unfinishedMode) {
-      nextData = await api('GET', '/api/today-unfinished');
+      nextData = await api('GET', `/api/today-unfinished?scope=${_unfinishedScope}`);
     } else if (rootDeckId) {
       nextData = await api('GET', `/api/today-mixed/${rootDeckId}`);
     } else {
@@ -5451,7 +5579,7 @@ async function editModalCardAction(action) {
     // Advance to next card
     let nextData;
     if (unfinishedMode) {
-      nextData = await api('GET', '/api/today-unfinished');
+      nextData = await api('GET', `/api/today-unfinished?scope=${_unfinishedScope}`);
     } else if (rootDeckId) {
       nextData = await api('GET', `/api/today-mixed/${rootDeckId}`);
     } else {
@@ -6956,8 +7084,10 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); location.reload();
     } else if (e.key === 'r') {
       e.preventDefault(); playSentence();
-    } else if (e.key === 't') {
+    } else if (e.key === 'p') {
       e.preventDefault(); togglePinyin();
+    } else if (e.key === 'u') {
+      e.preventDefault(); toggleTranslation();
     } else if (e.key === ' ') {
       e.preventDefault(); if (!backVisible) revealAnswer();
     } else if (['1','2','3','4'].includes(e.key) && backVisible) {

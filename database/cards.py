@@ -36,6 +36,41 @@ def insert_card(word_id: int, category: str, deck_id: int,
     return row["id"]
 
 
+def promote_saved_word(word_id: int, target_deck_id: int,
+                       saved_deck_id: int, due: str) -> int:
+    """Move a saved word's suspended cards out of the Saved deck into target_deck_id
+    as fresh 'new' cards due on `due`, clearing any scheduling state.
+
+    Returns the number of cards promoted.
+    """
+    conn = get_db()
+    cur = conn.execute(
+        """UPDATE cards
+           SET deck_id=?, state='new', due=?, step_index=0, interval=0,
+               ease=2.5, repetitions=0, lapses=0, stability=NULL, difficulty=NULL,
+               last_review=NULL, learning_again_count=0, is_leech=0,
+               buried_until=NULL, pre_suspend_state=NULL
+           WHERE word_id=? AND deck_id=? AND deleted_at IS NULL""",
+        (target_deck_id, due, word_id, saved_deck_id),
+    )
+    conn.commit()
+    count = cur.rowcount
+    conn.close()
+    return count
+
+
+def set_card_note(card_id: int, note: str | None) -> None:
+    """Store (or clear) the free-text 'note for next time' on a card.
+
+    Empty/blank strings are stored as NULL so the card shows no note next time.
+    """
+    note = (note or "").strip() or None
+    conn = get_db()
+    conn.execute("UPDATE cards SET next_note=? WHERE id=?", (note, card_id))
+    conn.commit()
+    conn.close()
+
+
 def move_card_to_deck(card_id: int, deck_id: int) -> bool:
     conn = get_db()
     cur = conn.execute(
@@ -131,7 +166,7 @@ def get_card(card_id: int) -> dict | None:
                   p.relearning_steps, p.minimum_interval,
                   p.leech_threshold, p.learning_leech_threshold, p.leech_action,
                   p.desired_retention, p.maximum_interval, p.fsrs_weights, p.enable_fsrs,
-                  p.learning_hard_1d,
+                  p.learning_hard_1d, p.learning_hard_days,
                   p.new_per_day, p.reviews_per_day
            FROM cards c
            JOIN entries w ON w.id = c.word_id
@@ -871,44 +906,81 @@ def count_due_deduped(leaf_pairs: list[tuple[int, str]]) -> dict:
     return {"new": new_count, "learning": learning_count, "review": review_count}
 
 
-def count_unfinished() -> dict:
-    """Count learning/relearn cards due right now across all decks and categories."""
+def _unfinished_where(scope: str) -> tuple[str, list]:
+    """Build the WHERE clause + params for the unfinished virtual deck.
+
+    scope='unfinished' (default): only learning/relearn cards due right now.
+    scope='all': every card still due today (new + review + learning/relearn).
+    """
     now = datetime.now().isoformat(timespec="seconds")
-    conn = get_db()
-    learning = conn.execute(
-        """SELECT COUNT(*) FROM cards
-           WHERE state IN ('learning', 'relearn') AND due <= ?
-             AND (buried_until IS NULL OR buried_until < date('now'))""",
-        (now,),
-    ).fetchone()[0]
-    conn.close()
-    return {"new": 0, "learning": learning, "review": 0}
+    if scope == "all":
+        today = anki_today().isoformat()
+        tomorrow = (date.fromisoformat(today) + timedelta(days=1)).isoformat()
+        clause = (
+            "state != 'suspended' AND deleted_at IS NULL "
+            "AND (buried_until IS NULL OR buried_until < ?) "
+            "AND ("
+            "  (state IN ('learning', 'relearn') AND due < ?)"
+            "  OR (state = 'review' AND due <= ?)"
+            "  OR (state = 'new' AND due <= ?)"
+            ")"
+        )
+        return clause, [today, tomorrow, today, today]
+    clause = (
+        "state IN ('learning', 'relearn') AND due <= ? "
+        "AND deleted_at IS NULL "
+        "AND (buried_until IS NULL OR buried_until < date('now'))"
+    )
+    return clause, [now]
 
 
-def get_unfinished_deck_categories() -> list[dict]:
-    """Return distinct (deck_id, category) pairs that have unfinished cards due now."""
-    now = datetime.now().isoformat(timespec="seconds")
+def count_unfinished(scope: str = "unfinished") -> dict:
+    """Count cards on the unfinished virtual deck, grouped by state."""
+    clause, params = _unfinished_where(scope)
     conn = get_db()
     rows = conn.execute(
-        """SELECT DISTINCT deck_id, category FROM cards
-           WHERE state IN ('learning', 'relearn') AND due <= ?
-             AND (buried_until IS NULL OR buried_until < date('now'))""",
-        (now,),
+        f"SELECT state, COUNT(*) AS n FROM cards WHERE {clause} GROUP BY state",
+        params,
+    ).fetchall()
+    conn.close()
+    counts = {"new": 0, "learning": 0, "review": 0}
+    for r in rows:
+        if r["state"] in ("learning", "relearn"):
+            counts["learning"] += r["n"]
+        elif r["state"] == "review":
+            counts["review"] += r["n"]
+        elif r["state"] == "new":
+            counts["new"] += r["n"]
+    return counts
+
+
+def get_unfinished_deck_categories(scope: str = "unfinished") -> list[dict]:
+    """Return distinct (deck_id, category) pairs that have unfinished cards due now."""
+    clause, params = _unfinished_where(scope)
+    conn = get_db()
+    rows = conn.execute(
+        f"SELECT DISTINCT deck_id, category FROM cards WHERE {clause}",
+        params,
     ).fetchall()
     conn.close()
     return [{"deck_id": r["deck_id"], "category": r["category"]} for r in rows]
 
 
-def get_next_unfinished_card() -> dict | None:
-    """Highest-priority learning/relearn card due right now across all decks/categories."""
-    now = datetime.now().isoformat(timespec="seconds")
+def get_next_unfinished_card(scope: str = "unfinished") -> dict | None:
+    """Highest-priority card on the unfinished virtual deck.
+
+    Learning/relearn first (time-sensitive), then review, then new; each by due ASC.
+    """
+    clause, params = _unfinished_where(scope)
     conn = get_db()
     row = conn.execute(
-        """SELECT id FROM cards
-           WHERE state IN ('learning', 'relearn') AND due <= ?
-             AND (buried_until IS NULL OR buried_until < date('now'))
-           ORDER BY due ASC LIMIT 1""",
-        (now,),
+        f"""SELECT id FROM cards WHERE {clause}
+           ORDER BY CASE state
+                      WHEN 'learning' THEN 0 WHEN 'relearn' THEN 0
+                      WHEN 'review' THEN 1 ELSE 2 END,
+                    due ASC
+           LIMIT 1""",
+        params,
     ).fetchone()
     conn.close()
     return get_card(row["id"]) if row else None

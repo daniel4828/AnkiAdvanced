@@ -76,17 +76,17 @@ def get_today(deck_id: int, category: str):
 
 
 @router.get("/api/today-unfinished")
-def get_today_unfinished():
-    card = database.get_next_unfinished_card()
+def get_today_unfinished(scope: str = "unfinished"):
+    card = database.get_next_unfinished_card(scope)
     if card:
         card["intervals"] = srs.preview_intervals(card)
         card["fsrs"] = srs.explain_card(card)
-    return {"card": card, "counts": database.count_unfinished()}
+    return {"card": card, "counts": database.count_unfinished(scope)}
 
 
 @router.get("/api/today-unfinished-decks")
-def get_today_unfinished_decks():
-    return database.get_unfinished_deck_categories()
+def get_today_unfinished_decks(scope: str = "unfinished"):
+    return database.get_unfinished_deck_categories(scope)
 
 
 @router.get("/api/today-mixed/{deck_id}")
@@ -101,8 +101,13 @@ def get_today_mixed(deck_id: int):
 @router.post("/api/review")
 def submit_review(card_id: int, rating: int, user_response: str | None = None,
                   root_deck_id: int | None = None, unfinished_mode: bool = False,
-                  parent_deck_id: int | None = None, duration_ms: int | None = None):
+                  parent_deck_id: int | None = None, duration_ms: int | None = None,
+                  next_note: str | None = None, unfinished_scope: str = "unfinished"):
     card_before = database.get_card(card_id)
+    # Persist the free-text "note for next time" the user left on this card
+    # (None means "leave the existing note untouched"; "" clears it).
+    if next_note is not None:
+        database.set_card_note(card_id, next_note)
     updated, log_id = srs.apply_review(card_id, rating, user_response=user_response,
                                        duration_ms=duration_ms)
     deck_id = updated["deck_id"]
@@ -193,17 +198,18 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
         "root_deck_id":       root_deck_id,
         "parent_deck_id":     parent_deck_id,
         "unfinished_mode":    unfinished_mode,
+        "unfinished_scope":   unfinished_scope,
         "deck_id":            deck_id,
         "category":           cat,
         "siblings_snapshot":  siblings_snapshot,
     })
 
     if unfinished_mode:
-        next_card = database.get_next_unfinished_card()
+        next_card = database.get_next_unfinished_card(unfinished_scope)
         if next_card:
             next_card["intervals"] = srs.preview_intervals(next_card)
             next_card["fsrs"] = srs.explain_card(next_card)
-        counts = database.count_unfinished()
+        counts = database.count_unfinished(unfinished_scope)
     elif root_deck_id:
         _queue_mgr.after_review(queue_key, card_id, updated, newly_buried)
         next_card = _next_card_from_queue(queue_key, build_fn)
@@ -303,7 +309,7 @@ def undo_review():
     parent_deck_id  = entry.get("parent_deck_id")
 
     if unfinished_mode:
-        counts = database.count_unfinished()
+        counts = database.count_unfinished(entry.get("unfinished_scope", "unfinished"))
     elif root_deck_id:
         counts = database.count_due_any_cat(root_deck_id)
     elif parent_deck_id:

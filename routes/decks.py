@@ -72,7 +72,7 @@ def _attach_counts(flat_decks: list) -> None:
 # ---------------------------------------------------------------------------
 
 @router.get("/api/decks")
-def get_decks():
+def get_decks(unfinished_scope: str = "unfinished"):
     tree = database.get_deck_tree()
     flat = _flatten(tree)
     _attach_counts(flat)
@@ -84,8 +84,8 @@ def get_decks():
         deck["bury_mode"] = deck.get("bury_quick_mode", "all")
         deck["new_review_order_override"] = deck.get("new_review_order_override")
         deck["category_order"] = p.get("category_order", "listening,reading,creating")
-    unfinished = database.count_unfinished()
-    if unfinished["learning"] > 0:
+    unfinished = database.count_unfinished(unfinished_scope)
+    if sum(unfinished.values()) > 0:
         tree.insert(0, {
             "id": "unfinished",
             "name": "Unfinished Cards",

@@ -1081,11 +1081,49 @@ main.browse-open {
 }
 
 /* ── Story setup modal ───────────────────────────────── */
-#setup-modal-overlay {
+#setup-modal-overlay,
+#unfinished-modal-overlay {
   position: fixed; inset: 0;
   background: rgba(0,0,0,0.4);
   z-index: 100;
 }
+#unfinished-modal {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 101;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  width: min(420px, 92vw);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 24px 24px;
+  gap: 16px;
+}
+.unf-group { display: flex; flex-direction: column; gap: 8px; }
+.unf-group-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted, #888);
+}
+.unf-radio {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border, #ddd);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+  transition: border-color 0.12s, background 0.12s;
+}
+.unf-radio:hover { border-color: var(--primary); }
+.unf-radio input { margin-top: 3px; }
+.unf-radio small { display: block; color: var(--muted, #888); font-size: 12px; font-weight: 400; }
+.unf-radio:has(input:checked) { border-color: var(--primary); background: var(--bg); }
 #setup-modal {
   position: fixed;
   top: 50%; left: 50%;
@@ -1245,20 +1283,16 @@ main.browse-open {
 }
 .pinyin-btn:hover, .pinyin-btn.active { border-color: var(--primary); color: var(--primary); }
 .pinyin-row {
-  display: flex;
+  /* Hidden entirely by default (no space taken); press p to toggle. */
+  display: none;
   flex-wrap: wrap;
   gap: 2px 6px;
   font-size: 14px;
   justify-content: center;
-  filter: blur(4px);
-  opacity: 0.35;
-  transition: filter 0.2s ease, opacity 0.2s ease;
-  user-select: none;
+  user-select: text;
 }
 .pinyin-row.pinyin-revealed {
-  filter: none;
-  opacity: 1;
-  user-select: text;
+  display: flex;
 }
 .py-char {
   display: flex;
@@ -1272,12 +1306,14 @@ main.browse-open {
 .py-target .py-zh  { color: var(--primary); font-weight: 700; }
 .sentence-de,
 .sentence-fr {
+  /* Hidden entirely by default (no space taken); press u to toggle.
+     When shown, fully readable — visibility is controlled from JS. */
   flex: 1;
   text-align: center;
-  font-size: 14px;
+  font-size: 12px;
   color: var(--muted);
   font-style: italic;
-  min-height: 18px;
+  letter-spacing: 0.2px;
 }
 
 .char-row:last-child { border-bottom: none; }
@@ -1497,14 +1533,24 @@ main.browse-open {
 
 /* ── Creating: front input ───────────────────────────── */
 .sentence-en-front {
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.6;
   text-align: center;
-  color: var(--text);
+  color: var(--muted);
   min-height: 60px;
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Fully blurred so the translation is completely unreadable by default.
+     Clears only on hover when you explicitly want to check it. */
+  opacity: 0.35;
+  filter: blur(7px);
+  letter-spacing: 0.2px;
+  transition: opacity 0.15s, filter 0.15s;
+}
+.sentence-en-front:hover {
+  opacity: 0.9;
+  filter: none;
 }
 .creating-word-def {
   font-size: 17px;
@@ -1597,6 +1643,7 @@ main.browse-open {
   padding: 6px 0;
   flex-wrap: wrap;
   display: flex;
+  align-items: center;
   gap: 2px;
 }
 .wb-skel-pre { color: #000; }
@@ -1609,6 +1656,18 @@ main.browse-open {
   color: var(--primary);
   font-weight: 700;
   letter-spacing: -2px;
+}
+/* Faint German translation shown inside the target word's blank as a hint */
+.wb-skel-blank.wb-de-hint {
+  color: #c2c2c2;
+  font-weight: 400;
+  font-size: 14px;
+  font-style: italic;
+  letter-spacing: 0;
+  white-space: normal;
+  max-width: 13em;
+  line-height: 1.2;
+  text-align: center;
 }
 .word-bank-tokens {
   display: flex;
@@ -2272,6 +2331,25 @@ main.browse-open {
   white-space: nowrap;
 }
 .bw-add-btn:hover { background: #dbeafe; }
+
+/* Saved-list per-row actions: Generate content / Add to Daily */
+.bw-saved-btn {
+  font-size: 11px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 4px;
+  padding: 2px 7px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.bw-saved-btn:hover { background: var(--bg); }
+.bw-saved-btn:disabled { opacity: 0.55; cursor: default; }
+.bw-saved-promote { border-color: var(--primary); color: var(--primary); }
+.bw-saved-promote:hover { background: #dbeafe; }
+
+/* "Save for later" button in the compound quick-add menu */
+.qa-save-btn { background: #f59e0b; margin-bottom: 6px; }
 
 /* ── Browse action bar ─────────────────────────────── */
 #browse-action-bar {
@@ -4289,3 +4367,19 @@ table.fsrs-table td.ivl { font-weight: 700; }
 }
 #info-pop-title { font-weight: 700; font-size: 13px; margin-bottom: 5px; }
 #info-pop-body  { font-size: 12px; line-height: 1.55; color: var(--muted); }
+
+/* ── "Note for next time" field under the rating buttons ─────────────────── */
+.next-note-row { margin: 10px auto 0; max-width: 520px; }
+.next-note-input {
+  width: 100%; box-sizing: border-box; resize: vertical;
+  min-height: 34px; padding: 7px 10px;
+  font: inherit; font-size: 13px; line-height: 1.4;
+  color: var(--text); background: var(--card);
+  border: 1px solid var(--border); border-radius: 8px;
+}
+.next-note-input::placeholder { color: var(--muted); }
+.next-note-input:focus { outline: none; border-color: #6366f1; }
+/* Highlight when a note was carried over from last time */
+.next-note-input.has-note {
+  border-color: #f59e0b; background: #fffbeb;
+}
