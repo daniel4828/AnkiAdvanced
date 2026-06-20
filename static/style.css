@@ -1316,10 +1316,10 @@ main.browse-open {
   color: var(--muted);
   font-style: italic;
   min-height: 18px;
-  /* De-emphasised so the eye is drawn to the Chinese, not the translation.
-     Still readable, and fully clears on hover/focus. */
-  opacity: 0.4;
-  filter: blur(1.1px);
+  /* Fully blurred so the translation is completely unreadable by default.
+     Clears only on hover/focus when you explicitly want to check it. */
+  opacity: 0.35;
+  filter: blur(7px);
   letter-spacing: 0.2px;
   transition: opacity 0.15s, filter 0.15s;
 }
@@ -1554,9 +1554,10 @@ main.browse-open {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* De-emphasised translation: present but not eye-catching, clears on hover. */
-  opacity: 0.4;
-  filter: blur(1.1px);
+  /* Fully blurred so the translation is completely unreadable by default.
+     Clears only on hover when you explicitly want to check it. */
+  opacity: 0.35;
+  filter: blur(7px);
   letter-spacing: 0.2px;
   transition: opacity 0.15s, filter 0.15s;
 }
