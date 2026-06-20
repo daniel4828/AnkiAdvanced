@@ -1,16 +1,64 @@
 import logging
+import threading
 from datetime import datetime
 from fastapi import APIRouter, HTTPException
 
 import database
 import srs
-from .utils import leaf_ids, queue_mgr as _queue_mgr
+import ai
+import tts
+from .utils import leaf_ids, queue_mgr as _queue_mgr, DISABLE_AI
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # In-memory undo stack: list of {card_before, log_id, queue_key, ...}
 _undo_stack: list[dict] = []
+
+
+# ---------------------------------------------------------------------------
+# "Again" → background single-sentence regeneration
+# ---------------------------------------------------------------------------
+
+def _attach_again_sentence(card: dict | None) -> dict | None:
+    """If this learning/relearn card has a freshly regenerated sentence (from a
+    previous Again today), attach it as card["again_sentence"] so the frontend
+    shows the new sentence instead of the old story one."""
+    if (card and card.get("state") in ("learning", "relearn")
+            and card.get("note_type") != "sentence" and card.get("word_id")):
+        today = database.anki_today().isoformat()
+        again = database.get_again_sentence_for_word(card["word_id"], today)
+        if again:
+            card["again_sentence"] = again
+    return card
+
+
+def _spawn_again_regen(card: dict) -> None:
+    """Fire-and-forget: regenerate one fresh sentence for this word in the
+    background so the card shows something new when it reappears (~1-10 min)."""
+    if DISABLE_AI or card.get("note_type") == "sentence" or not card.get("word_id"):
+        return
+    if card.get("category") not in ("listening", "reading"):
+        return
+
+    def _run() -> None:
+        try:
+            from .story import _add_tokens
+            sentences, _ = ai.generate_story([card], model=ai.DEFAULT_MODEL)
+            if not sentences:
+                return
+            _add_tokens(sentences)  # jieba tokens so the frontend can render it
+            today = database.anki_today().isoformat()
+            database.store_again_sentence(card["deck_id"], card["word_id"], sentences[0], today)
+            logger.info("again-regen  word=%s → new sentence stored", card.get("word_zh"))
+            try:
+                tts.preload(sentences[0].get("sentence_zh", ""))
+            except Exception:
+                pass
+        except Exception as e:
+            logger.warning("again-regen failed for word=%s: %s", card.get("word_zh"), e)
+
+    threading.Thread(target=_run, daemon=True).start()
 
 
 # ---------------------------------------------------------------------------
@@ -51,6 +99,7 @@ def _next_card_from_queue(key, build_fn) -> dict | None:
     if card:
         card["intervals"] = srs.preview_intervals(card)
         card["fsrs"] = srs.explain_card(card)
+        _attach_again_sentence(card)
     return card
 
 
@@ -81,6 +130,7 @@ def get_today_unfinished(scope: str = "unfinished"):
     if card:
         card["intervals"] = srs.preview_intervals(card)
         card["fsrs"] = srs.explain_card(card)
+        _attach_again_sentence(card)
     return {"card": card, "counts": database.count_unfinished(scope)}
 
 
@@ -112,6 +162,11 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
                                        duration_ms=duration_ms)
     deck_id = updated["deck_id"]
     cat     = updated["category"]
+
+    # Rated Again → regenerate a fresh sentence for this word in the background,
+    # so it shows something new when the card reappears in a few minutes.
+    if rating == 1:
+        _spawn_again_regen(card_before)
 
     # Apply sibling repulsion: push sibling due dates that are too close to today.
     # Only kicks in when the reviewed card has a long enough interval (> sibling_separation),
@@ -209,6 +264,7 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
         if next_card:
             next_card["intervals"] = srs.preview_intervals(next_card)
             next_card["fsrs"] = srs.explain_card(next_card)
+            _attach_again_sentence(next_card)
         counts = database.count_unfinished(unfinished_scope)
     elif root_deck_id:
         _queue_mgr.after_review(queue_key, card_id, updated, newly_buried)
@@ -301,6 +357,7 @@ def undo_review():
     restored = database.get_card(cb["id"])
     restored["intervals"] = srs.preview_intervals(restored)
     restored["fsrs"] = srs.explain_card(restored)
+    _attach_again_sentence(restored)
 
     deck_id         = entry["deck_id"]
     cat             = entry["category"]
