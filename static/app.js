@@ -3151,9 +3151,13 @@ function loadCard(c, counts) {
     noteInput.classList.toggle('has-note', !!(card.next_note || '').trim());
   }
 
-  // Find sentence for this card's word in the story.
-  // If no match, leave sentence null — renderSentence() will show just the word.
-  sentence = story?.sentences?.find(s => s.word_ids?.includes(card.word_id)) || null;
+  // Find sentence for this card's word.
+  // A card that was rated Again carries a freshly regenerated sentence (again_sentence) —
+  // prefer it so the reappearing card shows something new instead of the old story sentence.
+  // Otherwise look it up in the story; if no match, leave null and renderSentence() shows just the word.
+  sentence = card.again_sentence
+    || story?.sentences?.find(s => s.word_ids?.includes(card.word_id))
+    || null;
 
   // In unfinished mode or mixed mode: story may be from a different deck/category.
   // Async-load the correct story and update the display when it arrives.
