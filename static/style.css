@@ -1283,20 +1283,16 @@ main.browse-open {
 }
 .pinyin-btn:hover, .pinyin-btn.active { border-color: var(--primary); color: var(--primary); }
 .pinyin-row {
-  display: flex;
+  /* Hidden entirely by default (no space taken); press p to toggle. */
+  display: none;
   flex-wrap: wrap;
   gap: 2px 6px;
   font-size: 14px;
   justify-content: center;
-  filter: blur(4px);
-  opacity: 0.35;
-  transition: filter 0.2s ease, opacity 0.2s ease;
-  user-select: none;
+  user-select: text;
 }
 .pinyin-row.pinyin-revealed {
-  filter: none;
-  opacity: 1;
-  user-select: text;
+  display: flex;
 }
 .py-char {
   display: flex;
@@ -1310,23 +1306,14 @@ main.browse-open {
 .py-target .py-zh  { color: var(--primary); font-weight: 700; }
 .sentence-de,
 .sentence-fr {
+  /* Hidden entirely by default (no space taken); press u to toggle.
+     When shown, fully readable — visibility is controlled from JS. */
   flex: 1;
   text-align: center;
   font-size: 12px;
   color: var(--muted);
   font-style: italic;
-  min-height: 18px;
-  /* Fully blurred so the translation is completely unreadable by default.
-     Clears only on hover/focus when you explicitly want to check it. */
-  opacity: 0.35;
-  filter: blur(7px);
   letter-spacing: 0.2px;
-  transition: opacity 0.15s, filter 0.15s;
-}
-.sentence-de:hover,
-.sentence-fr:hover {
-  opacity: 0.9;
-  filter: none;
 }
 
 .char-row:last-child { border-bottom: none; }

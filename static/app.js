@@ -3535,17 +3535,16 @@ function revealAnswer() {
   // Sentence notes have no story — hide story button; show German/French translation
   const _sentFrEl = document.getElementById('sentence-fr');
   const _sentDeEl = document.getElementById('sentence-de');
+  // Fill in the translation text but keep it hidden by default — press u to toggle.
   if (isSentenceNote) {
     _sentFrEl.textContent = '';
-    _sentFrEl.style.display = 'none';
     _sentDeEl.textContent = card.definition || '';
-    _sentDeEl.style.display = card.definition ? '' : 'none';
   } else {
     _sentFrEl.textContent = sentence?.sentence_fr || '';
-    _sentFrEl.style.display = sentence?.sentence_fr ? '' : 'none';
     _sentDeEl.textContent = sentence?.sentence_de || '';
-    _sentDeEl.style.display = sentence?.sentence_de ? '' : 'none';
   }
+  _sentFrEl.style.display = 'none';
+  _sentDeEl.style.display = 'none';
 
   // Kahneman concept box (compact: part + chapter title only) + reasoning light bulb
   const _conceptRow = document.getElementById('sentence-concept-row');
@@ -4961,6 +4960,19 @@ async function togglePinyin() {
   if (!text) return;
   await _loadPinyinRow(text);
   row.classList.toggle('pinyin-revealed');
+}
+
+// ── Translation toggle (German/French sentence translation) ───────────────────
+// Hidden by default to save space; press u to show/hide. Only elements that
+// actually have text participate, and they toggle together as one group.
+function toggleTranslation() {
+  const fr = document.getElementById('sentence-fr');
+  const de = document.getElementById('sentence-de');
+  const anyVisible = (fr.textContent && fr.style.display !== 'none') ||
+                     (de.textContent && de.style.display !== 'none');
+  const show = !anyVisible;
+  fr.style.display = (show && fr.textContent) ? '' : 'none';
+  de.style.display = (show && de.textContent) ? '' : 'none';
 }
 
 // ── Story error modal ─────────────────────────────────────────────────────────
@@ -7072,8 +7084,10 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); location.reload();
     } else if (e.key === 'r') {
       e.preventDefault(); playSentence();
-    } else if (e.key === 't') {
+    } else if (e.key === 'p') {
       e.preventDefault(); togglePinyin();
+    } else if (e.key === 'u') {
+      e.preventDefault(); toggleTranslation();
     } else if (e.key === ' ') {
       e.preventDefault(); if (!backVisible) revealAnswer();
     } else if (['1','2','3','4'].includes(e.key) && backVisible) {
