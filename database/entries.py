@@ -20,6 +20,13 @@ def insert_word(word: dict) -> int:
                    :notes, :date_yaml, :source_sentence, :grammar_notes, :register, :definition_de, :definition_fr)""",
         {
             **word,
+            "pinyin":          word.get("pinyin"),
+            "definition":      word.get("definition"),
+            "pos":             word.get("pos"),
+            "hsk_level":       word.get("hsk_level"),
+            "traditional":     word.get("traditional"),
+            "definition_zh":   word.get("definition_zh"),
+            "source":          word.get("source") or "kouyu",
             "note_type":       word.get("note_type", "vocabulary"),
             "notes":           word.get("notes"),
             "date_yaml":       word.get("date_yaml"),
