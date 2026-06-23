@@ -2812,6 +2812,18 @@ async function startReview(id, cat, name, noStory = false, quick = false) {
   _updateAvgTimeBadge();
   _updateReviewRRBadge(id);
 
+  // A background story is already generating for this deck/category (the user
+  // clicked "Continue in background"): re-open its loading screen instead of the
+  // setup modal — we must not start a second generation.
+  if (!noStory && !quick) {
+    const bgCtx = _bgStories[`${id}/${cat}`];
+    if (bgCtx) {
+      delete _bgStories[bgCtx.key];
+      _resumeBackgroundReview(bgCtx);
+      return;
+    }
+  }
+
   try {
     if (noStory || quick) {
       await _doStartReview(null, 2);
@@ -2832,6 +2844,89 @@ async function startReview(id, cat, name, noStory = false, quick = false) {
     showView('decks');
     return;
   }
+}
+
+// ── Background story generation ─────────────────────────────────────────────
+// Let the user leave the "Generating story…" screen and do other things (check
+// stats, review another deck) while the story finishes generating server-side,
+// then notify them with a clickable banner when it's ready.
+const _BG_LEFT = Symbol('bg-left');
+let _bgStories = {};            // key → resumeCtx, generating while the user is elsewhere
+let _bgStoryPoller = null;      // interval polling those keys for readiness
+let _bgActiveResume = null;     // resumeCtx for the story currently on the loading screen
+let _bgLeaveRequested = false;  // set when the user clicks "Continue in background"
+
+function _showLoadingBgButton() {
+  const b = document.getElementById('loading-bg-btn');
+  if (b) b.style.display = 'block';
+}
+function _hideLoadingBgButton() {
+  const b = document.getElementById('loading-bg-btn');
+  if (b) b.style.display = 'none';
+}
+
+// Poll the background story endpoint until it returns a story (or an error dict),
+// or the user clicks "Continue in background" (→ resolves to _BG_LEFT).
+async function _pollBackgroundStory(bgUrl) {
+  while (true) {
+    if (_bgLeaveRequested) return _BG_LEFT;
+    const r = await api('GET', bgUrl);
+    if (_bgLeaveRequested) return _BG_LEFT;
+    if (r && r.generating) { await new Promise(res => setTimeout(res, 1500)); continue; }
+    return r;  // story | null | { error }
+  }
+}
+
+// User clicked "Continue in background": register the in-flight story, start the
+// global readiness poller, and return to the deck list. Generation keeps running.
+function _continueStoryInBackground() {
+  if (!_bgActiveResume) return;
+  _bgLeaveRequested = true;
+  _bgStories[_bgActiveResume.key] = _bgActiveResume;
+  _bgActiveResume = null;
+  _stopFakeProgress();
+  _stopStoryProgressPoll();
+  _hideLoadingBgButton();
+  _ensureBgStoryPoller();
+  loadDecks();
+}
+
+// Poll every in-flight background story for readiness; banner the user when ready.
+function _ensureBgStoryPoller() {
+  if (_bgStoryPoller) return;
+  _bgStoryPoller = setInterval(async () => {
+    const keys = Object.keys(_bgStories);
+    if (keys.length === 0) { clearInterval(_bgStoryPoller); _bgStoryPoller = null; return; }
+    for (const key of keys) {
+      const ctx = _bgStories[key];
+      let s = null;
+      try {
+        s = await api('GET', `/api/story/${ctx.storyDeckId}/${ctx.storyCategory}?no_generate=true`);
+      } catch (_) { continue; }
+      if (s && s.sentences) {            // ready
+        delete _bgStories[key];
+        _showStoryReadyBanner(ctx);
+      }
+    }
+  }, 3000);
+}
+
+function _showStoryReadyBanner(ctx) {
+  const el = document.getElementById('bg-story-banner');
+  if (!el) return;
+  el.textContent = `📖 Story ready — ${ctx.deckName} · click to review`;
+  el.style.display = 'block';
+  el.onclick = () => { el.style.display = 'none'; _resumeBackgroundReview(ctx); };
+}
+
+// Resume a session whose background story is now cached → starts instantly.
+function _resumeBackgroundReview(ctx) {
+  deckId     = ctx.deckId;
+  category   = ctx.category;
+  deckName   = ctx.deckName;
+  rootDeckId = ctx.rootDeckId;
+  quickMode  = false;
+  _doStartReview(ctx.topic, ctx.maxHsk, ctx.model, ctx.grammarFocus, ctx.grammarPct, ctx.mode, ctx.chapterIds);
 }
 
 async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null) {
@@ -2858,15 +2953,26 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mo
     const storyDeckId = rootDeckId || deckId;
     const storyCategory = rootDeckId ? 'unified' : category;
     _startStoryProgressPoll(storyDeckId, storyCategory);
+
+    // Capture enough context to resume this exact session if the user chooses to
+    // let the story finish generating in the background and walk away.
+    const resumeCtx = {
+      key: `${storyDeckId}/${storyCategory}`,
+      deckId, category, deckName, rootDeckId, storyDeckId, storyCategory,
+      topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds,
+    };
+    _bgLeaveRequested = false;
+    _bgActiveResume = resumeCtx;
+    _showLoadingBgButton();
+
     const storyUrl = `/api/story/${storyDeckId}/${storyCategory}` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
+    const bgUrl = storyUrl + (storyUrl.includes('?') ? '&' : '?') + 'background=true';
     let todayData, storyData;
     try {
-      [todayData, storyData] = await Promise.all([
-        api('GET', `/api/today/${deckId}/${category}`),
-        api('GET', storyUrl),
-      ]);
+      todayData = await api('GET', `/api/today/${deckId}/${category}`);
+      storyData = await _pollBackgroundStory(bgUrl);  // non-blocking: polls until ready
     } catch (e) {
-      _stopFakeProgress(); _stopStoryProgressPoll();
+      _stopFakeProgress(); _stopStoryProgressPoll(); _hideLoadingBgButton();
       _showLoadingError('AI request failed', e.message);
       await new Promise(r => setTimeout(r, 2500));
       showError('Failed to start session: ' + e.message);
@@ -2874,6 +2980,10 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mo
       return;
     }
 
+    // User clicked "Continue in background" — we've already returned to the deck list.
+    if (storyData === _BG_LEFT) return;
+
+    _hideLoadingBgButton();
     _stopFakeProgress(); _stopStoryProgressPoll();
     setLoadingStep(65, null, 'Story received, processing…');
     story = await _resolveStory(storyData, storyDeckId, storyCategory, topic, maxHsk, grammarFocus, grammarPct, mode);
@@ -2896,7 +3006,7 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mo
     showView('review');
     loadCard(todayData.card, todayData.counts);
   } catch (e) {
-    _stopFakeProgress(); _stopStoryProgressPoll();
+    _stopFakeProgress(); _stopStoryProgressPoll(); _hideLoadingBgButton();
     _showLoadingError('Failed to load session', e.message);
     await new Promise(r => setTimeout(r, 2500));
     showError('Failed to start session: ' + e.message);

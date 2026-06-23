@@ -3,6 +3,7 @@ import logging
 import math
 import os
 import random
+import threading
 
 import jieba
 import database
@@ -67,6 +68,12 @@ def _add_tokens(sentences: list[dict]) -> list[dict]:
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# In-flight background story generations, keyed by f"{deck_id}/{category}".
+# Guards against starting a second generation for the same deck+category while
+# one is already running (e.g. the frontend polling repeatedly in background mode).
+_generating: set[str] = set()
+_gen_lock = threading.Lock()
 
 
 def _log_story(story: dict) -> None:
@@ -157,6 +164,86 @@ def _validated_model(model: str | None) -> str:
     return DEFAULT_MODEL
 
 
+def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
+                        topic, max_hsk, model, grammar_focus, grammar_pct, mode,
+                        chapter_ids, progress_key) -> dict | None:
+    """Generate a story for `cards`, persist it, and return the stored story
+    (with sentences) — or an error dict on failure, or None if there is nothing
+    to generate. Shared by the synchronous GET, the background thread, and regenerate.
+
+    Sets ai._story_progress[progress_key] to a "starting" state up front; the
+    generate functions update it during the run. Callers own terminal cleanup.
+    """
+    if not cards:
+        return None
+    ai.fix_definition_commas(cards)
+    ai._story_progress[progress_key] = {"phase": "starting", "msg": "Starting…", "percent": 5}
+    try:
+        if mode == "kahneman":
+            parsed_chapter_ids = [int(x) for x in chapter_ids.split(",") if x.strip()] if chapter_ids else []
+            sentences, prompt_text = _generate_kahneman_story_sentences(
+                cards, parsed_chapter_ids, model=model, progress_key=progress_key)
+        else:
+            sentences, prompt_text = _generate_story_sentences(
+                cards, topic=topic, max_hsk=max_hsk, model=model,
+                progress_key=progress_key, grammar_focus=grammar_focus,
+                grammar_pct=grammar_pct, mode=mode)
+        for i, s in enumerate(sentences):
+            s["position"] = i
+        gen_params = _gen_params_dict(
+            topic=topic, max_hsk=max_hsk, model=model,
+            grammar_focus=grammar_focus, grammar_pct=grammar_pct,
+            mode=mode, chapter_ids=chapter_ids)
+        database.create_story(today, category, deck_id, sentences, prompt_text, topic, gen_params)
+        story = database.get_active_story(today, category, deck_id)
+    except Exception as e:
+        logger.error("story  generation error: %s", e)
+        return {
+            "error": True,
+            "reason": str(e),
+            "model": model,
+            "has_history": database.has_story_history(deck_id, category),
+        }
+    if story:
+        story["sentences"] = _add_tokens(database.get_story_sentences(story["id"]))
+        logger.info("story  SAVED   deck=%d cat=%s sentences=%d",
+                    deck_id, category, len(story["sentences"]))
+        _log_story(story)
+    return story
+
+
+def _start_background_generation(deck_id: int, category: str, today: str, cards: list, *,
+                                 topic, max_hsk, model, grammar_focus, grammar_pct,
+                                 mode, chapter_ids, progress_key) -> None:
+    """Spawn a daemon thread that generates+stores a story, recording a terminal
+    progress state (done/error) the frontend can poll. De-duped by progress_key."""
+    def _run() -> None:
+        logger.info("story  BG-START deck=%d cat=%s model=%s", deck_id, category, model)
+        try:
+            result = _generate_and_store(
+                deck_id, category, today, cards,
+                topic=topic, max_hsk=max_hsk, model=model,
+                grammar_focus=grammar_focus, grammar_pct=grammar_pct,
+                mode=mode, chapter_ids=chapter_ids, progress_key=progress_key)
+            if isinstance(result, dict) and result.get("error"):
+                ai._story_progress[progress_key] = {
+                    "phase": "error", "percent": 0, "msg": result.get("reason", "Generation failed")}
+                logger.warning("story  BG-ERROR deck=%d cat=%s: %s",
+                               deck_id, category, result.get("reason"))
+            else:
+                ai._story_progress[progress_key] = {
+                    "phase": "done", "percent": 100, "msg": "Story ready!"}
+                logger.info("story  BG-DONE  deck=%d cat=%s", deck_id, category)
+        except Exception as e:
+            ai._story_progress[progress_key] = {"phase": "error", "percent": 0, "msg": str(e)}
+            logger.warning("story  BG-ERROR deck=%d cat=%s: %s", deck_id, category, e)
+        finally:
+            with _gen_lock:
+                _generating.discard(progress_key)
+
+    threading.Thread(target=_run, daemon=True).start()
+
+
 def _gen_params_dict(*, topic, max_hsk, model, grammar_focus, grammar_pct,
                      mode, chapter_ids) -> dict:
     """Bundle the story generation settings persisted on each story row, so the
@@ -236,11 +323,24 @@ def get_story(deck_id: int, category: str,
               grammar_focus: str | None = None, grammar_pct: int = 75,
               mode: str = "story",
               chapter_ids: str | None = None,
-              no_generate: bool = False):
+              no_generate: bool = False,
+              background: bool = False):
+    """Return today's story for (deck_id, category).
+
+    background=False (default): generate synchronously and return the story
+      (or an error dict). Used by regenerate flows and callers that block.
+    background=True: never block — return the cached story if ready, else kick
+      off generation in a daemon thread and return {"generating": True}. The
+      frontend polls this endpoint (and /api/story-progress) until the story is
+      ready, and can navigate away meanwhile. A failed background run is sticky
+      (returns the error dict) so polling stops instead of restarting forever.
+    """
     if database.is_sentences_deck(deck_id):
         return None
 
     today = database.anki_today().isoformat()
+    progress_key = f"{deck_id}/{category}"
+
     # Always return today's cached story — custom params only apply when generating a new one
     story = database.get_active_story(today, category, deck_id)
     if story:
@@ -248,6 +348,8 @@ def get_story(deck_id: int, category: str,
         logger.info("story  CACHED  deck=%d cat=%s sentences=%d story_id=%d",
                     deck_id, category, len(story["sentences"]), story["id"])
         _log_story(story)
+        if background:
+            ai._story_progress.pop(progress_key, None)  # clear any terminal state
         return story
 
     # Caller only wants an already-generated story (e.g. "use existing" mode):
@@ -261,52 +363,48 @@ def get_story(deck_id: int, category: str,
         return None
 
     chosen_model = _validated_model(model)
-    story = None
-    cards = _get_cards_for_story(deck_id, category)
-    logger.info("story  GENERATE deck=%d cat=%s due_cards=%d topic=%r max_hsk=%d model=%s mode=%s",
-                deck_id, category, len(cards), topic, max_hsk, chosen_model, mode)
-    if cards:
-        ai.fix_definition_commas(cards)
-        progress_key = f"{deck_id}/{category}"
-        ai._story_progress[progress_key] = {"phase": "starting", "msg": "Starting…", "percent": 5}
-        last_error = None
-        try:
-            if mode == "kahneman":
-                parsed_chapter_ids = [int(x) for x in chapter_ids.split(",") if x.strip()] if chapter_ids else []
-                sentences, prompt_text = _generate_kahneman_story_sentences(
-                    cards, parsed_chapter_ids, model=chosen_model, progress_key=progress_key)
-            else:
-                sentences, prompt_text = _generate_story_sentences(
-                    cards, topic=topic, max_hsk=max_hsk, model=chosen_model,
-                    progress_key=progress_key, grammar_focus=grammar_focus,
-                    grammar_pct=grammar_pct, mode=mode)
-            for i, s in enumerate(sentences):
-                s["position"] = i
-            gen_params = _gen_params_dict(
-                topic=topic, max_hsk=max_hsk, model=chosen_model,
-                grammar_focus=grammar_focus, grammar_pct=grammar_pct,
-                mode=mode, chapter_ids=chapter_ids)
-            database.create_story(today, category, deck_id, sentences, prompt_text, topic, gen_params)
-            story = database.get_active_story(today, category, deck_id)
-        except Exception as e:
-            last_error = e
-            logger.error("story  generation error: %s", e)
-        finally:
-            ai._story_progress.pop(progress_key, None)
-        if last_error is not None:
+
+    # ── Background mode: don't block — start a thread and report progress ──────
+    if background:
+        # A finished-with-error background run is sticky so polling stops here
+        # (the user can retry via regenerate, which overwrites the progress state).
+        prog = ai._story_progress.get(progress_key)
+        if prog and prog.get("phase") == "error":
             return {
                 "error": True,
-                "reason": str(last_error),
+                "reason": prog.get("msg", "Generation failed"),
                 "model": chosen_model,
                 "has_history": database.has_story_history(deck_id, category),
             }
+        with _gen_lock:
+            if progress_key in _generating:
+                return {"generating": True}
+            cards = _get_cards_for_story(deck_id, category)
+            if not cards:
+                return None
+            _generating.add(progress_key)
+        logger.info("story  BG-QUEUE deck=%d cat=%s due_cards=%d model=%s mode=%s",
+                    deck_id, category, len(cards), chosen_model, mode)
+        _start_background_generation(
+            deck_id, category, today, cards,
+            topic=topic, max_hsk=max_hsk, model=chosen_model,
+            grammar_focus=grammar_focus, grammar_pct=grammar_pct,
+            mode=mode, chapter_ids=chapter_ids, progress_key=progress_key)
+        return {"generating": True}
 
-    if story:
-        story["sentences"] = _add_tokens(database.get_story_sentences(story["id"]))
-        logger.info("story  SAVED   deck=%d cat=%s sentences=%d",
-                    deck_id, category, len(story["sentences"]))
-        _log_story(story)
-    return story
+    # ── Synchronous mode (default): generate now and return the story ─────────
+    cards = _get_cards_for_story(deck_id, category)
+    logger.info("story  GENERATE deck=%d cat=%s due_cards=%d topic=%r max_hsk=%d model=%s mode=%s",
+                deck_id, category, len(cards), topic, max_hsk, chosen_model, mode)
+    if not cards:
+        return None
+    result = _generate_and_store(
+        deck_id, category, today, cards,
+        topic=topic, max_hsk=max_hsk, model=chosen_model,
+        grammar_focus=grammar_focus, grammar_pct=grammar_pct,
+        mode=mode, chapter_ids=chapter_ids, progress_key=progress_key)
+    ai._story_progress.pop(progress_key, None)
+    return result
 
 
 @router.post("/api/story/{deck_id}/{category}/regenerate")
@@ -322,50 +420,19 @@ def regenerate_story(deck_id: int, category: str,
         return None
     chosen_model = _validated_model(model)
     today = database.anki_today().isoformat()
+    progress_key = f"{deck_id}/{category}"
     cards = _get_cards_for_story(deck_id, category)
     logger.info("regen  deck=%d cat=%s due_cards=%d topic=%r max_hsk=%d model=%s mode=%s",
                 deck_id, category, len(cards), topic, max_hsk, chosen_model, mode)
     if not cards:
         return None
-    ai.fix_definition_commas(cards)
-    progress_key = f"{deck_id}/{category}"
-    ai._story_progress[progress_key] = {"phase": "starting", "msg": "Starting…", "percent": 5}
-    last_error = None
-    try:
-        if mode == "kahneman":
-            parsed_chapter_ids = [int(x) for x in chapter_ids.split(",") if x.strip()] if chapter_ids else []
-            sentences, prompt_text = _generate_kahneman_story_sentences(
-                cards, parsed_chapter_ids, model=chosen_model, progress_key=progress_key)
-        else:
-            sentences, prompt_text = _generate_story_sentences(
-                cards, topic=topic, max_hsk=max_hsk, model=chosen_model,
-                progress_key=progress_key, grammar_focus=grammar_focus,
-                grammar_pct=grammar_pct, mode=mode)
-        for i, s in enumerate(sentences):
-            s["position"] = i
-        gen_params = _gen_params_dict(
-            topic=topic, max_hsk=max_hsk, model=chosen_model,
-            grammar_focus=grammar_focus, grammar_pct=grammar_pct,
-            mode=mode, chapter_ids=chapter_ids)
-        database.create_story(today, category, deck_id, sentences, prompt_text, topic, gen_params)
-        story = database.get_active_story(today, category, deck_id)
-    except Exception as e:
-        last_error = e
-        logger.error("regen  generation error: %s", e)
-    finally:
-        ai._story_progress.pop(progress_key, None)
-    if last_error is not None:
-        return {
-            "error": True,
-            "reason": str(last_error),
-            "model": chosen_model,
-            "has_history": database.has_story_history(deck_id, category),
-        }
-    if story:
-        story["sentences"] = _add_tokens(database.get_story_sentences(story["id"]))
-        logger.info("regen  SAVED sentences=%d", len(story["sentences"]))
-        _log_story(story)
-    return story
+    result = _generate_and_store(
+        deck_id, category, today, cards,
+        topic=topic, max_hsk=max_hsk, model=chosen_model,
+        grammar_focus=grammar_focus, grammar_pct=grammar_pct,
+        mode=mode, chapter_ids=chapter_ids, progress_key=progress_key)
+    ai._story_progress.pop(progress_key, None)
+    return result
 
 
 @router.get("/api/story/{deck_id}/{category}/history")
