@@ -2812,6 +2812,18 @@ async function startReview(id, cat, name, noStory = false, quick = false) {
   _updateAvgTimeBadge();
   _updateReviewRRBadge(id);
 
+  // A background story is already generating for this deck/category (the user
+  // clicked "Continue in background"): re-open its loading screen instead of the
+  // setup modal — we must not start a second generation.
+  if (!noStory && !quick) {
+    const bgCtx = _bgStories[`${id}/${cat}`];
+    if (bgCtx) {
+      delete _bgStories[bgCtx.key];
+      _resumeBackgroundReview(bgCtx);
+      return;
+    }
+  }
+
   try {
     if (noStory || quick) {
       await _doStartReview(null, 2);
