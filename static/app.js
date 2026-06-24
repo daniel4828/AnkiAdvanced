@@ -4975,6 +4975,11 @@ function toggleTranslation() {
   const show = !anyVisible;
   fr.style.display = (show && fr.textContent) ? '' : 'none';
   de.style.display = (show && de.textContent) ? '' : 'none';
+  // Hiding the translation with u while "always show" is on deactivates the preference.
+  if (!show && _alwaysTranslation) {
+    _alwaysTranslation = false;
+    localStorage.setItem('alwaysTranslation', '0');
+  }
   _syncTransEye();
 }
 
