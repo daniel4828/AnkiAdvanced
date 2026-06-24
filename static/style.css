@@ -1316,6 +1316,19 @@ main.browse-open {
   letter-spacing: 0.2px;
 }
 
+.always-trans-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.always-trans-toggle input { cursor: pointer; margin: 0; }
+
 .char-row:last-child { border-bottom: none; }
 .char-row-link  { cursor: pointer; }
 .char-row-link:hover { background: var(--bg); }

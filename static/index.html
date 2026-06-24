@@ -190,6 +190,11 @@
             <!-- French and German translation (hidden by default; press u to toggle) -->
             <div class="sentence-fr" id="sentence-fr"></div>
             <div class="sentence-de" id="sentence-de"></div>
+            <!-- Persistent "always show translation" toggle -->
+            <label class="always-trans-toggle" id="always-trans-toggle" style="display:none">
+              <input type="checkbox" id="always-trans-checkbox" onchange="setAlwaysTranslation(this.checked)">
+              <span>Always show translation</span>
+            </label>
             <!-- Kahneman chapter concept + reasoning light bulb (Kahneman-mode only) -->
             <div id="sentence-concept-row" class="sentence-concept-row" style="display:none">
               <div id="sentence-concept" class="sentence-concept-section"></div>
