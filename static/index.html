@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AnkiAdvanced</title>
-  <link rel="stylesheet" href="/static/style.css?v=11">
+  <link rel="stylesheet" href="/static/style.css?v=14">
 </head>
 <body>
 
@@ -56,6 +56,8 @@
 
 <main>
   <div id="error-banner"></div>
+  <!-- Clickable banner shown when a background story finishes generating -->
+  <div id="bg-story-banner" style="display:none"></div>
 
   <!-- Loading -->
   <div id="view-loading">
@@ -65,6 +67,9 @@
       <div id="loading-progress-bar"></div>
     </div>
     <div id="loading-sub"></div>
+    <button id="loading-bg-btn" style="display:none" onclick="_continueStoryInBackground()">
+      Continue in background ⏎
+    </button>
   </div>
 
   <!-- Deck list -->
@@ -187,9 +192,16 @@
 
             <!-- 2. Pinyin row (hidden by default; press p to toggle) -->
             <div class="pinyin-row" id="pinyin-row"></div>
-            <!-- French and German translation (hidden by default; press u to toggle) -->
-            <div class="sentence-fr" id="sentence-fr"></div>
-            <div class="sentence-de" id="sentence-de"></div>
+            <!-- French and German translation (hidden by default; press u to toggle).
+                 Eye icon toggles the persistent "always show translation" preference;
+                 it only appears while the translation itself is visible. -->
+            <div class="sentence-trans-row" id="sentence-trans-row">
+              <div class="sentence-fr" id="sentence-fr"></div>
+              <div class="sentence-de" id="sentence-de"></div>
+              <span class="always-trans-eye" id="always-trans-eye" role="button" tabindex="0"
+                    style="display:none" onclick="toggleAlwaysTranslation()"
+                    title="Always show translation">👁</span>
+            </div>
             <!-- Kahneman chapter concept + reasoning light bulb (Kahneman-mode only) -->
             <div id="sentence-concept-row" class="sentence-concept-row" style="display:none">
               <div id="sentence-concept" class="sentence-concept-section"></div>
@@ -575,7 +587,7 @@
 </div>
 
 <div id="word-tip" style="display:none"></div>
-<script src="/static/app.js?v=11"></script>
+<script src="/static/app.js?v=14"></script>
 
 <!-- Edit card modal -->
 <div id="edit-modal-overlay" onclick="closeEditCard()" style="display:none"></div>

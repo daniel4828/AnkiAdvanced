@@ -316,11 +316,15 @@ CREATE TABLE IF NOT EXISTS review_log (
 CREATE TABLE IF NOT EXISTS stories (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     date            TEXT NOT NULL,  -- YYYY-MM-DD
-    category        TEXT NOT NULL CHECK(category IN ('listening', 'reading', 'creating', 'unified')),
+    -- 'again' = sentinel category for single-sentence regenerations triggered by an
+    -- Again rating; kept out of the normal per-category story queries (see stories.py).
+    category        TEXT NOT NULL CHECK(category IN ('listening', 'reading', 'creating', 'unified', 'again')),
     deck_id         INTEGER NOT NULL REFERENCES decks(id) ON DELETE CASCADE,
     generated_at    TEXT NOT NULL DEFAULT (datetime('now')),
     prompt_text     TEXT,         -- full AI prompt used to generate this story (NULL for legacy rows)
-    topic           TEXT          -- user-specified topic/theme (NULL if none given)
+    topic           TEXT,         -- user-specified topic/theme (NULL if none given)
+    gen_params      TEXT          -- JSON of the generation settings (mode/model/grammar/max_hsk/chapter_ids)
+                                  -- so the "Again" regeneration can match the deck's style (NULL for legacy rows)
     -- NO unique constraint: multiple stories per (date, category, deck) allowed
     -- active story = latest generated_at
     -- stories are NEVER auto-deleted
