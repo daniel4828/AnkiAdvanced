@@ -45,16 +45,19 @@ def get_latest_story(deck_id: int, category: str) -> dict | None:
 
 def create_story(date_str: str, category: str, deck_id: int,
                  sentences: list[dict], prompt_text: str | None = None,
-                 topic: str | None = None) -> int:
+                 topic: str | None = None, gen_params: dict | None = None) -> int:
     """Always inserts a new story row. Returns story_id.
 
     Each sentence dict must have: position, sentence_zh, word_ids (list of entry IDs).
     Optional: sentence_en, sentence_de, sentence_fr.
+    gen_params: the generation settings (mode/model/grammar/…) stored as JSON so the
+    "Again" regeneration can reproduce the deck's style instead of a plain story.
     """
     conn = get_db()
+    gen_params_json = json.dumps(gen_params, ensure_ascii=False) if gen_params else None
     cur = conn.execute(
-        "INSERT INTO stories (date, category, deck_id, prompt_text, topic) VALUES (?, ?, ?, ?, ?)",
-        (date_str, category, deck_id, prompt_text, topic),
+        "INSERT INTO stories (date, category, deck_id, prompt_text, topic, gen_params) VALUES (?, ?, ?, ?, ?, ?)",
+        (date_str, category, deck_id, prompt_text, topic, gen_params_json),
     )
     story_id = cur.lastrowid
     for s in sentences:
@@ -92,6 +95,34 @@ def get_sentence_for_word(story_id: int, word_id: int) -> dict | None:
     return dict(row) if row else None
 
 
+def _hydrate_sentence(conn, sent_row) -> dict:
+    """Attach word_ids / words / tokens to a raw story_sentences row.
+
+    Produces the same shape as get_story_sentences() entries, so the result
+    carries German/French translations and tokens too.
+    """
+    word_rows = conn.execute(
+        """SELECT e.id AS word_id, e.word_zh, e.definition
+           FROM story_sentence_words sw
+           JOIN entries e ON e.id = sw.word_id
+           WHERE sw.sentence_id = ?
+           ORDER BY sw.id""",
+        (sent_row["id"],),
+    ).fetchall()
+
+    wlist = [{"word_id": w["word_id"], "word_zh": w["word_zh"], "definition": w["definition"]}
+             for w in word_rows]
+    d = dict(sent_row)
+    d["word_ids"] = [w["word_id"] for w in wlist]
+    d["words"] = wlist
+    if wlist:
+        d["word_zh"] = wlist[0]["word_zh"]
+        d["definition"] = wlist[0]["definition"]
+    raw_tokens = d.get("tokens")
+    d["tokens"] = json.loads(raw_tokens) if raw_tokens else []
+    return d
+
+
 def get_latest_sentence_for_word(word_id: int) -> dict | None:
     """Return the most recent sentence (across all stories) that contains word_id.
 
@@ -112,28 +143,79 @@ def get_latest_sentence_for_word(word_id: int) -> dict | None:
     if sent_row is None:
         conn.close()
         return None
-
-    word_rows = conn.execute(
-        """SELECT e.id AS word_id, e.word_zh, e.definition
-           FROM story_sentence_words sw
-           JOIN entries e ON e.id = sw.word_id
-           WHERE sw.sentence_id = ?
-           ORDER BY sw.id""",
-        (sent_row["id"],),
-    ).fetchall()
+    d = _hydrate_sentence(conn, sent_row)
     conn.close()
-
-    wlist = [{"word_id": w["word_id"], "word_zh": w["word_zh"], "definition": w["definition"]}
-             for w in word_rows]
-    d = dict(sent_row)
-    d["word_ids"] = [w["word_id"] for w in wlist]
-    d["words"] = wlist
-    if wlist:
-        d["word_zh"] = wlist[0]["word_zh"]
-        d["definition"] = wlist[0]["definition"]
-    raw_tokens = d.get("tokens")
-    d["tokens"] = json.loads(raw_tokens) if raw_tokens else []
     return d
+
+
+# Sentinel category for single-sentence regenerations triggered by an "Again" rating.
+# Stored as a story so it reuses story_sentences/translations/tokens, but kept under
+# this category so get_active_story()/has_story_history() (which filter by the real
+# category) never pick it up — it only surfaces via get_again_sentence_for_word().
+AGAIN_CATEGORY = "again"
+
+
+def store_again_sentence(deck_id: int, word_id: int, sentence: dict,
+                         date_str: str) -> int:
+    """Store one freshly-regenerated sentence for a word that was rated Again.
+
+    `sentence` is a dict from ai.generate_story() (sentence_zh, sentence_en,
+    sentence_de, tokens, …). Returns the new story id.
+    """
+    s = dict(sentence)
+    s["position"] = 0
+    s["word_ids"] = [word_id]
+    return create_story(date_str, AGAIN_CATEGORY, deck_id, [s])
+
+
+def get_again_sentence_for_word(word_id: int, date_str: str) -> dict | None:
+    """Return the latest Again-regenerated sentence for this word on `date_str`, or None.
+
+    Same shape as get_latest_sentence_for_word(). Scoped to one day so a fresh
+    sentence is only reused within the day it was generated.
+    """
+    conn = get_db()
+    sent_row = conn.execute(
+        """SELECT ss.* FROM story_sentences ss
+           JOIN story_sentence_words sw ON sw.sentence_id = ss.id
+           JOIN stories s ON s.id = ss.story_id
+           WHERE sw.word_id = ? AND s.date = ? AND s.category = ?
+           ORDER BY s.generated_at DESC, ss.id DESC
+           LIMIT 1""",
+        (word_id, date_str, AGAIN_CATEGORY),
+    ).fetchone()
+    if sent_row is None:
+        conn.close()
+        return None
+    d = _hydrate_sentence(conn, sent_row)
+    conn.close()
+    return d
+
+
+def get_story_gen_params_for_word(word_id: int, date_str: str) -> dict | None:
+    """Return the generation settings (gen_params) of the most recent real story
+    today that contains this word, or None. Excludes the 'again' sentinel stories.
+
+    Used by the Again regeneration to reproduce the deck story's style. Works for
+    both per-category and unified stories because it matches by word, not deck.
+    """
+    conn = get_db()
+    row = conn.execute(
+        """SELECT s.gen_params FROM stories s
+           JOIN story_sentences ss ON ss.story_id = s.id
+           JOIN story_sentence_words sw ON sw.sentence_id = ss.id
+           WHERE sw.word_id = ? AND s.date = ? AND s.category != ?
+           ORDER BY s.generated_at DESC
+           LIMIT 1""",
+        (word_id, date_str, AGAIN_CATEGORY),
+    ).fetchone()
+    conn.close()
+    if not row or not row["gen_params"]:
+        return None
+    try:
+        return json.loads(row["gen_params"])
+    except (ValueError, TypeError):
+        return None
 
 
 def get_story_sentences(story_id: int) -> list[dict]:
