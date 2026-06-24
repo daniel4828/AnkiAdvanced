@@ -3546,11 +3546,7 @@ function revealAnswer() {
   // Default visibility: shown when "always show translation" is on, else hidden (press u to toggle).
   _sentFrEl.style.display = (_alwaysTranslation && _sentFrEl.textContent) ? '' : 'none';
   _sentDeEl.style.display = (_alwaysTranslation && _sentDeEl.textContent) ? '' : 'none';
-  // Show the toggle only when this card actually has a translation.
-  const _alwaysToggle = document.getElementById('always-trans-toggle');
-  const _hasTranslation = !!(_sentFrEl.textContent || _sentDeEl.textContent);
-  _alwaysToggle.style.display = _hasTranslation ? 'flex' : 'none';
-  document.getElementById('always-trans-checkbox').checked = _alwaysTranslation;
+  _syncTransEye();
 
   // Kahneman concept box (compact: part + chapter title only) + reasoning light bulb
   const _conceptRow = document.getElementById('sentence-concept-row');
@@ -4979,19 +4975,41 @@ function toggleTranslation() {
   const show = !anyVisible;
   fr.style.display = (show && fr.textContent) ? '' : 'none';
   de.style.display = (show && de.textContent) ? '' : 'none';
+  _syncTransEye();
 }
 
 // Persistent "always show translation" preference (survives across sessions).
 let _alwaysTranslation = localStorage.getItem('alwaysTranslation') === '1';
 
+// The eye icon only appears while the translation is visible; it is highlighted
+// when "always show" is on, grayed out when off.
+function _syncTransEye() {
+  const fr  = document.getElementById('sentence-fr');
+  const de  = document.getElementById('sentence-de');
+  const eye = document.getElementById('always-trans-eye');
+  if (!eye) return;
+  const visible = (fr.textContent && fr.style.display !== 'none') ||
+                  (de.textContent && de.style.display !== 'none');
+  eye.style.display = visible ? '' : 'none';
+  eye.classList.toggle('active', _alwaysTranslation);
+}
+
+function toggleAlwaysTranslation() {
+  setAlwaysTranslation(!_alwaysTranslation);
+}
+
 function setAlwaysTranslation(on) {
   _alwaysTranslation = !!on;
   localStorage.setItem('alwaysTranslation', _alwaysTranslation ? '1' : '0');
-  // Apply immediately to the card currently on screen.
-  const fr = document.getElementById('sentence-fr');
-  const de = document.getElementById('sentence-de');
-  fr.style.display = (_alwaysTranslation && fr.textContent) ? '' : 'none';
-  de.style.display = (_alwaysTranslation && de.textContent) ? '' : 'none';
+  // Turning on reveals the translation immediately so the change is visible;
+  // turning off only changes the default for future cards (leaves the current one).
+  if (_alwaysTranslation) {
+    const fr = document.getElementById('sentence-fr');
+    const de = document.getElementById('sentence-de');
+    if (fr.textContent) fr.style.display = '';
+    if (de.textContent) de.style.display = '';
+  }
+  _syncTransEye();
 }
 
 // ── Story error modal ─────────────────────────────────────────────────────────

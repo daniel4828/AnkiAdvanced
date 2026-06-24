@@ -1316,18 +1316,26 @@ main.browse-open {
   letter-spacing: 0.2px;
 }
 
-.always-trans-toggle {
+.sentence-trans-row {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  margin-top: 6px;
-  font-size: 11px;
-  color: var(--muted);
+  gap: 8px;
+}
+.always-trans-eye {
+  flex: 0 0 auto;
   cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.3;            /* grayed out = "always show" is off */
+  filter: grayscale(1);
+  transition: opacity 0.15s, filter 0.15s;
   user-select: none;
 }
-.always-trans-toggle input { cursor: pointer; margin: 0; }
+.always-trans-eye.active { /* highlighted = "always show" is on */
+  opacity: 1;
+  filter: none;
+}
 
 .char-row:last-child { border-bottom: none; }
 .char-row-link  { cursor: pointer; }
