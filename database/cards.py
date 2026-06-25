@@ -3,7 +3,7 @@ import sqlite3
 from datetime import date, datetime, timedelta
 from .core import get_db, anki_today
 from .presets import get_preset_for_deck
-from .decks import get_deck
+from .decks import get_deck, get_locked_deck_ids
 
 logger = logging.getLogger(__name__)
 
@@ -315,6 +315,10 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
     import random
     from itertools import groupby
 
+    # Future-dated daily decks are locked until their date — no card is reviewable.
+    if deck_id in get_locked_deck_ids():
+        return []
+
     today = anki_today().isoformat()
     tomorrow = (date.fromisoformat(today) + timedelta(days=1)).isoformat()
     now = datetime.now().isoformat(timespec="seconds")
@@ -465,6 +469,8 @@ def get_next_card(deck_id: int, category: str) -> dict | None:
 
 def count_due(deck_id: int, category: str) -> dict:
     """Returns {new, learning, review} counts for deck badge display."""
+    if deck_id in get_locked_deck_ids():
+        return {"new": 0, "learning": 0, "review": 0, "learning_future": 0}
     today = anki_today().isoformat()
     now = datetime.now().isoformat(timespec="seconds")
     preset = get_preset_for_deck(deck_id, category)
@@ -838,6 +844,9 @@ def count_due_deduped(leaf_pairs: list[tuple[int, str]]) -> dict:
 
     Respects the bury_siblings setting. Falls back to a simple sum if disabled.
     """
+    # Drop locked (future-dated daily) leaves so they don't inflate parent badges.
+    locked = get_locked_deck_ids()
+    leaf_pairs = [(d, c) for d, c in leaf_pairs if d not in locked]
     if not leaf_pairs:
         return {"new": 0, "learning": 0, "review": 0}
 
@@ -906,6 +915,15 @@ def count_due_deduped(leaf_pairs: list[tuple[int, str]]) -> dict:
     return {"new": new_count, "learning": learning_count, "review": review_count}
 
 
+def _locked_exclusion() -> tuple[str, list]:
+    """SQL fragment excluding locked (future-dated daily) decks, plus its params."""
+    locked = list(get_locked_deck_ids())
+    if not locked:
+        return "", []
+    placeholders = ",".join("?" * len(locked))
+    return f" AND deck_id NOT IN ({placeholders})", locked
+
+
 def _unfinished_where(scope: str) -> tuple[str, list]:
     """Build the WHERE clause + params for the unfinished virtual deck.
 
@@ -913,6 +931,7 @@ def _unfinished_where(scope: str) -> tuple[str, list]:
     scope='all': every card still due today (new + review + learning/relearn).
     """
     now = datetime.now().isoformat(timespec="seconds")
+    lock_clause, lock_params = _locked_exclusion()
     if scope == "all":
         today = anki_today().isoformat()
         tomorrow = (date.fromisoformat(today) + timedelta(days=1)).isoformat()
@@ -924,14 +943,16 @@ def _unfinished_where(scope: str) -> tuple[str, list]:
             "  OR (state = 'review' AND due <= ?)"
             "  OR (state = 'new' AND due <= ?)"
             ")"
+            + lock_clause
         )
-        return clause, [today, tomorrow, today, today]
+        return clause, [today, tomorrow, today, today, *lock_params]
     clause = (
         "state IN ('learning', 'relearn') AND due <= ? "
         "AND deleted_at IS NULL "
         "AND (buried_until IS NULL OR buried_until < date('now'))"
+        + lock_clause
     )
-    return clause, [now]
+    return clause, [now, *lock_params]
 
 
 def count_unfinished(scope: str = "unfinished") -> dict:
@@ -1351,7 +1372,16 @@ def count_due_all_decks() -> dict:
         (r["deck_id"], r["category"]): r["new_per_day"] for r in limit_rows
     }
 
+    # Future-dated daily decks are locked: force their counts to zero so they
+    # neither display due cards nor contribute to parent aggregation.
+    locked = get_locked_deck_ids()
+
     for key, c in counts.items():
+        if key[0] in locked:
+            c["new_raw"] = 0
+            c["learning"] = 0
+            c["review"] = 0
+            c["learning_future"] = 0
         limit = new_limits.get(key, 20)
         done = new_today.get(key, 0)
         c["new"] = min(c.pop("new_raw", 0), max(0, limit - done))
