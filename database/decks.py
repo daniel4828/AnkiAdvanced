@@ -264,6 +264,28 @@ def get_or_create_deck_path(path: str) -> int:
     return parent_id
 
 
+def get_or_create_category_decks(parent_deck_id: int, parent_name: str) -> dict:
+    """Ensure the three per-category leaf decks exist under a date/daily parent deck,
+    and return {category: deck_id}.
+
+    The rest of the app expects cards to live in these category leaf decks
+    ('<name> · Listening/Reading/Creating', each carrying a `category`), not directly
+    in the category-less parent — due counts and review queues are keyed by
+    (deck_id, category). This is the runtime twin of importer._make_leaf_decks.
+    """
+    return {
+        "listening": get_or_create_deck(
+            f"{parent_name} · Listening", parent_id=parent_deck_id, category="listening"
+        ),
+        "reading": get_or_create_deck(
+            f"{parent_name} · Reading", parent_id=parent_deck_id, category="reading"
+        ),
+        "creating": get_or_create_deck(
+            f"{parent_name} · Creating", parent_id=parent_deck_id, category="creating"
+        ),
+    }
+
+
 def get_or_create_saved_deck() -> int:
     """The fixed 'Saved' staging deck: holds suspended compound words the user
     set aside for later (see /api/save-word). Promoting moves them to a Daily deck."""

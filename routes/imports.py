@@ -182,14 +182,20 @@ def quick_add_word(body: dict):
     tomorrow = (date.today() + timedelta(days=1)).isoformat()
     deck_path = f"Daily::{tomorrow}"
     deck_id = database.get_or_create_deck_path(deck_path)
+    # Cards must live in the per-category leaf decks ('<date> · Listening/Reading/Creating'),
+    # not the category-less parent — otherwise due counts and review queues never see them.
+    leaf_decks = database.get_or_create_category_decks(deck_id, tomorrow)
 
     existing = database.get_word_by_zh(word_zh)
     if existing:
         entry_id = existing["id"]
         conn = database.get_db()
+        leaf_ids = tuple(leaf_decks.values())
+        placeholders = ",".join("?" * len(leaf_ids))
         already = conn.execute(
-            "SELECT id FROM cards WHERE word_id = ? AND deck_id = ? AND deleted_at IS NULL LIMIT 1",
-            (entry_id, deck_id),
+            f"SELECT id FROM cards WHERE word_id = ? AND deck_id IN ({placeholders}) "
+            "AND deleted_at IS NULL LIMIT 1",
+            (entry_id, *leaf_ids),
         ).fetchone()
         conn.close()
         if already:
@@ -218,7 +224,7 @@ def quick_add_word(body: dict):
         status = "created"
 
     for category in ("listening", "reading", "creating"):
-        database.insert_card(entry_id, category, deck_id, state="new", due=tomorrow)
+        database.insert_card(entry_id, category, leaf_decks[category], state="new", due=tomorrow)
 
     return {"status": status, "entry_id": entry_id, "deck_path": deck_path, "deck_id": deck_id}
 
@@ -280,8 +286,9 @@ def promote_saved(word_id: int):
     tomorrow = (date.today() + timedelta(days=1)).isoformat()
     deck_path = f"Daily::{tomorrow}"
     daily_deck_id = database.get_or_create_deck_path(deck_path)
+    leaf_decks = database.get_or_create_category_decks(daily_deck_id, tomorrow)
 
-    count = database.promote_saved_word(word_id, daily_deck_id, saved_deck_id, tomorrow)
+    count = database.promote_saved_word(word_id, leaf_decks, saved_deck_id, tomorrow)
     if not count:
         raise HTTPException(status_code=404, detail="No saved cards found for this word")
 

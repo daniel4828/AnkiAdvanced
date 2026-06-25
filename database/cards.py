@@ -36,25 +36,31 @@ def insert_card(word_id: int, category: str, deck_id: int,
     return row["id"]
 
 
-def promote_saved_word(word_id: int, target_deck_id: int,
+def promote_saved_word(word_id: int, target_deck_ids: dict,
                        saved_deck_id: int, due: str) -> int:
-    """Move a saved word's suspended cards out of the Saved deck into target_deck_id
-    as fresh 'new' cards due on `due`, clearing any scheduling state.
+    """Move a saved word's suspended cards out of the Saved deck into the per-category
+    leaf decks as fresh 'new' cards due on `due`, clearing any scheduling state.
+
+    target_deck_ids: {"listening": id, "reading": id, "creating": id} — each card is
+    routed to the leaf deck matching its category, so due counts and review queues
+    (keyed by deck_id, category) pick it up.
 
     Returns the number of cards promoted.
     """
     conn = get_db()
-    cur = conn.execute(
-        """UPDATE cards
-           SET deck_id=?, state='new', due=?, step_index=0, interval=0,
-               ease=2.5, repetitions=0, lapses=0, stability=NULL, difficulty=NULL,
-               last_review=NULL, learning_again_count=0, is_leech=0,
-               buried_until=NULL, pre_suspend_state=NULL
-           WHERE word_id=? AND deck_id=? AND deleted_at IS NULL""",
-        (target_deck_id, due, word_id, saved_deck_id),
-    )
+    count = 0
+    for category, target_deck_id in target_deck_ids.items():
+        cur = conn.execute(
+            """UPDATE cards
+               SET deck_id=?, state='new', due=?, step_index=0, interval=0,
+                   ease=2.5, repetitions=0, lapses=0, stability=NULL, difficulty=NULL,
+                   last_review=NULL, learning_again_count=0, is_leech=0,
+                   buried_until=NULL, pre_suspend_state=NULL
+               WHERE word_id=? AND deck_id=? AND category=? AND deleted_at IS NULL""",
+            (target_deck_id, due, word_id, saved_deck_id, category),
+        )
+        count += cur.rowcount
     conn.commit()
-    count = cur.rowcount
     conn.close()
     return count
 
