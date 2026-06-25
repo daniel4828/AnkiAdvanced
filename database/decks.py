@@ -192,7 +192,8 @@ def get_or_create_deck(name: str, parent_id: int | None = None,
     """Get deck id by (name, parent_id), creating it if it doesn't exist."""
     conn = get_db()
     row = conn.execute(
-        "SELECT id FROM decks WHERE name = ? AND parent_id IS ?", (name, parent_id)
+        "SELECT id FROM decks WHERE name = ? AND parent_id IS ? AND deleted_at IS NULL",
+        (name, parent_id),
     ).fetchone()
     if row:
         conn.close()
