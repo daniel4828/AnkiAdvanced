@@ -1233,6 +1233,22 @@ function renderDeckRows(decks, depth, sortMode) {
     const c = deck.counts || { new: 0, learning: 0, review: 0 };
     const deckCounts = `<span class="deck-counts">${_mixNewBtn(deck.id, deck.new_review_order_override)}<span class="n-new">${c.new}</span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span></span>`;
 
+    // Future-dated daily decks are locked until their date: greyed, not reviewable.
+    if (deck.locked) {
+      const lockRow = `
+        <div class="tree-row tree-parent deck-locked" style="padding-left:${16 + indent}px">
+          <span class="tree-toggle"></span>
+          <span class="tree-name-wrap">
+            <span class="tree-name">${deck.name}</span>
+            <span class="deck-lock-badge" title="Locked until ${deck.unlock_date}">🔒 unlocks ${deck.unlock_date}</span>
+          </span>
+        </div>`;
+      const lockedChildRows = hasStructChildren && !isCollapsed
+        ? renderDeckRows(structChildren, depth + 1, mode)
+        : '';
+      return lockRow + lockedChildRows;
+    }
+
     const buryMode   = deck.bury_mode || 'all';
     const buryIcon   = buryMode === 'all' ? '⛓' : buryMode === 'none' ? '⊘' : '≡';
     const buryClass  = `bury-btn bury-${buryMode}`;
