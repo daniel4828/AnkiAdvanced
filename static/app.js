@@ -1233,6 +1233,22 @@ function renderDeckRows(decks, depth, sortMode) {
     const c = deck.counts || { new: 0, learning: 0, review: 0 };
     const deckCounts = `<span class="deck-counts">${_mixNewBtn(deck.id, deck.new_review_order_override)}<span class="n-new">${c.new}</span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span></span>`;
 
+    // Future-dated daily decks are locked until their date: greyed, not reviewable.
+    if (deck.locked) {
+      const lockRow = `
+        <div class="tree-row tree-parent deck-locked" style="padding-left:${16 + indent}px">
+          <span class="tree-toggle"></span>
+          <span class="tree-name-wrap">
+            <span class="tree-name">${deck.name}</span>
+            <span class="deck-lock-badge" title="Locked until ${deck.unlock_date}">🔒 unlocks ${deck.unlock_date}</span>
+          </span>
+        </div>`;
+      const lockedChildRows = hasStructChildren && !isCollapsed
+        ? renderDeckRows(structChildren, depth + 1, mode)
+        : '';
+      return lockRow + lockedChildRows;
+    }
+
     const buryMode   = deck.bury_mode || 'all';
     const buryIcon   = buryMode === 'all' ? '⛓' : buryMode === 'none' ? '⊘' : '≡';
     const buryClass  = `bury-btn bury-${buryMode}`;
@@ -5023,6 +5039,33 @@ async function rate(rating) {
     document.getElementById('undo-btn').disabled = false;
   } catch (e) {
     showError('Submit failed: ' + e.message);
+    document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
+  }
+}
+
+// ── "New sentence" — re-show this card soon with a freshly generated sentence ──
+// Not a rating: scheduling (ease/interval/state/today's count) is untouched. The
+// card is soft-requeued ~1 min out while a new sentence regenerates in the
+// background, so the user reviews other cards meanwhile.
+async function requeueNewSentence() {
+  document.querySelectorAll('.r-btn').forEach(b => b.disabled = true);
+  try {
+    let url = `/api/review/requeue?card_id=${card.id}`;
+    if (unfinishedMode) url += `&unfinished_mode=true&unfinished_scope=${_unfinishedScope}`;
+    else if (rootDeckId) url += `&root_deck_id=${rootDeckId}`;
+    else if (deckId) url += `&parent_deck_id=${deckId}`;
+    const result = await api('POST', url);
+    if (!result.next_card) {
+      rootDeckId = null;
+      unfinishedMode = false;
+      showView('done');
+      return;
+    }
+    if (unfinishedMode || rootDeckId) category = result.next_card.category;
+    loadCard(result.next_card, result.counts);
+    document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
+  } catch (e) {
+    showError('Could not requeue: ' + e.message);
     document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
   }
 }

@@ -78,12 +78,17 @@ def get_decks(unfinished_scope: str = "unfinished"):
     _attach_counts(flat)
     # Attach bury_mode so the frontend can render the 3-state toggle without extra calls
     presets = {p["id"]: p for p in database.list_presets()}
+    locked = database.get_locked_deck_ids()
     for deck in flat:
         pid = deck.get("preset_id")
         p = presets.get(pid, {})
         deck["bury_mode"] = deck.get("bury_quick_mode", "all")
         deck["new_review_order_override"] = deck.get("new_review_order_override")
         deck["category_order"] = p.get("category_order", "listening,reading,creating")
+        # Future-dated daily decks are locked until their date — flag for the UI.
+        if deck.get("id") in locked:
+            deck["locked"] = True
+            deck["unlock_date"] = locked[deck["id"]]
     unfinished = database.count_unfinished(unfinished_scope)
     if sum(unfinished.values()) > 0:
         tree.insert(0, {

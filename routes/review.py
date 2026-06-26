@@ -1,6 +1,6 @@
 import logging
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException
 
 import database
@@ -20,11 +20,13 @@ _undo_stack: list[dict] = []
 # ---------------------------------------------------------------------------
 
 def _attach_again_sentence(card: dict | None) -> dict | None:
-    """If this learning/relearn card has a freshly regenerated sentence (from a
-    previous Again today), attach it as card["again_sentence"] so the frontend
-    shows the new sentence instead of the old story one."""
-    if (card and card.get("state") in ("learning", "relearn")
-            and card.get("note_type") != "sentence" and card.get("word_id")):
+    """If a fresh sentence was regenerated for this word today (from a previous
+    Again, or the "new sentence" requeue button), attach it as
+    card["again_sentence"] so the frontend shows it instead of the old story one.
+
+    Not gated on card state: the requeue button leaves scheduling untouched, so
+    the card can be in any state when it reappears with its new sentence."""
+    if (card and card.get("note_type") != "sentence" and card.get("word_id")):
         today = database.anki_today().isoformat()
         again = database.get_again_sentence_for_word(card["word_id"], today)
         if again:
@@ -329,6 +331,62 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
     }
     return {"next_card": next_card, "counts": counts, "transition": transition}
 
+
+@router.post("/api/review/requeue")
+def requeue_card(card_id: int, root_deck_id: int | None = None,
+                 parent_deck_id: int | None = None, unfinished_mode: bool = False,
+                 unfinished_scope: str = "unfinished", delay_seconds: int = 60):
+    """"New sentence" button: re-show this card ~delay_seconds later WITHOUT any
+    scheduling change, and regenerate its sentence in the background.
+
+    Unlike a rating this touches no SRS state (ease/interval/state/lapses/today's
+    review count are all untouched). It mirrors /api/review's queue context so the
+    card lands back in the same session queue. Returns {next_card, counts} so the
+    frontend advances exactly as it does after a rating."""
+    card = database.get_card(card_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    deck_id = card["deck_id"]
+    cat = card["category"]
+
+    # Background: regenerate one fresh sentence for this word (reuses Again infra).
+    _spawn_again_regen(card)
+
+    due = (datetime.now() + timedelta(seconds=delay_seconds)).isoformat(timespec="seconds")
+
+    if unfinished_mode:
+        # The unfinished virtual deck isn't backed by an in-memory queue, so there
+        # is nothing to soft-requeue into; just advance (regen still happens).
+        next_card = database.get_next_unfinished_card(unfinished_scope)
+        if next_card:
+            next_card["intervals"] = srs.preview_intervals(next_card)
+            next_card["fsrs"] = srs.explain_card(next_card)
+            _attach_again_sentence(next_card)
+        counts = database.count_unfinished(unfinished_scope)
+    elif root_deck_id:
+        key, build_fn = _key_and_build(root_deck_id=root_deck_id)
+        _queue_mgr.soft_requeue(key, card_id, due)
+        next_card = _next_card_from_queue(key, build_fn)
+        counts = database.count_due_any_cat(root_deck_id)
+        counts["by_cat"] = database.count_due_by_category(root_deck_id)
+    elif parent_deck_id:
+        ids = leaf_ids(parent_deck_id, cat)
+        key, build_fn = _key_and_build(ids=ids, category=cat, parent_for_multi=parent_deck_id)
+        _queue_mgr.soft_requeue(key, card_id, due)
+        next_card = _next_card_from_queue(key, build_fn)
+        counts = database.count_due_multi(ids, cat, root_deck_id=parent_deck_id)
+        counts["by_cat"] = database.count_due_by_category(parent_deck_id)
+    else:
+        key, build_fn = _key_and_build(deck_id=deck_id, category=cat)
+        _queue_mgr.soft_requeue(key, card_id, due)
+        next_card = _next_card_from_queue(key, build_fn)
+        counts = database.count_due(deck_id, cat)
+        parent_id = database.get_parent_deck_id(deck_id)
+        counts["by_cat"] = database.count_due_by_category(parent_id or deck_id)
+
+    logger.info("requeue  card=#%d word=%s cat=%s → re-show at %s (no scheduling change)",
+                card_id, card.get("word_zh"), cat, due)
+    return {"next_card": next_card, "counts": counts}
 
 
 @router.post("/api/review/undo")

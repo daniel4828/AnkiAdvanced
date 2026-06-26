@@ -640,7 +640,7 @@ main.browse-open {
 /* Rating buttons */
 .rating-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, 1fr) auto;
   gap: 8px;
 }
 
@@ -736,6 +736,12 @@ main.browse-open {
 .r-hard  { background: var(--hard); }
 .r-good  { background: var(--good); }
 .r-easy  { background: var(--easy); }
+/* "New sentence" requeue — neutral, compact, sits to the right of the ratings. */
+.r-newsentence {
+  background: #64748b;
+  font-size: 16px;
+  padding: 11px 12px 9px;
+}
 
 /* ── Vocab detail (below ratings on back side) ───────── */
 .vocab-detail {
@@ -1781,6 +1787,16 @@ main.browse-open {
 .tree-cat-icon { font-size: 15px; flex-shrink: 0; }
 .tree-name-wrap { flex: 1; display: flex; align-items: center; gap: 4px; min-width: 0; }
 .tree-name  { font-size: 15px; font-weight: 600; }
+
+/* Future-dated daily decks: locked until their date, not reviewable. */
+.deck-locked .tree-name { color: #9ca3af; font-weight: 600; cursor: default; }
+.deck-locked { opacity: 0.7; }
+.deck-lock-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: #9ca3af;
+  white-space: nowrap;
+}
 .tree-counts { font-size: 13px; font-weight: 700; white-space: nowrap; }
 .tree-card {
   background: var(--card);
