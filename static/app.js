@@ -3305,7 +3305,7 @@ function loadCard(c, counts) {
         // Word bank: sentence just loaded — update hint and rebuild token bank
         const enFront = document.getElementById('sentence-en-front');
         enFront.style.display = 'flex';
-        enFront.textContent = sentence.sentence_de || sentence.sentence_fr || '';
+        enFront.textContent = sentence.sentence_de || sentence.sentence_fr || sentence.sentence_en || '';
         if (document.getElementById('word-bank-wrap').style.display !== 'none') {
           renderWordBankUI();
         }
@@ -3523,7 +3523,7 @@ function showFront() {
       setTimeout(() => inp.focus(), 80);
     } else {
       // Word bank mode: German/French translation as hint; word bank renders below
-      document.getElementById('sentence-en-front').textContent = sentence?.sentence_de || sentence?.sentence_fr || '';
+      document.getElementById('sentence-en-front').textContent = sentence?.sentence_de || sentence?.sentence_fr || sentence?.sentence_en || '';
       userInput = '';
       renderWordBankUI();
     }
