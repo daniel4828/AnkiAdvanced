@@ -5044,11 +5044,13 @@ async function rate(rating) {
 }
 
 // ── "New sentence" — re-show this card soon with a freshly generated sentence ──
-// Not a rating: scheduling (ease/interval/state/today's count) is untouched. The
-// card is soft-requeued ~1 min out while a new sentence regenerates in the
-// background, so the user reviews other cards meanwhile.
+// Lives on the FRONT of the card: when the sentence reads badly, swap it before
+// even flipping. Not a rating: scheduling (ease/interval/state/today's count) is
+// untouched. The card is soft-requeued ~1 min out while a new sentence
+// regenerates in the background, so the user reviews other cards meanwhile.
 async function requeueNewSentence() {
-  document.querySelectorAll('.r-btn').forEach(b => b.disabled = true);
+  const btn = document.getElementById('new-sentence-btn');
+  if (btn) btn.disabled = true;
   try {
     let url = `/api/review/requeue?card_id=${card.id}`;
     if (unfinishedMode) url += `&unfinished_mode=true&unfinished_scope=${_unfinishedScope}`;
@@ -5063,10 +5065,10 @@ async function requeueNewSentence() {
     }
     if (unfinishedMode || rootDeckId) category = result.next_card.category;
     loadCard(result.next_card, result.counts);
-    document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
+    if (btn) btn.disabled = false;
   } catch (e) {
     showError('Could not requeue: ' + e.message);
-    document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -5984,50 +5986,44 @@ async function regenerateStoryFromList(deckId) {
   document.getElementById('setup-topic').focus();
 }
 
+// Regenerate a deck's story in the BACKGROUND: instead of a blocking full-screen
+// loader, show a small persistent banner and let the user keep reviewing. When
+// the new story is ready the banner turns into a clickable "open for review".
 async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null) {
-  setLoading('Regenerating story…', true);
-  setLoadingStep(10, null, 'Sending request to AI…');
-  _startFakeProgress(10, 55, 45000);
-  _startStoryProgressPoll(deckId, 'unified');
+  const deck = flatten(_cachedDecks || []).find(d => d.id === deckId);
+  const deckName = deck ? deck.name : 'deck';
+  const noStory = !!(deck && deck.no_story);
+
+  const banner = document.getElementById('bg-story-banner');
+  if (banner) {
+    banner.classList.add('bg-banner-progress');
+    banner.textContent = `⏳ Regenerating story for ${deckName} in the background — keep reviewing…`;
+    banner.onclick = null;
+    banner.style.display = 'block';
+  }
+
   try {
-    let storyData;
-    try {
-      storyData = await api('POST', `/api/story/${deckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds));
-    } catch (e) {
-      _stopFakeProgress(); _stopStoryProgressPoll();
-      _showLoadingError('AI request failed', e.message);
-      await new Promise(r => setTimeout(r, 2500));
-      showError('Regenerate failed: ' + e.message);
-      showView('decks');
-      return;
-    }
-    _stopFakeProgress(); _stopStoryProgressPoll();
-
-    // Preload audio before starting review
-    const sentenceCount = storyData?.sentences?.length ?? 0;
-    setLoadingStep(70, 'Story ready!',
-      sentenceCount > 0 ? `Generating audio — 0 / ${sentenceCount} sentences…` : 'Loading audio…');
-    await _preloadWithProgress(deckId, 'unified', (done, total) => {
-      const pct = 70 + Math.round((done / total) * 28);
-      setLoadingStep(pct, null, `Generating audio — ${done} / ${total} sentences…`);
-    });
-
-    _showLoadingSuccess('Story regenerated!');
-    await new Promise(r => setTimeout(r, 500));
-
-    // Auto-open the deck for review (story is already in DB, will load fast)
-    const deck = flatten(_cachedDecks || []).find(d => d.id === deckId);
-    if (deck) {
-      await startReviewMixed(deckId, deck.name, !!deck.no_story);
-    } else {
-      showView('decks');
+    await api('POST', `/api/story/${deckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds));
+    // Warm the audio cache in the background so review starts fast; don't block
+    // the "ready" banner on it.
+    _preloadWithProgress(deckId, 'unified', () => {}).catch(() => {});
+    if (banner) {
+      banner.classList.remove('bg-banner-progress');
+      banner.textContent = `📖 Story ready — ${deckName} · click to review`;
+      banner.style.display = 'block';
+      banner.onclick = () => {
+        banner.style.display = 'none';
+        banner.onclick = null;
+        startReviewMixed(deckId, deckName, noStory);
+      };
     }
   } catch (e) {
-    _stopFakeProgress(); _stopStoryProgressPoll();
-    _showLoadingError('Regenerate failed', e.message);
-    await new Promise(r => setTimeout(r, 2500));
+    if (banner) {
+      banner.classList.remove('bg-banner-progress');
+      banner.onclick = null;
+      banner.style.display = 'none';
+    }
     showError('Regenerate failed: ' + e.message);
-    showView('decks');
   }
 }
 
