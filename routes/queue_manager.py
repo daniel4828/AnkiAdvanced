@@ -42,6 +42,9 @@ class SessionQueue:
     ) -> None:
         self.main = deque(main_ids)          # card IDs, pre-interleaved
         self.intraday = deque(intraday)      # [{id, due}, ...], sorted by due
+        # Soft requeues from the "new sentence" button: re-show a card at a
+        # timestamp WITHOUT touching its DB scheduling state. Purely in-memory.
+        self.requeued = deque()              # [{id, due}, ...], sorted by due
         self.built_date = built_date
 
 
@@ -79,13 +82,27 @@ class QueueManager:
             (e for e in q.intraday if e["due"] <= now),
             None,
         )
+        # Soft-requeued card (from the "new sentence" button) due right now?
+        requeue_now = next(
+            (e for e in q.requeued if e["due"] <= now),
+            None,
+        )
 
         if due_now:
             result = due_now["id"]
             source = "intraday"
+        elif requeue_now:
+            result = requeue_now["id"]
+            source = "requeued"
         elif q.main:
             result = q.main[0]
             source = "main"
+        elif q.requeued:
+            # Nothing else to show, but a soft-requeued card is still pending.
+            # Show the soonest one now (rather than ending the session) so the
+            # requeue isn't lost when it was the last remaining card.
+            result = q.requeued[0]["id"]
+            source = "requeued_early"
         else:
             result = None
             source = "empty"
@@ -147,6 +164,9 @@ class QueueManager:
         intraday_before = [e["id"] for e in q.intraday]
         q.intraday = deque(e for e in q.intraday if e["id"] != card_id)
 
+        # A real review supersedes any pending soft requeue for this card.
+        q.requeued = deque(e for e in q.requeued if e["id"] != card_id)
+
         # Re-insert into intraday if it became a same-day learning card
         if becomes_intraday:
             entries = list(q.intraday) + [{"id": card_id, "due": new_due}]
@@ -163,6 +183,7 @@ class QueueManager:
             new_intraday = deque(e for e in q.intraday if e["id"] not in remove_set)
             buried_removed_intraday = [e["id"] for e in q.intraday if e["id"] in remove_set]
             q.intraday = new_intraday
+            q.requeued = deque(e for e in q.requeued if e["id"] not in remove_set)
 
         logger.debug(
             "[QueueMgr] after_review key=%s card=#%d → state=%s due=%s\n"
@@ -184,6 +205,31 @@ class QueueManager:
             intraday_before,
             [e["id"] for e in q.intraday],
         )
+
+    def soft_requeue(self, key: tuple, card_id: int, due: str) -> bool:
+        """Re-show a card at `due` WITHOUT changing its DB scheduling state.
+
+        Backs the "new sentence" button: the card is pulled from its current
+        position and parked in the in-memory `requeued` deque (sorted by due), so
+        it reappears around `due` while the user reviews other cards meanwhile.
+        Returns False if there is no live queue for this key (nothing to do).
+        """
+        if key not in self._queues:
+            logger.debug("[QueueMgr] soft_requeue key=%s — queue not found, skipping", key)
+            return False
+        q = self._queues[key]
+        # Pull the card out of wherever it currently sits.
+        q.main = deque(cid for cid in q.main if cid != card_id)
+        q.intraday = deque(e for e in q.intraday if e["id"] != card_id)
+        q.requeued = deque(e for e in q.requeued if e["id"] != card_id)
+        # Park it in requeued, kept sorted by due so requeued[0] is the soonest.
+        entries = list(q.requeued) + [{"id": card_id, "due": due}]
+        q.requeued = deque(sorted(entries, key=lambda e: e["due"]))
+        logger.debug(
+            "[QueueMgr] soft_requeue key=%s card=#%d due=%s → requeued=%s",
+            key, card_id, due, [(e["id"], e["due"]) for e in q.requeued],
+        )
+        return True
 
     def invalidate(self, key: tuple | None = None) -> None:
         """Discard one queue (or all queues) so the next access rebuilds."""

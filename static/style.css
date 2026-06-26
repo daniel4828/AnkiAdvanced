@@ -640,7 +640,7 @@ main.browse-open {
 /* Rating buttons */
 .rating-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, 1fr) auto;
   gap: 8px;
 }
 
@@ -736,6 +736,12 @@ main.browse-open {
 .r-hard  { background: var(--hard); }
 .r-good  { background: var(--good); }
 .r-easy  { background: var(--easy); }
+/* "New sentence" requeue — neutral, compact, sits to the right of the ratings. */
+.r-newsentence {
+  background: #64748b;
+  font-size: 16px;
+  padding: 11px 12px 9px;
+}
 
 /* ── Vocab detail (below ratings on back side) ───────── */
 .vocab-detail {
