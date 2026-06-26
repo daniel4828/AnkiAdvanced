@@ -1781,6 +1781,16 @@ main.browse-open {
 .tree-cat-icon { font-size: 15px; flex-shrink: 0; }
 .tree-name-wrap { flex: 1; display: flex; align-items: center; gap: 4px; min-width: 0; }
 .tree-name  { font-size: 15px; font-weight: 600; }
+
+/* Future-dated daily decks: locked until their date, not reviewable. */
+.deck-locked .tree-name { color: #9ca3af; font-weight: 600; cursor: default; }
+.deck-locked { opacity: 0.7; }
+.deck-lock-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: #9ca3af;
+  white-space: nowrap;
+}
 .tree-counts { font-size: 13px; font-weight: 700; white-space: nowrap; }
 .tree-card {
   background: var(--card);

@@ -1,5 +1,8 @@
+import re
 import sqlite3
-from .core import get_db, _ensure_default_preset, _ensure_sentences_leaf_decks
+from datetime import date
+
+from .core import anki_today, get_db, _ensure_default_preset, _ensure_sentences_leaf_decks
 
 
 # ---------------------------------------------------------------------------
@@ -290,6 +293,87 @@ def get_or_create_saved_deck() -> int:
     """The fixed 'Saved' staging deck: holds suspended compound words the user
     set aside for later (see /api/save-word). Promoting moves them to a Daily deck."""
     return get_or_create_deck_path("Saved")
+
+
+# ---------------------------------------------------------------------------
+# Future-dated daily deck locking
+#
+# Daily decks (the date-named children of a 'daily'/'Daily' root) are special:
+# a deck dated in the future must not be reviewable until its date arrives. We
+# detect them by parsing the date out of the deck name and comparing to today.
+# ---------------------------------------------------------------------------
+
+_ISO_DATE_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})")
+_MD_DATE_RE = re.compile(r"^(\d{1,2})[-_](\d{1,2})")
+
+
+def parse_daily_deck_date(name: str, today: date | None = None) -> date | None:
+    """Parse the date a daily deck name encodes, or None if it isn't date-like.
+
+    Handles ISO 'YYYY-MM-DD' (quick-add decks) and 'MM-DD' / 'MM_DD' (legacy daily
+    decks), each optionally followed by a suffix (e.g. '05-08_kouyu'). For the
+    year-less MM-DD form the year is inferred as the occurrence nearest to today,
+    so dates near a year boundary resolve sensibly.
+    """
+    if not name:
+        return None
+    name = name.strip()
+    m = _ISO_DATE_RE.match(name)
+    if m:
+        try:
+            return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        except ValueError:
+            return None
+    m = _MD_DATE_RE.match(name)
+    if m:
+        today = today or anki_today()
+        month, day = int(m.group(1)), int(m.group(2))
+        for year in (today.year - 1, today.year, today.year + 1):
+            try:
+                candidate = date(year, month, day)
+            except ValueError:
+                continue
+            if abs((candidate - today).days) <= 183:
+                return candidate
+        return None
+    return None
+
+
+def get_locked_deck_ids() -> dict[int, str]:
+    """Return {deck_id: unlock_date_iso} for every deck locked because it is a
+    future-dated daily deck (a date-named child of a 'daily' root) or a descendant
+    of one. Locked decks contribute no due cards and cannot be reviewed until then.
+    """
+    today = anki_today()
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT id, name, parent_id FROM decks WHERE deleted_at IS NULL"
+    ).fetchall()
+    conn.close()
+
+    children: dict[int | None, list] = {}
+    for r in rows:
+        children.setdefault(r["parent_id"], []).append(r)
+    daily_root_ids = {
+        r["id"] for r in rows if (r["name"] or "").strip().lower() == "daily"
+    }
+
+    locked: dict[int, str] = {}
+    for r in rows:
+        if r["parent_id"] not in daily_root_ids:
+            continue
+        d = parse_daily_deck_date(r["name"], today)
+        if not d or d <= today:
+            continue
+        iso = d.isoformat()
+        # Lock this date deck and every descendant (its category leaf decks).
+        stack = [r["id"]]
+        while stack:
+            cur = stack.pop()
+            locked[cur] = iso
+            for kid in children.get(cur, []):
+                stack.append(kid["id"])
+    return locked
 
 
 def get_word_deck_names(word_id: int) -> list[str]:
