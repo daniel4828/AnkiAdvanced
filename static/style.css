@@ -1732,6 +1732,20 @@ main.browse-open {
   font-weight: 700;
   letter-spacing: -2px;
 }
+/* Target word's blank: fixed geometry so the hint (before) and the typed word
+   (after) occupy the same box width — the rest of the sentence never reflows.
+   Width uses rem (not em) so it stays constant despite the font-size change
+   between the small hint and the large filled word. data-de is kept on the
+   span after filling (only the wb-de-hint class is removed), so this selector
+   covers both states. */
+.wb-skel-blank[data-de] {
+  display: inline-block;
+  width: 13rem;
+  white-space: normal;
+  line-height: 1.2;
+  text-align: center;
+  vertical-align: middle;
+}
 /* Faint German translation shown inside the target word's blank as a hint */
 .wb-skel-blank.wb-de-hint {
   color: #c2c2c2;
@@ -1739,10 +1753,6 @@ main.browse-open {
   font-size: 14px;
   font-style: italic;
   letter-spacing: 0;
-  white-space: normal;
-  max-width: 13em;
-  line-height: 1.2;
-  text-align: center;
 }
 .word-bank-tokens {
   display: flex;
