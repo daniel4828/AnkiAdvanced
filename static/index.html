@@ -134,8 +134,14 @@
             </div>
             <!-- Creating: English/German context sentence (shown above Chinese for cloze) -->
             <div class="sentence-en-front" id="sentence-en-front"></div>
-            <!-- Creating: target word translation hint (FR > DE > EN) -->
-            <div class="creating-word-def" id="creating-word-def" style="display:none"></div>
+            <!-- Creating: target word translation hint (FR > DE > EN).
+                 Hidden by default; press k to toggle. The eye icon controls the
+                 persistent "always show hint" preference (only visible while shown). -->
+            <div class="creating-word-def-row" id="creating-word-def-row" style="display:none">
+              <div class="creating-word-def" id="creating-word-def"></div>
+              <span class="always-trans-eye" id="creating-word-def-eye" role="button" tabindex="0"
+                    onclick="toggleAlwaysWordDef()" title="Always show translation hint">👀</span>
+            </div>
             <!-- Reading / Cloze: Chinese sentence on front (reading shows full, cloze shows blanked) -->
             <div class="sentence" id="sentence-front"></div>
             <div class="creating-input-wrap" id="creating-input-wrap">
@@ -155,7 +161,11 @@
               </div>
               <div class="input-label">Reconstruct the sentence</div>
               <div class="word-bank-skeleton" id="word-bank-skeleton"></div>
-              <div class="creating-word-def" id="creating-word-def-wb" style="display:none"></div>
+              <div class="creating-word-def-row" id="creating-word-def-wb-row" style="display:none">
+                <div class="creating-word-def" id="creating-word-def-wb"></div>
+                <span class="always-trans-eye" id="creating-word-def-wb-eye" role="button" tabindex="0"
+                      onclick="toggleAlwaysWordDef()" title="Always show translation hint">👀</span>
+              </div>
               <div class="word-bank-tokens" id="word-bank-tokens"></div>
               <input type="text" id="word-bank-input"
                      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
@@ -204,7 +214,7 @@
               <div class="sentence-de" id="sentence-de"></div>
               <span class="always-trans-eye" id="always-trans-eye" role="button" tabindex="0"
                     style="display:none" onclick="toggleAlwaysTranslation()"
-                    title="Always show translation">👁</span>
+                    title="Always show translation">👀</span>
             </div>
             <!-- Kahneman chapter concept + reasoning light bulb (Kahneman-mode only) -->
             <div id="sentence-concept-row" class="sentence-concept-row" style="display:none">

@@ -3305,7 +3305,7 @@ function loadCard(c, counts) {
         // Word bank: sentence just loaded — update hint and rebuild token bank
         const enFront = document.getElementById('sentence-en-front');
         enFront.style.display = 'flex';
-        enFront.textContent = sentence.sentence_de || sentence.sentence_fr || '';
+        enFront.textContent = sentence.sentence_de || sentence.sentence_fr || sentence.sentence_en || '';
         if (document.getElementById('word-bank-wrap').style.display !== 'none') {
           renderWordBankUI();
         }
@@ -3477,28 +3477,36 @@ function showFront() {
   document.getElementById('word-bank-wrap').style.display      = isCloze ? 'flex' : 'none';
   if (isCloze) _initWordBankSlider();
 
-  // Creating: show FR and DE (both always visible); fallback EN if neither exists
+  // Creating: target-word translation hint (🇬🇧/🇫🇷/🇩🇪). Hidden by default;
+  // press k to toggle, or the eye icon to make it always show (see toggleWordDef).
   const wordDefHint   = document.getElementById('creating-word-def');
   const wordDefHintWb = document.getElementById('creating-word-def-wb');
+  const wordDefRow    = document.getElementById('creating-word-def-row');
+  const wordDefRowWb  = document.getElementById('creating-word-def-wb-row');
   if (isCreating) {
     const parts = [];
     if (card.definition) parts.push(`🇬🇧 ${card.definition}`);
     if (card.definition_fr) parts.push(`🇫🇷 ${card.definition_fr}`);
     if (card.definition_de) parts.push(`🇩🇪 ${card.definition_de}`);
     const defText = parts.join('<br>');
-    if (isCloze) {
-      wordDefHint.style.display = 'none';
-      wordDefHintWb.innerHTML = defText;
-      wordDefHintWb.style.display = defText ? 'block' : 'none';
-    } else {
-      wordDefHintWb.style.display = 'none';
-      wordDefHint.innerHTML = defText;
-      wordDefHint.style.display = defText ? 'block' : 'none';
-    }
+    // Only one placement is active (word bank for cloze, plain otherwise); clear the other.
+    const activeHint = isCloze ? wordDefHintWb : wordDefHint;
+    const activeRow  = isCloze ? wordDefRowWb  : wordDefRow;
+    const otherHint  = isCloze ? wordDefHint   : wordDefHintWb;
+    const otherRow   = isCloze ? wordDefRow    : wordDefRowWb;
+    otherHint.innerHTML = '';
+    otherRow.style.display = 'none';
+    activeHint.innerHTML = defText;
+    activeRow.style.display = defText ? 'flex' : 'none';
+    // Hidden unless the persistent "always show" preference is on.
+    activeHint.style.display = (defText && _alwaysWordDef) ? 'block' : 'none';
   } else {
-    wordDefHint.style.display = 'none';
-    wordDefHintWb.style.display = 'none';
+    wordDefHint.innerHTML = '';
+    wordDefHintWb.innerHTML = '';
+    wordDefRow.style.display = 'none';
+    wordDefRowWb.style.display = 'none';
   }
+  _syncWordDefEye();
 
   if (isCreating) {
     if (isSentence || quickMode) {
@@ -3515,7 +3523,7 @@ function showFront() {
       setTimeout(() => inp.focus(), 80);
     } else {
       // Word bank mode: German/French translation as hint; word bank renders below
-      document.getElementById('sentence-en-front').textContent = sentence?.sentence_de || sentence?.sentence_fr || '';
+      document.getElementById('sentence-en-front').textContent = sentence?.sentence_de || sentence?.sentence_fr || sentence?.sentence_en || '';
       userInput = '';
       renderWordBankUI();
     }
@@ -5174,6 +5182,62 @@ function setAlwaysTranslation(on) {
     if (de.textContent) de.style.display = '';
   }
   _syncTransEye();
+}
+
+// ── Creating-mode translation hint toggle (🇬🇧/🇫🇷/🇩🇪) ───────────────────────
+// The hint is hidden by default so the user recalls first; press k to peek, or
+// click the eye icon to keep it always visible (persistent preference).
+// Two placements exist (plain input vs word bank); only one holds content at a time.
+const _WORDDEF_PLACEMENTS = [
+  ['creating-word-def',    'creating-word-def-eye'],
+  ['creating-word-def-wb', 'creating-word-def-wb-eye'],
+];
+
+function _activeWordDefHint() {
+  return _WORDDEF_PLACEMENTS
+    .map(([hintId]) => document.getElementById(hintId))
+    .find(el => el && el.innerHTML.trim()) || null;
+}
+
+function toggleWordDef() {
+  const hint = _activeWordDefHint();
+  if (!hint) return;
+  const show = hint.style.display === 'none';
+  hint.style.display = show ? 'block' : 'none';
+  // Hiding while "always show" is on turns the preference off.
+  if (!show && _alwaysWordDef) {
+    _alwaysWordDef = false;
+    localStorage.setItem('alwaysWordDef', '0');
+  }
+  _syncWordDefEye();
+}
+
+// Persistent "always show creating-mode hint" preference (survives across sessions).
+let _alwaysWordDef = localStorage.getItem('alwaysWordDef') === '1';
+
+// The eye icon only appears while the hint is visible; highlighted when "always show" is on.
+function _syncWordDefEye() {
+  for (const [hintId, eyeId] of _WORDDEF_PLACEMENTS) {
+    const hint = document.getElementById(hintId);
+    const eye  = document.getElementById(eyeId);
+    if (!hint || !eye) continue;
+    const visible = hint.innerHTML.trim() && hint.style.display !== 'none';
+    eye.style.display = visible ? '' : 'none';
+    eye.classList.toggle('active', _alwaysWordDef);
+  }
+}
+
+function toggleAlwaysWordDef() { setAlwaysWordDef(!_alwaysWordDef); }
+
+function setAlwaysWordDef(on) {
+  _alwaysWordDef = !!on;
+  localStorage.setItem('alwaysWordDef', _alwaysWordDef ? '1' : '0');
+  // Turning on reveals the hint immediately so the change is visible.
+  if (_alwaysWordDef) {
+    const hint = _activeWordDefHint();
+    if (hint) hint.style.display = 'block';
+  }
+  _syncWordDefEye();
 }
 
 // ── Story error modal ─────────────────────────────────────────────────────────
@@ -7283,6 +7347,8 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); togglePinyin();
     } else if (e.key === 'u') {
       e.preventDefault(); toggleTranslation();
+    } else if (e.key === 'k') {
+      e.preventDefault(); toggleWordDef();
     } else if (e.key === ' ') {
       e.preventDefault(); if (!backVisible) revealAnswer();
     } else if (['1','2','3','4'].includes(e.key) && backVisible) {
