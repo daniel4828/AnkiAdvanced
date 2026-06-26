@@ -172,6 +172,14 @@ main.browse-open {
   display: none;
 }
 #bg-story-banner:hover { background: #d1fae5; }
+/* In-progress state: neutral amber, not yet clickable. */
+#bg-story-banner.bg-banner-progress {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: #fde68a;
+  cursor: default;
+}
+#bg-story-banner.bg-banner-progress:hover { background: #fffbeb; }
 
 /* ── Deck list ───────────────────────────────────────── */
 #view-decks { display: none; }
