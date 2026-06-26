@@ -5027,6 +5027,33 @@ async function rate(rating) {
   }
 }
 
+// ── "New sentence" — re-show this card soon with a freshly generated sentence ──
+// Not a rating: scheduling (ease/interval/state/today's count) is untouched. The
+// card is soft-requeued ~1 min out while a new sentence regenerates in the
+// background, so the user reviews other cards meanwhile.
+async function requeueNewSentence() {
+  document.querySelectorAll('.r-btn').forEach(b => b.disabled = true);
+  try {
+    let url = `/api/review/requeue?card_id=${card.id}`;
+    if (unfinishedMode) url += `&unfinished_mode=true&unfinished_scope=${_unfinishedScope}`;
+    else if (rootDeckId) url += `&root_deck_id=${rootDeckId}`;
+    else if (deckId) url += `&parent_deck_id=${deckId}`;
+    const result = await api('POST', url);
+    if (!result.next_card) {
+      rootDeckId = null;
+      unfinishedMode = false;
+      showView('done');
+      return;
+    }
+    if (unfinishedMode || rootDeckId) category = result.next_card.category;
+    loadCard(result.next_card, result.counts);
+    document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
+  } catch (e) {
+    showError('Could not requeue: ' + e.message);
+    document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
+  }
+}
+
 // ── Undo last rating ─────────────────────────────────────────────────────────
 async function undoReview() {
   try {
