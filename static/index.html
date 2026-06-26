@@ -163,7 +163,11 @@
                      oninput="updateWordBankPreview(this.value)"
                      onkeydown="if(event.key==='Enter')revealAnswer()">
             </div>
-            <button class="reveal-btn" id="reveal-btn" onclick="revealAnswer()">Show Answer</button>
+            <div class="front-actions-row">
+              <button class="reveal-btn" id="reveal-btn" onclick="revealAnswer()">Show Answer</button>
+              <button class="front-newsentence-btn" id="new-sentence-btn" onclick="requeueNewSentence()"
+                      title="New sentence — show this card again in ~1 min with a freshly generated sentence (not a rating, no scheduling change)">🔄</button>
+            </div>
           </div>
 
           <!-- Back: sentence → ratings → word summary (no collapsible sections) -->
@@ -214,8 +218,6 @@
               <button class="r-btn r-hard"  onclick="rate(2)">Hard<small id="int-2"></small></button>
               <button class="r-btn r-good"  onclick="rate(3)">Good<small id="int-3"></small></button>
               <button class="r-btn r-easy"  onclick="rate(4)">Easy<small id="int-4"></small></button>
-              <button class="r-btn r-newsentence" id="new-sentence-btn" onclick="requeueNewSentence()"
-                      title="New sentence — show this card again in ~1 min with a freshly generated sentence (not a rating, no scheduling change)">🔄</button>
             </div>
             <!-- Free-text note carried over to the next time this card is seen -->
             <div class="next-note-row" id="next-note-row">

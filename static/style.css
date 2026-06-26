@@ -577,6 +577,23 @@ main.browse-open {
 }
 .reveal-btn:hover { border-color: var(--primary); color: var(--primary); }
 
+/* Front-of-card "new sentence" button sits beside Show Answer. */
+.front-actions-row { display: flex; gap: 8px; align-items: stretch; }
+.front-actions-row .reveal-btn { flex: 1; width: auto; }
+.front-newsentence-btn {
+  flex: 0 0 auto;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  background: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--text);
+  transition: border-color 0.15s, color 0.15s;
+}
+.front-newsentence-btn:hover { border-color: var(--primary); color: var(--primary); }
+.front-newsentence-btn:disabled { opacity: 0.4; cursor: default; }
+
 /* Regenerate button (inline in counts row) */
 .regen-btn {
   background: none;
@@ -648,7 +665,7 @@ main.browse-open {
 /* Rating buttons */
 .rating-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr) auto;
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
 }
 
@@ -744,12 +761,6 @@ main.browse-open {
 .r-hard  { background: var(--hard); }
 .r-good  { background: var(--good); }
 .r-easy  { background: var(--easy); }
-/* "New sentence" requeue — neutral, compact, sits to the right of the ratings. */
-.r-newsentence {
-  background: #64748b;
-  font-size: 16px;
-  padding: 11px 12px 9px;
-}
 
 /* ── Vocab detail (below ratings on back side) ───────── */
 .vocab-detail {

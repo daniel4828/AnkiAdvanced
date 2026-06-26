@@ -5044,11 +5044,13 @@ async function rate(rating) {
 }
 
 // ── "New sentence" — re-show this card soon with a freshly generated sentence ──
-// Not a rating: scheduling (ease/interval/state/today's count) is untouched. The
-// card is soft-requeued ~1 min out while a new sentence regenerates in the
-// background, so the user reviews other cards meanwhile.
+// Lives on the FRONT of the card: when the sentence reads badly, swap it before
+// even flipping. Not a rating: scheduling (ease/interval/state/today's count) is
+// untouched. The card is soft-requeued ~1 min out while a new sentence
+// regenerates in the background, so the user reviews other cards meanwhile.
 async function requeueNewSentence() {
-  document.querySelectorAll('.r-btn').forEach(b => b.disabled = true);
+  const btn = document.getElementById('new-sentence-btn');
+  if (btn) btn.disabled = true;
   try {
     let url = `/api/review/requeue?card_id=${card.id}`;
     if (unfinishedMode) url += `&unfinished_mode=true&unfinished_scope=${_unfinishedScope}`;
@@ -5063,10 +5065,10 @@ async function requeueNewSentence() {
     }
     if (unfinishedMode || rootDeckId) category = result.next_card.category;
     loadCard(result.next_card, result.counts);
-    document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
+    if (btn) btn.disabled = false;
   } catch (e) {
     showError('Could not requeue: ' + e.message);
-    document.querySelectorAll('.r-btn').forEach(b => b.disabled = false);
+    if (btn) btn.disabled = false;
   }
 }
 
