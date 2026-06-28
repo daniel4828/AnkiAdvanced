@@ -7103,6 +7103,13 @@ function _isVisible(id) {
 function _isEditableFocusTarget(el) {
   if (!el) return false;
   const tag = el.tagName;
+  // Non-text input controls (range slider, checkbox, etc.) don't capture
+  // typing, so they must NOT block review/global shortcuts. Otherwise, e.g.
+  // focusing the listening Hint slider would swallow keys 1–5 and Space.
+  if (tag === 'INPUT') {
+    const NON_TEXT = ['range', 'checkbox', 'radio', 'button', 'submit', 'reset', 'file', 'color'];
+    if (NON_TEXT.includes((el.type || '').toLowerCase())) return false;
+  }
   const editable = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
   if (!editable) return false;
   const style = getComputedStyle(el);
