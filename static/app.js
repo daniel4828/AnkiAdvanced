@@ -7355,6 +7355,12 @@ document.addEventListener('keydown', async e => {
       e.preventDefault();
       const btns = document.querySelectorAll('.r-btn');
       if (btns.length && !btns[0].disabled) rate(Number(e.key));
+    } else if (e.key === '5' && !backVisible) {
+      // New sentence: regenerate a fresh sentence and requeue this card (front only)
+      const nsBtn = document.getElementById('new-sentence-btn');
+      if (nsBtn && nsBtn.offsetParent !== null && !nsBtn.disabled) {
+        e.preventDefault(); requeueNewSentence();
+      }
     } else if (e.key === 'z') {
       const undoBtn = document.getElementById('undo-btn');
       if (undoBtn && !undoBtn.disabled) { e.preventDefault(); undoReview(); }
