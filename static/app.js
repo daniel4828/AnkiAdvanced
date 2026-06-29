@@ -7348,7 +7348,7 @@ document.addEventListener('keydown', async e => {
     const backVisible = document.getElementById('side-back')?.style.display === 'flex';
     if (e.key === 'R') {
       e.preventDefault(); location.reload();
-    } else if (e.key === 'r') {
+    } else if (e.key === 'a') {
       e.preventDefault(); playSentence();
     } else if (e.key === 'p') {
       e.preventDefault(); togglePinyin();
