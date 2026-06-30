@@ -65,6 +65,40 @@ let optDeckId    = null; // deck whose options modal is open
 const collapsed  = new Set(JSON.parse(localStorage.getItem('collapsedDecks') || '[]'));  // parent deck IDs that are collapsed
 let _retentionData = null;  // cached result from GET /api/retention
 let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
+
+// — Customizable review shortcuts —
+// Each action maps to one key. Defaults below are the active bindings.
+// User overrides persist in localStorage('reviewKeymap'). Rating keys 1-4 stay fixed.
+const KEYMAP_DEFAULTS = {
+  reveal:         ' ',
+  replay:         '5',
+  pinyin:         'p',
+  translation:    'u',
+  worddef:        'k',
+  'new-sentence': 'a',
+  undo:           'z',
+};
+const KEYMAP_ACTIONS = [
+  { id: 'reveal',       label: 'Reveal answer' },
+  { id: 'replay',       label: 'Replay audio' },
+  { id: 'pinyin',       label: 'Toggle pinyin' },
+  { id: 'translation',  label: 'Toggle translation' },
+  { id: 'worddef',      label: 'Toggle word definition' },
+  { id: 'new-sentence', label: 'New sentence (regenerate)' },
+  { id: 'undo',         label: 'Undo last review' },
+];
+// Keys hardcoded elsewhere in the review view — cannot be reassigned to.
+const KEYMAP_RESERVED = ['R','1','2','3','4','e','n','q','w','f','v','c','C','D','7','L','o','g','Enter','Tab'];
+function _loadKeymap() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem('reviewKeymap') || '{}'); } catch (e) {}
+  return { ...KEYMAP_DEFAULTS, ...saved };
+}
+let _keymap = _loadKeymap();
+function _key(id) { return _keymap[id]; }
+function _saveKeymap() { localStorage.setItem('reviewKeymap', JSON.stringify(_keymap)); }
+function _keyLabel(k) { return k === ' ' ? 'Space' : (k.length === 1 ? k.toUpperCase() : k); }
+
 let _timerInterval = null;
 let _timerStart = null;
 const _TIMER_CAP_MS = 40000;  // beyond this the user is likely doing something else
@@ -720,7 +754,7 @@ function _triggerClapAnimation() {
 
 function showView(name) {
   if (name === 'done' && _sessionReviewedCount > 0) _triggerClapAnimation();
-  ['loading', 'decks', 'review', 'done', 'browse', 'word-detail', 'hanzi-detail', 'stats'].forEach(v => {
+  ['loading', 'decks', 'review', 'done', 'browse', 'word-detail', 'hanzi-detail', 'stats', 'settings'].forEach(v => {
     document.getElementById(`view-${v}`).style.display = 'none';
   });
   document.getElementById(`view-${name}`).style.display =
@@ -735,7 +769,8 @@ function showView(name) {
     name === 'browse'       ? 'Browse' :
     name === 'word-detail'  ? 'Word Detail' :
     name === 'hanzi-detail' ? 'Hanzi Detail' :
-    name === 'stats'        ? 'Stats' : 'AnkiAdvanced';
+    name === 'stats'        ? 'Stats' :
+    name === 'settings'     ? 'Settings' : 'AnkiAdvanced';
   if (name === 'decks') quickMode = false;
   const headerRegenBtn = document.getElementById('header-regen-btn');
   if (headerRegenBtn) headerRegenBtn.style.display = (name === 'review' && !unfinishedMode && !quickMode) ? '' : 'none';
@@ -1118,6 +1153,7 @@ function renderDecks(decks) {
     <div class="nav-row">
       <button class="nav-btn" onclick="openBrowse()" title="Shortcut: B">Browse Cards</button>
       <button class="nav-btn" onclick="openStats()">Stats</button>
+      <button class="nav-btn" onclick="openSettings()" title="Customize shortcuts">⚙ Settings</button>
       <button class="nav-btn" onclick="openCostModal()">API Costs</button>
       <button class="nav-btn" onclick="openImportModal()" title="Shortcut: Command+I">Import</button>
       <button class="nav-btn" onclick="openQuickAddCard()" title="Shortcut: A">Add Card</button>
@@ -2375,6 +2411,69 @@ async function openStats() {
     showView('decks');
   }
 }
+
+// ── Settings (customize review shortcuts) ────────────────────────────────────
+let _capturingAction = null;
+let _settingsMsg = '';
+function openSettings() {
+  _capturingAction = null; _settingsMsg = '';
+  showView('settings');
+  renderSettings();
+}
+function renderSettings() {
+  const rows = KEYMAP_ACTIONS.map(a => {
+    const capturing = _capturingAction === a.id;
+    const keyTxt = capturing ? 'Press a key…' : _keyLabel(_keymap[a.id]);
+    const isDefault = _keymap[a.id] === KEYMAP_DEFAULTS[a.id];
+    return `<div class="keymap-row">
+      <span class="keymap-label">${a.label}</span>
+      <button class="keymap-key${capturing ? ' capturing' : ''}" onclick="startKeyCapture('${a.id}')">${keyTxt}</button>
+      <button class="keymap-reset" onclick="resetKeymapAction('${a.id}')" ${isDefault ? 'disabled' : ''} title="Reset to default">↺</button>
+    </div>`;
+  }).join('');
+  const msg = _settingsMsg ? `<div class="keymap-msg">${_settingsMsg}</div>` : '';
+  document.getElementById('view-settings-content').innerHTML = `
+    <div class="keymap-panel">
+      <h2 class="keymap-heading">Review shortcuts</h2>
+      <p class="keymap-hint">Click a key, then press the new key. Rating keys 1–4 are fixed.</p>
+      ${msg}
+      ${rows}
+      <button class="keymap-reset-all" onclick="resetKeymapAll()">Reset all to defaults</button>
+    </div>`;
+}
+function startKeyCapture(id) {
+  _capturingAction = id; _settingsMsg = ''; renderSettings();
+}
+function resetKeymapAction(id) {
+  _keymap[id] = KEYMAP_DEFAULTS[id]; _saveKeymap();
+  _capturingAction = null; _settingsMsg = ''; renderSettings();
+}
+function resetKeymapAll() {
+  _keymap = { ...KEYMAP_DEFAULTS }; _saveKeymap();
+  _capturingAction = null; _settingsMsg = ''; renderSettings();
+}
+// Capture-phase listener: grabs the next keypress while rebinding,
+// before the global review handler can act on it.
+function _settingsKeydown(e) {
+  if (!_capturingAction) return;
+  e.preventDefault(); e.stopPropagation();
+  const id = _capturingAction;
+  if (e.key === 'Escape') { _capturingAction = null; _settingsMsg = ''; renderSettings(); return; }
+  if (e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) {
+    _settingsMsg = 'Press a single key without modifiers.'; renderSettings(); return;
+  }
+  const key = e.key;
+  if (KEYMAP_RESERVED.includes(key)) {
+    _settingsMsg = `"${_keyLabel(key)}" is reserved and can't be reassigned.`; renderSettings(); return;
+  }
+  const clash = KEYMAP_ACTIONS.find(a => a.id !== id && _keymap[a.id] === key);
+  if (clash) {
+    _settingsMsg = `"${_keyLabel(key)}" is already used by "${clash.label}".`; renderSettings(); return;
+  }
+  _keymap[id] = key; _saveKeymap();
+  _capturingAction = null; _settingsMsg = ''; renderSettings();
+}
+document.addEventListener('keydown', _settingsKeydown, true);
 
 async function openCostModal() {
   try {
@@ -7306,7 +7405,11 @@ document.addEventListener('keydown', async e => {
       return;
     }
 
-    if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+    // In the review view, let configured shortcut keys fall through to the
+    // review handler below instead of firing global nav (Back/Browse/Add Card).
+    const _reviewActive = document.getElementById('view-review')?.style.display !== 'none';
+    const _mappedInReview = _reviewActive && Object.values(_keymap).includes(e.key);
+    if (!e.metaKey && !e.ctrlKey && !e.altKey && !_mappedInReview) {
       if (code === 'KeyD') {
         e.preventDefault();
         goBack();
@@ -7348,27 +7451,27 @@ document.addEventListener('keydown', async e => {
     const backVisible = document.getElementById('side-back')?.style.display === 'flex';
     if (e.key === 'R') {
       e.preventDefault(); location.reload();
-    } else if (e.key === 'a') {
+    } else if (e.key === _key('replay')) {
       e.preventDefault(); playSentence();
-    } else if (e.key === 'p') {
+    } else if (e.key === _key('pinyin')) {
       e.preventDefault(); togglePinyin();
-    } else if (e.key === 'u') {
+    } else if (e.key === _key('translation')) {
       e.preventDefault(); toggleTranslation();
-    } else if (e.key === 'k') {
+    } else if (e.key === _key('worddef')) {
       e.preventDefault(); toggleWordDef();
-    } else if (e.key === ' ') {
+    } else if (e.key === _key('reveal')) {
       e.preventDefault(); if (!backVisible) revealAnswer();
     } else if (['1','2','3','4'].includes(e.key) && backVisible) {
       e.preventDefault();
       const btns = document.querySelectorAll('.r-btn');
       if (btns.length && !btns[0].disabled) rate(Number(e.key));
-    } else if (e.key === '5' && !backVisible) {
+    } else if (e.key === _key('new-sentence') && !backVisible) {
       // New sentence: regenerate a fresh sentence and requeue this card (front only)
       const nsBtn = document.getElementById('new-sentence-btn');
       if (nsBtn && nsBtn.offsetParent !== null && !nsBtn.disabled) {
         e.preventDefault(); requeueNewSentence();
       }
-    } else if (e.key === 'z') {
+    } else if (e.key === _key('undo')) {
       const undoBtn = document.getElementById('undo-btn');
       if (undoBtn && !undoBtn.disabled) { e.preventDefault(); undoReview(); }
     } else if (backVisible && e.key === 'e') {
