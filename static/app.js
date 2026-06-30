@@ -7306,7 +7306,11 @@ document.addEventListener('keydown', async e => {
       return;
     }
 
-    if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+    // In the review view, let configured shortcut keys fall through to the
+    // review handler below instead of firing global nav (Back/Browse/Add Card).
+    const _reviewActive = document.getElementById('view-review')?.style.display !== 'none';
+    const _mappedInReview = _reviewActive && Object.values(_keymap).includes(e.key);
+    if (!e.metaKey && !e.ctrlKey && !e.altKey && !_mappedInReview) {
       if (code === 'KeyD') {
         e.preventDefault();
         goBack();
