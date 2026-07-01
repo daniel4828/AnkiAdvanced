@@ -71,11 +71,11 @@ let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
 // User overrides persist in localStorage('reviewKeymap'). Rating keys 1-4 stay fixed.
 const KEYMAP_DEFAULTS = {
   reveal:         ' ',
-  replay:         '5',
+  replay:         'a',
   pinyin:         'p',
   translation:    'u',
   worddef:        'k',
-  'new-sentence': 'a',
+  'new-sentence': '5',
   undo:           'z',
 };
 const KEYMAP_ACTIONS = [
