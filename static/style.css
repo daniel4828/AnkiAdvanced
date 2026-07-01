@@ -2850,6 +2850,10 @@ main.browse-open {
 .keymap-key { min-width: 96px; padding: 6px 12px; border: 1px solid var(--border, #ccc); border-radius: 6px; background: rgba(128,128,128,0.08); font-family: monospace; cursor: pointer; text-align: center; color: inherit; }
 .keymap-key:hover { border-color: var(--primary); color: var(--primary); }
 .keymap-key.capturing { border-color: var(--primary); color: var(--primary); font-style: italic; }
+.keymap-key.unbound { color: var(--text-dim, #888); font-style: italic; }
+.keymap-clear { border: none; background: none; cursor: pointer; font-size: 15px; opacity: 0.7; color: inherit; }
+.keymap-clear:hover:not(:disabled) { opacity: 1; color: var(--danger, #e06c5a); }
+.keymap-clear:disabled { opacity: 0.25; cursor: default; }
 .keymap-reset { border: none; background: none; cursor: pointer; font-size: 16px; opacity: 0.7; color: inherit; }
 .keymap-reset:hover:not(:disabled) { opacity: 1; }
 .keymap-reset:disabled { opacity: 0.25; cursor: default; }

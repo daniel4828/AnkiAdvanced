@@ -97,7 +97,7 @@ function _loadKeymap() {
 let _keymap = _loadKeymap();
 function _key(id) { return _keymap[id]; }
 function _saveKeymap() { localStorage.setItem('reviewKeymap', JSON.stringify(_keymap)); }
-function _keyLabel(k) { return k === ' ' ? 'Space' : (k.length === 1 ? k.toUpperCase() : k); }
+function _keyLabel(k) { return k == null ? 'None' : (k === ' ' ? 'Space' : (k.length === 1 ? k.toUpperCase() : k)); }
 
 let _timerInterval = null;
 let _timerStart = null;
@@ -2425,9 +2425,11 @@ function renderSettings() {
     const capturing = _capturingAction === a.id;
     const keyTxt = capturing ? 'Press a key…' : _keyLabel(_keymap[a.id]);
     const isDefault = _keymap[a.id] === KEYMAP_DEFAULTS[a.id];
+    const isUnbound = _keymap[a.id] == null;
     return `<div class="keymap-row">
       <span class="keymap-label">${a.label}</span>
-      <button class="keymap-key${capturing ? ' capturing' : ''}" onclick="startKeyCapture('${a.id}')">${keyTxt}</button>
+      <button class="keymap-key${capturing ? ' capturing' : ''}${isUnbound ? ' unbound' : ''}" onclick="startKeyCapture('${a.id}')">${keyTxt}</button>
+      <button class="keymap-clear" onclick="clearKeymapAction('${a.id}')" ${isUnbound ? 'disabled' : ''} title="Remove shortcut">✕</button>
       <button class="keymap-reset" onclick="resetKeymapAction('${a.id}')" ${isDefault ? 'disabled' : ''} title="Reset to default">↺</button>
     </div>`;
   }).join('');
@@ -2435,7 +2437,7 @@ function renderSettings() {
   document.getElementById('view-settings-content').innerHTML = `
     <div class="keymap-panel">
       <h2 class="keymap-heading">Review shortcuts</h2>
-      <p class="keymap-hint">Click a key, then press the new key. Rating keys 1–4 are fixed.</p>
+      <p class="keymap-hint">Click a key, then press the new key. Press Backspace or ✕ to remove a shortcut. Rating keys 1–4 are fixed.</p>
       ${msg}
       ${rows}
       <button class="keymap-reset-all" onclick="resetKeymapAll()">Reset all to defaults</button>
@@ -2446,6 +2448,10 @@ function startKeyCapture(id) {
 }
 function resetKeymapAction(id) {
   _keymap[id] = KEYMAP_DEFAULTS[id]; _saveKeymap();
+  _capturingAction = null; _settingsMsg = ''; renderSettings();
+}
+function clearKeymapAction(id) {
+  _keymap[id] = null; _saveKeymap();
   _capturingAction = null; _settingsMsg = ''; renderSettings();
 }
 function resetKeymapAll() {
@@ -2459,6 +2465,10 @@ function _settingsKeydown(e) {
   e.preventDefault(); e.stopPropagation();
   const id = _capturingAction;
   if (e.key === 'Escape') { _capturingAction = null; _settingsMsg = ''; renderSettings(); return; }
+  if (e.key === 'Backspace' || e.key === 'Delete') {
+    _keymap[id] = null; _saveKeymap();
+    _capturingAction = null; _settingsMsg = ''; renderSettings(); return;
+  }
   if (e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) {
     _settingsMsg = 'Press a single key without modifiers.'; renderSettings(); return;
   }
