@@ -6217,6 +6217,14 @@ function goBack() {
   loadDecks();
 }
 
+// ── Daily random words popup ─────────────────────────────────────────────────
+// Opens a small separate browser window showing 10 random words to use today.
+// Reusing the window name means a second click reloads it → a fresh set of words.
+function openRandomWords() {
+  window.open('/static/random-words.html', 'randomwords',
+              'width=460,height=680,menubar=no,toolbar=no,location=no');
+}
+
 // ── Import modal ─────────────────────────────────────────────────────────────
 
 let importResolutions = {};    // {word_zh: "keep"|"update"|"custom"}
