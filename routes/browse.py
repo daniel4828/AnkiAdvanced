@@ -308,6 +308,13 @@ def random_word(exclude: str = ""):
     return {"word": word}
 
 
+@router.get("/api/random-words")
+def random_words(n: int = 10):
+    """Random lexical entries for the daily 'random words' popup (no SRS)."""
+    n = max(1, min(n, 50))
+    return {"words": database.get_random_words(n)}
+
+
 @router.get("/api/hanzi")
 def get_all_hanzi():
     return database.get_all_characters()
