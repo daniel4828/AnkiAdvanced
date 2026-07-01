@@ -71,11 +71,11 @@ let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
 // User overrides persist in localStorage('reviewKeymap'). Rating keys 1-4 stay fixed.
 const KEYMAP_DEFAULTS = {
   reveal:         ' ',
-  replay:         '5',
+  replay:         'a',
   pinyin:         'p',
   translation:    'u',
   worddef:        'k',
-  'new-sentence': 'a',
+  'new-sentence': '5',
   undo:           'z',
 };
 const KEYMAP_ACTIONS = [
@@ -5042,8 +5042,9 @@ async function renderWordBankUI() {
   const skelEl = document.getElementById('word-bank-skeleton');
   if (skelEl) {
     const escAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    // German hint shown faintly inside the target word's blank (first target only)
-    const deHint = (card.definition_de || '').trim();
+    // Hint shown faintly inside the target word's blank (first target only):
+    // prefer the German definition, fall back to English when no German exists.
+    const deHint = (card.definition_de || card.definition || '').trim();
     let deShown = false;
     let slotIdx = 0;
     skelEl.innerHTML = wordBankOrder.map(tok => {
