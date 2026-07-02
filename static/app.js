@@ -2652,6 +2652,8 @@ const INFO_TEXT = {
     'The interval (in days) a card gets the first time it leaves learning with Good. Only used by SM-2 — under FSRS the first interval is computed from the card\'s initial stability instead.'],
   easy_interval: ['Easy interval (SM-2 only)',
     'The interval (in days) a learning card jumps to when rated Easy. Only used by SM-2 — under FSRS this is computed from stability.'],
+  learned_interval: ['Learned interval',
+    'The interval (in days) a card must reach before it counts as "learned/mature". Reviews of cards below this interval — plus all relearning cards — are treated as "still learning" in the retention stats and the deck badge counts. This does not change scheduling or queue order, only how cards are labelled and counted. Default 4.'],
   desired_retention: ['Desired retention (FSRS only)',
     'The probability you want of still recalling a card when it comes due, e.g. 90%. Higher retention = shorter intervals and more reviews; lower = longer intervals, fewer reviews but more lapses. This is the main FSRS knob.'],
   maximum_interval: ['Maximum interval (FSRS only)',
@@ -2700,6 +2702,7 @@ function loadPresetFields(preset) {
   document.getElementById('opt-learn-steps').value     = preset.learning_steps;
   document.getElementById('opt-grad-int').value        = preset.graduating_interval;
   document.getElementById('opt-easy-int').value        = preset.easy_interval;
+  document.getElementById('opt-learned-int').value     = preset.learned_interval ?? 4;
   document.getElementById('opt-relearn-steps').value   = preset.relearning_steps;
   document.getElementById('opt-leech').value           = preset.leech_threshold;
   document.getElementById('opt-learning-leech').value  = preset.learning_leech_threshold;
@@ -2867,6 +2870,7 @@ async function saveOptions() {
     learning_steps:      document.getElementById('opt-learn-steps').value.trim(),
     graduating_interval: parseInt(document.getElementById('opt-grad-int').value),
     easy_interval:       parseInt(document.getElementById('opt-easy-int').value),
+    learned_interval:    parseInt(document.getElementById('opt-learned-int').value),
     relearning_steps:    document.getElementById('opt-relearn-steps').value.trim(),
     leech_threshold:     parseInt(document.getElementById('opt-leech').value),
     learning_leech_threshold: parseInt(document.getElementById('opt-learning-leech').value),
