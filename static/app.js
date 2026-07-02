@@ -345,7 +345,11 @@ const _STATE_ANIM = {
 
 // Floating Chinese state-change cue: fades + scales in, drifts up, removes itself.
 function showStateChangeAnim(transition) {
-  const info = _STATE_ANIM[transition?.to];
+  let key = transition?.to;
+  // Graduating to 'review' but below learned_interval isn't "learned" yet —
+  // show the learning cue instead of "学会了".
+  if (key === 'review' && transition?.learned === false) key = 'learning';
+  const info = _STATE_ANIM[key];
   if (!info) return;
   const el = document.createElement('div');
   el.className = 'state-anim';
