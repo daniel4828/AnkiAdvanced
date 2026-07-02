@@ -136,6 +136,10 @@ def get_retention_bulk(days: int = 30) -> dict:
           "days":    int
         }
     Rating > 1 (Hard/Good/Easy) counts as correct; rating == 1 (Again) counts as wrong.
+
+    Only counts reviews of *learned* cards — those answered in the 'review' phase
+    (state='review'). Learning/relearning/new-card steps are excluded, matching
+    Anki's "true retention". Legacy rows with no recorded state are excluded too.
     """
     conn = get_db()
     since = (anki_today() - _dt.timedelta(days=days)).isoformat()
@@ -148,6 +152,7 @@ def get_retention_bulk(days: int = 30) -> dict:
            JOIN cards c ON c.id = rl.card_id
            JOIN decks d ON d.id = c.deck_id
            WHERE date(datetime(rl.reviewed_at, 'localtime')) >= ?
+             AND rl.state = 'review'
            GROUP BY c.deck_id""",
         [since],
     ).fetchall()
