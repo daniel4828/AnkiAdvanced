@@ -138,8 +138,11 @@ def get_retention_bulk(days: int = 30) -> dict:
     Rating > 1 (Hard/Good/Easy) counts as correct; rating == 1 (Again) counts as wrong.
 
     Only counts reviews of *learned* cards — those answered in the 'review' phase
-    (state='review'). Learning/relearning/new-card steps are excluded, matching
-    Anki's "true retention". Legacy rows with no recorded state are excluded too.
+    (state='review') whose interval had reached the deck's learned_interval
+    threshold (default 4 days). Learning/relearning/new-card steps and young
+    review cards (interval below the threshold) are excluded, matching an
+    Anki-style "mature retention". Legacy rows with no recorded state are excluded;
+    legacy 'review' rows with no recorded interval keep counting (not retroactive).
     """
     conn = get_db()
     since = (anki_today() - _dt.timedelta(days=days)).isoformat()
@@ -151,8 +154,10 @@ def get_retention_bulk(days: int = 30) -> dict:
            FROM review_log rl
            JOIN cards c ON c.id = rl.card_id
            JOIN decks d ON d.id = c.deck_id
+           JOIN deck_presets p ON p.id = d.preset_id
            WHERE date(datetime(rl.reviewed_at, 'localtime')) >= ?
              AND rl.state = 'review'
+             AND (rl.last_interval IS NULL OR rl.last_interval >= p.learned_interval)
            GROUP BY c.deck_id""",
         [since],
     ).fetchall()
@@ -204,9 +209,12 @@ def get_calendar_stats(days: int = 365, deck_id: int | None = None) -> dict:
     day_expr = "date(datetime(rl.reviewed_at, 'localtime', '-4 hours'))"
     rows = conn.execute(
         f"""SELECT {day_expr} AS d, c.category AS cat, rl.rating AS rating,
-                   rl.state AS state, rl.duration_ms AS dur, rl.card_id AS card_id
+                   rl.state AS state, rl.duration_ms AS dur, rl.card_id AS card_id,
+                   rl.last_interval AS last_ivl, p.learned_interval AS learned_int
             FROM review_log rl
             JOIN cards c ON c.id = rl.card_id
+            JOIN decks d ON d.id = c.deck_id
+            JOIN deck_presets p ON p.id = d.preset_id
             WHERE {day_expr} >= ? {deck_filter}""",
         params,
     ).fetchall()
@@ -246,12 +254,17 @@ def get_calendar_stats(days: int = 365, deck_id: int | None = None) -> dict:
                 bucket["duration_ms"] += r["dur"]
                 bucket["timed_count"] += 1
 
-        # Phase split (learning/relearn/new = "learning"; review = "review")
+        # Phase split (learning/relearn/new = "learning"; review = "review").
+        # A 'review'-state card whose interval hadn't yet reached the deck's
+        # learned_interval threshold counts as "learning" (not yet learned).
+        # Legacy 'review' rows with no recorded interval keep counting as review.
         phase = None
         if r["state"] in ("new", "learning", "relearn"):
             phase = "learning"
         elif r["state"] == "review":
-            phase = "review"
+            li = r["last_ivl"]
+            thr = r["learned_int"]
+            phase = "learning" if (li is not None and li < thr) else "review"
         if phase:
             for bucket in (day, c):
                 bucket[phase]["total"]   += 1
