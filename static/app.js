@@ -7290,51 +7290,51 @@ function _fsrsParam(k, v, title) {
 function renderFsrsInspector() {
   const body = document.getElementById('fsrs-insp-body');
   if (!body) return;
-  if (!card) { body.innerHTML = '<div class="fsrs-note">没有正在复习的卡片。</div>'; return; }
+  if (!card) { body.innerHTML = '<div class="fsrs-note">No card is being reviewed.</div>'; return; }
   const f = card.fsrs;
-  if (!f) { body.innerHTML = '<div class="fsrs-note">这张卡没有 FSRS 数据。</div>'; return; }
+  if (!f) { body.innerHTML = '<div class="fsrs-note">This card has no FSRS data.</div>'; return; }
 
   const word = card.word_zh ? `「${card.word_zh}」` : '';
   const S = f.stability, D = f.difficulty, R = f.retrievability;
   let html = '';
 
-  if (!f.enabled) html += `<div class="fsrs-note">⚠️ 该牌组未启用 FSRS（仍用旧版 SM-2）。</div>`;
+  if (!f.enabled) html += `<div class="fsrs-note">⚠️ FSRS is not enabled for this deck (still using legacy SM-2).</div>`;
 
-  html += `<div class="fsrs-section-label">当前参数 ${word} · ${f.state}</div>`;
+  html += `<div class="fsrs-section-label">Current parameters ${word} · ${f.state}</div>`;
   html += '<div class="fsrs-params">';
-  html += _fsrsParam('Stability 稳定性', S != null ? S.toFixed(2) + ' d' : '—', '记忆能撑多少天（衰减到 90%）');
-  html += _fsrsParam('Difficulty 难度', D != null ? D.toFixed(2) + ' /10' : '—', '1–10，越高越难；每次向中值回归');
-  html += _fsrsParam('Elapsed 已过', f.elapsed_days + ' d', '距上次复习的天数');
-  html += _fsrsParam('Desired R 目标', Math.round(f.desired_retention * 100) + '%', '目标记忆率，决定所有间隔');
+  html += _fsrsParam('Stability', S != null ? S.toFixed(2) + ' d' : '—', 'How many days memory lasts (decays to 90%)');
+  html += _fsrsParam('Difficulty', D != null ? D.toFixed(2) + ' /10' : '—', '1–10, higher is harder; reverts toward the mean each time');
+  html += _fsrsParam('Elapsed', f.elapsed_days + ' d', 'Days since the last review');
+  html += _fsrsParam('Desired R', Math.round(f.desired_retention * 100) + '%', 'Target recall rate; determines all intervals');
   if (R != null) {
-    html += `<div class="fsrs-param full"><span class="k">Retrievability 当前可提取性</span><span class="v">${(R * 100).toFixed(1)}%</span></div>`;
+    html += `<div class="fsrs-param full"><span class="k">Retrievability</span><span class="v">${(R * 100).toFixed(1)}%</span></div>`;
     html += `<div class="fsrs-param full" style="background:transparent;padding:0"><div class="fsrs-bar"><i style="width:${Math.round(R * 100)}%"></i></div></div>`;
   }
   html += '</div>';
 
   if (f.ratings && Object.keys(f.ratings).length) {
-    html += `<div class="fsrs-section-label">点每个评分会发生什么</div>`;
-    html += '<table class="fsrs-table"><thead><tr><th>评分</th><th>新 S</th><th>新 D</th><th>下次间隔</th></tr></thead><tbody>';
+    html += `<div class="fsrs-section-label">What each rating does</div>`;
+    html += '<table class="fsrs-table"><thead><tr><th>Rating</th><th>New S</th><th>New D</th><th>Next interval</th></tr></thead><tbody>';
     [1, 2, 3, 4].forEach(r => {
       const e = f.ratings[String(r)];
       if (!e) return;
-      const note = r === 1 ? ' <span style="color:var(--muted);font-weight:400">(先进重学)</span>' : '';
+      const note = r === 1 ? ' <span style="color:var(--muted);font-weight:400">(enters relearning first)</span>' : '';
       html += `<tr class="r-row-${r}"><td class="rate-cell">${_RATING_NAMES[r]}</td><td>${e.stability}</td><td>${e.difficulty}</td><td class="ivl">${_fsrsFmtIvl(e.interval)}${note}</td></tr>`;
     });
     html += '</tbody></table>';
   } else {
-    html += `<div class="fsrs-note">这张卡还在学习/重学阶段，按钮间隔由分钟级步骤决定，尚未进入 FSRS 记忆模型。</div>`;
+    html += `<div class="fsrs-note">This card is still in the learning/relearning phase; button intervals are set by minute-level steps and it has not yet entered the FSRS memory model.</div>`;
   }
 
-  html += `<div class="fsrs-section-label">参数如何代入公式</div>`;
+  html += `<div class="fsrs-section-label">How the parameters plug into the formulas</div>`;
   html += `<div class="fsrs-formula">
-    <b>1. 可提取性</b> R = (1 + 19/81 · t/S)<sup>−0.5</sup>，t=${f.elapsed_days}，S=${S != null ? S.toFixed(1) : '—'} → R=${R != null ? (R * 100).toFixed(1) + '%' : '—'}<br>
-    <b>2. 答对 →</b> 稳定性增长，<code>等得越久(R越低)、难度越低，奖励越大</code>；Hard 打折、Easy 加成。<br>
-    <b>3. 答错(Again) →</b> 稳定性温和下降（不砍半），难度上升。<br>
-    <b>4. 下次间隔</b> = 让 R 衰减到目标 ${Math.round(f.desired_retention * 100)}% 所需天数 ≈ 新的 S。<br>
-    <b>5. 难度</b> 每次都向中值回归 → 不会永久卡死（无 ease 地狱）。
+    <b>1. Retrievability</b> R = (1 + 19/81 · t/S)<sup>−0.5</sup>, t=${f.elapsed_days}, S=${S != null ? S.toFixed(1) : '—'} → R=${R != null ? (R * 100).toFixed(1) + '%' : '—'}<br>
+    <b>2. Correct →</b> stability grows, <code>the longer you wait (lower R) and the lower the difficulty, the bigger the boost</code>; Hard is discounted, Easy gets a bonus.<br>
+    <b>3. Wrong (Again) →</b> stability drops gently (not halved), difficulty rises.<br>
+    <b>4. Next interval</b> = the number of days for R to decay to the target ${Math.round(f.desired_retention * 100)}% ≈ the new S.<br>
+    <b>5. Difficulty</b> reverts toward the mean every time → never gets permanently stuck (no ease hell).
   </div>`;
-  html += `<div class="fsrs-note">间隔已强制 Again < Hard ≤ Good < Easy 单调。按 Shift+S 或 Esc 关闭。</div>`;
+  html += `<div class="fsrs-note">Intervals are forced monotonic: Again < Hard ≤ Good < Easy. Press Shift+S or Esc to close.</div>`;
 
   body.innerHTML = html;
 }
