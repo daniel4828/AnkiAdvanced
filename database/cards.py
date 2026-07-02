@@ -169,7 +169,7 @@ def get_card(card_id: int) -> dict | None:
                   END AS deck_path,
                   p.id AS preset_id,
                   p.learning_steps, p.graduating_interval, p.easy_interval,
-                  p.relearning_steps, p.minimum_interval,
+                  p.relearning_steps, p.minimum_interval, p.learned_interval,
                   p.leech_threshold, p.learning_leech_threshold, p.leech_action,
                   p.desired_retention, p.maximum_interval, p.fsrs_weights, p.enable_fsrs,
                   p.learning_hard_1d, p.learning_hard_days,
