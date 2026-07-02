@@ -2924,6 +2924,14 @@ async function setDefaultPreset() {
   }
 }
 
+// Jump straight into the "All" deck's review for a given category.
+// Used by the home-view keyboard shortcuts (L → listening, C → creating).
+function _startAllDeckCategory(cat) {
+  const allDeck = (_cachedDecks || []).find(d => d.virtual && d.name === 'All');
+  if (!allDeck) return;
+  startReview(allDeck.id, cat, 'All', !!allDeck.no_story);
+}
+
 // ── Start review session ────────────────────────────────────────────────────
 async function startReview(id, cat, name, noStory = false, quick = false) {
   quickMode = quick;
@@ -7443,6 +7451,20 @@ document.addEventListener('keydown', async e => {
         e.preventDefault();
         openQuickAddCard();
         return;
+      }
+      // On the home (decks) view: L → All deck Listening, C → All deck Creating.
+      const _decksActive = document.getElementById('view-decks')?.style.display !== 'none';
+      if (_decksActive) {
+        if (code === 'KeyL') {
+          e.preventDefault();
+          _startAllDeckCategory('listening');
+          return;
+        }
+        if (code === 'KeyC') {
+          e.preventDefault();
+          _startAllDeckCategory('creating');
+          return;
+        }
       }
     }
   }
