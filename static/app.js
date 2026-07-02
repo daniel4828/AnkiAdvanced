@@ -8063,7 +8063,10 @@ function _hcalDayValue(date) {
   const d = _hcalData.by_date[date];
   if (!d) return { value: null, has: false };
   if (_hcalMetric === 'retention') {
-    return { value: d.total > 0 ? d.correct / d.total : null, has: d.total > 0 };
+    // "Learned cards only" — count reviews in the review phase (state='review'),
+    // matching the daily badge / Anki true retention. Learning steps excluded.
+    const rv = d.review;
+    return { value: rv.total > 0 ? rv.correct / rv.total : null, has: rv.total > 0 };
   }
   if (_hcalMetric === 'cards') {
     return { value: d.cards || 0, has: (d.cards || 0) > 0 };
@@ -8268,14 +8271,14 @@ function _hcalTipHtml(date) {
   const d = _hcalData.by_date[date];
   if (!d || d.total === 0) return `<div class="hcal-tip-date">${nice}</div><div class="hcal-tip-empty">no reviews</div>`;
 
-  const head = `<div class="hcal-tip-big">${d.cards} cards · ${_hcalFmtRR(d.correct, d.total)} retention</div>`;
+  const head = `<div class="hcal-tip-big">${d.cards} cards · ${_hcalFmtRR(d.review.correct, d.review.total)} retention</div>`;
   const time = d.timed_count > 0
     ? `<div class="hcal-tip-sub">${_hcalFmtTime(d.duration_ms)} total · ${_hcalFmtTime(d.duration_ms / d.timed_count)}/card</div>`
     : '';
   const rows = _HCAL_CATS.filter(c => d.by_cat[c.key]).map(c => {
     const cd = d.by_cat[c.key];
-    const ph = `L ${_hcalFmtRR(cd.learning.correct, cd.learning.total)} · R ${_hcalFmtRR(cd.review.correct, cd.review.total)}`;
-    return `<div class="hcal-tip-row"><b>${c.zh}</b> ${cd.cards}c · ${_hcalFmtRR(cd.correct, cd.total)} <span class="hcal-tip-dim">(${ph})</span></div>`;
+    const ph = `learning ${_hcalFmtRR(cd.learning.correct, cd.learning.total)}`;
+    return `<div class="hcal-tip-row"><b>${c.zh}</b> ${cd.cards}c · ${_hcalFmtRR(cd.review.correct, cd.review.total)} <span class="hcal-tip-dim">(${ph})</span></div>`;
   }).join('');
   return `<div class="hcal-tip-date">${nice}</div>${head}${time}<div class="hcal-tip-rows">${rows}</div>`;
 }
@@ -8306,15 +8309,14 @@ function _hcalRenderDetail() {
 
   const catRows = _HCAL_CATS.map(c => {
     const cd = d.by_cat[c.key];
-    if (!cd) return `<tr><td>${c.zh} ${c.en}</td><td>0</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`;
+    if (!cd) return `<tr><td>${c.zh} ${c.en}</td><td>0</td><td>—</td><td>—</td><td>—</td></tr>`;
     const avg = cd.timed_count > 0 ? _hcalFmtTime(cd.duration_ms / cd.timed_count) : '—';
     const tot = cd.timed_count > 0 ? _hcalFmtTime(cd.duration_ms) : '—';
     return `<tr>
       <td>${c.zh} ${c.en}</td>
       <td>${cd.cards}</td>
-      <td>${_hcalFmtRR(cd.correct, cd.total)}</td>
-      <td>${_hcalFmtRR(cd.learning.correct, cd.learning.total)}</td>
       <td>${_hcalFmtRR(cd.review.correct, cd.review.total)}</td>
+      <td>${_hcalFmtRR(cd.learning.correct, cd.learning.total)}</td>
       <td>${avg} <span class="hcal-tip-dim">/ ${tot}</span></td>
     </tr>`;
   }).join('');
@@ -8324,12 +8326,11 @@ function _hcalRenderDetail() {
   return `
     <div class="hcal-detail-head">${nice}</div>
     <table class="hcal-tbl">
-      <tr><th>Category</th><th>Cards</th><th>Retention</th><th>Learn</th><th>Review</th><th>Avg / Total</th></tr>
+      <tr><th>Category</th><th>Cards</th><th>Retention</th><th>Learn</th><th>Avg / Total</th></tr>
       ${catRows}
       <tr class="hcal-tbl-total">
-        <td>All</td><td>${d.cards}</td><td>${_hcalFmtRR(d.correct, d.total)}</td>
+        <td>All</td><td>${d.cards}</td><td>${_hcalFmtRR(d.review.correct, d.review.total)}</td>
         <td>${_hcalFmtRR(d.learning.correct, d.learning.total)}</td>
-        <td>${_hcalFmtRR(d.review.correct, d.review.total)}</td>
         <td>${totAvg} <span class="hcal-tip-dim">/ ${totTot}</span></td>
       </tr>
     </table>`;
