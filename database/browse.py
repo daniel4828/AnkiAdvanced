@@ -354,12 +354,13 @@ def insert_review(card_id: int, rating: int,
                   user_response: str | None = None,
                   ai_score: int | None = None,
                   duration_ms: int | None = None,
-                  state: str | None = None) -> int:
+                  state: str | None = None,
+                  last_interval: int | None = None) -> int:
     conn = get_db()
     cur = conn.execute(
-        """INSERT INTO review_log (card_id, rating, user_response, ai_score, duration_ms, state)
-           VALUES (?, ?, ?, ?, ?, ?)""",
-        (card_id, rating, user_response, ai_score, duration_ms, state),
+        """INSERT INTO review_log (card_id, rating, user_response, ai_score, duration_ms, state, last_interval)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (card_id, rating, user_response, ai_score, duration_ms, state, last_interval),
     )
     conn.commit()
     log_id = cur.lastrowid

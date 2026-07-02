@@ -323,11 +323,16 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
         )
     state_from = card_before["state"]
     state_to   = updated["state"]
+    # A card only counts as "learned" once its interval reaches learned_interval;
+    # graduating to 'review' with a shorter interval is still learning.
+    learned_threshold = updated.get("learned_interval", 4)
+    is_learned = state_to == "review" and (updated.get("interval") or 0) >= learned_threshold
     transition = {
         "from":    state_from,
         "to":      state_to,
         "changed": state_from != state_to,
         "leech":   bool(updated.get("is_leech")) and state_to == "suspended",
+        "learned": is_learned,
     }
     return {"next_card": next_card, "counts": counts, "transition": transition}
 

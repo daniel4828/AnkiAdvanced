@@ -359,6 +359,7 @@ def apply_review(card_id: int, rating: int,
     if not card:
         raise ValueError(f"Card {card_id} not found")
     state_before = card["state"]
+    interval_before = card.get("interval") or 0
 
     preset = {
         "learning_steps":      card["learning_steps"],
@@ -402,6 +403,7 @@ def apply_review(card_id: int, rating: int,
     log_id = database.insert_review(
         card_id, rating, user_response=user_response,
         duration_ms=duration_ms, state=state_before,
+        last_interval=interval_before,
     )
     return database.get_card(card_id), log_id
 

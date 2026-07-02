@@ -76,6 +76,17 @@ header h1 { font-size: 18px; font-weight: 700; }
   margin-left: 4px;
 }
 #header-regen-btn:hover { background: var(--border); color: #6366f1; }
+#random-words-btn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  line-height: 1;
+  margin-left: 4px;
+}
+#random-words-btn:hover { background: var(--border); }
 
 /* ── Layout ──────────────────────────────────────────── */
 main {

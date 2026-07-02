@@ -515,3 +515,22 @@ def get_random_word(exclude_word: str = "") -> str | None:
     ).fetchone()
     conn.close()
     return row["word_zh"] if row else None
+
+
+def get_random_words(n: int = 10) -> list[dict]:
+    """Return n random lexical entries for the 'daily random words' popup.
+
+    Includes vocabulary / chengyu / expression (things you can actually use);
+    excludes full sentences and grammar points. No SRS involvement.
+    """
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT word_zh, pinyin, definition, definition_zh
+           FROM entries
+           WHERE note_type IN ('vocabulary', 'chengyu', 'expression')
+             AND word_zh IS NOT NULL AND word_zh != ''
+           ORDER BY RANDOM() LIMIT ?""",
+        (n,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
