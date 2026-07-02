@@ -289,6 +289,16 @@ def resolve_bury_flags(preset: dict) -> tuple[bool, bool, bool]:
     )
 
 
+def _still_learning(card: dict, learned_interval: int) -> bool:
+    """True if a card is not yet "learned" — either in learning/relearn, or a
+    review card whose interval hasn't reached the learned_interval threshold.
+    Such cards queue with the learning group and are shown before learned cards.
+    """
+    if card["state"] in ("learning", "relearn"):
+        return True
+    return card["state"] == "review" and (card.get("interval") or 0) < learned_interval
+
+
 def _interleave_cards(base: list, inserts: list) -> list:
     """Distribute inserts evenly across the full combined length.
 
@@ -355,8 +365,11 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
     ).fetchall()
 
     all_cards = [dict(r) for r in rows]
-    learning_cards = [c for c in all_cards if c["state"] in ("learning", "relearn")]
-    review_cards   = [c for c in all_cards if c["state"] == "review"]
+    # A 'review' card whose interval hasn't reached learned_interval is still a
+    # learning card: it queues with the learning group (before learned cards).
+    threshold = preset.get("learned_interval", 4)
+    learning_cards = [c for c in all_cards if _still_learning(c, threshold)]
+    review_cards   = [c for c in all_cards if c["state"] == "review" and not _still_learning(c, threshold)]
     new_cards_raw  = [c for c in all_cards if c["state"] == "new"]
 
     # ── 1. Gather & sort new cards ────────────────────────────────────────────
@@ -719,9 +732,18 @@ def get_due_cards_any_cat(root_deck_id: int) -> list[dict]:
             cat_order.get(c["category"], 99),
         ))
     else:
+        # No story: learning-first. A review card below its deck's
+        # learned_interval is still "learning" (rank 0), before learned cards.
+        thresholds = {
+            did: (get_preset_for_deck(did) or {}).get("learned_interval", 4)
+            for did, _ in leaf_pairs
+        }
+        def _rank(c: dict) -> int:
+            if _still_learning(c, thresholds.get(c["deck_id"], 4)):
+                return 0
+            return 1 if c["state"] == "review" else 2
         all_cards.sort(key=lambda c: (
-            0 if c["state"] in ("learning", "relearn") else
-            1 if c["state"] == "review" else 2,
+            _rank(c),
             cat_order.get(c["category"], 99),
             c["due"],
         ))
@@ -788,8 +810,16 @@ def get_due_cards_multi(deck_ids: list[int], category: str, *, root_deck_id: int
     for deck_id in deck_ids:
         all_cards.extend(get_due_cards(deck_id, category, sibling_suppression=sibling_suppression))
 
-    learning_cards = [c for c in all_cards if c["state"] in ("learning", "relearn")]
-    review_cards   = [c for c in all_cards if c["state"] == "review"]
+    # Each deck may have its own learned_interval; a review card below its deck's
+    # threshold is still "learning" and queues with the learning group.
+    thresholds = {
+        did: (get_preset_for_deck(did) or {}).get("learned_interval", 4)
+        for did in deck_ids
+    }
+    def _lrn(c: dict) -> bool:
+        return _still_learning(c, thresholds.get(c["deck_id"], 4))
+    learning_cards = [c for c in all_cards if _lrn(c)]
+    review_cards   = [c for c in all_cards if c["state"] == "review" and not _lrn(c)]
     new_cards      = [c for c in all_cards if c["state"] == "new"]
 
     # Apply parent deck's combined new-card cap (Anki-style)
