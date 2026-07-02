@@ -236,6 +236,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE review_log ADD COLUMN duration_ms INTEGER")
     if "state" not in rl_cols:
         conn.execute("ALTER TABLE review_log ADD COLUMN state TEXT")
+    if "last_interval" not in rl_cols:
+        conn.execute("ALTER TABLE review_log ADD COLUMN last_interval INTEGER")
 
     preset_cols = {r["name"] for r in conn.execute("PRAGMA table_info(deck_presets)").fetchall()}
     if "new_gather_order" not in preset_cols:
@@ -289,6 +291,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN learning_hard_1d INTEGER NOT NULL DEFAULT 1")
     if "learning_hard_days" not in preset_cols:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN learning_hard_days REAL NOT NULL DEFAULT 1")
+    if "learned_interval" not in preset_cols:
+        conn.execute("ALTER TABLE deck_presets ADD COLUMN learned_interval INTEGER NOT NULL DEFAULT 4")
 
     conn.execute("""CREATE TABLE IF NOT EXISTS preset_category_overrides (
         id                  INTEGER PRIMARY KEY AUTOINCREMENT,
