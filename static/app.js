@@ -5591,12 +5591,12 @@ function addNewsArticleBlock() {
   block.id = id;
   block.style.cssText = 'border:1px solid var(--border,#ddd);border-radius:6px;padding:8px;margin-bottom:8px';
   block.innerHTML = `
-    <div style="display:flex;gap:8px;margin-bottom:6px">
-      <input class="edit-input news-article-title" type="text" placeholder="Title (optional)" style="flex:1">
-      <input class="edit-input news-article-url" type="url" placeholder="URL (optional)" style="flex:1">
-      <button class="edit-cancel-btn" style="padding:4px 10px;font-size:12px" onclick="document.getElementById('${id}').remove()">✕</button>
+    <div style="display:flex;gap:8px;margin-bottom:6px;align-items:center">
+      <input class="edit-input news-article-title" type="text" placeholder="Title (optional)" style="flex:1;min-width:0;box-sizing:border-box">
+      <input class="edit-input news-article-url" type="url" placeholder="URL (optional)" style="flex:1;min-width:0;box-sizing:border-box">
+      <button class="edit-cancel-btn" style="padding:4px 10px;font-size:12px;flex-shrink:0" onclick="document.getElementById('${id}').remove()">✕</button>
     </div>
-    <textarea class="edit-input news-article-text" rows="5" placeholder="Paste article text here…"></textarea>`;
+    <textarea class="edit-input news-article-text" rows="5" placeholder="Paste content here…" style="display:block;width:100%;box-sizing:border-box;resize:vertical"></textarea>`;
   container.appendChild(block);
 }
 
