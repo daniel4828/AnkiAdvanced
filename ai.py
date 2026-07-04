@@ -87,10 +87,13 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str,
             extra["extra_body"] = {"thinking": {"type": "enabled" if thinking else "disabled"}}
             logger.debug("[%s] thinking=%s", model, thinking)
         if model.startswith("gpt-"):
-            # gpt-5 series (Chat Completions): max_completion_tokens replaces max_tokens,
-            # and custom temperature is not supported — omit both to use provider defaults.
+            # gpt-5 series (Chat Completions): max_completion_tokens replaces max_tokens
+            # and is shared with internal reasoning tokens; custom temperature is not
+            # supported. reasoning_effort="low" — sentence generation needs no deep
+            # reasoning, and higher efforts can eat the whole token budget.
             resp = client.chat.completions.create(
-                model=model, max_completion_tokens=max_tokens, messages=messages
+                model=model, max_completion_tokens=max_tokens, messages=messages,
+                reasoning_effort="low",
             )
         else:
             resp = client.chat.completions.create(
@@ -961,7 +964,9 @@ def generate_news_sentences(
         if not remaining:
             break
         prompt = _build_prompt(remaining)
-        raw = _call_api(model, [{"role": "user", "content": prompt}], 4096, purpose="news")
+        # 8192: gpt-5 series shares this budget with internal reasoning tokens,
+        # so leave generous headroom above the ~2-3k tokens of actual output.
+        raw = _call_api(model, [{"role": "user", "content": prompt}], 8192, purpose="news")
 
         json_start = raw.find("[")
         json_end = raw.rfind("]") + 1
