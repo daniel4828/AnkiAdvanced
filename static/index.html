@@ -661,6 +661,7 @@
         <option value="qa">❓ Q&amp;A — answer a question</option>
         <option value="expository">📚 Expository — informative text</option>
         <option value="kahneman">🧠 Kahneman — cognitive bias style</option>
+        <option value="news">📰 News briefing — paste articles</option>
       </select>
     </label>
     <!-- Kahneman chapter selector (shown only in kahneman mode) -->
@@ -671,6 +672,12 @@
       </div>
       <div id="setup-kahneman-chapters" style="max-height:220px;overflow-y:auto;border:1px solid var(--border,#ddd);border-radius:6px;padding:4px 0"></div>
       <div id="setup-kahneman-loading" style="display:none;padding:12px;text-align:center;color:var(--muted,#888);font-size:13px">Loading chapters…</div>
+    </div>
+    <!-- News articles input (shown only in news mode) -->
+    <div id="setup-news-section" style="display:none">
+      <label class="edit-label" style="margin:0">Articles <span style="font-weight:400;text-transform:none">(paste 1 or more)</span></label>
+      <div id="setup-news-articles"></div>
+      <button class="edit-cancel-btn" style="padding:4px 10px;font-size:12px;margin-top:6px" onclick="addNewsArticleBlock()">+ Add article</button>
     </div>
     <label class="edit-label" id="setup-topic-label">Topic <span style="font-weight:400;text-transform:none">(optional)</span>
       <input class="edit-input" id="setup-topic" type="text" placeholder="e.g. a day at a coffee shop" onkeydown="if(event.key==='Enter')confirmStorySetup()">
@@ -697,6 +704,7 @@
             <tr><td>Qwen Turbo</td><td>Alibaba</td><td>$0.07</td><td>$0.26</td></tr>
             <tr><td>Haiku 4.5</td><td>Anthropic</td><td>$0.80</td><td>$4.00</td></tr>
             <tr><td>Sonnet 4.6</td><td>Anthropic</td><td>$3.00</td><td>$15.00</td></tr>
+            <tr><td>GPT-5 Mini</td><td>OpenAI</td><td>$0.25</td><td>$2.00</td></tr>
           </tbody>
         </table>
         <p class="price-table-note">Prices per 1M tokens (USD)</p>
@@ -709,6 +717,7 @@
         <option value="qwen-turbo">Qwen Turbo — Alibaba, cheap</option>
         <option value="claude-haiku-4-5-20251001">Haiku — Anthropic fast</option>
         <option value="claude-sonnet-4-6">Sonnet — Anthropic balanced</option>
+        <option value="gpt-5-mini">GPT-5 Mini — OpenAI, news mode</option>
       </select>
     </label>
     <label class="edit-label">
@@ -936,14 +945,16 @@
   <div id="kahneman-examples-body" class="kahneman-examples-body"></div>
 </div>
 
-<!-- Per-sentence reasoning popup (why this sentence reveals the chapter's bias) -->
+<!-- Per-sentence reasoning popup (kahneman: why this reveals the chapter's bias;
+     news: background info on the news item, with a link to the source article) -->
 <div id="reasoning-overlay" onclick="closeReasoning()" style="display:none"></div>
 <div id="reasoning-modal" style="display:none">
   <div class="edit-modal-header">
-    <span class="edit-modal-title">💡 为什么这句体现本章偏误?</span>
+    <span class="edit-modal-title" id="reasoning-modal-title">💡 为什么这句体现本章偏误?</span>
     <button class="edit-modal-close" onclick="closeReasoning()">✕</button>
   </div>
   <div id="reasoning-body" class="reasoning-body"></div>
+  <a id="reasoning-source-link" href="#" target="_blank" rel="noopener" style="display:none" class="edit-label">打开原文 ↗ / Open article ↗</a>
 </div>
 
 <!-- Session summary graph modal: interval timelines of all cards reviewed -->
@@ -1023,6 +1034,7 @@
         <option value="qwen-turbo">Qwen Turbo — Alibaba, cheap</option>
         <option value="claude-haiku-4-5-20251001">Haiku — Anthropic fast</option>
         <option value="claude-sonnet-4-6">Sonnet — Anthropic balanced</option>
+        <option value="gpt-5-mini">GPT-5 Mini — OpenAI, news mode</option>
       </select>
     </label>
   </div>
