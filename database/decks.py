@@ -2,7 +2,7 @@ import re
 import sqlite3
 from datetime import date
 
-from .core import anki_today, get_db, _ensure_default_preset, _ensure_sentences_leaf_decks
+from .core import anki_today, get_db, _ensure_default_preset
 
 
 # ---------------------------------------------------------------------------
@@ -48,15 +48,6 @@ def get_deck_tree() -> list[dict]:
             parent = by_id.get(d["parent_id"])
             if parent:
                 parent["children"].append(d)
-    # Mark the Sentences deck and its children as filtered
-    for root in roots:
-        for child in root.get("children", []):
-            if child["name"] == "Sentences":
-                child["filtered"] = True
-                child["no_story"] = True
-                for leaf in child.get("children", []):
-                    leaf["filtered"] = True
-                    leaf["no_story"] = True
     return roots
 
 
@@ -212,35 +203,6 @@ def get_or_create_deck(name: str, parent_id: int | None = None,
     return deck_id
 
 
-def get_sentences_deck_ids() -> dict:
-    """Return {category: deck_id} for the three Sentences leaf decks, creating them if needed."""
-    conn = get_db()
-    all_id = conn.execute(
-        "SELECT id FROM decks WHERE name = 'All' AND parent_id IS NULL LIMIT 1"
-    ).fetchone()["id"]
-    preset_id = _ensure_default_preset(conn)
-    leaf = _ensure_sentences_leaf_decks(conn, all_id, preset_id)
-    conn.commit()
-    conn.close()
-    return leaf
-
-
-def is_sentences_deck(deck_id: int) -> bool:
-    """Return True if deck_id is the Sentences parent or one of its leaf decks."""
-    conn = get_db()
-    row = conn.execute(
-        "SELECT id FROM decks WHERE name = 'Sentences' AND parent_id IN "
-        "(SELECT id FROM decks WHERE parent_id IS NULL) LIMIT 1"
-    ).fetchone()
-    if not row:
-        conn.close()
-        return False
-    sent_id = row["id"]
-    children = {r["id"] for r in conn.execute(
-        "SELECT id FROM decks WHERE parent_id = ?", (sent_id,)
-    ).fetchall()}
-    conn.close()
-    return deck_id == sent_id or deck_id in children
 
 
 def get_all_deck_id() -> int | None:

@@ -357,9 +357,6 @@ def get_story(deck_id: int, category: str,
       ready, and can navigate away meanwhile. A failed background run is sticky
       (returns the error dict) so polling stops instead of restarting forever.
     """
-    if database.is_sentences_deck(deck_id):
-        return None
-
     today = database.anki_today().isoformat()
     progress_key = f"{deck_id}/{category}"
 
@@ -444,8 +441,6 @@ def regenerate_story(deck_id: int, category: str,
     """Regenerate today's story. body (optional JSON): {"articles": [{"url", "title", "text"}]}
     — pasted articles for mode="news" (too long to fit in a query string).
     Empty in news mode → today's news is auto-fetched (issue #387)."""
-    if database.is_sentences_deck(deck_id):
-        return None
     if DISABLE_AI:
         return None
     chosen_model = _validated_model(model)
@@ -615,8 +610,6 @@ def news_status():
 @router.get("/api/story/{deck_id}/{category}/count")
 def story_count(deck_id: int, category: str):
     """Return sentence count, whether a cached story exists today, and token estimate."""
-    if database.is_sentences_deck(deck_id):
-        return {"count": 0, "has_story": False, "estimated_tokens": 0}
     today = database.anki_today().isoformat()
     has_story = database.get_active_story(today, category, deck_id) is not None
     cards = _get_cards_for_story(deck_id, category)

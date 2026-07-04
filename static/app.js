@@ -1171,8 +1171,7 @@ function renderDecks(decks) {
   const allDeck = virtualDecks.find(d => d.name === 'All');
   // Real decks live as children of the "All" virtual deck
   const allChildren = allDeck ? (allDeck.children || []) : decks.filter(d => !d.virtual);
-  const sentencesDeck = allChildren.find(d => d.name === 'Sentences');
-  const regularDecks = allChildren.filter(d => d.name !== 'Sentences' && d.name !== 'Default');
+  const regularDecks = allChildren.filter(d => d.name !== 'Default');
 
   // ── Filtered Decks section ────────────────────────────────────────────────
   let filteredHtml = '';
@@ -1215,10 +1214,6 @@ function renderDecks(decks) {
         </div>
         <div class="cat-pills-row">${buildCategoryButtons(allDeck)}</div>
       </div>`;
-  }
-
-  if (sentencesDeck) {
-    filteredHtml += renderDeckRows([sentencesDeck], 0);
   }
 
   let filteredSection = '';
