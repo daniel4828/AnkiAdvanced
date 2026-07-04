@@ -1174,8 +1174,6 @@ function renderDecks(decks) {
   const sentencesDeck = allChildren.find(d => d.name === 'Sentences');
   const regularDecks = allChildren.filter(d => d.name !== 'Sentences' && d.name !== 'Default');
 
-  let html = '';
-
   // ── Filtered Decks section ────────────────────────────────────────────────
   let filteredHtml = '';
 
@@ -1223,21 +1221,24 @@ function renderDecks(decks) {
     filteredHtml += renderDeckRows([sentencesDeck], 0);
   }
 
+  let filteredSection = '';
   if (filteredHtml) {
-    html += `<div class="section-label">Filtered Decks</div><div class="tree-card filtered-tree-card">${filteredHtml}</div>`;
+    filteredSection = `<div class="section-label">Filtered Decks</div><div class="tree-card filtered-tree-card">${filteredHtml}</div>`;
   }
 
   // ── Regular Decks section ─────────────────────────────────────────────────
   const deckSortMode = localStorage.getItem('deckSortMode') || 'name';
   const sortLabel = deckSortMode === 'due' ? 'Sort: Due ↓' : deckSortMode === 'name-desc' ? 'Sort: Z→A' : 'Sort: A→Z';
   const regularHtml = renderDeckRows(regularDecks, 0, deckSortMode);
+  let regularSection = '';
   if (regularHtml.trim()) {
-    html += `<div class="section-label section-label-row">Decks<button class="deck-sort-btn" onclick="toggleDeckSort()">${sortLabel}</button></div><div class="tree-card">${regularHtml}</div>`;
+    regularSection = `<div class="section-label section-label-row">Decks<button class="deck-sort-btn" onclick="toggleDeckSort()">${sortLabel}</button></div><div class="tree-card">${regularHtml}</div>`;
   }
 
   document.getElementById('view-decks').innerHTML =
-    navRow + '<div id="home-calendar" class="hcal-card"></div>' +
-    '<div id="home-evolution" class="hcal-card"></div>' + html;
+    navRow + filteredSection +
+    '<div id="home-calendar" class="hcal-card"></div>' +
+    '<div id="home-evolution" class="hcal-card"></div>' + regularSection;
   if (typeof initHomeCalendar === 'function') initHomeCalendar();
   if (typeof initHomeEvolution === 'function') initHomeEvolution();
 }
