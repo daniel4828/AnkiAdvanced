@@ -1052,6 +1052,176 @@ def generate_news_sentences(
     return sentences
 
 
+def generate_briefing_sentences(
+    cards: list[dict],
+    articles: list[dict],
+    model: str = "gpt-5-mini",
+    max_hsk: int = 2,
+    progress_key: str | None = None,
+    attempt_label: str = "",
+) -> list[dict]:
+    """News flow mode (issue #399): one flowing Chinese news summary instead of
+    one forced sentence per word.
+
+    The AI writes a coherent summary in which each target word appears exactly
+    once, but plain context sentences (facts, numbers — no target word) are
+    allowed in between, so nothing has to be padded artificially. We then scan
+    the sentences in order: a sentence containing a target word becomes a card
+    sentence; the context sentences before it (since the previous card) are
+    attached to it — Chinese into reasoning_zh (background popup), German
+    (Google Translate, no extra AI cost) into context_de (shown on the card).
+    Target-word order = order of appearance in the summary.
+    """
+    if not cards or not articles:
+        return []
+
+    def _word_in_sentence(word_zh: str, sentence_zh: str) -> bool:
+        if '...' in word_zh or '…' in word_zh:
+            chars = [c for c in word_zh if c not in '.…']
+            return all(c in sentence_zh for c in chars)
+        return word_zh in sentence_zh
+
+    articles_block = "\n\n".join(
+        f"文章{i}（标题：{a.get('title') or '（无标题）'}）：\n{a.get('text', '').strip()}"
+        for i, a in enumerate(articles)
+    )
+
+    def _build_prompt(batch: list[dict]) -> str:
+        word_list = "\n".join(
+            f"{i + 1}. {c['word_zh']}（{c.get('pinyin', '')}）— {c.get('definition', '')}"
+            for i, c in enumerate(batch)
+        )
+        return f"""任务：根据下面的新闻文章，写一篇连贯的中文新闻摘要（像新闻串播一样，从一条新闻自然过渡到下一条），
+帮助HSK 4-5学习者复习词汇。
+
+新闻文章（按 0 开始编号）：
+{articles_block}
+
+目标词汇（每个词必须在整篇摘要中恰好出现一次，以原文形式出现）：
+{word_list}
+
+规则：
+- 摘要按句子输出为 JSON 数组，数组顺序就是阅读顺序
+- 不是每句话都要包含目标词汇：目标词句子之间可以插入不含目标词的上下文句子，
+  用来交代事实、数字和背景，让摘要自然连贯——请优先保证摘要本身是一篇好的新闻总结
+- 一句话最多包含一个目标词汇
+- 含目标词汇的句子要简短（不超过15个字），其中非目标词汇只用HSK 1-{max_hsk}的词汇
+- 上下文句子可以更长、更具体（欢迎数字和事实），不受15字和HSK限制
+- 所有输出只用简体中文，绝对不要出现繁体字
+- 不要使用markdown格式
+- article_idx 是该句子所涉及的文章编号（上面的 0 开始编号）
+- target_word 是该句包含的目标词汇原文；不含目标词的上下文句子填 null
+
+仅返回如下JSON数组，不加任何其他文字：
+[
+  {{"sentence_zh": "上下文句子", "target_word": null, "article_idx": 0}},
+  {{"sentence_zh": "含目标词的句子", "target_word": "词汇", "article_idx": 0}}
+]"""
+
+    _set_progress(progress_key, phase="request", msg=f"生成新闻总结…{attempt_label}", percent=20)
+
+    sentences: list[dict] = []
+    remaining = list(cards)
+
+    for attempt in range(3):
+        if not remaining:
+            break
+        prompt = _build_prompt(remaining)
+        # 8192: gpt-5 series shares this budget with internal reasoning tokens,
+        # and context sentences add output on top of the card sentences.
+        raw = _call_api(model, [{"role": "user", "content": prompt}], 8192, purpose="briefing")
+
+        json_start = raw.find("[")
+        json_end = raw.rfind("]") + 1
+        if json_start == -1 or json_end == 0:
+            logger.warning("briefing attempt %d: no JSON array found", attempt + 1)
+            continue
+
+        try:
+            items = json.loads(raw[json_start:json_end])
+        except json.JSONDecodeError as e:
+            logger.warning("briefing attempt %d: JSON parse error: %s", attempt + 1, e)
+            continue
+
+        # Scan in reading order: context sentences accumulate until the next
+        # sentence containing a still-uncovered target word, then attach to it.
+        # We match by scanning the text ourselves — the AI's target_word tag is
+        # not trusted (it can lie), only the actual sentence content counts.
+        context_buf: list[str] = []
+        for item in items:
+            s_zh = item.get("sentence_zh", "").strip()
+            if not s_zh:
+                continue
+            matched = None
+            for card in remaining:
+                if _word_in_sentence(card["word_zh"], s_zh):
+                    matched = card
+                    break
+            if matched is None:
+                context_buf.append(s_zh)
+                continue
+            remaining.remove(matched)
+            article_idx = item.get("article_idx")
+            source_url = None
+            if isinstance(article_idx, int) and 0 <= article_idx < len(articles):
+                source_url = articles[article_idx].get("url") or None
+            context_zh = " ".join(context_buf)
+            context_buf = []
+            sentences.append({
+                "word_ids": [matched["word_id"]],
+                "sentence_zh": s_zh,
+                "sentence_en": "",
+                "concept_en": "",
+                "concept_zh": "",
+                "reasoning_zh": context_zh,
+                "context_zh": context_zh,
+                "source_url": source_url,
+                "tokens": [],
+            })
+
+        if remaining:
+            logger.warning(
+                "briefing attempt %d: missing words (will re-request): %s",
+                attempt + 1, [c["word_zh"] for c in remaining],
+            )
+
+    # Per-word fallback so every card ends up with a sentence.
+    for card in remaining:
+        logger.warning("briefing: using fallback sentence for %s", card["word_zh"])
+        sentences.append({
+            "word_ids": [card["word_id"]],
+            "sentence_zh": card.get("source_sentence") or f"我学了{card['word_zh']}这个词。",
+            "sentence_en": "",
+            "concept_en": "",
+            "concept_zh": "",
+            "reasoning_zh": "",
+            "context_zh": "",
+            "source_url": None,
+            "tokens": [],
+        })
+
+    _fill_translations(sentences, progress_key=progress_key)
+
+    # Context → German via Google Translate (translator.py), per Daniel's design:
+    # keep the AI's job small, translation is mechanical.
+    ctx_texts = [s.pop("context_zh", "") or "" for s in sentences]
+    if any(ctx_texts):
+        try:
+            import translator as _t
+            de_list = _t.translate_batch(ctx_texts, target="de")
+            for s, zh, de in zip(sentences, ctx_texts, de_list):
+                s["context_de"] = de.strip() if zh else None
+        except Exception as e:
+            logger.warning("briefing: context translation failed — %s", e)
+            for s in sentences:
+                s["context_de"] = None
+    else:
+        for s in sentences:
+            s["context_de"] = None
+
+    return sentences
+
+
 def summarize_news_items(items: list[dict], model: str = "gpt-5-mini",
                          max_items: int = 8, progress_key: str | None = None) -> list[dict]:
     """News auto mode, step 1 of 2: pick the most important of today's fetched
