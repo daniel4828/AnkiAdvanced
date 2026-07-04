@@ -345,7 +345,11 @@ const _STATE_ANIM = {
 
 // Floating Chinese state-change cue: fades + scales in, drifts up, removes itself.
 function showStateChangeAnim(transition) {
-  const info = _STATE_ANIM[transition?.to];
+  let key = transition?.to;
+  // Graduating to 'review' but below learned_interval isn't "learned" yet —
+  // show the learning cue instead of "学会了".
+  if (key === 'review' && transition?.learned === false) key = 'learning';
+  const info = _STATE_ANIM[key];
   if (!info) return;
   const el = document.createElement('div');
   el.className = 'state-anim';
@@ -2652,6 +2656,8 @@ const INFO_TEXT = {
     'The interval (in days) a card gets the first time it leaves learning with Good. Only used by SM-2 — under FSRS the first interval is computed from the card\'s initial stability instead.'],
   easy_interval: ['Easy interval (SM-2 only)',
     'The interval (in days) a learning card jumps to when rated Easy. Only used by SM-2 — under FSRS this is computed from stability.'],
+  learned_interval: ['Learned interval',
+    'The interval (in days) a card must reach before it counts as "learned/mature". Reviews of cards below this interval — plus all relearning cards — are treated as "still learning" in the retention stats and the deck badge counts. This does not change scheduling or queue order, only how cards are labelled and counted. Default 4.'],
   desired_retention: ['Desired retention (FSRS only)',
     'The probability you want of still recalling a card when it comes due, e.g. 90%. Higher retention = shorter intervals and more reviews; lower = longer intervals, fewer reviews but more lapses. This is the main FSRS knob.'],
   maximum_interval: ['Maximum interval (FSRS only)',
@@ -2700,6 +2706,7 @@ function loadPresetFields(preset) {
   document.getElementById('opt-learn-steps').value     = preset.learning_steps;
   document.getElementById('opt-grad-int').value        = preset.graduating_interval;
   document.getElementById('opt-easy-int').value        = preset.easy_interval;
+  document.getElementById('opt-learned-int').value     = preset.learned_interval ?? 4;
   document.getElementById('opt-relearn-steps').value   = preset.relearning_steps;
   document.getElementById('opt-leech').value           = preset.leech_threshold;
   document.getElementById('opt-learning-leech').value  = preset.learning_leech_threshold;
@@ -2867,6 +2874,7 @@ async function saveOptions() {
     learning_steps:      document.getElementById('opt-learn-steps').value.trim(),
     graduating_interval: parseInt(document.getElementById('opt-grad-int').value),
     easy_interval:       parseInt(document.getElementById('opt-easy-int').value),
+    learned_interval:    parseInt(document.getElementById('opt-learned-int').value),
     relearning_steps:    document.getElementById('opt-relearn-steps').value.trim(),
     leech_threshold:     parseInt(document.getElementById('opt-leech').value),
     learning_leech_threshold: parseInt(document.getElementById('opt-learning-leech').value),
@@ -2922,6 +2930,14 @@ async function setDefaultPreset() {
   } catch (e) {
     showError('Failed: ' + e.message);
   }
+}
+
+// Jump straight into the "All" deck's review for a given category.
+// Used by the home-view keyboard shortcuts (L → listening, C → creating).
+function _startAllDeckCategory(cat) {
+  const allDeck = (_cachedDecks || []).find(d => d.virtual && d.name === 'All');
+  if (!allDeck) return;
+  startReview(allDeck.id, cat, 'All', !!allDeck.no_story);
 }
 
 // ── Start review session ────────────────────────────────────────────────────
@@ -6217,6 +6233,14 @@ function goBack() {
   loadDecks();
 }
 
+// ── Daily random words popup ─────────────────────────────────────────────────
+// Opens a small separate browser window showing 10 random words to use today.
+// Reusing the window name means a second click reloads it → a fresh set of words.
+function openRandomWords() {
+  window.open('/static/random-words.html', 'randomwords',
+              'width=460,height=680,menubar=no,toolbar=no,location=no');
+}
+
 // ── Import modal ─────────────────────────────────────────────────────────────
 
 let importResolutions = {};    // {word_zh: "keep"|"update"|"custom"}
@@ -7282,51 +7306,51 @@ function _fsrsParam(k, v, title) {
 function renderFsrsInspector() {
   const body = document.getElementById('fsrs-insp-body');
   if (!body) return;
-  if (!card) { body.innerHTML = '<div class="fsrs-note">没有正在复习的卡片。</div>'; return; }
+  if (!card) { body.innerHTML = '<div class="fsrs-note">No card is being reviewed.</div>'; return; }
   const f = card.fsrs;
-  if (!f) { body.innerHTML = '<div class="fsrs-note">这张卡没有 FSRS 数据。</div>'; return; }
+  if (!f) { body.innerHTML = '<div class="fsrs-note">This card has no FSRS data.</div>'; return; }
 
   const word = card.word_zh ? `「${card.word_zh}」` : '';
   const S = f.stability, D = f.difficulty, R = f.retrievability;
   let html = '';
 
-  if (!f.enabled) html += `<div class="fsrs-note">⚠️ 该牌组未启用 FSRS（仍用旧版 SM-2）。</div>`;
+  if (!f.enabled) html += `<div class="fsrs-note">⚠️ FSRS is not enabled for this deck (still using legacy SM-2).</div>`;
 
-  html += `<div class="fsrs-section-label">当前参数 ${word} · ${f.state}</div>`;
+  html += `<div class="fsrs-section-label">Current parameters ${word} · ${f.state}</div>`;
   html += '<div class="fsrs-params">';
-  html += _fsrsParam('Stability 稳定性', S != null ? S.toFixed(2) + ' d' : '—', '记忆能撑多少天（衰减到 90%）');
-  html += _fsrsParam('Difficulty 难度', D != null ? D.toFixed(2) + ' /10' : '—', '1–10，越高越难；每次向中值回归');
-  html += _fsrsParam('Elapsed 已过', f.elapsed_days + ' d', '距上次复习的天数');
-  html += _fsrsParam('Desired R 目标', Math.round(f.desired_retention * 100) + '%', '目标记忆率，决定所有间隔');
+  html += _fsrsParam('Stability', S != null ? S.toFixed(2) + ' d' : '—', 'How many days memory lasts (decays to 90%)');
+  html += _fsrsParam('Difficulty', D != null ? D.toFixed(2) + ' /10' : '—', '1–10, higher is harder; reverts toward the mean each time');
+  html += _fsrsParam('Elapsed', f.elapsed_days + ' d', 'Days since the last review');
+  html += _fsrsParam('Desired R', Math.round(f.desired_retention * 100) + '%', 'Target recall rate; determines all intervals');
   if (R != null) {
-    html += `<div class="fsrs-param full"><span class="k">Retrievability 当前可提取性</span><span class="v">${(R * 100).toFixed(1)}%</span></div>`;
+    html += `<div class="fsrs-param full"><span class="k">Retrievability</span><span class="v">${(R * 100).toFixed(1)}%</span></div>`;
     html += `<div class="fsrs-param full" style="background:transparent;padding:0"><div class="fsrs-bar"><i style="width:${Math.round(R * 100)}%"></i></div></div>`;
   }
   html += '</div>';
 
   if (f.ratings && Object.keys(f.ratings).length) {
-    html += `<div class="fsrs-section-label">点每个评分会发生什么</div>`;
-    html += '<table class="fsrs-table"><thead><tr><th>评分</th><th>新 S</th><th>新 D</th><th>下次间隔</th></tr></thead><tbody>';
+    html += `<div class="fsrs-section-label">What each rating does</div>`;
+    html += '<table class="fsrs-table"><thead><tr><th>Rating</th><th>New S</th><th>New D</th><th>Next interval</th></tr></thead><tbody>';
     [1, 2, 3, 4].forEach(r => {
       const e = f.ratings[String(r)];
       if (!e) return;
-      const note = r === 1 ? ' <span style="color:var(--muted);font-weight:400">(先进重学)</span>' : '';
+      const note = r === 1 ? ' <span style="color:var(--muted);font-weight:400">(enters relearning first)</span>' : '';
       html += `<tr class="r-row-${r}"><td class="rate-cell">${_RATING_NAMES[r]}</td><td>${e.stability}</td><td>${e.difficulty}</td><td class="ivl">${_fsrsFmtIvl(e.interval)}${note}</td></tr>`;
     });
     html += '</tbody></table>';
   } else {
-    html += `<div class="fsrs-note">这张卡还在学习/重学阶段，按钮间隔由分钟级步骤决定，尚未进入 FSRS 记忆模型。</div>`;
+    html += `<div class="fsrs-note">This card is still in the learning/relearning phase; button intervals are set by minute-level steps and it has not yet entered the FSRS memory model.</div>`;
   }
 
-  html += `<div class="fsrs-section-label">参数如何代入公式</div>`;
+  html += `<div class="fsrs-section-label">How the parameters plug into the formulas</div>`;
   html += `<div class="fsrs-formula">
-    <b>1. 可提取性</b> R = (1 + 19/81 · t/S)<sup>−0.5</sup>，t=${f.elapsed_days}，S=${S != null ? S.toFixed(1) : '—'} → R=${R != null ? (R * 100).toFixed(1) + '%' : '—'}<br>
-    <b>2. 答对 →</b> 稳定性增长，<code>等得越久(R越低)、难度越低，奖励越大</code>；Hard 打折、Easy 加成。<br>
-    <b>3. 答错(Again) →</b> 稳定性温和下降（不砍半），难度上升。<br>
-    <b>4. 下次间隔</b> = 让 R 衰减到目标 ${Math.round(f.desired_retention * 100)}% 所需天数 ≈ 新的 S。<br>
-    <b>5. 难度</b> 每次都向中值回归 → 不会永久卡死（无 ease 地狱）。
+    <b>1. Retrievability</b> R = (1 + 19/81 · t/S)<sup>−0.5</sup>, t=${f.elapsed_days}, S=${S != null ? S.toFixed(1) : '—'} → R=${R != null ? (R * 100).toFixed(1) + '%' : '—'}<br>
+    <b>2. Correct →</b> stability grows, <code>the longer you wait (lower R) and the lower the difficulty, the bigger the boost</code>; Hard is discounted, Easy gets a bonus.<br>
+    <b>3. Wrong (Again) →</b> stability drops gently (not halved), difficulty rises.<br>
+    <b>4. Next interval</b> = the number of days for R to decay to the target ${Math.round(f.desired_retention * 100)}% ≈ the new S.<br>
+    <b>5. Difficulty</b> reverts toward the mean every time → never gets permanently stuck (no ease hell).
   </div>`;
-  html += `<div class="fsrs-note">间隔已强制 Again < Hard ≤ Good < Easy 单调。按 Shift+S 或 Esc 关闭。</div>`;
+  html += `<div class="fsrs-note">Intervals are forced monotonic: Again < Hard ≤ Good < Easy. Press Shift+S or Esc to close.</div>`;
 
   body.innerHTML = html;
 }
@@ -7435,6 +7459,20 @@ document.addEventListener('keydown', async e => {
         e.preventDefault();
         openQuickAddCard();
         return;
+      }
+      // On the home (decks) view: L → All deck Listening, C → All deck Creating.
+      const _decksActive = document.getElementById('view-decks')?.style.display !== 'none';
+      if (_decksActive) {
+        if (code === 'KeyL') {
+          e.preventDefault();
+          _startAllDeckCategory('listening');
+          return;
+        }
+        if (code === 'KeyC') {
+          e.preventDefault();
+          _startAllDeckCategory('creating');
+          return;
+        }
       }
     }
   }
@@ -8055,7 +8093,10 @@ function _hcalDayValue(date) {
   const d = _hcalData.by_date[date];
   if (!d) return { value: null, has: false };
   if (_hcalMetric === 'retention') {
-    return { value: d.total > 0 ? d.correct / d.total : null, has: d.total > 0 };
+    // "Learned cards only" — count reviews in the review phase (state='review'),
+    // matching the daily badge / Anki true retention. Learning steps excluded.
+    const rv = d.review;
+    return { value: rv.total > 0 ? rv.correct / rv.total : null, has: rv.total > 0 };
   }
   if (_hcalMetric === 'cards') {
     return { value: d.cards || 0, has: (d.cards || 0) > 0 };
@@ -8260,14 +8301,14 @@ function _hcalTipHtml(date) {
   const d = _hcalData.by_date[date];
   if (!d || d.total === 0) return `<div class="hcal-tip-date">${nice}</div><div class="hcal-tip-empty">no reviews</div>`;
 
-  const head = `<div class="hcal-tip-big">${d.cards} cards · ${_hcalFmtRR(d.correct, d.total)} retention</div>`;
+  const head = `<div class="hcal-tip-big">${d.cards} cards · ${_hcalFmtRR(d.review.correct, d.review.total)} retention</div>`;
   const time = d.timed_count > 0
     ? `<div class="hcal-tip-sub">${_hcalFmtTime(d.duration_ms)} total · ${_hcalFmtTime(d.duration_ms / d.timed_count)}/card</div>`
     : '';
   const rows = _HCAL_CATS.filter(c => d.by_cat[c.key]).map(c => {
     const cd = d.by_cat[c.key];
-    const ph = `L ${_hcalFmtRR(cd.learning.correct, cd.learning.total)} · R ${_hcalFmtRR(cd.review.correct, cd.review.total)}`;
-    return `<div class="hcal-tip-row"><b>${c.zh}</b> ${cd.cards}c · ${_hcalFmtRR(cd.correct, cd.total)} <span class="hcal-tip-dim">(${ph})</span></div>`;
+    const ph = `learning ${_hcalFmtRR(cd.learning.correct, cd.learning.total)}`;
+    return `<div class="hcal-tip-row"><b>${c.zh}</b> ${cd.cards}c · ${_hcalFmtRR(cd.review.correct, cd.review.total)} <span class="hcal-tip-dim">(${ph})</span></div>`;
   }).join('');
   return `<div class="hcal-tip-date">${nice}</div>${head}${time}<div class="hcal-tip-rows">${rows}</div>`;
 }
@@ -8298,15 +8339,14 @@ function _hcalRenderDetail() {
 
   const catRows = _HCAL_CATS.map(c => {
     const cd = d.by_cat[c.key];
-    if (!cd) return `<tr><td>${c.zh} ${c.en}</td><td>0</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>`;
+    if (!cd) return `<tr><td>${c.zh} ${c.en}</td><td>0</td><td>—</td><td>—</td><td>—</td></tr>`;
     const avg = cd.timed_count > 0 ? _hcalFmtTime(cd.duration_ms / cd.timed_count) : '—';
     const tot = cd.timed_count > 0 ? _hcalFmtTime(cd.duration_ms) : '—';
     return `<tr>
       <td>${c.zh} ${c.en}</td>
       <td>${cd.cards}</td>
-      <td>${_hcalFmtRR(cd.correct, cd.total)}</td>
-      <td>${_hcalFmtRR(cd.learning.correct, cd.learning.total)}</td>
       <td>${_hcalFmtRR(cd.review.correct, cd.review.total)}</td>
+      <td>${_hcalFmtRR(cd.learning.correct, cd.learning.total)}</td>
       <td>${avg} <span class="hcal-tip-dim">/ ${tot}</span></td>
     </tr>`;
   }).join('');
@@ -8316,12 +8356,11 @@ function _hcalRenderDetail() {
   return `
     <div class="hcal-detail-head">${nice}</div>
     <table class="hcal-tbl">
-      <tr><th>Category</th><th>Cards</th><th>Retention</th><th>Learn</th><th>Review</th><th>Avg / Total</th></tr>
+      <tr><th>Category</th><th>Cards</th><th>Retention</th><th>Learn</th><th>Avg / Total</th></tr>
       ${catRows}
       <tr class="hcal-tbl-total">
-        <td>All</td><td>${d.cards}</td><td>${_hcalFmtRR(d.correct, d.total)}</td>
+        <td>All</td><td>${d.cards}</td><td>${_hcalFmtRR(d.review.correct, d.review.total)}</td>
         <td>${_hcalFmtRR(d.learning.correct, d.learning.total)}</td>
-        <td>${_hcalFmtRR(d.review.correct, d.review.total)}</td>
         <td>${totAvg} <span class="hcal-tip-dim">/ ${totTot}</span></td>
       </tr>
     </table>`;

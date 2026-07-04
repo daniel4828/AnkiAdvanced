@@ -26,6 +26,12 @@ CREATE TABLE IF NOT EXISTS deck_presets (
     -- Review scheduling
     minimum_interval        INTEGER NOT NULL DEFAULT 1,
 
+    -- learned_interval: minimum interval (in days) a card must reach before it
+    -- counts as "learned/mature". Reviews of cards below this interval (plus all
+    -- relearn cards) are treated as "still learning" in retention stats and deck
+    -- badge counts. Does NOT change the SRS state machine or queue order.
+    learned_interval        INTEGER NOT NULL DEFAULT 4,
+
     -- ── FSRS scheduling ──────────────────────────────────────────────────────
     -- desired_retention: target recall probability that sets every interval
     -- maximum_interval: hard cap on any computed interval (days)
@@ -307,7 +313,9 @@ CREATE TABLE IF NOT EXISTS review_log (
     user_response   TEXT,       -- what the user typed (creating category)
     ai_score        INTEGER,    -- future: AI evaluation score
     duration_ms     INTEGER,    -- time spent on this review in milliseconds (NULL for legacy rows)
-    state           TEXT        -- card state at review time (new/learning/review/relearn) — NULL for legacy rows
+    state           TEXT,       -- card state at review time (new/learning/review/relearn) — NULL for legacy rows
+    last_interval   INTEGER     -- the interval (days) the card had when shown, i.e. the interval being tested
+                                -- (used to tell "learned/mature" reviews apart) — NULL for legacy rows
 );
 
 -- ---------------------------------------------------------------------------

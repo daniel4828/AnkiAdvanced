@@ -50,6 +50,7 @@
     <button class="undo-btn" id="session-graph-btn" onclick="openSessionSummary()" title="Graph of cards reviewed this session">📈 Session</button>
   </div>
   <div class="header-right">
+    <button id="random-words-btn" onclick="openRandomWords()" title="10 random words for today">🎲</button>
     <button id="header-regen-btn" onclick="regenerateStory()" title="Regenerate story" style="display:none">↺</button>
   </div>
 </header>
@@ -236,7 +237,7 @@
             </div>
             <!-- FSRS scheduler inspector trigger (Shift+S) -->
             <div class="fsrs-inspect-row">
-              <button class="fsrs-inspect-btn" onclick="toggleFsrsInspector()" title="复习调度详情 / FSRS scheduler (Shift+S)">🔬 Scheduler</button>
+              <button class="fsrs-inspect-btn" onclick="toggleFsrsInspector()" title="FSRS scheduler details (Shift+S)">🔬 Scheduler</button>
             </div>
             <!-- Word summary: character, pinyin, pos, definition -->
             <div class="vocab-detail">
@@ -456,6 +457,7 @@
       <div class="opt-row"><span class="opt-label">Steps (minutes, space-separated) <span class="info-i" data-info="learning_steps">i</span></span><input class="opt-input wide" id="opt-learn-steps"  type="text"></div>
       <div class="opt-row sched-sm2"><span class="opt-label">Graduating interval (days) <span class="info-i" data-info="graduating_interval">i</span></span>       <input class="opt-input" id="opt-grad-int"     type="number" min="1"></div>
       <div class="opt-row sched-sm2"><span class="opt-label">Easy interval (days) <span class="info-i" data-info="easy_interval">i</span></span>              <input class="opt-input" id="opt-easy-int"     type="number" min="1"></div>
+      <div class="opt-row"><span class="opt-label">Learned interval (days) <span class="info-i" data-info="learned_interval">i</span><br><span style="font-weight:400;font-size:11px;color:var(--muted)">interval a card must reach to count as learned</span></span><input class="opt-input" id="opt-learned-int" type="number" min="1" step="1"></div>
     </div>
 
     <div class="opt-group">
@@ -1072,7 +1074,7 @@
   <div id="fsrs-inspector">
     <div class="fsrs-insp-header">
       <span class="fsrs-insp-title">🔬 FSRS Scheduler</span>
-      <button class="fsrs-insp-close" onclick="closeFsrsInspector()" title="关闭 (Shift+S / Esc)">✕</button>
+      <button class="fsrs-insp-close" onclick="closeFsrsInspector()" title="Close (Shift+S / Esc)">✕</button>
     </div>
     <div id="fsrs-insp-body"></div>
   </div>

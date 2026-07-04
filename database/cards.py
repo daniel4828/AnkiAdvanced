@@ -169,7 +169,7 @@ def get_card(card_id: int) -> dict | None:
                   END AS deck_path,
                   p.id AS preset_id,
                   p.learning_steps, p.graduating_interval, p.easy_interval,
-                  p.relearning_steps, p.minimum_interval,
+                  p.relearning_steps, p.minimum_interval, p.learned_interval,
                   p.leech_threshold, p.learning_leech_threshold, p.leech_action,
                   p.desired_retention, p.maximum_interval, p.fsrs_weights, p.enable_fsrs,
                   p.learning_hard_1d, p.learning_hard_days,
@@ -289,6 +289,16 @@ def resolve_bury_flags(preset: dict) -> tuple[bool, bool, bool]:
     )
 
 
+def _still_learning(card: dict, learned_interval: int) -> bool:
+    """True if a card is not yet "learned" — either in learning/relearn, or a
+    review card whose interval hasn't reached the learned_interval threshold.
+    Such cards queue with the learning group and are shown before learned cards.
+    """
+    if card["state"] in ("learning", "relearn"):
+        return True
+    return card["state"] == "review" and (card.get("interval") or 0) < learned_interval
+
+
 def _interleave_cards(base: list, inserts: list) -> list:
     """Distribute inserts evenly across the full combined length.
 
@@ -355,8 +365,11 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
     ).fetchall()
 
     all_cards = [dict(r) for r in rows]
-    learning_cards = [c for c in all_cards if c["state"] in ("learning", "relearn")]
-    review_cards   = [c for c in all_cards if c["state"] == "review"]
+    # A 'review' card whose interval hasn't reached learned_interval is still a
+    # learning card: it queues with the learning group (before learned cards).
+    threshold = preset.get("learned_interval", 4)
+    learning_cards = [c for c in all_cards if _still_learning(c, threshold)]
+    review_cards   = [c for c in all_cards if c["state"] == "review" and not _still_learning(c, threshold)]
     new_cards_raw  = [c for c in all_cards if c["state"] == "new"]
 
     # ── 1. Gather & sort new cards ────────────────────────────────────────────
@@ -487,7 +500,7 @@ def count_due(deck_id: int, category: str) -> dict:
     new_remaining = max(0, new_limit - new_done_today)
 
     rows = conn.execute(
-        """SELECT c.word_id, c.state, c.due FROM cards c
+        """SELECT c.word_id, c.state, c.due, c.interval FROM cards c
            WHERE c.deck_id = ? AND c.category = ?
              AND c.state != 'suspended'
              AND c.deleted_at IS NULL
@@ -500,8 +513,15 @@ def count_due(deck_id: int, category: str) -> dict:
         (deck_id, category, today, now, today, today),
     ).fetchall()
 
-    learning = sum(1 for r in rows if r["state"] in ("learning", "relearn"))
-    review   = sum(1 for r in rows if r["state"] == "review")
+    # A 'review' card whose interval hasn't reached learned_interval is still
+    # "learning" for badge purposes (not yet learned/mature).
+    threshold = preset.get("learned_interval", 4)
+    def _is_learning(r) -> bool:
+        return (r["state"] in ("learning", "relearn")
+                or (r["state"] == "review" and (r["interval"] or 0) < threshold))
+
+    learning = sum(1 for r in rows if _is_learning(r))
+    review   = sum(1 for r in rows if r["state"] == "review" and not _is_learning(r))
     new_avail = sum(1 for r in rows if r["state"] == "new")
 
     learning_future = conn.execute(
@@ -712,9 +732,18 @@ def get_due_cards_any_cat(root_deck_id: int) -> list[dict]:
             cat_order.get(c["category"], 99),
         ))
     else:
+        # No story: learning-first. A review card below its deck's
+        # learned_interval is still "learning" (rank 0), before learned cards.
+        thresholds = {
+            did: (get_preset_for_deck(did) or {}).get("learned_interval", 4)
+            for did, _ in leaf_pairs
+        }
+        def _rank(c: dict) -> int:
+            if _still_learning(c, thresholds.get(c["deck_id"], 4)):
+                return 0
+            return 1 if c["state"] == "review" else 2
         all_cards.sort(key=lambda c: (
-            0 if c["state"] in ("learning", "relearn") else
-            1 if c["state"] == "review" else 2,
+            _rank(c),
             cat_order.get(c["category"], 99),
             c["due"],
         ))
@@ -781,8 +810,16 @@ def get_due_cards_multi(deck_ids: list[int], category: str, *, root_deck_id: int
     for deck_id in deck_ids:
         all_cards.extend(get_due_cards(deck_id, category, sibling_suppression=sibling_suppression))
 
-    learning_cards = [c for c in all_cards if c["state"] in ("learning", "relearn")]
-    review_cards   = [c for c in all_cards if c["state"] == "review"]
+    # Each deck may have its own learned_interval; a review card below its deck's
+    # threshold is still "learning" and queues with the learning group.
+    thresholds = {
+        did: (get_preset_for_deck(did) or {}).get("learned_interval", 4)
+        for did in deck_ids
+    }
+    def _lrn(c: dict) -> bool:
+        return _still_learning(c, thresholds.get(c["deck_id"], 4))
+    learning_cards = [c for c in all_cards if _lrn(c)]
+    review_cards   = [c for c in all_cards if c["state"] == "review" and not _lrn(c)]
     new_cards      = [c for c in all_cards if c["state"] == "new"]
 
     # Apply parent deck's combined new-card cap (Anki-style)
@@ -876,11 +913,12 @@ def count_due_deduped(leaf_pairs: list[tuple[int, str]]) -> dict:
 
     for deck_id, category in leaf_pairs:
         pr = get_preset_for_deck(deck_id)
+        threshold = pr.get("learned_interval", 4)
         new_done = _count_new_introduced_today(conn, deck_id, category, today)
         new_remaining_map[(deck_id, category)] = max(0, pr["new_per_day"] - new_done)
 
         rows = conn.execute(
-            """SELECT c.word_id, c.state FROM cards c
+            """SELECT c.word_id, c.state, c.interval FROM cards c
                WHERE c.deck_id = ? AND c.category = ?
                  AND c.state != 'suspended'
                  AND c.deleted_at IS NULL
@@ -896,8 +934,13 @@ def count_due_deduped(leaf_pairs: list[tuple[int, str]]) -> dict:
         for r in rows:
             sr = 0 if r["state"] in ("learning", "relearn") else 1 if r["state"] == "review" else 2
             cr = cat_rank_map[category]
+            # A young 'review' card (interval below learned_interval) is tallied
+            # as learning; dedup priority still uses the raw state rank so which
+            # category a word is attributed to is unchanged.
+            is_lrn = (r["state"] in ("learning", "relearn")
+                      or (r["state"] == "review" and (r["interval"] or 0) < threshold))
             if r["word_id"] not in best or (sr, cr) < best[r["word_id"]][:2]:
-                best[r["word_id"]] = (sr, cr, r["state"], deck_id, category)
+                best[r["word_id"]] = (sr, cr, r["state"], deck_id, category, is_lrn)
 
     conn.close()
 
@@ -905,14 +948,14 @@ def count_due_deduped(leaf_pairs: list[tuple[int, str]]) -> dict:
     review_count = 0
     new_by_deck: dict[tuple, int] = {}
 
-    for sr, cr, state, deck_id, category in best.values():
-        if sr == 0:
-            learning_count += 1
-        elif sr == 1:
-            review_count += 1
-        else:
+    for sr, cr, state, deck_id, category, is_lrn in best.values():
+        if state == "new":
             key = (deck_id, category)
             new_by_deck[key] = new_by_deck.get(key, 0) + 1
+        elif is_lrn:
+            learning_count += 1
+        else:
+            review_count += 1
 
     new_count = sum(
         min(count, new_remaining_map.get(key, 0))
