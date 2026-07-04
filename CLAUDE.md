@@ -489,12 +489,16 @@ ease最低值（zuì dī zhí - floor）：1.3。难词检测（jiǎncè - detec
 - `create_story()` 每次都插入新行 —— 重新生成 = 新增一行，旧故事永久保留
 - Haiku提示词要求：连贯叙事（sùshì - narrative），相同人物，每句不超过15个字，背景词汇使用HSK 1–2
 - **模式（mode）**：`story`（叙事）| `qa`（问答）| `expository`（说明文）| `kahneman`（《思考，快与慢》认知偏误风格，见 `data/kahneman_chapters.json`）
-  | `news`（新闻简报——用户在设置弹窗粘贴文章，AI 用 OpenAI `gpt-5-mini` 生成连贯中文新闻简报句子；
-  每句附带 `source_url`/`concept_zh`(标题)/`reasoning_zh`(背景说明)，复用 kahneman 模式的概念框/背景弹窗 UI；
-  文章内容存入 `stories.gen_params` 的 `articles` 字段，供 Again 单词重生成复现同一批文章。
-  **不粘贴文章时自动抓取当日新闻**：`news_fetcher.fetch_all()` 抓取 Tagesschau API + RSS 源（按天缓存），
+  | `news`（新闻简报——**纯自动抓取**当日新闻：`news_fetcher.fetch_all()` 抓取 Tagesschau API + RSS 源（按天缓存），
   然后两步 AI 调用——`ai.summarize_news_items` 挑选最重要的 8 条（平衡德国/国际/中国相关）并压缩摘要，
-  再用 `generate_news_sentences` 生成句子；抓取全部失败时报明确错误，不静默降级为普通故事模式）
+  再用 `generate_news_sentences` 生成连贯中文新闻简报句子（默认 OpenAI `gpt-5-mini`）；
+  抓取全部失败时报明确错误，不静默降级为普通故事模式）
+  | `paste`（粘贴内容摘要——用户在设置弹窗粘贴任意内容（文章/邮件/博客，issue #396），
+  句子构成该内容的连贯中文摘要；复用 news 的生成管线（`generate_news_sentences(generic=True)`），
+  必须至少粘贴一段文字，不做自动抓取回退）。
+  news/paste 两个模式共同点：每句附带 `source_url`/`concept_zh`(标题)/`reasoning_zh`(背景说明)，
+  复用 kahneman 模式的概念框/背景弹窗 UI；文章内容存入 `stories.gen_params` 的 `articles` 字段，
+  供 Again 单词重生成复现同一批内容（paste 的文章通过 regenerate 的 POST body 传输）
 
 ## 界面类别顺序（shùnxù - order）
 
