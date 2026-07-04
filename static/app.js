@@ -3156,12 +3156,13 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mo
   }
 }
 
-// News mode has no "background" generation path — pasted articles are too large
-// to pass as a GET query string, so it always goes through the regenerate POST
-// body instead of the normal (possibly backgrounded) GET/poll flow.
+// News mode with pasted articles goes through the regenerate POST body (articles
+// are too large for a GET query string). Without articles (e.g. resuming a session
+// whose briefing was already generated today) fall back to the normal GET/poll
+// flow, which returns the cached story — POSTing would either re-generate or fail.
 async function _fetchStoryOrNewsRegen(storyDeckId, storyCategory, topic, maxHsk, model,
                                       grammarFocus, grammarPct, mode, chapterIds, articles, bgUrl) {
-  if (mode === 'news') {
+  if (mode === 'news' && articles && articles.length) {
     const url = `/api/story/${storyDeckId}/${storyCategory}/regenerate`
       + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
     return api('POST', url, { articles });
@@ -3243,7 +3244,7 @@ async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPc
     if (!noStory) {
       // Load a single unified story covering all categories (1 AI call instead of 3)
       try {
-        story = mode === 'news'
+        story = (mode === 'news' && articles && articles.length)
           ? await api('POST', `/api/story/${rootDeckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds), { articles })
           : await api('GET', `/api/story/${rootDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds));
       } catch (e) {
@@ -3349,7 +3350,7 @@ async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, gram
     const firstDeckId = todayData.card.deck_id;
     // Load the first card's deck story (generate only when story mode = "new")
     try {
-      if (!noGen && mode === 'news') {
+      if (!noGen && mode === 'news' && articles && articles.length) {
         story = await api('POST', `/api/story/${firstDeckId}/unified/regenerate`
           + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds), { articles });
       } else {
@@ -5775,7 +5776,9 @@ function confirmStorySetup() {
   const mode        = document.getElementById('setup-mode').value;
   const chapterIds  = mode === 'kahneman' ? _getSelectedChapterIds() : null;
   const articles    = mode === 'news' ? _collectNewsArticles() : null;
-  if (mode === 'news' && (!articles || !articles.length)) {
+  // Explicit regeneration needs fresh articles; the start-review paths may run
+  // without them — they then load today's cached news briefing via GET instead.
+  if (mode === 'news' && (!articles || !articles.length) && (_setupIsRegen || _setupIsDeckListRegen)) {
     showError('News mode requires at least one pasted article.');
     return;
   }
