@@ -669,7 +669,8 @@
         <option value="qa">❓ Q&amp;A — answer a question</option>
         <option value="expository">📚 Expository — informative text</option>
         <option value="kahneman">🧠 Kahneman — cognitive bias style</option>
-        <option value="news">📰 News briefing — paste articles</option>
+        <option value="news">📰 News briefing — today's news, auto-fetched</option>
+        <option value="paste">📋 Paste content — summarize anything</option>
       </select>
     </label>
     <!-- Kahneman chapter selector (shown only in kahneman mode) -->
@@ -681,15 +682,21 @@
       <div id="setup-kahneman-chapters" style="max-height:220px;overflow-y:auto;border:1px solid var(--border,#ddd);border-radius:6px;padding:4px 0"></div>
       <div id="setup-kahneman-loading" style="display:none;padding:12px;text-align:center;color:var(--muted,#888);font-size:13px">Loading chapters…</div>
     </div>
-    <!-- News articles input (shown only in news mode) -->
+    <!-- News auto-fetch info (shown only in news mode) -->
     <div id="setup-news-section" style="display:none">
-      <label class="edit-label" style="margin:0">Articles <span style="font-weight:400;text-transform:none">(optional)</span></label>
       <div style="font-size:12px;color:var(--muted,#888);margin:2px 0 6px">
-        Paste articles below — or leave empty to auto-fetch today's news (Tagesschau + BBC World).
+        Today's news is fetched automatically (Tagesschau + BBC World) and condensed into a briefing.
         <span id="setup-news-status" style="display:block"></span>
       </div>
-      <div id="setup-news-articles"></div>
-      <button class="edit-cancel-btn" style="padding:4px 10px;font-size:12px;margin-top:6px" onclick="addNewsArticleBlock()">+ Add article</button>
+    </div>
+    <!-- Pasted content input (shown only in paste mode) -->
+    <div id="setup-paste-section" style="display:none">
+      <label class="edit-label" style="margin:0">Content</label>
+      <div style="font-size:12px;color:var(--muted,#888);margin:2px 0 6px">
+        Paste anything — articles, e-mails, blog posts. The sentences will form a Chinese summary of it.
+      </div>
+      <div id="setup-paste-blocks"></div>
+      <button class="edit-cancel-btn" style="padding:4px 10px;font-size:12px;margin-top:6px" onclick="addPasteBlock()">+ Add text</button>
     </div>
     <label class="edit-label" id="setup-topic-label">Topic <span style="font-weight:400;text-transform:none">(optional)</span>
       <input class="edit-input" id="setup-topic" type="text" placeholder="e.g. a day at a coffee shop" onkeydown="if(event.key==='Enter')confirmStorySetup()">
