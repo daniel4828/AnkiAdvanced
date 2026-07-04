@@ -392,6 +392,7 @@ echo "✓ 议题创建完成"
 ├── srs.py                 # Anki风格的SM-2调度（diàodù - scheduling）算法
 ├── importer.py            # 口语YAML导入（dǎorù - import）器
 ├── ai.py                  # Anthropic API调用
+├── news_fetcher.py        # 新闻抓取（Tagesschau API + RSS；来源配置 data/news_sources.json；按天缓存 data/news_cache/）
 ├── tts.py                 # edge-tts封装（fēngzhuāng - wrapper）
 ├── translator.py          # 中→英翻译（Google Translate，需 deep-translator，可选）
 ├── yaml_fixer.py          # 修复 AI 生成的格式错误 YAML（DeepSeek 常见双引号/冒号问题）
@@ -490,7 +491,10 @@ ease最低值（zuì dī zhí - floor）：1.3。难词检测（jiǎncè - detec
 - **模式（mode）**：`story`（叙事）| `qa`（问答）| `expository`（说明文）| `kahneman`（《思考，快与慢》认知偏误风格，见 `data/kahneman_chapters.json`）
   | `news`（新闻简报——用户在设置弹窗粘贴文章，AI 用 OpenAI `gpt-5-mini` 生成连贯中文新闻简报句子；
   每句附带 `source_url`/`concept_zh`(标题)/`reasoning_zh`(背景说明)，复用 kahneman 模式的概念框/背景弹窗 UI；
-  文章内容存入 `stories.gen_params` 的 `articles` 字段，供 Again 单词重生成复现同一批文章）
+  文章内容存入 `stories.gen_params` 的 `articles` 字段，供 Again 单词重生成复现同一批文章。
+  **不粘贴文章时自动抓取当日新闻**：`news_fetcher.fetch_all()` 抓取 Tagesschau API + RSS 源（按天缓存），
+  然后两步 AI 调用——`ai.summarize_news_items` 挑选最重要的 8 条（平衡德国/国际/中国相关）并压缩摘要，
+  再用 `generate_news_sentences` 生成句子；抓取全部失败时报明确错误，不静默降级为普通故事模式）
 
 ## 界面类别顺序（shùnxù - order）
 
@@ -545,6 +549,7 @@ POST /api/preload                                    → 预加载 TTS 音频
 POST /api/preload-session/{deck_id}/{category}       → 预加载整个会话的 TTS
 GET  /api/tts-progress/{deck_id}/{category}          → TTS 预加载进度
 GET  /api/story-progress/{deck_id}/{category}        → 故事生成进度
+GET  /api/news/status                                → 当日新闻缓存状态 {cached, count}（news 自动模式）
 
 # 其他
 POST /api/import                                     → 触发YAML导入
