@@ -113,6 +113,11 @@ CREATE TABLE IF NOT EXISTS deck_presets (
     -- Order of L/R/C category pills shown in the deck list
     category_order          TEXT NOT NULL DEFAULT 'listening,reading,creating',
 
+    -- When 0, the reading category is fully disabled for decks using this
+    -- preset: no R pill, no due counts, excluded from mixed/unfinished queues.
+    -- Cards are kept and come back untouched when re-enabled.
+    reading_enabled         INTEGER NOT NULL DEFAULT 0,
+
     -- Minimum days between sibling card reviews (R/T/C of the same word)
     sibling_separation      INTEGER NOT NULL DEFAULT 3,
 

@@ -22,12 +22,17 @@ def _flatten(tree: list) -> list:
 
 
 def _leaf_pairs(deck: dict) -> list[tuple[int, str]]:
-    """All (id, category) tuples for leaf descendants that have a category."""
+    """All (id, category) tuples for leaf descendants that have a category.
+
+    Reading leaves are skipped when their preset disables reading, so parent
+    badges and all-suspended flags ignore the hidden category.
+    """
     result = []
     for child in deck.get("children", []):
         if not child.get("children"):
-            if child.get("category"):
-                result.append((child["id"], child["category"]))
+            cat = child.get("category")
+            if cat and not (cat == "reading" and not child.get("reading_enabled")):
+                result.append((child["id"], cat))
         else:
             result.extend(_leaf_pairs(child))
     return result
@@ -75,8 +80,8 @@ def _attach_counts(flat_decks: list) -> None:
 def get_decks(unfinished_scope: str = "unfinished"):
     tree = database.get_deck_tree()
     flat = _flatten(tree)
-    _attach_counts(flat)
-    # Attach bury_mode so the frontend can render the 3-state toggle without extra calls
+    # Attach preset-derived fields first — _attach_counts needs reading_enabled
+    # to skip disabled reading leaves in parent aggregation
     presets = {p["id"]: p for p in database.list_presets()}
     locked = database.get_locked_deck_ids()
     for deck in flat:
@@ -85,6 +90,9 @@ def get_decks(unfinished_scope: str = "unfinished"):
         deck["bury_mode"] = deck.get("bury_quick_mode", "all")
         deck["new_review_order_override"] = deck.get("new_review_order_override")
         deck["category_order"] = p.get("category_order", "listening,reading,creating")
+        deck["reading_enabled"] = 1 if p.get("reading_enabled") else 0
+    _attach_counts(flat)
+    for deck in flat:
         # Future-dated daily decks are locked until their date — flag for the UI.
         if deck.get("id") in locked:
             deck["locked"] = True

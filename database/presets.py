@@ -41,6 +41,7 @@ def default_preset() -> dict:
         "category_order": "listening,reading,creating",
         "sibling_separation": 3,
         "sibling_factor": 0.2,
+        "reading_enabled": 0,
     }
 
 
@@ -209,6 +210,7 @@ def insert_preset(preset: dict) -> int:
     preset.setdefault("learning_hard_1d", 1)
     preset.setdefault("learning_hard_days", 1)
     preset.setdefault("learned_interval", 4)
+    preset.setdefault("reading_enabled", 0)
     conn = get_db()
     cur = conn.execute(
         """INSERT INTO deck_presets
@@ -220,7 +222,8 @@ def insert_preset(preset: dict) -> int:
             new_gather_order, new_sort_order, new_review_order,
             interday_learning_review_order, review_sort_order,
             bury_new_siblings, bury_review_siblings, bury_interday_siblings,
-            bury_quick_mode, category_order, sibling_separation, sibling_factor)
+            bury_quick_mode, category_order, sibling_separation, sibling_factor,
+            reading_enabled)
            VALUES (:name, :new_per_day, :reviews_per_day,
                    :learning_steps, :graduating_interval, :easy_interval,
                    :relearning_steps, :minimum_interval, :learned_interval, :insertion_order,
@@ -229,7 +232,8 @@ def insert_preset(preset: dict) -> int:
                    :new_gather_order, :new_sort_order, :new_review_order,
                    :interday_learning_review_order, :review_sort_order,
                    :bury_new_siblings, :bury_review_siblings, :bury_interday_siblings,
-                   :bury_quick_mode, :category_order, :sibling_separation, :sibling_factor)""",
+                   :bury_quick_mode, :category_order, :sibling_separation, :sibling_factor,
+                   :reading_enabled)""",
         preset,
     )
     conn.commit()
@@ -249,7 +253,7 @@ def update_preset(preset_id: int, fields: dict) -> None:
         "interday_learning_review_order", "review_sort_order",
         "bury_new_siblings", "bury_review_siblings", "bury_interday_siblings",
         "bury_quick_mode", "category_order", "new_review_order_override",
-        "sibling_separation", "sibling_factor",
+        "sibling_separation", "sibling_factor", "reading_enabled",
     }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:

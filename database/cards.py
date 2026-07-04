@@ -651,12 +651,45 @@ def get_parent_deck_id(deck_id: int) -> int | None:
     return row["parent_id"] if row else None
 
 
+def reading_disabled_deck_ids() -> set[int]:
+    """IDs of decks whose preset has reading_enabled = 0.
+
+    Reading cards of these decks are excluded from mixed/any-cat queues,
+    due counts and the unfinished virtual deck. The cards themselves are
+    kept untouched so re-enabling the preset flag brings them back.
+    """
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT d.id FROM decks d
+           JOIN deck_presets p ON p.id = d.preset_id
+           WHERE p.reading_enabled = 0"""
+    ).fetchall()
+    conn.close()
+    return {r["id"] for r in rows}
+
+
+# SQL fragment matching cards that belong to a disabled reading category.
+_READING_DISABLED_SQL = (
+    "(category = 'reading' AND deck_id IN "
+    "(SELECT d.id FROM decks d JOIN deck_presets p ON p.id = d.preset_id "
+    "WHERE p.reading_enabled = 0))"
+)
+
+
 def _leaf_decks_with_category(root_deck_id: int) -> list[tuple[int, str]]:
-    """Return [(deck_id, category)] for all category leaves under root_deck_id."""
+    """Return [(deck_id, category)] for all category leaves under root_deck_id.
+
+    Reading leaves whose preset disables reading are omitted.
+    """
+    disabled = reading_disabled_deck_ids()
+
+    def _keep(deck_id: int, category: str) -> bool:
+        return not (category == "reading" and deck_id in disabled)
+
     all_leaf_ids = get_descendant_leaf_deck_ids(root_deck_id)
     if not all_leaf_ids:
         deck = get_deck(root_deck_id)
-        if deck and deck["category"]:
+        if deck and deck["category"] and _keep(root_deck_id, deck["category"]):
             return [(root_deck_id, deck["category"])]
         return []
     conn = get_db()
@@ -665,7 +698,7 @@ def _leaf_decks_with_category(root_deck_id: int) -> list[tuple[int, str]]:
         f"SELECT id, category FROM decks WHERE id IN ({placeholders})", all_leaf_ids
     ).fetchall()
     conn.close()
-    return [(r["id"], r["category"]) for r in rows if r["category"]]
+    return [(r["id"], r["category"]) for r in rows if r["category"] and _keep(r["id"], r["category"])]
 
 
 def get_due_cards_any_cat(root_deck_id: int) -> list[dict]:
@@ -993,6 +1026,7 @@ def _unfinished_where(scope: str) -> tuple[str, list]:
             "  OR (state = 'new' AND due <= ?)"
             ")"
             + lock_clause
+            + f" AND NOT {_READING_DISABLED_SQL}"
         )
         return clause, [today, tomorrow, today, today, *lock_params]
     clause = (
@@ -1000,6 +1034,7 @@ def _unfinished_where(scope: str) -> tuple[str, list]:
         "AND deleted_at IS NULL "
         "AND (buried_until IS NULL OR buried_until < date('now'))"
         + lock_clause
+        + f" AND NOT {_READING_DISABLED_SQL}"
     )
     return clause, [now, *lock_params]
 
@@ -1425,8 +1460,12 @@ def count_due_all_decks() -> dict:
     # neither display due cards nor contribute to parent aggregation.
     locked = get_locked_deck_ids()
 
+    # Disabled reading categories count as zero everywhere (deck badges,
+    # parent aggregation) without touching the cards themselves.
+    reading_disabled = reading_disabled_deck_ids()
+
     for key, c in counts.items():
-        if key[0] in locked:
+        if key[0] in locked or (key[1] == "reading" and key[0] in reading_disabled):
             c["new_raw"] = 0
             c["learning"] = 0
             c["review"] = 0

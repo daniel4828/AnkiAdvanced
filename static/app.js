@@ -1120,8 +1120,10 @@ function buildCategoryButtons(deck) {
   const DEFAULT_ORDER = ['listening', 'reading', 'creating'];
   const orderStr = deck.category_order || 'listening,reading,creating';
   const ordered = orderStr.split(',').map(s => s.trim()).filter(s => DEFAULT_ORDER.includes(s));
-  // Ensure all 3 categories present (in case of corrupt/partial value)
-  const CATS = [...ordered, ...DEFAULT_ORDER.filter(c => !ordered.includes(c))];
+  // Ensure all 3 categories present (in case of corrupt/partial value),
+  // then drop reading entirely when the deck's preset disables it
+  const CATS = [...ordered, ...DEFAULT_ORDER.filter(c => !ordered.includes(c))]
+    .filter(c => c !== 'reading' || deck.reading_enabled);
   const LABELS = { listening: 'L', reading: 'R', creating: 'C' };
   const catLeaves = getCategoryLeaves(deck);
   const safeName  = deck.name.replace(/'/g, "\\'");
@@ -2725,6 +2727,7 @@ function loadPresetFields(preset) {
   document.getElementById('opt-hard-days').value       = preset.learning_hard_days == null ? 1 : preset.learning_hard_days;
   document.getElementById('opt-desired-retention').value = Math.round((preset.desired_retention ?? 0.9) * 100);
   document.getElementById('opt-max-int').value         = preset.maximum_interval ?? 36500;
+  document.getElementById('opt-reading-enabled').checked = !!preset.reading_enabled;
   applySchedulerVisibility();
 
   // Category order
@@ -2894,6 +2897,7 @@ async function saveOptions() {
     desired_retention:      Math.min(0.99, Math.max(0.70, (parseInt(document.getElementById('opt-desired-retention').value) || 90) / 100)),
     maximum_interval:       Math.max(1, parseInt(document.getElementById('opt-max-int').value) || 36500),
     category_order: _getCategoryOrderUI(),
+    reading_enabled:        document.getElementById('opt-reading-enabled').checked ? 1 : 0,
   };
   try {
     const [savedPreset] = await Promise.all([
@@ -3403,6 +3407,9 @@ function loadCard(c, counts) {
       document.getElementById(`cnt-${prefix}-lrn`).textContent = cc.learning;
       document.getElementById(`cnt-${prefix}-rev`).textContent = cc.review;
     }
+    // Reading disabled via preset → its key is absent from by_cat → hide the 读 item
+    const readingItem = document.getElementById('cnt-cat-reading');
+    if (readingItem) readingItem.style.display = counts.by_cat.reading ? '' : 'none';
     // Highlight the active category item
     ['cnt-cat-reading', 'cnt-cat-listening', 'cnt-cat-creating'].forEach(id => document.getElementById(id)?.classList.remove('cnt-cat-item-active'));
     const activeCat = c?.category;

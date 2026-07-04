@@ -295,6 +295,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN learning_hard_days REAL NOT NULL DEFAULT 1")
     if "learned_interval" not in preset_cols:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN learned_interval INTEGER NOT NULL DEFAULT 4")
+    if "reading_enabled" not in preset_cols:
+        conn.execute("ALTER TABLE deck_presets ADD COLUMN reading_enabled INTEGER NOT NULL DEFAULT 0")
 
     conn.execute("""CREATE TABLE IF NOT EXISTS preset_category_overrides (
         id                  INTEGER PRIMARY KEY AUTOINCREMENT,
