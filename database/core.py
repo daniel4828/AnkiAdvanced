@@ -414,8 +414,8 @@ def init_db() -> None:
             conn.execute("DELETE FROM decks WHERE id = ?", (default_row["id"],))
     conn.commit()
 
-    # Ensure "Sentences" deck exists and migrate any sentence-type cards into it
-    _migrate_sentences_deck(conn, all_id, preset_id)
+    # Remove the legacy "Sentences" deck tree if it holds no cards (issue #394)
+    _drop_sentences_decks(conn)
     conn.commit()
     conn.close()
 
@@ -488,39 +488,30 @@ def _migrate_stories_category(conn: sqlite3.Connection) -> None:
         conn.commit()
 
 
-def _ensure_sentences_leaf_decks(conn: sqlite3.Connection, all_id: int,
-                                  preset_id: int) -> dict:
-    """Create (or get) the Sentences parent deck and its 3 category leaf decks."""
-    sent_id = _ensure_deck(conn, "Sentences", parent_id=all_id, preset_id=preset_id)
-    return {
-        "listening": _ensure_deck(conn, "Sentences · Listening", parent_id=sent_id,
-                                   preset_id=preset_id, category="listening"),
-        "reading":   _ensure_deck(conn, "Sentences · Reading",   parent_id=sent_id,
-                                   preset_id=preset_id, category="reading"),
-        "creating":  _ensure_deck(conn, "Sentences · Creating",  parent_id=sent_id,
-                                   preset_id=preset_id, category="creating"),
-    }
+def _drop_sentences_decks(conn: sqlite3.Connection) -> None:
+    """One-time migration: delete the legacy Sentences deck tree (issue #394).
 
-
-def _migrate_sentences_deck(conn: sqlite3.Connection, all_id: int,
-                             preset_id: int) -> None:
-    """One-time migration: move all sentence-type word cards into the Sentences deck."""
-    leaf = _ensure_sentences_leaf_decks(conn, all_id, preset_id)
-
-    # Find all cards belonging to sentence-type words that are NOT already in the Sentences deck
-    sentences_deck_ids = set(leaf.values())
-    rows = conn.execute(
-        """SELECT c.id, c.category FROM cards c
-           JOIN entries w ON w.id = c.word_id
-           WHERE w.note_type = 'sentence'
-             AND c.deck_id NOT IN ({})""".format(",".join("?" * len(sentences_deck_ids))),
-        list(sentences_deck_ids),
-    ).fetchall()
-
-    for row in rows:
-        new_deck_id = leaf[row["category"]]
-        conn.execute("UPDATE cards SET deck_id = ? WHERE id = ?",
-                     (new_deck_id, row["id"]))
+    Only deletes when the tree holds no cards, so a database that still has
+    sentence cards parked there is left untouched.
+    """
+    sent = conn.execute(
+        "SELECT id FROM decks WHERE name = 'Sentences' AND parent_id IN "
+        "(SELECT id FROM decks WHERE parent_id IS NULL) LIMIT 1"
+    ).fetchone()
+    if not sent:
+        return
+    deck_ids = [sent["id"]] + [
+        r["id"] for r in conn.execute(
+            "SELECT id FROM decks WHERE parent_id = ?", (sent["id"],)
+        ).fetchall()
+    ]
+    placeholders = ",".join("?" * len(deck_ids))
+    has_cards = conn.execute(
+        f"SELECT 1 FROM cards WHERE deck_id IN ({placeholders}) LIMIT 1", deck_ids
+    ).fetchone()
+    if has_cards:
+        return
+    conn.execute(f"DELETE FROM decks WHERE id IN ({placeholders})", deck_ids)
 
 
 def _ensure_presets(conn: sqlite3.Connection) -> None:

@@ -530,16 +530,6 @@ def _process_component(analysis: dict, note_word_id: int, position: int,
     database.insert_note_component(note_word_id, comp_word_id, position)
 
 
-_sentences_deck_ids_cache: dict | None = None
-
-
-def _get_sentences_deck_ids() -> dict:
-    global _sentences_deck_ids_cache
-    if _sentences_deck_ids_cache is None:
-        _sentences_deck_ids_cache = database.get_sentences_deck_ids()
-    return _sentences_deck_ids_cache
-
-
 def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
                     resolutions: dict | None = None,
                     card_configs: dict | None = None,
@@ -606,26 +596,21 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
         yaml_categories = entry.get("categories")   # e.g. ["creating"] or ["creating", "listening"]
         yaml_deck_hint = entry.get("deck_hint")     # e.g. "B"
 
-        # Sentences always go into the dedicated Sentences deck regardless of source
-        if note_type == "sentence":
-            target_deck_ids = _get_sentences_deck_ids()
-            logger.info("SENTENCE %s: %r → Sentences deck", label, word_zh)
+        # deck_hint from YAML takes priority over card_cfg.deck_path
+        card_deck_path = yaml_deck_hint or card_cfg.get("deck_path")
+        if card_deck_path:
+            if card_deck_path not in _deck_path_cache:
+                try:
+                    pid = database.get_or_create_deck_path(card_deck_path)
+                    parent = database.get_deck(pid)
+                    leaf_name = parent["name"] if parent else card_deck_path.split("::")[-1]
+                    _deck_path_cache[card_deck_path] = _make_leaf_decks(leaf_name, pid)
+                except Exception as e:
+                    logger.warning("deck_path %r failed (%s), using default", card_deck_path, e)
+                    _deck_path_cache[card_deck_path] = deck_ids
+            target_deck_ids = _deck_path_cache[card_deck_path]
         else:
-            # deck_hint from YAML takes priority over card_cfg.deck_path
-            card_deck_path = yaml_deck_hint or card_cfg.get("deck_path")
-            if card_deck_path:
-                if card_deck_path not in _deck_path_cache:
-                    try:
-                        pid = database.get_or_create_deck_path(card_deck_path)
-                        parent = database.get_deck(pid)
-                        leaf_name = parent["name"] if parent else card_deck_path.split("::")[-1]
-                        _deck_path_cache[card_deck_path] = _make_leaf_decks(leaf_name, pid)
-                    except Exception as e:
-                        logger.warning("deck_path %r failed (%s), using default", card_deck_path, e)
-                        _deck_path_cache[card_deck_path] = deck_ids
-                target_deck_ids = _deck_path_cache[card_deck_path]
-            else:
-                target_deck_ids = deck_ids
+            target_deck_ids = deck_ids
 
         word = _build_word_dict(entry, source=source, note_type=note_type)
         word_id = database.insert_word(word)  # INSERT OR IGNORE → always get id

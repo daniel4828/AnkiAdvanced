@@ -1290,7 +1290,7 @@ def get_category_all_suspended(deck_id: int, category: str) -> bool:
     conn.close()
     total = row["total"] or 0
     suspended = row["suspended_count"] or 0
-    # total==0 means no suspendable cards (e.g. Sentences deck) → treat as suspended
+    # total==0 means no suspendable cards (only sentence-type cards) → treat as suspended
     return total == suspended
 
 

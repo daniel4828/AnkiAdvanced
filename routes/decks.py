@@ -124,9 +124,6 @@ def create_deck(name: str, parent_id: int | None = None, category: str | None = 
 
 @router.delete("/api/decks/{deck_id}")
 def delete_deck(deck_id: int):
-    deck = database.get_deck(deck_id)
-    if deck and deck.get("name") in ("Sentences", "Sentences · Listening", "Sentences · Reading", "Sentences · Creating"):
-        raise HTTPException(status_code=400, detail="Filtered decks cannot be deleted")
     database.delete_deck(deck_id)
     return {"ok": True}
 
