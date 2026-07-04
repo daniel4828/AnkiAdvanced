@@ -1203,21 +1203,20 @@ def generate_briefing_sentences(
     _fill_translations(sentences, progress_key=progress_key)
 
     # Context → German via Google Translate (translator.py), per Daniel's design:
-    # keep the AI's job small, translation is mechanical.
+    # keep the AI's job small, translation is mechanical. Only non-empty contexts
+    # go into the batch — empty lines break translate_batch's newline splitting.
     ctx_texts = [s.pop("context_zh", "") or "" for s in sentences]
-    if any(ctx_texts):
+    for s in sentences:
+        s["context_de"] = None
+    nonempty = [(i, t) for i, t in enumerate(ctx_texts) if t]
+    if nonempty:
         try:
             import translator as _t
-            de_list = _t.translate_batch(ctx_texts, target="de")
-            for s, zh, de in zip(sentences, ctx_texts, de_list):
-                s["context_de"] = de.strip() if zh else None
+            de_list = _t.translate_batch([t for _, t in nonempty], target="de")
+            for (i, _), de in zip(nonempty, de_list):
+                sentences[i]["context_de"] = de.strip() or None
         except Exception as e:
             logger.warning("briefing: context translation failed — %s", e)
-            for s in sentences:
-                s["context_de"] = None
-    else:
-        for s in sentences:
-            s["context_de"] = None
 
     return sentences
 
