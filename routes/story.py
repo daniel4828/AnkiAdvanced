@@ -185,15 +185,18 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
             parsed_chapter_ids = [int(x) for x in chapter_ids.split(",") if x.strip()] if chapter_ids else []
             sentences, prompt_text = _generate_kahneman_story_sentences(
                 cards, parsed_chapter_ids, model=model, progress_key=progress_key)
-        elif mode == "news":
-            if not articles:
-                # No pasted articles → auto-fetch today's news and let the AI
+        elif mode in ("news", "paste"):
+            if mode == "news" and not articles:
+                # News mode always auto-fetches today's news and lets the AI
                 # condense it into briefing source articles (issue #387).
                 # Rebinding `articles` here also persists the fetched articles
                 # in gen_params below, so Again-regeneration reuses them.
+                # Paste mode never auto-fetches: no pasted content is an error
+                # (raised inside _generate_news_story_sentences).
                 articles = _auto_news_articles(model=model, progress_key=progress_key)
             sentences, prompt_text = _generate_news_story_sentences(
-                cards, articles, model=model, progress_key=progress_key)
+                cards, articles, model=model, progress_key=progress_key,
+                generic=(mode == "paste"))
         else:
             sentences, prompt_text = _generate_story_sentences(
                 cards, topic=topic, max_hsk=max_hsk, model=model,
@@ -318,10 +321,11 @@ def generate_sentence_for_word(card: dict, gen_params: dict | None) -> dict | No
                 sentences = ai.generate_kahneman_sentences([card], chapter, model=model)
             else:  # book data missing → fall back to a plain sentence
                 sentences, _ = ai.generate_story([card], model=model)
-        elif mode == "news":
+        elif mode in ("news", "paste"):
             articles = gp.get("articles") or []
             if articles:
-                sentences = ai.generate_news_sentences([card], articles, model=model)
+                sentences = ai.generate_news_sentences(
+                    [card], articles, model=model, generic=(mode == "paste"))
             else:  # no articles context saved → fall back to a plain sentence
                 sentences, _ = ai.generate_story([card], model=model)
         else:
@@ -439,8 +443,9 @@ def regenerate_story(deck_id: int, category: str,
                      chapter_ids: str | None = None,
                      body: dict | None = None):
     """Regenerate today's story. body (optional JSON): {"articles": [{"url", "title", "text"}]}
-    — pasted articles for mode="news" (too long to fit in a query string).
-    Empty in news mode → today's news is auto-fetched (issue #387)."""
+    — pasted texts for mode="paste" (too long to fit in a query string).
+    mode="news" ignores pasted articles and auto-fetches today's news (issue #387);
+    mode="paste" with no articles is an error (issue #396)."""
     if DISABLE_AI:
         return None
     chosen_model = _validated_model(model)
@@ -562,12 +567,17 @@ def _generate_kahneman_story_sentences(
 
 def _generate_news_story_sentences(
     cards: list, articles: list[dict], model: str, progress_key: str | None,
+    generic: bool = False,
 ) -> tuple[list, str]:
     """Split cards into batches of ai.MAX_NEWS_BATCH, call AI once per batch, merge
     results. All batches share the same `articles` context so the sentences form
-    one coherent briefing."""
+    one coherent briefing/summary. generic=True → paste mode (plain content
+    summary instead of news-briefing framing)."""
     if not articles:
         raise RuntimeError(
+            "Paste mode requires at least one pasted text. "
+            "Please add content via the setup modal."
+            if generic else
             "News mode requires at least one pasted article. "
             "Please add articles via the setup modal.")
 
@@ -575,11 +585,12 @@ def _generate_news_story_sentences(
     chunks = [cards[i:i + chunk_size] for i in range(0, len(cards), chunk_size)]
 
     all_sentences: list[dict] = []
-    prompt_summary = f"news mode — {len(articles)} articles"
+    prompt_summary = f"{'paste' if generic else 'news'} mode — {len(articles)} articles"
     for idx, chunk in enumerate(chunks):
         label = f" ({idx + 1}/{len(chunks)})"
         chunk_sentences = ai.generate_news_sentences(
-            chunk, articles, model=model, progress_key=progress_key, attempt_label=label
+            chunk, articles, model=model, progress_key=progress_key,
+            attempt_label=label, generic=generic
         )
         all_sentences.extend(chunk_sentences)
 

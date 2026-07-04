@@ -899,16 +899,19 @@ def generate_news_sentences(
     max_hsk: int = 2,
     progress_key: str | None = None,
     attempt_label: str = "",
+    generic: bool = False,
 ) -> list[dict]:
-    """Generate a Chinese news-briefing sentence per target word, summarizing `articles`.
+    """Generate a Chinese summary sentence per target word, summarizing `articles`.
 
-    Sentences all together form a coherent news briefing. Each sentence uses exactly
-    one target word (in HSK-limited background vocabulary otherwise) and is tagged
-    with which article it refers to, a one-line Chinese headline, and a short Chinese
-    background explanation — stored as concept_zh/reasoning_zh/source_url respectively.
+    Sentences all together form a coherent briefing/summary. Each sentence uses
+    exactly one target word (in HSK-limited background vocabulary otherwise) and is
+    tagged with which article it refers to, a one-line Chinese headline, and a short
+    Chinese background explanation — stored as concept_zh/reasoning_zh/source_url.
 
     cards:    vocab cards to cover (word_id, word_zh, pinyin, definition)
-    articles: [{url, title, text}, ...] — pasted news articles (url/title optional)
+    articles: [{url, title, text}, ...] — pasted texts (url/title optional)
+    generic:  False = news-briefing framing (mode="news"); True = plain content
+              summary of arbitrary pasted texts (mode="paste")
     """
     if not cards or not articles:
         return []
@@ -919,8 +922,23 @@ def generate_news_sentences(
             return all(c in sentence_zh for c in chars)
         return word_zh in sentence_zh
 
+    # generic=True swaps the news-briefing framing for a plain content summary
+    # (pasted content can be an email, blog post, book excerpt — not just news).
+    noun = "内容" if generic else "文章"
+    goal = "对这些内容的连贯中文摘要" if generic else "对这些文章的连贯新闻简报"
+    block_header = "内容（按 0 开始编号）" if generic else "新闻文章（按 0 开始编号）"
+    coherence_rule = (
+        "- 所有句子合起来必须构成一篇连贯的中文摘要，覆盖内容的关键信息" if generic
+        else "- 所有句子合起来必须像一段连贯的新闻简报，覆盖文章的关键信息")
+    headline_rule = (
+        "- headline_zh 是该段内容主题的中文一句话标题" if generic
+        else "- headline_zh 是该文章对应新闻事件的中文一句话标题")
+    background_rule = (
+        "- background_zh 是2-3句中文背景说明，帮助学习者理解这部分内容" if generic
+        else "- background_zh 是2-3句中文背景说明，帮助学习者理解这条新闻的来龙去脉")
+
     articles_block = "\n\n".join(
-        f"文章{i}（标题：{a.get('title') or '（无标题）'}）：\n{a.get('text', '').strip()}"
+        f"{noun}{i}（标题：{a.get('title') or '（无标题）'}）：\n{a.get('text', '').strip()}"
         for i, a in enumerate(articles)
     )
 
@@ -929,10 +947,10 @@ def generate_news_sentences(
             f"{i + 1}. {c['word_zh']}（{c.get('pinyin', '')}）— {c.get('definition', '')}"
             for i, c in enumerate(batch)
         )
-        return f"""任务：根据下面提供的新闻文章，写一组中文句子，合起来构成对这些文章的连贯新闻简报，
+        return f"""任务：根据下面提供的{noun}，写一组中文句子，合起来构成{goal}，
 帮助HSK 4-5学习者复习词汇。
 
-新闻文章（按 0 开始编号）：
+{block_header}：
 {articles_block}
 
 目标词汇（每句话必须恰好包含其中一个，原文出现）：
@@ -941,22 +959,23 @@ def generate_news_sentences(
 规则：
 - 每句话恰好包含一个目标词汇，词汇必须以原文形式出现
 - 每个目标词汇都必须有自己的句子，一个都不能漏
-- 所有句子合起来必须像一段连贯的新闻简报，覆盖文章的关键信息
+{coherence_rule}
 - 非目标词汇只使用HSK 1-{max_hsk}的词汇，尽量简单
 - 句子要简短（不超过15个字）
 - 所有输出（句子、标题、背景说明）只用简体中文，绝对不要出现繁体字
 - 不要使用markdown格式
-- article_idx 是该句子所总结/涉及的文章编号（上面的 0 开始编号）
-- headline_zh 是该文章对应新闻事件的中文一句话标题
-- background_zh 是2-3句中文背景说明，帮助学习者理解这条新闻的来龙去脉
+- article_idx 是该句子所总结/涉及的{noun}编号（上面的 0 开始编号）
+{headline_rule}
+{background_rule}
 
 仅返回如下JSON数组，不加任何其他文字：
 [
-  {{"sentence_zh": "句子内容", "article_idx": 0, "headline_zh": "新闻标题", "background_zh": "背景说明"}},
-  {{"sentence_zh": "句子内容", "article_idx": 0, "headline_zh": "新闻标题", "background_zh": "背景说明"}}
+  {{"sentence_zh": "句子内容", "article_idx": 0, "headline_zh": "标题", "background_zh": "背景说明"}},
+  {{"sentence_zh": "句子内容", "article_idx": 0, "headline_zh": "标题", "background_zh": "背景说明"}}
 ]"""
 
-    _set_progress(progress_key, phase="request", msg=f"生成新闻简报句子…{attempt_label}", percent=20)
+    _set_progress(progress_key, phase="request",
+                  msg=f"{'生成内容摘要句子' if generic else '生成新闻简报句子'}…{attempt_label}", percent=20)
 
     sentences: list[dict] = []
     remaining = list(cards)
@@ -967,7 +986,8 @@ def generate_news_sentences(
         prompt = _build_prompt(remaining)
         # 8192: gpt-5 series shares this budget with internal reasoning tokens,
         # so leave generous headroom above the ~2-3k tokens of actual output.
-        raw = _call_api(model, [{"role": "user", "content": prompt}], 8192, purpose="news")
+        raw = _call_api(model, [{"role": "user", "content": prompt}], 8192,
+                        purpose="paste" if generic else "news")
 
         json_start = raw.find("[")
         json_end = raw.rfind("]") + 1
