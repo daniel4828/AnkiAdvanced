@@ -8,6 +8,7 @@ import threading
 import jieba
 import database
 import ai
+import news_fetcher
 import tts
 from fastapi import APIRouter
 from fastapi.responses import FileResponse
@@ -185,8 +186,14 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
             sentences, prompt_text = _generate_kahneman_story_sentences(
                 cards, parsed_chapter_ids, model=model, progress_key=progress_key)
         elif mode == "news":
+            if not articles:
+                # No pasted articles → auto-fetch today's news and let the AI
+                # condense it into briefing source articles (issue #387).
+                # Rebinding `articles` here also persists the fetched articles
+                # in gen_params below, so Again-regeneration reuses them.
+                articles = _auto_news_articles(model=model, progress_key=progress_key)
             sentences, prompt_text = _generate_news_story_sentences(
-                cards, articles or [], model=model, progress_key=progress_key)
+                cards, articles, model=model, progress_key=progress_key)
         else:
             sentences, prompt_text = _generate_story_sentences(
                 cards, topic=topic, max_hsk=max_hsk, model=model,
@@ -379,18 +386,9 @@ def get_story(deck_id: int, category: str,
 
     chosen_model = _validated_model(model)
 
-    # News mode needs pasted articles, which only arrive via the regenerate POST
-    # body (too long for a GET query string). No cached story with articles in
-    # gen_params exists at this point, so there is nothing to generate from —
-    # tell the user to use the setup modal instead of silently falling back.
-    if mode == "news":
-        logger.info("story  NEWS-NO-ARTICLES deck=%d cat=%s — no cached story with articles", deck_id, category)
-        return {
-            "error": True,
-            "reason": "News mode requires pasted articles. Please open the story setup and paste at least one article, then regenerate.",
-            "model": chosen_model,
-            "has_history": database.has_story_history(deck_id, category),
-        }
+    # News mode without pasted articles auto-fetches today's news inside
+    # _generate_and_store (issue #387), so it flows through the normal
+    # (possibly backgrounded) generation below like every other mode.
 
     # ── Background mode: don't block — start a thread and report progress ──────
     if background:
@@ -444,7 +442,8 @@ def regenerate_story(deck_id: int, category: str,
                      chapter_ids: str | None = None,
                      body: dict | None = None):
     """Regenerate today's story. body (optional JSON): {"articles": [{"url", "title", "text"}]}
-    — required for mode="news" (too long to fit in a query string)."""
+    — pasted articles for mode="news" (too long to fit in a query string).
+    Empty in news mode → today's news is auto-fetched (issue #387)."""
     if database.is_sentences_deck(deck_id):
         return None
     if DISABLE_AI:
@@ -453,13 +452,6 @@ def regenerate_story(deck_id: int, category: str,
     today = database.anki_today().isoformat()
     progress_key = f"{deck_id}/{category}"
     articles = (body or {}).get("articles") or []
-    if mode == "news" and not articles:
-        return {
-            "error": True,
-            "reason": "News mode requires at least one pasted article. Please add articles via the setup modal.",
-            "model": chosen_model,
-            "has_history": database.has_story_history(deck_id, category),
-        }
     cards = _get_cards_for_story(deck_id, category)
     logger.info("regen  deck=%d cat=%s due_cards=%d topic=%r max_hsk=%d model=%s mode=%s articles=%d",
                 deck_id, category, len(cards), topic, max_hsk, chosen_model, mode, len(articles))
@@ -597,6 +589,27 @@ def _generate_news_story_sentences(
         all_sentences.extend(chunk_sentences)
 
     return all_sentences, prompt_summary
+
+
+def _auto_news_articles(model: str, progress_key: str | None) -> list[dict]:
+    """News auto mode: fetch today's news (sources per data/news_sources.json,
+    cached per day) and have the AI pick + condense the most important items
+    into briefing source articles ({url, title, text} — the pasted-articles shape).
+
+    news_fetcher.NewsFetchError propagates when every source fails, so the
+    caller reports a clear error instead of silently using another mode."""
+    ai._set_progress(progress_key, phase="request", msg="Fetching today's news…", percent=8)
+    items = news_fetcher.fetch_all()
+    logger.info("news auto: fetched %d items from sources", len(items))
+    return ai.summarize_news_items(items, model=model, progress_key=progress_key)
+
+
+@router.get("/api/news/status")
+def news_status():
+    """Whether today's news has already been fetched (news auto mode) and how
+    many items the per-day cache holds — shown in the story-setup news panel."""
+    count = news_fetcher.cached_today_count()
+    return {"cached": count is not None, "count": count or 0}
 
 
 @router.get("/api/story/{deck_id}/{category}/count")
