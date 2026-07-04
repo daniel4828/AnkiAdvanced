@@ -3070,7 +3070,7 @@ function _resumeBackgroundReview(ctx) {
   _doStartReview(ctx.topic, ctx.maxHsk, ctx.model, ctx.grammarFocus, ctx.grammarPct, ctx.mode, ctx.chapterIds);
 }
 
-async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null) {
+async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null) {
   if (quickMode) {
     setLoading('Loading audio…', true);
     try {
@@ -3111,7 +3111,8 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mo
     let todayData, storyData;
     try {
       todayData = await api('GET', `/api/today/${deckId}/${category}`);
-      storyData = await _pollBackgroundStory(bgUrl);  // non-blocking: polls until ready
+      storyData = await _fetchStoryOrNewsRegen(storyDeckId, storyCategory, topic, maxHsk, model,
+        grammarFocus, grammarPct, mode, chapterIds, articles, bgUrl);
     } catch (e) {
       _stopFakeProgress(); _stopStoryProgressPoll(); _hideLoadingBgButton();
       _showLoadingError('AI request failed', e.message);
@@ -3153,6 +3154,20 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mo
     showError('Failed to start session: ' + e.message);
     showView('decks');
   }
+}
+
+// News mode with pasted articles goes through the regenerate POST body (articles
+// are too large for a GET query string). Without articles (e.g. resuming a session
+// whose briefing was already generated today) fall back to the normal GET/poll
+// flow, which returns the cached story — POSTing would either re-generate or fail.
+async function _fetchStoryOrNewsRegen(storyDeckId, storyCategory, topic, maxHsk, model,
+                                      grammarFocus, grammarPct, mode, chapterIds, articles, bgUrl) {
+  if (mode === 'news' && articles && articles.length) {
+    const url = `/api/story/${storyDeckId}/${storyCategory}/regenerate`
+      + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
+    return api('POST', url, { articles });
+  }
+  return _pollBackgroundStory(bgUrl);
 }
 
 function _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds) {
@@ -3209,7 +3224,7 @@ async function startReviewMixed(id, name, noStory = false, quick = false) {
   }
 }
 
-async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', noStory = false, chapterIds = null) {
+async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', noStory = false, chapterIds = null, articles = null) {
   setLoading(noStory ? 'Loading…' : 'Generating stories…', !noStory);
   if (!noStory) {
     setLoadingStep(10, null, 'Sending request to AI…');
@@ -3229,7 +3244,9 @@ async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPc
     if (!noStory) {
       // Load a single unified story covering all categories (1 AI call instead of 3)
       try {
-        story = await api('GET', `/api/story/${rootDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds));
+        story = (mode === 'news' && articles && articles.length)
+          ? await api('POST', `/api/story/${rootDeckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds), { articles })
+          : await api('GET', `/api/story/${rootDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds));
       } catch (e) {
         _stopFakeProgress(); _stopStoryProgressPoll();
         _showLoadingError('AI request failed', e.message);
@@ -3314,7 +3331,7 @@ async function startReviewUnfinished() {
   }
 }
 
-async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null) {
+async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null) {
   unfinishedMode = true;
   setLoading('Loading cards…');
   // In "existing" story mode, never trigger generation — fetch cached stories only.
@@ -3333,9 +3350,14 @@ async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, gram
     const firstDeckId = todayData.card.deck_id;
     // Load the first card's deck story (generate only when story mode = "new")
     try {
-      let url = `/api/story/${firstDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
-      if (noGen) url += (url.includes('?') ? '&' : '?') + 'no_generate=true';
-      story = await api('GET', url);
+      if (!noGen && mode === 'news' && articles && articles.length) {
+        story = await api('POST', `/api/story/${firstDeckId}/unified/regenerate`
+          + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds), { articles });
+      } else {
+        let url = `/api/story/${firstDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
+        if (noGen) url += (url.includes('?') ? '&' : '?') + 'no_generate=true';
+        story = await api('GET', url);
+      }
     } catch (_) {}
     if (!noGen) fetch(`/api/preload-session/${firstDeckId}/unified`, { method: 'POST' }).catch(() => {});
     showView('review');
@@ -3817,13 +3839,18 @@ function revealAnswer() {
   const _reasonBtn = document.getElementById('sentence-reasoning-btn');
   if (!isSentenceNote && sentence?.concept_zh) {
     const chNum = sentence.concept_en ? parseInt(sentence.concept_en.match(/Chapter (\d+)/)?.[1]) : null;
+    const isNewsConcept = !chNum; // news mode: concept_en is empty, concept_zh is the headline
     const renderConcept = (ch) => {
       _conceptEl.innerHTML =
           (ch?.part_zh ? `<span class="concept-part-label">${ch.part_zh}</span>` : '')
-        + `<span class="concept-chapter-title">${sentence.concept_zh}</span>`;
+        + `<span class="concept-chapter-title">${isNewsConcept ? '📰 ' : ''}${sentence.concept_zh}</span>`;
       if (chNum) {
         _conceptEl.classList.add('concept-clickable');
         _conceptEl.onclick = () => openKahnemanExamples(chNum, sentence.concept_zh);
+      } else if (isNewsConcept) {
+        // News mode: clicking the headline opens the same background+link popup as the light bulb
+        _conceptEl.classList.add('concept-clickable');
+        _conceptEl.onclick = () => openReasoning();
       } else {
         _conceptEl.classList.remove('concept-clickable');
         _conceptEl.onclick = null;
@@ -3837,8 +3864,10 @@ function revealAnswer() {
         if (ch) renderConcept(ch);
       });
     }
-    // Light bulb opens the per-sentence reasoning popup (only if reasoning exists)
+    // Light bulb opens the per-sentence reasoning/background popup (only if content exists)
     _currentReasoning = sentence.reasoning_zh || '';
+    _currentSourceUrl = sentence.source_url || '';
+    _currentReasoningIsNews = isNewsConcept;
     _reasonBtn.style.display = _currentReasoning ? '' : 'none';
     _conceptRow.style.display = '';
   } else {
@@ -3846,6 +3875,8 @@ function revealAnswer() {
     _conceptEl.innerHTML = '';
     _reasonBtn.style.display = 'none';
     _currentReasoning = '';
+    _currentSourceUrl = '';
+    _currentReasoningIsNews = false;
   }
 
   const noteType = wordDetails?.note_type || card.note_type;
@@ -5499,6 +5530,8 @@ function updateSetupMode() {
   const topicInput = document.getElementById('setup-topic');
   const btn = document.getElementById('setup-generate-btn');
   const kahnemanSection = document.getElementById('setup-kahneman-section');
+  const newsSection = document.getElementById('setup-news-section');
+  newsSection.style.display = 'none';
   if (mode === 'qa') {
     topicLabel.childNodes[0].textContent = 'Question ';
     topicInput.placeholder = 'e.g. How was life in ancient China?';
@@ -5516,6 +5549,12 @@ function updateSetupMode() {
     kahnemanSection.style.display = 'block';
     btn.textContent = 'Generate Kahneman';
     _loadKahnemanChapters();
+  } else if (mode === 'news') {
+    topicLabel.style.display = 'none';
+    kahnemanSection.style.display = 'none';
+    newsSection.style.display = 'block';
+    btn.textContent = 'Generate news briefing';
+    if (!document.getElementById('setup-news-articles').children.length) addNewsArticleBlock();
   } else {
     topicLabel.childNodes[0].textContent = 'Topic ';
     topicInput.placeholder = 'e.g. a day at a coffee shop';
@@ -5523,6 +5562,36 @@ function updateSetupMode() {
     topicLabel.style.display = '';
     kahnemanSection.style.display = 'none';
   }
+}
+
+// ── News mode: repeatable pasted-article blocks ─────────────────────────────
+let _newsArticleSeq = 0;
+
+function addNewsArticleBlock() {
+  const container = document.getElementById('setup-news-articles');
+  const id = `news-article-${_newsArticleSeq++}`;
+  const block = document.createElement('div');
+  block.className = 'news-article-block';
+  block.id = id;
+  block.style.cssText = 'border:1px solid var(--border,#ddd);border-radius:6px;padding:8px;margin-bottom:8px';
+  block.innerHTML = `
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <input class="edit-input news-article-title" type="text" placeholder="Title (optional)" style="flex:1">
+      <input class="edit-input news-article-url" type="url" placeholder="URL (optional)" style="flex:1">
+      <button class="edit-cancel-btn" style="padding:4px 10px;font-size:12px" onclick="document.getElementById('${id}').remove()">✕</button>
+    </div>
+    <textarea class="edit-input news-article-text" rows="5" placeholder="Paste article text here…"></textarea>`;
+  container.appendChild(block);
+}
+
+function _collectNewsArticles() {
+  return Array.from(document.querySelectorAll('#setup-news-articles .news-article-block'))
+    .map(block => ({
+      title: block.querySelector('.news-article-title').value.trim(),
+      url: block.querySelector('.news-article-url').value.trim(),
+      text: block.querySelector('.news-article-text').value.trim(),
+    }))
+    .filter(a => a.text);
 }
 
 let _kahnemanChapters = null;
@@ -5587,10 +5656,21 @@ function closeKahnemanExamples() {
 }
 
 let _currentReasoning = '';
+let _currentSourceUrl = '';
+let _currentReasoningIsNews = false;
 
 function openReasoning() {
   if (!_currentReasoning) return;
+  document.getElementById('reasoning-modal-title').textContent =
+    _currentReasoningIsNews ? '📰 新闻背景' : '💡 为什么这句体现本章偏误?';
   document.getElementById('reasoning-body').textContent = _currentReasoning;
+  const linkEl = document.getElementById('reasoning-source-link');
+  if (_currentSourceUrl) {
+    linkEl.href = _currentSourceUrl;
+    linkEl.style.display = '';
+  } else {
+    linkEl.style.display = 'none';
+  }
   document.getElementById('reasoning-overlay').style.display = '';
   document.getElementById('reasoning-modal').style.display = '';
 }
@@ -5695,17 +5775,24 @@ function confirmStorySetup() {
   const grammarPct  = parseInt(document.getElementById('setup-grammar-pct').value, 10) || 75;
   const mode        = document.getElementById('setup-mode').value;
   const chapterIds  = mode === 'kahneman' ? _getSelectedChapterIds() : null;
+  const articles    = mode === 'news' ? _collectNewsArticles() : null;
+  // Explicit regeneration needs fresh articles; the start-review paths may run
+  // without them — they then load today's cached news briefing via GET instead.
+  if (mode === 'news' && (!articles || !articles.length) && (_setupIsRegen || _setupIsDeckListRegen)) {
+    showError('News mode requires at least one pasted article.');
+    return;
+  }
   _closeSetupModal();
   if (_setupIsDeckListRegen) {
-    _doRegenStoryForDeckList(_deckListRegenId, topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
+    _doRegenStoryForDeckList(_deckListRegenId, topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles);
   } else if (_setupIsRegen) {
-    _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
+    _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles);
   } else if (_setupIsUnfinished) {
-    _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
+    _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles);
   } else if (_setupIsMixed) {
-    _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
+    _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles);
   } else {
-    _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
+    _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles);
   }
 }
 
@@ -5723,6 +5810,7 @@ function _closeSetupModal() {
 // ── Story modal ───────────────────────────────────────────────────────────────
 function openStoryModal() {
   if (!story?.sentences?.length) return;
+  const escAttr = s => String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const currentPos = sentence?.position ?? -1;
   const html = story.sentences.map(s => {
     const isCurrent = s.position === currentPos;
@@ -5733,6 +5821,7 @@ function openStoryModal() {
     const conceptBadge = s.concept_zh
       ? `<div class="story-concept-badge" title="${s.concept_en || ''}">
            <span class="concept-name">${s.concept_zh}</span>
+           ${s.source_url ? `<a href="${escAttr(s.source_url)}" target="_blank" rel="noopener" class="story-source-link" onclick="event.stopPropagation()">打开原文 ↗</a>` : ''}
          </div>`
       : '';
     return `<div class="story-sentence${isCurrent ? ' story-sentence-current' : ''}" data-idx="${s.position}">
@@ -6104,7 +6193,7 @@ async function regenerateStory() {
   }
 }
 
-async function _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null) {
+async function _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null) {
   setLoading('Regenerating story…', true);
   setLoadingStep(10, null, 'Sending request to AI…');
   _startFakeProgress(10, 55, 45000);
@@ -6114,7 +6203,7 @@ async function _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct
     _startStoryProgressPoll(storyDeckId, storyCategory);
     let storyData;
     try {
-      storyData = await api('POST', `/api/story/${storyDeckId}/${storyCategory}/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds));
+      storyData = await api('POST', `/api/story/${storyDeckId}/${storyCategory}/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds), { articles });
     } catch (e) {
       _stopFakeProgress(); _stopStoryProgressPoll();
       _showLoadingError('AI request failed', e.message);
@@ -6179,7 +6268,7 @@ async function regenerateStoryFromList(deckId) {
 // Regenerate a deck's story in the BACKGROUND: instead of a blocking full-screen
 // loader, show a small persistent banner and let the user keep reviewing. When
 // the new story is ready the banner turns into a clickable "open for review".
-async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null) {
+async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null) {
   const deck = flatten(_cachedDecks || []).find(d => d.id === deckId);
   const deckName = deck ? deck.name : 'deck';
   const noStory = !!(deck && deck.no_story);
@@ -6193,7 +6282,7 @@ async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model, grammarFoc
   }
 
   try {
-    await api('POST', `/api/story/${deckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds));
+    await api('POST', `/api/story/${deckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds), { articles });
     // Warm the audio cache in the background so review starts fast; don't block
     // the "ready" banner on it.
     _preloadWithProgress(deckId, 'unified', () => {}).catch(() => {});

@@ -4028,6 +4028,8 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   .kahneman-chapter-row:hover { background: var(--hover-bg, #2a2a2a); }
 }
 .concept-name { font-weight: 500; }
+.story-source-link { margin-left: 6px; font-size: 10px; text-decoration: none; color: inherit; opacity: 0.8; }
+.story-source-link:hover { opacity: 1; text-decoration: underline; }
 
 /* Kahneman concept block shown on review card back */
 .sentence-concept-row {
@@ -4124,6 +4126,14 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   border: 1px solid #ddd6fe;
   border-radius: 8px;
 }
+#reasoning-source-link {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 13px;
+  color: #5b21b6;
+  text-decoration: none;
+}
+#reasoning-source-link:hover { text-decoration: underline; }
 
 @media (prefers-color-scheme: dark) {
   .sentence-concept-section { background: #2e1065; border-color: #6d28d9; }

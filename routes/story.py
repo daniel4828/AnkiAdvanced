@@ -154,6 +154,7 @@ ALLOWED_MODELS = {
     "claude-haiku-4-5-20251001",
     "claude-sonnet-4-6",
     "claude-opus-4-6",
+    "gpt-5-mini",
 }
 DEFAULT_MODEL = ai.DEFAULT_MODEL
 
@@ -166,7 +167,7 @@ def _validated_model(model: str | None) -> str:
 
 def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
                         topic, max_hsk, model, grammar_focus, grammar_pct, mode,
-                        chapter_ids, progress_key) -> dict | None:
+                        chapter_ids, articles=None, progress_key) -> dict | None:
     """Generate a story for `cards`, persist it, and return the stored story
     (with sentences) — or an error dict on failure, or None if there is nothing
     to generate. Shared by the synchronous GET, the background thread, and regenerate.
@@ -183,6 +184,9 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
             parsed_chapter_ids = [int(x) for x in chapter_ids.split(",") if x.strip()] if chapter_ids else []
             sentences, prompt_text = _generate_kahneman_story_sentences(
                 cards, parsed_chapter_ids, model=model, progress_key=progress_key)
+        elif mode == "news":
+            sentences, prompt_text = _generate_news_story_sentences(
+                cards, articles or [], model=model, progress_key=progress_key)
         else:
             sentences, prompt_text = _generate_story_sentences(
                 cards, topic=topic, max_hsk=max_hsk, model=model,
@@ -193,7 +197,7 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
         gen_params = _gen_params_dict(
             topic=topic, max_hsk=max_hsk, model=model,
             grammar_focus=grammar_focus, grammar_pct=grammar_pct,
-            mode=mode, chapter_ids=chapter_ids)
+            mode=mode, chapter_ids=chapter_ids, articles=articles)
         database.create_story(today, category, deck_id, sentences, prompt_text, topic, gen_params)
         story = database.get_active_story(today, category, deck_id)
     except Exception as e:
@@ -214,7 +218,7 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
 
 def _start_background_generation(deck_id: int, category: str, today: str, cards: list, *,
                                  topic, max_hsk, model, grammar_focus, grammar_pct,
-                                 mode, chapter_ids, progress_key) -> None:
+                                 mode, chapter_ids, articles=None, progress_key) -> None:
     """Spawn a daemon thread that generates+stores a story, recording a terminal
     progress state (done/error) the frontend can poll. De-duped by progress_key."""
     def _run() -> None:
@@ -224,7 +228,7 @@ def _start_background_generation(deck_id: int, category: str, today: str, cards:
                 deck_id, category, today, cards,
                 topic=topic, max_hsk=max_hsk, model=model,
                 grammar_focus=grammar_focus, grammar_pct=grammar_pct,
-                mode=mode, chapter_ids=chapter_ids, progress_key=progress_key)
+                mode=mode, chapter_ids=chapter_ids, articles=articles, progress_key=progress_key)
             if isinstance(result, dict) and result.get("error"):
                 ai._story_progress[progress_key] = {
                     "phase": "error", "percent": 0, "msg": result.get("reason", "Generation failed")}
@@ -245,9 +249,13 @@ def _start_background_generation(deck_id: int, category: str, today: str, cards:
 
 
 def _gen_params_dict(*, topic, max_hsk, model, grammar_focus, grammar_pct,
-                     mode, chapter_ids) -> dict:
+                     mode, chapter_ids, articles=None) -> dict:
     """Bundle the story generation settings persisted on each story row, so the
-    Again regeneration can reproduce the same style (see generate_sentence_for_word)."""
+    Again regeneration can reproduce the same style (see generate_sentence_for_word).
+
+    articles: news mode's pasted article list ({url, title, text}), stored so
+    single-word "Again" regenerations reuse the same news context.
+    """
     return {
         "mode": mode,
         "topic": topic,
@@ -256,6 +264,7 @@ def _gen_params_dict(*, topic, max_hsk, model, grammar_focus, grammar_pct,
         "grammar_focus": grammar_focus,
         "grammar_pct": grammar_pct,
         "chapter_ids": chapter_ids,
+        "articles": articles,
     }
 
 
@@ -301,6 +310,12 @@ def generate_sentence_for_word(card: dict, gen_params: dict | None) -> dict | No
             if chapter is not None:
                 sentences = ai.generate_kahneman_sentences([card], chapter, model=model)
             else:  # book data missing → fall back to a plain sentence
+                sentences, _ = ai.generate_story([card], model=model)
+        elif mode == "news":
+            articles = gp.get("articles") or []
+            if articles:
+                sentences = ai.generate_news_sentences([card], articles, model=model)
+            else:  # no articles context saved → fall back to a plain sentence
                 sentences, _ = ai.generate_story([card], model=model)
         else:
             sentences, _ = ai.generate_story(
@@ -364,6 +379,19 @@ def get_story(deck_id: int, category: str,
 
     chosen_model = _validated_model(model)
 
+    # News mode needs pasted articles, which only arrive via the regenerate POST
+    # body (too long for a GET query string). No cached story with articles in
+    # gen_params exists at this point, so there is nothing to generate from —
+    # tell the user to use the setup modal instead of silently falling back.
+    if mode == "news":
+        logger.info("story  NEWS-NO-ARTICLES deck=%d cat=%s — no cached story with articles", deck_id, category)
+        return {
+            "error": True,
+            "reason": "News mode requires pasted articles. Please open the story setup and paste at least one article, then regenerate.",
+            "model": chosen_model,
+            "has_history": database.has_story_history(deck_id, category),
+        }
+
     # ── Background mode: don't block — start a thread and report progress ──────
     if background:
         # A finished-with-error background run is sticky so polling stops here
@@ -413,7 +441,10 @@ def regenerate_story(deck_id: int, category: str,
                      model: str | None = None,
                      grammar_focus: str | None = None, grammar_pct: int = 75,
                      mode: str = "story",
-                     chapter_ids: str | None = None):
+                     chapter_ids: str | None = None,
+                     body: dict | None = None):
+    """Regenerate today's story. body (optional JSON): {"articles": [{"url", "title", "text"}]}
+    — required for mode="news" (too long to fit in a query string)."""
     if database.is_sentences_deck(deck_id):
         return None
     if DISABLE_AI:
@@ -421,16 +452,24 @@ def regenerate_story(deck_id: int, category: str,
     chosen_model = _validated_model(model)
     today = database.anki_today().isoformat()
     progress_key = f"{deck_id}/{category}"
+    articles = (body or {}).get("articles") or []
+    if mode == "news" and not articles:
+        return {
+            "error": True,
+            "reason": "News mode requires at least one pasted article. Please add articles via the setup modal.",
+            "model": chosen_model,
+            "has_history": database.has_story_history(deck_id, category),
+        }
     cards = _get_cards_for_story(deck_id, category)
-    logger.info("regen  deck=%d cat=%s due_cards=%d topic=%r max_hsk=%d model=%s mode=%s",
-                deck_id, category, len(cards), topic, max_hsk, chosen_model, mode)
+    logger.info("regen  deck=%d cat=%s due_cards=%d topic=%r max_hsk=%d model=%s mode=%s articles=%d",
+                deck_id, category, len(cards), topic, max_hsk, chosen_model, mode, len(articles))
     if not cards:
         return None
     result = _generate_and_store(
         deck_id, category, today, cards,
         topic=topic, max_hsk=max_hsk, model=chosen_model,
         grammar_focus=grammar_focus, grammar_pct=grammar_pct,
-        mode=mode, chapter_ids=chapter_ids, progress_key=progress_key)
+        mode=mode, chapter_ids=chapter_ids, articles=articles, progress_key=progress_key)
     ai._story_progress.pop(progress_key, None)
     return result
 
@@ -530,6 +569,32 @@ def _generate_kahneman_story_sentences(
             chunk, chapter, model=model, progress_key=progress_key, attempt_label=label
         )
         all_sentences.extend(chapter_sentences)
+
+    return all_sentences, prompt_summary
+
+
+def _generate_news_story_sentences(
+    cards: list, articles: list[dict], model: str, progress_key: str | None,
+) -> tuple[list, str]:
+    """Split cards into batches of ai.MAX_NEWS_BATCH, call AI once per batch, merge
+    results. All batches share the same `articles` context so the sentences form
+    one coherent briefing."""
+    if not articles:
+        raise RuntimeError(
+            "News mode requires at least one pasted article. "
+            "Please add articles via the setup modal.")
+
+    chunk_size = ai.MAX_NEWS_BATCH
+    chunks = [cards[i:i + chunk_size] for i in range(0, len(cards), chunk_size)]
+
+    all_sentences: list[dict] = []
+    prompt_summary = f"news mode — {len(articles)} articles"
+    for idx, chunk in enumerate(chunks):
+        label = f" ({idx + 1}/{len(chunks)})"
+        chunk_sentences = ai.generate_news_sentences(
+            chunk, articles, model=model, progress_key=progress_key, attempt_label=label
+        )
+        all_sentences.extend(chunk_sentences)
 
     return all_sentences, prompt_summary
 

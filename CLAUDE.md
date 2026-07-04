@@ -487,6 +487,10 @@ ease最低值（zuì dī zhí - floor）：1.3。难词检测（jiǎncè - detec
 - 使用 `get_due_cards()` 收集所有目标词汇用于AI提示词
 - `create_story()` 每次都插入新行 —— 重新生成 = 新增一行，旧故事永久保留
 - Haiku提示词要求：连贯叙事（sùshì - narrative），相同人物，每句不超过15个字，背景词汇使用HSK 1–2
+- **模式（mode）**：`story`（叙事）| `qa`（问答）| `expository`（说明文）| `kahneman`（《思考，快与慢》认知偏误风格，见 `data/kahneman_chapters.json`）
+  | `news`（新闻简报——用户在设置弹窗粘贴文章，AI 用 OpenAI `gpt-5-mini` 生成连贯中文新闻简报句子；
+  每句附带 `source_url`/`concept_zh`(标题)/`reasoning_zh`(背景说明)，复用 kahneman 模式的概念框/背景弹窗 UI；
+  文章内容存入 `stories.gen_params` 的 `articles` 字段，供 Again 单词重生成复现同一批文章）
 
 ## 界面类别顺序（shùnxù - order）
 
@@ -578,6 +582,7 @@ bash run.dev.sh      # 开发启动（DB_PATH=data/dev.db，DISABLE_AI=1）
 | `DEEPSEEK_API_KEY` | 可选 | DeepSeek API 密钥 |
 | `ZHIPU_API_KEY` | 可选 | ZhipuAI GLM 密钥 |
 | `QWEN_API_KEY` | 可选 | 阿里云 Qwen 密钥 |
+| `OPENAI_API_KEY` | 可选 | OpenAI 密钥，新闻模式默认模型 `gpt-5-mini`（DeepSeek 会审查新闻内容，故新闻模式用 OpenAI） |
 | `DB_PATH` | `data/srs.db` | 数据库路径（开发时用 `data/dev.db`） |
 | `DISABLE_AI` | `0` | 设为 `1` 跳过 AI 故事生成 |
 | `LOG_LEVEL` | `INFO` | 日志级别（`DEBUG` 可输出详细日志） |
