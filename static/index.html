@@ -675,7 +675,11 @@
     </div>
     <!-- News articles input (shown only in news mode) -->
     <div id="setup-news-section" style="display:none">
-      <label class="edit-label" style="margin:0">Articles <span style="font-weight:400;text-transform:none">(paste 1 or more)</span></label>
+      <label class="edit-label" style="margin:0">Articles <span style="font-weight:400;text-transform:none">(optional)</span></label>
+      <div style="font-size:12px;color:var(--muted,#888);margin:2px 0 6px">
+        Paste articles below — or leave empty to auto-fetch today's news (Tagesschau + BBC World).
+        <span id="setup-news-status" style="display:block"></span>
+      </div>
       <div id="setup-news-articles"></div>
       <button class="edit-cancel-btn" style="padding:4px 10px;font-size:12px;margin-top:6px" onclick="addNewsArticleBlock()">+ Add article</button>
     </div>

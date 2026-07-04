@@ -3157,9 +3157,9 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mo
 }
 
 // News mode with pasted articles goes through the regenerate POST body (articles
-// are too large for a GET query string). Without articles (e.g. resuming a session
-// whose briefing was already generated today) fall back to the normal GET/poll
-// flow, which returns the cached story — POSTing would either re-generate or fail.
+// are too large for a GET query string). Without articles fall back to the normal
+// GET/poll flow: it returns today's cached briefing if one exists (e.g. resuming
+// a session), and otherwise auto-fetches today's news server-side (issue #387).
 async function _fetchStoryOrNewsRegen(storyDeckId, storyCategory, topic, maxHsk, model,
                                       grammarFocus, grammarPct, mode, chapterIds, articles, bgUrl) {
   if (mode === 'news' && articles && articles.length) {
@@ -5555,6 +5555,7 @@ function updateSetupMode() {
     newsSection.style.display = 'block';
     btn.textContent = 'Generate news briefing';
     if (!document.getElementById('setup-news-articles').children.length) addNewsArticleBlock();
+    _loadNewsStatus();
   } else {
     topicLabel.childNodes[0].textContent = 'Topic ';
     topicInput.placeholder = 'e.g. a day at a coffee shop';
@@ -5566,6 +5567,18 @@ function updateSetupMode() {
 
 // ── News mode: repeatable pasted-article blocks ─────────────────────────────
 let _newsArticleSeq = 0;
+
+// Show in the setup modal whether today's news is already fetched (auto mode
+// reuses the per-day cache, so a second generation today re-fetches nothing).
+async function _loadNewsStatus() {
+  const el = document.getElementById('setup-news-status');
+  if (!el) return;
+  el.textContent = '';
+  try {
+    const s = await api('GET', '/api/news/status');
+    if (s.cached) el.textContent = `✓ Today's news already fetched: ${s.count} items (cached)`;
+  } catch (_) {}
+}
 
 function addNewsArticleBlock() {
   const container = document.getElementById('setup-news-articles');
@@ -5776,12 +5789,9 @@ function confirmStorySetup() {
   const mode        = document.getElementById('setup-mode').value;
   const chapterIds  = mode === 'kahneman' ? _getSelectedChapterIds() : null;
   const articles    = mode === 'news' ? _collectNewsArticles() : null;
-  // Explicit regeneration needs fresh articles; the start-review paths may run
-  // without them — they then load today's cached news briefing via GET instead.
-  if (mode === 'news' && (!articles || !articles.length) && (_setupIsRegen || _setupIsDeckListRegen)) {
-    showError('News mode requires at least one pasted article.');
-    return;
-  }
+  // News mode without pasted articles is valid: regeneration auto-fetches
+  // today's news server-side; the start-review paths load today's cached
+  // briefing via GET (or auto-generate one) — see issue #387.
   _closeSetupModal();
   if (_setupIsDeckListRegen) {
     _doRegenStoryForDeckList(_deckListRegenId, topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles);
