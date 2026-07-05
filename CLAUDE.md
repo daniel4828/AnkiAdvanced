@@ -27,7 +27,7 @@
 |---|------|------|
 | R1 | **永远不要直接推送到 `main`** | 所有工作必须通过 PR |
 | R2 | **每个功能都需要一个 Issue** | 先创建 Issue，再开始写代码；Issue/PR/提交信息全部用中文 |
-| R3 | **永远不要合并 PR** | Claude 可以创建 Issue、分支、提交、PR —— 但合并（hébìng - merge）只由 Daniel 在 GitHub 上操作 |
+| R3 | **CI 通过后 Claude 自行合并 PR** | （2026-07-05 起，由 Daniel 授权）Claude 完成整个流程：Issue → 分支 → PR → CI 通过 → `gh pr merge`。CI 失败绝不合并；Daniel 随时可在 GitHub 上事后审查或回滚 |
 | R4 | **用中文回答 Daniel** | 见"语言指令"部分 |
 | R5 | **Claude 自己执行 Git/gh 步骤** | Claude 直接运行 `gh issue create`、`git checkout -b`、`gh pr create` 等命令，无需等待 Daniel |
 | R6 | **CLAUDE.md 是唯一事实来源** | 所有架构决策都在这里记录 |
@@ -54,7 +54,7 @@
 3. 频繁提交               →   小的、安全的检查点
 4. 开一个 PR（引用议题）   →   "这是我做的"
 5. CI 自动运行            →   发现明显的问题
-6. Daniel 审核并批准      →   人工质量关卡
+6. CI 通过后 Claude 合并   →   质量关卡是 CI；Daniel 可事后审查
 7. 合并到 main            →   完成，议题自动关闭
 ```
 
@@ -122,7 +122,7 @@ test: 为复习接口添加集成测试
 - **PR 标题和描述用中文写**
 - PR 模板（`.github/pull_request_template.md`）指导描述内容
 - 每个 PR 必须：引用议题、描述变更（biàngēng - changes）、列出如何测试
-- PR 只有在 Daniel 批准后才能合并 —— Claude 永远不合并
+- CI 通过后由 Claude 合并（`gh pr merge <编号> --merge --delete-branch`）；CI 失败绝不合并
 
 **PR 描述示例：**
 ```
@@ -166,12 +166,12 @@ Closes #43
 
 ## Claude 对 Git 工作流的态度（tàidù - attitude）
 
-**Claude 负责执行所有 Git/gh 命令，Daniel 只负责最后在 GitHub 上合并 PR。**
+**Claude 负责执行所有 Git/gh 命令，包括在 CI 通过后合并 PR（2026-07-05 起）。**
 
 Claude 的角色是：
 - **直接执行（zhíjiē zhíxíng - directly execute）** git 和 gh 命令，无需等待 Daniel 确认
-- 按顺序完成完整工作流：创建议题 → 创建分支 → 写代码 → 提交 → 推送 → 开 PR
-- 完成后通知 Daniel："PR 已开好，请在 GitHub 上审核并合并"
+- 按顺序完成完整工作流：创建议题 → 创建分支 → 写代码 → 提交 → 推送 → 开 PR → 等 CI → 合并
+- 完成后通知 Daniel："PR 已合并，功能已在 main 上"
 
 具体来说（jùtǐ lái shuō - specifically）：
 
@@ -181,9 +181,11 @@ Claude 的角色是：
 | 创建分支 | 直接运行 `git checkout -b feat/XX-name` |
 | 提交 | 每完成一个逻辑单元就直接提交 |
 | 开 PR | 直接运行 `gh pr create ...` |
-| 合并 | **永远不合并** —— 等待 Daniel 在 GitHub 上审核并点击 Merge |
+| 合并 | **CI 通过后**直接运行 `gh pr merge <编号> --merge --delete-branch`；CI 失败先修复 |
 
-> **关键原则（yuánzé - principle）：Daniel 只需要做一件事 —— 在 GitHub 上合并 PR。其余所有步骤由 Claude 自动完成。**
+> **关键原则（yuánzé - principle）：整个流程由 Claude 自动完成；质量关卡是 CI。Daniel 随时可以在 GitHub 上事后审查、回滚（revert）任何合并，或恢复旧规则。**
+>
+> ⚠️ 合并前的自检清单：① CI 全绿；② PR 引用了议题（Closes #N）；③ 本地已做过语法/导入检查；④ 有实际功能改动的 PR 已做过测试（离线或端到端）。
 
 ---
 
