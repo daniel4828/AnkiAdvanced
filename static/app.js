@@ -3156,13 +3156,13 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mo
   }
 }
 
-// News mode with pasted articles goes through the regenerate POST body (articles
-// are too large for a GET query string). Without articles fall back to the normal
-// GET/poll flow: it returns today's cached briefing if one exists (e.g. resuming
-// a session), and otherwise auto-fetches today's news server-side (issue #387).
+// Paste mode with pasted texts goes through the regenerate POST body (texts are
+// too large for a GET query string). Everything else falls back to the normal
+// GET/poll flow: it returns today's cached story if one exists (e.g. resuming
+// a session); news mode auto-fetches today's news server-side (issue #387).
 async function _fetchStoryOrNewsRegen(storyDeckId, storyCategory, topic, maxHsk, model,
                                       grammarFocus, grammarPct, mode, chapterIds, articles, bgUrl) {
-  if (mode === 'news' && articles && articles.length) {
+  if (mode === 'paste' && articles && articles.length) {
     const url = `/api/story/${storyDeckId}/${storyCategory}/regenerate`
       + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
     return api('POST', url, { articles });
@@ -3244,7 +3244,7 @@ async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPc
     if (!noStory) {
       // Load a single unified story covering all categories (1 AI call instead of 3)
       try {
-        story = (mode === 'news' && articles && articles.length)
+        story = (mode === 'paste' && articles && articles.length)
           ? await api('POST', `/api/story/${rootDeckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds), { articles })
           : await api('GET', `/api/story/${rootDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds));
       } catch (e) {
@@ -3350,7 +3350,7 @@ async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, gram
     const firstDeckId = todayData.card.deck_id;
     // Load the first card's deck story (generate only when story mode = "new")
     try {
-      if (!noGen && mode === 'news' && articles && articles.length) {
+      if (!noGen && mode === 'paste' && articles && articles.length) {
         story = await api('POST', `/api/story/${firstDeckId}/unified/regenerate`
           + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds), { articles });
       } else {
@@ -3846,7 +3846,7 @@ function revealAnswer() {
     const renderConcept = (ch) => {
       _conceptEl.innerHTML =
           (ch?.part_zh ? `<span class="concept-part-label">${ch.part_zh}</span>` : '')
-        + `<span class="concept-chapter-title">${isNewsConcept ? '📰 ' : ''}${sentence.concept_zh}</span>`;
+        + `<span class="concept-chapter-title">${isNewsConcept ? (_currentStoryMode === 'paste' ? '📋 ' : '📰 ') : ''}${sentence.concept_zh}</span>`;
       if (chNum) {
         _conceptEl.classList.add('concept-clickable');
         _conceptEl.onclick = () => openKahnemanExamples(chNum, sentence.concept_zh);
@@ -5534,7 +5534,9 @@ function updateSetupMode() {
   const btn = document.getElementById('setup-generate-btn');
   const kahnemanSection = document.getElementById('setup-kahneman-section');
   const newsSection = document.getElementById('setup-news-section');
+  const pasteSection = document.getElementById('setup-paste-section');
   newsSection.style.display = 'none';
+  pasteSection.style.display = 'none';
   if (mode === 'qa') {
     topicLabel.childNodes[0].textContent = 'Question ';
     topicInput.placeholder = 'e.g. How was life in ancient China?';
@@ -5557,8 +5559,13 @@ function updateSetupMode() {
     kahnemanSection.style.display = 'none';
     newsSection.style.display = 'block';
     btn.textContent = 'Generate news briefing';
-    if (!document.getElementById('setup-news-articles').children.length) addNewsArticleBlock();
     _loadNewsStatus();
+  } else if (mode === 'paste') {
+    topicLabel.style.display = 'none';
+    kahnemanSection.style.display = 'none';
+    pasteSection.style.display = 'block';
+    btn.textContent = 'Generate summary';
+    if (!document.getElementById('setup-paste-blocks').children.length) addPasteBlock();
   } else {
     topicLabel.childNodes[0].textContent = 'Topic ';
     topicInput.placeholder = 'e.g. a day at a coffee shop';
@@ -5568,8 +5575,8 @@ function updateSetupMode() {
   }
 }
 
-// ── News mode: repeatable pasted-article blocks ─────────────────────────────
-let _newsArticleSeq = 0;
+// ── Paste mode: repeatable pasted-content blocks ────────────────────────────
+let _pasteBlockSeq = 0;
 
 // Show in the setup modal whether today's news is already fetched (auto mode
 // reuses the per-day cache, so a second generation today re-fetches nothing).
@@ -5583,29 +5590,29 @@ async function _loadNewsStatus() {
   } catch (_) {}
 }
 
-function addNewsArticleBlock() {
-  const container = document.getElementById('setup-news-articles');
-  const id = `news-article-${_newsArticleSeq++}`;
+function addPasteBlock() {
+  const container = document.getElementById('setup-paste-blocks');
+  const id = `paste-block-${_pasteBlockSeq++}`;
   const block = document.createElement('div');
-  block.className = 'news-article-block';
+  block.className = 'paste-block';
   block.id = id;
   block.style.cssText = 'border:1px solid var(--border,#ddd);border-radius:6px;padding:8px;margin-bottom:8px';
   block.innerHTML = `
-    <div style="display:flex;gap:8px;margin-bottom:6px">
-      <input class="edit-input news-article-title" type="text" placeholder="Title (optional)" style="flex:1">
-      <input class="edit-input news-article-url" type="url" placeholder="URL (optional)" style="flex:1">
-      <button class="edit-cancel-btn" style="padding:4px 10px;font-size:12px" onclick="document.getElementById('${id}').remove()">✕</button>
+    <div style="display:flex;gap:8px;margin-bottom:6px;align-items:center">
+      <input class="edit-input paste-block-title" type="text" placeholder="Title (optional)" style="flex:1;min-width:0;box-sizing:border-box">
+      <input class="edit-input paste-block-url" type="url" placeholder="URL (optional)" style="flex:1;min-width:0;box-sizing:border-box">
+      <button class="edit-cancel-btn" style="padding:4px 10px;font-size:12px;flex-shrink:0" onclick="document.getElementById('${id}').remove()">✕</button>
     </div>
-    <textarea class="edit-input news-article-text" rows="5" placeholder="Paste article text here…"></textarea>`;
+    <textarea class="edit-input paste-block-text" rows="5" placeholder="Paste content here…" style="display:block;width:100%;box-sizing:border-box;resize:vertical"></textarea>`;
   container.appendChild(block);
 }
 
-function _collectNewsArticles() {
-  return Array.from(document.querySelectorAll('#setup-news-articles .news-article-block'))
+function _collectPastedContents() {
+  return Array.from(document.querySelectorAll('#setup-paste-blocks .paste-block'))
     .map(block => ({
-      title: block.querySelector('.news-article-title').value.trim(),
-      url: block.querySelector('.news-article-url').value.trim(),
-      text: block.querySelector('.news-article-text').value.trim(),
+      title: block.querySelector('.paste-block-title').value.trim(),
+      url: block.querySelector('.paste-block-url').value.trim(),
+      text: block.querySelector('.paste-block-text').value.trim(),
     }))
     .filter(a => a.text);
 }
@@ -5674,11 +5681,16 @@ function closeKahnemanExamples() {
 let _currentReasoning = '';
 let _currentSourceUrl = '';
 let _currentReasoningIsNews = false;
+// Mode of the last story generation started from the setup modal ('' when the
+// session was resumed without it) — only used to pick the background-popup title.
+let _currentStoryMode = '';
 
 function openReasoning() {
   if (!_currentReasoning) return;
   document.getElementById('reasoning-modal-title').textContent =
-    _currentReasoningIsNews ? '📰 新闻背景' : '💡 为什么这句体现本章偏误?';
+    _currentReasoningIsNews
+      ? (_currentStoryMode === 'paste' ? '📋 内容背景' : '📰 新闻背景')
+      : '💡 为什么这句体现本章偏误?';
   document.getElementById('reasoning-body').textContent = _currentReasoning;
   const linkEl = document.getElementById('reasoning-source-link');
   if (_currentSourceUrl) {
@@ -5791,10 +5803,14 @@ function confirmStorySetup() {
   const grammarPct  = parseInt(document.getElementById('setup-grammar-pct').value, 10) || 75;
   const mode        = document.getElementById('setup-mode').value;
   const chapterIds  = mode === 'kahneman' ? _getSelectedChapterIds() : null;
-  const articles    = mode === 'news' ? _collectNewsArticles() : null;
-  // News mode without pasted articles is valid: regeneration auto-fetches
-  // today's news server-side; the start-review paths load today's cached
-  // briefing via GET (or auto-generate one) — see issue #387.
+  const articles    = mode === 'paste' ? _collectPastedContents() : null;
+  // News mode never sends articles: today's news is auto-fetched server-side
+  // (issue #387). Paste mode requires at least one non-empty text (issue #396).
+  if (mode === 'paste' && !articles.length) {
+    showError('Paste mode needs at least one text — paste some content first.');
+    return;
+  }
+  _currentStoryMode = mode;
   _closeSetupModal();
   if (_setupIsDeckListRegen) {
     _doRegenStoryForDeckList(_deckListRegenId, topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles);
