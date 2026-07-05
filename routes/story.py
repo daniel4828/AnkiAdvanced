@@ -683,6 +683,8 @@ async def tts_file(text: str):
     return FileResponse(path, media_type="audio/mpeg")
 
 
+# 以下四个端点（speak/speak-multi/speak-status/speak-stop）通过 afplay/say 在服务器端播放音频，
+# 仅本地 macOS 使用，服务器部署不依赖此端点——前端已全部改为浏览器端播放（/api/tts-file + <audio>）。
 @router.post("/api/speak")
 def speak(text: str):
     try:
