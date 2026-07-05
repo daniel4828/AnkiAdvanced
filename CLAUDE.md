@@ -495,8 +495,14 @@ ease最低值（zuì dī zhí - floor）：1.3。难词检测（jiǎncè - detec
   抓取全部失败时报明确错误，不静默降级为普通故事模式）
   | `paste`（粘贴内容摘要——用户在设置弹窗粘贴任意内容（文章/邮件/博客，issue #396），
   句子构成该内容的连贯中文摘要；复用 news 的生成管线（`generate_news_sentences(generic=True)`），
-  必须至少粘贴一段文字，不做自动抓取回退）。
-  news/paste 两个模式共同点：每句附带 `source_url`/`concept_zh`(标题)/`reasoning_zh`(背景说明)，
+  必须至少粘贴一段文字，不做自动抓取回退）
+  | `briefing`（News flow，issue #399——news 的升级版：AI 写一篇**连贯的新闻总结**，
+  目标词各恰好出现一次，但**不是每句都含目标词**——目标词句之间允许纯上下文句（承载数字/事实，不受15字限制）。
+  后端 `generate_briefing_sentences` 按阅读顺序扫描句子：含目标词的句子成为卡片，
+  前面积累的上下文句用 Google Translate（translator.py，非 AI）译成德语存入 `story_sentences.context_de`，
+  显示在复习卡正面；中文原文存入 `reasoning_zh`（背景弹窗）。briefing 卡片没有标题（concept_zh 为空）。
+  Again 单词重生成复用 news 的单句路径）。
+  news/paste/briefing 三个模式共同点：每句附带 `source_url`（背景弹窗里"打开原文"链接），
   复用 kahneman 模式的概念框/背景弹窗 UI；文章内容存入 `stories.gen_params` 的 `articles` 字段，
   供 Again 单词重生成复现同一批内容（paste 的文章通过 regenerate 的 POST body 传输）
 
