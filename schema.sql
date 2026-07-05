@@ -304,6 +304,12 @@ CREATE TABLE IF NOT EXISTS cards (
     -- free-text note the user leaves for the next time this card comes up
     next_note TEXT,
 
+    -- Graduation probation: 1 while a learning/relearn card has finished its
+    -- steps but has not yet survived an interval of >= learned_interval days.
+    -- Only surviving such an interval turns the card into a real 'review' card;
+    -- failing during probation restarts the steps WITHOUT counting a lapse.
+    probation INTEGER NOT NULL DEFAULT 0,
+
     UNIQUE(word_id, category)
 );
 

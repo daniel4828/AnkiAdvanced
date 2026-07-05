@@ -134,7 +134,7 @@ def toggle_card_suspension(card_id: int) -> dict:
     if cur and cur["state"] == "suspended":
         if cur["is_leech"]:
             conn.execute(
-                "UPDATE cards SET state='new', is_leech=0, lapses=0, learning_again_count=0 WHERE id=?",
+                "UPDATE cards SET state='new', is_leech=0, lapses=0, learning_again_count=0, probation=0 WHERE id=?",
                 (card_id,),
             )
         else:
@@ -152,7 +152,7 @@ def reset_card(card_id: int) -> dict:
     conn.execute(
         """UPDATE cards SET state='new', step_index=0, interval=1,
                             ease=2.5, lapses=0, learning_again_count=0, is_leech=0,
-                            due=date('now'), buried_until=NULL
+                            probation=0, due=date('now'), buried_until=NULL
            WHERE id=?""",
         (card_id,),
     )

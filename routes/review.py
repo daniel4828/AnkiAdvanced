@@ -413,6 +413,7 @@ def undo_review():
         ease=cb["ease"],
         repetitions=cb["repetitions"],
         lapses=cb["lapses"],
+        probation=cb.get("probation", 0),
         stability=cb.get("stability"),
         difficulty=cb.get("difficulty"),
         last_review=cb.get("last_review"),

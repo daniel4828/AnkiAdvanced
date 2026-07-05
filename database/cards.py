@@ -55,7 +55,7 @@ def promote_saved_word(word_id: int, target_deck_ids: dict,
                SET deck_id=?, state='new', due=?, step_index=0, interval=0,
                    ease=2.5, repetitions=0, lapses=0, stability=NULL, difficulty=NULL,
                    last_review=NULL, learning_again_count=0, is_leech=0,
-                   buried_until=NULL, pre_suspend_state=NULL
+                   probation=0, buried_until=NULL, pre_suspend_state=NULL
                WHERE word_id=? AND deck_id=? AND category=? AND deleted_at IS NULL""",
             (target_deck_id, due, word_id, saved_deck_id, category),
         )
@@ -98,7 +98,7 @@ def reset_card_progress(word_id: int) -> int:
     cur = conn.execute(
         """UPDATE cards
            SET state='new', due=?, interval=0, ease=2.5,
-               step_index=0, lapses=0, buried_until=NULL,
+               step_index=0, lapses=0, buried_until=NULL, probation=0,
                stability=NULL, difficulty=NULL, last_review=NULL
            WHERE word_id=? AND deleted_at IS NULL AND state != 'suspended'""",
         (today, word_id),
@@ -562,6 +562,7 @@ def update_card(card_id: int, *, state: str, due: str,
                 step_index: int, interval: int,
                 ease: float, repetitions: int, lapses: int,
                 learning_again_count: int | None = None,
+                probation: int | None = None,
                 stability=_UNSET, difficulty=_UNSET, last_review=_UNSET) -> None:
     """Update a card's scheduling state.
 
@@ -575,6 +576,9 @@ def update_card(card_id: int, *, state: str, due: str,
     if learning_again_count is not None:
         sets.append("learning_again_count=?")
         vals.append(learning_again_count)
+    if probation is not None:
+        sets.append("probation=?")
+        vals.append(probation)
     if stability is not _UNSET:
         sets.append("stability=?")
         vals.append(stability)

@@ -233,6 +233,11 @@ def init_db() -> None:
         conn.execute("ALTER TABLE cards ADD COLUMN last_review TEXT")
     if "next_note" not in card_cols:
         conn.execute("ALTER TABLE cards ADD COLUMN next_note TEXT")
+    # Graduation probation: learning/relearn cards that finished their steps
+    # stay in that state (probation=1) until they survive an interval of
+    # >= learned_interval days; only then do they become 'review' cards.
+    if "probation" not in card_cols:
+        conn.execute("ALTER TABLE cards ADD COLUMN probation INTEGER NOT NULL DEFAULT 0")
 
     # review_log: per-review timing + card state at review time (for calendar heatmap stats)
     rl_cols = {r["name"] for r in conn.execute("PRAGMA table_info(review_log)").fetchall()}
