@@ -6267,16 +6267,15 @@ function _updateListenCounters() {
   });
 }
 
-async function playSentence() {
+function playSentence() {
   const text = sentence?.sentence_zh || card?.word_zh;
   if (!text) return;
   _listenCount++;
   _updateListenCounters();
-  try {
-    await api('POST', `/api/speak?text=${encodeURIComponent(text)}`);
-  } catch (e) {
-    showError('TTS failed: ' + e.message);
-  }
+  if (_currentAudio) { _currentAudio.onended = null; _currentAudio.pause(); _currentAudio = null; }
+  const audio = new Audio(`/api/tts-file?text=${encodeURIComponent(text)}`);
+  _currentAudio = audio;
+  audio.play().catch(() => {});
 }
 
 // ── Regenerate story ─────────────────────────────────────────────────────────

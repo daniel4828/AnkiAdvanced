@@ -1,7 +1,9 @@
 """
 Text-to-speech wrapper using edge-tts + afplay (macOS).
 
-speak()            — play audio for text (instant if already cached)
+speak()/speak_sync()/speak_multi()/_play() — server-side playback via afplay/say (macOS only).
+                      Only reachable through /api/speak, /api/speak-multi, /api/speak-stop,
+                      which the frontend no longer calls (issue #418) — safe on non-macOS servers.
 preload()          — pre-generate audio in background without playing
 preload_all_async()— pre-generate a batch in parallel; awaitable
 
