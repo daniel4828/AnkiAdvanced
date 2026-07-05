@@ -618,14 +618,26 @@ def _generate_briefing_story_sentences(
     chunk_size = ai.MAX_NEWS_BATCH
     chunks = [cards[i:i + chunk_size] for i in range(0, len(cards), chunk_size)]
 
+    # Detailed loading-screen progress (issue #407): overall word counter and the
+    # news headlines being covered, carried through every progress update.
+    titles = [a.get("title") or a.get("url") or "" for a in articles]
+    titles = [t for t in titles if t][:10]
+
     all_sentences: list[dict] = []
     prompt_summary = f"briefing mode — {len(articles)} articles"
+    words_done = 0
     for idx, chunk in enumerate(chunks):
         label = f" ({idx + 1}/{len(chunks)})"
         chunk_sentences = ai.generate_briefing_sentences(
-            chunk, articles, model=model, progress_key=progress_key, attempt_label=label
+            chunk, articles, model=model, progress_key=progress_key, attempt_label=label,
+            progress_extra={
+                "words_done": words_done,
+                "words_total": len(cards),
+                "articles": titles,
+            },
         )
         all_sentences.extend(chunk_sentences)
+        words_done += len(chunk)
 
     return all_sentences, prompt_summary
 

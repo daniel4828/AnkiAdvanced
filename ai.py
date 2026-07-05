@@ -1059,6 +1059,7 @@ def generate_briefing_sentences(
     max_hsk: int = 2,
     progress_key: str | None = None,
     attempt_label: str = "",
+    progress_extra: dict | None = None,
 ) -> list[dict]:
     """News flow mode (issue #399): one flowing Chinese news summary instead of
     one forced sentence per word.
@@ -1071,9 +1072,29 @@ def generate_briefing_sentences(
     attached to it — Chinese into reasoning_zh (background popup), German
     (Google Translate, no extra AI cost) into context_de (shown on the card).
     Target-word order = order of appearance in the summary.
+
+    progress_extra: extra fields merged into every progress update (issue #407) —
+    the chunker passes words_done/words_total/articles so the loading screen can
+    show real overall progress; words_done is advanced here as words get covered.
     """
     if not cards or not articles:
         return []
+
+    extra = dict(progress_extra or {})
+    base_done = extra.get("words_done", 0)
+    words_total = extra.get("words_total")
+
+    def _progress(msg: str) -> None:
+        if not progress_key:
+            return
+        fields = dict(extra)
+        if words_total:
+            done = base_done + (len(cards) - len(remaining))
+            fields["words_done"] = done
+            fields["percent"] = 15 + int(70 * done / max(words_total, 1))
+        else:
+            fields.setdefault("percent", 20)
+        _set_progress(progress_key, phase="request", msg=msg, **fields)
 
     def _word_in_sentence(word_zh: str, sentence_zh: str) -> bool:
         if '...' in word_zh or '…' in word_zh:
@@ -1118,14 +1139,16 @@ def generate_briefing_sentences(
   {{"sentence_zh": "含目标词的句子", "target_word": "词汇", "article_idx": 0}}
 ]"""
 
-    _set_progress(progress_key, phase="request", msg=f"生成新闻总结…{attempt_label}", percent=20)
-
     sentences: list[dict] = []
     remaining = list(cards)
+
+    _progress(f"生成新闻总结…{attempt_label}")
 
     for attempt in range(3):
         if not remaining:
             break
+        if attempt > 0:
+            _progress(f"补漏 {len(remaining)} 个词（第{attempt + 1}轮）…{attempt_label}")
         prompt = _build_prompt(remaining)
         # 8192: gpt-5 series shares this budget with internal reasoning tokens,
         # and context sentences add output on top of the card sentences.
@@ -1179,6 +1202,7 @@ def generate_briefing_sentences(
                 "tokens": [],
             })
 
+        _progress(f"生成新闻总结…{attempt_label}")
         if remaining:
             logger.warning(
                 "briefing attempt %d: missing words (will re-request): %s",
