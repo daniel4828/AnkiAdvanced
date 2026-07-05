@@ -3413,10 +3413,12 @@ function loadCard(c, counts) {
   document.getElementById('cnt-lrn').textContent = counts.learning;
   document.getElementById('cnt-rev').textContent = counts.review;
 
-  // Highlight the active state item
+  // Highlight the active state item — same classification as the backend
+  // counts: a review card below learned_interval is still "learning"
   const stateToItemId = { new: 'cnt-item-new', learning: 'cnt-item-lrn', review: 'cnt-item-rev', relearn: 'cnt-item-lrn' };
   ['cnt-item-new', 'cnt-item-lrn', 'cnt-item-rev'].forEach(id => document.getElementById(id)?.classList.remove('cnt-item-active'));
-  const activeStateId = stateToItemId[c?.state];
+  const youngReview = c?.state === 'review' && (c.interval || 0) < (c.learned_interval ?? 4);
+  const activeStateId = youngReview ? 'cnt-item-lrn' : stateToItemId[c?.state];
   if (activeStateId) document.getElementById(activeStateId)?.classList.add('cnt-item-active');
 
   // Per-category breakdown (mixed/all mode only)
