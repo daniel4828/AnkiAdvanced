@@ -604,6 +604,8 @@ bash run.dev.sh      # 开发启动（DB_PATH=data/dev.db，DISABLE_AI=1）
 | `DISABLE_AI` | `0` | 设为 `1` 跳过 AI 故事生成 |
 | `LOG_LEVEL` | `INFO` | 日志级别（`DEBUG` 可输出详细日志） |
 | `DEV_CLEAR_DB` | `` | 设为任意值则启动时清空数据库 |
+| `AUTH_USERNAME` | 可选 | 两者都设置时启用 HTTP Basic Auth（保护所有路径），单用户登录名 |
+| `AUTH_PASSWORD` | 可选 | 两者都设置时启用 HTTP Basic Auth（保护所有路径），单用户密码 |
 
 ## 里程碑（lǐchéngbēi - milestones）
 

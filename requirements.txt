@@ -1,0 +1,14 @@
+# AnkiAdvanced 运行依赖
+# 版本号采用 “>=当前次版本,<下一主版本” 的宽松固定方式，
+# 既能接收补丁/次版本更新，又能避免破坏性大版本升级。
+
+fastapi>=0.135,<1.0
+uvicorn>=0.41,<1.0
+anthropic>=0.84,<1.0
+openai>=2.29,<3.0
+edge-tts>=7.2,<8.0
+PyYAML>=6.0,<7.0
+python-multipart>=0.0.22,<0.1
+deep-translator>=1.11,<2.0
+jieba>=0.42,<1.0
+pypinyin>=0.55,<1.0

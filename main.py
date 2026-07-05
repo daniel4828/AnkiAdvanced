@@ -151,11 +151,14 @@ def main():
 # ---------------------------------------------------------------------------
 
 try:
+    import base64
+    import binascii
+    import secrets
     import time
     from contextlib import asynccontextmanager
     from fastapi import FastAPI, Request
     from fastapi.staticfiles import StaticFiles
-    from fastapi.responses import FileResponse
+    from fastapi.responses import FileResponse, JSONResponse
     import uvicorn
 
     from routes import decks, review, story, browse, imports
@@ -179,6 +182,42 @@ try:
     app = FastAPI(title="AnkiAdvanced", lifespan=lifespan)
 
     ui_logger = logging.getLogger("ui")
+
+    # Optional single-user HTTP Basic Auth — enabled only when both
+    # AUTH_USERNAME and AUTH_PASSWORD are set (issue #419). If either is
+    # missing, this middleware is a no-op — local dev behavior unchanged.
+    _AUTH_USERNAME = os.environ.get("AUTH_USERNAME", "")
+    _AUTH_PASSWORD = os.environ.get("AUTH_PASSWORD", "")
+    _AUTH_ENABLED = bool(_AUTH_USERNAME and _AUTH_PASSWORD)
+
+    def _unauthorized() -> JSONResponse:
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Unauthorized"},
+            headers={"WWW-Authenticate": 'Basic realm="AnkiAdvanced"'},
+        )
+
+    @app.middleware("http")
+    async def basic_auth(request: Request, call_next):
+        if not _AUTH_ENABLED:
+            return await call_next(request)
+
+        header = request.headers.get("authorization", "")
+        if not header.startswith("Basic "):
+            return _unauthorized()
+
+        try:
+            decoded = base64.b64decode(header[6:]).decode("utf-8")
+            username, _, password = decoded.partition(":")
+        except (ValueError, UnicodeDecodeError, binascii.Error):
+            return _unauthorized()
+
+        user_ok = secrets.compare_digest(username.encode("utf-8"), _AUTH_USERNAME.encode("utf-8"))
+        pass_ok = secrets.compare_digest(password.encode("utf-8"), _AUTH_PASSWORD.encode("utf-8"))
+        if not (user_ok and pass_ok):
+            return _unauthorized()
+
+        return await call_next(request)
 
     @app.middleware("http")
     async def log_requests(request: Request, call_next):

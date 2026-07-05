@@ -1,0 +1,22 @@
+[Unit]
+Description=AnkiAdvanced 中文间隔重复系统
+After=network.target
+
+[Service]
+Type=simple
+# 替换为你在服务器上创建的非 root 用户（见 DEPLOY.md 第 2 步）
+User=anki
+Group=anki
+# 替换为项目在服务器上的实际路径
+WorkingDirectory=/home/anki/AnkiAdvanced
+EnvironmentFile=/home/anki/AnkiAdvanced/.env
+ExecStart=/home/anki/AnkiAdvanced/.venv/bin/python main.py
+Restart=always
+RestartSec=3
+
+# 基本安全加固（可按需调整）
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

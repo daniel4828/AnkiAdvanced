@@ -1,0 +1,11 @@
+# Caddyfile 示例 —— 复制为 /etc/caddy/Caddyfile 并替换域名
+# Caddy 会自动申请并续期 Let's Encrypt 证书，无需额外配置。
+
+your-domain.example.com {
+	reverse_proxy 127.0.0.1:8000
+
+	# 可选：Caddy 访问日志
+	log {
+		output file /var/log/caddy/ankiadvanced.log
+	}
+}
