@@ -141,6 +141,16 @@ main.browse-open {
 #loading-sub { font-size: 12px; color: var(--muted); margin-top: 8px; min-height: 18px; }
 #loading-sub.error { color: #b91c1c; font-size: 13px; }
 #loading-sub.warn  { color: #d97706; font-size: 13px; }
+/* News flow: headlines being summarized, listed under the progress line */
+#loading-articles {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 10px auto 0;
+  max-width: 520px;
+  text-align: left;
+  line-height: 1.7;
+  opacity: 0.85;
+}
 .spinner.hidden { display: none; }
 
 /* "Continue in background" button on the story-generation loading screen */

@@ -799,6 +799,8 @@ function setLoading(msg, useProgress = false) {
     wrap.style.display = 'none';
   }
   if (sub) { sub.textContent = ''; sub.className = ''; }
+  const arts = document.getElementById('loading-articles');
+  if (arts) { arts.innerHTML = ''; arts.style.display = 'none'; }
   if (spinner) spinner.style.visibility = '';
   showView('loading');
 }
@@ -853,8 +855,33 @@ function _startStoryProgressPoll(deckId, cat) {
         _startFakeProgress(5, 50, 30000);
         if (subEl) { subEl.textContent = p.msg; subEl.className = 'warn'; }
       } else if (p.msg) {
-        if (subEl) { subEl.textContent = p.msg; subEl.className = ''; }
+        // News flow (issue #407): append the overall word counter and drive the
+        // bar with the backend's real percent (never move it backwards).
+        let txt = p.msg;
+        if (p.words_total) txt += ` · 生词 ${p.words_done ?? 0}/${p.words_total}`;
+        if (subEl) { subEl.textContent = txt; subEl.className = ''; }
         if (bar && p.phase !== 'ai_done') bar.className = '';
+        if (bar && p.words_total && typeof p.percent === 'number') {
+          const cur = parseFloat(bar.style.width) || 0;
+          if (p.percent > cur) bar.style.width = p.percent + '%';
+        }
+      }
+      // Headlines currently being summarized (news flow) — plain textContent
+      // per line, the titles come from external news sources.
+      const artEl = document.getElementById('loading-articles');
+      if (artEl) {
+        const titles = Array.isArray(p.articles) ? p.articles : [];
+        const key = titles.join('');
+        if (artEl.dataset.key !== key) {
+          artEl.dataset.key = key;
+          artEl.innerHTML = '';
+          for (const t of titles) {
+            const line = document.createElement('div');
+            line.textContent = `📰 ${t}`;
+            artEl.appendChild(line);
+          }
+        }
+        artEl.style.display = titles.length ? 'block' : 'none';
       }
     } catch (_) {}
   }, 400);
