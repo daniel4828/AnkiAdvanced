@@ -5553,6 +5553,7 @@ function updateSetupMode() {
   const pasteSection = document.getElementById('setup-paste-section');
   newsSection.style.display = 'none';
   pasteSection.style.display = 'none';
+  _autoSwitchModelForMode(mode);
   if (mode === 'qa') {
     topicLabel.childNodes[0].textContent = 'Question ';
     topicInput.placeholder = 'e.g. How was life in ancient China?';
@@ -5588,6 +5589,29 @@ function updateSetupMode() {
     btn.textContent = 'Generate story';
     topicLabel.style.display = '';
     kahnemanSection.style.display = 'none';
+  }
+}
+
+// ── News-family modes default to gpt-5-mini ─────────────────────────────────
+// news/briefing/paste are designed for OpenAI (DeepSeek censors news content).
+// Switching to one of them auto-selects gpt-5-mini and remembers the previous
+// model; switching back restores it. A manual model change while in a news
+// mode is respected (we only restore what we auto-switched away from).
+let _modelBeforeNewsMode = null;
+
+function _autoSwitchModelForMode(mode) {
+  const modelSel = document.getElementById('setup-model');
+  if (!modelSel) return;
+  const isNewsFamily = mode === 'news' || mode === 'briefing' || mode === 'paste';
+  if (isNewsFamily) {
+    if (modelSel.value !== 'gpt-5-mini') {
+      _modelBeforeNewsMode = modelSel.value;
+      modelSel.value = 'gpt-5-mini';
+    }
+  } else if (_modelBeforeNewsMode !== null) {
+    // Only restore if the user kept our auto-choice; a manual change sticks.
+    if (modelSel.value === 'gpt-5-mini') modelSel.value = _modelBeforeNewsMode;
+    _modelBeforeNewsMode = null;
   }
 }
 
