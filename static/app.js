@@ -3897,6 +3897,7 @@ function revealAnswer() {
       }
     };
     if (_hasConcept) {
+      _conceptEl.style.display = '';
       const cachedCh = chNum && _kahnemanChapters ? _kahnemanChapters.find(c => c.number === chNum) : null;
       renderConcept(cachedCh);
       if (!cachedCh && chNum) {
@@ -3906,6 +3907,9 @@ function revealAnswer() {
         });
       }
     } else {
+      // No headline (news flow) → hide the pill entirely, otherwise it renders
+      // as an empty lavender box next to the light bulb (issue #411).
+      _conceptEl.style.display = 'none';
       _conceptEl.innerHTML = '';
       _conceptEl.classList.remove('concept-clickable');
       _conceptEl.onclick = null;
@@ -3919,6 +3923,7 @@ function revealAnswer() {
   } else {
     _conceptRow.style.display = 'none';
     _conceptEl.innerHTML = '';
+    _conceptEl.style.display = '';
     _reasonBtn.style.display = 'none';
     _currentReasoning = '';
     _currentSourceUrl = '';

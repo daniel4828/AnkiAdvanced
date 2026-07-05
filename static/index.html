@@ -119,9 +119,11 @@
 
           <!-- Front side (content varies by category) -->
           <div id="side-front">
-            <!-- Listening: speaker icon (clickable) + repeat counter -->
+            <!-- News flow: German context of the preceding summary sentences (always above the Chinese sentence) -->
+            <div class="sentence-context-de" id="sentence-context-de" style="display:none"></div>
+            <!-- Listening: small replay button + repeat counter (issue #411: no big speaker emoji) -->
             <div class="listen-icon-wrap" id="front-listen-icon" style="display:none">
-              <button class="listen-icon" onclick="playSentence()">🔊</button>
+              <button class="play-icon-btn play-icon-sm" onclick="playSentence()" title="Play audio">🔊</button>
               <span class="listen-counter" id="listen-counter" style="display:none"></span>
             </div>
             <!-- Listening: hint sentence with slider (shows % of non-target chars) -->
@@ -145,8 +147,6 @@
               <span class="always-trans-eye" id="creating-word-def-eye" role="button" tabindex="0"
                     onclick="toggleAlwaysWordDef()" title="Always show translation hint">👀</span>
             </div>
-            <!-- News flow: German context of the preceding summary sentences -->
-            <div class="sentence-context-de" id="sentence-context-de" style="display:none"></div>
             <!-- Reading / Cloze: Chinese sentence on front (reading shows full, cloze shows blanked) -->
             <div class="sentence" id="sentence-front"></div>
             <div class="creating-input-wrap" id="creating-input-wrap">
