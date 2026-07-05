@@ -7,5 +7,5 @@ LANGUAGE (every message, no exceptions):
 
 GIT:
 - R1: Never push directly to `main`. All work via PR.
-- R3: Never merge PRs. Daniel merges on GitHub. Claude does everything else.
+- R3: Claude merges PRs himself after CI passes (authorized by Daniel 2026-07-05). Never merge with failing CI.
 - COMMIT: Commit after every complete, atomic change (a bug fix, a feature unit, a refactor). Not after every single line — not after all work is done. If the code still runs and the change is meaningful, commit it.
