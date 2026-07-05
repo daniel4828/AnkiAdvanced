@@ -1638,6 +1638,15 @@ main.browse-open {
   opacity: 0.9;
   filter: none;
 }
+/* News flow: German context of the preceding summary sentences (readable at a glance) */
+.sentence-context-de {
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--muted);
+  font-style: italic;
+  margin: 0 12px 10px;
+}
 .creating-word-def-row {
   display: flex;
   align-items: center;

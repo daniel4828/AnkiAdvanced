@@ -3621,6 +3621,12 @@ function showFront() {
   sentFront.style.display = !isListening && !isCreating ? 'flex' : 'none';
   if (!isListening && !isCreating) sentFront.innerHTML = renderSentence();
 
+  // News flow: German context of the preceding summary sentences. Shown in all
+  // categories — it describes the news thread so far, not this sentence.
+  const ctxDe = document.getElementById('sentence-context-de');
+  ctxDe.textContent = sentence?.context_de || '';
+  ctxDe.style.display = sentence?.context_de ? 'block' : 'none';
+
   // Creating: show English hint + appropriate input
   document.getElementById('sentence-en-front').style.display   = isCreating ? 'flex' : 'none';
   document.getElementById('creating-input-wrap').style.display = (isCreating && !isCloze) ? 'flex' : 'none';
@@ -3840,7 +3846,11 @@ function revealAnswer() {
   const _conceptRow = document.getElementById('sentence-concept-row');
   const _conceptEl = document.getElementById('sentence-concept');
   const _reasonBtn = document.getElementById('sentence-reasoning-btn');
-  if (!isSentenceNote && sentence?.concept_zh) {
+  const _hasConcept = !isSentenceNote && !!sentence?.concept_zh;
+  // News flow (briefing) cards have no headline but do carry context/source —
+  // the light bulb must still work for them.
+  const _hasBackground = !isSentenceNote && !!(sentence?.reasoning_zh || sentence?.source_url);
+  if (_hasConcept || _hasBackground) {
     const chNum = sentence.concept_en ? parseInt(sentence.concept_en.match(/Chapter (\d+)/)?.[1]) : null;
     const isNewsConcept = !chNum; // news mode: concept_en is empty, concept_zh is the headline
     const renderConcept = (ch) => {
@@ -3859,19 +3869,25 @@ function revealAnswer() {
         _conceptEl.onclick = null;
       }
     };
-    const cachedCh = chNum && _kahnemanChapters ? _kahnemanChapters.find(c => c.number === chNum) : null;
-    renderConcept(cachedCh);
-    if (!cachedCh && chNum) {
-      _ensureKahnemanChapters().then(() => {
-        const ch = _kahnemanChapters?.find(c => c.number === chNum);
-        if (ch) renderConcept(ch);
-      });
+    if (_hasConcept) {
+      const cachedCh = chNum && _kahnemanChapters ? _kahnemanChapters.find(c => c.number === chNum) : null;
+      renderConcept(cachedCh);
+      if (!cachedCh && chNum) {
+        _ensureKahnemanChapters().then(() => {
+          const ch = _kahnemanChapters?.find(c => c.number === chNum);
+          if (ch) renderConcept(ch);
+        });
+      }
+    } else {
+      _conceptEl.innerHTML = '';
+      _conceptEl.classList.remove('concept-clickable');
+      _conceptEl.onclick = null;
     }
     // Light bulb opens the per-sentence reasoning/background popup (only if content exists)
     _currentReasoning = sentence.reasoning_zh || '';
     _currentSourceUrl = sentence.source_url || '';
     _currentReasoningIsNews = isNewsConcept;
-    _reasonBtn.style.display = _currentReasoning ? '' : 'none';
+    _reasonBtn.style.display = (_currentReasoning || _currentSourceUrl) ? '' : 'none';
     _conceptRow.style.display = '';
   } else {
     _conceptRow.style.display = 'none';
@@ -5554,11 +5570,11 @@ function updateSetupMode() {
     kahnemanSection.style.display = 'block';
     btn.textContent = 'Generate Kahneman';
     _loadKahnemanChapters();
-  } else if (mode === 'news') {
+  } else if (mode === 'news' || mode === 'briefing') {
     topicLabel.style.display = 'none';
     kahnemanSection.style.display = 'none';
     newsSection.style.display = 'block';
-    btn.textContent = 'Generate news briefing';
+    btn.textContent = mode === 'briefing' ? 'Generate news flow' : 'Generate news briefing';
     _loadNewsStatus();
   } else if (mode === 'paste') {
     topicLabel.style.display = 'none';
@@ -5686,7 +5702,7 @@ let _currentReasoningIsNews = false;
 let _currentStoryMode = '';
 
 function openReasoning() {
-  if (!_currentReasoning) return;
+  if (!_currentReasoning && !_currentSourceUrl) return;
   document.getElementById('reasoning-modal-title').textContent =
     _currentReasoningIsNews
       ? (_currentStoryMode === 'paste' ? '📋 内容背景' : '📰 新闻背景')

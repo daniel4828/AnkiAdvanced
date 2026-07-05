@@ -185,6 +185,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE story_sentences ADD COLUMN reasoning_zh TEXT")
     if "source_url" not in ss_cols:
         conn.execute("ALTER TABLE story_sentences ADD COLUMN source_url TEXT")
+    if "context_de" not in ss_cols:
+        conn.execute("ALTER TABLE story_sentences ADD COLUMN context_de TEXT")
     if "word_id" in ss_cols:
         _migrate_story_sentences_multi_word(conn)
     existing_tables = {r["name"] for r in conn.execute(

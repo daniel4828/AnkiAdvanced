@@ -185,18 +185,22 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
             parsed_chapter_ids = [int(x) for x in chapter_ids.split(",") if x.strip()] if chapter_ids else []
             sentences, prompt_text = _generate_kahneman_story_sentences(
                 cards, parsed_chapter_ids, model=model, progress_key=progress_key)
-        elif mode in ("news", "paste"):
-            if mode == "news" and not articles:
-                # News mode always auto-fetches today's news and lets the AI
-                # condense it into briefing source articles (issue #387).
+        elif mode in ("news", "paste", "briefing"):
+            if mode in ("news", "briefing") and not articles:
+                # News/briefing modes always auto-fetch today's news and let the
+                # AI condense it into briefing source articles (issue #387).
                 # Rebinding `articles` here also persists the fetched articles
                 # in gen_params below, so Again-regeneration reuses them.
                 # Paste mode never auto-fetches: no pasted content is an error
                 # (raised inside _generate_news_story_sentences).
                 articles = _auto_news_articles(model=model, progress_key=progress_key)
-            sentences, prompt_text = _generate_news_story_sentences(
-                cards, articles, model=model, progress_key=progress_key,
-                generic=(mode == "paste"))
+            if mode == "briefing":
+                sentences, prompt_text = _generate_briefing_story_sentences(
+                    cards, articles, model=model, progress_key=progress_key)
+            else:
+                sentences, prompt_text = _generate_news_story_sentences(
+                    cards, articles, model=model, progress_key=progress_key,
+                    generic=(mode == "paste"))
         else:
             sentences, prompt_text = _generate_story_sentences(
                 cards, topic=topic, max_hsk=max_hsk, model=model,
@@ -321,7 +325,9 @@ def generate_sentence_for_word(card: dict, gen_params: dict | None) -> dict | No
                 sentences = ai.generate_kahneman_sentences([card], chapter, model=model)
             else:  # book data missing → fall back to a plain sentence
                 sentences, _ = ai.generate_story([card], model=model)
-        elif mode in ("news", "paste"):
+        elif mode in ("news", "paste", "briefing"):
+            # Briefing Again-regen reuses the single-sentence news path: one word
+            # gets one fresh sentence from the same articles (no context chain).
             articles = gp.get("articles") or []
             if articles:
                 sentences = ai.generate_news_sentences(
@@ -591,6 +597,33 @@ def _generate_news_story_sentences(
         chunk_sentences = ai.generate_news_sentences(
             chunk, articles, model=model, progress_key=progress_key,
             attempt_label=label, generic=generic
+        )
+        all_sentences.extend(chunk_sentences)
+
+    return all_sentences, prompt_summary
+
+
+def _generate_briefing_story_sentences(
+    cards: list, articles: list[dict], model: str, progress_key: str | None,
+) -> tuple[list, str]:
+    """News flow mode (issue #399): split cards into batches of ai.MAX_NEWS_BATCH,
+    each batch produces its own flowing mini-summary (target-word sentences +
+    context sentences attached as context_de). Card order = batch order, and
+    within a batch = order of appearance in the summary."""
+    if not articles:
+        raise RuntimeError(
+            "News flow mode found no articles. "
+            "Today's news fetch may have failed — please try again.")
+
+    chunk_size = ai.MAX_NEWS_BATCH
+    chunks = [cards[i:i + chunk_size] for i in range(0, len(cards), chunk_size)]
+
+    all_sentences: list[dict] = []
+    prompt_summary = f"briefing mode — {len(articles)} articles"
+    for idx, chunk in enumerate(chunks):
+        label = f" ({idx + 1}/{len(chunks)})"
+        chunk_sentences = ai.generate_briefing_sentences(
+            chunk, articles, model=model, progress_key=progress_key, attempt_label=label
         )
         all_sentences.extend(chunk_sentences)
 

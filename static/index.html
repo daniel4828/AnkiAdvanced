@@ -143,6 +143,8 @@
               <span class="always-trans-eye" id="creating-word-def-eye" role="button" tabindex="0"
                     onclick="toggleAlwaysWordDef()" title="Always show translation hint">👀</span>
             </div>
+            <!-- News flow: German context of the preceding summary sentences -->
+            <div class="sentence-context-de" id="sentence-context-de" style="display:none"></div>
             <!-- Reading / Cloze: Chinese sentence on front (reading shows full, cloze shows blanked) -->
             <div class="sentence" id="sentence-front"></div>
             <div class="creating-input-wrap" id="creating-input-wrap">
@@ -670,6 +672,7 @@
         <option value="expository">📚 Expository — informative text</option>
         <option value="kahneman">🧠 Kahneman — cognitive bias style</option>
         <option value="news">📰 News briefing — today's news, auto-fetched</option>
+        <option value="briefing">🗞️ News flow — summary with German context</option>
         <option value="paste">📋 Paste content — summarize anything</option>
       </select>
     </label>
