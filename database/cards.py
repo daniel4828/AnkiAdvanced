@@ -1044,18 +1044,30 @@ def count_unfinished(scope: str = "unfinished") -> dict:
     clause, params = _unfinished_where(scope)
     conn = get_db()
     rows = conn.execute(
-        f"SELECT state, COUNT(*) AS n FROM cards WHERE {clause} GROUP BY state",
+        f"SELECT deck_id, state, interval FROM cards WHERE {clause}",
         params,
     ).fetchall()
     conn.close()
+    # A 'review' card whose interval hasn't reached its deck's learned_interval
+    # is still "learning" — same classification as count_due().
+    thresholds: dict[int, int] = {}
     counts = {"new": 0, "learning": 0, "review": 0}
     for r in rows:
+        if r["state"] == "new":
+            counts["new"] += 1
+            continue
         if r["state"] in ("learning", "relearn"):
-            counts["learning"] += r["n"]
-        elif r["state"] == "review":
-            counts["review"] += r["n"]
-        elif r["state"] == "new":
-            counts["new"] += r["n"]
+            counts["learning"] += 1
+            continue
+        if r["state"] != "review":
+            continue
+        did = r["deck_id"]
+        if did not in thresholds:
+            thresholds[did] = (get_preset_for_deck(did) or {}).get("learned_interval", 4)
+        if (r["interval"] or 0) < thresholds[did]:
+            counts["learning"] += 1
+        else:
+            counts["review"] += 1
     return counts
 
 
