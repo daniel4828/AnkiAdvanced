@@ -5595,11 +5595,27 @@ function openStorySetup(sentenceCount, { isMixed = false, isUnfinished = false, 
   document.getElementById('setup-hsk-slider').value = 3;
   document.getElementById('setup-mode').value = 'story';
   updateHskLabel();
+  _applySetupLangRestrictions();
   updateSetupMode();
   document.getElementById('setup-modal-overlay').style.display = 'block';
   document.getElementById('setup-modal').style.display        = 'flex';
   document.getElementById('setup-topic').focus();
   return new Promise(resolve => { _setupResolve = resolve; });
+}
+
+// Story setup modal: kahneman/news/briefing/paste and grammar-focus are
+// Chinese-only server features (backend rejects those modes, and grammar
+// patterns like 把字句 don't apply to French) — hide them for non-zh decks.
+function _applySetupLangRestrictions() {
+  const lang = _deckLangById[deckId] || 'zh';
+  const modeSelect = document.getElementById('setup-mode');
+  const zhOnlyOptions = modeSelect.querySelectorAll('option.setup-mode-zh-only');
+  zhOnlyOptions.forEach(opt => { opt.hidden = lang !== 'zh'; });
+  if (lang !== 'zh' && zhOnlyOptions && [...zhOnlyOptions].some(o => o.value === modeSelect.value)) {
+    modeSelect.value = 'story';
+  }
+  const grammarLabel = document.getElementById('setup-grammar-label');
+  if (grammarLabel) grammarLabel.style.display = lang === 'zh' ? '' : 'none';
 }
 
 function togglePriceTable(e) {
