@@ -119,6 +119,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE entries ADD COLUMN definition_fr TEXT")
     if "source_sentence" not in cols:
         conn.execute("ALTER TABLE entries ADD COLUMN source_sentence TEXT")
+    if "lang" not in cols:
+        conn.execute("ALTER TABLE entries ADD COLUMN lang TEXT NOT NULL DEFAULT 'zh'")
     if "grammar_notes" not in cols:
         conn.execute("ALTER TABLE entries ADD COLUMN grammar_notes TEXT")
 
@@ -208,6 +210,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE decks ADD COLUMN new_review_order_override TEXT")
     if "bury_quick_mode" not in deck_cols:
         conn.execute("ALTER TABLE decks ADD COLUMN bury_quick_mode TEXT NOT NULL DEFAULT 'all'")
+    if "lang" not in deck_cols:
+        conn.execute("ALTER TABLE decks ADD COLUMN lang TEXT NOT NULL DEFAULT 'zh'")
     card_cols = {r["name"] for r in conn.execute("PRAGMA table_info(cards)").fetchall()}
     if "deleted_at" not in card_cols:
         conn.execute("ALTER TABLE cards ADD COLUMN deleted_at TEXT")

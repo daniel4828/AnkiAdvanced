@@ -1,6 +1,7 @@
 import logging
 
 import database
+import languages
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from .utils import queue_mgr
@@ -110,7 +111,10 @@ def get_decks(unfinished_scope: str = "unfinished"):
 
 
 @router.post("/api/decks")
-def create_deck(name: str, parent_id: int | None = None, category: str | None = None):
+def create_deck(name: str, parent_id: int | None = None, category: str | None = None,
+                lang: str | None = None):
+    if lang is not None and not languages.is_valid_lang(lang):
+        raise HTTPException(400, f"unknown lang: {lang!r}")
     # Support Anki-style 'Parent::Child' hierarchy in name
     if "::" in name:
         deck_id = database.get_or_create_deck_path(name)
@@ -118,7 +122,8 @@ def create_deck(name: str, parent_id: int | None = None, category: str | None = 
     if parent_id is None:
         parent_id = database.get_all_deck_id()
     preset_id = database.get_preset_for_deck(parent_id)["id"]
-    deck_id = database.insert_deck(name, parent_id, preset_id, category)
+    # lang=None inherits the parent deck's language (database._resolve_deck_lang)
+    deck_id = database.insert_deck(name, parent_id, preset_id, category, lang=lang)
     return database.get_deck(deck_id)
 
 

@@ -381,6 +381,7 @@ echo "✓ 议题创建完成"
 ```
 ├── CLAUDE.md              # 本文件
 ├── main.py                # CLI入口 + FastAPI应用
+├── languages.py           # 语言注册表（每种语言的 TTS 语音/翻译源/分词方式/AI 提示词参数/功能开关）
 ├── database/              # 所有数据库访问（其他文件不写原始SQL）
 │   ├── __init__.py        # 重新导出所有函数（import database 仍然有效）
 │   ├── core.py            # 连接管理、迁移
@@ -426,6 +427,16 @@ echo "✓ 议题创建完成"
 └── imports/
     └── Kouyu/             # YAML词汇文件（唯一导入来源）
 ```
+
+## 多语言支持（duō yǔyán - multi-language）
+
+系统支持在同一个软件、同一个数据库里学习多种语言（2026-07-06 起，议题 #428–#431）。当前语言：中文（zh，默认）+ 法语（fr，CEFR B1，释义以德语为主）。
+
+- **`languages.py` 是语言注册表**：每种语言定义 TTS 语音、翻译源、分词方式（jieba/空格）、AI 提示词参数（学习者水平、背景词汇上限、句长限制）、功能开关（拼音/汉字/量词仅中文）。加新语言 = 在注册表加一个条目
+- **`decks.lang` / `entries.lang`**（TEXT，默认 `'zh'`）：牌组和词条的目标语言；子牌组在创建时继承父牌组的 lang
+- **字段重新解释**：`word_zh` 对所有语言存"目标语言词形"（_zh 后缀是历史遗留）；法语词条的 pinyin/hsk_level/characters 留空
+- **已知限制**：`UNIQUE(word_zh)` 是全局约束而非按语言——只要各语言文字系统不同（中文 vs 法语）就不冲突；将来加第二种拉丁字母语言时需改为 `UNIQUE(word_zh, lang)`（需要重建表）
+- **中文专属功能**：汉字分解、量词、拼音、news/kahneman/paste/briefing 故事模式——法语牌组不提供
 
 ## 数据来源（láiyuán - source）
 
