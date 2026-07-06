@@ -1043,16 +1043,22 @@ def _unfinished_where(scope: str) -> tuple[str, list]:
     return clause, [now, *lock_params]
 
 
+def _lang_subquery_clause(lang: str | None, params: list) -> tuple[str, list]:
+    """Append a 'deck_id IN (...)' lang filter to a cards WHERE clause via subquery
+    (avoids column-name ambiguity from a JOIN against decks, which also has
+    columns like deleted_at)."""
+    if lang is None:
+        return "", params
+    return " AND deck_id IN (SELECT id FROM decks WHERE lang = ?)", [*params, lang]
+
+
 def count_unfinished(scope: str = "unfinished", lang: str | None = None) -> dict:
     """Count cards on the unfinished virtual deck, grouped by state. Optionally filter by deck lang."""
     clause, params = _unfinished_where(scope)
-    lang_join = ""
-    if lang is not None:
-        lang_join = " JOIN decks ON decks.id = cards.deck_id AND decks.lang = ?"
-        params = [lang, *params]
+    lang_clause, params = _lang_subquery_clause(lang, params)
     conn = get_db()
     rows = conn.execute(
-        f"SELECT deck_id, state, interval FROM cards{lang_join} WHERE {clause}",
+        f"SELECT deck_id, state, interval FROM cards WHERE {clause}{lang_clause}",
         params,
     ).fetchall()
     conn.close()
@@ -1082,13 +1088,10 @@ def count_unfinished(scope: str = "unfinished", lang: str | None = None) -> dict
 def get_unfinished_deck_categories(scope: str = "unfinished", lang: str | None = None) -> list[dict]:
     """Return distinct (deck_id, category) pairs that have unfinished cards due now. Optionally filter by deck lang."""
     clause, params = _unfinished_where(scope)
-    lang_join = ""
-    if lang is not None:
-        lang_join = " JOIN decks ON decks.id = cards.deck_id AND decks.lang = ?"
-        params = [lang, *params]
+    lang_clause, params = _lang_subquery_clause(lang, params)
     conn = get_db()
     rows = conn.execute(
-        f"SELECT DISTINCT deck_id, category FROM cards{lang_join} WHERE {clause}",
+        f"SELECT DISTINCT deck_id, category FROM cards WHERE {clause}{lang_clause}",
         params,
     ).fetchall()
     conn.close()
@@ -1102,13 +1105,10 @@ def get_next_unfinished_card(scope: str = "unfinished", lang: str | None = None)
     Optionally filter by deck lang.
     """
     clause, params = _unfinished_where(scope)
-    lang_join = ""
-    if lang is not None:
-        lang_join = " JOIN decks ON decks.id = cards.deck_id AND decks.lang = ?"
-        params = [lang, *params]
+    lang_clause, params = _lang_subquery_clause(lang, params)
     conn = get_db()
     row = conn.execute(
-        f"""SELECT cards.id AS id FROM cards{lang_join} WHERE {clause}
+        f"""SELECT id FROM cards WHERE {clause}{lang_clause}
            ORDER BY CASE state
                       WHEN 'learning' THEN 0 WHEN 'relearn' THEN 0
                       WHEN 'review' THEN 1 ELSE 2 END,
