@@ -1329,6 +1329,7 @@ function renderDeckRows(decks, depth, sortMode) {
         <span class="tree-toggle" onclick="toggleDeck(${deck.id})">${toggleIcon}</span>
         <span class="tree-name-wrap">
           <span class="tree-name" onclick="startReviewMixed(${deck.id},'${safeName}',${!!deck.no_story})" style="cursor:pointer">${deck.name}</span>
+          ${deck.lang === 'fr' ? `<span class="deck-lang-chip" title="French deck">FR</span>` : ''}
           ${!deck.no_story ? `<button class="deck-regen-btn" onclick="event.stopPropagation();regenerateStoryFromList(${deck.id})" title="Regenerate story">↺</button>` : ''}
         </span>
         ${deckCounts}
@@ -1499,8 +1500,15 @@ async function renameDeck(id, currentName) {
 async function createDeck() {
   const path = await showPrompt('New deck path (use :: to nest, e.g. Daily::03-19)');
   if (!path || !path.trim()) return;
+  let lang = await showPrompt('Language: zh (Chinese) or fr (French)', 'zh');
+  if (lang === null) return; // user cancelled
+  lang = lang.trim().toLowerCase() || 'zh';
+  if (lang !== 'zh' && lang !== 'fr') {
+    showError(`Unknown language "${lang}" — expected zh or fr`);
+    return;
+  }
   try {
-    await api('POST', `/api/decks?name=${encodeURIComponent(path.trim())}`);
+    await api('POST', `/api/decks?name=${encodeURIComponent(path.trim())}&lang=${encodeURIComponent(lang)}`);
     loadDecks();
   } catch (e) {
     showError('Create deck failed: ' + e.message);

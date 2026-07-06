@@ -1862,6 +1862,16 @@ main.browse-open {
   color: #9ca3af;
   white-space: nowrap;
 }
+.deck-lang-chip {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  padding: 1px 4px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
 .tree-counts { font-size: 13px; font-weight: 700; white-space: nowrap; }
 .tree-card {
   background: var(--card);
