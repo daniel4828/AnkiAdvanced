@@ -99,11 +99,12 @@
             <div id="review-cat-row" style="flex:1"></div>
             <div class="card-meta-right">
               <button id="card-hsk-badge" class="card-hsk-badge" onclick="enrichCard()" title="Ask AI to fill HSK level &amp; character data" style="display:none"></button>
-              <div class="back-play-group">
-                <button id="back-meta-play-btn" class="play-icon-btn play-icon-sm" onclick="playSentence()" style="display:none" title="Play audio">🔊</button>
-                <span class="listen-counter listen-counter-back" id="listen-counter-back" style="display:none"></span>
+              <div class="meta-play-group">
+                <button id="meta-play-btn" class="play-icon-btn play-icon-sm" onclick="playSentence()" style="display:none" title="Play audio">🔊</button>
+                <span class="listen-counter listen-counter-meta" id="listen-counter-meta" style="display:none"></span>
               </div>
               <div id="card-timer" style="display:none"></div>
+              <div id="card-mode-badge" style="display:none"></div>
               <div id="card-type-badge"></div>
               <div class="wd-card-menu-wrap" id="review-card-menu-wrap">
                 <button class="wd-menu-btn" onclick="toggleReviewCardMenu(event)">⋯</button>
@@ -121,11 +122,6 @@
           <div id="side-front">
             <!-- News flow: German context of the preceding summary sentences (always above the Chinese sentence) -->
             <div class="sentence-context-de" id="sentence-context-de" style="display:none"></div>
-            <!-- Listening: small replay button + repeat counter (issue #411: no big speaker emoji) -->
-            <div class="listen-icon-wrap" id="front-listen-icon" style="display:none">
-              <button class="play-icon-btn play-icon-sm" onclick="playSentence()" title="Play audio">🔊</button>
-              <span class="listen-counter" id="listen-counter" style="display:none"></span>
-            </div>
             <!-- Listening: hint sentence with slider (shows % of non-target chars) -->
             <div id="listen-hint-wrap" style="display:none">
               <div class="listen-hint-sentence" id="listen-hint-sentence"></div>
