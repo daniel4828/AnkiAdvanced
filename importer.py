@@ -6,6 +6,7 @@ import re
 import yaml
 
 import database
+from languages import is_valid_lang
 from yaml_fixer import fix_yaml_content
 
 logger = logging.getLogger(__name__)
@@ -95,13 +96,6 @@ def import_kouyu_yaml(filepath: str) -> dict:
 
 def import_yaml_file(filepath: str, deck_path: list[str]) -> dict:
     """Parse one YAML file. deck_path is the folder hierarchy."""
-    parent_id = None
-    for segment in deck_path:
-        parent_id = database.get_or_create_deck(segment, parent_id=parent_id)
-
-    leaf_parent = deck_path[-1]
-    deck_ids = _make_leaf_decks(leaf_parent, parent_id)
-
     try:
         with open(filepath, "r", encoding="utf-8") as f:
             raw = f.read()
@@ -111,9 +105,21 @@ def import_yaml_file(filepath: str, deck_path: list[str]) -> dict:
         err = _format_yaml_error(e, filename=os.path.basename(filepath))
         return {"imported": 0, "skipped_duplicate": 0, "skipped_invalid": 0, "yaml_error": err}
 
+    lang = data.get("lang", "zh") if isinstance(data, dict) else "zh"
+    if not is_valid_lang(lang):
+        logger.warning("import_yaml_file %s: unknown lang %r, falling back to zh", filepath, lang)
+        lang = "zh"
+
+    parent_id = None
+    for segment in deck_path:
+        parent_id = database.get_or_create_deck(segment, parent_id=parent_id, lang=lang)
+
+    leaf_parent = deck_path[-1]
+    deck_ids = _make_leaf_decks(leaf_parent, parent_id)
+
     entries = _get_entries(data)
     source = deck_path[0].lower()
-    return _import_entries(entries, deck_ids, source, label=os.path.basename(filepath))
+    return _import_entries(entries, deck_ids, source, label=os.path.basename(filepath), lang=lang)
 
 
 def import_yaml_content(content: str, parent_deck_id: int,
@@ -133,6 +139,13 @@ def import_yaml_content(content: str, parent_deck_id: int,
         return {"imported": 0, "skipped_duplicate": 0, "skipped_invalid": 0,
                 "yaml_error": _format_yaml_error(e)}
 
+    lang = data.get("lang") if isinstance(data, dict) else None
+    if lang and not is_valid_lang(lang):
+        logger.warning("import_yaml_content: unknown lang %r, falling back to zh", lang)
+        lang = "zh"
+    if not lang:
+        lang = database.get_deck_lang(parent_deck_id)
+
     parent = database.get_deck(parent_deck_id)
     leaf_parent = parent["name"] if parent else "Upload"
     default_deck_ids = _make_leaf_decks(leaf_parent, parent_deck_id)
@@ -142,7 +155,8 @@ def import_yaml_content(content: str, parent_deck_id: int,
     return _import_entries(entries, default_deck_ids, source, label="<upload>",
                            resolutions=resolutions or {},
                            card_configs=card_configs or {},
-                           custom_fields=custom_fields or {})
+                           custom_fields=custom_fields or {},
+                           lang=lang)
 
 
 def preview_yaml_content(content: str) -> dict:
@@ -165,6 +179,10 @@ def preview_yaml_content(content: str) -> dict:
             "error_detail": _format_yaml_error(e),
         }
 
+    preview_lang = data.get("lang") if isinstance(data, dict) else None
+    if preview_lang and not is_valid_lang(preview_lang):
+        preview_lang = "zh"
+
     entries = _get_entries(data)
     result_entries = []
     conflicts = []
@@ -172,6 +190,9 @@ def preview_yaml_content(content: str) -> dict:
     summary = {"ok": 0, "duplicate": 0, "invalid": 0, "unknown_type": 0}
 
     for entry in entries:
+        if preview_lang and preview_lang != "zh":
+            entry = _normalize_fr_entry(entry)
+
         yaml_type = entry.get("type", "")
         note_type = NOTE_TYPE_MAP.get(yaml_type)
 
@@ -210,10 +231,11 @@ def preview_yaml_content(content: str) -> dict:
             })
             continue
 
-        stripped = _strip_ellipsis(word_zh)
-        if stripped != word_zh:
-            logger.warning("STRIP preview: ellipsis stripped from %r → %r", word_zh, stripped)
-            word_zh = stripped
+        if not preview_lang or preview_lang == "zh":
+            stripped = _strip_ellipsis(word_zh)
+            if stripped != word_zh:
+                logger.warning("STRIP preview: ellipsis stripped from %r → %r", word_zh, stripped)
+                word_zh = stripped
 
         english = entry.get("english", "")
         hsk = str(entry.get("hsk", "") or "")
@@ -309,14 +331,45 @@ def _strip_ellipsis(word_zh: str) -> str:
     return word_zh.strip('.')
 
 
-def _build_word_dict(entry: dict, source: str, note_type: str = "vocabulary") -> dict:
+def _normalize_fr_entry(entry: dict) -> dict:
+    """Reshape a French-format YAML entry into the internal (Chinese-era) key
+    layout so all downstream processing (_build_word_dict, examples, etc.)
+    stays untouched. Non-French language modules (characters, measure words,
+    word_analyses) are simply absent from the French format for now.
+    """
+    normalized = dict(entry)
+    normalized["simplified"] = (
+        entry.get("word") or entry.get("sentence")
+        or entry.get("expression") or entry.get("simplified") or ""
+    )
+    normalized["examples"] = [
+        {
+            "zh":     ex.get("fr", ""),
+            "english": ex.get("english"),
+            "de":     ex.get("german") or ex.get("de"),
+            "pinyin": None,
+        }
+        for ex in (entry.get("examples") or [])
+    ]
+    # French format doesn't define these Chinese-only fields yet
+    for key in ("hsk", "traditional", "pinyin", "word_analyses",
+                "characters", "measure_words", "similar_sentences"):
+        normalized.pop(key, None)
+    return normalized
+
+
+def _build_word_dict(entry: dict, source: str, note_type: str = "vocabulary",
+                     lang: str = "zh") -> dict:
     register = entry.get("register")
     if register not in _VALID_REGISTERS:
         if register is not None:
             logger.warning("_build_word_dict: invalid register %r — set to None", register)
         register = None
+    simplified = entry.get("simplified", "").strip()
+    word_zh = _strip_ellipsis(simplified) if lang == "zh" else simplified
     return {
-        "word_zh":         _strip_ellipsis(entry.get("simplified", "").strip()),
+        "word_zh":         word_zh,
+        "lang":            lang,
         "pinyin":          entry.get("pinyin"),
         "definition":      entry.get("english"),
         "definition_de":   entry.get("german"),
@@ -533,7 +586,8 @@ def _process_component(analysis: dict, note_word_id: int, position: int,
 def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
                     resolutions: dict | None = None,
                     card_configs: dict | None = None,
-                    custom_fields: dict | None = None) -> dict:
+                    custom_fields: dict | None = None,
+                    lang: str = "zh") -> dict:
     if resolutions is None:
         resolutions = {}
     if card_configs is None:
@@ -549,6 +603,9 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
 
     for entry in entries:
       try:
+        if lang != "zh":
+            entry = _normalize_fr_entry(entry)
+
         yaml_type = entry.get("type", "")
         note_type = NOTE_TYPE_MAP.get(yaml_type)
 
@@ -569,10 +626,11 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
             skipped_invalid += 1
             continue
 
-        stripped = _strip_ellipsis(word_zh)
-        if stripped != word_zh:
-            logger.warning("STRIP %s: ellipsis stripped from %r → %r", label, word_zh, stripped)
-            word_zh = stripped
+        if lang == "zh":
+            stripped = _strip_ellipsis(word_zh)
+            if stripped != word_zh:
+                logger.warning("STRIP %s: ellipsis stripped from %r → %r", label, word_zh, stripped)
+                word_zh = stripped
 
         warning = _validate_entry(word_zh, note_type)
         if warning:
@@ -612,7 +670,7 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
         else:
             target_deck_ids = deck_ids
 
-        word = _build_word_dict(entry, source=source, note_type=note_type)
+        word = _build_word_dict(entry, source=source, note_type=note_type, lang=lang)
         word_id = database.insert_word(word)  # INSERT OR IGNORE → always get id
 
         if database.word_has_cards(word_id):
@@ -647,12 +705,13 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
             else:
                 skipped_duplicate += 1
                 skipped_entries.append({"word": word_zh, "reason": "already in deck"})
-            # Always process word_analyses (all types) so components stay linked
-            for pos, analysis in enumerate(entry.get("word_analyses") or []):
-                if analysis.get("char_only"):
-                    _process_char_only_component(analysis, word_id, pos, source)
-                elif analysis.get("type") in NOTE_TYPE_MAP:
-                    _process_component(analysis, word_id, pos, source, resolutions, custom_fields)
+            # Always process word_analyses (all types) so components stay linked (Chinese-only)
+            if lang == "zh":
+                for pos, analysis in enumerate(entry.get("word_analyses") or []):
+                    if analysis.get("char_only"):
+                        _process_char_only_component(analysis, word_id, pos, source)
+                    elif analysis.get("type") in NOTE_TYPE_MAP:
+                        _process_component(analysis, word_id, pos, source, resolutions, custom_fields)
             continue
 
         # Examples
@@ -683,27 +742,31 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
                     example_type="similar",
                 )
 
-        # Legacy: top-level `characters:` on vocabulary entries.
-        # New format uses `word_analyses:` for all entry types (handled below).
-        if note_type == "vocabulary":
-            _process_characters(entry, word_id)
+        # The following processors handle Chinese-only YAML fields (characters,
+        # measure words, synonyms/antonyms, grammar structures, word_analyses
+        # components) — French format doesn't define them yet.
+        if lang == "zh":
+            # Legacy: top-level `characters:` on vocabulary entries.
+            # New format uses `word_analyses:` for all entry types (handled below).
+            if note_type == "vocabulary":
+                _process_characters(entry, word_id)
 
-        # Measure words (量词)
-        _process_measure_words(entry, word_id)
+            # Measure words (量词)
+            _process_measure_words(entry, word_id)
 
-        # Synonyms / antonyms
-        _process_word_relations(entry, word_id)
+            # Synonyms / antonyms
+            _process_word_relations(entry, word_id)
 
-        # Grammar structures (sentence entries)
-        if note_type == "sentence":
-            _process_grammar_structures(entry, word_id)
+            # Grammar structures (sentence entries)
+            if note_type == "sentence":
+                _process_grammar_structures(entry, word_id)
 
-        # Component word_analyses (sentences / chengyu / expressions)
-        for pos, analysis in enumerate(entry.get("word_analyses") or []):
-            if analysis.get("char_only"):
-                _process_char_only_component(analysis, word_id, pos, source)
-            elif analysis.get("type") in NOTE_TYPE_MAP:
-                _process_component(analysis, word_id, pos, source, resolutions)
+            # Component word_analyses (sentences / chengyu / expressions)
+            for pos, analysis in enumerate(entry.get("word_analyses") or []):
+                if analysis.get("char_only"):
+                    _process_char_only_component(analysis, word_id, pos, source)
+                elif analysis.get("type") in NOTE_TYPE_MAP:
+                    _process_component(analysis, word_id, pos, source, resolutions)
 
         # categories field from YAML overrides card_cfg.suspended (frontend has final say)
         if yaml_categories and not card_cfg.get("suspended"):
