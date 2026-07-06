@@ -110,7 +110,9 @@ def import_yaml_file(filepath: str, deck_path: list[str]) -> dict:
         logger.warning("import_yaml_file %s: unknown lang %r, falling back to zh", filepath, lang)
         lang = "zh"
 
-    parent_id = None
+    # Root import folders live under 'All' (same semantics as get_or_create_deck_path)
+    # so their cards show up in All-deck aggregation and the language tabs.
+    parent_id = database.get_all_deck_id()
     for segment in deck_path:
         parent_id = database.get_or_create_deck(segment, parent_id=parent_id, lang=lang)
 
