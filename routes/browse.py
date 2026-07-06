@@ -471,23 +471,24 @@ def add_entry_to_deck(entry_id: int, body: dict):
 
 @router.get("/api/browse")
 def browse(deck_id: int | None = None, category: str | None = None,
-           state: str | None = None, q: str | None = None):
+           state: str | None = None, q: str | None = None, lang: str | None = None):
     return database.get_all_cards_for_browse({
         "deck_id": deck_id,
         "category": category,
+        "lang": lang,
         "state": state,
         "search_text": q,
     })
 
 
 @router.get("/api/stats")
-def get_stats(deck_id: int | None = None):
-    return database.get_stats(deck_id)
+def get_stats(deck_id: int | None = None, lang: str | None = None):
+    return database.get_stats(deck_id, lang=lang)
 
 
 @router.get("/api/retention")
-def get_retention(days: int = 30):
-    return database.get_retention_bulk(days)
+def get_retention(days: int = 30, lang: str | None = None):
+    return database.get_retention_bulk(days, lang=lang)
 
 
 @router.get("/api/calendar-stats")
@@ -496,8 +497,8 @@ def get_calendar_stats(days: int = 365, deck_id: int | None = None):
 
 
 @router.get("/api/card-evolution")
-def get_card_evolution(days: int = 365, deck_id: int | None = None):
-    return database.get_card_evolution(days, deck_id)
+def get_card_evolution(days: int = 365, deck_id: int | None = None, lang: str | None = None):
+    return database.get_card_evolution(days, deck_id, lang=lang)
 
 
 @router.get("/api/costs")
