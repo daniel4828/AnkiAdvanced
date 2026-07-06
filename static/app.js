@@ -5610,7 +5610,8 @@ function _applySetupLangRestrictions() {
   const lang = _deckLangById[deckId] || 'zh';
   const modeSelect = document.getElementById('setup-mode');
   const zhOnlyOptions = modeSelect.querySelectorAll('option.setup-mode-zh-only');
-  zhOnlyOptions.forEach(opt => { opt.hidden = lang !== 'zh'; });
+  // hidden alone is ignored by iOS Safari for <option> — disabled greys it out there
+  zhOnlyOptions.forEach(opt => { opt.hidden = lang !== 'zh'; opt.disabled = lang !== 'zh'; });
   if (lang !== 'zh' && zhOnlyOptions && [...zhOnlyOptions].some(o => o.value === modeSelect.value)) {
     modeSelect.value = 'story';
   }
