@@ -7,14 +7,24 @@ from .core import get_db
 # Stories & sentences
 # ---------------------------------------------------------------------------
 
-def get_active_story(date_str: str, category: str, deck_id: int) -> dict | None:
-    """Latest story for (date, category, deck_id) or None."""
+def get_active_story(date_str: str, category: str, deck_id: int, lang: str | None = None) -> dict | None:
+    """Latest story for (date, category, deck_id) or None.
+
+    When `lang` is given, only stories matching that lang are considered (a NULL
+    lang column — a legacy row from before issue #436 — counts as 'zh'). This
+    stops zh/fr stories on the same aggregate deck from shadowing each other.
+    """
     conn = get_db()
+    lang_clause = ""
+    params = [date_str, category, deck_id]
+    if lang is not None:
+        lang_clause = " AND (lang = ? OR (lang IS NULL AND ? = 'zh'))"
+        params += [lang, lang]
     row = conn.execute(
-        """SELECT * FROM stories
-           WHERE date = ? AND category = ? AND deck_id = ?
+        f"""SELECT * FROM stories
+           WHERE date = ? AND category = ? AND deck_id = ?{lang_clause}
            ORDER BY generated_at DESC LIMIT 1""",
-        (date_str, category, deck_id),
+        params,
     ).fetchone()
     conn.close()
     return dict(row) if row else None
@@ -31,13 +41,21 @@ def has_story_history(deck_id: int, category: str) -> bool:
     return row is not None
 
 
-def get_latest_story(deck_id: int, category: str) -> dict | None:
-    """Most recent story for (deck_id, category), regardless of date."""
+def get_latest_story(deck_id: int, category: str, lang: str | None = None) -> dict | None:
+    """Most recent story for (deck_id, category), regardless of date.
+
+    See get_active_story() for the lang-matching rule (NULL lang == 'zh').
+    """
     conn = get_db()
+    lang_clause = ""
+    params = [deck_id, category]
+    if lang is not None:
+        lang_clause = " AND (lang = ? OR (lang IS NULL AND ? = 'zh'))"
+        params += [lang, lang]
     row = conn.execute(
-        """SELECT * FROM stories WHERE deck_id = ? AND category = ?
+        f"""SELECT * FROM stories WHERE deck_id = ? AND category = ?{lang_clause}
            ORDER BY generated_at DESC LIMIT 1""",
-        (deck_id, category),
+        params,
     ).fetchone()
     conn.close()
     return dict(row) if row else None
@@ -45,19 +63,22 @@ def get_latest_story(deck_id: int, category: str) -> dict | None:
 
 def create_story(date_str: str, category: str, deck_id: int,
                  sentences: list[dict], prompt_text: str | None = None,
-                 topic: str | None = None, gen_params: dict | None = None) -> int:
+                 topic: str | None = None, gen_params: dict | None = None,
+                 lang: str | None = None) -> int:
     """Always inserts a new story row. Returns story_id.
 
     Each sentence dict must have: position, sentence_zh, word_ids (list of entry IDs).
     Optional: sentence_en, sentence_de, sentence_fr.
     gen_params: the generation settings (mode/model/grammar/…) stored as JSON so the
     "Again" regeneration can reproduce the deck's style instead of a plain story.
+    lang: target language of this story (issue #436); None is stored as-is (legacy
+    behavior — callers that know the lang should always pass it).
     """
     conn = get_db()
     gen_params_json = json.dumps(gen_params, ensure_ascii=False) if gen_params else None
     cur = conn.execute(
-        "INSERT INTO stories (date, category, deck_id, prompt_text, topic, gen_params) VALUES (?, ?, ?, ?, ?, ?)",
-        (date_str, category, deck_id, prompt_text, topic, gen_params_json),
+        "INSERT INTO stories (date, category, deck_id, prompt_text, topic, gen_params, lang) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (date_str, category, deck_id, prompt_text, topic, gen_params_json, lang),
     )
     story_id = cur.lastrowid
     for s in sentences:
@@ -262,17 +283,18 @@ def get_story_sentences(story_id: int) -> list[dict]:
     return result
 
 
-def get_due_cards_unified(deck_id: int) -> list[dict]:
+def get_due_cards_unified(deck_id: int, lang: str | None = None) -> list[dict]:
     """Collect due cards from all 3 categories for a unified story, deduplicated by word_id.
     Order matches review priority (state → category → due) so story sentence positions
-    align with the order cards will be presented during the review session."""
+    align with the order cards will be presented during the review session.
+    `lang` restricts aggregation to leaf decks of that language (language tabs)."""
     from .cards import get_due_cards, get_due_cards_multi, get_descendant_leaf_deck_ids, get_preset_for_deck
     from .decks import get_deck
 
     def _leaf_ids(cat: str) -> list[int]:
         deck = get_deck(deck_id)
         if deck["category"] is None:
-            return get_descendant_leaf_deck_ids(deck_id, cat)
+            return get_descendant_leaf_deck_ids(deck_id, cat, lang=lang)
         return [deck_id]
 
     preset = get_preset_for_deck(deck_id)

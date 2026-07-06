@@ -344,8 +344,11 @@ CREATE TABLE IF NOT EXISTS stories (
     generated_at    TEXT NOT NULL DEFAULT (datetime('now')),
     prompt_text     TEXT,         -- full AI prompt used to generate this story (NULL for legacy rows)
     topic           TEXT,         -- user-specified topic/theme (NULL if none given)
-    gen_params      TEXT          -- JSON of the generation settings (mode/model/grammar/max_hsk/chapter_ids)
+    gen_params      TEXT,         -- JSON of the generation settings (mode/model/grammar/max_hsk/chapter_ids)
                                   -- so the "Again" regeneration can match the deck's style (NULL for legacy rows)
+    lang            TEXT          -- target language of this story (issue #436); NULL = legacy row, treated as 'zh'.
+                                  -- Needed because an aggregate deck (e.g. "All") can hold stories of several
+                                  -- languages for the same (date, category, deck_id) — lang disambiguates them.
     -- NO unique constraint: multiple stories per (date, category, deck) allowed
     -- active story = latest generated_at
     -- stories are NEVER auto-deleted

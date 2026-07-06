@@ -616,16 +616,18 @@ def set_card_buried_until(card_id: int, buried_until: str | None) -> None:
     conn.close()
 
 
-def get_descendant_leaf_deck_ids(deck_id: int, category: str | None = None) -> list[int]:
-    """Return all category-leaf deck IDs under deck_id (depth-first). Optionally filter by category."""
+def get_descendant_leaf_deck_ids(deck_id: int, category: str | None = None, lang: str | None = None) -> list[int]:
+    """Return all category-leaf deck IDs under deck_id (depth-first). Optionally filter by category and/or lang."""
     conn = get_db()
-    rows = conn.execute("SELECT id, parent_id, category FROM decks WHERE deleted_at IS NULL").fetchall()
+    rows = conn.execute("SELECT id, parent_id, category, lang FROM decks WHERE deleted_at IS NULL").fetchall()
     conn.close()
 
     children_map: dict = {}
     deck_cat: dict = {}
+    deck_lang: dict = {}
     for row in rows:
         deck_cat[row["id"]] = row["category"]
+        deck_lang[row["id"]] = row["lang"]
         pid = row["parent_id"]
         children_map.setdefault(pid, []).append(row["id"])
 
@@ -636,7 +638,7 @@ def get_descendant_leaf_deck_ids(deck_id: int, category: str | None = None) -> l
         cat = deck_cat.get(current)
         kids = children_map.get(current, [])
         if cat is not None:  # category leaf
-            if category is None or cat == category:
+            if (category is None or cat == category) and (lang is None or deck_lang.get(current) == lang):
                 result.append(current)
         for kid in kids:
             stack.append(kid)
@@ -676,17 +678,19 @@ _READING_DISABLED_SQL = (
 )
 
 
-def _leaf_decks_with_category(root_deck_id: int) -> list[tuple[int, str]]:
+def _leaf_decks_with_category(root_deck_id: int, lang: str | None = None) -> list[tuple[int, str]]:
     """Return [(deck_id, category)] for all category leaves under root_deck_id.
 
-    Reading leaves whose preset disables reading are omitted.
+    Reading leaves whose preset disables reading are omitted. Optionally filter
+    descendant leaves by lang (direct category-leaf decks are never filtered —
+    same rule as leaf_ids()).
     """
     disabled = reading_disabled_deck_ids()
 
     def _keep(deck_id: int, category: str) -> bool:
         return not (category == "reading" and deck_id in disabled)
 
-    all_leaf_ids = get_descendant_leaf_deck_ids(root_deck_id)
+    all_leaf_ids = get_descendant_leaf_deck_ids(root_deck_id, lang=lang)
     if not all_leaf_ids:
         deck = get_deck(root_deck_id)
         if deck and deck["category"] and _keep(root_deck_id, deck["category"]):
@@ -701,14 +705,14 @@ def _leaf_decks_with_category(root_deck_id: int) -> list[tuple[int, str]]:
     return [(r["id"], r["category"]) for r in rows if r["category"] and _keep(r["id"], r["category"])]
 
 
-def get_due_cards_any_cat(root_deck_id: int) -> list[dict]:
+def get_due_cards_any_cat(root_deck_id: int, lang: str | None = None) -> list[dict]:
     """All due cards across every category under root_deck_id, priority-sorted.
 
     Cards are ordered so that the highest-priority card is first.  When a story
     exists the order follows its narrative position; otherwise cards are sorted
     by state (learning/relearn → review → new), category order, and due time.
     """
-    leaf_pairs = _leaf_decks_with_category(root_deck_id)
+    leaf_pairs = _leaf_decks_with_category(root_deck_id, lang=lang)
     all_cards = []
     for deck_id, cat in leaf_pairs:
         all_cards.extend(get_due_cards(deck_id, cat))
@@ -789,19 +793,19 @@ def get_next_card_any_cat(root_deck_id: int) -> dict | None:
     return cards[0] if cards else None
 
 
-def count_due_any_cat(root_deck_id: int) -> dict:
+def count_due_any_cat(root_deck_id: int, lang: str | None = None) -> dict:
     """Deduplicated due counts across all categories under root_deck_id.
 
     Each word is counted once (in its highest-priority category), matching
     the deduplication logic used for parent-deck badges on the main page.
     """
-    leaf_pairs = _leaf_decks_with_category(root_deck_id)
+    leaf_pairs = _leaf_decks_with_category(root_deck_id, lang=lang)
     return count_due_deduped(leaf_pairs)
 
 
-def count_due_by_category(root_deck_id: int) -> dict:
+def count_due_by_category(root_deck_id: int, lang: str | None = None) -> dict:
     """Per-category {new, learning, review} counts for mixed review display."""
-    leaf_pairs = _leaf_decks_with_category(root_deck_id)
+    leaf_pairs = _leaf_decks_with_category(root_deck_id, lang=lang)
     result: dict[str, dict[str, int]] = {}
     for deck_id, category in leaf_pairs:
         c = count_due(deck_id, category)
@@ -1039,12 +1043,22 @@ def _unfinished_where(scope: str) -> tuple[str, list]:
     return clause, [now, *lock_params]
 
 
-def count_unfinished(scope: str = "unfinished") -> dict:
-    """Count cards on the unfinished virtual deck, grouped by state."""
+def _lang_subquery_clause(lang: str | None, params: list) -> tuple[str, list]:
+    """Append a 'deck_id IN (...)' lang filter to a cards WHERE clause via subquery
+    (avoids column-name ambiguity from a JOIN against decks, which also has
+    columns like deleted_at)."""
+    if lang is None:
+        return "", params
+    return " AND deck_id IN (SELECT id FROM decks WHERE lang = ?)", [*params, lang]
+
+
+def count_unfinished(scope: str = "unfinished", lang: str | None = None) -> dict:
+    """Count cards on the unfinished virtual deck, grouped by state. Optionally filter by deck lang."""
     clause, params = _unfinished_where(scope)
+    lang_clause, params = _lang_subquery_clause(lang, params)
     conn = get_db()
     rows = conn.execute(
-        f"SELECT deck_id, state, interval FROM cards WHERE {clause}",
+        f"SELECT deck_id, state, interval FROM cards WHERE {clause}{lang_clause}",
         params,
     ).fetchall()
     conn.close()
@@ -1071,27 +1085,30 @@ def count_unfinished(scope: str = "unfinished") -> dict:
     return counts
 
 
-def get_unfinished_deck_categories(scope: str = "unfinished") -> list[dict]:
-    """Return distinct (deck_id, category) pairs that have unfinished cards due now."""
+def get_unfinished_deck_categories(scope: str = "unfinished", lang: str | None = None) -> list[dict]:
+    """Return distinct (deck_id, category) pairs that have unfinished cards due now. Optionally filter by deck lang."""
     clause, params = _unfinished_where(scope)
+    lang_clause, params = _lang_subquery_clause(lang, params)
     conn = get_db()
     rows = conn.execute(
-        f"SELECT DISTINCT deck_id, category FROM cards WHERE {clause}",
+        f"SELECT DISTINCT deck_id, category FROM cards WHERE {clause}{lang_clause}",
         params,
     ).fetchall()
     conn.close()
     return [{"deck_id": r["deck_id"], "category": r["category"]} for r in rows]
 
 
-def get_next_unfinished_card(scope: str = "unfinished") -> dict | None:
+def get_next_unfinished_card(scope: str = "unfinished", lang: str | None = None) -> dict | None:
     """Highest-priority card on the unfinished virtual deck.
 
     Learning/relearn first (time-sensitive), then review, then new; each by due ASC.
+    Optionally filter by deck lang.
     """
     clause, params = _unfinished_where(scope)
+    lang_clause, params = _lang_subquery_clause(lang, params)
     conn = get_db()
     row = conn.execute(
-        f"""SELECT id FROM cards WHERE {clause}
+        f"""SELECT id FROM cards WHERE {clause}{lang_clause}
            ORDER BY CASE state
                       WHEN 'learning' THEN 0 WHEN 'relearn' THEN 0
                       WHEN 'review' THEN 1 ELSE 2 END,

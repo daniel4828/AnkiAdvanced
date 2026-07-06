@@ -39,6 +39,20 @@ def _leaf_pairs(deck: dict) -> list[tuple[int, str]]:
     return result
 
 
+def _filter_tree_by_lang(tree: list, lang: str) -> list:
+    """Recursively keep decks whose own lang matches, or that have a matching
+    descendant (so aggregating parents like 'All' survive when they contain a
+    matching child, even though the parent row's own lang column is 'zh')."""
+    result = []
+    for node in tree:
+        children = _filter_tree_by_lang(node.get("children", []), lang)
+        own_match = (node.get("lang") or "zh") == lang
+        if own_match or children:
+            new_node = {**node, "children": children}
+            result.append(new_node)
+    return result
+
+
 def _attach_counts(flat_decks: list) -> None:
     """Compute due counts for all decks using bulk queries (O(1) DB round-trips)."""
     all_counts, susp_flags = database.count_due_all_decks()
@@ -77,9 +91,18 @@ def _attach_counts(flat_decks: list) -> None:
 # Deck routes
 # ---------------------------------------------------------------------------
 
+@router.get("/api/langs")
+def get_langs():
+    """Distinct languages currently in use across decks. Frontend shows the
+    tab bar only when more than one language is returned."""
+    return database.get_available_langs()
+
+
 @router.get("/api/decks")
-def get_decks(unfinished_scope: str = "unfinished"):
+def get_decks(unfinished_scope: str = "unfinished", lang: str | None = None):
     tree = database.get_deck_tree()
+    if lang:
+        tree = _filter_tree_by_lang(tree, lang)
     flat = _flatten(tree)
     # Attach preset-derived fields first — _attach_counts needs reading_enabled
     # to skip disabled reading leaves in parent aggregation
@@ -98,7 +121,7 @@ def get_decks(unfinished_scope: str = "unfinished"):
         if deck.get("id") in locked:
             deck["locked"] = True
             deck["unlock_date"] = locked[deck["id"]]
-    unfinished = database.count_unfinished(unfinished_scope)
+    unfinished = database.count_unfinished(unfinished_scope, lang=lang)
     if sum(unfinished.values()) > 0:
         tree.insert(0, {
             "id": "unfinished",

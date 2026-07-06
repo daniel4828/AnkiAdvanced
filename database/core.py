@@ -171,6 +171,10 @@ def init_db() -> None:
         conn.execute("ALTER TABLE stories ADD COLUMN topic TEXT")
     if "gen_params" not in story_cols:
         conn.execute("ALTER TABLE stories ADD COLUMN gen_params TEXT")
+    if "lang" not in story_cols:
+        # NULL = legacy row generated before multi-language support (issue #436);
+        # treated as 'zh' everywhere stories are looked up by lang.
+        conn.execute("ALTER TABLE stories ADD COLUMN lang TEXT")
     _migrate_stories_category(conn)
     ss_cols = {r["name"] for r in conn.execute("PRAGMA table_info(story_sentences)").fetchall()}
     if "sentence_de" not in ss_cols:
