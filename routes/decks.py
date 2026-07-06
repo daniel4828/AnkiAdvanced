@@ -117,7 +117,7 @@ def create_deck(name: str, parent_id: int | None = None, category: str | None = 
         raise HTTPException(400, f"unknown lang: {lang!r}")
     # Support Anki-style 'Parent::Child' hierarchy in name
     if "::" in name:
-        deck_id = database.get_or_create_deck_path(name)
+        deck_id = database.get_or_create_deck_path(name, lang=lang)
         return database.get_deck(deck_id)
     if parent_id is None:
         parent_id = database.get_all_deck_id()
