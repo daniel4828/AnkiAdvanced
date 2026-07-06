@@ -440,9 +440,19 @@ echo "✓ 议题创建完成"
 
 ## 数据来源（láiyuán - source）
 
-**唯一来源：** `imports/Kouyu/*.yaml` —— 包含词性（cí xìng - part of speech）、例句（lìjù - example sentences）、词源（cí yuán - etymology）、汉字（hànzì - character）分解的丰富YAML文件。
+**唯一来源：** `imports/<Source>/*.yaml`（如 `imports/Kouyu/`、`imports/Francais/`）——文件顶部可选 `lang:` 字段（默认 `zh`），决定该文件导入到哪个语言的牌组/词条。
 
 不导入HSK CSV文件。AI在故事提示词（tíshící - prompt）中被告知"非目标词汇只使用HSK 1–2的词汇"。
+
+### 中文格式（默认，`lang: zh` 或省略）
+包含词性、例句（lìjù - example sentences）、词源（cí yuán - etymology）、汉字（hànzì - character）分解的丰富YAML文件。
+
+### 法语格式（`lang: fr`，issue #430）
+`type: word`（`word:` 字段为带冠词的词形）或 `type: sentence`（`sentence:` 字段），
+配合 `english`/`german`/`note`/`register`，`examples` 用 `fr`/`english`/`german` 三个键。
+导入时经 `importer._normalize_fr_entry` 适配为内部键结构（`word`/`sentence` → `simplified`，
+`examples[].fr` → `examples[].zh`，`examples[].german` → `examples[].de`），复用全部下游逻辑。
+汉字分解、量词、同义反义词、语法结构、`word_analyses` 组件处理**仅中文**（`lang == 'zh'`）执行。
 
 ## 数据库模式（概述）
 
