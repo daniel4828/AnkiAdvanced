@@ -3615,6 +3615,12 @@ function loadCard(c, counts) {
   const noteLabel = { vocabulary: 'Word', sentence: 'Sentence', chengyu: '成语', expression: '表达' }[card.note_type] || card.note_type;
   document.getElementById('card-type-badge').textContent = noteLabel;
 
+  // Story-mode badge (special modes only; plain story/qa/expository show nothing)
+  const modeBadge = document.getElementById('card-mode-badge');
+  const modeName = { kahneman: 'Kahneman', news: 'News', briefing: 'News flow', paste: 'Paste' }[_activeStoryMode()];
+  modeBadge.textContent = modeName || '';
+  modeBadge.style.display = modeName ? 'block' : 'none';
+
   // Deck path bar
   const deckPath = document.getElementById('card-deck-path');
   if (card.deck_path) {
@@ -3704,9 +3710,8 @@ function showFront() {
   const _vc = document.getElementById('vocab-content');
   if (_vc) _vc.style.display = 'none';
 
-  // Listening elements
-  document.getElementById('front-listen-icon').style.display = isListening ? 'flex' : 'none';
-  document.getElementById('back-meta-play-btn').style.display = 'none';
+  // Listening: play button lives in the card header (same spot as on the back)
+  document.getElementById('meta-play-btn').style.display = isListening ? 'flex' : 'none';
   _listenCount = 0;
   _updateListenCounters();
 
@@ -3852,7 +3857,7 @@ function revealAnswer() {
   if (_mascotBack) _mascotBack.style.display = 'none';
   const _vcBack = document.getElementById('vocab-content');
   if (_vcBack) _vcBack.style.display = 'block';
-  document.getElementById('back-meta-play-btn').style.display = isCreating ? 'none' : 'flex';
+  document.getElementById('meta-play-btn').style.display = isCreating ? 'none' : 'flex';
   _updateListenCounters();
 
   // Pre-load pinyin in background (shown blurred until p is pressed).
@@ -5863,6 +5868,16 @@ let _currentReasoningIsNews = false;
 // session was resumed without it) — only used to pick the background-popup title.
 let _currentStoryMode = '';
 
+// Mode of the currently loaded story — reads the story's stored gen_params
+// (survives session resume, unlike _currentStoryMode).
+function _activeStoryMode() {
+  try {
+    const gp = story?.gen_params;
+    if (gp) return (typeof gp === 'string' ? JSON.parse(gp) : gp).mode || '';
+  } catch { /* malformed gen_params — fall through */ }
+  return _currentStoryMode || '';
+}
+
 function openReasoning() {
   if (!_currentReasoning && !_currentSourceUrl) return;
   document.getElementById('reasoning-modal-title').textContent =
@@ -6363,7 +6378,7 @@ let _listenCount = 0;
 function _updateListenCounters() {
   const label = _listenCount > 0 ? `×${_listenCount}` : '';
   const show  = _listenCount > 0;
-  ['listen-counter', 'listen-counter-back'].forEach(id => {
+  ['listen-counter-meta'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     el.textContent = label;
