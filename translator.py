@@ -1,5 +1,8 @@
 """
-Chinese → target language translation using Google Translate (via deep_translator).
+Source language → target language translation using Google Translate (via deep_translator).
+
+The source language is configurable (defaults to Chinese, "zh-CN") so this module
+can also translate other learner languages (e.g. French) into German.
 
 Requires internet access (VPN recommended in China).
 Install: pip install deep-translator
@@ -8,39 +11,40 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-_translators: dict[str, object] = {}
+_translators: dict[tuple[str, str], object] = {}
 
 
-def _load(target: str) -> object | None:
-    if target in _translators:
-        return _translators[target]
+def _load(source: str, target: str) -> object | None:
+    key = (source, target)
+    if key in _translators:
+        return _translators[key]
     try:
         from deep_translator import GoogleTranslator
-        t = GoogleTranslator(source="zh-CN", target=target)
-        _translators[target] = t
-        logger.info("translator: GoogleTranslator loaded (target=%s)", target)
+        t = GoogleTranslator(source=source, target=target)
+        _translators[key] = t
+        logger.info("translator: GoogleTranslator loaded (source=%s, target=%s)", source, target)
         return t
     except Exception as e:
-        logger.error("translator: failed to load (target=%s) — %s", target, e)
-        _translators[target] = None
+        logger.error("translator: failed to load (source=%s, target=%s) — %s", source, target, e)
+        _translators[key] = None
         return None
 
 
-def translate_zh(text: str, target: str = "en") -> str:
-    """Translate a Chinese string to the target language. Returns original on failure."""
-    t = _load(target)
+def translate_zh(text: str, target: str = "en", source: str = "zh-CN") -> str:
+    """Translate a string from `source` to the target language. Returns original on failure."""
+    t = _load(source, target)
     if t is None or not text.strip():
         return text
     try:
         return t.translate(text) or text
     except Exception as e:
-        logger.warning("translator: error (target=%s) — %s", target, e)
+        logger.warning("translator: error (source=%s, target=%s) — %s", source, target, e)
         return text
 
 
-def translate_batch(texts: list[str], target: str = "en") -> list[str]:
-    """Translate a list of Chinese strings in a single HTTP request."""
-    t = _load(target)
+def translate_batch(texts: list[str], target: str = "en", source: str = "zh-CN") -> list[str]:
+    """Translate a list of strings from `source` in a single HTTP request."""
+    t = _load(source, target)
     if t is None:
         return texts
     if not texts:
@@ -55,9 +59,9 @@ def translate_batch(texts: list[str], target: str = "en") -> list[str]:
             return [p.strip() or orig for p, orig in zip(parts, texts)]
         logger.warning("translator: split count mismatch (%d vs %d), falling back", len(parts), len(texts))
     except Exception as e:
-        logger.warning("translator: batch error (target=%s) — %s", target, e)
+        logger.warning("translator: batch error (source=%s, target=%s) — %s", source, target, e)
 
-    return [translate_zh(text, target) for text in texts]
+    return [translate_zh(text, target, source) for text in texts]
 
 
 # Legacy aliases kept for any callers that used the old API

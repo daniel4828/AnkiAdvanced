@@ -64,7 +64,7 @@ def _spawn_again_regen(card: dict) -> None:
             logger.info("again-regen  word=%s mode=%s → new sentence stored",
                         card.get("word_zh"), (gen_params or {}).get("mode", "story"))
             try:
-                tts.preload(sentence.get("sentence_zh", ""))
+                tts.preload(sentence.get("sentence_zh", ""), lang=database.get_deck_lang(card["deck_id"]))
             except Exception:
                 pass
         except Exception as e:
