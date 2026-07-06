@@ -98,7 +98,7 @@ def _log_story(story: dict) -> None:
 
 def _get_cards_for_story(deck_id: int, category: str, lang: str | None = None) -> list:
     if category == "unified":
-        cards = database.get_due_cards_unified(deck_id)
+        cards = database.get_due_cards_unified(deck_id, lang=lang)
     else:
         ids = leaf_ids(deck_id, category, lang=lang)
         if not ids:

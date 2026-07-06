@@ -283,17 +283,18 @@ def get_story_sentences(story_id: int) -> list[dict]:
     return result
 
 
-def get_due_cards_unified(deck_id: int) -> list[dict]:
+def get_due_cards_unified(deck_id: int, lang: str | None = None) -> list[dict]:
     """Collect due cards from all 3 categories for a unified story, deduplicated by word_id.
     Order matches review priority (state → category → due) so story sentence positions
-    align with the order cards will be presented during the review session."""
+    align with the order cards will be presented during the review session.
+    `lang` restricts aggregation to leaf decks of that language (language tabs)."""
     from .cards import get_due_cards, get_due_cards_multi, get_descendant_leaf_deck_ids, get_preset_for_deck
     from .decks import get_deck
 
     def _leaf_ids(cat: str) -> list[int]:
         deck = get_deck(deck_id)
         if deck["category"] is None:
-            return get_descendant_leaf_deck_ids(deck_id, cat)
+            return get_descendant_leaf_deck_ids(deck_id, cat, lang=lang)
         return [deck_id]
 
     preset = get_preset_for_deck(deck_id)
