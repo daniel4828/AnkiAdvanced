@@ -5031,7 +5031,13 @@ async function _buildWordBank() {
   if (targetCount < expectedCount) order.push({ type: 'target', word: targetParts ? targetParts[targetCount] : target });
 
   const MAX_TILES = parseInt(document.getElementById('word-bank-slider')?.value ?? _wordBankTileDefault(), 10);
-  const isWord = tok => /[一-鿿㐀-䶿]/.test(tok.char);
+  // Chinese: a "word" tile is any CJK character. French (space-separated tokens):
+  // a tile is any non-whitespace token — whitespace-only tokens (preserved as
+  // separate tokens by the tokenizer) must stay pre-placed, never become an
+  // empty chip.
+  const isWord = tok => currentCardLang() === 'zh'
+    ? /[一-鿿㐀-䶿]/.test(tok.char)
+    : tok.char.trim().length > 0;
   const allChars = order.filter(it => it.type === 'char');
   allChars.forEach(c => { if (!isWord(c)) c.type = 'pre'; });
   const wordTokens = allChars.filter(c => c.type === 'char');
@@ -5992,7 +5998,7 @@ function updateStoryHighlight(idx) {
 }
 
 function _storyAudioUrl(idx) {
-  return `/api/tts-file?text=${encodeURIComponent(story.sentences[idx].sentence_zh)}`;
+  return `/api/tts-file?text=${encodeURIComponent(story.sentences[idx].sentence_zh)}&lang=${currentCardLang()}`;
 }
 
 function _playStoryAtIdx(idx) {
@@ -6304,7 +6310,7 @@ function playSentence() {
   _listenCount++;
   _updateListenCounters();
   if (_currentAudio) { _currentAudio.onended = null; _currentAudio.pause(); _currentAudio = null; }
-  const audio = new Audio(`/api/tts-file?text=${encodeURIComponent(text)}`);
+  const audio = new Audio(`/api/tts-file?text=${encodeURIComponent(text)}&lang=${currentCardLang()}`);
   _currentAudio = audio;
   audio.play().catch(() => {});
 }
