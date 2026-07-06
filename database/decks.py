@@ -9,12 +9,23 @@ from .core import anki_today, get_db, _ensure_default_preset
 # Decks
 # ---------------------------------------------------------------------------
 
+def _resolve_deck_lang(conn, parent_id: int | None, lang: str | None) -> str:
+    """Deck language: explicit value wins, else inherit from parent, else 'zh'."""
+    if lang:
+        return lang
+    if parent_id is not None:
+        row = conn.execute("SELECT lang FROM decks WHERE id = ?", (parent_id,)).fetchone()
+        if row and row["lang"]:
+            return row["lang"]
+    return "zh"
+
+
 def insert_deck(name: str, parent_id: int | None, preset_id: int,
-                category: str | None = None) -> int:
+                category: str | None = None, lang: str | None = None) -> int:
     conn = get_db()
     cur = conn.execute(
-        "INSERT INTO decks (name, parent_id, preset_id, category) VALUES (?, ?, ?, ?)",
-        (name, parent_id, preset_id, category),
+        "INSERT INTO decks (name, parent_id, preset_id, category, lang) VALUES (?, ?, ?, ?, ?)",
+        (name, parent_id, preset_id, category, _resolve_deck_lang(conn, parent_id, lang)),
     )
     conn.commit()
     deck_id = cur.lastrowid
@@ -27,6 +38,14 @@ def get_deck(deck_id: int) -> dict | None:
     row = conn.execute("SELECT * FROM decks WHERE id = ?", (deck_id,)).fetchone()
     conn.close()
     return dict(row) if row else None
+
+
+def get_deck_lang(deck_id: int) -> str:
+    """Language of a deck; falls back to 'zh' for missing decks/legacy rows."""
+    conn = get_db()
+    row = conn.execute("SELECT lang FROM decks WHERE id = ?", (deck_id,)).fetchone()
+    conn.close()
+    return row["lang"] if row and row["lang"] else "zh"
 
 
 def get_all_decks() -> list[dict]:
@@ -182,7 +201,7 @@ def purge_old_trash(days: int = 30) -> int:
 
 
 def get_or_create_deck(name: str, parent_id: int | None = None,
-                       category: str | None = None) -> int:
+                       category: str | None = None, lang: str | None = None) -> int:
     """Get deck id by (name, parent_id), creating it if it doesn't exist."""
     conn = get_db()
     row = conn.execute(
@@ -194,8 +213,8 @@ def get_or_create_deck(name: str, parent_id: int | None = None,
         return row["id"]
     preset_id = _ensure_default_preset(conn)
     cur = conn.execute(
-        "INSERT INTO decks (name, parent_id, preset_id, category) VALUES (?, ?, ?, ?)",
-        (name, parent_id, preset_id, category),
+        "INSERT INTO decks (name, parent_id, preset_id, category, lang) VALUES (?, ?, ?, ?, ?)",
+        (name, parent_id, preset_id, category, _resolve_deck_lang(conn, parent_id, lang)),
     )
     conn.commit()
     deck_id = cur.lastrowid
