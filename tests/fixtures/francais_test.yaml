@@ -1,0 +1,43 @@
+lang: fr
+entries:
+  - type: word
+    date: "07/06"
+    word: le boulanger
+    english: baker
+    german: der Bäcker
+    register: neutral
+    note: |
+      Männliches Substantiv. Für die weibliche Form siehe "la boulangère".
+      Wird oft mit dem bestimmten Artikel "le" benutzt, wenn man über den
+      Beruf im Allgemeinen spricht.
+    examples:
+      - fr: Le boulanger ouvre à sept heures.
+        english: The baker opens at seven o'clock.
+        german: Der Bäcker öffnet um sieben Uhr.
+      - fr: Mon oncle est boulanger depuis vingt ans.
+        english: My uncle has been a baker for twenty years.
+        german: Mein Onkel ist seit zwanzig Jahren Bäcker.
+
+  - type: word
+    date: "07/06"
+    word: la confiture
+    english: jam
+    german: die Marmelade
+    register: neutral
+    note: |
+      Weibliches Substantiv. Wird meist im Singular benutzt, auch wenn man
+      von mehreren Sorten spricht ("les confitures" ist aber ebenfalls korrekt).
+    examples:
+      - fr: J'aime la confiture de fraises.
+        english: I like strawberry jam.
+        german: Ich mag Erdbeermarmelade.
+
+  - type: sentence
+    date: "07/06"
+    sentence: Je n'en reviens pas.
+    english: I can't get over it.
+    german: Ich fasse es nicht.
+    note: |
+      Umgangssprachlicher Ausdruck des Erstaunens. "En revenir" bedeutet
+      wörtlich "davon zurückkommen" — im übertragenen Sinn "sich erholen/
+      fassen können".
