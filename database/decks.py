@@ -234,17 +234,19 @@ def get_all_deck_id() -> int | None:
     return row["id"] if row else None
 
 
-def get_or_create_deck_path(path: str) -> int:
+def get_or_create_deck_path(path: str, lang: str | None = None) -> int:
     """Parse an Anki-style 'Parent::Child::Leaf' path and ensure all decks exist.
 
     Returns the id of the deepest (leaf) deck. Roots are placed under 'All'.
+    `lang`, if given, is applied to every newly-created segment (existing decks
+    keep their own lang); `None` keeps the normal parent-inheritance behavior.
     """
     segments = [s.strip() for s in path.split("::") if s.strip()]
     if not segments:
         raise ValueError(f"Empty deck path: {path!r}")
     parent_id = get_all_deck_id()
     for segment in segments:
-        parent_id = get_or_create_deck(segment, parent_id=parent_id)
+        parent_id = get_or_create_deck(segment, parent_id=parent_id, lang=lang)
     return parent_id
 
 

@@ -65,6 +65,18 @@ let optDeckId    = null; // deck whose options modal is open
 const collapsed  = new Set(JSON.parse(localStorage.getItem('collapsedDecks') || '[]'));  // parent deck IDs that are collapsed
 let _retentionData = null;  // cached result from GET /api/retention
 let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
+let _deckLangById = {};        // deckId → 'zh'|'fr', rebuilt whenever decks load (flatten(decks))
+
+// Resolve the language of the card currently being reviewed. Prefers the
+// card's own deck_id (set per-card in unfinished/mixed mode); falls back to
+// the review view's current deckId. Defaults to 'zh' when unknown (e.g. decks
+// not loaded yet), which keeps the existing Chinese-only affordances working.
+function currentCardLang() {
+  const id = (typeof card !== 'undefined' && card?.deck_id) ? card.deck_id
+    : (typeof deckId !== 'undefined' ? deckId : null);
+  if (id == null) return 'zh';
+  return _deckLangById[id] || 'zh';
+}
 
 // — Customizable review shortcuts —
 // Each action maps to one key. Defaults below are the active bindings.
@@ -961,6 +973,10 @@ async function loadDecks() {
     ]);
     _cachedDecks = decks;
     _retentionData = retention;
+    _deckLangById = {};
+    for (const d of flatten(decks)) {
+      if (d.id != null) _deckLangById[d.id] = d.lang || 'zh';
+    }
     renderDecks(decks);
     showView('decks');
   } catch (e) {
@@ -1329,6 +1345,7 @@ function renderDeckRows(decks, depth, sortMode) {
         <span class="tree-toggle" onclick="toggleDeck(${deck.id})">${toggleIcon}</span>
         <span class="tree-name-wrap">
           <span class="tree-name" onclick="startReviewMixed(${deck.id},'${safeName}',${!!deck.no_story})" style="cursor:pointer">${deck.name}</span>
+          ${deck.lang === 'fr' ? `<span class="deck-lang-chip" title="French deck">FR</span>` : ''}
           ${!deck.no_story ? `<button class="deck-regen-btn" onclick="event.stopPropagation();regenerateStoryFromList(${deck.id})" title="Regenerate story">↺</button>` : ''}
         </span>
         ${deckCounts}
@@ -1499,8 +1516,15 @@ async function renameDeck(id, currentName) {
 async function createDeck() {
   const path = await showPrompt('New deck path (use :: to nest, e.g. Daily::03-19)');
   if (!path || !path.trim()) return;
+  let lang = await showPrompt('Language: zh (Chinese) or fr (French)', 'zh');
+  if (lang === null) return; // user cancelled
+  lang = lang.trim().toLowerCase() || 'zh';
+  if (lang !== 'zh' && lang !== 'fr') {
+    showError(`Unknown language "${lang}" — expected zh or fr`);
+    return;
+  }
   try {
-    await api('POST', `/api/decks?name=${encodeURIComponent(path.trim())}`);
+    await api('POST', `/api/decks?name=${encodeURIComponent(path.trim())}&lang=${encodeURIComponent(lang)}`);
     loadDecks();
   } catch (e) {
     showError('Create deck failed: ' + e.message);
@@ -3552,12 +3576,17 @@ function loadCard(c, counts) {
     deckPath.style.display = 'none';
   }
 
-  // HSK badge — always visible; "HSK -" when unknown (click to AI-fill)
+  // HSK badge — Chinese-only concept; hidden entirely for non-zh decks.
+  // Otherwise always visible; "HSK -" when unknown (click to AI-fill)
   const hskBadge = document.getElementById('card-hsk-badge');
-  hskBadge.textContent = card.hsk_level ? `HSK ${card.hsk_level}` : 'HSK -';
-  hskBadge.classList.toggle('hsk-unknown', !card.hsk_level);
-  hskBadge.disabled = false;
-  hskBadge.style.display = 'inline';
+  if (currentCardLang() !== 'zh') {
+    hskBadge.style.display = 'none';
+  } else {
+    hskBadge.textContent = card.hsk_level ? `HSK ${card.hsk_level}` : 'HSK -';
+    hskBadge.classList.toggle('hsk-unknown', !card.hsk_level);
+    hskBadge.disabled = false;
+    hskBadge.style.display = 'inline';
+  }
 
   // Reset pinyin (clear content + hide revealed state)
   const _pr = document.getElementById('pinyin-row');
@@ -3778,9 +3807,10 @@ function revealAnswer() {
   document.getElementById('back-meta-play-btn').style.display = isCreating ? 'none' : 'flex';
   _updateListenCounters();
 
-  // Pre-load pinyin in background (shown blurred until p is pressed)
+  // Pre-load pinyin in background (shown blurred until p is pressed).
+  // Pinyin is a Chinese-only concept — pypinyin garbles French text.
   const _pinyinText = sentence?.sentence_zh || card?.word_zh;
-  if (_pinyinText) _loadPinyinRow(_pinyinText);
+  if (_pinyinText && currentCardLang() === 'zh') _loadPinyinRow(_pinyinText);
 
   const isSentenceNote = card.note_type === 'sentence';
 
@@ -5001,7 +5031,13 @@ async function _buildWordBank() {
   if (targetCount < expectedCount) order.push({ type: 'target', word: targetParts ? targetParts[targetCount] : target });
 
   const MAX_TILES = parseInt(document.getElementById('word-bank-slider')?.value ?? _wordBankTileDefault(), 10);
-  const isWord = tok => /[一-鿿㐀-䶿]/.test(tok.char);
+  // Chinese: a "word" tile is any CJK character. French (space-separated tokens):
+  // a tile is any non-whitespace token — whitespace-only tokens (preserved as
+  // separate tokens by the tokenizer) must stay pre-placed, never become an
+  // empty chip.
+  const isWord = tok => currentCardLang() === 'zh'
+    ? /[一-鿿㐀-䶿]/.test(tok.char)
+    : tok.char.trim().length > 0;
   const allChars = order.filter(it => it.type === 'char');
   allChars.forEach(c => { if (!isWord(c)) c.type = 'pre'; });
   const wordTokens = allChars.filter(c => c.type === 'char');
@@ -5334,6 +5370,7 @@ async function _loadPinyinRow(text) {
 }
 
 async function togglePinyin() {
+  if (currentCardLang() !== 'zh') return; // no-op for non-Chinese decks
   const row = document.getElementById('pinyin-row');
   const text = sentence?.sentence_zh || card?.word_zh;
   if (!text) return;
@@ -5558,11 +5595,28 @@ function openStorySetup(sentenceCount, { isMixed = false, isUnfinished = false, 
   document.getElementById('setup-hsk-slider').value = 3;
   document.getElementById('setup-mode').value = 'story';
   updateHskLabel();
+  _applySetupLangRestrictions();
   updateSetupMode();
   document.getElementById('setup-modal-overlay').style.display = 'block';
   document.getElementById('setup-modal').style.display        = 'flex';
   document.getElementById('setup-topic').focus();
   return new Promise(resolve => { _setupResolve = resolve; });
+}
+
+// Story setup modal: kahneman/news/briefing/paste and grammar-focus are
+// Chinese-only server features (backend rejects those modes, and grammar
+// patterns like 把字句 don't apply to French) — hide them for non-zh decks.
+function _applySetupLangRestrictions() {
+  const lang = _deckLangById[deckId] || 'zh';
+  const modeSelect = document.getElementById('setup-mode');
+  const zhOnlyOptions = modeSelect.querySelectorAll('option.setup-mode-zh-only');
+  // hidden alone is ignored by iOS Safari for <option> — disabled greys it out there
+  zhOnlyOptions.forEach(opt => { opt.hidden = lang !== 'zh'; opt.disabled = lang !== 'zh'; });
+  if (lang !== 'zh' && zhOnlyOptions && [...zhOnlyOptions].some(o => o.value === modeSelect.value)) {
+    modeSelect.value = 'story';
+  }
+  const grammarLabel = document.getElementById('setup-grammar-label');
+  if (grammarLabel) grammarLabel.style.display = lang === 'zh' ? '' : 'none';
 }
 
 function togglePriceTable(e) {
@@ -5961,7 +6015,7 @@ function updateStoryHighlight(idx) {
 }
 
 function _storyAudioUrl(idx) {
-  return `/api/tts-file?text=${encodeURIComponent(story.sentences[idx].sentence_zh)}`;
+  return `/api/tts-file?text=${encodeURIComponent(story.sentences[idx].sentence_zh)}&lang=${currentCardLang()}`;
 }
 
 function _playStoryAtIdx(idx) {
@@ -6273,7 +6327,7 @@ function playSentence() {
   _listenCount++;
   _updateListenCounters();
   if (_currentAudio) { _currentAudio.onended = null; _currentAudio.pause(); _currentAudio = null; }
-  const audio = new Audio(`/api/tts-file?text=${encodeURIComponent(text)}`);
+  const audio = new Audio(`/api/tts-file?text=${encodeURIComponent(text)}&lang=${currentCardLang()}`);
   _currentAudio = audio;
   audio.play().catch(() => {});
 }
