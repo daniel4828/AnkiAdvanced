@@ -678,17 +678,19 @@ _READING_DISABLED_SQL = (
 )
 
 
-def _leaf_decks_with_category(root_deck_id: int) -> list[tuple[int, str]]:
+def _leaf_decks_with_category(root_deck_id: int, lang: str | None = None) -> list[tuple[int, str]]:
     """Return [(deck_id, category)] for all category leaves under root_deck_id.
 
-    Reading leaves whose preset disables reading are omitted.
+    Reading leaves whose preset disables reading are omitted. Optionally filter
+    descendant leaves by lang (direct category-leaf decks are never filtered —
+    same rule as leaf_ids()).
     """
     disabled = reading_disabled_deck_ids()
 
     def _keep(deck_id: int, category: str) -> bool:
         return not (category == "reading" and deck_id in disabled)
 
-    all_leaf_ids = get_descendant_leaf_deck_ids(root_deck_id)
+    all_leaf_ids = get_descendant_leaf_deck_ids(root_deck_id, lang=lang)
     if not all_leaf_ids:
         deck = get_deck(root_deck_id)
         if deck and deck["category"] and _keep(root_deck_id, deck["category"]):
@@ -703,14 +705,14 @@ def _leaf_decks_with_category(root_deck_id: int) -> list[tuple[int, str]]:
     return [(r["id"], r["category"]) for r in rows if r["category"] and _keep(r["id"], r["category"])]
 
 
-def get_due_cards_any_cat(root_deck_id: int) -> list[dict]:
+def get_due_cards_any_cat(root_deck_id: int, lang: str | None = None) -> list[dict]:
     """All due cards across every category under root_deck_id, priority-sorted.
 
     Cards are ordered so that the highest-priority card is first.  When a story
     exists the order follows its narrative position; otherwise cards are sorted
     by state (learning/relearn → review → new), category order, and due time.
     """
-    leaf_pairs = _leaf_decks_with_category(root_deck_id)
+    leaf_pairs = _leaf_decks_with_category(root_deck_id, lang=lang)
     all_cards = []
     for deck_id, cat in leaf_pairs:
         all_cards.extend(get_due_cards(deck_id, cat))
@@ -791,19 +793,19 @@ def get_next_card_any_cat(root_deck_id: int) -> dict | None:
     return cards[0] if cards else None
 
 
-def count_due_any_cat(root_deck_id: int) -> dict:
+def count_due_any_cat(root_deck_id: int, lang: str | None = None) -> dict:
     """Deduplicated due counts across all categories under root_deck_id.
 
     Each word is counted once (in its highest-priority category), matching
     the deduplication logic used for parent-deck badges on the main page.
     """
-    leaf_pairs = _leaf_decks_with_category(root_deck_id)
+    leaf_pairs = _leaf_decks_with_category(root_deck_id, lang=lang)
     return count_due_deduped(leaf_pairs)
 
 
-def count_due_by_category(root_deck_id: int) -> dict:
+def count_due_by_category(root_deck_id: int, lang: str | None = None) -> dict:
     """Per-category {new, learning, review} counts for mixed review display."""
-    leaf_pairs = _leaf_decks_with_category(root_deck_id)
+    leaf_pairs = _leaf_decks_with_category(root_deck_id, lang=lang)
     result: dict[str, dict[str, int]] = {}
     for deck_id, category in leaf_pairs:
         c = count_due(deck_id, category)
@@ -1093,15 +1095,20 @@ def get_unfinished_deck_categories(scope: str = "unfinished", lang: str | None =
     return [{"deck_id": r["deck_id"], "category": r["category"]} for r in rows]
 
 
-def get_next_unfinished_card(scope: str = "unfinished") -> dict | None:
+def get_next_unfinished_card(scope: str = "unfinished", lang: str | None = None) -> dict | None:
     """Highest-priority card on the unfinished virtual deck.
 
     Learning/relearn first (time-sensitive), then review, then new; each by due ASC.
+    Optionally filter by deck lang.
     """
     clause, params = _unfinished_where(scope)
+    lang_join = ""
+    if lang is not None:
+        lang_join = " JOIN decks ON decks.id = cards.deck_id AND decks.lang = ?"
+        params = [lang, *params]
     conn = get_db()
     row = conn.execute(
-        f"""SELECT id FROM cards WHERE {clause}
+        f"""SELECT cards.id AS id FROM cards{lang_join} WHERE {clause}
            ORDER BY CASE state
                       WHEN 'learning' THEN 0 WHEN 'relearn' THEN 0
                       WHEN 'review' THEN 1 ELSE 2 END,

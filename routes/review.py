@@ -84,18 +84,23 @@ def _key_and_build(
     root_deck_id: int | None = None,
     deck_id: int | None = None,
     parent_for_multi: int | None = None,
+    lang: str | None = None,
 ):
-    """Return (queue_key, build_fn) for the given review context."""
+    """Return (queue_key, build_fn) for the given review context.
+
+    `lang` is appended to every key tuple so 'All zh' and 'All fr' (or any other
+    lang split of the same deck/id set) never share a cached in-memory queue.
+    """
     if root_deck_id:
-        key = ("any_cat", root_deck_id)
-        build_fn = lambda: database.get_due_cards_any_cat(root_deck_id)
+        key = ("any_cat", root_deck_id, lang)
+        build_fn = lambda: database.get_due_cards_any_cat(root_deck_id, lang=lang)
     elif ids and len(ids) > 1:
-        key = ("multi", tuple(sorted(ids)), category)
+        key = ("multi", tuple(sorted(ids)), category, lang)
         _root = parent_for_multi
         build_fn = lambda: database.get_due_cards_multi(ids, category, root_deck_id=_root)
     else:
         actual = (ids[0] if ids else deck_id)
-        key = ("single", actual, category)
+        key = ("single", actual, category, lang)
         build_fn = lambda: database.get_due_cards(actual, category)
     return key, build_fn
 
@@ -120,9 +125,9 @@ def _next_card_from_queue(key, build_fn) -> dict | None:
 # ---------------------------------------------------------------------------
 
 @router.get("/api/today/{deck_id}/{category}")
-def get_today(deck_id: int, category: str):
-    ids = leaf_ids(deck_id, category)
-    key, build_fn = _key_and_build(ids=ids, category=category, parent_for_multi=deck_id)
+def get_today(deck_id: int, category: str, lang: str | None = None):
+    ids = leaf_ids(deck_id, category, lang=lang)
+    key, build_fn = _key_and_build(ids=ids, category=category, parent_for_multi=deck_id, lang=lang)
 
     card = _next_card_from_queue(key, build_fn)
 
@@ -132,31 +137,31 @@ def get_today(deck_id: int, category: str):
         counts = database.count_due_multi(ids, category, root_deck_id=deck_id)
 
     parent_id = database.get_parent_deck_id(deck_id)
-    counts["by_cat"] = database.count_due_by_category(parent_id or deck_id)
+    counts["by_cat"] = database.count_due_by_category(parent_id or deck_id, lang=lang)
     return {"card": card, "counts": counts}
 
 
 @router.get("/api/today-unfinished")
-def get_today_unfinished(scope: str = "unfinished"):
-    card = database.get_next_unfinished_card(scope)
+def get_today_unfinished(scope: str = "unfinished", lang: str | None = None):
+    card = database.get_next_unfinished_card(scope, lang=lang)
     if card:
         card["intervals"] = srs.preview_intervals(card)
         card["fsrs"] = srs.explain_card(card)
         _attach_again_sentence(card)
-    return {"card": card, "counts": database.count_unfinished(scope)}
+    return {"card": card, "counts": database.count_unfinished(scope, lang=lang)}
 
 
 @router.get("/api/today-unfinished-decks")
-def get_today_unfinished_decks(scope: str = "unfinished"):
-    return database.get_unfinished_deck_categories(scope)
+def get_today_unfinished_decks(scope: str = "unfinished", lang: str | None = None):
+    return database.get_unfinished_deck_categories(scope, lang=lang)
 
 
 @router.get("/api/today-mixed/{deck_id}")
-def get_today_mixed(deck_id: int):
-    key, build_fn = _key_and_build(root_deck_id=deck_id)
+def get_today_mixed(deck_id: int, lang: str | None = None):
+    key, build_fn = _key_and_build(root_deck_id=deck_id, lang=lang)
     card = _next_card_from_queue(key, build_fn)
-    counts = database.count_due_any_cat(deck_id)
-    counts["by_cat"] = database.count_due_by_category(deck_id)
+    counts = database.count_due_any_cat(deck_id, lang=lang)
+    counts["by_cat"] = database.count_due_by_category(deck_id, lang=lang)
     return {"card": card, "counts": counts}
 
 
@@ -164,7 +169,8 @@ def get_today_mixed(deck_id: int):
 def submit_review(card_id: int, rating: int, user_response: str | None = None,
                   root_deck_id: int | None = None, unfinished_mode: bool = False,
                   parent_deck_id: int | None = None, duration_ms: int | None = None,
-                  next_note: str | None = None, unfinished_scope: str = "unfinished"):
+                  next_note: str | None = None, unfinished_scope: str = "unfinished",
+                  lang: str | None = None):
     card_before = database.get_card(card_id)
     # Persist the free-text "note for next time" the user left on this card
     # (None means "leave the existing note untouched"; "" clears it).
@@ -251,12 +257,12 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
     if unfinished_mode:
         queue_key = None
     elif root_deck_id:
-        queue_key, build_fn = _key_and_build(root_deck_id=root_deck_id)
+        queue_key, build_fn = _key_and_build(root_deck_id=root_deck_id, lang=lang)
     elif parent_deck_id:
-        ids = leaf_ids(parent_deck_id, cat)
-        queue_key, build_fn = _key_and_build(ids=ids, category=cat, parent_for_multi=parent_deck_id)
+        ids = leaf_ids(parent_deck_id, cat, lang=lang)
+        queue_key, build_fn = _key_and_build(ids=ids, category=cat, parent_for_multi=parent_deck_id, lang=lang)
     else:
-        queue_key, build_fn = _key_and_build(deck_id=deck_id, category=cat)
+        queue_key, build_fn = _key_and_build(deck_id=deck_id, category=cat, lang=lang)
 
     _undo_stack.append({
         "card_before":        card_before,
@@ -272,28 +278,28 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
     })
 
     if unfinished_mode:
-        next_card = database.get_next_unfinished_card(unfinished_scope)
+        next_card = database.get_next_unfinished_card(unfinished_scope, lang=lang)
         if next_card:
             next_card["intervals"] = srs.preview_intervals(next_card)
             next_card["fsrs"] = srs.explain_card(next_card)
             _attach_again_sentence(next_card)
-        counts = database.count_unfinished(unfinished_scope)
+        counts = database.count_unfinished(unfinished_scope, lang=lang)
     elif root_deck_id:
         _queue_mgr.after_review(queue_key, card_id, updated, newly_buried)
         next_card = _next_card_from_queue(queue_key, build_fn)
-        counts = database.count_due_any_cat(root_deck_id)
-        counts["by_cat"] = database.count_due_by_category(root_deck_id)
+        counts = database.count_due_any_cat(root_deck_id, lang=lang)
+        counts["by_cat"] = database.count_due_by_category(root_deck_id, lang=lang)
     elif parent_deck_id:
         _queue_mgr.after_review(queue_key, card_id, updated, newly_buried)
         next_card = _next_card_from_queue(queue_key, build_fn)
         counts = database.count_due_multi(ids, cat, root_deck_id=parent_deck_id)
-        counts["by_cat"] = database.count_due_by_category(parent_deck_id)
+        counts["by_cat"] = database.count_due_by_category(parent_deck_id, lang=lang)
     else:
         _queue_mgr.after_review(queue_key, card_id, updated, newly_buried)
         next_card = _next_card_from_queue(queue_key, build_fn)
         counts = database.count_due(deck_id, cat)
         parent_id = database.get_parent_deck_id(deck_id)
-        counts["by_cat"] = database.count_due_by_category(parent_id or deck_id)
+        counts["by_cat"] = database.count_due_by_category(parent_id or deck_id, lang=lang)
 
     rating_label = {1: "Again", 2: "Hard", 3: "Good", 4: "Easy"}.get(rating, str(rating))
     ivl = updated["interval"]
@@ -340,7 +346,8 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
 @router.post("/api/review/requeue")
 def requeue_card(card_id: int, root_deck_id: int | None = None,
                  parent_deck_id: int | None = None, unfinished_mode: bool = False,
-                 unfinished_scope: str = "unfinished", delay_seconds: int = 60):
+                 unfinished_scope: str = "unfinished", delay_seconds: int = 60,
+                 lang: str | None = None):
     """"New sentence" button: re-show this card ~delay_seconds later WITHOUT any
     scheduling change, and regenerate its sentence in the background.
 
@@ -362,32 +369,32 @@ def requeue_card(card_id: int, root_deck_id: int | None = None,
     if unfinished_mode:
         # The unfinished virtual deck isn't backed by an in-memory queue, so there
         # is nothing to soft-requeue into; just advance (regen still happens).
-        next_card = database.get_next_unfinished_card(unfinished_scope)
+        next_card = database.get_next_unfinished_card(unfinished_scope, lang=lang)
         if next_card:
             next_card["intervals"] = srs.preview_intervals(next_card)
             next_card["fsrs"] = srs.explain_card(next_card)
             _attach_again_sentence(next_card)
-        counts = database.count_unfinished(unfinished_scope)
+        counts = database.count_unfinished(unfinished_scope, lang=lang)
     elif root_deck_id:
-        key, build_fn = _key_and_build(root_deck_id=root_deck_id)
+        key, build_fn = _key_and_build(root_deck_id=root_deck_id, lang=lang)
         _queue_mgr.soft_requeue(key, card_id, due)
         next_card = _next_card_from_queue(key, build_fn)
-        counts = database.count_due_any_cat(root_deck_id)
-        counts["by_cat"] = database.count_due_by_category(root_deck_id)
+        counts = database.count_due_any_cat(root_deck_id, lang=lang)
+        counts["by_cat"] = database.count_due_by_category(root_deck_id, lang=lang)
     elif parent_deck_id:
-        ids = leaf_ids(parent_deck_id, cat)
-        key, build_fn = _key_and_build(ids=ids, category=cat, parent_for_multi=parent_deck_id)
+        ids = leaf_ids(parent_deck_id, cat, lang=lang)
+        key, build_fn = _key_and_build(ids=ids, category=cat, parent_for_multi=parent_deck_id, lang=lang)
         _queue_mgr.soft_requeue(key, card_id, due)
         next_card = _next_card_from_queue(key, build_fn)
         counts = database.count_due_multi(ids, cat, root_deck_id=parent_deck_id)
-        counts["by_cat"] = database.count_due_by_category(parent_deck_id)
+        counts["by_cat"] = database.count_due_by_category(parent_deck_id, lang=lang)
     else:
-        key, build_fn = _key_and_build(deck_id=deck_id, category=cat)
+        key, build_fn = _key_and_build(deck_id=deck_id, category=cat, lang=lang)
         _queue_mgr.soft_requeue(key, card_id, due)
         next_card = _next_card_from_queue(key, build_fn)
         counts = database.count_due(deck_id, cat)
         parent_id = database.get_parent_deck_id(deck_id)
-        counts["by_cat"] = database.count_due_by_category(parent_id or deck_id)
+        counts["by_cat"] = database.count_due_by_category(parent_id or deck_id, lang=lang)
 
     logger.info("requeue  card=#%d word=%s cat=%s → re-show at %s (no scheduling change)",
                 card_id, card.get("word_zh"), cat, due)
