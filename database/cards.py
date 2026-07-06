@@ -616,16 +616,18 @@ def set_card_buried_until(card_id: int, buried_until: str | None) -> None:
     conn.close()
 
 
-def get_descendant_leaf_deck_ids(deck_id: int, category: str | None = None) -> list[int]:
-    """Return all category-leaf deck IDs under deck_id (depth-first). Optionally filter by category."""
+def get_descendant_leaf_deck_ids(deck_id: int, category: str | None = None, lang: str | None = None) -> list[int]:
+    """Return all category-leaf deck IDs under deck_id (depth-first). Optionally filter by category and/or lang."""
     conn = get_db()
-    rows = conn.execute("SELECT id, parent_id, category FROM decks WHERE deleted_at IS NULL").fetchall()
+    rows = conn.execute("SELECT id, parent_id, category, lang FROM decks WHERE deleted_at IS NULL").fetchall()
     conn.close()
 
     children_map: dict = {}
     deck_cat: dict = {}
+    deck_lang: dict = {}
     for row in rows:
         deck_cat[row["id"]] = row["category"]
+        deck_lang[row["id"]] = row["lang"]
         pid = row["parent_id"]
         children_map.setdefault(pid, []).append(row["id"])
 
@@ -636,7 +638,7 @@ def get_descendant_leaf_deck_ids(deck_id: int, category: str | None = None) -> l
         cat = deck_cat.get(current)
         kids = children_map.get(current, [])
         if cat is not None:  # category leaf
-            if category is None or cat == category:
+            if (category is None or cat == category) and (lang is None or deck_lang.get(current) == lang):
                 result.append(current)
         for kid in kids:
             stack.append(kid)
@@ -1039,12 +1041,16 @@ def _unfinished_where(scope: str) -> tuple[str, list]:
     return clause, [now, *lock_params]
 
 
-def count_unfinished(scope: str = "unfinished") -> dict:
-    """Count cards on the unfinished virtual deck, grouped by state."""
+def count_unfinished(scope: str = "unfinished", lang: str | None = None) -> dict:
+    """Count cards on the unfinished virtual deck, grouped by state. Optionally filter by deck lang."""
     clause, params = _unfinished_where(scope)
+    lang_join = ""
+    if lang is not None:
+        lang_join = " JOIN decks ON decks.id = cards.deck_id AND decks.lang = ?"
+        params = [lang, *params]
     conn = get_db()
     rows = conn.execute(
-        f"SELECT deck_id, state, interval FROM cards WHERE {clause}",
+        f"SELECT deck_id, state, interval FROM cards{lang_join} WHERE {clause}",
         params,
     ).fetchall()
     conn.close()
@@ -1071,12 +1077,16 @@ def count_unfinished(scope: str = "unfinished") -> dict:
     return counts
 
 
-def get_unfinished_deck_categories(scope: str = "unfinished") -> list[dict]:
-    """Return distinct (deck_id, category) pairs that have unfinished cards due now."""
+def get_unfinished_deck_categories(scope: str = "unfinished", lang: str | None = None) -> list[dict]:
+    """Return distinct (deck_id, category) pairs that have unfinished cards due now. Optionally filter by deck lang."""
     clause, params = _unfinished_where(scope)
+    lang_join = ""
+    if lang is not None:
+        lang_join = " JOIN decks ON decks.id = cards.deck_id AND decks.lang = ?"
+        params = [lang, *params]
     conn = get_db()
     rows = conn.execute(
-        f"SELECT DISTINCT deck_id, category FROM cards WHERE {clause}",
+        f"SELECT DISTINCT deck_id, category FROM cards{lang_join} WHERE {clause}",
         params,
     ).fetchall()
     conn.close()
