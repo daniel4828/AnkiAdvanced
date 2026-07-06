@@ -48,6 +48,20 @@ def get_deck_lang(deck_id: int) -> str:
     return row["lang"] if row and row["lang"] else "zh"
 
 
+def get_available_langs() -> list[str]:
+    """Distinct langs among non-deleted, non-root decks (used for the frontend tab bar).
+
+    The root 'All' deck is excluded since its own lang is a historical artifact
+    (always 'zh', regardless of what languages actually live under it).
+    """
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT DISTINCT lang FROM decks WHERE deleted_at IS NULL AND parent_id IS NOT NULL"
+    ).fetchall()
+    conn.close()
+    return sorted({r["lang"] or "zh" for r in rows})
+
+
 def get_all_decks() -> list[dict]:
     conn = get_db()
     rows = conn.execute("SELECT * FROM decks WHERE deleted_at IS NULL ORDER BY name").fetchall()
