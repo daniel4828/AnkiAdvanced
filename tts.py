@@ -24,6 +24,8 @@ import threading
 
 import edge_tts
 
+import languages
+
 # Bypass system proxy (e.g. Shadowrocket in China) for edge-tts WebSocket connections.
 # The VPN tunnel routes traffic at the network level, so direct connections work fine.
 os.environ.setdefault("NO_PROXY", "*")
@@ -41,14 +43,19 @@ _hot: set[str] = set()
 _preload_progress: dict[str, dict] = {}
 
 
-def _cache_path(text: str) -> str:
-    key = hashlib.sha256(text.encode()).hexdigest()
+def _cache_path(text: str, voice: str = VOICE) -> str:
+    # Keep the existing key formula for the zh default voice so the pre-existing
+    # cache stays valid; other voices get a voice-prefixed key to avoid collisions.
+    if voice == VOICE:
+        key = hashlib.sha256(text.encode()).hexdigest()
+    else:
+        key = hashlib.sha256(f"{voice}|{text}".encode()).hexdigest()
     return os.path.join(TTS_CACHE_DIR, f"{key}.mp3")
 
 
-async def _ensure_cached(text: str) -> str:
+async def _ensure_cached(text: str, voice: str = VOICE) -> str:
     """Return path to mp3 for text, generating via edge-tts if not on disk."""
-    path = _cache_path(text)
+    path = _cache_path(text, voice)
     if path in _hot or os.path.exists(path):
         _hot.add(path)
         return path
@@ -56,7 +63,7 @@ async def _ensure_cached(text: str) -> str:
     os.makedirs(TTS_CACHE_DIR, exist_ok=True)
     tmp = path + ".tmp"
     logger.debug("tts  generating %r → %s", text[:30], os.path.basename(path))
-    communicate = edge_tts.Communicate(text, VOICE)
+    communicate = edge_tts.Communicate(text, voice)
     try:
         await communicate.save(tmp)
         if not os.path.exists(tmp):
@@ -77,15 +84,17 @@ _TTS_CONCURRENCY = 12   # max parallel edge-tts connections
 _TTS_TIMEOUT = 20.0     # seconds per sentence before giving up
 
 
-async def preload_all_async(texts: list[str], progress_key: str | None = None) -> None:
+async def preload_all_async(texts: list[str], progress_key: str | None = None,
+                            lang: str = "zh") -> None:
     """Pre-generate audio for all texts with bounded concurrency. Awaitable — blocks until done.
 
     If progress_key is given, updates _preload_progress[progress_key] as each
     sentence finishes so callers can poll for live progress.
     """
+    voice = languages.get_lang_config(lang)["tts_voice"]
     total = len(texts)
-    missing = [t for t in texts if _cache_path(t) not in _hot
-               and not os.path.exists(_cache_path(t))]
+    missing = [t for t in texts if _cache_path(t, voice) not in _hot
+               and not os.path.exists(_cache_path(t, voice))]
     already_cached = total - len(missing)
 
     if progress_key is not None:
@@ -106,7 +115,7 @@ async def preload_all_async(texts: list[str], progress_key: str | None = None) -
         nonlocal done_count
         async with sem:
             try:
-                result = await asyncio.wait_for(_ensure_cached(text), timeout=_TTS_TIMEOUT)
+                result = await asyncio.wait_for(_ensure_cached(text, voice), timeout=_TTS_TIMEOUT)
             except asyncio.TimeoutError:
                 logger.warning("tts  timeout after %.0fs for: %r", _TTS_TIMEOUT, text[:40])
                 if progress_key is not None:
@@ -133,9 +142,10 @@ async def preload_all_async(texts: list[str], progress_key: str | None = None) -
         _preload_progress[progress_key]["done"] = total
 
 
-def preload(text: str) -> None:
+def preload(text: str, lang: str = "zh") -> None:
     """Fire-and-forget single-item preload (background thread)."""
-    threading.Thread(target=lambda: asyncio.run(_ensure_cached(text)),
+    voice = languages.get_lang_config(lang)["tts_voice"]
+    threading.Thread(target=lambda: asyncio.run(_ensure_cached(text, voice)),
                      daemon=True).start()
 
 
@@ -147,9 +157,10 @@ _current_play_idx: int = -1
 _is_multi_playing: bool = False
 
 
-async def get_cached_path(text: str) -> str:
+async def get_cached_path(text: str, lang: str = "zh") -> str:
     """Return local mp3 path for text, generating via edge-tts if not cached."""
-    return await _ensure_cached(text)
+    voice = languages.get_lang_config(lang)["tts_voice"]
+    return await _ensure_cached(text, voice)
 
 
 def get_status() -> dict:
@@ -157,18 +168,18 @@ def get_status() -> dict:
     return {"idx": _current_play_idx, "playing": _is_multi_playing}
 
 
-def speak(text: str) -> None:
+def speak(text: str, lang: str = "zh") -> None:
     """Play audio, killing any ongoing playback first (fire-and-forget)."""
-    threading.Thread(target=lambda: asyncio.run(_play(text)),
+    threading.Thread(target=lambda: asyncio.run(_play(text, lang)),
                      daemon=True).start()
 
 
-def speak_sync(text: str) -> None:
+def speak_sync(text: str, lang: str = "zh") -> None:
     """Play audio and block until playback is complete."""
-    asyncio.run(_play(text))
+    asyncio.run(_play(text, lang))
 
 
-def speak_multi(texts: list[str], start_idx: int = 0) -> None:
+def speak_multi(texts: list[str], start_idx: int = 0, lang: str = "zh") -> None:
     """Play texts[start_idx:] sequentially with minimal gap.
 
     Sets _stop_requested before acquiring _multi_lock so any in-progress
@@ -178,20 +189,20 @@ def speak_multi(texts: list[str], start_idx: int = 0) -> None:
     _stop_requested = True   # interrupt any current playback fast
     with _multi_lock:
         _stop_requested = False  # safe to start now — old loop has exited
-        asyncio.run(_play_multi(texts, start_idx))
+        asyncio.run(_play_multi(texts, start_idx, lang))
 
 
-async def _play_multi(texts: list[str], start_idx: int = 0) -> None:
+async def _play_multi(texts: list[str], start_idx: int = 0, lang: str = "zh") -> None:
     """Pre-cache all sentences in parallel, then play from start_idx."""
     global _stop_requested, _current_play_idx, _is_multi_playing
-    await preload_all_async(texts)
+    await preload_all_async(texts, lang=lang)
     _is_multi_playing = True
     try:
         for i, text in enumerate(texts[start_idx:], start=start_idx):
             if _stop_requested:
                 break
             _current_play_idx = i
-            await _play(text)
+            await _play(text, lang)
     finally:
         _is_multi_playing = False
         _current_play_idx = -1
@@ -210,14 +221,15 @@ def stop() -> None:
 SAY_VOICE = "Tingting"  # macOS built-in zh_CN fallback
 
 
-async def _play(text: str) -> None:
+async def _play(text: str, lang: str = "zh") -> None:
     global _current_playback
+    cfg = languages.get_lang_config(lang)
     try:
-        path = await asyncio.wait_for(_ensure_cached(text), timeout=5.0)
+        path = await asyncio.wait_for(_ensure_cached(text, cfg["tts_voice"]), timeout=5.0)
         cmd = ["afplay", path]
     except Exception:
         logger.warning("tts  edge-tts failed, falling back to macOS say")
-        cmd = ["say", "-v", SAY_VOICE, text]
+        cmd = ["say", "-v", cfg["say_voice"], text]
 
     with _playback_lock:
         if _current_playback and _current_playback.poll() is None:
