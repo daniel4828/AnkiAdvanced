@@ -65,6 +65,18 @@ let optDeckId    = null; // deck whose options modal is open
 const collapsed  = new Set(JSON.parse(localStorage.getItem('collapsedDecks') || '[]'));  // parent deck IDs that are collapsed
 let _retentionData = null;  // cached result from GET /api/retention
 let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
+let _deckLangById = {};        // deckId → 'zh'|'fr', rebuilt whenever decks load (flatten(decks))
+
+// Resolve the language of the card currently being reviewed. Prefers the
+// card's own deck_id (set per-card in unfinished/mixed mode); falls back to
+// the review view's current deckId. Defaults to 'zh' when unknown (e.g. decks
+// not loaded yet), which keeps the existing Chinese-only affordances working.
+function currentCardLang() {
+  const id = (typeof card !== 'undefined' && card?.deck_id) ? card.deck_id
+    : (typeof deckId !== 'undefined' ? deckId : null);
+  if (id == null) return 'zh';
+  return _deckLangById[id] || 'zh';
+}
 
 // — Customizable review shortcuts —
 // Each action maps to one key. Defaults below are the active bindings.
@@ -961,6 +973,10 @@ async function loadDecks() {
     ]);
     _cachedDecks = decks;
     _retentionData = retention;
+    _deckLangById = {};
+    for (const d of flatten(decks)) {
+      if (d.id != null) _deckLangById[d.id] = d.lang || 'zh';
+    }
     renderDecks(decks);
     showView('decks');
   } catch (e) {
@@ -3560,12 +3576,17 @@ function loadCard(c, counts) {
     deckPath.style.display = 'none';
   }
 
-  // HSK badge — always visible; "HSK -" when unknown (click to AI-fill)
+  // HSK badge — Chinese-only concept; hidden entirely for non-zh decks.
+  // Otherwise always visible; "HSK -" when unknown (click to AI-fill)
   const hskBadge = document.getElementById('card-hsk-badge');
-  hskBadge.textContent = card.hsk_level ? `HSK ${card.hsk_level}` : 'HSK -';
-  hskBadge.classList.toggle('hsk-unknown', !card.hsk_level);
-  hskBadge.disabled = false;
-  hskBadge.style.display = 'inline';
+  if (currentCardLang() !== 'zh') {
+    hskBadge.style.display = 'none';
+  } else {
+    hskBadge.textContent = card.hsk_level ? `HSK ${card.hsk_level}` : 'HSK -';
+    hskBadge.classList.toggle('hsk-unknown', !card.hsk_level);
+    hskBadge.disabled = false;
+    hskBadge.style.display = 'inline';
+  }
 
   // Reset pinyin (clear content + hide revealed state)
   const _pr = document.getElementById('pinyin-row');
@@ -3786,9 +3807,10 @@ function revealAnswer() {
   document.getElementById('back-meta-play-btn').style.display = isCreating ? 'none' : 'flex';
   _updateListenCounters();
 
-  // Pre-load pinyin in background (shown blurred until p is pressed)
+  // Pre-load pinyin in background (shown blurred until p is pressed).
+  // Pinyin is a Chinese-only concept — pypinyin garbles French text.
   const _pinyinText = sentence?.sentence_zh || card?.word_zh;
-  if (_pinyinText) _loadPinyinRow(_pinyinText);
+  if (_pinyinText && currentCardLang() === 'zh') _loadPinyinRow(_pinyinText);
 
   const isSentenceNote = card.note_type === 'sentence';
 
@@ -5342,6 +5364,7 @@ async function _loadPinyinRow(text) {
 }
 
 async function togglePinyin() {
+  if (currentCardLang() !== 'zh') return; // no-op for non-Chinese decks
   const row = document.getElementById('pinyin-row');
   const text = sentence?.sentence_zh || card?.word_zh;
   if (!text) return;
