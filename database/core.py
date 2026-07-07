@@ -119,6 +119,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE entries ADD COLUMN definition_fr TEXT")
     if "source_sentence" not in cols:
         conn.execute("ALTER TABLE entries ADD COLUMN source_sentence TEXT")
+    if "lang" not in cols:
+        conn.execute("ALTER TABLE entries ADD COLUMN lang TEXT NOT NULL DEFAULT 'zh'")
     if "grammar_notes" not in cols:
         conn.execute("ALTER TABLE entries ADD COLUMN grammar_notes TEXT")
 
@@ -169,6 +171,10 @@ def init_db() -> None:
         conn.execute("ALTER TABLE stories ADD COLUMN topic TEXT")
     if "gen_params" not in story_cols:
         conn.execute("ALTER TABLE stories ADD COLUMN gen_params TEXT")
+    if "lang" not in story_cols:
+        # NULL = legacy row generated before multi-language support (issue #436);
+        # treated as 'zh' everywhere stories are looked up by lang.
+        conn.execute("ALTER TABLE stories ADD COLUMN lang TEXT")
     _migrate_stories_category(conn)
     ss_cols = {r["name"] for r in conn.execute("PRAGMA table_info(story_sentences)").fetchall()}
     if "sentence_de" not in ss_cols:
@@ -208,6 +214,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE decks ADD COLUMN new_review_order_override TEXT")
     if "bury_quick_mode" not in deck_cols:
         conn.execute("ALTER TABLE decks ADD COLUMN bury_quick_mode TEXT NOT NULL DEFAULT 'all'")
+    if "lang" not in deck_cols:
+        conn.execute("ALTER TABLE decks ADD COLUMN lang TEXT NOT NULL DEFAULT 'zh'")
     card_cols = {r["name"] for r in conn.execute("PRAGMA table_info(cards)").fetchall()}
     if "deleted_at" not in card_cols:
         conn.execute("ALTER TABLE cards ADD COLUMN deleted_at TEXT")

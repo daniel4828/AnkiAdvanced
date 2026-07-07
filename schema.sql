@@ -1,4 +1,4 @@
--- Chinese SRS Database Schema
+-- SRS Database Schema (multi-language; Chinese-specific tables are unused for other languages)
 
 PRAGMA foreign_keys = ON;
 
@@ -136,6 +136,9 @@ CREATE TABLE IF NOT EXISTS decks (
     preset_id   INTEGER NOT NULL REFERENCES deck_presets(id),
     -- NULL for parent decks; set for category leaf decks
     category    TEXT CHECK(category IN ('listening', 'reading', 'creating')),
+    -- target language of this deck's content (see languages.py registry);
+    -- child decks inherit the parent's lang at creation time
+    lang        TEXT NOT NULL DEFAULT 'zh',
     -- soft delete: set when moved to trash, hard-deleted after 30 days
     deleted_at  TEXT,
     UNIQUE(name, parent_id)
@@ -146,7 +149,12 @@ CREATE TABLE IF NOT EXISTS decks (
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS entries (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    -- word_zh holds the target-language headword for ALL languages (the _zh
+    -- suffix is historical). Known limitation: UNIQUE(word_zh) is global, not
+    -- per-lang — fine while languages use different scripts (zh vs fr).
     word_zh         TEXT NOT NULL UNIQUE,
+    -- target language of this entry (see languages.py registry)
+    lang            TEXT NOT NULL DEFAULT 'zh',
     pinyin          TEXT,
     definition      TEXT,           -- English definition
     pos             TEXT,           -- part of speech
@@ -342,8 +350,11 @@ CREATE TABLE IF NOT EXISTS stories (
     generated_at    TEXT NOT NULL DEFAULT (datetime('now')),
     prompt_text     TEXT,         -- full AI prompt used to generate this story (NULL for legacy rows)
     topic           TEXT,         -- user-specified topic/theme (NULL if none given)
-    gen_params      TEXT          -- JSON of the generation settings (mode/model/grammar/max_hsk/chapter_ids)
+    gen_params      TEXT,         -- JSON of the generation settings (mode/model/grammar/max_hsk/chapter_ids)
                                   -- so the "Again" regeneration can match the deck's style (NULL for legacy rows)
+    lang            TEXT          -- target language of this story (issue #436); NULL = legacy row, treated as 'zh'.
+                                  -- Needed because an aggregate deck (e.g. "All") can hold stories of several
+                                  -- languages for the same (date, category, deck_id) — lang disambiguates them.
     -- NO unique constraint: multiple stories per (date, category, deck) allowed
     -- active story = latest generated_at
     -- stories are NEVER auto-deleted

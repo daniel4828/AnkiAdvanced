@@ -1,6 +1,7 @@
 import logging
 
 import database
+import languages
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from .utils import queue_mgr
@@ -35,6 +36,20 @@ def _leaf_pairs(deck: dict) -> list[tuple[int, str]]:
                 result.append((child["id"], cat))
         else:
             result.extend(_leaf_pairs(child))
+    return result
+
+
+def _filter_tree_by_lang(tree: list, lang: str) -> list:
+    """Recursively keep decks whose own lang matches, or that have a matching
+    descendant (so aggregating parents like 'All' survive when they contain a
+    matching child, even though the parent row's own lang column is 'zh')."""
+    result = []
+    for node in tree:
+        children = _filter_tree_by_lang(node.get("children", []), lang)
+        own_match = (node.get("lang") or "zh") == lang
+        if own_match or children:
+            new_node = {**node, "children": children}
+            result.append(new_node)
     return result
 
 
@@ -76,9 +91,18 @@ def _attach_counts(flat_decks: list) -> None:
 # Deck routes
 # ---------------------------------------------------------------------------
 
+@router.get("/api/langs")
+def get_langs():
+    """Distinct languages currently in use across decks. Frontend shows the
+    tab bar only when more than one language is returned."""
+    return database.get_available_langs()
+
+
 @router.get("/api/decks")
-def get_decks(unfinished_scope: str = "unfinished"):
+def get_decks(unfinished_scope: str = "unfinished", lang: str | None = None):
     tree = database.get_deck_tree()
+    if lang:
+        tree = _filter_tree_by_lang(tree, lang)
     flat = _flatten(tree)
     # Attach preset-derived fields first — _attach_counts needs reading_enabled
     # to skip disabled reading leaves in parent aggregation
@@ -97,7 +121,7 @@ def get_decks(unfinished_scope: str = "unfinished"):
         if deck.get("id") in locked:
             deck["locked"] = True
             deck["unlock_date"] = locked[deck["id"]]
-    unfinished = database.count_unfinished(unfinished_scope)
+    unfinished = database.count_unfinished(unfinished_scope, lang=lang)
     if sum(unfinished.values()) > 0:
         tree.insert(0, {
             "id": "unfinished",
@@ -110,15 +134,19 @@ def get_decks(unfinished_scope: str = "unfinished"):
 
 
 @router.post("/api/decks")
-def create_deck(name: str, parent_id: int | None = None, category: str | None = None):
+def create_deck(name: str, parent_id: int | None = None, category: str | None = None,
+                lang: str | None = None):
+    if lang is not None and not languages.is_valid_lang(lang):
+        raise HTTPException(400, f"unknown lang: {lang!r}")
     # Support Anki-style 'Parent::Child' hierarchy in name
     if "::" in name:
-        deck_id = database.get_or_create_deck_path(name)
+        deck_id = database.get_or_create_deck_path(name, lang=lang)
         return database.get_deck(deck_id)
     if parent_id is None:
         parent_id = database.get_all_deck_id()
     preset_id = database.get_preset_for_deck(parent_id)["id"]
-    deck_id = database.insert_deck(name, parent_id, preset_id, category)
+    # lang=None inherits the parent deck's language (database._resolve_deck_lang)
+    deck_id = database.insert_deck(name, parent_id, preset_id, category, lang=lang)
     return database.get_deck(deck_id)
 
 

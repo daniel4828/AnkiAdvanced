@@ -9,12 +9,23 @@ from .core import anki_today, get_db, _ensure_default_preset
 # Decks
 # ---------------------------------------------------------------------------
 
+def _resolve_deck_lang(conn, parent_id: int | None, lang: str | None) -> str:
+    """Deck language: explicit value wins, else inherit from parent, else 'zh'."""
+    if lang:
+        return lang
+    if parent_id is not None:
+        row = conn.execute("SELECT lang FROM decks WHERE id = ?", (parent_id,)).fetchone()
+        if row and row["lang"]:
+            return row["lang"]
+    return "zh"
+
+
 def insert_deck(name: str, parent_id: int | None, preset_id: int,
-                category: str | None = None) -> int:
+                category: str | None = None, lang: str | None = None) -> int:
     conn = get_db()
     cur = conn.execute(
-        "INSERT INTO decks (name, parent_id, preset_id, category) VALUES (?, ?, ?, ?)",
-        (name, parent_id, preset_id, category),
+        "INSERT INTO decks (name, parent_id, preset_id, category, lang) VALUES (?, ?, ?, ?, ?)",
+        (name, parent_id, preset_id, category, _resolve_deck_lang(conn, parent_id, lang)),
     )
     conn.commit()
     deck_id = cur.lastrowid
@@ -27,6 +38,28 @@ def get_deck(deck_id: int) -> dict | None:
     row = conn.execute("SELECT * FROM decks WHERE id = ?", (deck_id,)).fetchone()
     conn.close()
     return dict(row) if row else None
+
+
+def get_deck_lang(deck_id: int) -> str:
+    """Language of a deck; falls back to 'zh' for missing decks/legacy rows."""
+    conn = get_db()
+    row = conn.execute("SELECT lang FROM decks WHERE id = ?", (deck_id,)).fetchone()
+    conn.close()
+    return row["lang"] if row and row["lang"] else "zh"
+
+
+def get_available_langs() -> list[str]:
+    """Distinct langs among non-deleted, non-root decks (used for the frontend tab bar).
+
+    The root 'All' deck is excluded since its own lang is a historical artifact
+    (always 'zh', regardless of what languages actually live under it).
+    """
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT DISTINCT lang FROM decks WHERE deleted_at IS NULL AND parent_id IS NOT NULL"
+    ).fetchall()
+    conn.close()
+    return sorted({r["lang"] or "zh" for r in rows})
 
 
 def get_all_decks() -> list[dict]:
@@ -182,7 +215,7 @@ def purge_old_trash(days: int = 30) -> int:
 
 
 def get_or_create_deck(name: str, parent_id: int | None = None,
-                       category: str | None = None) -> int:
+                       category: str | None = None, lang: str | None = None) -> int:
     """Get deck id by (name, parent_id), creating it if it doesn't exist."""
     conn = get_db()
     row = conn.execute(
@@ -194,8 +227,8 @@ def get_or_create_deck(name: str, parent_id: int | None = None,
         return row["id"]
     preset_id = _ensure_default_preset(conn)
     cur = conn.execute(
-        "INSERT INTO decks (name, parent_id, preset_id, category) VALUES (?, ?, ?, ?)",
-        (name, parent_id, preset_id, category),
+        "INSERT INTO decks (name, parent_id, preset_id, category, lang) VALUES (?, ?, ?, ?, ?)",
+        (name, parent_id, preset_id, category, _resolve_deck_lang(conn, parent_id, lang)),
     )
     conn.commit()
     deck_id = cur.lastrowid
@@ -215,17 +248,19 @@ def get_all_deck_id() -> int | None:
     return row["id"] if row else None
 
 
-def get_or_create_deck_path(path: str) -> int:
+def get_or_create_deck_path(path: str, lang: str | None = None) -> int:
     """Parse an Anki-style 'Parent::Child::Leaf' path and ensure all decks exist.
 
     Returns the id of the deepest (leaf) deck. Roots are placed under 'All'.
+    `lang`, if given, is applied to every newly-created segment (existing decks
+    keep their own lang); `None` keeps the normal parent-inheritance behavior.
     """
     segments = [s.strip() for s in path.split("::") if s.strip()]
     if not segments:
         raise ValueError(f"Empty deck path: {path!r}")
     parent_id = get_all_deck_id()
     for segment in segments:
-        parent_id = get_or_create_deck(segment, parent_id=parent_id)
+        parent_id = get_or_create_deck(segment, parent_id=parent_id, lang=lang)
     return parent_id
 
 

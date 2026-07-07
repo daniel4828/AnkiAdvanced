@@ -328,6 +328,9 @@ def get_all_cards_for_browse(filters: dict | None = None) -> list[dict]:
             params.append(filters["state"])
         if filters.get("leech"):
             where.append("c.is_leech = 1")
+        if filters.get("lang"):
+            where.append("d.lang = ?")
+            params.append(filters["lang"])
         if filters.get("search_text"):
             where.append("(w.word_zh LIKE ? OR w.definition LIKE ? OR w.pinyin LIKE ?)")
             q = f"%{filters['search_text']}%"

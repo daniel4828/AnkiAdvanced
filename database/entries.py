@@ -12,14 +12,15 @@ def insert_word(word: dict) -> int:
     conn = get_db()
     conn.execute(
         """INSERT OR IGNORE INTO entries
-           (word_zh, pinyin, definition, pos, hsk_level,
+           (word_zh, lang, pinyin, definition, pos, hsk_level,
             traditional, definition_zh, source, note_type,
             notes, date_yaml, source_sentence, grammar_notes, register, definition_de, definition_fr)
-           VALUES (:word_zh, :pinyin, :definition, :pos, :hsk_level,
+           VALUES (:word_zh, :lang, :pinyin, :definition, :pos, :hsk_level,
                    :traditional, :definition_zh, :source, :note_type,
                    :notes, :date_yaml, :source_sentence, :grammar_notes, :register, :definition_de, :definition_fr)""",
         {
             **word,
+            "lang":            word.get("lang") or "zh",
             "pinyin":          word.get("pinyin"),
             "definition":      word.get("definition"),
             "pos":             word.get("pos"),

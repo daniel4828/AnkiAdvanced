@@ -19,6 +19,7 @@ import anthropic
 import openai
 
 import database
+import languages
 
 logger = logging.getLogger(__name__)
 
@@ -143,17 +144,19 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
                    progress_key: str | None = None,
                    grammar_focus: str | None = None,
                    grammar_pct: int = 75,
-                   mode: str = "story") -> tuple[list[dict], str]:
+                   mode: str = "story",
+                   lang: str = "zh") -> tuple[list[dict], str]:
     """
-    Generate Mandarin sentences covering all target vocab words.
+    Generate sentences (in `lang`) covering all target vocab words.
 
     cards:         list of dicts with keys word_id, word_zh, pinyin, definition, pos
     topic:         optional theme/question/topic to guide the content
-    max_hsk:       maximum HSK level for non-target background vocabulary (1-6)
+    max_hsk:       maximum HSK level for non-target background vocabulary (1-6, zh only)
     model:         model ID to use for generation
-    grammar_focus: optional grammar pattern to encourage (e.g. "把字句")
+    grammar_focus: optional grammar pattern to encourage (e.g. "把字句", zh only)
     grammar_pct:   approximate percentage of sentences that should use the grammar (0-100)
     mode:          "story" | "qa" | "expository"
+    lang:          "zh" | "fr" — determines prompt language, level system, and matching rules
     Returns: (sentences, prompt_text)
       sentences: list of {word_ids: [int, ...], sentence_zh, sentence_en, sentence_de, sentence_fr}.
                  Multiple cards may share one sentence. Each card's word_id appears in exactly one sentence.
@@ -166,9 +169,25 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
     word_id_set = {c["word_id"] for c in cards}
 
     def _is_sentence(word_zh: str) -> bool:
+        if lang != "zh" and word_zh.endswith('.'):
+            return True
         return word_zh.endswith(('。', '！', '？', '!', '?'))
 
+    # French articles to strip from the target word before matching it inside a
+    # generated sentence — the AI may adapt/drop the article to fit the sentence.
+    _FR_ARTICLE_PREFIXES = ("le ", "la ", "les ", "un ", "une ", "des ", "du ", "de la ", "de l'", "l'")
+
     def _word_in_sentence(word_zh: str, sentence_zh: str) -> bool:
+        if lang != "zh":
+            w = word_zh.casefold()
+            s = sentence_zh.casefold()
+            for prefix in _FR_ARTICLE_PREFIXES:
+                if w.startswith(prefix):
+                    w = w[len(prefix):]
+                    break
+            # Word-boundary match so short words don't match inside longer ones
+            # (e.g. "art" inside "partir"); tolerate a plural suffix.
+            return re.search(rf"(?<!\w){re.escape(w)}(?:s|es)?(?!\w)", s) is not None
         if '...' in word_zh or '…' in word_zh:
             chars = [c for c in word_zh if c not in '.…']
             return all(c in sentence_zh for c in chars)
@@ -191,18 +210,21 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
     else:
         grammar_first = ""
 
-    if mode == "qa":
-        task_line = f"Answer the following question in Mandarin Chinese, one sentence at a time, to help an HSK 4-5 learner review vocabulary.\nQuestion: {topic or 'Describe something interesting.'}"
-        style_rule = "- The sentences together should form a coherent, informative answer to the question above\n- Do NOT use fictional characters or narrative story structure"
-    elif mode == "expository":
-        task_line = f"Write a short informative text in Mandarin Chinese about the following topic, to help an HSK 4-5 learner review vocabulary.\nTopic: {topic or 'an interesting subject'}"
-        style_rule = "- The sentences together should form a coherent, factual explanation of the topic above\n- Do NOT use fictional characters or narrative story structure"
-    else:
-        task_line = "Write a short Mandarin Chinese story to help an HSK 4-5 learner review vocabulary."
-        topic_clause = f"- The story should be set around this topic or theme: {topic}\n" if topic else ""
-        style_rule = f"{topic_clause}- The sentences must form a coherent narrative with the same recurring characters"
+    if lang == "zh":
+        # zh prompt kept EXACTLY as before the multi-language pipeline — no template
+        # sharing with non-zh so this path can never drift when other languages change.
+        if mode == "qa":
+            task_line = f"Answer the following question in Mandarin Chinese, one sentence at a time, to help an HSK 4-5 learner review vocabulary.\nQuestion: {topic or 'Describe something interesting.'}"
+            style_rule = "- The sentences together should form a coherent, informative answer to the question above\n- Do NOT use fictional characters or narrative story structure"
+        elif mode == "expository":
+            task_line = f"Write a short informative text in Mandarin Chinese about the following topic, to help an HSK 4-5 learner review vocabulary.\nTopic: {topic or 'an interesting subject'}"
+            style_rule = "- The sentences together should form a coherent, factual explanation of the topic above\n- Do NOT use fictional characters or narrative story structure"
+        else:
+            task_line = "Write a short Mandarin Chinese story to help an HSK 4-5 learner review vocabulary."
+            topic_clause = f"- The story should be set around this topic or theme: {topic}\n" if topic else ""
+            style_rule = f"{topic_clause}- The sentences must form a coherent narrative with the same recurring characters"
 
-    prompt = f"""{task_line}
+        prompt = f"""{task_line}
 
 {grammar_first}Target words (each must appear verbatim in at least one sentence):
 {word_list}
@@ -219,6 +241,42 @@ Rules:
 - NEVER use markdown formatting (**bold**, _italic_, etc.) anywhere in the output — write plain text only
 
 Return ONLY a numbered list of Chinese sentences, no explanation:
+1. ...
+2. ..."""
+    else:
+        cfg = languages.get_lang_config(lang)
+        lang_name = cfg["name_en"]
+        learner = cfg["learner_level"]
+
+        if mode == "qa":
+            task_line = f"Answer the following question in {lang_name}, one sentence at a time, to help a {learner} learner review vocabulary.\nQuestion: {topic or 'Describe something interesting.'}"
+            style_rule = "- The sentences together should form a coherent, informative answer to the question above\n- Do NOT use fictional characters or narrative story structure"
+        elif mode == "expository":
+            task_line = f"Write a short informative text in {lang_name} about the following topic, to help a {learner} learner review vocabulary.\nTopic: {topic or 'an interesting subject'}"
+            style_rule = "- The sentences together should form a coherent, factual explanation of the topic above\n- Do NOT use fictional characters or narrative story structure"
+        else:
+            task_line = f"Write a short {lang_name} story to help a {learner} learner review vocabulary."
+            topic_clause = f"- The story should be set around this topic or theme: {topic}\n" if topic else ""
+            style_rule = f"{topic_clause}- The sentences must form a coherent narrative with the same recurring characters"
+
+        prompt = f"""{task_line}
+
+{grammar_first}Target words (each must appear verbatim in at least one sentence):
+{word_list}
+
+Rules:
+- Each target word MUST appear verbatim in at least one sentence
+- Write the sentences in the same order as the target word list above
+- For items marked [SENTENCE]: use that exact text as the sentence, unchanged
+- Use natural {lang_name} punctuation
+- Use only simple {cfg["background_vocab"]} level vocabulary for non-target words; each sentence must contain exactly ONE target word from the list — do not use other target words from the list in that sentence
+- Keep each sentence short and simple (max {cfg["sentence_limit"]})
+{style_rule}
+- Each target word must appear in exactly the given form; you may adapt or drop its leading article (le/la/les/un/une) to fit the sentence
+- NEVER highlight, quote, or mark target words in any way — no "quotes", no 「brackets」, no （parentheses）, no bold, no underline; write them as plain text embedded naturally in the sentence
+- NEVER use markdown formatting (**bold**, _italic_, etc.) anywhere in the output — write plain text only
+
+Return ONLY a numbered list of {lang_name} sentences, no explanation:
 1. ...
 2. ..."""
 
@@ -282,10 +340,10 @@ Return ONLY a numbered list of Chinese sentences, no explanation:
             missing_ratio = len(missing_ids) / len(cards)
             last_partial = (parsed, missing_ids)
             if missing_ratio < 0.05:
-                _patch_missing(parsed, missing_ids, card_by_id)
+                _patch_missing(parsed, missing_ids, card_by_id, lang=lang)
                 _set_progress(progress_key, phase="translating",
                               msg="Translating sentences…", percent=88)
-                _fill_translations(parsed, progress_key=progress_key)
+                _fill_translations(parsed, progress_key=progress_key, lang=lang)
                 _set_progress(progress_key, phase="ai_done",
                               msg=f"✓ {len(parsed)} sentences (attempt {attempt + 1})", percent=93)
                 return parsed, prompt
@@ -299,7 +357,7 @@ Return ONLY a numbered list of Chinese sentences, no explanation:
                     len(parsed), len(cards), attempt + 1, time.time() - t_start)
         _set_progress(progress_key, phase="translating",
                       msg="Translating sentences…", percent=88)
-        _fill_translations(parsed, progress_key=progress_key)
+        _fill_translations(parsed, progress_key=progress_key, lang=lang)
         logger.info("generate_story: DONE — %.1fs total", time.time() - t_start)
         _set_progress(progress_key, phase="ai_done",
                       msg=f"✓ {len(parsed)} sentences (attempt {attempt + 1})", percent=93)
@@ -308,10 +366,10 @@ Return ONLY a numbered list of Chinese sentences, no explanation:
     if last_partial is not None:
         parsed, missing_ids = last_partial
         if len(missing_ids) / len(cards) < 0.03:
-            _patch_missing(parsed, missing_ids, card_by_id)
+            _patch_missing(parsed, missing_ids, card_by_id, lang=lang)
             _set_progress(progress_key, phase="translating",
                           msg="Translating sentences…", percent=88)
-            _fill_translations(parsed, progress_key=progress_key)
+            _fill_translations(parsed, progress_key=progress_key, lang=lang)
             _set_progress(progress_key, phase="ai_done",
                           msg=f"✓ {len(parsed)} sentences (patched)", percent=93)
             return parsed, prompt
@@ -325,13 +383,16 @@ Return ONLY a numbered list of Chinese sentences, no explanation:
 
 
 def _patch_missing(sentences: list[dict], missing_word_ids: list[int],
-                   card_by_id: dict[int, dict]) -> None:
+                   card_by_id: dict[int, dict], lang: str = "zh") -> None:
     """Append fallback sentences for words the AI failed to include."""
     for wid in missing_word_ids:
         card = card_by_id.get(wid)
         if not card:
             continue
-        fallback_zh = card.get("source_sentence") or f"我学了{card['word_zh']}这个词。"
+        if lang == "zh":
+            fallback_zh = card.get("source_sentence") or f"我学了{card['word_zh']}这个词。"
+        else:
+            fallback_zh = card.get("source_sentence") or f"J'ai appris le mot {card['word_zh']}."
         sentences.append({"word_ids": [wid], "sentence_zh": fallback_zh,
                           "sentence_en": "", "sentence_de": "", "sentence_fr": ""})
 
@@ -610,10 +671,12 @@ Return ONLY valid JSON, no explanation, no markdown:
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _fill_translations(sentences: list[dict], progress_key: str | None = None) -> None:
+def _fill_translations(sentences: list[dict], progress_key: str | None = None,
+                       lang: str = "zh") -> None:
     """Translate sentence_zh → sentence_de in-place using Google Translate."""
     try:
         import translator as _t
+        source = languages.get_lang_config(lang)["translator_source"]
         texts = [s.get("sentence_zh", "") for s in sentences]
         total = len(texts)
 
@@ -622,7 +685,7 @@ def _fill_translations(sentences: list[dict], progress_key: str | None = None) -
                           msg=f"Translating… 0/{total}", percent=88)
 
         t0 = time.time()
-        de_results = _t.translate_batch(texts, target="de")
+        de_results = _t.translate_batch(texts, target="de", source=source)
         logger.info("translate DE done in %.1fs (%d sentences)", time.time() - t0, total)
 
         if progress_key and total > 0:
@@ -645,19 +708,20 @@ def _fill_translations(sentences: list[dict], progress_key: str | None = None) -
             s.setdefault("sentence_fr", "")
 
 
-def _fallback_sentences(cards: list[dict]) -> list[dict]:
+def _fallback_sentences(cards: list[dict], lang: str = "zh") -> list[dict]:
     """Minimal sentences used when the AI response cannot be parsed."""
+    fallback = (lambda w: f"我学了{w}这个词。") if lang == "zh" else (lambda w: f"J'ai appris le mot {w}.")
     result = [
         {
             "word_ids": [c["word_id"]],
-            "sentence_zh": f"我学了{c['word_zh']}这个词。",
+            "sentence_zh": fallback(c["word_zh"]),
             "sentence_en": "",
             "sentence_de": "",
             "sentence_fr": "",
         }
         for c in cards
     ]
-    _fill_translations(result)
+    _fill_translations(result, lang=lang)
     return result
 
 

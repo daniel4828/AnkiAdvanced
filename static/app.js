@@ -65,6 +65,41 @@ let optDeckId    = null; // deck whose options modal is open
 const collapsed  = new Set(JSON.parse(localStorage.getItem('collapsedDecks') || '[]'));  // parent deck IDs that are collapsed
 let _retentionData = null;  // cached result from GET /api/retention
 let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
+let _deckLangById = {};        // deckId → 'zh'|'fr', rebuilt whenever decks load (flatten(decks))
+let _availableLangs = ['zh'];  // distinct langs in use, from GET /api/langs — tab bar shows only when > 1
+
+// The main-page language tab bar (issue #436) is the single source of truth for
+// "what language am I studying right now" on the home page: deck list, All-deck
+// aggregation, unfinished cards, and the stats charts all read this. Persisted
+// so it survives reloads; defaults to 'zh' so pure-Chinese users see no change.
+function activeLang() { return localStorage.getItem('activeLang') || 'zh'; }
+// Query-string fragment for the active tab's lang — empty when only one
+// language is in use, so pure-Chinese installs send no lang param at all
+// (byte-identical to pre-#436 requests). Use `?${_langQ()}` when the URL has
+// no query string yet, or `&${_langQ()}` when appending to an existing one
+// (both are safe no-ops — trailing '?'/'&' with nothing after them — when
+// _langQ() is empty, but callers still guard with `${_langQ() ? '&...' : ''}`
+// style where a stray separator would look odd).
+function _langQ() { return _availableLangs.length > 1 ? `lang=${activeLang()}` : ''; }
+// Convenience: '?lang=fr' / '&lang=fr' / '' depending on separator + whether a tab bar is active.
+function _langQP(sep) { const q = _langQ(); return q ? `${sep}${q}` : ''; }
+function setActiveLang(lang) {
+  if (lang === activeLang()) return;
+  localStorage.setItem('activeLang', lang);
+  invalidateHomeEvolution();
+  loadDecks();
+}
+
+// Resolve the language of the card currently being reviewed. Prefers the
+// card's own deck_id (set per-card in unfinished/mixed mode); falls back to
+// the review view's current deckId. Defaults to 'zh' when unknown (e.g. decks
+// not loaded yet), which keeps the existing Chinese-only affordances working.
+function currentCardLang() {
+  const id = (typeof card !== 'undefined' && card?.deck_id) ? card.deck_id
+    : (typeof deckId !== 'undefined' ? deckId : null);
+  if (id == null) return 'zh';
+  return _deckLangById[id] || 'zh';
+}
 
 // — Customizable review shortcuts —
 // Each action maps to one key. Defaults below are the active bindings.
@@ -841,7 +876,7 @@ function _startStoryProgressPoll(deckId, cat) {
   _stopStoryProgressPoll();
   _storyProgressPoll = setInterval(async () => {
     try {
-      const p = await fetch(`/api/story-progress/${deckId}/${cat}`).then(r => r.json());
+      const p = await fetch(`/api/story-progress/${deckId}/${cat}${_langQP('?')}`).then(r => r.json());
       if (!p || p.phase === 'idle') return;
       const subEl = document.getElementById('loading-sub');
       const bar   = document.getElementById('loading-progress-bar');
@@ -895,7 +930,7 @@ function _stopStoryProgressPoll() {
 // onProgress(done, total) called whenever progress updates.
 async function _preloadWithProgress(deckId, cat, onProgress) {
   let finished = false;
-  const preloadDone = fetch(`/api/preload-session/${deckId}/${cat}`, { method: 'POST' })
+  const preloadDone = fetch(`/api/preload-session/${deckId}/${cat}${_langQP('?')}`, { method: 'POST' })
     .then(() => { finished = true; })
     .catch(() => { finished = true; });
 
@@ -904,7 +939,7 @@ async function _preloadWithProgress(deckId, cat, onProgress) {
     await new Promise(r => setTimeout(r, 350));
     if (finished) break;
     try {
-      const p = await fetch(`/api/tts-progress/${deckId}/${cat}`).then(r => r.json());
+      const p = await fetch(`/api/tts-progress/${deckId}/${cat}${_langQP('?')}`).then(r => r.json());
       if (p.total > 0) onProgress(p.done, p.total);
       if (p.error) {
         const subEl = document.getElementById('loading-sub');
@@ -955,18 +990,44 @@ function showError(msg) {
 async function loadDecks() {
   setLoading('Loading decks…');
   try {
+    const [langs] = await Promise.all([
+      api('GET', '/api/langs').catch(() => ['zh']),
+    ]);
+    _availableLangs = langs && langs.length ? langs : ['zh'];
+    // Only scope requests to the active tab once there's more than one language
+    // in use — keeps a pure-Chinese install byte-identical to pre-#436 behavior.
+    const langParam = _availableLangs.length > 1 ? `&lang=${activeLang()}` : '';
     const [decks, retention] = await Promise.all([
-      api('GET', `/api/decks?unfinished_scope=${_unfinishedScope}`),
-      api('GET', '/api/retention?days=0').catch(() => null),
+      api('GET', `/api/decks?unfinished_scope=${_unfinishedScope}${langParam}`),
+      api('GET', `/api/retention?days=0${langParam}`).catch(() => null),
     ]);
     _cachedDecks = decks;
     _retentionData = retention;
+    _deckLangById = {};
+    for (const d of flatten(decks)) {
+      if (d.id != null) _deckLangById[d.id] = d.lang || 'zh';
+    }
     renderDecks(decks);
     showView('decks');
   } catch (e) {
     showError('Could not load decks: ' + e.message);
     showView('decks');
   }
+}
+
+// Tab bar shown above the deck list — only when more than one language is in
+// use (issue #436). Selecting a tab re-scopes the whole home page: deck tree,
+// All-deck aggregation, unfinished cards, and the stats charts.
+const _LANG_TAB_LABELS = { zh: '中文', fr: 'Français' };
+function _langTabsHtml() {
+  if (_availableLangs.length <= 1) return '';
+  const cur = activeLang();
+  const tabs = _availableLangs.map(l => {
+    const label = _LANG_TAB_LABELS[l] || l;
+    const active = l === cur ? ' lang-tab-active' : '';
+    return `<button class="lang-tab${active}" onclick="setActiveLang('${l}')">${label}</button>`;
+  }).join('');
+  return `<div class="lang-tabs">${tabs}</div>`;
 }
 
 function flatten(nodes, depth = 0) {
@@ -1258,7 +1319,7 @@ function renderDecks(decks) {
   }
 
   document.getElementById('view-decks').innerHTML =
-    navRow + filteredSection +
+    _langTabsHtml() + navRow + filteredSection +
     '<div id="home-calendar" class="hcal-card"></div>' +
     '<div id="home-evolution" class="hcal-card"></div>' + regularSection;
   if (typeof initHomeCalendar === 'function') initHomeCalendar();
@@ -1329,6 +1390,7 @@ function renderDeckRows(decks, depth, sortMode) {
         <span class="tree-toggle" onclick="toggleDeck(${deck.id})">${toggleIcon}</span>
         <span class="tree-name-wrap">
           <span class="tree-name" onclick="startReviewMixed(${deck.id},'${safeName}',${!!deck.no_story})" style="cursor:pointer">${deck.name}</span>
+          ${deck.lang === 'fr' ? `<span class="deck-lang-chip" title="French deck">FR</span>` : ''}
           ${!deck.no_story ? `<button class="deck-regen-btn" onclick="event.stopPropagation();regenerateStoryFromList(${deck.id})" title="Regenerate story">↺</button>` : ''}
         </span>
         ${deckCounts}
@@ -1499,8 +1561,15 @@ async function renameDeck(id, currentName) {
 async function createDeck() {
   const path = await showPrompt('New deck path (use :: to nest, e.g. Daily::03-19)');
   if (!path || !path.trim()) return;
+  let lang = await showPrompt('Language: zh (Chinese) or fr (French)', activeLang());
+  if (lang === null) return; // user cancelled
+  lang = lang.trim().toLowerCase() || 'zh';
+  if (lang !== 'zh' && lang !== 'fr') {
+    showError(`Unknown language "${lang}" — expected zh or fr`);
+    return;
+  }
   try {
-    await api('POST', `/api/decks?name=${encodeURIComponent(path.trim())}`);
+    await api('POST', `/api/decks?name=${encodeURIComponent(path.trim())}&lang=${encodeURIComponent(lang)}`);
     loadDecks();
   } catch (e) {
     showError('Create deck failed: ' + e.message);
@@ -2998,8 +3067,8 @@ async function startReview(id, cat, name, noStory = false, quick = false) {
       return;
     }
     const [{ count, has_story, estimated_tokens }, todayCounts] = await Promise.all([
-      api('GET', `/api/story/${deckId}/${category}/count`),
-      api('GET', `/api/today/${deckId}/${category}`),
+      api('GET', `/api/story/${deckId}/${category}/count${_langQP('?')}`),
+      api('GET', `/api/today/${deckId}/${category}${_langQP('?')}`),
     ]);
     const learning = todayCounts?.counts?.learning_future || 0;
     if (has_story || count === 0) {
@@ -3069,7 +3138,7 @@ function _ensureBgStoryPoller() {
       const ctx = _bgStories[key];
       let s = null;
       try {
-        s = await api('GET', `/api/story/${ctx.storyDeckId}/${ctx.storyCategory}?no_generate=true`);
+        s = await api('GET', `/api/story/${ctx.storyDeckId}/${ctx.storyCategory}?no_generate=true${_langQP('&')}`);
       } catch (_) { continue; }
       if (s && s.sentences) {            // ready
         delete _bgStories[key];
@@ -3101,10 +3170,10 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mo
   if (quickMode) {
     setLoading('Loading audio…', true);
     try {
-      const todayData = await api('GET', `/api/today/${deckId}/${category}`);
+      const todayData = await api('GET', `/api/today/${deckId}/${category}${_langQP('?')}`);
       if (!todayData.card) { showView('done'); return; }
       try {
-        await fetch(`/api/preload-session/${deckId}/${category}?quick=true`, { method: 'POST' });
+        await fetch(`/api/preload-session/${deckId}/${category}?quick=true${_langQP('&')}`, { method: 'POST' });
       } catch (_) {}
       showView('review');
       loadCard(todayData.card, todayData.counts);
@@ -3137,7 +3206,7 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mo
     const bgUrl = storyUrl + (storyUrl.includes('?') ? '&' : '?') + 'background=true';
     let todayData, storyData;
     try {
-      todayData = await api('GET', `/api/today/${deckId}/${category}`);
+      todayData = await api('GET', `/api/today/${deckId}/${category}${_langQP('?')}`);
       storyData = await _fetchStoryOrNewsRegen(storyDeckId, storyCategory, topic, maxHsk, model,
         grammarFocus, grammarPct, mode, chapterIds, articles, bgUrl);
     } catch (e) {
@@ -3206,6 +3275,9 @@ function _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chap
   if (grammarFocus && grammarPct !== 75)  p.set('grammar_pct', grammarPct);
   if (mode && mode !== 'story')           p.set('mode', mode);
   if (chapterIds && chapterIds.length)    p.set('chapter_ids', chapterIds.join(','));
+  // Active language tab (issue #436) — only sent once more than one language is
+  // in use, so a pure-Chinese install's requests stay byte-identical.
+  if (_langQ())                           p.set('lang', activeLang());
   const s = p.toString();
   return s ? '?' + s : '';
 }
@@ -3224,7 +3296,7 @@ async function startReviewMixed(id, name, noStory = false, quick = false) {
   _updateAvgTimeBadge();
   _updateReviewRRBadge(id);
   try {
-    const todayData = await api('GET', `/api/today-mixed/${id}`);
+    const todayData = await api('GET', `/api/today-mixed/${id}${_langQP('?')}`);
     if (!todayData.card) {
       rootDeckId = null;
       showView('done');
@@ -3238,7 +3310,7 @@ async function startReviewMixed(id, name, noStory = false, quick = false) {
     const total = (c.new || 0) + (c.learning || 0) + (c.review || 0);
     const learning = c.learning_future || 0;
     const firstCat = todayData.card.category;
-    const { has_story, estimated_tokens } = await api('GET', `/api/story/${id}/unified/count`);
+    const { has_story, estimated_tokens } = await api('GET', `/api/story/${id}/unified/count${_langQP('?')}`);
     if (has_story) {
       await _doStartReviewMixed(null, 2, null, null, 50, 'story');
     } else {
@@ -3259,7 +3331,7 @@ async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPc
     _startStoryProgressPoll(rootDeckId, 'unified');
   }
   try {
-    const todayData = await api('GET', `/api/today-mixed/${rootDeckId}`);
+    const todayData = await api('GET', `/api/today-mixed/${rootDeckId}${_langQP('?')}`);
     if (!todayData.card) {
       _stopFakeProgress(); _stopStoryProgressPoll();
       rootDeckId = null;
@@ -3284,7 +3356,7 @@ async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPc
         return;
       }
       _stopFakeProgress(); _stopStoryProgressPoll();
-      fetch(`/api/preload-session/${rootDeckId}/unified`, { method: 'POST' }).catch(() => {});
+      fetch(`/api/preload-session/${rootDeckId}/unified${_langQP('?')}`, { method: 'POST' }).catch(() => {});
     }
 
     if (!noStory) {
@@ -3299,7 +3371,7 @@ async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPc
       await new Promise(r => setTimeout(r, 300));
     } else {
       try {
-        await fetch(`/api/preload-session/${rootDeckId}/${category}`, { method: 'POST' });
+        await fetch(`/api/preload-session/${rootDeckId}/${category}${_langQP('?')}`, { method: 'POST' });
       } catch (_) {}
     }
     showView('review');
@@ -3346,7 +3418,7 @@ async function startReviewUnfinished() {
   _sessionRatedCount = 0;
   _updateAvgTimeBadge();
   try {
-    const counts = await api('GET', `/api/today-unfinished?scope=${_unfinishedScope}`);
+    const counts = await api('GET', `/api/today-unfinished?scope=${_unfinishedScope}${_langQP('&')}`);
     if (!counts.card) {
       showView('done');
       return;
@@ -3365,8 +3437,8 @@ async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, gram
   const noGen = _unfinishedStoryMode === 'existing';
   try {
     const [combos, todayData] = await Promise.all([
-      api('GET', `/api/today-unfinished-decks?scope=${_unfinishedScope}`),
-      api('GET', `/api/today-unfinished?scope=${_unfinishedScope}`),
+      api('GET', `/api/today-unfinished-decks?scope=${_unfinishedScope}${_langQP('&')}`),
+      api('GET', `/api/today-unfinished?scope=${_unfinishedScope}${_langQP('&')}`),
     ]);
     if (!todayData.card) {
       unfinishedMode = false;
@@ -3386,7 +3458,7 @@ async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, gram
         story = await api('GET', url);
       }
     } catch (_) {}
-    if (!noGen) fetch(`/api/preload-session/${firstDeckId}/unified`, { method: 'POST' }).catch(() => {});
+    if (!noGen) fetch(`/api/preload-session/${firstDeckId}/unified${_langQP('?')}`, { method: 'POST' }).catch(() => {});
     showView('review');
     loadCard(todayData.card, todayData.counts);
   } catch (e) {
@@ -3496,12 +3568,12 @@ function loadCard(c, counts) {
     };
     // In unfinished "existing story" mode, only fetch a cached story (never generate).
     const unfNoGen = unfinishedMode && _unfinishedStoryMode === 'existing';
-    const storyUrl = `/api/story/${storyDeckId}/unified` + (unfNoGen ? '?no_generate=true' : '');
+    const storyUrl = `/api/story/${storyDeckId}/unified` + (unfNoGen ? `?no_generate=true${_langQP('&')}` : (_langQ() ? `?${_langQ()}` : ''));
     fetch(storyUrl)
       .then(r => r.ok ? r.json() : null)
       .then(s => {
         if (card !== snap) return;
-        if (!unfNoGen) fetch(`/api/preload-session/${storyDeckId}/unified`, { method: 'POST' }).catch(() => {});
+        if (!unfNoGen) fetch(`/api/preload-session/${storyDeckId}/unified${_langQP('?')}`, { method: 'POST' }).catch(() => {});
         if (s?.sentences) {
           story    = s;
           sentence = story.sentences.find(s => s.word_ids?.includes(card.word_id)) || null;
@@ -3543,6 +3615,12 @@ function loadCard(c, counts) {
   const noteLabel = { vocabulary: 'Word', sentence: 'Sentence', chengyu: '成语', expression: '表达' }[card.note_type] || card.note_type;
   document.getElementById('card-type-badge').textContent = noteLabel;
 
+  // Story-mode badge (special modes only; plain story/qa/expository show nothing)
+  const modeBadge = document.getElementById('card-mode-badge');
+  const modeName = { kahneman: 'Kahneman', news: 'News', briefing: 'News flow', paste: 'Paste' }[_activeStoryMode()];
+  modeBadge.textContent = modeName || '';
+  modeBadge.style.display = modeName ? 'block' : 'none';
+
   // Deck path bar
   const deckPath = document.getElementById('card-deck-path');
   if (card.deck_path) {
@@ -3552,12 +3630,17 @@ function loadCard(c, counts) {
     deckPath.style.display = 'none';
   }
 
-  // HSK badge — always visible; "HSK -" when unknown (click to AI-fill)
+  // HSK badge — Chinese-only concept; hidden entirely for non-zh decks.
+  // Otherwise always visible; "HSK -" when unknown (click to AI-fill)
   const hskBadge = document.getElementById('card-hsk-badge');
-  hskBadge.textContent = card.hsk_level ? `HSK ${card.hsk_level}` : 'HSK -';
-  hskBadge.classList.toggle('hsk-unknown', !card.hsk_level);
-  hskBadge.disabled = false;
-  hskBadge.style.display = 'inline';
+  if (currentCardLang() !== 'zh') {
+    hskBadge.style.display = 'none';
+  } else {
+    hskBadge.textContent = card.hsk_level ? `HSK ${card.hsk_level}` : 'HSK -';
+    hskBadge.classList.toggle('hsk-unknown', !card.hsk_level);
+    hskBadge.disabled = false;
+    hskBadge.style.display = 'inline';
+  }
 
   // Reset pinyin (clear content + hide revealed state)
   const _pr = document.getElementById('pinyin-row');
@@ -3627,9 +3710,8 @@ function showFront() {
   const _vc = document.getElementById('vocab-content');
   if (_vc) _vc.style.display = 'none';
 
-  // Listening elements
-  document.getElementById('front-listen-icon').style.display = isListening ? 'flex' : 'none';
-  document.getElementById('back-meta-play-btn').style.display = 'none';
+  // Listening: play button lives in the card header (same spot as on the back)
+  document.getElementById('meta-play-btn').style.display = isListening ? 'flex' : 'none';
   _listenCount = 0;
   _updateListenCounters();
 
@@ -3775,12 +3857,13 @@ function revealAnswer() {
   if (_mascotBack) _mascotBack.style.display = 'none';
   const _vcBack = document.getElementById('vocab-content');
   if (_vcBack) _vcBack.style.display = 'block';
-  document.getElementById('back-meta-play-btn').style.display = isCreating ? 'none' : 'flex';
+  document.getElementById('meta-play-btn').style.display = isCreating ? 'none' : 'flex';
   _updateListenCounters();
 
-  // Pre-load pinyin in background (shown blurred until p is pressed)
+  // Pre-load pinyin in background (shown blurred until p is pressed).
+  // Pinyin is a Chinese-only concept — pypinyin garbles French text.
   const _pinyinText = sentence?.sentence_zh || card?.word_zh;
-  if (_pinyinText) _loadPinyinRow(_pinyinText);
+  if (_pinyinText && currentCardLang() === 'zh') _loadPinyinRow(_pinyinText);
 
   const isSentenceNote = card.note_type === 'sentence';
 
@@ -5001,7 +5084,13 @@ async function _buildWordBank() {
   if (targetCount < expectedCount) order.push({ type: 'target', word: targetParts ? targetParts[targetCount] : target });
 
   const MAX_TILES = parseInt(document.getElementById('word-bank-slider')?.value ?? _wordBankTileDefault(), 10);
-  const isWord = tok => /[一-鿿㐀-䶿]/.test(tok.char);
+  // Chinese: a "word" tile is any CJK character. French (space-separated tokens):
+  // a tile is any non-whitespace token — whitespace-only tokens (preserved as
+  // separate tokens by the tokenizer) must stay pre-placed, never become an
+  // empty chip.
+  const isWord = tok => currentCardLang() === 'zh'
+    ? /[一-鿿㐀-䶿]/.test(tok.char)
+    : tok.char.trim().length > 0;
   const allChars = order.filter(it => it.type === 'char');
   allChars.forEach(c => { if (!isWord(c)) c.type = 'pre'; });
   const wordTokens = allChars.filter(c => c.type === 'char');
@@ -5235,6 +5324,7 @@ async function rate(rating) {
     if (unfinishedMode) url += `&unfinished_mode=true&unfinished_scope=${_unfinishedScope}`;
     else if (rootDeckId) url += `&root_deck_id=${rootDeckId}`;
     else if (deckId) url += `&parent_deck_id=${deckId}`;
+    url += _langQP('&');
     const reviewedId = card.id;
     const result = await api('POST', url);
     _sessionReviewedCount++;
@@ -5242,7 +5332,7 @@ async function rate(rating) {
     if (result.transition?.changed) showStateChangeAnim(result.transition);
     if (typeof invalidateHomeCalendar === 'function') invalidateHomeCalendar();
     if (typeof invalidateHomeEvolution === 'function') invalidateHomeEvolution();
-    api('GET', '/api/retention?days=0').then(r => {
+    api('GET', `/api/retention?days=0${_langQP('&')}`).then(r => {
       _retentionData = r;
       _updateReviewRRBadge(deckId);
     }).catch(() => {});
@@ -5274,6 +5364,7 @@ async function requeueNewSentence() {
     if (unfinishedMode) url += `&unfinished_mode=true&unfinished_scope=${_unfinishedScope}`;
     else if (rootDeckId) url += `&root_deck_id=${rootDeckId}`;
     else if (deckId) url += `&parent_deck_id=${deckId}`;
+    url += _langQP('&');
     const result = await api('POST', url);
     if (!result.next_card) {
       rootDeckId = null;
@@ -5334,6 +5425,7 @@ async function _loadPinyinRow(text) {
 }
 
 async function togglePinyin() {
+  if (currentCardLang() !== 'zh') return; // no-op for non-Chinese decks
   const row = document.getElementById('pinyin-row');
   const text = sentence?.sentence_zh || card?.word_zh;
   if (!text) return;
@@ -5503,7 +5595,7 @@ async function _resolveStory(storyData, resolvedeckId, resolveCat, topic, maxHsk
   const choice = await _openStoryErrorModal(storyData);
   if (choice.action === 'skip') return null;
   if (choice.action === 'history') {
-    try { return await api('GET', `/api/story/${resolvedeckId}/${resolveCat}/history`); }
+    try { return await api('GET', `/api/story/${resolvedeckId}/${resolveCat}/history${_langQP('?')}`); }
     catch (_) { return null; }
   }
   // retry with new model — not counted toward the 2-attempt limit
@@ -5558,11 +5650,28 @@ function openStorySetup(sentenceCount, { isMixed = false, isUnfinished = false, 
   document.getElementById('setup-hsk-slider').value = 3;
   document.getElementById('setup-mode').value = 'story';
   updateHskLabel();
+  _applySetupLangRestrictions();
   updateSetupMode();
   document.getElementById('setup-modal-overlay').style.display = 'block';
   document.getElementById('setup-modal').style.display        = 'flex';
   document.getElementById('setup-topic').focus();
   return new Promise(resolve => { _setupResolve = resolve; });
+}
+
+// Story setup modal: kahneman/news/briefing/paste and grammar-focus are
+// Chinese-only server features (backend rejects those modes, and grammar
+// patterns like 把字句 don't apply to French) — hide them for non-zh decks.
+function _applySetupLangRestrictions() {
+  const lang = _deckLangById[deckId] || 'zh';
+  const modeSelect = document.getElementById('setup-mode');
+  const zhOnlyOptions = modeSelect.querySelectorAll('option.setup-mode-zh-only');
+  // hidden alone is ignored by iOS Safari for <option> — disabled greys it out there
+  zhOnlyOptions.forEach(opt => { opt.hidden = lang !== 'zh'; opt.disabled = lang !== 'zh'; });
+  if (lang !== 'zh' && zhOnlyOptions && [...zhOnlyOptions].some(o => o.value === modeSelect.value)) {
+    modeSelect.value = 'story';
+  }
+  const grammarLabel = document.getElementById('setup-grammar-label');
+  if (grammarLabel) grammarLabel.style.display = lang === 'zh' ? '' : 'none';
 }
 
 function togglePriceTable(e) {
@@ -5758,6 +5867,16 @@ let _currentReasoningIsNews = false;
 // Mode of the last story generation started from the setup modal ('' when the
 // session was resumed without it) — only used to pick the background-popup title.
 let _currentStoryMode = '';
+
+// Mode of the currently loaded story — reads the story's stored gen_params
+// (survives session resume, unlike _currentStoryMode).
+function _activeStoryMode() {
+  try {
+    const gp = story?.gen_params;
+    if (gp) return (typeof gp === 'string' ? JSON.parse(gp) : gp).mode || '';
+  } catch { /* malformed gen_params — fall through */ }
+  return _currentStoryMode || '';
+}
 
 function openReasoning() {
   if (!_currentReasoning && !_currentSourceUrl) return;
@@ -5961,7 +6080,7 @@ function updateStoryHighlight(idx) {
 }
 
 function _storyAudioUrl(idx) {
-  return `/api/tts-file?text=${encodeURIComponent(story.sentences[idx].sentence_zh)}`;
+  return `/api/tts-file?text=${encodeURIComponent(story.sentences[idx].sentence_zh)}&lang=${currentCardLang()}`;
 }
 
 function _playStoryAtIdx(idx) {
@@ -5994,7 +6113,7 @@ async function _startPlayback(startIdx) {
   btn.textContent = '⏳ Loading audio…';
   const storyDeckId = rootDeckId || deckId;
   try {
-    await api('POST', `/api/preload-session/${storyDeckId}/${category}`);
+    await api('POST', `/api/preload-session/${storyDeckId}/${category}${_langQP('?')}`);
   } catch (_) {}
 
   if (!_storyPlaying) return;
@@ -6123,11 +6242,11 @@ async function reviewCardAction(action) {
     if (action === 'leech') showStateChangeAnim({ to: 'suspended' });
     let nextData;
     if (unfinishedMode) {
-      nextData = await api('GET', `/api/today-unfinished?scope=${_unfinishedScope}`);
+      nextData = await api('GET', `/api/today-unfinished?scope=${_unfinishedScope}${_langQP('&')}`);
     } else if (rootDeckId) {
-      nextData = await api('GET', `/api/today-mixed/${rootDeckId}`);
+      nextData = await api('GET', `/api/today-mixed/${rootDeckId}${_langQP('?')}`);
     } else {
-      nextData = await api('GET', `/api/today/${deckId}/${category}`);
+      nextData = await api('GET', `/api/today/${deckId}/${category}${_langQP('?')}`);
     }
     if (!nextData.card) {
       rootDeckId = null;
@@ -6162,11 +6281,11 @@ async function editModalCardAction(action) {
     // Advance to next card
     let nextData;
     if (unfinishedMode) {
-      nextData = await api('GET', `/api/today-unfinished?scope=${_unfinishedScope}`);
+      nextData = await api('GET', `/api/today-unfinished?scope=${_unfinishedScope}${_langQP('&')}`);
     } else if (rootDeckId) {
-      nextData = await api('GET', `/api/today-mixed/${rootDeckId}`);
+      nextData = await api('GET', `/api/today-mixed/${rootDeckId}${_langQP('?')}`);
     } else {
-      nextData = await api('GET', `/api/today/${deckId}/${category}`);
+      nextData = await api('GET', `/api/today/${deckId}/${category}${_langQP('?')}`);
     }
     if (!nextData.card) {
       rootDeckId = null;
@@ -6259,7 +6378,7 @@ let _listenCount = 0;
 function _updateListenCounters() {
   const label = _listenCount > 0 ? `×${_listenCount}` : '';
   const show  = _listenCount > 0;
-  ['listen-counter', 'listen-counter-back'].forEach(id => {
+  ['listen-counter-meta'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     el.textContent = label;
@@ -6273,7 +6392,7 @@ function playSentence() {
   _listenCount++;
   _updateListenCounters();
   if (_currentAudio) { _currentAudio.onended = null; _currentAudio.pause(); _currentAudio = null; }
-  const audio = new Audio(`/api/tts-file?text=${encodeURIComponent(text)}`);
+  const audio = new Audio(`/api/tts-file?text=${encodeURIComponent(text)}&lang=${currentCardLang()}`);
   _currentAudio = audio;
   audio.play().catch(() => {});
 }
@@ -6284,7 +6403,7 @@ async function regenerateStory() {
   let learning = 0;
   try {
     if (deckId && category) {
-      const todayCounts = await api('GET', `/api/today/${deckId}/${category}`);
+      const todayCounts = await api('GET', `/api/today/${deckId}/${category}${_langQP('?')}`);
       learning = todayCounts?.counts?.learning_future || 0;
     }
   } catch (_) {}
@@ -6348,7 +6467,7 @@ async function regenerateStoryFromList(deckId) {
   _setupIsUnfinished = false;
   let sentenceCount = 0;
   try {
-    const data = await api('GET', `/api/story/${deckId}/unified/count`);
+    const data = await api('GET', `/api/story/${deckId}/unified/count${_langQP('?')}`);
     sentenceCount = data?.count ?? 0;
   } catch (_) {}
   document.getElementById('setup-count-label').textContent =
@@ -8584,7 +8703,8 @@ function initHomeEvolution() {
   if (_evoLoading) return;
   _evoLoading = true;
   el.innerHTML = '<div class="hcal-loading">Loading card evolution…</div>';
-  api('GET', '/api/card-evolution?days=365')
+  const langParam = _availableLangs.length > 1 ? `&lang=${activeLang()}` : '';
+  api('GET', `/api/card-evolution?days=365${langParam}`)
     .then(d => { _evoData = d; _evoLoading = false; _evoRender(); })
     .catch(err => {
       _evoLoading = false;

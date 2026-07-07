@@ -3,6 +3,7 @@ import logging
 import math
 import os
 import random
+import re
 import threading
 
 import jieba
@@ -54,17 +55,24 @@ def _attach_part(chapter: dict) -> dict:
 jieba.setLogLevel(logging.ERROR)
 
 
-def _add_tokens(sentences: list[dict]) -> list[dict]:
+def _add_tokens(sentences: list[dict], lang: str = "zh") -> list[dict]:
     """Ensure every sentence has tokens in [[text, word_id_or_null], ...] format.
 
     New stories already have AI-provided tokens stored in the DB.
-    Old stories without tokens fall back to jieba segmentation (word_id=null for all).
+    Old stories without tokens fall back to segmentation (word_id=null for all):
+    jieba for zh, whitespace-preserving split for other languages (so the
+    frontend can rejoin tokens back into the exact original string).
     """
     for s in sentences:
         if s.get("tokens"):
             continue
         zh = s.get("sentence_zh") or ""
-        s["tokens"] = [[tok, None] for tok in jieba.lcut(zh)] if zh else []
+        if not zh:
+            s["tokens"] = []
+        elif lang == "zh":
+            s["tokens"] = [[tok, None] for tok in jieba.lcut(zh)]
+        else:
+            s["tokens"] = [[tok, None] for tok in re.findall(r"\s+|\S+", zh)]
     return sentences
 
 logger = logging.getLogger(__name__)
@@ -88,11 +96,11 @@ def _log_story(story: dict) -> None:
     logger.debug("\n".join(lines))
 
 
-def _get_cards_for_story(deck_id: int, category: str) -> list:
+def _get_cards_for_story(deck_id: int, category: str, lang: str | None = None) -> list:
     if category == "unified":
-        cards = database.get_due_cards_unified(deck_id)
+        cards = database.get_due_cards_unified(deck_id, lang=lang)
     else:
-        ids = leaf_ids(deck_id, category)
+        ids = leaf_ids(deck_id, category, lang=lang)
         if not ids:
             return []
         # sibling_suppression=True: each word appears only once across all categories
@@ -120,12 +128,12 @@ CHUNK_SIZE = 70
 
 
 def _generate_story_sentences(cards: list, *, topic, max_hsk, model, progress_key,
-                               grammar_focus, grammar_pct, mode) -> tuple[list, str]:
+                               grammar_focus, grammar_pct, mode, lang: str = "zh") -> tuple[list, str]:
     """Generate story sentences, splitting into chunks of CHUNK_SIZE when cards > CHUNK_SIZE."""
     if len(cards) <= CHUNK_SIZE:
         return ai.generate_story(cards, topic=topic, max_hsk=max_hsk, model=model,
                                  progress_key=progress_key, grammar_focus=grammar_focus,
-                                 grammar_pct=grammar_pct, mode=mode)
+                                 grammar_pct=grammar_pct, mode=mode, lang=lang)
 
     chunks = [cards[i:i + CHUNK_SIZE] for i in range(0, len(cards), CHUNK_SIZE)]
     logger.info("story  CHUNKED %d cards → %d chunks of ≤%d", len(cards), len(chunks), CHUNK_SIZE)
@@ -138,7 +146,7 @@ def _generate_story_sentences(cards: list, *, topic, max_hsk, model, progress_ke
         chunk_sentences, chunk_prompt = ai.generate_story(
             chunk, topic=topic, max_hsk=max_hsk, model=model,
             progress_key=None,  # suppress per-chunk progress spam
-            grammar_focus=grammar_focus, grammar_pct=grammar_pct, mode=mode,
+            grammar_focus=grammar_focus, grammar_pct=grammar_pct, mode=mode, lang=lang,
         )
         all_sentences.extend(chunk_sentences)
         if idx == 0:
@@ -168,19 +176,26 @@ def _validated_model(model: str | None) -> str:
 
 def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
                         topic, max_hsk, model, grammar_focus, grammar_pct, mode,
-                        chapter_ids, articles=None, progress_key) -> dict | None:
+                        chapter_ids, articles=None, progress_key, lang: str | None = None) -> dict | None:
     """Generate a story for `cards`, persist it, and return the stored story
     (with sentences) — or an error dict on failure, or None if there is nothing
     to generate. Shared by the synchronous GET, the background thread, and regenerate.
+
+    `lang`: resolved target language (query param, or database.get_deck_lang(deck_id)
+    if the caller didn't resolve it already). Overrides get_deck_lang so the lang
+    tab the user is on wins even for an aggregate deck spanning multiple languages.
 
     Sets ai._story_progress[progress_key] to a "starting" state up front; the
     generate functions update it during the run. Callers own terminal cleanup.
     """
     if not cards:
         return None
+    lang = lang or database.get_deck_lang(deck_id)
     ai.fix_definition_commas(cards)
     ai._story_progress[progress_key] = {"phase": "starting", "msg": "Starting…", "percent": 5}
     try:
+        if lang != "zh" and mode in ("kahneman", "news", "paste", "briefing"):
+            raise ValueError(f"mode '{mode}' is only available for Chinese decks")
         if mode == "kahneman":
             parsed_chapter_ids = [int(x) for x in chapter_ids.split(",") if x.strip()] if chapter_ids else []
             sentences, prompt_text = _generate_kahneman_story_sentences(
@@ -205,15 +220,15 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
             sentences, prompt_text = _generate_story_sentences(
                 cards, topic=topic, max_hsk=max_hsk, model=model,
                 progress_key=progress_key, grammar_focus=grammar_focus,
-                grammar_pct=grammar_pct, mode=mode)
+                grammar_pct=grammar_pct, mode=mode, lang=lang)
         for i, s in enumerate(sentences):
             s["position"] = i
         gen_params = _gen_params_dict(
             topic=topic, max_hsk=max_hsk, model=model,
             grammar_focus=grammar_focus, grammar_pct=grammar_pct,
-            mode=mode, chapter_ids=chapter_ids, articles=articles)
-        database.create_story(today, category, deck_id, sentences, prompt_text, topic, gen_params)
-        story = database.get_active_story(today, category, deck_id)
+            mode=mode, chapter_ids=chapter_ids, articles=articles, lang=lang)
+        database.create_story(today, category, deck_id, sentences, prompt_text, topic, gen_params, lang=lang)
+        story = database.get_active_story(today, category, deck_id, lang=lang)
     except Exception as e:
         logger.error("story  generation error: %s", e)
         return {
@@ -223,7 +238,7 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
             "has_history": database.has_story_history(deck_id, category),
         }
     if story:
-        story["sentences"] = _add_tokens(database.get_story_sentences(story["id"]))
+        story["sentences"] = _add_tokens(database.get_story_sentences(story["id"]), lang=lang)
         logger.info("story  SAVED   deck=%d cat=%s sentences=%d",
                     deck_id, category, len(story["sentences"]))
         _log_story(story)
@@ -232,7 +247,8 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
 
 def _start_background_generation(deck_id: int, category: str, today: str, cards: list, *,
                                  topic, max_hsk, model, grammar_focus, grammar_pct,
-                                 mode, chapter_ids, articles=None, progress_key) -> None:
+                                 mode, chapter_ids, articles=None, progress_key,
+                                 lang: str | None = None) -> None:
     """Spawn a daemon thread that generates+stores a story, recording a terminal
     progress state (done/error) the frontend can poll. De-duped by progress_key."""
     def _run() -> None:
@@ -242,7 +258,8 @@ def _start_background_generation(deck_id: int, category: str, today: str, cards:
                 deck_id, category, today, cards,
                 topic=topic, max_hsk=max_hsk, model=model,
                 grammar_focus=grammar_focus, grammar_pct=grammar_pct,
-                mode=mode, chapter_ids=chapter_ids, articles=articles, progress_key=progress_key)
+                mode=mode, chapter_ids=chapter_ids, articles=articles, progress_key=progress_key,
+                lang=lang)
             if isinstance(result, dict) and result.get("error"):
                 ai._story_progress[progress_key] = {
                     "phase": "error", "percent": 0, "msg": result.get("reason", "Generation failed")}
@@ -263,7 +280,7 @@ def _start_background_generation(deck_id: int, category: str, today: str, cards:
 
 
 def _gen_params_dict(*, topic, max_hsk, model, grammar_focus, grammar_pct,
-                     mode, chapter_ids, articles=None) -> dict:
+                     mode, chapter_ids, articles=None, lang="zh") -> dict:
     """Bundle the story generation settings persisted on each story row, so the
     Again regeneration can reproduce the same style (see generate_sentence_for_word).
 
@@ -279,6 +296,7 @@ def _gen_params_dict(*, topic, max_hsk, model, grammar_focus, grammar_pct,
         "grammar_pct": grammar_pct,
         "chapter_ids": chapter_ids,
         "articles": articles,
+        "lang": lang,
     }
 
 
@@ -318,13 +336,14 @@ def generate_sentence_for_word(card: dict, gen_params: dict | None) -> dict | No
     gp = gen_params or {}
     mode = gp.get("mode") or "story"
     model = _validated_model(gp.get("model"))
+    lang = gp.get("lang") or database.get_deck_lang(card["deck_id"])
     try:
         if mode == "kahneman":
             chapter = _pick_kahneman_chapter(gp.get("chapter_ids"))
             if chapter is not None:
                 sentences = ai.generate_kahneman_sentences([card], chapter, model=model)
             else:  # book data missing → fall back to a plain sentence
-                sentences, _ = ai.generate_story([card], model=model)
+                sentences, _ = ai.generate_story([card], model=model, lang=lang)
         elif mode in ("news", "paste", "briefing"):
             # Briefing Again-regen reuses the single-sentence news path: one word
             # gets one fresh sentence from the same articles (no context chain).
@@ -333,18 +352,18 @@ def generate_sentence_for_word(card: dict, gen_params: dict | None) -> dict | No
                 sentences = ai.generate_news_sentences(
                     [card], articles, model=model, generic=(mode == "paste"))
             else:  # no articles context saved → fall back to a plain sentence
-                sentences, _ = ai.generate_story([card], model=model)
+                sentences, _ = ai.generate_story([card], model=model, lang=lang)
         else:
             sentences, _ = ai.generate_story(
                 [card], topic=gp.get("topic"), max_hsk=gp.get("max_hsk", 2),
                 model=model, grammar_focus=gp.get("grammar_focus"),
-                grammar_pct=gp.get("grammar_pct", 75), mode=mode)
+                grammar_pct=gp.get("grammar_pct", 75), mode=mode, lang=lang)
     except Exception as e:
         logger.warning("again-regen  generation error for word=%s: %s", card.get("word_zh"), e)
         return None
     if not sentences:
         return None
-    _add_tokens(sentences)
+    _add_tokens(sentences, lang=lang)
     return sentences[0]
 
 
@@ -356,7 +375,8 @@ def get_story(deck_id: int, category: str,
               mode: str = "story",
               chapter_ids: str | None = None,
               no_generate: bool = False,
-              background: bool = False):
+              background: bool = False,
+              lang: str | None = None):
     """Return today's story for (deck_id, category).
 
     background=False (default): generate synchronously and return the story
@@ -366,16 +386,26 @@ def get_story(deck_id: int, category: str,
       frontend polls this endpoint (and /api/story-progress) until the story is
       ready, and can navigate away meanwhile. A failed background run is sticky
       (returns the error dict) so polling stops instead of restarting forever.
+
+    `lang` (optional query param): the active language tab. Resolution rule is
+    `lang or database.get_deck_lang(deck_id)` everywhere — lets the frontend force
+    a language on an aggregate deck (e.g. "All") that spans several languages.
     """
     today = database.anki_today().isoformat()
-    progress_key = f"{deck_id}/{category}"
+    lang = lang or database.get_deck_lang(deck_id)
+    # progress_key includes lang: without it, a zh generation and a fr generation
+    # started back-to-back for the same aggregate deck+category would collide in
+    # the _generating set / ai._story_progress dict (only one runs at a time via
+    # _generating, so the *other* language's request would report "generating"
+    # for the wrong story, or see the wrong terminal state once it finishes).
+    progress_key = f"{deck_id}/{category}/{lang}"
 
     # Always return today's cached story — custom params only apply when generating a new one
-    story = database.get_active_story(today, category, deck_id)
+    story = database.get_active_story(today, category, deck_id, lang=lang)
     if story:
-        story["sentences"] = _add_tokens(database.get_story_sentences(story["id"]))
-        logger.info("story  CACHED  deck=%d cat=%s sentences=%d story_id=%d",
-                    deck_id, category, len(story["sentences"]), story["id"])
+        story["sentences"] = _add_tokens(database.get_story_sentences(story["id"]), lang=lang)
+        logger.info("story  CACHED  deck=%d cat=%s lang=%s sentences=%d story_id=%d",
+                    deck_id, category, lang, len(story["sentences"]), story["id"])
         _log_story(story)
         if background:
             ai._story_progress.pop(progress_key, None)  # clear any terminal state
@@ -412,30 +442,30 @@ def get_story(deck_id: int, category: str,
         with _gen_lock:
             if progress_key in _generating:
                 return {"generating": True}
-            cards = _get_cards_for_story(deck_id, category)
+            cards = _get_cards_for_story(deck_id, category, lang=lang)
             if not cards:
                 return None
             _generating.add(progress_key)
-        logger.info("story  BG-QUEUE deck=%d cat=%s due_cards=%d model=%s mode=%s",
-                    deck_id, category, len(cards), chosen_model, mode)
+        logger.info("story  BG-QUEUE deck=%d cat=%s lang=%s due_cards=%d model=%s mode=%s",
+                    deck_id, category, lang, len(cards), chosen_model, mode)
         _start_background_generation(
             deck_id, category, today, cards,
             topic=topic, max_hsk=max_hsk, model=chosen_model,
             grammar_focus=grammar_focus, grammar_pct=grammar_pct,
-            mode=mode, chapter_ids=chapter_ids, progress_key=progress_key)
+            mode=mode, chapter_ids=chapter_ids, progress_key=progress_key, lang=lang)
         return {"generating": True}
 
     # ── Synchronous mode (default): generate now and return the story ─────────
-    cards = _get_cards_for_story(deck_id, category)
-    logger.info("story  GENERATE deck=%d cat=%s due_cards=%d topic=%r max_hsk=%d model=%s mode=%s",
-                deck_id, category, len(cards), topic, max_hsk, chosen_model, mode)
+    cards = _get_cards_for_story(deck_id, category, lang=lang)
+    logger.info("story  GENERATE deck=%d cat=%s lang=%s due_cards=%d topic=%r max_hsk=%d model=%s mode=%s",
+                deck_id, category, lang, len(cards), topic, max_hsk, chosen_model, mode)
     if not cards:
         return None
     result = _generate_and_store(
         deck_id, category, today, cards,
         topic=topic, max_hsk=max_hsk, model=chosen_model,
         grammar_focus=grammar_focus, grammar_pct=grammar_pct,
-        mode=mode, chapter_ids=chapter_ids, progress_key=progress_key)
+        mode=mode, chapter_ids=chapter_ids, progress_key=progress_key, lang=lang)
     ai._story_progress.pop(progress_key, None)
     return result
 
@@ -447,7 +477,8 @@ def regenerate_story(deck_id: int, category: str,
                      grammar_focus: str | None = None, grammar_pct: int = 75,
                      mode: str = "story",
                      chapter_ids: str | None = None,
-                     body: dict | None = None):
+                     body: dict | None = None,
+                     lang: str | None = None):
     """Regenerate today's story. body (optional JSON): {"articles": [{"url", "title", "text"}]}
     — pasted texts for mode="paste" (too long to fit in a query string).
     mode="news" ignores pasted articles and auto-fetches today's news (issue #387);
@@ -456,28 +487,30 @@ def regenerate_story(deck_id: int, category: str,
         return None
     chosen_model = _validated_model(model)
     today = database.anki_today().isoformat()
-    progress_key = f"{deck_id}/{category}"
+    lang = lang or database.get_deck_lang(deck_id)
+    progress_key = f"{deck_id}/{category}/{lang}"
     articles = (body or {}).get("articles") or []
-    cards = _get_cards_for_story(deck_id, category)
-    logger.info("regen  deck=%d cat=%s due_cards=%d topic=%r max_hsk=%d model=%s mode=%s articles=%d",
-                deck_id, category, len(cards), topic, max_hsk, chosen_model, mode, len(articles))
+    cards = _get_cards_for_story(deck_id, category, lang=lang)
+    logger.info("regen  deck=%d cat=%s lang=%s due_cards=%d topic=%r max_hsk=%d model=%s mode=%s articles=%d",
+                deck_id, category, lang, len(cards), topic, max_hsk, chosen_model, mode, len(articles))
     if not cards:
         return None
     result = _generate_and_store(
         deck_id, category, today, cards,
         topic=topic, max_hsk=max_hsk, model=chosen_model,
         grammar_focus=grammar_focus, grammar_pct=grammar_pct,
-        mode=mode, chapter_ids=chapter_ids, articles=articles, progress_key=progress_key)
+        mode=mode, chapter_ids=chapter_ids, articles=articles, progress_key=progress_key, lang=lang)
     ai._story_progress.pop(progress_key, None)
     return result
 
 
 @router.get("/api/story/{deck_id}/{category}/history")
-def get_history_story(deck_id: int, category: str):
+def get_history_story(deck_id: int, category: str, lang: str | None = None):
     """Return the most recent story for this deck+category, regardless of date."""
-    story = database.get_latest_story(deck_id, category)
+    lang = lang or database.get_deck_lang(deck_id)
+    story = database.get_latest_story(deck_id, category, lang=lang)
     if story:
-        story["sentences"] = _add_tokens(database.get_story_sentences(story["id"]))
+        story["sentences"] = _add_tokens(database.get_story_sentences(story["id"]), lang=lang)
     return story
 
 
@@ -491,7 +524,10 @@ def sentence_for_word(word_id: int):
     sentence = database.get_latest_sentence_for_word(word_id)
     if sentence is None:
         return {"sentence": None}
-    _add_tokens([sentence])
+    # No deck_id in this endpoint's path — read lang directly off the entry row.
+    word = database.get_word(word_id)
+    lang = (word or {}).get("lang") or "zh"
+    _add_tokens([sentence], lang=lang)
     return {"sentence": sentence}
 
 
@@ -664,11 +700,12 @@ def news_status():
 
 
 @router.get("/api/story/{deck_id}/{category}/count")
-def story_count(deck_id: int, category: str):
+def story_count(deck_id: int, category: str, lang: str | None = None):
     """Return sentence count, whether a cached story exists today, and token estimate."""
     today = database.anki_today().isoformat()
-    has_story = database.get_active_story(today, category, deck_id) is not None
-    cards = _get_cards_for_story(deck_id, category)
+    lang = lang or database.get_deck_lang(deck_id)
+    has_story = database.get_active_story(today, category, deck_id, lang=lang) is not None
+    cards = _get_cards_for_story(deck_id, category, lang=lang)
     return {
         "count": len(cards),
         "has_story": has_story,
@@ -677,18 +714,18 @@ def story_count(deck_id: int, category: str):
 
 
 @router.get("/api/tts-file")
-async def tts_file(text: str):
+async def tts_file(text: str, lang: str = "zh"):
     """Return the cached mp3 for text (generating it if needed). Used by the browser Audio API."""
-    path = await tts.get_cached_path(text)
+    path = await tts.get_cached_path(text, lang=lang)
     return FileResponse(path, media_type="audio/mpeg")
 
 
 # 以下四个端点（speak/speak-multi/speak-status/speak-stop）通过 afplay/say 在服务器端播放音频，
 # 仅本地 macOS 使用，服务器部署不依赖此端点——前端已全部改为浏览器端播放（/api/tts-file + <audio>）。
 @router.post("/api/speak")
-def speak(text: str):
+def speak(text: str, lang: str = "zh"):
     try:
-        tts.speak_sync(text)
+        tts.speak_sync(text, lang=lang)
     except Exception:
         pass
     return {"ok": True}
@@ -697,7 +734,8 @@ def speak(text: str):
 @router.post("/api/speak-multi")
 def speak_multi(body: dict):
     try:
-        tts.speak_multi(body.get("texts", []), start_idx=body.get("start_idx", 0))
+        tts.speak_multi(body.get("texts", []), start_idx=body.get("start_idx", 0),
+                        lang=body.get("lang", "zh"))
     except Exception:
         pass
     return {"ok": True}
@@ -715,35 +753,37 @@ def speak_stop():
 
 
 @router.post("/api/preload")
-def preload(text: str):
+def preload(text: str, body: dict | None = None):
+    lang = (body or {}).get("lang", "zh")
     try:
-        tts.preload(text)
+        tts.preload(text, lang=lang)
     except Exception:
         pass
     return {"ok": True}
 
 
 @router.post("/api/preload-session/{deck_id}/{category}")
-async def preload_session(deck_id: int, category: str, quick: bool = False):
-    progress_key = f"{deck_id}/{category}"
+async def preload_session(deck_id: int, category: str, quick: bool = False, lang: str | None = None):
+    lang = lang or database.get_deck_lang(deck_id)
+    progress_key = f"{deck_id}/{category}/{lang}"
     if quick:
-        ids = leaf_ids(deck_id, category) or [deck_id]
+        ids = leaf_ids(deck_id, category, lang=lang) or [deck_id]
         cards = database.get_due_cards_multi(ids, category) if len(ids) > 1 else database.get_due_cards(ids[0], category)
         texts = [c["word_zh"] for c in cards if c.get("word_zh")]
         logger.info("tts  quick preloading %d word audio files", len(texts))
         try:
-            await tts.preload_all_async(texts, progress_key=progress_key)
+            await tts.preload_all_async(texts, progress_key=progress_key, lang=lang)
         except Exception as e:
             logger.warning("tts  quick preload error: %s", e)
     else:
         today = database.anki_today().isoformat()
-        story = database.get_active_story(today, category, deck_id)
+        story = database.get_active_story(today, category, deck_id, lang=lang)
         if story:
-            sentences = _add_tokens(database.get_story_sentences(story["id"]))
+            sentences = _add_tokens(database.get_story_sentences(story["id"]), lang=lang)
             texts = [s["sentence_zh"] for s in sentences if s.get("sentence_zh")]
             logger.info("tts  preloading %d sentences", len(texts))
             try:
-                await tts.preload_all_async(texts, progress_key=progress_key)
+                await tts.preload_all_async(texts, progress_key=progress_key, lang=lang)
                 logger.info("tts  preload done")
             except Exception as e:
                 logger.warning("tts  preload error: %s", e)
@@ -752,12 +792,14 @@ async def preload_session(deck_id: int, category: str, quick: bool = False):
 
 
 @router.get("/api/tts-progress/{deck_id}/{category}")
-async def tts_progress(deck_id: int, category: str):
-    key = f"{deck_id}/{category}"
+async def tts_progress(deck_id: int, category: str, lang: str | None = None):
+    lang = lang or database.get_deck_lang(deck_id)
+    key = f"{deck_id}/{category}/{lang}"
     return tts._preload_progress.get(key, {"done": 0, "total": 0})
 
 
 @router.get("/api/story-progress/{deck_id}/{category}")
-def story_progress_endpoint(deck_id: int, category: str):
-    key = f"{deck_id}/{category}"
+def story_progress_endpoint(deck_id: int, category: str, lang: str | None = None):
+    lang = lang or database.get_deck_lang(deck_id)
+    key = f"{deck_id}/{category}/{lang}"
     return ai._story_progress.get(key, {"phase": "idle", "msg": "", "percent": 0})

@@ -8,12 +8,15 @@ from .core import get_db, anki_today
 # Stats
 # ---------------------------------------------------------------------------
 
-def get_stats(deck_id: int | None = None) -> dict:
+def get_stats(deck_id: int | None = None, lang: str | None = None) -> dict:
     today = anki_today().isoformat()
     conn = get_db()
 
     deck_filter = "AND c.deck_id = ?" if deck_id else ""
     params_deck = [deck_id] if deck_id else []
+    if lang is not None:
+        deck_filter += " AND c.deck_id IN (SELECT id FROM decks WHERE lang = ?)"
+        params_deck = params_deck + [lang]
 
     # Total words: count distinct words that have at least one card in this deck
     if deck_id:
@@ -21,6 +24,8 @@ def get_stats(deck_id: int | None = None) -> dict:
             "SELECT COUNT(DISTINCT c.word_id) FROM cards c WHERE c.deck_id = ?",
             [deck_id],
         ).fetchone()[0]
+    elif lang is not None:
+        total_words = conn.execute("SELECT COUNT(*) FROM entries WHERE lang = ?", [lang]).fetchone()[0]
     else:
         total_words = conn.execute("SELECT COUNT(*) FROM entries").fetchone()[0]
 
@@ -126,7 +131,7 @@ def get_api_costs() -> dict:
     return {"calls": calls, "total_cost": round(total_cost, 6)}
 
 
-def get_retention_bulk(days: int = 30) -> dict:
+def get_retention_bulk(days: int = 30, lang: str | None = None) -> dict:
     """Return retention rate data for all decks, grouped by leaf deck_id.
 
     Returns:
@@ -147,8 +152,10 @@ def get_retention_bulk(days: int = 30) -> dict:
     conn = get_db()
     since = (anki_today() - _dt.timedelta(days=days)).isoformat()
 
+    lang_clause = " AND d.lang = ?" if lang is not None else ""
+    params = [since] + ([lang] if lang is not None else [])
     rows = conn.execute(
-        """SELECT c.deck_id, d.category,
+        f"""SELECT c.deck_id, d.category,
                   COUNT(*) AS total,
                   SUM(CASE WHEN rl.rating > 1 THEN 1 ELSE 0 END) AS correct
            FROM review_log rl
@@ -158,8 +165,9 @@ def get_retention_bulk(days: int = 30) -> dict:
            WHERE date(datetime(rl.reviewed_at, 'localtime')) >= ?
              AND rl.state = 'review'
              AND (rl.last_interval IS NULL OR rl.last_interval >= p.learned_interval)
+             {lang_clause}
            GROUP BY c.deck_id""",
-        [since],
+        params,
     ).fetchall()
     conn.close()
 
@@ -338,7 +346,7 @@ def _next_state(state: str, step: int, rating: int,
     return (state, step)
 
 
-def get_card_evolution(days: int = 365, deck_id: int | None = None) -> dict:
+def get_card_evolution(days: int = 365, deck_id: int | None = None, lang: str | None = None) -> dict:
     """Per-day card-state counts over time, reconstructed from review_log.
 
     Most legacy review rows have NULL state, so the history is rebuilt by
@@ -365,6 +373,9 @@ def get_card_evolution(days: int = 365, deck_id: int | None = None) -> dict:
 
     deck_filter = "AND c.deck_id = ?" if deck_id else ""
     params = [deck_id] if deck_id else []
+    if lang is not None:
+        deck_filter += " AND c.deck_id IN (SELECT id FROM decks WHERE lang = ?)"
+        params.append(lang)
     day_of = "date(datetime({col}, 'localtime', '-4 hours'))"
 
     cards = conn.execute(
