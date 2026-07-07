@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daniel — Persönliche Seite</title>
+    <meta name="description" content="Persönliche Homepage von Daniel">
+    <link rel="stylesheet" href="style.css">
+    <!-- Favicon：一个内联 emoji，之后可以换成自己的图标文件 -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏔️</text></svg>">
+</head>
+<body>
+
+    <!-- ===== 顶部导航 ===== -->
+    <header class="site-header">
+        <nav class="nav container">
+            <a href="/" class="nav-logo">Daniel</a>
+            <ul class="nav-links">
+                <li><a href="#about">Über mich</a></li>
+                <li><a href="#projects">Projekte</a></li>
+                <li><a href="#contact">Kontakt</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+
+        <!-- ===== Hero：访客看到的第一屏 ===== -->
+        <section class="hero container">
+            <h1>Hallo, ich bin Daniel.</h1>
+            <p class="hero-subtitle">
+                <!-- 在这里用一两句话介绍自己：你是谁、你在做什么 -->
+                Ich lerne Chinesisch und Französisch und baue Software, die mir dabei hilft.
+            </p>
+        </section>
+
+        <!-- ===== 关于我 ===== -->
+        <section id="about" class="section container">
+            <h2>Über mich</h2>
+            <p>
+                <!-- 占位内容——替换成你自己的介绍 -->
+                Hier kannst du ein paar Absätze über dich schreiben: dein Hintergrund,
+                deine Interessen, was dich antreibt.
+            </p>
+        </section>
+
+        <!-- ===== 项目 ===== -->
+        <section id="projects" class="section container">
+            <h2>Projekte</h2>
+            <div class="card-grid">
+                <!-- 每个项目一张卡片；复制 <article> 块即可添加新项目 -->
+                <article class="card">
+                    <h3>AnkiAdvanced</h3>
+                    <p>Ein KI-gestütztes Spaced-Repetition-System für Chinesisch und Französisch —
+                       jeden Tag eine Geschichte aus den fälligen Vokabeln.</p>
+                    <a href="https://powerdaniel3000.duckdns.org" class="card-link">Zur App →</a>
+                </article>
+                <article class="card">
+                    <h3>Nächstes Projekt</h3>
+                    <p>Platzhalter — ersetze diese Karte durch dein nächstes Projekt.</p>
+                </article>
+            </div>
+        </section>
+
+        <!-- ===== 联系方式 ===== -->
+        <section id="contact" class="section container">
+            <h2>Kontakt</h2>
+            <p>
+                <!-- 想公开哪个联系方式就写哪个；不想公开就删掉整个 section -->
+                E-Mail: <a href="mailto:deine-adresse@example.com">deine-adresse@example.com</a>
+            </p>
+        </section>
+
+    </main>
+
+    <footer class="site-footer">
+        <div class="container">
+            <p>© <span id="year">2026</span> Daniel · Gebaut ohne Framework, ohne Build-Schritt.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

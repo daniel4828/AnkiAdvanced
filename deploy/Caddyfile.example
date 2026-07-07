@@ -9,3 +9,11 @@ your-domain.example.com {
 		output file /var/log/caddy/ankiadvanced.log
 	}
 }
+
+# 个人主页——同一台服务器、同一个 IP，用子域名区分站点。
+# DuckDNS 通配符解析让 *.your-domain.duckdns.org 自动指向同一 IP，无需注册。
+# 静态文件由 Caddy 直接提供（无 Basic Auth，公开访问），证书同样自动申请。
+home.your-domain.example.com {
+	root * /home/anki/AnkiAdvanced/homepage
+	file_server
+}

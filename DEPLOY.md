@@ -169,6 +169,26 @@ sudo systemctl enable caddy
 确认域名的 DNS A 记录已指向服务器 IP。Caddy 会自动申请 Let's Encrypt 证书，
 首次访问 `https://your-domain.example.com` 时可能需要等待几十秒完成证书签发。
 
+### 可选：同一台服务器托管个人主页（子域名）
+
+DuckDNS 支持通配符解析——`*.你的域名.duckdns.org` 全部自动指向同一个 IP，
+不需要注册新域名。仓库 `homepage/` 目录里的静态主页这样上线：
+
+```caddyfile
+# 追加到 /etc/caddy/Caddyfile（完整示例见 deploy/Caddyfile.example）
+home.your-domain.duckdns.org {
+	root * /home/anki/AnkiAdvanced/homepage
+	file_server
+}
+```
+
+```bash
+sudo systemctl reload caddy
+```
+
+主页不经过 FastAPI，因此**没有 Basic Auth，公开可见**。之后修改主页走正常
+PR 流程即可——自动部署会连同主页一起拉取更新，详见 `homepage/README.md`。
+
 ---
 
 ## 7. 配置自动部署（cron + deploy.sh）
