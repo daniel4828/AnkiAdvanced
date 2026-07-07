@@ -17,6 +17,7 @@ def default_preset() -> dict:
         "relearning_steps": "10",
         "minimum_interval": 1,
         "learned_interval": 4,
+        "enable_probation": 1,
         "insertion_order": "sequential",
         "bury_siblings": 1,
         "randomize_story_order": 0,
@@ -210,13 +211,15 @@ def insert_preset(preset: dict) -> int:
     preset.setdefault("learning_hard_1d", 1)
     preset.setdefault("learning_hard_days", 1)
     preset.setdefault("learned_interval", 4)
+    preset.setdefault("enable_probation", 1)
     preset.setdefault("reading_enabled", 0)
     conn = get_db()
     cur = conn.execute(
         """INSERT INTO deck_presets
            (name, new_per_day, reviews_per_day,
             learning_steps, graduating_interval, easy_interval,
-            relearning_steps, minimum_interval, learned_interval, insertion_order,
+            relearning_steps, minimum_interval, learned_interval,
+            enable_probation, insertion_order,
             bury_siblings, randomize_story_order, leech_threshold, learning_leech_threshold, leech_action,
             desired_retention, maximum_interval, fsrs_weights, enable_fsrs, learning_hard_1d, learning_hard_days,
             new_gather_order, new_sort_order, new_review_order,
@@ -226,7 +229,8 @@ def insert_preset(preset: dict) -> int:
             reading_enabled)
            VALUES (:name, :new_per_day, :reviews_per_day,
                    :learning_steps, :graduating_interval, :easy_interval,
-                   :relearning_steps, :minimum_interval, :learned_interval, :insertion_order,
+                   :relearning_steps, :minimum_interval, :learned_interval,
+                   :enable_probation, :insertion_order,
                    :bury_siblings, :randomize_story_order, :leech_threshold, :learning_leech_threshold, :leech_action,
                    :desired_retention, :maximum_interval, :fsrs_weights, :enable_fsrs, :learning_hard_1d, :learning_hard_days,
                    :new_gather_order, :new_sort_order, :new_review_order,
@@ -246,7 +250,8 @@ def update_preset(preset_id: int, fields: dict) -> None:
     allowed = {
         "name", "new_per_day", "reviews_per_day",
         "learning_steps", "graduating_interval", "easy_interval",
-        "relearning_steps", "minimum_interval", "learned_interval", "insertion_order",
+        "relearning_steps", "minimum_interval", "learned_interval",
+        "enable_probation", "insertion_order",
         "bury_siblings", "randomize_story_order", "leech_threshold", "learning_leech_threshold", "leech_action",
         "desired_retention", "maximum_interval", "fsrs_weights", "enable_fsrs", "learning_hard_1d", "learning_hard_days",
         "new_gather_order", "new_sort_order", "new_review_order",

@@ -477,6 +477,7 @@ decks → stories → story_sentences → entries（外键）
 关键设计决策（juécè - design decisions）：
 - `cards.due` 是单一TEXT字段：学习/重新学习状态为ISO日期时间，新建/复习状态为ISO日期
 - `cards.state`：`new`（新建）| `learning`（学习中）| `review`（复习）| `relearn`（重新学习）| `suspended`（暂停）
+- `cards.probation`（0/1）：毕业考核标志——learning/relearn 卡走完步骤后置 1，扛过 ≥ learned_interval 天的间隔才转为 `review`（详见"毕业考核"一节）
 - `cards.step_index` 追踪（zhuīzōng - track）学习/重新学习步骤的当前位置
 - `cards.lapses` 统计复习失败次数（用于检测难词）
 - `stories` 没有唯一约束（yuēshù - constraint）—— 同一（日期、类别、牌组）可有多条记录；最新的 `generated_at` 为当前活跃故事；永不自动删除
@@ -486,15 +487,27 @@ decks → stories → story_sentences → entries（外键）
 
 ### 状态（zhuàngtài - states）
 - `new`（新建）→ `learning`（学习中）（首次复习）
-- `learning`（学习中）→ `review`（复习）（所有步骤通过后毕业）
-- `review`（复习）→ `relearn`（重新学习）（评为Again = 遗忘）
-- `relearn`（重新学习）→ `review`（复习）（重新学习步骤完成）
+- `learning`（学习中）→ 考核（kǎohé - probation，见下）→ `review`（复习）
+- `review`（复习）→ `relearn`（重新学习）（评为Again = 遗忘，计 1 次 lapse）
+- `relearn`（重新学习）→ 考核 → `review`（复习）
 
 ### 学习步骤（默认：1分钟、10分钟）
 - **Again（再来一次）** → step_index=0，due=现在+steps[0]分钟
 - **Hard（困难）** → step_index不变；step 0时延迟（yánchí - delay）= step[0]+step[1]的平均值，否则为当前步骤
-- **Good（良好）** → 推进步骤；若为最后一步 → 毕业（state=review，interval=graduating_interval）
-- **Easy（简单）** → 立即毕业（interval=easy_interval）
+- **Good（良好）** → 推进步骤；若为最后一步 → 毕业（进入考核，见下）
+- **Easy（简单）** → 立即毕业（进入考核）
+
+### 毕业考核（kǎohé - graduation probation，议题 #415，2026-07-07）
+**核心规则：卡片必须扛过一次 ≥ `learned_interval` 天（预设默认 4）的间隔，才真正成为 `review` 卡。** 系统中不存在"年轻 review 卡"——卡片要么在学（learning/relearn，含考核），要么是成熟 review 卡。
+
+- 学习/重学步骤全部通过后，卡片**不**直接变 `review`：state 保持 `learning`/`relearn`，`cards.probation=1`，拿到一个天级间隔（FSRS 由 stability 计算，SM-2 用 graduating/easy_interval）
+- 考核中复习（`srs._handle_probation`）：
+  - **Again** → **永不计 lapse、不做难词检测**（卡片从未真正学会过）；间隔缩水，probation=0，回到 step 0 重走步骤。再次毕业时保留 FSRS 记忆状态（stability/difficulty 不重置）
+  - **Hard/Good/Easy** → 扛过的间隔 ≥ `learned_interval` → 真毕业（state=`review`，probation=0）；否则间隔正常增长、留在考核继续熬
+- lapse 只在成熟 `review` 卡上按 Again 时才 +1（难词/leech 检测同样只作用于此）
+- 预设开关 `enable_probation`（默认开）：关掉 = 经典 Anki 行为（步骤走完立即 `review`）。曾有过的 `probation_again_lapses` 子开关已移除——考核期 Again 永不计 lapse，无可配置项（deck_presets 表里可能残留死列，无代码读取）
+- 一次性迁移（database/core.py，随 `probation` 列首次出现执行）：把历史遗留的"年轻 review 卡"（state=review 且 interval < learned_interval）降级为 relearn+probation=1
+- 按钮预览 `preview_intervals` 对考核卡有专门分支：Again 显示第一步分钟数，Hard/Good/Easy 显示天级间隔。注意：预览是确定性的（无 fuzz），提交时 `_fuzz_interval` 会加 ±随机天数，所以按钮数字和落库间隔可能差 1–2 天——这是防止卡片扎堆的设计，不是 bug
 
 ### 复习阶段（jiēduàn - phase）
 - **Again（再来一次）** → 遗忘：ease-=0.20，interval×0.5，state=relearn

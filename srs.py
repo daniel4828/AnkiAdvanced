@@ -110,6 +110,26 @@ def preview_intervals(card: dict) -> dict:
     r_steps    = _parse_steps(card.get("relearning_steps", "10"))
     min_int    = card.get("minimum_interval", 1)
 
+    # Probation: steps are done, the card is out on a day-interval but not yet
+    # "learned". Again restarts the steps; Hard/Good/Easy behave like a review
+    # (day intervals), possibly graduating the card to real 'review' state.
+    if state in ("learning", "relearn") and card.get("probation"):
+        steps = l_steps if state == "learning" else r_steps
+        again = _fmt_min(steps[0])
+        if _fsrs_enabled(card) and card.get("stability"):
+            w, dr, mx = _fsrs_cfg(card)
+            ivs = fsrs.review_intervals(
+                w, card["difficulty"], card["stability"], _elapsed_days(card), dr, mx
+            )
+            hard = _fmt_day(ivs[2])
+            good = _fmt_day(ivs[3])
+            easy = _fmt_day(ivs[4])
+        else:
+            hard = _fmt_day(max(min_int, math.floor(interval * 1.2)))
+            good = _fmt_day(max(min_int, math.floor(interval * ease)))
+            easy = _fmt_day(max(min_int, math.floor(interval * ease * 1.3)))
+        return {1: again, 2: hard, 3: good, 4: easy}
+
     if state in ("new", "learning"):
         # Clamp: a card's stored step_index may exceed the current step count if
         # the steps were shortened after the card entered learning.
@@ -367,6 +387,8 @@ def apply_review(card_id: int, rating: int,
         "easy_interval":       card["easy_interval"],
         "relearning_steps":    card["relearning_steps"],
         "minimum_interval":    card["minimum_interval"],
+        "learned_interval":    card.get("learned_interval", 4),
+        "enable_probation":    card.get("enable_probation", 1),
         "leech_threshold":     card["leech_threshold"],
         "leech_action":        card["leech_action"],
         "desired_retention":   card.get("desired_retention", 0.9),
@@ -377,7 +399,9 @@ def apply_review(card_id: int, rating: int,
         "learning_hard_days":  card.get("learning_hard_days", 1),
     }
 
-    if card["state"] in ("new", "learning"):
+    if card["state"] in ("learning", "relearn") and card.get("probation"):
+        updated = _handle_probation(card, preset, rating)
+    elif card["state"] in ("new", "learning"):
         updated = _handle_learning(card, preset, rating)
     elif card["state"] == "review":
         updated = _handle_review(card, preset, rating)
@@ -396,6 +420,7 @@ def apply_review(card_id: int, rating: int,
         ease=updated["ease"],
         repetitions=updated["repetitions"],
         lapses=updated["lapses"],
+        probation=updated.get("probation", 0),
         stability=updated.get("stability"),
         difficulty=updated.get("difficulty"),
         last_review=updated.get("last_review"),
@@ -421,15 +446,30 @@ def _handle_learning(card: dict, preset: dict, rating: int) -> dict:
     w, dr, mx = _fsrs_cfg(preset)
     use_fsrs = _fsrs_enabled(preset)
 
+    probation_on = bool(preset.get("enable_probation", 1))
+
     def _graduate(grad_rating: int) -> None:
-        c["state"] = "review"
+        # With probation on the card is NOT a review card yet: it enters
+        # probation and must survive an interval >= learned_interval first
+        # (failing restarts the steps without counting a lapse). With probation
+        # off this is the classic Anki behaviour — graduate straight to review.
+        c["state"] = "learning" if probation_on else "review"
+        c["probation"] = 1 if probation_on else 0
         c["step_index"] = 0
         c["repetitions"] += 1
         c["last_review"] = database.anki_today().isoformat()
         if use_fsrs:
-            s = fsrs.init_stability(w, grad_rating)
-            c["stability"] = s
-            c["difficulty"] = fsrs.init_difficulty(w, grad_rating)
+            if c.get("stability"):
+                # Re-graduating after a probation fail — keep the FSRS memory
+                # state instead of re-seeding it from scratch.
+                s = c["stability"]
+                if grad_rating == 4:
+                    s = fsrs.next_short_term_stability(w, s, 4)
+                    c["stability"] = s
+            else:
+                s = fsrs.init_stability(w, grad_rating)
+                c["stability"] = s
+                c["difficulty"] = fsrs.init_difficulty(w, grad_rating)
             base = fsrs.next_interval(s, dr, mx)
         else:
             base = preset["easy_interval"] if grad_rating == 4 else preset["graduating_interval"]
@@ -567,8 +607,14 @@ def _handle_relearn(card: dict, preset: dict, rating: int) -> dict:
     idx = c["step_index"]
     last = len(steps) - 1
 
+    probation_on = bool(preset.get("enable_probation", 1))
+
     def _graduate(grad_rating: int) -> None:
-        c["state"] = "review"
+        # With probation on the relearn card must survive an interval of
+        # >= learned_interval days before returning to 'review'; with probation
+        # off it returns to 'review' immediately (classic Anki behaviour).
+        c["state"] = "relearn" if probation_on else "review"
+        c["probation"] = 1 if probation_on else 0
         c["interval"] = _fuzz_interval(_relearn_graduate_interval(card, grad_rating))
         c["due"] = next_review_due(c["interval"])
         c["step_index"] = 0
@@ -587,6 +633,63 @@ def _handle_relearn(card: dict, preset: dict, rating: int) -> dict:
         c["state"] = "relearn"
         c["due"] = next_learning_due(steps, c["step_index"])
 
+    return c
+
+
+def _handle_probation(card: dict, preset: dict, rating: int) -> dict:
+    """A learning/relearn card that finished its steps and is out on a
+    day-interval, but has not yet proven itself.
+
+    - Again  → back to step 0 of its steps. NOT a lapse and no leech
+               check — the card never became a review card.
+    - Hard/Good/Easy → it survived the interval. If that interval was
+               >= learned_interval days, the card truly graduates to 'review';
+               otherwise it stays in probation with a normally-grown interval.
+    """
+    c = dict(card)
+    survived  = c.get("interval") or 0
+    threshold = preset.get("learned_interval", 4)
+    steps_str = (preset["learning_steps"] if c["state"] == "learning"
+                 else preset["relearning_steps"])
+    steps = _parse_steps(steps_str)
+    use_fsrs = _fsrs_enabled(preset) and card.get("stability")
+    el = _elapsed_days(card)
+    c["last_review"] = database.anki_today().isoformat()
+
+    if rating == 1:  # Failed the probation interval — restart steps
+        if use_fsrs:
+            w, dr, mx = _fsrs_cfg(preset)
+            new_s, new_d = fsrs.review_state(w, card["difficulty"], card["stability"], el, 1)
+            c["stability"] = new_s
+            c["difficulty"] = new_d
+            c["interval"] = max(preset["minimum_interval"], fsrs.next_interval(new_s, dr, mx))
+        else:
+            c["interval"] = max(1, math.floor(survived * 0.5)) if survived else 1
+        c["probation"] = 0
+        c["step_index"] = 0
+        c["due"] = next_learning_due(steps, 0)
+        return c
+
+    # Hard/Good/Easy — survived the probation interval
+    if use_fsrs:
+        w, dr, mx = _fsrs_cfg(preset)
+        new_s, new_d = fsrs.review_state(w, card["difficulty"], card["stability"], el, rating)
+        c["stability"] = new_s
+        c["difficulty"] = new_d
+        ivs = fsrs.review_intervals(w, card["difficulty"], card["stability"], el, dr, mx)
+        nxt = ivs[rating]
+    else:
+        nxt, new_ease, _ = calc_review(max(1, survived), c.get("ease", 2.5), 0, rating)
+        c["ease"] = new_ease
+    c["interval"] = max(preset["minimum_interval"], _fuzz_interval(nxt))
+    c["repetitions"] += 1
+    if survived >= threshold:
+        c["state"] = "review"
+        c["probation"] = 0
+        c["step_index"] = 0
+    # else: interval grows but the card stays in probation until it survives
+    # an interval of >= learned_interval days
+    c["due"] = next_review_due(c["interval"])
     return c
 
 

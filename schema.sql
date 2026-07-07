@@ -32,6 +32,12 @@ CREATE TABLE IF NOT EXISTS deck_presets (
     -- badge counts. Does NOT change the SRS state machine or queue order.
     learned_interval        INTEGER NOT NULL DEFAULT 4,
 
+    -- Graduation probation (see cards.probation): when on (1), a card that
+    -- finishes its learning/relearn steps does NOT become a review card yet —
+    -- it stays learning/relearn until it survives an interval of
+    -- >= learned_interval days. Off (0) = classic Anki (graduate immediately).
+    enable_probation        INTEGER NOT NULL DEFAULT 1,
+
     -- ── FSRS scheduling ──────────────────────────────────────────────────────
     -- desired_retention: target recall probability that sets every interval
     -- maximum_interval: hard cap on any computed interval (days)
@@ -311,6 +317,12 @@ CREATE TABLE IF NOT EXISTS cards (
 
     -- free-text note the user leaves for the next time this card comes up
     next_note TEXT,
+
+    -- Graduation probation: 1 while a learning/relearn card has finished its
+    -- steps but has not yet survived an interval of >= learned_interval days.
+    -- Only surviving such an interval turns the card into a real 'review' card;
+    -- failing during probation restarts the steps WITHOUT counting a lapse.
+    probation INTEGER NOT NULL DEFAULT 0,
 
     UNIQUE(word_id, category)
 );

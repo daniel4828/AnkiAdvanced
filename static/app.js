@@ -2751,7 +2751,9 @@ const INFO_TEXT = {
   easy_interval: ['Easy interval (SM-2 only)',
     'The interval (in days) a learning card jumps to when rated Easy. Only used by SM-2 — under FSRS this is computed from stability.'],
   learned_interval: ['Learned interval',
-    'The interval (in days) a card must reach before it counts as "learned/mature". Reviews of cards below this interval — plus all relearning cards — are treated as "still learning" in the retention stats and the deck badge counts. This does not change scheduling or queue order, only how cards are labelled and counted. Default 4.'],
+    'The interval (in days) a card must reach before it counts as "learned/mature". Reviews of cards below this interval — plus all relearning cards — are treated as "still learning" in the retention stats and the deck badge counts. With Graduation probation on, this is also the gap a card must survive before it truly becomes a review card. Default 4.'],
+  enable_probation: ['Graduation probation',
+    'When on, a card that finishes its learning (or relearning) steps does NOT immediately become a review card. Instead it stays in learning/relearn on "probation" until it survives an interval of at least the Learned interval. Only then does it graduate to review (where Again counts as a lapse). Turn it off for classic Anki behaviour: the card graduates to review the moment its steps are done.'],
   desired_retention: ['Desired retention (FSRS only)',
     'The probability you want of still recalling a card when it comes due, e.g. 90%. Higher retention = shorter intervals and more reviews; lower = longer intervals, fewer reviews but more lapses. This is the main FSRS knob.'],
   maximum_interval: ['Maximum interval (FSRS only)',
@@ -2814,6 +2816,7 @@ function loadPresetFields(preset) {
   document.getElementById('opt-bury-interday').checked = !!preset.bury_interday_siblings;
   document.getElementById('opt-sibling-sep').value     = preset.sibling_separation ?? 3;
   document.getElementById('opt-sibling-factor').value  = preset.sibling_factor ?? 0.2;
+  document.getElementById('opt-enable-probation').checked = preset.enable_probation == null ? true : !!preset.enable_probation;
   document.getElementById('opt-enable-fsrs').checked   = preset.enable_fsrs == null ? true : !!preset.enable_fsrs;
   document.getElementById('opt-hard-1d').checked       = preset.learning_hard_1d == null ? true : !!preset.learning_hard_1d;
   document.getElementById('opt-hard-days').value       = preset.learning_hard_days == null ? 1 : preset.learning_hard_days;
@@ -2970,6 +2973,7 @@ async function saveOptions() {
     graduating_interval: parseInt(document.getElementById('opt-grad-int').value),
     easy_interval:       parseInt(document.getElementById('opt-easy-int').value),
     learned_interval:    parseInt(document.getElementById('opt-learned-int').value),
+    enable_probation:       document.getElementById('opt-enable-probation').checked ? 1 : 0,
     relearning_steps:    document.getElementById('opt-relearn-steps').value.trim(),
     leech_threshold:     parseInt(document.getElementById('opt-leech').value),
     learning_leech_threshold: parseInt(document.getElementById('opt-learning-leech').value),

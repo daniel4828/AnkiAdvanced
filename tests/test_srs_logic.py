@@ -23,13 +23,15 @@ DEFAULT_PRESET = {
     "easy_interval":       4,
     "relearning_steps":    "10",
     "minimum_interval":    1,
+    "learned_interval":    3,
     "leech_threshold":     8,
     "learning_leech_threshold": 6,
     "leech_action":        "suspend",
+    "enable_fsrs":         0,   # SM-2 paths are deterministic (modulo fuzz)
 }
 
 def make_card(state="new", step_index=0, interval=1, ease=2.5, lapses=0,
-              repetitions=0, learning_again_count=0):
+              repetitions=0, learning_again_count=0, probation=0):
     return {
         "id": 1,
         "state":        state,
@@ -39,6 +41,7 @@ def make_card(state="new", step_index=0, interval=1, ease=2.5, lapses=0,
         "lapses":       lapses,
         "repetitions":  repetitions,
         "learning_again_count": learning_again_count,
+        "probation":    probation,
         "due":          "2026-01-01",
     }
 
@@ -95,11 +98,14 @@ class TestHandleLearning:
         assert result["state"] == "learning"
         assert result["step_index"] == 1
 
-    def test_learning_step_1_good_graduates(self):
-        # step_index=1 is the last step in "1 10", so Good should graduate
+    def test_learning_step_1_good_enters_probation(self):
+        # step_index=1 is the last step in "1 10", so Good finishes the steps —
+        # the card gets its graduating interval but stays 'learning' (probation)
+        # until it survives an interval of >= learned_interval days.
         card = make_card(state="learning", step_index=1)
         result = srs._handle_learning(card, DEFAULT_PRESET, rating=3)
-        assert result["state"] == "review"
+        assert result["state"] == "learning"
+        assert result["probation"] == 1
         assert result["interval"] == DEFAULT_PRESET["graduating_interval"]
         assert result["step_index"] == 0
         assert result["repetitions"] == 1
@@ -110,11 +116,13 @@ class TestHandleLearning:
         assert result["state"] == "learning"
         assert result["step_index"] == 0
 
-    def test_easy_graduates_immediately(self):
+    def test_easy_finishes_steps_into_probation(self):
         card = make_card(state="new", step_index=0)
         result = srs._handle_learning(card, DEFAULT_PRESET, rating=4)
-        assert result["state"] == "review"
-        assert result["interval"] == DEFAULT_PRESET["easy_interval"]
+        assert result["state"] == "learning"
+        assert result["probation"] == 1
+        # easy_interval=4 with ±1 day of fuzz
+        assert 3 <= result["interval"] <= 5
         assert result["repetitions"] == 1
 
     def test_hard_at_step_0_uses_avg_delay(self):
@@ -133,7 +141,8 @@ class TestHandleReview:
         card = make_card(state="review", interval=10, ease=2.5)
         result = srs._handle_review(card, DEFAULT_PRESET, rating=3)
         assert result["state"] == "review"
-        assert result["interval"] == 25   # floor(10 * 2.5)
+        # floor(10 * 2.5) = 25, with ±4 days of fuzz
+        assert 21 <= result["interval"] <= 29
 
     def test_again_lapses_and_enters_relearn(self):
         card = make_card(state="review", interval=10, ease=2.5, lapses=0)
@@ -166,12 +175,16 @@ class TestHandleReview:
 # ---------------------------------------------------------------------------
 
 class TestHandleRelearn:
-    def test_good_at_last_step_returns_to_review(self):
-        # "10" is a single-step relearn; step_index=0 is the last step
+    def test_good_at_last_step_enters_probation(self):
+        # "10" is a single-step relearn; step_index=0 is the last step.
+        # Finishing the steps no longer returns straight to 'review' — the card
+        # stays 'relearn' in probation until it survives >= learned_interval days.
         card = make_card(state="relearn", step_index=0, interval=5)
         result = srs._handle_relearn(card, DEFAULT_PRESET, rating=3)
-        assert result["state"] == "review"
-        assert result["interval"] == 5   # preserved from before
+        assert result["state"] == "relearn"
+        assert result["probation"] == 1
+        # interval 5 preserved, ±1 day of fuzz
+        assert 4 <= result["interval"] <= 6
         assert result["repetitions"] == 1
 
     def test_again_stays_in_relearn_at_step_0(self):
@@ -180,10 +193,61 @@ class TestHandleRelearn:
         assert result["state"] == "relearn"
         assert result["step_index"] == 0
 
-    def test_easy_returns_to_review_immediately(self):
+    def test_easy_finishes_steps_into_probation(self):
         card = make_card(state="relearn", step_index=0, interval=5)
         result = srs._handle_relearn(card, DEFAULT_PRESET, rating=4)
+        assert result["state"] == "relearn"
+        assert result["probation"] == 1
+        assert result["interval"] > 5
+
+
+# ---------------------------------------------------------------------------
+# _handle_probation — steps finished, surviving the first day-intervals
+# ---------------------------------------------------------------------------
+
+class TestHandleProbation:
+    def test_again_restarts_steps_without_lapse(self):
+        card = make_card(state="learning", probation=1, interval=3, lapses=0)
+        result = srs._handle_probation(card, DEFAULT_PRESET, rating=1)
+        assert result["lapses"] == 0            # the whole point: no lapse
+        assert result["state"] == "learning"
+        assert result["probation"] == 0
+        assert result["step_index"] == 0
+        assert result["interval"] == 1          # floor(3 * 0.5)
+
+    def test_relearn_again_restarts_steps_without_lapse(self):
+        card = make_card(state="relearn", probation=1, interval=3, lapses=2)
+        result = srs._handle_probation(card, DEFAULT_PRESET, rating=1)
+        assert result["lapses"] == 2            # unchanged
+        assert result["state"] == "relearn"
+        assert result["probation"] == 0
+        assert result["step_index"] == 0
+
+    def test_good_after_surviving_threshold_graduates(self):
+        # survived interval 3 >= learned_interval 3 → real 'review' card
+        card = make_card(state="learning", probation=1, interval=3)
+        result = srs._handle_probation(card, DEFAULT_PRESET, rating=3)
         assert result["state"] == "review"
+        assert result["probation"] == 0
+        # floor(3 * 2.5) = 7, ±2 days of fuzz
+        assert 5 <= result["interval"] <= 9
+
+    def test_good_below_threshold_stays_in_probation(self):
+        # survived interval 1 < learned_interval 3 → interval grows, still probation
+        card = make_card(state="learning", probation=1, interval=1)
+        result = srs._handle_probation(card, DEFAULT_PRESET, rating=3)
+        assert result["state"] == "learning"
+        assert result["probation"] == 1
+        # floor(1 * 2.5) = 2, ±1 day of fuzz
+        assert 1 <= result["interval"] <= 3
+        assert result["lapses"] == 0
+
+    def test_relearn_good_after_threshold_returns_to_review(self):
+        card = make_card(state="relearn", probation=1, interval=4, lapses=1)
+        result = srs._handle_probation(card, DEFAULT_PRESET, rating=3)
+        assert result["state"] == "review"
+        assert result["probation"] == 0
+        assert result["lapses"] == 1            # unchanged by passing
 
 
 # ---------------------------------------------------------------------------
