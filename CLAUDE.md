@@ -2,311 +2,26 @@
 
 > 🔴 **【每条消息必须做的第一件事】** 在写任何内容之前，先把 Daniel 的消息改写为正确的中文。这是不可跳过的步骤——见下方"语言指令"章节。上下文压缩、对话长度、话题切换均不是跳过的理由。
 
-> **所有 AI 代理（dàilǐ - agent）和开发者必须遵守（zūnshǒu - comply with）以下规则。这些是固定规则（gùdìng guīzé - fixed rules），不是建议。**
+> **所有 AI 代理（dàilǐ - agent）和开发者必须遵守（zūnshǒu - comply with）以下规则。这些是固定规则，不是建议。**
 
 ---
 
-## 目录（mùlù - Table of Contents）
-
-1. [代理必须遵守的固定规则](#代理必须遵守的固定规则mandatory-agent-rules)
-2. [Git & GitHub 工作流](#git--github-工作流mandatory)
-3. [Claude 对 Git 工作流的态度](#claude-对-git-工作流的态度)
-4. [可交接原则](#可交接jiāojiē---handoff原则)
-5. [Worktree 使用说明](#worktree工作树使用说明)
-6. [网络问题应急方案](#网络问题应急方案)
-7. [语言指令](#语言指令)
-8. [项目简介 & 技术细节](#项目简介)
-
----
-
-## 代理必须遵守的固定规则（MANDATORY AGENT RULES）
-
-每一个接手（jiēshǒu - take over）这个项目的 AI 代理都必须遵守以下规则，不得例外（lìwài - exception）：
+## 固定规则（MANDATORY RULES）
 
 | # | 规则 | 说明 |
 |---|------|------|
 | R1 | **永远不要直接推送到 `main`** | 所有工作必须通过 PR |
-| R2 | **每个功能都需要一个 Issue** | 先创建 Issue，再开始写代码；Issue/PR/提交信息全部用中文 |
-| R3 | **CI 通过后 Claude 自行合并 PR** | （2026-07-05 起，由 Daniel 授权）Claude 完成整个流程：Issue → 分支 → PR → CI 通过 → `gh pr merge`。CI 失败绝不合并；Daniel 随时可在 GitHub 上事后审查或回滚 |
-| R4 | **用中文回答 Daniel** | 见"语言指令"部分 |
-| R5 | **Claude 自己执行 Git/gh 步骤** | Claude 直接运行 `gh issue create`、`git checkout -b`、`gh pr create` 等命令，无需等待 Daniel |
+| R2 | **每个功能都需要一个 Issue** | 先创建 Issue，再写代码；Issue/PR/提交信息全部用中文 |
+| R3 | **CI 通过后 Claude 自行合并 PR** | （2026-07-05 起，由 Daniel 授权）Claude 完成整个流程：Issue → 分支 → PR → CI 通过 → `gh pr merge`。CI 失败绝不合并；Daniel 随时可事后审查或回滚 |
+| R4 | **用中文回答 Daniel** | 见"语言指令" |
+| R5 | **Claude 自己执行 Git/gh 步骤** | 直接运行 `gh issue create`、`git checkout -b`、`gh pr create` 等，无需等待 Daniel |
 | R6 | **CLAUDE.md 是唯一事实来源** | 所有架构决策都在这里记录 |
 | R7 | **任何新代理都能接手** | 每个 Issue/PR 必须自给自足，不依赖聊天记录 |
-| R8 | **开始任务前必须先查看 Issue** | 运行 `gh issue view <编号>` 读取完整背景，不得依赖用户口头描述 |
-| R9 | **所有代码修改必须在分支上进行** | 永远不要在 `main` 分支上直接修改文件；先用 `git checkout -b <分支名>` 创建分支 |
-| R10 | **永远不要使用日语** | 回答中不得出现日语（rìyǔ - Japanese）文字或词汇，即使话题涉及汉字——始终用中文或英文表达 |
-| R11 | **每条消息开头必须改写 Daniel 的输入** | 无论 Daniel 用中文、英语、德语还是混合语言提问，第一步永远是把他的消息改写为正确的中文，然后画分割线，再回答。这是帮助 Daniel 学习中文的核心机制，绝不可跳过。 |
-| R12 | **调查问题时定期汇报进展** | 不要长时间默默查找问题。每读几个文件后，向 Daniel 汇报目前发现了什么、还缺什么信息，让他决定是否继续。 |
-
----
-
-## Git & GitHub 工作流（MANDATORY）
-
-我们遵循（zūnxún - follow）**GitHub Flow** —— 大多数专业（zhuānyè - professional）软件团队使用的标准工作流。
-所有工作都通过：议题（yìtí - Issue）→ 分支（fēnzhī - Branch）→ 拉取请求（lāqǔ qǐngqiú - Pull Request）→ 审核（shěnhé - Review）→ 合并（hébìng - Merge）。
-**永远不要直接提交（tíjiāo - commit）到 `main`。**
-
-### 每项工作的完整流程（liúchéng - flow）
-
-```
-1. 议题存在（或创建一个）   →   追踪"做什么"和"为什么"
-2. 从 main 创建分支        →   隔离（gélí - isolated）的工作空间
-3. 频繁提交               →   小的、安全的检查点
-4. 开一个 PR（引用议题）   →   "这是我做的"
-5. CI 自动运行            →   发现明显的问题
-6. CI 通过后 Claude 合并   →   质量关卡是 CI；Daniel 可事后审查
-7. 合并到 main            →   完成，议题自动关闭
-```
-
-### 议题（Issues）
-
-每项任务都从一个 GitHub Issue 开始。议题追踪**做什么**和**为什么**——它们是事实来源（láiyuán - source of truth），不是聊天消息。
-
-- 开始任何重要工作之前先创建一个议题
-- **议题标题和描述用中文写**
-- 议题有**标签（biāoqiān - labels）**，全部使用中文名：`新功能`、`程序错误`、`数据库`、`前端`、`后端`、`ai`、`设计`、`文档`
-- 议题按**里程碑（lǐchéngbēi - milestone）**分组（如"Recovery Sprint"）
-- 开 PR 时，始终引用（yǐnyòng - reference）议题：`Closes #42`
-  这会在 PR 合并时自动关闭议题。
-
-**议题标题示例：**
-```
-feat: 给牌组列表添加垃圾桶功能
-fix: 修复父级牌组复习时卡片重复的问题
-chore: 升级 edge-tts 到最新版本
-```
-
-### 分支（Branches）
-
-分支名称包含议题编号，便于追踪：
-
-```
-feat/42-db-migrations
-feat/43-ai-provider
-fix/55-review-parent-deck
-```
-
-命令（mìnglìng - commands）：
-```bash
-git checkout main && git pull        # 始终从最新的 main 开始
-git checkout -b feat/42-db-migrations
-```
-
-### 提交（Commits）—— Conventional Commits 格式
-
-**提交信息用中文写。** 格式：`<类型>: <简短的祈使句描述>`
-
-```
-feat: 给卡片和牌组添加软删除字段
-fix: 从复习队列中排除已软删除的卡片
-refactor: 将 leaf_ids 提取为公共工具函数
-chore: 添加 openai 依赖以支持多模型
-docs: 更新 CLAUDE.md 的工作流说明
-test: 为复习接口添加集成测试
-```
-
-类型（lèixíng - types）：`feat` | `fix` | `refactor` | `chore` | `docs` | `test`
-
-**每完成一个原子单元（yuánzǐ dānwán - atomic unit）就提交** —— 最小的、有意义的、完整的变更。判断标准：提交后代码仍可运行，且无法再拆分而不丢失意义。
-提交太频繁的代价是零。丢失工作的代价是几天时间。
-
-**原子提交的实际含义：**
-- ✅ 一个函数改动 + 对应测试 → 一次提交
-- ✅ 一个 bug fix 涉及多个文件 → 一次提交
-- ❌ 只改了函数但测试没写 → 不完整，不应提交
-- ❌ 把格式化和逻辑改动混在一起 → 不原子
-
-### 拉取请求（Pull Requests）
-
-- 使用 `gh pr create` 创建 PR
-- **PR 标题和描述用中文写**
-- PR 模板（`.github/pull_request_template.md`）指导描述内容
-- 每个 PR 必须：引用议题、描述变更（biàngēng - changes）、列出如何测试
-- CI 通过后由 Claude 合并（`gh pr merge <编号> --merge --delete-branch`）；CI 失败绝不合并
-
-**PR 描述示例：**
-```
-## 变更内容
-- 添加了垃圾桶 API（软删除 + 恢复 + 永久删除）
-- 前端添加垃圾桶弹窗
-
-## 测试方法
-- 删除一个牌组，确认它出现在垃圾桶里
-- 恢复该牌组，确认卡片数据完整
-
-Closes #43
-```
-
-### CI（GitHub Actions）
-
-每个 PR 自动触发（chùfā - trigger）`.github/workflows/ci.yml`：
-1. 对所有 `.py` 文件进行 Python 语法检查
-2. 导入检查（模块导入不崩溃）
-3. 服务器启动检查（访问 `/api/decks`，必须返回 200）
-
-如果 CI 失败（shībài - fail），PR 不可合并。修复问题，再次推送（tuīsòng - push），CI 重新运行。
-
-### 受保护（shòu bǎohù - protected）的 `main` 分支
-
-`main` 始终可以运行。它在 GitHub 仓库（cāngkù - repository）设置中配置为：
-- 必须通过 PR（不能直接推送）
-- 必须通过 CI 才能合并
-
-### 分支命名（mìngmíng - naming）
-- 功能：`feat/42-db-migrations`、`feat/43-ai-provider`
-- 修复（xiūfù - bug fix）：`fix/55-review-parent-deck`
-- 前端：`feat/60-frontend-trash`
-
-### 为什么这很重要
-我们曾因为对未提交的更改执行 `git reset --hard` 而丢失了 6 天的工作。
-这个工作流让这种情况不可能发生：每次提交都安全地保存在远程（yuǎnchéng - remote），
-每个功能都可以审核，`main` 始终可以部署（bùshǔ - deploy）。
-
----
-
-## Claude 对 Git 工作流的态度（tàidù - attitude）
-
-**Claude 负责执行所有 Git/gh 命令，包括在 CI 通过后合并 PR（2026-07-05 起）。**
-
-Claude 的角色是：
-- **直接执行（zhíjiē zhíxíng - directly execute）** git 和 gh 命令，无需等待 Daniel 确认
-- 按顺序完成完整工作流：创建议题 → 创建分支 → 写代码 → 提交 → 推送 → 开 PR → 等 CI → 合并
-- 完成后通知 Daniel："PR 已合并，功能已在 main 上"
-
-具体来说（jùtǐ lái shuō - specifically）：
-
-| 步骤 | Claude 的做法 |
-|------|--------------|
-| 创建议题 | 直接运行 `gh issue create ...` |
-| 创建分支 | 直接运行 `git checkout -b feat/XX-name` |
-| 提交 | 每完成一个逻辑单元就直接提交 |
-| 开 PR | 直接运行 `gh pr create ...` |
-| 合并 | **CI 通过后**直接运行 `gh pr merge <编号> --merge --delete-branch`；CI 失败先修复 |
-
-> **关键原则（yuánzé - principle）：整个流程由 Claude 自动完成；质量关卡是 CI。Daniel 随时可以在 GitHub 上事后审查、回滚（revert）任何合并，或恢复旧规则。**
->
-> ⚠️ 合并前的自检清单：① CI 全绿；② PR 引用了议题（Closes #N）；③ 本地已做过语法/导入检查；④ 有实际功能改动的 PR 已做过测试（离线或端到端）。
-
----
-
-## 可交接（jiāojiē - handoff）原则
-
-**这个项目的所有工作都应该写得让任何人或任何 AI 代理（dàilǐ - agent）可以接手并继续。**
-
-这意味着：
-
-### 每个 Issue 必须自给自足（zì jǐ zú - self-contained）
-- 清晰描述背景（bèijǐng - context）、目标、完成标准（biāozhǔn - criteria）
-- 不依赖口头约定或聊天记录
-- 任何人看到 Issue 就知道该做什么
-
-### 每个 PR 必须可独立（dúlì - independent）理解
-- PR 描述说明：改了什么、为什么改、怎么测试
-- 不需要问作者就能理解变更意图（yìtú - intent）
-
-### CLAUDE.md 是唯一的真相来源
-- 架构决策（juécè - decisions）、约定、约束都在这里
-- 新来的 Claude 或开发者读完 CLAUDE.md 就能上手
-- 不要把重要信息只放在聊天记录里
-
-### Claude 的行为标准（xíngwéi biāozhǔn - behavioral standard）
-当开始一项新任务时，Claude 应该先问：
-> "如果我现在离开，另一个 AI 能从 GitHub 的 Issue 和 PR 历史中完全理解这个项目的状态吗？"
-
-如果答案是否定的，先补全文档（wéndàng - documentation），再写代码。
-
----
-
-## Worktree（工作树）使用说明
-
-Worktree 允许（yǔnxǔ - allow）git 同时在多个目录检出（jiǎnchū - check out）不同分支，每个目录完全独立（dúlì - independent）。
-
-### Claude Code 何时自动使用 Worktree
-
-- 当一个代理需要修改文件，但不能影响你的主工作目录时
-- 当多个代理并行（bìngxíng - parallel）工作时，每个代理有自己的隔离（gélí - isolated）副本
-- 当 Claude Code 的 Agent 工具使用 `isolation: "worktree"` 参数启动时
-
-### 你会看到什么
-
-```
-项目根目录/
-└── .claude/worktrees/
-    ├── sleepy-elion/    ← 某个代理正在这里工作
-    └── vibrant-benz/    ← 另一个代理的隔离空间
-```
-
-工作完成后：
-- **如果有变更** → 代理将结果整合（zhěnghé - integrate）成一个新分支和 PR
-- **如果没有变更** → Worktree 自动清理，目录消失
-
-### 你不需要手动操作 Worktree
-
-这完全由 Claude Code 管理。你唯一需要知道的是：
-
-> `.claude/worktrees/` 里的目录是代理的临时（línshí - temporary）工作空间，不要手动编辑里面的文件。
-
-### 分支命名规则
-
-Worktree 里的分支和普通（pǔtōng - regular）分支遵循同样的规范（guīfàn - convention）：
-```
-feat/42-feature-name
-fix/55-bug-name
-```
-
----
-
-## 网络问题应急方案
-
-Daniel 在中国需要使用 VPN 才能访问 GitHub。VPN 有时不稳定，导致 `gh` 命令报 `EOF` 错误。
-
-### 诊断（zhěnduàn - diagnose）步骤
-
-```bash
-# 1. 确认 gh 认证状态
-gh auth status
-
-# 2. 测试 API 连通性
-gh api rate_limit
-
-# 3. 测试 TLS 连接（如果 gh 失败）
-curl -sv https://api.github.com 2>&1 | tail -5
-```
-
-**`198.18.x.x` IP 出现** = VPN 正在拦截请求，TLS 握手失败。
-
-### 应急流程（liúchéng - flow）
-
-当 Claude 无法直接运行 `gh` 命令时：
-
-1. **Claude** 将所有命令写入 `create_issues.sh`（或类似脚本文件）
-2. **Daniel** 暂时关闭 VPN
-3. **Daniel** 运行脚本：`bash create_issues.sh`
-4. **Daniel** 重新开启 VPN
-
-### 脚本模板
-
-```bash
-#!/bin/bash
-set -e
-echo "===== 创建标签 ====="
-gh label create "标签名" --color "颜色" --description "描述" --force
-echo "✓ 标签创建完成"
-
-echo "===== 创建议题 ====="
-gh issue create \
-  --title "标题" \
-  --body "内容" \
-  --label "标签"
-echo "✓ 议题创建完成"
-```
-
-### Claude 的责任
-
-- 遇到 EOF 错误时，**不要反复重试**，立刻生成脚本文件
-- 脚本要包含 `echo` 进度提示，方便 Daniel 知道执行到哪一步
-- 脚本执行完成后，Claude 继续后续工作
-- **脚本执行完后立即删除（**`rm script.sh`**）** —— 不要在工作目录中保留辅助脚本
+| R8 | **开始任务前必须先查看 Issue** | 运行 `gh issue view <编号>` 读取完整背景 |
+| R9 | **所有代码修改必须在分支上进行** | 先 `git checkout -b <分支名>`，再改文件 |
+| R10 | **永远不要使用日语** | 即使话题涉及汉字，也只用中文或英文表达 |
+| R11 | **每条消息开头必须改写 Daniel 的输入** | 无论他用中文、英语还是德语提问，第一步永远是改写为正确的中文，画分割线，再回答。这是帮助 Daniel 学习中文的核心机制，绝不可跳过 |
+| R12 | **调查问题时定期汇报进展** | 每读几个文件就向 Daniel 汇报发现了什么、还缺什么 |
 
 ---
 
@@ -316,22 +31,19 @@ echo "✓ 议题创建完成"
 
 ### 第一步 - 用中文重写用户的消息
 
-> ⚠️ **这是最高优先级规则。无论对话持续多久、上下文多长，每一条消息都必须执行此步骤，绝无例外。上下文压缩不是跳过此步骤的理由。**
+> ⚠️ **这是最高优先级规则。无论对话持续多久、上下文多长，每一条消息都必须执行此步骤，绝无例外。**
 >
-> 🔴 **自检（self-check）：在写任何回答之前，问自己："我是否已经把 Daniel 的消息改写为正确的中文？"如果没有，立刻回去做这一步。**
+> 🔴 **自检：在写任何回答之前，问自己："我是否已经把 Daniel 的消息改写为正确的中文？"如果没有，立刻回去做这一步。**
 
-- **这一步是强制的（qiángzhì de - mandatory），无论用户用什么语言提问，都必须先执行**
-- Daniel 会用中文、英语、德语（déyǔ - German）或三者混合来写消息——全部都需要纠正
-- 总是从将用户的输入改写为一个干净、正确的中文句子开始
-- 如果用户使用英语、德语或混合语言（例如："我如何implement这个feature？"），将其翻译/改写为中文
-- 如果用户用中文写了错误，在重写时纠正它们，并在改写句子的**正下方**用以下格式列出所有纠正：
+- Daniel 会用中文、英语、德语（déyǔ - German）或三者混合来写消息——全部都需要改写为干净、正确的中文
+- 如果他的中文有错误，在重写时纠正，并在改写句子的**正下方**用以下格式列出所有纠正：
   ```
   📝 ~~错误写法~~ → 正确写法（pīnyīn - 解释，可选）
   ```
-  例如：📝 ~~调强~~ → 加强（jiāqiáng - strengthen）　|　📝 ~~领命~~ → 命令（mìnglìng - instruction）
-- 如果用户的中文已经很完美了，就按原样重写，不加任何纠正行
-- **如果用户在消息中用了英文或德文词，在重写时把它们替换为中文，并在第一次出现时加上注释格式：** 拉取请求（lāqǔ qǐngqiú - Pull Request）
-- **例外（lìwài - exception）：** 如果用户粘贴的是终端输出、报错信息、代码片段，则跳过纠正，直接回答
+  例如：📝 ~~调强~~ → 加强（jiāqiáng - strengthen）
+- 中文已经完美时，按原样重写，不加纠正行
+- 他用了英文或德文词时，替换为中文并在第一次出现时加注释：拉取请求（lāqǔ qǐngqiú - Pull Request）
+- **例外：** 粘贴的终端输出、报错信息、代码片段跳过纠正，直接回答
 
 **例子：**
 | 用户输入 | 第一步输出 |
@@ -339,336 +51,292 @@ echo "✓ 议题创建完成"
 | `how do I fix this bug?` | 我怎么修复这个错误？ |
 | `我如何implement这个feature？` | 我怎么实现这个功能？ |
 | `这个function为什么return了None` | 这个函数为什么返回了None？ |
-| `我想add一个新的endpoint` | 我想添加一个新的接口。 |
-| `数据库的schema是什么` | 数据库的模式是什么？ *(中文已正确，按原样重写)* |
-| `perfect. another question: why is X not working?` | 完美。另一个问题：为什么 X 不起作用？ |
-| `kannst du meine Anfrage korrigieren?` | 你能纠正我的提问（tíwèn - prompt/question）吗？ |
-| `请处理这个Issue, mach das bitte` | 请处理这个议题（yìtí - issue），谢谢。 |
+| `kannst du meine Anfrage korrigieren?` | 你能纠正我的提问（tíwèn - question）吗？ |
+| `数据库的schema是什么` | 数据库的模式是什么？ *(已正确，按原样重写)* |
 
 ### 第二步 - 绘制分割线
-在重写的问题下面，画一条分割线，格式如下：
 
-**纠正的问题**
-
---------------------------------------------
-
-*(然后在分割线下面开始回答)*
+在重写的问题下面画一条分割线，然后在下面开始回答。
 
 ### 第三步 - 回答
-在回答中，HSK5级及以上的词请这样写：文件（wénjiàn - file）
 
-**例子：**
+回答中 HSK5 级及以上的词这样写：文件（wénjiàn - file）
+
 > ❌ 错误：这个函数返回了一个异步生成器。
 > ✅ 正确：这个函数返回了一个异步（yìbù - asynchronous）生成器（shēngchéng qì - generator）。
 
 ---
 
+## Git & GitHub 工作流
+
+标准 **GitHub Flow**：议题（yìtí - Issue）→ 分支 → 拉取请求 → CI → 合并。**永远不要直接提交到 `main`。**
+
+```
+1. 创建议题（中文标题/描述；标签用中文：新功能/程序错误/数据库/前端/后端/ai/设计/文档）
+2. git checkout main && git pull && git checkout -b feat/42-短名称
+3. 频繁提交（每个原子单元一次）
+4. gh pr create（中文描述，引用议题：Closes #42）
+5. CI 通过 → gh pr merge <编号> --merge --delete-branch
+```
+
+**分支命名：** `feat/42-db-migrations`、`fix/55-review-parent-deck`、`docs/...`、`chore/...`
+
+**提交信息（Conventional Commits，中文）：** `feat:` | `fix:` | `refactor:` | `chore:` | `docs:` | `test:`
+每完成一个原子单元就提交——判断标准：提交后代码仍可运行，且无法再拆分而不丢失意义。提交太频繁的代价是零，丢失工作的代价是几天（我们曾因 `git reset --hard` 丢过 6 天工作）。
+
+**CI（`.github/workflows/ci.yml`）：** Python 语法检查 → 导入检查 → 服务器启动检查（`/api/decks` 返回 200）。CI 失败的 PR 不可合并；`main` 受保护，只能通过 PR 修改。
+
+**合并前自检清单：** ① CI 全绿；② PR 引用议题（Closes #N）；③ 本地做过语法/导入检查；④ 有功能改动的 PR 已测试。
+
+**可交接（jiāojiē - handoff）原则：** 每个 Issue 描述背景、目标、完成标准；每个 PR 说明改了什么、为什么、怎么测试。开始新任务前先问："如果我现在离开，另一个 AI 能从 Issue/PR 历史完全理解项目状态吗？"否定就先补文档。
+
+**Worktree：** `.claude/worktrees/` 里的目录是代理的临时隔离工作空间，由 Claude Code 自动管理，不要手动编辑里面的文件。
+
+### 网络问题应急方案
+
+Daniel 在中国需要 VPN 访问 GitHub。`gh` 命令报 `EOF` 错误时（`curl -sv https://api.github.com` 出现 `198.18.x.x` IP = VPN 拦截）：**不要反复重试**，立刻把所有 `gh` 命令写入脚本（含 `echo` 进度提示），让 Daniel 关闭 VPN 后运行 `bash script.sh`，完成后删除脚本。
+
+---
+
 ## 项目简介
 
-这是一个供个人使用的间隔重复（jiàngé chóngfù - Spaced Repetition）系统，专为一位用户（Daniel，汉语水平（shuǐpíng - level）HSK 4–5）打造。它用AI驱动的复习体验取代了Anki，每天根据当天到期复习的词汇（cíhuì - vocabulary）生成上下文故事。
+供个人使用的间隔重复（jiàngé chóngfù - Spaced Repetition）系统，为一位用户（Daniel，中文 HSK 4–5，法语 B1）打造。它用 AI 驱动的复习体验取代 Anki：每天根据到期词汇生成上下文故事。
 
-## 技术栈（jìshù zhàn - tech stack）
+**技术栈：**
+- **后端：** Python + FastAPI；**数据库：** SQLite（标准库 `sqlite3`，无 ORM）
+- **前端：** `static/index.html` + `app.js` + `style.css`，FastAPI 直接提供，**无构建步骤**（无 npm）
+- **AI：** 多提供商（`ai.py`）——默认 `deepseek-chat`；也支持 ZhipuAI GLM、Qwen、Claude、OpenAI
+- **语音合成（TTS）：** `edge-tts`（中文 `zh-CN-XiaoxiaoNeural`）
+- **语言：** 界面标签英文，内容中文/法文
 
-- **后端（hòuduān - backend）：** Python + FastAPI
-- **数据库（shùjùkù - database）：** SQLite（本地，使用标准库 `sqlite3`，无ORM）
-- **前端（qiánduān - frontend）：** `static/index.html` + `app.js` + `style.css`，由FastAPI提供服务，无构建步骤
-- **AI：** 多提供商（tígōng shāng - provider）支持（通过 `ai.py`）—— 默认 `deepseek-chat`；也支持 ZhipuAI GLM、Qwen、Claude。模型通过 `generate_story(model=...)` 参数指定
-- **语音合成（yǔyīn héchéng - TTS）：** `edge-tts`，使用语音 `zh-CN-XiaoxiaoNeural`（通过 `afplay` 播放）
-- **语言：** 所有界面（jièmiàn - UI）标签使用英文，所有内容使用中文
+---
 
-## 项目结构（jiégòu - structure）
+## 生产环境（2026-07-07 上线）
+
+系统运行在一台 Linux VPS 上，Daniel 通过手机/电脑浏览器访问 `https://powerdaniel3000.duckdns.org`（HTTP Basic Auth 保护；凭据不入库——仓库是公开的）。
+
+- **唯一生产数据库在服务器上**（`/home/anki/AnkiAdvanced/data/srs.db`）。本地开发只用 `run.dev.sh` + `data/dev.db`。**本地的 `data/srs.db` 已过时，绝不要把它当作现状或复制回服务器。**
+- **自动部署：** 服务器 cron 每 2 分钟运行 `deploy/deploy.sh`——**PR 合并到 main ≈ 2 分钟后自动上线**（拉取、装依赖、重启 systemd 服务 `ankiadvanced`）
+- **自动备份：** 服务器 cron 每 6 小时把数据库快照到 `data/backups/`
+- HTTPS 由 Caddy 反向代理提供（证书自动续期）；从零搭建教程见 `DEPLOY.md`
+- 服务器 SSH 访问方式等运维细节保存在 Claude 的项目记忆中，不写入公开仓库
+
+---
+
+## 项目结构
 
 ```
 ├── CLAUDE.md              # 本文件
-├── main.py                # CLI入口 + FastAPI应用
-├── languages.py           # 语言注册表（每种语言的 TTS 语音/翻译源/分词方式/AI 提示词参数/功能开关）
-├── database/              # 所有数据库访问（其他文件不写原始SQL）
-│   ├── __init__.py        # 重新导出所有函数（import database 仍然有效）
+├── main.py                # CLI 入口 + FastAPI 应用（含 Basic Auth 中间件）
+├── languages.py           # 语言注册表（每种语言的 TTS/翻译源/分词/AI 提示词参数/功能开关）
+├── database/              # 所有数据库访问（其他文件不写原始 SQL）
 │   ├── core.py            # 连接管理、迁移
-│   ├── cards.py           # 卡片 CRUD 与调度查询
-│   ├── decks.py           # 牌组 CRUD
-│   ├── entries.py         # 词条 CRUD
-│   ├── presets.py         # 预设 CRUD
-│   ├── stories.py         # 故事 CRUD
-│   ├── browse.py          # 浏览查询
-│   └── stats.py           # 统计查询
-├── srs.py                 # Anki风格的SM-2调度（diàodù - scheduling）算法
-├── importer.py            # 口语YAML导入（dǎorù - import）器
-├── ai.py                  # Anthropic API调用
-├── news_fetcher.py        # 新闻抓取（Tagesschau API + RSS；来源配置 data/news_sources.json；按天缓存 data/news_cache/）
-├── tts.py                 # edge-tts封装（fēngzhuāng - wrapper）
-├── translator.py          # 中→英翻译（Google Translate，需 deep-translator，可选）
-├── yaml_fixer.py          # 修复 AI 生成的格式错误 YAML（DeepSeek 常见双引号/冒号问题）
-├── schema.sql             # 数据库模式（móshì - schema）
-├── static/
-│   ├── index.html         # 单页前端入口
-│   ├── app.js             # 前端逻辑
-│   └── style.css          # 样式
+│   └── cards.py / decks.py / entries.py / presets.py / stories.py / browse.py / stats.py
+├── srs.py                 # 调度编排：学习步骤、状态转换，调用 fsrs.py
+├── fsrs.py                # FSRS-5 纯算法模块（DSR 记忆模型，无依赖）
+├── importer.py            # YAML 词汇导入器（中文 + 法语格式）
+├── ai.py                  # AI 提供商调用（每种提示词类型一个函数）
+├── news_fetcher.py        # 新闻抓取（Tagesschau API + RSS；按天缓存 data/news_cache/）
+├── tts.py                 # edge-tts 封装
+├── translator.py          # 翻译（Google Translate，deep-translator，可选）
+├── yaml_fixer.py          # 修复 AI 生成的格式错误 YAML
+├── schema.sql             # 数据库模式
+├── static/                # 前端（index.html + app.js + style.css）
 ├── routes/                # FastAPI 路由模块
-│   ├── browse.py          # /api/browse
-│   ├── decks.py           # /api/decks, /api/presets, /api/trash
-│   ├── imports.py         # /api/import
-│   ├── queue_manager.py   # Anki v3 风格持久会话队列（SessionQueue/QueueManager）
-│   ├── review.py          # /api/review, /api/today, /api/cards
-│   ├── story.py           # /api/story, /api/speak, /api/preload
+│   ├── browse.py / decks.py / imports.py / review.py / story.py
+│   ├── queue_manager.py   # Anki v3 风格持久会话队列
 │   └── utils.py           # 共用工具（DISABLE_AI, leaf_ids, queue_manager 单例）
-├── requirements.txt       # Python 依赖清单（部署时 pip install -r）
-├── DEPLOY.md              # Hetzner/Linux 服务器从零到上线的部署教程
-├── deploy/                # 部署配置
-│   ├── ankiadvanced.service  # systemd 单元文件
-│   ├── Caddyfile.example     # Caddy 反向代理 + 自动 HTTPS 配置示例
-│   └── deploy.sh             # 自动部署脚本（cron 每 2 分钟检查 origin/main）
-├── scripts/
-│   ├── morning_pregen.py  # 早晨预生成脚本（提前生成当日故事 + 预热 TTS）
-│   └── README.md          # launchd（macOS）/ cron（Linux）定时配置说明
-├── data/
-│   ├── srs.db             # SQLite数据库（自动创建）
-│   └── tts/               # TTS 音频文件缓存目录
-└── imports/
-    └── Kouyu/             # YAML词汇文件（唯一导入来源）
+├── requirements.txt       # Python 依赖清单
+├── DEPLOY.md              # 服务器从零到上线的部署教程
+├── deploy/                # systemd 单元、Caddyfile 示例、deploy.sh（自动部署）
+├── scripts/               # morning_pregen.py（早晨预生成故事+TTS）+ README
+├── docs/yaml-format.md    # YAML 词条格式完整文档
+└── data/
+    ├── srs.db             # SQLite 数据库（生产版在服务器上！）
+    ├── news_sources.json  # 新闻来源配置（不在 git 里，服务器上已有）
+    └── tts/               # TTS 音频缓存
 ```
 
-## 多语言支持（duō yǔyán - multi-language）
+---
 
-系统支持在同一个软件、同一个数据库里学习多种语言（2026-07-06 起，议题 #428–#431）。当前语言：中文（zh，默认）+ 法语（fr，CEFR B1，释义以德语为主）。
+## 多语言支持
 
-- **`languages.py` 是语言注册表**：每种语言定义 TTS 语音、翻译源、分词方式（jieba/空格）、AI 提示词参数（学习者水平、背景词汇上限、句长限制）、功能开关（拼音/汉字/量词仅中文）。加新语言 = 在注册表加一个条目
-- **`decks.lang` / `entries.lang`**（TEXT，默认 `'zh'`）：牌组和词条的目标语言；子牌组在创建时继承父牌组的 lang
-- **字段重新解释**：`word_zh` 对所有语言存"目标语言词形"（_zh 后缀是历史遗留）；法语词条的 pinyin/hsk_level/characters 留空
-- **已知限制**：`UNIQUE(word_zh)` 是全局约束而非按语言——只要各语言文字系统不同（中文 vs 法语）就不冲突；将来加第二种拉丁字母语言时需改为 `UNIQUE(word_zh, lang)`（需要重建表）
-- **中文专属功能**：汉字分解、量词、拼音、news/kahneman/paste/briefing 故事模式——法语牌组不提供
-- **主页语言标签页**（issue #436）：`GET /api/langs` 返回当前使用的语言列表；前端只有多于一种语言时才显示标签栏（zh → 中文，fr → Français），标签是"现在学哪种语言"的唯一事实来源，选择存 `localStorage`。所有主页/复习/故事/统计接口新增可选 `?lang=` 查询参数（默认 `None` 不过滤，向后兼容）：`GET /api/decks`、`/api/today(-mixed)`、`/api/today-unfinished(-decks)`、`POST /api/review(/requeue)`、`GET/POST /api/story/...`、`/api/preload-session`、`/api/story-progress`、`/api/tts-progress`、`/api/retention`、`/api/card-evolution`、`/api/stats`、`/api/browse`。解析规则统一为 `lang 参数 或 get_deck_lang(deck_id)`，让 All 等聚合牌组上的标签语言能覆盖牌组自身默认语言
-- **故事按语言隔离**：`stories.lang`（NULL = 中文旧数据）；聚合牌组（如 All）在中文/法语标签下各自维护独立的活跃故事，互不覆盖；后台生成/预加载的 progress_key 含 lang，避免两种语言的生成互相顶掉进度
+同一个软件、同一个数据库里学习多种语言（2026-07-06 起，议题 #428–#431）。当前：中文（zh，默认）+ 法语（fr，CEFR B1，释义以德语为主）。
 
-## 数据来源（láiyuán - source）
+- **`languages.py` 是语言注册表**：每种语言定义 TTS 语音、翻译源、分词方式（jieba/空格）、AI 提示词参数、功能开关（拼音/汉字/量词仅中文）。加新语言 = 加一个条目
+- **`decks.lang` / `entries.lang`**（默认 `'zh'`）：目标语言；子牌组创建时继承父牌组的 lang
+- `word_zh` 对所有语言存"目标语言词形"（`_zh` 后缀是历史遗留）；法语词条的 pinyin/hsk_level/characters 留空
+- **已知限制：** `UNIQUE(word_zh)` 是全局约束——文字系统不同（中文 vs 法语）不冲突；将来加第二种拉丁字母语言需改为 `UNIQUE(word_zh, lang)`（要重建表）
+- **中文专属：** 汉字分解、量词、拼音、news/kahneman/paste/briefing 故事模式
+- **主页语言标签页**（#436）：`GET /api/langs` 返回使用中的语言；前端多于一种语言才显示标签栏，选择存 `localStorage`。所有主页/复习/故事/统计接口支持可选 `?lang=`（默认不过滤，向后兼容）；解析规则统一为 `lang 参数 或 get_deck_lang(deck_id)`
+- **故事按语言隔离：** `stories.lang`（NULL = 中文旧数据）；聚合牌组（如 All）在各语言标签下维护独立的活跃故事；后台生成的 progress_key 含 lang
 
-**唯一来源：** `imports/<Source>/*.yaml`（如 `imports/Kouyu/`、`imports/Francais/`）——文件顶部可选 `lang:` 字段（默认 `zh`），决定该文件导入到哪个语言的牌组/词条。
+---
 
-不导入HSK CSV文件。AI在故事提示词（tíshící - prompt）中被告知"非目标词汇只使用HSK 1–2的词汇"。
+## 数据与导入
 
-### 中文格式（默认，`lang: zh` 或省略）
-包含词性、例句（lìjù - example sentences）、词源（cí yuán - etymology）、汉字（hànzì - character）分解的丰富YAML文件。
+**数据库是唯一事实来源。** 原来的 `imports/` YAML 目录已于 2026-07-07 删除——所有历史词条都已在数据库里，生产数据库在服务器上。
 
-### 法语格式（`lang: fr`，issue #430）
-`type: word`（`word:` 字段为带冠词的词形）或 `type: sentence`（`sentence:` 字段），
-配合 `english`/`german`/`note`/`register`，`examples` 用 `fr`/`english`/`german` 三个键。
-导入时经 `importer._normalize_fr_entry` 适配为内部键结构（`word`/`sentence` → `simplified`，
-`examples[].fr` → `examples[].zh`，`examples[].german` → `examples[].de`），复用全部下游逻辑。
-汉字分解、量词、同义反义词、语法结构、`word_analyses` 组件处理**仅中文**（`lang == 'zh'`）执行。
+导入机制本身仍然存在（`importer.py`、`POST /api/import`、`python main.py import`，读取 `imports/<Source>/*.yaml`）：需要批量导入新词汇时，重新创建该目录放入 YAML 即可。日常添加单个词条用 `de-zh-bot` 技能生成 YAML。
+
+- **YAML 格式完整文档：** `docs/yaml-format.md`（中文格式：词性/例句/词源/汉字分解；法语格式：`lang: fr` + `type: word|sentence`，经 `importer._normalize_fr_entry` 适配后复用全部下游逻辑）
+- 文件顶部可选 `lang:` 字段（默认 `zh`）决定导入到哪个语言的牌组
+- AI 在故事提示词（tíshící - prompt）中被告知"非目标词汇只使用 HSK 1–2 的词汇"
+- 汉字分解、量词、同义反义词、语法结构、`word_analyses` 组件处理**仅中文**执行
+
+---
 
 ## 数据库模式（概述）
 
 ```
-deck_presets → decks（自引用parent_id，支持嵌套）→ entries
+deck_presets → decks（自引用 parent_id，支持嵌套）→ entries
                                                       ├── entry_examples
                                                       ├── entry_measure_words（量词）
                                                       ├── entry_relations（同义词等关系）
-                                                      ├── entry_components（sentence类型的组成词）
+                                                      ├── entry_components（sentence 类型的组成词）
                                                       ├── entry_characters → characters → character_compounds
                                                       └── cards → review_log
 
 decks → stories → story_sentences → entries（外键）
 ```
 
-**entries.note_type**：`vocabulary`（词汇）| `sentence`（例句）| `chengyu`（成语）| `expression`（习语）| `grammar`（语法点）
+- **entries.note_type：** `vocabulary` | `sentence` | `chengyu` | `expression` | `grammar`
+- **entries 主要字段：** `definition`（英）、`definition_zh`（中）、`definition_de`（德）、`notes`、`source_sentence`、`grammar_notes`、`register`
+- `cards.due` 是单一 TEXT 字段：学习/重学状态为 ISO 日期时间，复习状态为 ISO 日期
+- `cards.state`：`new` | `learning` | `review` | `relearn` | `suspended`
+- `cards` 的 FSRS 字段：`stability`、`difficulty`、`last_review`；另有 `step_index`（学习步骤位置）、`lapses`、`learning_again_count`、`is_leech`
+- `stories` 没有唯一约束——同一（日期、类别、牌组）可有多条记录；最新 `generated_at` 为活跃故事，永不自动删除
+- `story_sentences` 按位置将故事与词汇 1:1 关联
 
-**entries 主要字段**：`definition`（英文）、`definition_zh`（中文）、`definition_de`（德文）、`notes`（用法备注，来自YAML `note` 字段）、`source_sentence`（原文句子）、`grammar_notes`（语法说明）、`register`（语体）
+---
 
-关键设计决策（juécè - design decisions）：
-- `cards.due` 是单一TEXT字段：学习/重新学习状态为ISO日期时间，新建/复习状态为ISO日期
-- `cards.state`：`new`（新建）| `learning`（学习中）| `review`（复习）| `relearn`（重新学习）| `suspended`（暂停）
-- `cards.probation`（0/1）：毕业考核标志——learning/relearn 卡走完步骤后置 1，扛过 ≥ learned_interval 天的间隔才转为 `review`（详见"毕业考核"一节）
-- `cards.step_index` 追踪（zhuīzōng - track）学习/重新学习步骤的当前位置
-- `cards.lapses` 统计复习失败次数（用于检测难词）
-- `stories` 没有唯一约束（yuēshù - constraint）—— 同一（日期、类别、牌组）可有多条记录；最新的 `generated_at` 为当前活跃故事；永不自动删除
-- `story_sentences` 通过位置将故事与词汇关联，每个故事每个词汇只对应一个句子（1:1约束）
+## 调度算法 —— FSRS-5（默认）+ SM-2 回退
 
-## 调度算法 —— Anki SM-2 变体（biàntǐ - variant）
+复习阶段的调度自 2026-06（PR #343）起使用 **FSRS-5**（`fsrs.py`，DSR 记忆模型：Difficulty/Stability/Retrievability）。`enable_fsrs=0` 时回退到旧 SM-2（`srs.py` 的 `calc_review`）。FSRS 的难度向均值回归，消除了 SM-2 的"ease 地狱"。
 
-### 状态（zhuàngtài - states）
-- `new`（新建）→ `learning`（学习中）（首次复习）
-- `learning`（学习中）→ 考核（kǎohé - probation，见下）→ `review`（复习）
-- `review`（复习）→ `relearn`（重新学习）（评为Again = 遗忘，计 1 次 lapse）
-- `relearn`（重新学习）→ 考核 → `review`（复习）
+### 状态机
+`new` → `learning`（学习步骤）→ `review`（毕业）；`review` 评 Again → `relearn` → 完成步骤后回 `review`。
 
-### 学习步骤（默认：1分钟、10分钟）
-- **Again（再来一次）** → step_index=0，due=现在+steps[0]分钟
-- **Hard（困难）** → step_index不变；step 0时延迟（yánchí - delay）= step[0]+step[1]的平均值，否则为当前步骤
-- **Good（良好）** → 推进步骤；若为最后一步 → 毕业（进入考核，见下）
-- **Easy（简单）** → 立即毕业（进入考核）
+### 学习/重学阶段（步骤制；默认 learning_steps=`1 10` 分钟，relearning_steps=`10`）
+- **Again** → 回 step 0
+- **Hard** → `learning_hard_1d` 开关（默认开）：任意步一律延迟 `learning_hard_days`（默认 1 天，可为小数）——让半记住的卡明天再现；开关关闭时用 Anki 经典行为（步骤均值/×1.5）
+- **Good** → 推进一步；最后一步 → 毕业
+- **Easy** → 立即毕业
 
-### 毕业考核（kǎohé - graduation probation，议题 #415，2026-07-07）
-**核心规则：卡片必须扛过一次 ≥ `learned_interval` 天（预设默认 4）的间隔，才真正成为 `review` 卡。** 系统中不存在"年轻 review 卡"——卡片要么在学（learning/relearn，含考核），要么是成熟 review 卡。
+### 毕业间隔
+FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good ≈ 3 天，Easy ≈ 16 天**（`fsrs.init_stability`）。FSRS 关闭时用预设的 `graduating_interval`（1）/ `easy_interval`（4）。
 
-- 学习/重学步骤全部通过后，卡片**不**直接变 `review`：state 保持 `learning`/`relearn`，`cards.probation=1`，拿到一个天级间隔（FSRS 由 stability 计算，SM-2 用 graduating/easy_interval）
-- 考核中复习（`srs._handle_probation`）：
-  - **Again** → **永不计 lapse、不做难词检测**（卡片从未真正学会过）；间隔缩水，probation=0，回到 step 0 重走步骤。再次毕业时保留 FSRS 记忆状态（stability/difficulty 不重置）
-  - **Hard/Good/Easy** → 扛过的间隔 ≥ `learned_interval` → 真毕业（state=`review`，probation=0）；否则间隔正常增长、留在考核继续熬
-- lapse 只在成熟 `review` 卡上按 Again 时才 +1（难词/leech 检测同样只作用于此）
-- 预设开关 `enable_probation`（默认开）：关掉 = 经典 Anki 行为（步骤走完立即 `review`）。曾有过的 `probation_again_lapses` 子开关已移除——考核期 Again 永不计 lapse，无可配置项（deck_presets 表里可能残留死列，无代码读取）
-- 一次性迁移（database/core.py，随 `probation` 列首次出现执行）：把历史遗留的"年轻 review 卡"（state=review 且 interval < learned_interval）降级为 relearn+probation=1
-- 按钮预览 `preview_intervals` 对考核卡有专门分支：Again 显示第一步分钟数，Hard/Good/Easy 显示天级间隔。注意：预览是确定性的（无 fuzz），提交时 `_fuzz_interval` 会加 ±随机天数，所以按钮数字和落库间隔可能差 1–2 天——这是防止卡片扎堆的设计，不是 bug
+### 复习阶段（FSRS）
+- 每次复习按已过天数计算可提取性 R，更新 S/D；下次间隔 = R 衰减到 `desired_retention`（默认 0.9）所需的天数
+- **Again** = 遗忘：lapses+1，温和降低 stability，进入 relearn 步骤
+- 间隔上限 `maximum_interval`（默认 36500）；预览确定性显示、提交时才加 Anki 风格随机模糊（fuzz）；强制 Again<Hard≤Good<Easy 单调
+- **Shift+S** 打开调度检查器面板（当前卡的 S/D/R 与每个按钮的结果）
 
-### 复习阶段（jiēduàn - phase）
-- **Again（再来一次）** → 遗忘：ease-=0.20，interval×0.5，state=relearn
-- **Hard（困难）** → ease-=0.15，interval×1.2
-- **Good（良好）** → interval×ease
-- **Easy（简单）** → ease+=0.15，interval×ease×1.3
+### 难词（leech）
+- 复习态：lapses ≥ `leech_threshold`（默认 3）→ 暂停并标记 `is_leech`
+- 学习态：Again 次数 ≥ `learning_leech_threshold`（默认 6）→ 同上
+- **Shift+L** 复习时手动标记难词
 
-ease最低值（zuì dī zhí - floor）：1.3。难词检测（jiǎncè - detection）：遗忘次数 >= leech_threshold 时暂停卡片。
+---
 
-## 队列（duìliè - queue）设计
+## 队列设计
 
 `routes/queue_manager.py` 实现 Anki v3 风格的持久会话队列（SessionQueue/QueueManager）：
-- 每天首次访问时构建一次（build once per session day），之后在内存中维护
-- **主队列（main deque）**：预先交错排列（interleaved）的卡片 ID（日内学习 + 复习 + 新建混合）
-- **日内学习队列（intraday_learning deque）**：当日内到期的学习/重学卡片，按时间戳排序，每次取卡前检查
-- 以下情况使缓存失效：Anki 日期变更、撤销操作、队列耗尽、删除/埋藏卡片
-- 缓存键：`(mode, deck_id_or_ids, category)`
+- 每个 Anki 日（凌晨 4 点为界）首次访问时构建一次，之后在内存中维护
+- **主队列**：预先交错排列的卡片 ID（日内学习 + 复习 + 新建混合）；**日内学习队列**：按时间戳排序，每次取卡前检查
+- 失效条件：Anki 日期变更、撤销、队列耗尽、删除/埋藏卡片；缓存键 `(mode, deck_id_or_ids, category)`
+- `POST /api/review` 返回 `{next_card, counts}`——无需额外请求
 
-`POST /api/review` 返回 `{next_card, counts}` —— 无需额外请求。
+---
 
-## 故事生成（shēngchéng - generation）
+## 故事生成
 
-- 每个类别（阅读/听力/写作）独立生成自己的故事
-- 每个目标词汇（mùbiāo cíhuì - target vocabulary）恰好对应一个句子（1:1按位置映射）
-- 使用 `get_due_cards()` 收集所有目标词汇用于AI提示词
-- `create_story()` 每次都插入新行 —— 重新生成 = 新增一行，旧故事永久保留
-- Haiku提示词要求：连贯叙事（sùshì - narrative），相同人物，每句不超过15个字，背景词汇使用HSK 1–2
-- **模式（mode）**：`story`（叙事）| `qa`（问答）| `expository`（说明文）| `kahneman`（《思考，快与慢》认知偏误风格，见 `data/kahneman_chapters.json`）
-  | `news`（新闻简报——**纯自动抓取**当日新闻：`news_fetcher.fetch_all()` 抓取 Tagesschau API + RSS 源（按天缓存），
-  然后两步 AI 调用——`ai.summarize_news_items` 挑选最重要的 8 条（平衡德国/国际/中国相关）并压缩摘要，
-  再用 `generate_news_sentences` 生成连贯中文新闻简报句子（默认 OpenAI `gpt-5-mini`）；
-  抓取全部失败时报明确错误，不静默降级为普通故事模式）
-  | `paste`（粘贴内容摘要——用户在设置弹窗粘贴任意内容（文章/邮件/博客，issue #396），
-  句子构成该内容的连贯中文摘要；复用 news 的生成管线（`generate_news_sentences(generic=True)`），
-  必须至少粘贴一段文字，不做自动抓取回退）
-  | `briefing`（News flow，issue #399——news 的升级版：AI 写一篇**连贯的新闻总结**，
-  目标词各恰好出现一次，但**不是每句都含目标词**——目标词句之间允许纯上下文句（承载数字/事实，不受15字限制）。
-  后端 `generate_briefing_sentences` 按阅读顺序扫描句子：含目标词的句子成为卡片，
-  前面积累的上下文句用 Google Translate（translator.py，非 AI）译成德语存入 `story_sentences.context_de`，
-  显示在复习卡正面；中文原文存入 `reasoning_zh`（背景弹窗）。briefing 卡片没有标题（concept_zh 为空）。
-  Again 单词重生成复用 news 的单句路径）。
-  news/paste/briefing 三个模式共同点：每句附带 `source_url`（背景弹窗里"打开原文"链接），
-  复用 kahneman 模式的概念框/背景弹窗 UI；文章内容存入 `stories.gen_params` 的 `articles` 字段，
-  供 Again 单词重生成复现同一批内容（paste 的文章通过 regenerate 的 POST body 传输）
+- 每个类别（阅读/听力/写作——界面顺序也是这个）独立生成自己的故事
+- 每个目标词汇恰好对应一个句子（1:1 按位置映射）；`create_story()` 每次插入新行——重新生成 = 新增一行，旧故事永久保留
+- 提示词要求：连贯叙事、相同人物、每句 ≤15 字、背景词汇 HSK 1–2
 
-## 界面类别顺序（shùnxù - order）
+**模式（mode）：**
+- `story`（叙事）| `qa`（问答）| `expository`（说明文）
+- `kahneman` ——《思考，快与慢》认知偏误风格（`data/kahneman_chapters.json`）
+- `news` ——**纯自动抓取**当日新闻（`news_fetcher.fetch_all()`：Tagesschau API + RSS，按天缓存），两步 AI：`summarize_news_items` 挑最重要的 8 条（平衡德国/国际/中国相关）→ `generate_news_sentences` 生成连贯中文简报（默认 OpenAI `gpt-5-mini`，因 DeepSeek 会审查新闻内容）。抓取全部失败时报明确错误，不静默降级为普通故事
+- `paste` ——用户在设置弹窗粘贴任意内容（#396），句子构成其连贯中文摘要；复用 news 管线（`generate_news_sentences(generic=True)`），不做自动抓取回退
+- `briefing`（News flow，#399）——news 的升级版：AI 写一篇**连贯的新闻总结**，目标词各恰好出现一次，但**不是每句都含目标词**——目标词句之间允许纯上下文句（承载数字/事实，不受 15 字限制）。含目标词的句子成为卡片；前面的上下文句用 Google Translate（非 AI）译成德语存 `story_sentences.context_de`（显示在卡片正面），中文原文存 `reasoning_zh`（背景弹窗）。briefing 卡片没有标题（concept_zh 为空）；Again 单词重生成复用 news 的单句路径
+- news/paste/briefing 共同点：每句带 `source_url`（背景弹窗"打开原文"链接），复用 kahneman 的概念框/背景弹窗 UI；文章内容存 `stories.gen_params.articles` 供 Again 重生成复现同一批内容（paste 的文章通过 regenerate 的 POST body 传输）
 
-阅读 → 听力 → 写作
+---
 
-## API 接口（jiēkǒu - endpoints）
+## API 接口
 
 ```
 # 牌组 & 预设
-GET    /api/decks                                    → 带到期数量的牌组树（?lang= 按语言过滤，见"主页语言标签页"）
-GET    /api/langs                                    → 当前使用的语言列表（>1 时前端显示标签栏）
-POST   /api/decks                                    → 创建牌组
-PUT    /api/decks/{id}                               → 重命名牌组
-DELETE /api/decks/{id}                               → 软删除牌组（移入垃圾桶）
-GET    /api/decks/{id}/preset                        → 获取预设（yùshè - preset）设置
-PUT    /api/decks/{id}/preset                        → 更新预设设置
-GET    /api/presets                                  → 列出所有预设
-POST   /api/presets                                  → 创建预设（可从已有预设克隆）
-DELETE /api/presets/{preset_id}                      → 删除预设
+GET    /api/decks                                    → 带到期数量的牌组树（?lang= 过滤）
+POST   /api/decks ；PUT/DELETE /api/decks/{id}       → 创建 / 重命名 / 软删除（进垃圾桶）
+GET/PUT /api/decks/{id}/preset                       → 预设（yùshè - preset）设置
+GET/POST /api/presets ；DELETE /api/presets/{id}
+GET    /api/langs                                    → 当前使用的语言列表
 
 # 垃圾桶
-GET    /api/trash                                    → 已删除牌组列表
-POST   /api/trash/{deck_id}/restore                  → 恢复牌组
-DELETE /api/trash/{deck_id}                          → 永久删除牌组
-DELETE /api/trash                                    → 清空垃圾桶
+GET  /api/trash ；POST /api/trash/{deck_id}/restore
+DELETE /api/trash/{deck_id} ；DELETE /api/trash      → 永久删除 / 清空
 
-# 复习（以下均支持可选 ?lang= 过滤/隔离队列，见"主页语言标签页"）
-GET  /api/today/{deck_id}/{category}                 → {card, counts}（最优先卡片 + 进度数量）
+# 复习（均支持可选 ?lang= 过滤/隔离队列）
+GET  /api/today/{deck_id}/{category}                 → {card, counts}
 GET  /api/today-mixed/{deck_id}                      → 混合复习模式
-GET  /api/today-unfinished                           → 所有未完成牌组
-GET  /api/today-unfinished-decks                     → 未完成牌组列表
-POST /api/review                                     → {card_id, rating, user_response?} 返回 {next_card, counts}
-POST /api/review/undo                                → 撤销上一次复习
-POST /api/cards/{card_id}/bury                       → 埋藏卡片
-POST /api/cards/{card_id}/unbury                     → 取消埋藏
+GET  /api/today-unfinished ；/api/today-unfinished-decks
+POST /api/review                                     → {card_id, rating, user_response?} → {next_card, counts}
+POST /api/review/undo ；POST /api/review/requeue
+POST /api/cards/{card_id}/bury | unbury | leech
 
 # 暂停
-POST /api/decks/{id}/creating/toggle-suspension      → 切换"创建"类别暂停状态
-POST /api/decks/{id}/categories/{cat}/toggle-suspension → 切换指定类别暂停状态
-POST /api/decks/{id}/toggle-all-suspension           → 切换所有类别暂停状态
+POST /api/decks/{id}/creating/toggle-suspension
+POST /api/decks/{id}/categories/{cat}/toggle-suspension
+POST /api/decks/{id}/toggle-all-suspension
 
-# 故事 & 语音（均支持可选 ?lang=，见"故事按语言隔离"）
+# 故事 & 语音（均支持可选 ?lang=）
 GET  /api/story/{deck_id}/{category}                 → 今日活跃故事（如无则生成）
-POST /api/story/{deck_id}/{category}/regenerate      → 从当前队列生成新故事
-GET  /api/story/{deck_id}/{category}/history         → 该牌组+类别的故事历史
-GET  /api/story/{deck_id}/{category}/count           → 故事数量
-POST /api/speak                                      → {text} → 单条语音合成
-POST /api/speak-multi                                → 批量语音合成
-GET  /api/speak-status                               → 语音合成状态
-POST /api/speak-stop                                 → 停止语音合成
-GET  /api/tts-file                                   → 获取已缓存的 TTS 音频文件
-POST /api/preload                                    → 预加载 TTS 音频
-POST /api/preload-session/{deck_id}/{category}       → 预加载整个会话的 TTS
-GET  /api/tts-progress/{deck_id}/{category}          → TTS 预加载进度
-GET  /api/story-progress/{deck_id}/{category}        → 故事生成进度
-GET  /api/news/status                                → 当日新闻缓存状态 {cached, count}（news 自动模式）
+POST /api/story/{deck_id}/{category}/regenerate ；GET .../history ；GET .../count
+POST /api/speak ；POST /api/speak-multi ；GET /api/speak-status ；POST /api/speak-stop
+GET  /api/tts-file ；POST /api/preload ；POST /api/preload-session/{deck_id}/{category}
+GET  /api/tts-progress/{deck_id}/{category} ；GET /api/story-progress/{deck_id}/{category}
+GET  /api/news/status                                → 当日新闻缓存状态 {cached, count}
 
 # 其他
-POST /api/import                                     → 触发YAML导入
+POST /api/import                                     → 触发 YAML 导入
 GET  /api/browse                                     → {deck_id?, category?, state?, q?, lang?}
-GET  /api/stats                                      → 全局或按牌组统计（tǒngjì - stats）（?lang= 可选）
-GET  /api/retention                                  → 复习正确率（?lang= 可选）
-GET  /api/card-evolution                             → 主页卡片增长图数据（?lang= 可选）
+GET  /api/stats ；/api/retention ；/api/card-evolution（均支持 ?lang=）
 ```
 
-## 命令行（mìnglìng háng - CLI）
+---
+
+## 启动、CLI 与环境变量
 
 ```bash
-python main.py import               # 导入所有口语YAML文件
-python main.py status               # 显示每个牌组/类别的到期数量
-python main.py status --deck Kouyu  # 筛选（shāixuǎn - filter）单个牌组
-```
-
-## 规范（guīfàn - conventions）与约束
-
-- 所有数据库访问通过 `database/` 包 —— 其他文件不写原始SQL（`import database` 仍然有效）
-- 保持 `ai.py` 简洁 —— 每种提示词类型对应一个函数
-- 除以下库外不引入外部依赖（yīlài - dependencies）：`fastapi`、`uvicorn`、`anthropic`、`openai`、`edge-tts`、`pyyaml`、`python-multipart`、`deep-translator`（可选，用于翻译功能）、`jieba`（分词）、`pypinyin`（拼音标注）。新增依赖必须同步更新 `requirements.txt`
-- 前端无构建步骤 —— 无npm，直接编辑 `static/` 下的文件
-- API密钥（mìyuè - key）不存储在代码中 —— 从环境变量（huánjìng biànliàng - environment variable）读取（见下方环境变量表）
-- 始终使用 try/except + 回退（huí tuì - fallback）处理AI返回的格式错误JSON
-
-## 启动与环境变量
-
-```bash
-bash run.sh          # 生产启动（读取 .env，清理 8000 端口）
+bash run.sh          # 生产启动（读取 .env，清理 8000 端口）——服务器上由 systemd 代替
 bash run.dev.sh      # 开发启动（DB_PATH=data/dev.db，DISABLE_AI=1）
+python main.py import                # 导入 imports/ 下的 YAML（目录需存在）
+python main.py status [--deck X]     # 显示每个牌组/类别的到期数量
 ```
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `ANTHROPIC_API_KEY` | 必填 | Claude API 密钥 |
-| `DEEPSEEK_API_KEY` | 可选 | DeepSeek API 密钥 |
-| `ZHIPU_API_KEY` | 可选 | ZhipuAI GLM 密钥 |
-| `QWEN_API_KEY` | 可选 | 阿里云 Qwen 密钥 |
-| `OPENAI_API_KEY` | 可选 | OpenAI 密钥，新闻模式默认模型 `gpt-5-mini`（DeepSeek 会审查新闻内容，故新闻模式用 OpenAI） |
-| `DB_PATH` | `data/srs.db` | 数据库路径（开发时用 `data/dev.db`） |
+| `DEEPSEEK_API_KEY` / `ZHIPU_API_KEY` / `QWEN_API_KEY` | 可选 | 其他 AI 提供商密钥 |
+| `OPENAI_API_KEY` | 可选 | 新闻模式默认模型 `gpt-5-mini`（DeepSeek 会审查新闻，故用 OpenAI） |
+| `DB_PATH` | `data/srs.db` | 数据库路径（开发用 `data/dev.db`） |
 | `DISABLE_AI` | `0` | 设为 `1` 跳过 AI 故事生成 |
-| `LOG_LEVEL` | `INFO` | 日志级别（`DEBUG` 可输出详细日志） |
-| `DEV_CLEAR_DB` | `` | 设为任意值则启动时清空数据库 |
-| `AUTH_USERNAME` | 可选 | 两者都设置时启用 HTTP Basic Auth（保护所有路径），单用户登录名 |
-| `AUTH_PASSWORD` | 可选 | 两者都设置时启用 HTTP Basic Auth（保护所有路径），单用户密码 |
+| `LOG_LEVEL` | `INFO` | 日志级别（`DEBUG` 输出详细日志） |
+| `DEV_CLEAR_DB` | `` | 设为任意值启动时清空数据库——生产环境绝不要设置 |
+| `AUTH_USERNAME` / `AUTH_PASSWORD` | 可选 | 两者都设置时启用 HTTP Basic Auth（保护所有路径） |
 
-## 服务器部署（bùshǔ - deployment）
+注意：uvicorn 直接启动不建表——测试前先手动 `database.init_db()`（`run.sh`/`main.py` 会自动处理）。
 
-系统可部署到 Linux VPS（Hetzner），手机浏览器远程访问：
+---
 
-- **完整教程见 `DEPLOY.md`**：Ubuntu 系统准备、Caddy（HTTPS）、systemd 服务、`.env` 配置、cron 自动部署、数据库备份
-- **自动部署**：服务器 cron 每 2 分钟运行 `deploy/deploy.sh`——`origin/main` 有新提交时自动拉取、装依赖、重启服务。也就是说：**PR 合并到 main ≈ 自动上线**
-- **早晨预生成**：`scripts/morning_pregen.py` 定时提前生成当日故事并预热 TTS（配置见 `scripts/README.md`），解决新闻模式生成慢的问题
-- **无 macOS 依赖**：服务器端播放端点（afplay）仅本地使用，前端全部通过 `/api/tts-file` 浏览器播放（issue #418）
+## 规范与约束
 
-## 里程碑（lǐchéngbēi - milestones）
-
-- **M1** ✅ 数据库模式、SM-2算法、口语YAML导入器、CLI（`import` + `status`）
-- **M2** —— 听力模块（故事生成 + 语音合成 + 复习循环 + 前端）
-- **M3** —— 阅读模块（复用M2故事，无语音合成）
-- **M4** —— 写作模块（自评翻译）
-- **M5** —— 完整Anki风格界面（牌组列表、浏览、设置弹窗、统计）
-- **M6** —— 精细化（jīngxì huà - polish）（连续打卡、难词标记界面、AnkiConnect导出）
+- 所有数据库访问通过 `database/` 包——其他文件不写原始 SQL（`import database` 仍然有效）
+- 保持 `ai.py` 简洁——每种提示词类型对应一个函数；AI 返回的格式错误 JSON 始终用 try/except + 回退处理
+- 允许的外部依赖：`fastapi`、`uvicorn`、`anthropic`、`openai`、`edge-tts`、`pyyaml`、`python-multipart`、`deep-translator`（可选）、`jieba`、`pypinyin`。新增依赖必须同步更新 `requirements.txt`
+- 前端无构建步骤——直接编辑 `static/` 下的文件
+- API 密钥只从环境变量读取，绝不写入代码或仓库
+- **不要在 8000 端口跑测试服务器**——Daniel 的浏览器连着它
