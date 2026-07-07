@@ -32,6 +32,16 @@ CREATE TABLE IF NOT EXISTS deck_presets (
     -- badge counts. Does NOT change the SRS state machine or queue order.
     learned_interval        INTEGER NOT NULL DEFAULT 4,
 
+    -- Graduation probation (see cards.probation): when on (1), a card that
+    -- finishes its learning/relearn steps does NOT become a review card yet —
+    -- it stays learning/relearn until it survives an interval of
+    -- >= learned_interval days. Off (0) = classic Anki (graduate immediately).
+    enable_probation        INTEGER NOT NULL DEFAULT 1,
+    -- When on (1), pressing Again during probation counts a real lapse (and is
+    -- leech-eligible). Off (0, default) = a probation failure just restarts the
+    -- steps without counting a lapse.
+    probation_again_lapses  INTEGER NOT NULL DEFAULT 0,
+
     -- ── FSRS scheduling ──────────────────────────────────────────────────────
     -- desired_retention: target recall probability that sets every interval
     -- maximum_interval: hard cap on any computed interval (days)

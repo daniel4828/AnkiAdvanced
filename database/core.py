@@ -310,6 +310,10 @@ def init_db() -> None:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN learning_hard_days REAL NOT NULL DEFAULT 1")
     if "learned_interval" not in preset_cols:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN learned_interval INTEGER NOT NULL DEFAULT 4")
+    if "enable_probation" not in preset_cols:
+        conn.execute("ALTER TABLE deck_presets ADD COLUMN enable_probation INTEGER NOT NULL DEFAULT 1")
+    if "probation_again_lapses" not in preset_cols:
+        conn.execute("ALTER TABLE deck_presets ADD COLUMN probation_again_lapses INTEGER NOT NULL DEFAULT 0")
     if "reading_enabled" not in preset_cols:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN reading_enabled INTEGER NOT NULL DEFAULT 0")
 
