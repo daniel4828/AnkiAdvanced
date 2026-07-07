@@ -244,6 +244,10 @@ def init_db() -> None:
     # Graduation probation: learning/relearn cards that finished their steps
     # stay in that state (probation=1) until they survive an interval of
     # >= learned_interval days; only then do they become 'review' cards.
+    # Absence of the column signals a fresh install of this feature → run the
+    # one-time backfill below that pulls existing "young review" cards
+    # (interval below learned_interval) back into probation.
+    need_probation_backfill = "probation" not in card_cols
     if "probation" not in card_cols:
         conn.execute("ALTER TABLE cards ADD COLUMN probation INTEGER NOT NULL DEFAULT 0")
 
@@ -362,6 +366,26 @@ def init_db() -> None:
                       JOIN deck_presets p ON p.id = d.preset_id
                       WHERE c.lapses >= p.leech_threshold
                          OR c.learning_again_count >= p.learning_leech_threshold
+                  )"""
+        )
+
+    # ── One-time graduation-probation backfill ────────────────────────────────
+    # Before probation existed, cards graduated to 'review' immediately, so many
+    # "young" review cards sit below their deck's learned_interval without ever
+    # having survived such an interval. Pull them back into probation (relearn +
+    # probation=1) so they follow the new rule: they only truly graduate — and
+    # only start counting Again as a lapse — after surviving a >= learned_interval
+    # gap. Interval / FSRS memory / lapses are preserved; only state changes.
+    if need_probation_backfill:
+        conn.execute(
+            """UPDATE cards
+                  SET state = 'relearn', probation = 1, step_index = 0
+                WHERE state = 'review' AND deleted_at IS NULL
+                  AND id IN (
+                      SELECT c.id FROM cards c
+                      JOIN decks d ON d.id = c.deck_id
+                      JOIN deck_presets p ON p.id = d.preset_id
+                      WHERE c.interval < p.learned_interval
                   )"""
         )
 
