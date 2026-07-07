@@ -389,7 +389,6 @@ def apply_review(card_id: int, rating: int,
         "minimum_interval":    card["minimum_interval"],
         "learned_interval":    card.get("learned_interval", 4),
         "enable_probation":    card.get("enable_probation", 1),
-        "probation_again_lapses": card.get("probation_again_lapses", 0),
         "leech_threshold":     card["leech_threshold"],
         "leech_action":        card["leech_action"],
         "desired_retention":   card.get("desired_retention", 0.9),
@@ -641,10 +640,8 @@ def _handle_probation(card: dict, preset: dict, rating: int) -> dict:
     """A learning/relearn card that finished its steps and is out on a
     day-interval, but has not yet proven itself.
 
-    - Again  → back to step 0 of its steps. By default NOT a lapse and no leech
-               check — the card never became a review card. If the preset's
-               probation_again_lapses toggle is on, a lapse is counted (and the
-               leech check runs) even here.
+    - Again  → back to step 0 of its steps. NOT a lapse and no leech
+               check — the card never became a review card.
     - Hard/Good/Easy → it survived the interval. If that interval was
                >= learned_interval days, the card truly graduates to 'review';
                otherwise it stays in probation with a normally-grown interval.
@@ -671,10 +668,6 @@ def _handle_probation(card: dict, preset: dict, rating: int) -> dict:
         c["probation"] = 0
         c["step_index"] = 0
         c["due"] = next_learning_due(steps, 0)
-        # Optional: treat a probation failure as a real lapse (leech-eligible).
-        if preset.get("probation_again_lapses"):
-            c["lapses"] = c.get("lapses", 0) + 1
-            _check_leech(c, preset)
         return c
 
     # Hard/Good/Easy — survived the probation interval

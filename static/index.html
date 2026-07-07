@@ -460,11 +460,7 @@
       <div class="opt-row"><span class="opt-label">Learned interval (days) <span class="info-i" data-info="learned_interval">i</span><br><span style="font-weight:400;font-size:11px;color:var(--muted)">interval a card must reach to count as learned</span></span><input class="opt-input" id="opt-learned-int" type="number" min="1" step="1"></div>
       <div class="opt-row">
         <span class="opt-label">Graduation probation <span class="info-i" data-info="enable_probation">i</span><br><span style="font-weight:400;font-size:11px;color:var(--muted)">card stays learning until it survives a ≥ learned-interval gap; off = graduate immediately (Anki)</span></span>
-        <input type="checkbox" id="opt-enable-probation" style="width:18px;height:18px;cursor:pointer" onchange="applySchedulerVisibility()">
-      </div>
-      <div class="opt-row" id="opt-row-probation-lapses">
-        <span class="opt-label">Again during probation lapses <span class="info-i" data-info="probation_again_lapses">i</span><br><span style="font-weight:400;font-size:11px;color:var(--muted)">off = failing probation just restarts steps (no lapse); on = counts a lapse</span></span>
-        <input type="checkbox" id="opt-probation-lapses" style="width:18px;height:18px;cursor:pointer">
+        <input type="checkbox" id="opt-enable-probation" style="width:18px;height:18px;cursor:pointer">
       </div>
     </div>
 
