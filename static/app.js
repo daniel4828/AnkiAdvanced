@@ -106,12 +106,15 @@ function currentCardLang() {
 // User overrides persist in localStorage('reviewKeymap'). Rating keys 1-4 stay fixed.
 const KEYMAP_DEFAULTS = {
   reveal:         ' ',
-  replay:         'a',
+  replay:         'q',
   pinyin:         'p',
   translation:    't',
   worddef:        'k',
   'new-sentence': '5',
   undo:           'z',
+  'hint-minus':   'a',
+  'hint-plus':    's',
+  'story-modal':  'x',
 };
 const KEYMAP_ACTIONS = [
   { id: 'reveal',       label: 'Reveal answer' },
@@ -121,9 +124,12 @@ const KEYMAP_ACTIONS = [
   { id: 'worddef',      label: 'Toggle word definition' },
   { id: 'new-sentence', label: 'New sentence (regenerate)' },
   { id: 'undo',         label: 'Undo last review' },
+  { id: 'hint-minus',   label: 'Listening hint −' },
+  { id: 'hint-plus',    label: 'Listening hint +' },
+  { id: 'story-modal',  label: 'Open summary (full story)' },
 ];
 // Keys hardcoded elsewhere in the review view — cannot be reassigned to.
-const KEYMAP_RESERVED = ['R','1','2','3','4','e','n','q','w','f','v','c','C','D','7','L','o','g','Enter','Tab'];
+const KEYMAP_RESERVED = ['R','1','2','3','4','e','n','w','f','v','c','C','D','7','L','o','g','Enter','Tab'];
 function _loadKeymap() {
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem('reviewKeymap') || '{}'); } catch (e) {}
@@ -5988,9 +5994,9 @@ function _renderNewsBackSource(s) {
   const srcHtml = _newsSourceHtml(s);
   if (!ctx && !srcHtml) { el.style.display = 'none'; el.innerHTML = ''; return; }
   const url = s?.source_url || '';
-  let html = '';
+  // Title · publisher above the context (issue #454).
+  let html = srcHtml;
   if (ctx) html += `<div class="news-back-context${url ? ' clickable-sentence' : ''}">${_escHtml(ctx)}</div>`;
-  html += srcHtml;
   el.innerHTML = html;
   el.style.display = 'block';
   if (ctx && url) {
@@ -6178,14 +6184,34 @@ function _closeSetupModal() {
 }
 
 // ── Story modal ───────────────────────────────────────────────────────────────
+// Article section-header HTML shown once per article in the full-story modal
+// (replaces the old per-sentence source line, issue #454). Same title/label
+// logic as _newsSourceHtml, minus the trailing arrow.
+function _articleHeaderHtml(s, escAttr) {
+  const title = _newsflowLang === 'zh'
+    ? (s.concept_zh || s.source_title || '')
+    : (s.source_title || '');
+  const label = [title, s.source_name || ''].filter(Boolean).join(' · ');
+  if (!label) return '';
+  const url = s.source_url || '';
+  return `<div class="story-article-header"${url ? ` data-url="${escAttr(url)}"` : ''}>📰 ${escAttr(label)}</div>`;
+}
+
 function openStoryModal() {
   if (!story?.sentences?.length) return;
   const escAttr = s => String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const currentPos = sentence?.position ?? -1;
   const parts = [];
+  let prevUrl = null;
   for (const s of story.sentences) {
     const isCurrent = s.position === currentPos;
     const url = s.source_url || '';
+    // News flow: article section header, inserted once whenever a new source
+    // article starts (issue #454; replaces the old per-sentence source line).
+    if (url && url !== prevUrl) {
+      parts.push(_articleHeaderHtml(s, escAttr));
+      prevUrl = url;
+    }
     // News flow: context sentence(s) preceding this target — shown between the
     // target sentences (Chinese + German), clickable to the source (issue #452).
     const ctxZh = s.reasoning_zh || '';
@@ -6205,7 +6231,6 @@ function openStoryModal() {
            <span class="concept-name">${s.concept_zh}</span>
          </div>`
       : '';
-    const srcLine = _newsSourceHtml(s);
     parts.push(`<div class="story-sentence${isCurrent ? ' story-sentence-current' : ''}" data-idx="${s.position}">
       <span class="story-num">${s.position + 1}</span>
       <div class="story-content">
@@ -6213,7 +6238,6 @@ function openStoryModal() {
         ${conceptBadge}
         ${s.sentence_fr ? `<div class="story-fr">🇫🇷 ${s.sentence_fr}</div>` : ''}
         ${s.sentence_de ? `<div class="story-de">🇩🇪 ${s.sentence_de}</div>` : ''}
-        ${srcLine ? `<div class="news-source-line-wrap">${srcLine}</div>` : ''}
       </div>
       <button class="story-play-btn" onclick="storyJumpTo(${s.position})" title="Play">▶</button>
     </div>`);
@@ -6228,6 +6252,8 @@ function openStoryModal() {
   if (_storyPlaying && _currentPlayIdx >= 0) updateStoryHighlight(_currentPlayIdx);
   document.getElementById('story-modal-overlay').style.display = 'block';
   document.getElementById('story-modal').style.display = 'flex';
+  // Jump straight to the current sentence (issue #454).
+  document.querySelector('#story-modal-body .story-sentence-current')?.scrollIntoView({ block: 'center' });
 }
 
 let _storyPlaying = false;
@@ -8011,10 +8037,14 @@ document.addEventListener('keydown', async e => {
       e.preventDefault(); _toggleAndScroll('notes-section-body', 'notes-section');
     } else if (backVisible && e.key === 'w') {
       e.preventDefault(); _toggleAndScroll('word-analysis-section-body', 'word-analysis-section', 'end');
-    } else if (e.key === 'q') {
+    } else if (e.key === _key('hint-minus')) {
       e.preventDefault(); _adjustListenHintSlider(-1);
-    } else if (e.key === 'w') {
+    } else if (e.key === _key('hint-plus')) {
       e.preventDefault(); _adjustListenHintSlider(1);
+    } else if (e.key === _key('story-modal')) {
+      e.preventDefault();
+      const _storyOpen = document.getElementById('story-modal-overlay')?.style.display !== 'none';
+      if (_storyOpen) closeStoryModal(); else openStoryModal();
     } else if (e.key === 'f') {
       e.preventDefault(); _toggleSuspendCat('reading');
     } else if (e.key === 'v') {
