@@ -624,6 +624,24 @@ def _generate_kahneman_story_sentences(
     return all_sentences, prompt_summary
 
 
+def _group_sentences_by_article(sentences: list[dict], articles: list[dict]) -> list[dict]:
+    """Regroup chunked news-family sentences topic-by-topic (issue #456).
+
+    Every batch of ai.MAX_NEWS_BATCH words is an independent AI call that
+    cycles through ALL articles once, so the concatenated story revisits every
+    topic once per batch (production story 1225: article 1 at positions 0, 10,
+    20, …). The #454 monotonic-article rule only constrains a single call, not
+    the concatenation — this stable sort fixes the whole story: sentences are
+    keyed by their article's index in `articles`, so each article becomes one
+    contiguous block while batch order is preserved within a block. Sentences
+    without a source_url keep their relative order at the end. Batches are
+    independent mini-summaries anyway, so regrouping breaks no narrative flow —
+    and since the review queue follows sentence positions (#454), reviewing
+    becomes topic-by-topic as well."""
+    order = {a.get("url"): i for i, a in enumerate(articles) if a.get("url")}
+    return sorted(sentences, key=lambda s: order.get(s.get("source_url"), len(articles)))
+
+
 def _generate_news_story_sentences(
     cards: list, articles: list[dict], model: str, progress_key: str | None,
     generic: bool = False,
@@ -653,7 +671,7 @@ def _generate_news_story_sentences(
         )
         all_sentences.extend(chunk_sentences)
 
-    return all_sentences, prompt_summary
+    return _group_sentences_by_article(all_sentences, articles), prompt_summary
 
 
 def _generate_briefing_story_sentences(
@@ -692,7 +710,7 @@ def _generate_briefing_story_sentences(
         all_sentences.extend(chunk_sentences)
         words_done += len(chunk)
 
-    return all_sentences, prompt_summary
+    return _group_sentences_by_article(all_sentences, articles), prompt_summary
 
 
 def _auto_news_articles(model: str, progress_key: str | None) -> list[dict]:

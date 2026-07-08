@@ -378,3 +378,47 @@ class TestGetStoryPositionMap:
         deck_id = database.get_or_create_deck("TestDeck")
         today = database.anki_today().isoformat()
         assert database.get_story_position_map(deck_id, "reading", today, lang="zh") == {}
+
+
+# ---------------------------------------------------------------------------
+# routes.story._group_sentences_by_article (issue #456)
+# ---------------------------------------------------------------------------
+
+from routes.story import _group_sentences_by_article  # noqa: E402
+
+
+class TestGroupSentencesByArticle:
+    ARTS = [
+        {"url": "https://ex.com/a", "title": "A"},
+        {"url": "https://ex.com/b", "title": "B"},
+        {"url": "https://ex.com/c", "title": "C"},
+    ]
+
+    def test_batch_cycling_regrouped_into_article_blocks(self):
+        # Two concatenated batches, each cycling A→B→C (the #456 bug shape)
+        sents = [
+            {"sentence_zh": "a1", "source_url": "https://ex.com/a"},
+            {"sentence_zh": "b1", "source_url": "https://ex.com/b"},
+            {"sentence_zh": "c1", "source_url": "https://ex.com/c"},
+            {"sentence_zh": "a2", "source_url": "https://ex.com/a"},
+            {"sentence_zh": "b2", "source_url": "https://ex.com/b"},
+            {"sentence_zh": "c2", "source_url": "https://ex.com/c"},
+        ]
+        out = [s["sentence_zh"] for s in _group_sentences_by_article(sents, self.ARTS)]
+        # One contiguous block per article; batch order preserved inside a block
+        assert out == ["a1", "a2", "b1", "b2", "c1", "c2"]
+
+    def test_unknown_or_missing_url_kept_last_in_relative_order(self):
+        sents = [
+            {"sentence_zh": "x1", "source_url": None},
+            {"sentence_zh": "b1", "source_url": "https://ex.com/b"},
+            {"sentence_zh": "x2", "source_url": "https://other.com/z"},
+            {"sentence_zh": "a1", "source_url": "https://ex.com/a"},
+        ]
+        out = [s["sentence_zh"] for s in _group_sentences_by_article(sents, self.ARTS)]
+        assert out == ["a1", "b1", "x1", "x2"]
+
+    def test_empty_inputs_are_noops(self):
+        assert _group_sentences_by_article([], self.ARTS) == []
+        sents = [{"sentence_zh": "a1", "source_url": "https://ex.com/a"}]
+        assert _group_sentences_by_article(sents, []) == sents
