@@ -5761,7 +5761,37 @@ let _modelBeforeNewsMode = null;
 function _autoSwitchModelForMode(mode) {
   const modelSel = document.getElementById('setup-model');
   if (!modelSel) return;
-  const isNewsFamily = mode === 'news' || mode === 'briefing' || mode === 'paste';
+
+  // Briefing ignores this dropdown server-side — the server always resolves
+  // BRIEFING_MODEL (env, default gpt-5.1). Lock the control and show that
+  // honestly instead of a stale gpt-5-mini selection (issue #448).
+  const serverOpt = document.getElementById('setup-model-server-opt');
+  if (mode === 'briefing') {
+    if (!serverOpt) {
+      const opt = document.createElement('option');
+      opt.id = 'setup-model-server-opt';
+      opt.value = 'briefing-server';   // ignored by the server for briefing
+      opt.textContent = 'Server: BRIEFING_MODEL (gpt-5.1)';
+      modelSel.appendChild(opt);
+    }
+    if (modelSel.value !== 'briefing-server') {
+      if (_modelBeforeNewsMode === null) _modelBeforeNewsMode = modelSel.value;
+      modelSel.value = 'briefing-server';
+    }
+    modelSel.disabled = true;
+    modelSel.title = 'News flow always uses BRIEFING_MODEL on the server (default gpt-5.1)';
+    return;
+  }
+  modelSel.disabled = false;
+  modelSel.title = '';
+  if (serverOpt) {
+    if (modelSel.value === 'briefing-server') {
+      modelSel.value = _modelBeforeNewsMode || 'gpt-5-mini';
+    }
+    serverOpt.remove();
+  }
+
+  const isNewsFamily = mode === 'news' || mode === 'paste';
   if (isNewsFamily) {
     if (modelSel.value !== 'gpt-5-mini') {
       _modelBeforeNewsMode = modelSel.value;

@@ -201,6 +201,14 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
             sentences, prompt_text = _generate_kahneman_story_sentences(
                 cards, parsed_chapter_ids, model=model, progress_key=progress_key)
         elif mode in ("news", "paste", "briefing"):
+            if mode == "briefing":
+                # Briefing (issue #444) ignores the frontend's model selection —
+                # it always uses BRIEFING_MODEL (env, default gpt-5.1, verified/
+                # cached via ai.resolve_briefing_model()), OpenAI only. Resolved
+                # before the article-selection call so summarize_news_items uses
+                # the same model as the sentence generation (issue #448).
+                model = ai.resolve_briefing_model()
+                logger.info("story  briefing model in use: %s", model)
             if mode in ("news", "briefing") and not articles:
                 # News/briefing modes always auto-fetch today's news and let the
                 # AI condense it into briefing source articles (issue #387).
@@ -210,11 +218,6 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
                 # (raised inside _generate_news_story_sentences).
                 articles = _auto_news_articles(model=model, progress_key=progress_key)
             if mode == "briefing":
-                # Briefing (issue #444) ignores the frontend's model selection —
-                # it always uses BRIEFING_MODEL (env, default gpt-5.1, verified/
-                # cached via ai.resolve_briefing_model()), OpenAI only.
-                model = ai.resolve_briefing_model()
-                logger.info("story  briefing model in use: %s", model)
                 sentences, prompt_text = _generate_briefing_story_sentences(
                     cards, articles, model=model, progress_key=progress_key)
             else:
