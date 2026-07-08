@@ -210,6 +210,11 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
                 # (raised inside _generate_news_story_sentences).
                 articles = _auto_news_articles(model=model, progress_key=progress_key)
             if mode == "briefing":
+                # Briefing (issue #444) ignores the frontend's model selection —
+                # it always uses BRIEFING_MODEL (env, default gpt-5.1, verified/
+                # cached via ai.resolve_briefing_model()), OpenAI only.
+                model = ai.resolve_briefing_model()
+                logger.info("story  briefing model in use: %s", model)
                 sentences, prompt_text = _generate_briefing_story_sentences(
                     cards, articles, model=model, progress_key=progress_key)
             else:
@@ -347,12 +352,15 @@ def generate_sentence_for_word(card: dict, gen_params: dict | None) -> dict | No
         elif mode in ("news", "paste", "briefing"):
             # Briefing Again-regen reuses the single-sentence news path: one word
             # gets one fresh sentence from the same articles (no context chain).
+            # Briefing always uses BRIEFING_MODEL (issue #444), ignoring the
+            # story's stored model — same resolution as the main generation.
+            news_model = ai.resolve_briefing_model() if mode == "briefing" else model
             articles = gp.get("articles") or []
             if articles:
                 sentences = ai.generate_news_sentences(
-                    [card], articles, model=model, generic=(mode == "paste"))
+                    [card], articles, model=news_model, generic=(mode == "paste"))
             else:  # no articles context saved → fall back to a plain sentence
-                sentences, _ = ai.generate_story([card], model=model, lang=lang)
+                sentences, _ = ai.generate_story([card], model=news_model, lang=lang)
         else:
             sentences, _ = ai.generate_story(
                 [card], topic=gp.get("topic"), max_hsk=gp.get("max_hsk", 2),

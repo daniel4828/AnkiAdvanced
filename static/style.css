@@ -1640,6 +1640,13 @@ main.browse-open {
   font-style: italic;
   margin: 0 12px 10px;
 }
+/* News flow (briefing): sentence/context clickable to open the source article */
+.clickable-sentence {
+  cursor: pointer;
+}
+.clickable-sentence:hover {
+  opacity: 0.85;
+}
 .creating-word-def-row {
   display: flex;
   align-items: center;

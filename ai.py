@@ -25,6 +25,11 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "deepseek-v4-flash"
 
+# briefing mode (issue #444) — env var BRIEFING_MODEL, default gpt-5.1, verified
+# against the OpenAI models API with a fallback chain, cached for process lifetime.
+BRIEFING_MODEL_FALLBACKS = ("gpt-5.1", "gpt-5", "gpt-5-mini")
+_briefing_model_cache: str | None = None
+
 # Per-session story generation progress: key → {phase, msg, percent, translate_warn?}
 _story_progress: dict[str, dict] = {}
 
@@ -133,6 +138,43 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str,
                            model, purpose)
 
         return (content or "").strip()
+
+
+def resolve_briefing_model() -> str:
+    """Resolve the OpenAI model id used for briefing mode (issue #444).
+
+    Reads BRIEFING_MODEL (default "gpt-5.1"), verifies on first use that the id
+    actually exists via the OpenAI models API, and falls back through
+    gpt-5.1 → gpt-5 → gpt-5-mini if not (or if the id is some other unlisted
+    string). The resolved id is cached for the process lifetime — the models
+    API is only ever hit once per process. OpenAI only (briefing is OpenAI-only,
+    same reasoning as news/paste: DeepSeek censors news content).
+    """
+    global _briefing_model_cache
+    if _briefing_model_cache is not None:
+        return _briefing_model_cache
+
+    requested = os.environ.get("BRIEFING_MODEL") or BRIEFING_MODEL_FALLBACKS[0]
+    candidates = [requested] + [m for m in BRIEFING_MODEL_FALLBACKS if m != requested]
+
+    try:
+        client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        available = {m.id for m in client.models.list().data}
+        for candidate in candidates:
+            if candidate in available:
+                _briefing_model_cache = candidate
+                logger.info("briefing model resolved: %s (requested=%s, available=%d models)",
+                           candidate, requested, len(available))
+                return candidate
+        logger.warning("briefing model: none of %s found via OpenAI models API — using last "
+                       "resort %s", candidates, BRIEFING_MODEL_FALLBACKS[-1])
+        _briefing_model_cache = BRIEFING_MODEL_FALLBACKS[-1]
+        return _briefing_model_cache
+    except Exception as e:
+        logger.warning("briefing model: could not verify via OpenAI models API (%s) — "
+                       "falling back to %s", e, BRIEFING_MODEL_FALLBACKS[-1])
+        _briefing_model_cache = BRIEFING_MODEL_FALLBACKS[-1]
+        return _briefing_model_cache
 
 
 # ---------------------------------------------------------------------------
@@ -1116,6 +1158,83 @@ def generate_news_sentences(
     return sentences
 
 
+def _briefing_word_match(word_zh: str, sentence_zh: str) -> bool:
+    if '...' in word_zh or '…' in word_zh:
+        chars = [c for c in word_zh if c not in '.…']
+        return all(c in sentence_zh for c in chars)
+    return word_zh in sentence_zh
+
+
+def validate_briefing_items(items: list[dict], cards: list[dict]) -> list[str]:
+    """Python-only validation (no AI) of a raw briefing sentence array (issue #444).
+
+    Checks:
+      a) every target word appears exactly once across all sentences
+      b) no two consecutive context sentences (sentences with no target word)
+      c) target-word sentences are at most 18 characters
+    Returns a list of human-readable violation descriptions — empty means valid.
+    """
+    issues: list[str] = []
+    if not cards:
+        return issues
+
+    word_counts = {c["word_id"]: 0 for c in cards}
+    is_context: list[bool] = []
+    for item in items:
+        s_zh = (item.get("sentence_zh") or "").strip()
+        matched_any = False
+        for c in cards:
+            if _briefing_word_match(c["word_zh"], s_zh):
+                word_counts[c["word_id"]] += 1
+                matched_any = True
+        is_context.append(not matched_any)
+
+    missing = [c["word_zh"] for c in cards if word_counts[c["word_id"]] == 0]
+    duplicated = [c["word_zh"] for c in cards if word_counts[c["word_id"]] > 1]
+    if missing:
+        issues.append(f"目标词缺失：{'、'.join(missing)}")
+    if duplicated:
+        issues.append(f"目标词重复出现（每个词必须恰好出现一次）：{'、'.join(duplicated)}")
+
+    run = 0
+    for ctx in is_context:
+        run = run + 1 if ctx else 0
+        if run >= 2:
+            issues.append("存在连续两个以上不含目标词的上下文句子（每个目标句前最多只能有一个上下文句）")
+            break
+
+    if len(items) > 2 * len(cards):
+        issues.append(f"句子总数（{len(items)}）超过目标词数量两倍的上限（{2 * len(cards)}）")
+
+    for item in items:
+        s_zh = (item.get("sentence_zh") or "").strip()
+        if s_zh and any(_briefing_word_match(c["word_zh"], s_zh) for c in cards) and len(s_zh) > 18:
+            issues.append(f"目标句超过18字（{len(s_zh)}字）：{s_zh}")
+
+    return issues
+
+
+def _dedupe_consecutive_briefing_context(items: list[dict], cards: list[dict]) -> list[dict]:
+    """Fallback repair when consecutive context-only sentences survive the
+    validation retry: keep only the LAST sentence of each consecutive
+    context-only run, dropping the extras (issue #444 acceptance criteria)."""
+    fixed: list[dict] = []
+    buf: list[dict] = []
+    for item in items:
+        s_zh = (item.get("sentence_zh") or "").strip()
+        is_ctx = not (s_zh and any(_briefing_word_match(c["word_zh"], s_zh) for c in cards))
+        if is_ctx:
+            buf.append(item)
+        else:
+            if buf:
+                fixed.append(buf[-1])
+                buf = []
+            fixed.append(item)
+    if buf:
+        fixed.append(buf[-1])
+    return fixed
+
+
 def generate_briefing_sentences(
     cards: list[dict],
     articles: list[dict],
@@ -1125,17 +1244,29 @@ def generate_briefing_sentences(
     attempt_label: str = "",
     progress_extra: dict | None = None,
 ) -> list[dict]:
-    """News flow mode (issue #399): one flowing Chinese news summary instead of
-    one forced sentence per word.
+    """News flow mode (issue #399, reworked in #444): one flowing Chinese news
+    summary instead of one forced sentence per word.
 
     The AI writes a coherent summary in which each target word appears exactly
-    once, but plain context sentences (facts, numbers — no target word) are
-    allowed in between, so nothing has to be padded artificially. We then scan
-    the sentences in order: a sentence containing a target word becomes a card
-    sentence; the context sentences before it (since the previous card) are
-    attached to it — Chinese into reasoning_zh (background popup), German
-    (Google Translate, no extra AI cost) into context_de (shown on the card).
-    Target-word order = order of appearance in the summary.
+    once — in whatever order produces the most natural summary (word order is
+    free, issue #444) — but plain context sentences (facts, numbers — no target
+    word) are allowed in between, so nothing has to be padded artificially. At
+    most ONE context sentence may precede a target sentence; two consecutive
+    context sentences are never allowed. We then scan the sentences in order:
+    a sentence containing a target word becomes a card sentence; the context
+    sentence before it (since the previous card) is attached to it — Chinese
+    into reasoning_zh (background popup), German (Google Translate, no extra AI
+    cost) into context_de (shown on the card). Target-word order = order of
+    appearance in the summary (arbitrary, chosen by the AI).
+
+    After generation, `validate_briefing_items` checks the raw output in Python
+    (no AI): every target word exactly once, no consecutive context sentences,
+    target sentences ≤18 chars. On violation we retry ONCE with the concrete
+    issues fed back into the prompt. If violations persist: consecutive context
+    runs are collapsed to their last sentence (extras dropped); anything else
+    is accepted with a logged warning — the existing per-word missing-word
+    retry loop and fallback-sentence mechanism below still guarantee every
+    card gets a sentence.
 
     progress_extra: extra fields merged into every progress update (issue #407) —
     the chunker passes words_done/words_total/articles so the loading screen can
@@ -1160,18 +1291,12 @@ def generate_briefing_sentences(
             fields.setdefault("percent", 20)
         _set_progress(progress_key, phase="request", msg=msg, **fields)
 
-    def _word_in_sentence(word_zh: str, sentence_zh: str) -> bool:
-        if '...' in word_zh or '…' in word_zh:
-            chars = [c for c in word_zh if c not in '.…']
-            return all(c in sentence_zh for c in chars)
-        return word_zh in sentence_zh
-
     articles_block = "\n\n".join(
         f"文章{i}（标题：{a.get('title') or '（无标题）'}）：\n{a.get('text', '').strip()}"
         for i, a in enumerate(articles)
     )
 
-    def _build_prompt(batch: list[dict]) -> str:
+    def _build_prompt(batch: list[dict], extra_hint: str = "") -> str:
         word_list = "\n".join(
             f"{i + 1}. {c['word_zh']}（{c.get('pinyin', '')}）— {c.get('definition', '')}"
             for i, c in enumerate(batch)
@@ -1185,20 +1310,26 @@ def generate_briefing_sentences(
 目标词汇（每个词必须在整篇摘要中恰好出现一次，以原文形式出现）：
 {word_list}
 
+【词序自由】你可以任意安排这些目标词在摘要中出现的先后顺序——不必按上面列表的顺序，
+请选择能写出最自然、最连贯摘要的顺序。
+
 规则：
 - 摘要按句子输出为 JSON 数组，数组顺序就是阅读顺序
-- 不是每句话都要包含目标词汇：目标词句子之间可以插入不含目标词的上下文句子，
-  用来交代事实、数字和背景，让摘要自然连贯——请优先保证摘要本身是一篇好的新闻总结
+- 不是每句话都要包含目标词汇：目标词句子之间【最多插入一个】不含目标词的上下文句子，
+  用来交代事实、数字和背景，让摘要自然连贯——绝对不允许连续出现两个或以上不含目标词的上下文句子
+- 因此句子总数不能超过目标词数量的两倍
 - 一句话最多包含一个目标词汇
 - 含目标词汇的句子长度为8到18个字，其中非目标词汇只用HSK 1-{max_hsk}的词汇
 - 【重要】含目标词汇的句子也必须传达该新闻中的一个具体事实（谁、做了什么、在哪里、多少），
   读者只看这一句也能学到新闻内容。严禁没有信息量的空洞句子，
   例如"组织很大。""火箭很快。""它指代。""未知很大。"这类句子绝对不可以出现
-- 上下文句子可以更长、更具体（欢迎数字和事实），不受字数和HSK限制
+- 上下文句子同样使用简单中文（可以包含具体数字和事实），不要写得比目标句复杂太多——
+  它最终会被翻译成德文显示在卡片正面，太长太难会打断学习
 - 所有输出只用简体中文，绝对不要出现繁体字
 - 不要使用markdown格式
 - article_idx 是该句子所涉及的文章编号（上面的 0 开始编号）
 - target_word 是该句包含的目标词汇原文；不含目标词的上下文句子填 null
+{extra_hint}
 
 仅返回如下JSON数组，不加任何其他文字：
 [
@@ -1208,6 +1339,7 @@ def generate_briefing_sentences(
 
     sentences: list[dict] = []
     remaining = list(cards)
+    validation_retried = False
 
     _progress(f"生成新闻总结…{attempt_label}")
 
@@ -1216,6 +1348,7 @@ def generate_briefing_sentences(
             break
         if attempt > 0:
             _progress(f"补漏 {len(remaining)} 个词（第{attempt + 1}轮）…{attempt_label}")
+        expected_cards = list(remaining)
         prompt = _build_prompt(remaining)
         # 8192: gpt-5 series shares this budget with internal reasoning tokens,
         # and context sentences add output on top of the card sentences.
@@ -1233,6 +1366,40 @@ def generate_briefing_sentences(
             logger.warning("briefing attempt %d: JSON parse error: %s", attempt + 1, e)
             continue
 
+        # Python-only validation + a single retry (issue #444) — only once per
+        # call, on whichever attempt first produces parseable JSON.
+        if not validation_retried:
+            validation_retried = True
+            issues = validate_briefing_items(items, expected_cards)
+            if issues:
+                logger.warning("briefing attempt %d: validation issues, retrying once: %s",
+                               attempt + 1, issues)
+                hint = "\n【上一次的结果有以下问题，请修正后重新生成整篇摘要】\n" + \
+                       "\n".join(f"- {i}" for i in issues)
+                retry_raw = _call_api(
+                    model, [{"role": "user", "content": _build_prompt(remaining, extra_hint=hint)}],
+                    8192, purpose="briefing",
+                )
+                r_start, r_end = retry_raw.find("["), retry_raw.rfind("]") + 1
+                if r_start != -1 and r_end != 0:
+                    try:
+                        retry_items = json.loads(retry_raw[r_start:r_end])
+                        items = retry_items
+                        remaining_issues = validate_briefing_items(items, expected_cards)
+                        if remaining_issues:
+                            logger.warning(
+                                "briefing: validation issues persist after retry (accepting with "
+                                "fallback repair): %s", remaining_issues)
+                    except json.JSONDecodeError as e:
+                        logger.warning("briefing: validation retry JSON parse error (%s) — "
+                                       "keeping original attempt", e)
+                else:
+                    logger.warning("briefing: validation retry produced no JSON array — "
+                                   "keeping original attempt")
+                # Fallback repair: collapse any remaining consecutive context runs
+                # to their last sentence — safe no-op if already valid.
+                items = _dedupe_consecutive_briefing_context(items, expected_cards)
+
         # Scan in reading order: context sentences accumulate until the next
         # sentence containing a still-uncovered target word, then attach to it.
         # We match by scanning the text ourselves — the AI's target_word tag is
@@ -1244,7 +1411,7 @@ def generate_briefing_sentences(
                 continue
             matched = None
             for card in remaining:
-                if _word_in_sentence(card["word_zh"], s_zh):
+                if _briefing_word_match(card["word_zh"], s_zh):
                     matched = card
                     break
             if matched is None:
