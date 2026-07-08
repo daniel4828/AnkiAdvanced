@@ -1211,6 +1211,21 @@ def validate_briefing_items(items: list[dict], cards: list[dict]) -> list[str]:
     if len(items) > 2 * len(cards):
         issues.append(f"句子总数（{len(items)}）超过目标词数量两倍的上限（{2 * len(cards)}）")
 
+    # article_idx must be non-decreasing across the sequence (issue #454) —
+    # the AI is told to process articles one at a time, in order. None/missing
+    # article_idx is not a violation (just skipped when tracking the max seen).
+    max_idx_seen = None
+    for pos, item in enumerate(items):
+        idx = item.get("article_idx")
+        if not isinstance(idx, int):
+            continue
+        if max_idx_seen is not None and idx < max_idx_seen:
+            issues.append(
+                f"文章顺序回跳：句子{pos}属于文章{idx}但之前已进入文章{max_idx_seen}"
+            )
+            break
+        max_idx_seen = idx if max_idx_seen is None else max(max_idx_seen, idx)
+
     for item in items:
         s_zh = (item.get("sentence_zh") or "").strip()
         if s_zh and any(_briefing_word_match(c["word_zh"], s_zh) for c in cards) and len(s_zh) > 18:
@@ -1238,6 +1253,57 @@ def _dedupe_consecutive_briefing_context(items: list[dict], cards: list[dict]) -
     if buf:
         fixed.append(buf[-1])
     return fixed
+
+
+def fact_check_briefing(articles: list[dict], items: list[dict], model: str) -> list[str]:
+    """One extra AI call (issue #454) to catch hallucinated facts in the
+    generated briefing sentences — numbers, names, causality invented rather
+    than taken from the source articles.
+
+    Returns a list of Chinese issue descriptions ("句子N：问题描述"); an empty
+    list means either everything checked out or the check itself failed —
+    fact-checking is best-effort and must never block story generation.
+    """
+    if not articles or not items:
+        return []
+
+    articles_block = "\n\n".join(
+        f"文章{i}（标题：{a.get('title') or '（无标题）'}）：\n{a.get('text', '').strip()}"
+        for i, a in enumerate(articles)
+    )
+    sentences_block = "\n".join(
+        f"{i}. {item.get('sentence_zh', '')}" for i, item in enumerate(items)
+    )
+    prompt = f"""任务：核对下面每一句中文摘要句子是否符合原始新闻文章的事实。
+
+新闻文章（按 0 开始编号）：
+{articles_block}
+
+生成的摘要句子（按 0 开始编号）：
+{sentences_block}
+
+请重点检查：数字（金额、人数、日期等）、人名/地名/机构名、因果关系是否准确，
+以及是否有原文中完全没有提到、凭空捏造的内容。
+
+只返回如下 JSON，不加任何其他文字：
+- 全部符合事实：{{"ok": true}}
+- 存在问题：{{"ok": false, "issues": ["句子N：问题描述", ...]}}"""
+
+    try:
+        raw = _call_api(model, [{"role": "user", "content": prompt}], 2048, purpose="briefing_fact_check")
+        json_start = raw.find("{")
+        json_end = raw.rfind("}") + 1
+        if json_start == -1 or json_end == 0:
+            logger.warning("briefing fact-check: no JSON object found in response")
+            return []
+        result = json.loads(raw[json_start:json_end])
+        if result.get("ok"):
+            return []
+        issues = result.get("issues") or []
+        return [str(i) for i in issues]
+    except Exception as e:
+        logger.warning("briefing fact-check: call failed (%s) — skipping", e)
+        return []
 
 
 def generate_briefing_sentences(
@@ -1337,6 +1403,9 @@ def generate_briefing_sentences(
 - 不要使用markdown格式
 - article_idx 是该句子所涉及的文章编号（上面的 0 开始编号）
 - target_word 是该句包含的目标词汇原文；不含目标词的上下文句子填 null
+- 【逐篇处理】必须按文章编号顺序依次处理：先写完文章0涉及的所有句子（含其上下文句），
+  再开始写文章1的句子，以此类推——article_idx 在整个输出中只能递增或不变，绝不允许
+  写到文章1之后又跳回去写文章0的句子
 {extra_hint}
 
 仅返回如下JSON数组，不加任何其他文字：
@@ -1348,6 +1417,7 @@ def generate_briefing_sentences(
     sentences: list[dict] = []
     remaining = list(cards)
     validation_retried = False
+    fact_check_done = False
 
     _progress(f"生成新闻总结…{attempt_label}")
 
@@ -1407,6 +1477,41 @@ def generate_briefing_sentences(
                 # Fallback repair: collapse any remaining consecutive context runs
                 # to their last sentence — safe no-op if already valid.
                 items = _dedupe_consecutive_briefing_context(items, expected_cards)
+
+        # AI fact-check against the source articles (issue #454) — runs once,
+        # right after Python validation and before any translation. On issues,
+        # retry generation once with the concrete problems fed back in; the
+        # retry's own fact-check result (if any) is logged only, never retried
+        # again, to avoid an unbounded loop.
+        if not fact_check_done:
+            fact_check_done = True
+            _progress(f"核对事实…{attempt_label}")
+            fc_issues = fact_check_briefing(articles, items, model)
+            if fc_issues:
+                logger.warning("briefing attempt %d: fact-check issues, retrying once: %s",
+                               attempt + 1, fc_issues)
+                fc_hint = "\n【事实核查发现以下问题，请修正后重新生成整篇摘要，确保严格符合原文事实】\n" + \
+                          "\n".join(f"- {i}" for i in fc_issues)
+                fc_retry_raw = _call_api(
+                    model, [{"role": "user", "content": _build_prompt(remaining, extra_hint=fc_hint)}],
+                    8192, purpose="briefing",
+                )
+                fc_r_start, fc_r_end = fc_retry_raw.find("["), fc_retry_raw.rfind("]") + 1
+                if fc_r_start != -1 and fc_r_end != 0:
+                    try:
+                        fc_retry_items = json.loads(fc_retry_raw[fc_r_start:fc_r_end])
+                        items = _dedupe_consecutive_briefing_context(fc_retry_items, expected_cards)
+                        second_fc_issues = fact_check_briefing(articles, items, model)
+                        if second_fc_issues:
+                            logger.warning(
+                                "briefing: fact-check issues persist after retry (accepting): %s",
+                                second_fc_issues)
+                    except json.JSONDecodeError as e:
+                        logger.warning("briefing: fact-check retry JSON parse error (%s) — "
+                                       "keeping original attempt", e)
+                else:
+                    logger.warning("briefing: fact-check retry produced no JSON array — "
+                                   "keeping original attempt")
 
         # Scan in reading order: context sentences accumulate until the next
         # sentence containing a still-uncovered target word, then attach to it.
