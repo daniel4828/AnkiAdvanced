@@ -96,6 +96,37 @@ logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 
 # ---------------------------------------------------------------------------
+# In-memory ring buffer of recent log lines, exposed via GET /api/logs
+# (issue #454) — lets Daniel check server logs from the settings page
+# without SSH access.
+# ---------------------------------------------------------------------------
+
+import collections
+
+
+class _RingBufferHandler(logging.Handler):
+    def __init__(self, maxlen: int = 4000):
+        super().__init__()
+        self.buffer: "collections.deque[str]" = collections.deque(maxlen=maxlen)
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            self.buffer.append(self.format(record))
+        except Exception:
+            pass  # never let logging itself raise
+
+
+_log_buffer_handler = _RingBufferHandler(maxlen=4000)
+# Always use the plain (non-colored) formatter, regardless of whether stderr
+# is a tty, so the buffer never contains ANSI escape codes.
+_log_buffer_handler.setFormatter(logging.Formatter(
+    "%(asctime)s [%(levelname)-5s] %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
+))
+logging.root.addHandler(_log_buffer_handler)
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -158,7 +189,7 @@ try:
     from contextlib import asynccontextmanager
     from fastapi import FastAPI, Request
     from fastapi.staticfiles import StaticFiles
-    from fastapi.responses import FileResponse, JSONResponse
+    from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
     import uvicorn
 
     from routes import decks, review, story, browse, imports
@@ -293,6 +324,12 @@ try:
     def log_ui_action(body: LogBody):
         ui_logger.info("点击 → %s", body.action)
         return {"ok": True}
+
+    @app.get("/api/logs")
+    def get_logs(lines: int = 500):
+        n = max(1, min(lines, 4000))
+        recent = list(_log_buffer_handler.buffer)[-n:]
+        return PlainTextResponse("\n".join(recent))
 
     @app.post("/api/restart")
     def restart_server():
