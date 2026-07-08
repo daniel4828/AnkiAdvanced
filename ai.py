@@ -1120,9 +1120,12 @@ def generate_news_sentences(
                 continue
             remaining.remove(matched)
             article_idx = item.get("article_idx")
-            source_url = None
+            source_url = source_title = source_name = None
             if isinstance(article_idx, int) and 0 <= article_idx < len(articles):
-                source_url = articles[article_idx].get("url") or None
+                _art = articles[article_idx]
+                source_url = _art.get("url") or None
+                source_title = _art.get("title") or None
+                source_name = _art.get("source_name") or None
             sentences.append({
                 "word_ids": [matched["word_id"]],
                 "sentence_zh": s_zh,
@@ -1131,6 +1134,8 @@ def generate_news_sentences(
                 "concept_zh": item.get("headline_zh", "").strip(),
                 "reasoning_zh": item.get("background_zh", "").strip(),
                 "source_url": source_url,
+                "source_title": source_title,
+                "source_name": source_name,
                 "tokens": [],
             })
 
@@ -1422,9 +1427,12 @@ def generate_briefing_sentences(
                 continue
             remaining.remove(matched)
             article_idx = item.get("article_idx")
-            source_url = None
+            source_url = source_title = source_name = None
             if isinstance(article_idx, int) and 0 <= article_idx < len(articles):
-                source_url = articles[article_idx].get("url") or None
+                _art = articles[article_idx]
+                source_url = _art.get("url") or None
+                source_title = _art.get("title") or None
+                source_name = _art.get("source_name") or None
             context_zh = " ".join(context_buf)
             context_buf = []
             sentences.append({
@@ -1436,6 +1444,8 @@ def generate_briefing_sentences(
                 "reasoning_zh": context_zh,
                 "context_zh": context_zh,
                 "source_url": source_url,
+                "source_title": source_title,
+                "source_name": source_name,
                 "tokens": [],
             })
 
@@ -1528,7 +1538,7 @@ idx is the item number in square brackets above."""
             if isinstance(idx, int) and 0 <= idx < len(items) and summary:
                 it = items[idx]
                 articles.append({"url": it.get("url", ""), "title": it.get("title", ""),
-                                 "text": summary})
+                                 "source_name": it.get("source_name", ""), "text": summary})
         if articles:
             logger.info("[%s] summarize_news_items: %d/%d items selected",
                         model, len(articles), len(items))
@@ -1537,7 +1547,7 @@ idx is the item number in square brackets above."""
     except Exception as e:
         logger.warning("summarize_news_items failed (%s), falling back to raw items", e)
     return [{"url": it.get("url", ""), "title": it.get("title", ""),
-             "text": (it.get("text") or "")[:600]}
+             "source_name": it.get("source_name", ""), "text": (it.get("text") or "")[:600]}
             for it in items[:max_items]]
 
 
