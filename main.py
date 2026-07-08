@@ -246,6 +246,35 @@ try:
             "Expires": "0",
         })
 
+    # Running-version info (issue #450): read the current commit once at
+    # startup — deploy.sh restarts the process on every deploy, so process
+    # start time ≈ deploy time. Never fails: without git (or outside a
+    # checkout) the badge just shows "unknown".
+    def _read_version() -> dict:
+        import subprocess
+        try:
+            log_out = subprocess.run(
+                ["git", "log", "-1", "--format=%h%n%s%n%cI"],
+                capture_output=True, text=True, timeout=5, check=True,
+            ).stdout.strip().split("\n")
+            branch = subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                capture_output=True, text=True, timeout=5, check=True,
+            ).stdout.strip()
+            return {"commit": log_out[0], "message": log_out[1],
+                    "commit_date": log_out[2], "branch": branch}
+        except Exception as e:
+            logger.warning("version info unavailable (%s)", e)
+            return {"commit": "unknown", "message": "", "commit_date": "", "branch": "unknown"}
+
+    from datetime import datetime as _dt
+    _version_info = {**_read_version(),
+                     "deployed_at": _dt.now().isoformat(timespec="seconds")}
+
+    @app.get("/api/version")
+    def get_version():
+        return _version_info
+
     app.include_router(decks.router)
     app.include_router(review.router)
     app.include_router(story.router)

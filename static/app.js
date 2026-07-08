@@ -8346,8 +8346,34 @@ async function _restartServer() {
   setTimeout(poll, 600);
 }
 
+// ── Running-version badge (issue #450) ──────────────────────────────────────
+// Bottom-right corner: branch@commit · deploy time. Hover shows the commit
+// message (title); a click/tap toggles it inline for mobile.
+async function _loadVersionBadge() {
+  try {
+    const v = await api('GET', '/api/version');
+    const el = document.getElementById('version-badge');
+    if (!el || !v.commit) return;
+    let when = '';
+    if (v.deployed_at) {
+      const d = new Date(v.deployed_at);
+      const p = n => String(n).padStart(2, '0');
+      when = ` · ${p(d.getDate())}.${p(d.getMonth() + 1)}. ${p(d.getHours())}:${p(d.getMinutes())}`;
+    }
+    const short = `${v.branch}@${v.commit}${when}`;
+    el.textContent = short;
+    el.title = v.message ? `${v.message}\n(deployed ${v.deployed_at})` : '';
+    el.onclick = () => {
+      const expanded = el.classList.toggle('expanded');
+      el.textContent = expanded && v.message ? `${short} — ${v.message}` : short;
+    };
+    el.style.display = 'block';
+  } catch (e) { /* badge is best-effort — never break the app over it */ }
+}
+
 // ── Boot ─────────────────────────────────────────────────────────────────────
 loadDecks();
+_loadVersionBadge();
 
 
 // ===== Home calendar heatmap (issue #307) — inlined here to dodge index.html caching =====
