@@ -58,6 +58,15 @@ def _spawn_again_regen(card: dict) -> None:
             # a random chapter for kahneman) so the new sentence matches its style
             # instead of always being a plain story sentence.
             gen_params = database.get_story_gen_params_for_word(card["word_id"], today)
+            if (gen_params or {}).get("mode") == "briefing":
+                # briefing sentences are part of a connected news summary — a
+                # standalone regenerated sentence would break that context, and
+                # the queue-ordering feature (issue #454) means the card still
+                # reappears at its original position in the summary anyway.
+                logger.info("again-regen  word=%s mode=briefing — skipping regen "
+                            "(briefing cards keep their original summary sentence)",
+                            card.get("word_zh"))
+                return
             sentence = generate_sentence_for_word(card, gen_params)
             if not sentence:
                 return
@@ -78,6 +87,30 @@ def _spawn_again_regen(card: dict) -> None:
 # Queue key / build-function helpers
 # ---------------------------------------------------------------------------
 
+def _order_by_story(cards: list[dict], story_deck_id: int | None,
+                    story_category: str | None, lang: str | None) -> list[dict]:
+    """Reorder due cards to match today's News-flow-style story (briefing/news/
+    paste — issue #454): word_id → story_sentences.position, via
+    database.get_story_position_map(). `sorted` is stable, so cards whose word
+    isn't in the story (or when there's no such story at all) keep their
+    existing interleaved order and sort after everything that is in the story.
+
+    Single-category sessions that don't find a per-category story also try the
+    'unified' story — a unified story (from a mixed/"All" review session)
+    drives ordering for per-category sessions too, since it covers every word
+    due that day regardless of category.
+    """
+    if not story_deck_id or not story_category or not cards:
+        return cards
+    today = database.anki_today().isoformat()
+    pos = database.get_story_position_map(story_deck_id, story_category, today, lang)
+    if not pos and story_category != "unified":
+        pos = database.get_story_position_map(story_deck_id, "unified", today, lang)
+    if not pos:
+        return cards
+    return sorted(cards, key=lambda c: pos.get(c.get("word_id"), float("inf")))
+
+
 def _key_and_build(
     *,
     ids: list[int] | None = None,
@@ -91,18 +124,31 @@ def _key_and_build(
 
     `lang` is appended to every key tuple so 'All zh' and 'All fr' (or any other
     lang split of the same deck/id set) never share a cached in-memory queue.
+
+    build_fn's output is reordered to match the active News-flow story's
+    sentence order (issue #454, see _order_by_story) — this only runs once per
+    Anki day / queue invalidation, so the extra position-map lookup is cheap.
     """
     if root_deck_id:
         key = ("any_cat", root_deck_id, lang)
-        build_fn = lambda: database.get_due_cards_any_cat(root_deck_id, lang=lang)
+
+        def build_fn():
+            cards = database.get_due_cards_any_cat(root_deck_id, lang=lang)
+            return _order_by_story(cards, root_deck_id, "unified", lang)
     elif ids and len(ids) > 1:
         key = ("multi", tuple(sorted(ids)), category, lang)
         _root = parent_for_multi
-        build_fn = lambda: database.get_due_cards_multi(ids, category, root_deck_id=_root)
+
+        def build_fn():
+            cards = database.get_due_cards_multi(ids, category, root_deck_id=_root)
+            return _order_by_story(cards, _root, category, lang)
     else:
         actual = (ids[0] if ids else deck_id)
         key = ("single", actual, category, lang)
-        build_fn = lambda: database.get_due_cards(actual, category)
+
+        def build_fn():
+            cards = database.get_due_cards(actual, category)
+            return _order_by_story(cards, actual, category, lang)
     return key, build_fn
 
 

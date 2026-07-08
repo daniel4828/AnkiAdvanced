@@ -14,7 +14,7 @@ import tts
 from fastapi import APIRouter
 from fastapi.responses import FileResponse
 
-from .utils import DISABLE_AI, leaf_ids
+from .utils import DISABLE_AI, leaf_ids, queue_mgr
 
 KAHNEMAN_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "kahneman_chapters.json")
 
@@ -512,6 +512,12 @@ def regenerate_story(deck_id: int, category: str,
         grammar_focus=grammar_focus, grammar_pct=grammar_pct,
         mode=mode, chapter_ids=chapter_ids, articles=articles, progress_key=progress_key, lang=lang)
     ai._story_progress.pop(progress_key, None)
+    if result:
+        # A new story means word→position mapping changed — invalidate every
+        # in-memory session queue so review order picks up the new sentence
+        # order on next access (issue #454). Full invalidation is coarse but
+        # cheap: queues are just rebuilt lazily from cheap DB queries.
+        queue_mgr.invalidate()
     return result
 
 
