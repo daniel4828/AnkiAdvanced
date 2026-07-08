@@ -3742,6 +3742,18 @@ function showFront() {
   ctxDe.textContent = sentence?.context_de || '';
   ctxDe.style.display = sentence?.context_de ? 'block' : 'none';
 
+  // News flow (briefing): both the Chinese sentence and its preceding German
+  // context are clickable — open the sentence's source article in a new tab
+  // (issue #444). Only when a source_url exists; the background popup with
+  // the same link is unaffected.
+  const _sourceUrl = sentence?.source_url || '';
+  const _sentClickable = !isListening && !isCreating && !!_sourceUrl;
+  sentFront.classList.toggle('clickable-sentence', _sentClickable);
+  sentFront.onclick = _sentClickable ? () => window.open(_sourceUrl, '_blank', 'noopener') : null;
+  const _ctxClickable = !!(sentence?.context_de && _sourceUrl);
+  ctxDe.classList.toggle('clickable-sentence', _ctxClickable);
+  ctxDe.onclick = _ctxClickable ? () => window.open(_sourceUrl, '_blank', 'noopener') : null;
+
   // Creating: show English hint + appropriate input
   document.getElementById('sentence-en-front').style.display   = isCreating ? 'flex' : 'none';
   document.getElementById('creating-input-wrap').style.display = (isCreating && !isCloze) ? 'flex' : 'none';
