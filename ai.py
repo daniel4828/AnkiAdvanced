@@ -1239,7 +1239,10 @@ def generate_briefing_sentences(
     cards: list[dict],
     articles: list[dict],
     model: str = "gpt-5-mini",
-    max_hsk: int = 2,
+    # HSK 1-5 background vocabulary (issue #448): Daniel is HSK 4-5 — capping
+    # the non-target words at HSK 1-2 made sentences childish and was the
+    # tightest remaining constraint after the #444 rework.
+    max_hsk: int = 5,
     progress_key: str | None = None,
     attempt_label: str = "",
     progress_extra: dict | None = None,
