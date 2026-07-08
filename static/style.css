@@ -1278,6 +1278,15 @@ main.browse-open {
 .story-de  { font-size: 13px; color: var(--muted); margin-top: 3px; }
 .story-fr  { font-size: 13px; color: var(--muted); margin-top: 2px; }
 .story-target { color: var(--primary); font-weight: 700; }
+/* News flow: context sentence shown between target sentences in the full-story modal */
+.story-context {
+  margin: 4px 0 4px 34px;
+  padding: 6px 10px;
+  border-left: 2px solid var(--border);
+  opacity: 0.9;
+}
+.story-context-zh { font-size: 14px; line-height: 1.5; color: var(--muted); }
+.story-context-de { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .story-controls {
   display: flex;
   align-items: center;
@@ -1646,6 +1655,40 @@ main.browse-open {
 }
 .clickable-sentence:hover {
   opacity: 0.85;
+}
+/* News flow: small clickable "article title · publisher" line under a sentence */
+.news-source-line-wrap {
+  text-align: center;
+  margin: 4px 12px 0;
+}
+.news-source-line {
+  font-size: 11px;
+  color: var(--muted);
+  text-decoration: none;
+  opacity: 0.85;
+}
+a.news-source-line:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+/* News flow: context + source block above the target sentence on the card back */
+.news-back-source {
+  margin: 0 12px 8px;
+  text-align: center;
+}
+.news-back-context {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+  font-style: italic;
+  margin-bottom: 4px;
+}
+/* Settings: inline switch label + value */
+.switch-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
 }
 .creating-word-def-row {
   display: flex;

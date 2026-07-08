@@ -383,6 +383,8 @@ CREATE TABLE IF NOT EXISTS story_sentences (
     reasoning_zh TEXT,
     source_url  TEXT,
     context_de  TEXT,
+    source_title TEXT,
+    source_name TEXT,
     UNIQUE(story_id, position)
 );
 

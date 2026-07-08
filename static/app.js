@@ -108,7 +108,7 @@ const KEYMAP_DEFAULTS = {
   reveal:         ' ',
   replay:         'a',
   pinyin:         'p',
-  translation:    'u',
+  translation:    't',
   worddef:        'k',
   'new-sentence': '5',
   undo:           'z',
@@ -698,8 +698,17 @@ function _updateStoryInfoRow() {
   const row = document.getElementById('story-info-row');
   if (sentence && story?.sentences?.length) {
     const pos = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
-    const label = story.topic ? `${pos}  ·  ${story.topic}` : pos;
-    row.innerHTML = `<span class="story-info-label">${label}</span><button class="story-regen-btn" onclick="event.stopPropagation();regenerateStory()" title="Regenerate story">↺</button>`;
+    // News flow / news / paste / kahneman: show the mode name + story date to the
+    // right of the counter (issue #452). Plain stories keep the topic.
+    const modeName = { kahneman: 'Kahneman', news: 'News', briefing: 'News flow', paste: 'Paste' }[_activeStoryMode()];
+    const parts = [pos];
+    if (modeName) {
+      const date = String(story.date || story.generated_at || '').slice(0, 10);
+      parts.push(date ? `${modeName} · ${date}` : modeName);
+    } else if (story.topic) {
+      parts.push(story.topic);
+    }
+    row.innerHTML = `<span class="story-info-label">${parts.join('  ·  ')}</span><button class="story-regen-btn" onclick="event.stopPropagation();regenerateStory()" title="Regenerate story">↺</button>`;
     row.style.display = 'flex';
   } else {
     row.style.display = 'none';
@@ -2532,6 +2541,7 @@ function renderSettings() {
     </div>`;
   }).join('');
   const msg = _settingsMsg ? `<div class="keymap-msg">${_settingsMsg}</div>` : '';
+  const nfZh = _newsflowLang === 'zh';
   document.getElementById('view-settings-content').innerHTML = `
     <div class="keymap-panel">
       <h2 class="keymap-heading">Review shortcuts</h2>
@@ -2539,6 +2549,18 @@ function renderSettings() {
       ${msg}
       ${rows}
       <button class="keymap-reset-all" onclick="resetKeymapAll()">Reset all to defaults</button>
+    </div>
+    <div class="keymap-panel">
+      <h2 class="keymap-heading">News flow</h2>
+      <p class="keymap-hint">Language of the context and article titles on news-flow cards. Publisher names stay as-is. Toggle during review with <b>g</b>.</p>
+      <div class="keymap-row">
+        <span class="keymap-label">Context &amp; titles in Chinese</span>
+        <label class="switch-wrap">
+          <input type="checkbox" id="newsflow-lang-switch" ${nfZh ? 'checked' : ''}
+                 onchange="setNewsflowLangFromSwitch(this.checked)" style="width:18px;height:18px;cursor:pointer">
+          <span id="newsflow-lang-value">${nfZh ? '中文' : 'Original (DE)'}</span>
+        </label>
+      </div>
     </div>`;
 }
 function startKeyCapture(id) {
@@ -3619,11 +3641,10 @@ function loadCard(c, counts) {
   const noteLabel = { vocabulary: 'Word', sentence: 'Sentence', chengyu: '成语', expression: '表达' }[card.note_type] || card.note_type;
   document.getElementById('card-type-badge').textContent = noteLabel;
 
-  // Story-mode badge (special modes only; plain story/qa/expository show nothing)
-  const modeBadge = document.getElementById('card-mode-badge');
-  const modeName = { kahneman: 'Kahneman', news: 'News', briefing: 'News flow', paste: 'Paste' }[_activeStoryMode()];
-  modeBadge.textContent = modeName || '';
-  modeBadge.style.display = modeName ? 'block' : 'none';
+  // Story-mode badge: the mode name now lives in the story-info-row next to the
+  // sentence counter + date (issue #452), so this separate badge stays hidden to
+  // avoid showing "News flow" twice.
+  document.getElementById('card-mode-badge').style.display = 'none';
 
   // Deck path bar
   const deckPath = document.getElementById('card-deck-path');
@@ -3736,23 +3757,14 @@ function showFront() {
   sentFront.style.display = !isListening && !isCreating ? 'flex' : 'none';
   if (!isListening && !isCreating) sentFront.innerHTML = renderSentence();
 
-  // News flow: German context of the preceding summary sentences. Shown in all
-  // categories — it describes the news thread so far, not this sentence.
-  const ctxDe = document.getElementById('sentence-context-de');
-  ctxDe.textContent = sentence?.context_de || '';
-  ctxDe.style.display = sentence?.context_de ? 'block' : 'none';
-
-  // News flow (briefing): both the Chinese sentence and its preceding German
-  // context are clickable — open the sentence's source article in a new tab
-  // (issue #444). Only when a source_url exists; the background popup with
-  // the same link is unaffected.
+  // News flow (briefing): the Chinese sentence is clickable — open the sentence's
+  // source article in a new tab (issue #444). Context + source line are rendered
+  // by _renderNewsFront (respects the news-flow display-language toggle, #452).
   const _sourceUrl = sentence?.source_url || '';
   const _sentClickable = !isListening && !isCreating && !!_sourceUrl;
   sentFront.classList.toggle('clickable-sentence', _sentClickable);
   sentFront.onclick = _sentClickable ? () => window.open(_sourceUrl, '_blank', 'noopener') : null;
-  const _ctxClickable = !!(sentence?.context_de && _sourceUrl);
-  ctxDe.classList.toggle('clickable-sentence', _ctxClickable);
-  ctxDe.onclick = _ctxClickable ? () => window.open(_sourceUrl, '_blank', 'noopener') : null;
+  _renderNewsFront();
 
   // Creating: show English hint + appropriate input
   document.getElementById('sentence-en-front').style.display   = isCreating ? 'flex' : 'none';
@@ -3970,55 +3982,43 @@ function revealAnswer() {
   _sentDeEl.style.display = (_alwaysTranslation && _sentDeEl.textContent) ? '' : 'none';
   _syncTransEye();
 
-  // Kahneman concept box (compact: part + chapter title only) + reasoning light bulb
+  // Kahneman concept box (compact: part + chapter title only) + reasoning light
+  // bulb — Kahneman mode only. News flow shows context + clickable article
+  // title/publisher above the target sentence instead (news-back-source, #452).
   const _conceptRow = document.getElementById('sentence-concept-row');
   const _conceptEl = document.getElementById('sentence-concept');
   const _reasonBtn = document.getElementById('sentence-reasoning-btn');
-  const _hasConcept = !isSentenceNote && !!sentence?.concept_zh;
-  // News flow (briefing) cards have no headline but do carry context/source —
-  // the light bulb must still work for them.
-  const _hasBackground = !isSentenceNote && !!(sentence?.reasoning_zh || sentence?.source_url);
-  if (_hasConcept || _hasBackground) {
-    const chNum = sentence.concept_en ? parseInt(sentence.concept_en.match(/Chapter (\d+)/)?.[1]) : null;
-    const isNewsConcept = !chNum; // news mode: concept_en is empty, concept_zh is the headline
+  const _chNum = (!isSentenceNote && sentence?.concept_en)
+    ? parseInt(sentence.concept_en.match(/Chapter (\d+)/)?.[1]) : null;
+  const _isKahneman = !isSentenceNote && !!_chNum;
+  const _hasNewsSrc = !isSentenceNote && !_isKahneman
+    && !!(sentence?.reasoning_zh || sentence?.context_de || sentence?.source_url
+          || sentence?.concept_zh || sentence?.source_title);
+
+  // News flow: render the context + source block above the sentence; no light bulb.
+  _renderNewsBackSource(_hasNewsSrc ? sentence : null);
+
+  if (_isKahneman) {
     const renderConcept = (ch) => {
       _conceptEl.innerHTML =
           (ch?.part_zh ? `<span class="concept-part-label">${ch.part_zh}</span>` : '')
-        + `<span class="concept-chapter-title">${isNewsConcept ? (_currentStoryMode === 'paste' ? '📋 ' : '📰 ') : ''}${sentence.concept_zh}</span>`;
-      if (chNum) {
-        _conceptEl.classList.add('concept-clickable');
-        _conceptEl.onclick = () => openKahnemanExamples(chNum, sentence.concept_zh);
-      } else if (isNewsConcept) {
-        // News mode: clicking the headline opens the same background+link popup as the light bulb
-        _conceptEl.classList.add('concept-clickable');
-        _conceptEl.onclick = () => openReasoning();
-      } else {
-        _conceptEl.classList.remove('concept-clickable');
-        _conceptEl.onclick = null;
-      }
+        + `<span class="concept-chapter-title">${sentence.concept_zh}</span>`;
+      _conceptEl.classList.add('concept-clickable');
+      _conceptEl.onclick = () => openKahnemanExamples(_chNum, sentence.concept_zh);
     };
-    if (_hasConcept) {
-      _conceptEl.style.display = '';
-      const cachedCh = chNum && _kahnemanChapters ? _kahnemanChapters.find(c => c.number === chNum) : null;
-      renderConcept(cachedCh);
-      if (!cachedCh && chNum) {
-        _ensureKahnemanChapters().then(() => {
-          const ch = _kahnemanChapters?.find(c => c.number === chNum);
-          if (ch) renderConcept(ch);
-        });
-      }
-    } else {
-      // No headline (news flow) → hide the pill entirely, otherwise it renders
-      // as an empty lavender box next to the light bulb (issue #411).
-      _conceptEl.style.display = 'none';
-      _conceptEl.innerHTML = '';
-      _conceptEl.classList.remove('concept-clickable');
-      _conceptEl.onclick = null;
+    _conceptEl.style.display = '';
+    const cachedCh = _kahnemanChapters ? _kahnemanChapters.find(c => c.number === _chNum) : null;
+    renderConcept(cachedCh);
+    if (!cachedCh) {
+      _ensureKahnemanChapters().then(() => {
+        const ch = _kahnemanChapters?.find(c => c.number === _chNum);
+        if (ch) renderConcept(ch);
+      });
     }
-    // Light bulb opens the per-sentence reasoning/background popup (only if content exists)
+    // Light bulb opens the per-sentence reasoning popup (only if content exists)
     _currentReasoning = sentence.reasoning_zh || '';
     _currentSourceUrl = sentence.source_url || '';
-    _currentReasoningIsNews = isNewsConcept;
+    _currentReasoningIsNews = false;
     _reasonBtn.style.display = (_currentReasoning || _currentSourceUrl) ? '' : 'none';
     _conceptRow.style.display = '';
   } else {
@@ -5924,6 +5924,108 @@ function _activeStoryMode() {
   return _currentStoryMode || '';
 }
 
+// ── News flow display language (issue #452) ──────────────────────────────────
+// Toggle whether the context text and article titles show in the original
+// language (German, 'de') or Chinese ('zh'). Publisher (source_name) is a brand
+// name, always shown as-is. Persisted in localStorage; press g or use the
+// settings switch to flip. Chinese title falls back to the German source title
+// for briefing (which has no AI headline).
+let _newsflowLang = (localStorage.getItem('newsflowLang') === 'zh') ? 'zh' : 'de';
+
+function _escHtml(t) {
+  return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Context text for the current news card in the selected language.
+function _newsContextText(s) {
+  if (!s) return '';
+  return _newsflowLang === 'zh' ? (s.reasoning_zh || '') : (s.context_de || '');
+}
+
+// Small "title · publisher" HTML (an <a> when a source_url exists, else <span>).
+function _newsSourceHtml(s) {
+  if (!s) return '';
+  const title = _newsflowLang === 'zh'
+    ? (s.concept_zh || s.source_title || '')
+    : (s.source_title || '');
+  const label = [title, s.source_name || ''].filter(Boolean).join(' · ');
+  if (!label) return '';
+  const inner = `${_escHtml(label)} ↗`;
+  if (s.source_url) {
+    const href = _escHtml(s.source_url).replace(/"/g, '&quot;');
+    return `<a class="news-source-line" href="${href}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${inner}</a>`;
+  }
+  return `<span class="news-source-line">${_escHtml(label)}</span>`;
+}
+
+// Front side: context (above the Chinese sentence) + source line (below it).
+function _renderNewsFront() {
+  const isListening = category === 'listening';
+  const isCreating  = category === 'creating';
+  const ctxDe = document.getElementById('sentence-context-de');
+  const ctxText = _newsContextText(sentence);
+  ctxDe.textContent = ctxText;
+  ctxDe.style.display = ctxText ? 'block' : 'none';
+  const url = sentence?.source_url || '';
+  const ctxClickable = !!(ctxText && url);
+  ctxDe.classList.toggle('clickable-sentence', ctxClickable);
+  ctxDe.onclick = ctxClickable ? () => window.open(url, '_blank', 'noopener') : null;
+
+  const srcEl = document.getElementById('news-source-front');
+  if (srcEl) {
+    const html = (!isListening && !isCreating) ? _newsSourceHtml(sentence) : '';
+    srcEl.innerHTML = html;
+    srcEl.style.display = html ? 'block' : 'none';
+  }
+}
+
+// Back side: context + source line, small, above the target sentence
+// (replaces the old light bulb for news flow). Kahneman keeps its light bulb.
+function _renderNewsBackSource(s) {
+  const el = document.getElementById('news-back-source');
+  if (!el) return;
+  const ctx = _newsContextText(s);
+  const srcHtml = _newsSourceHtml(s);
+  if (!ctx && !srcHtml) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  const url = s?.source_url || '';
+  let html = '';
+  if (ctx) html += `<div class="news-back-context${url ? ' clickable-sentence' : ''}">${_escHtml(ctx)}</div>`;
+  html += srcHtml;
+  el.innerHTML = html;
+  el.style.display = 'block';
+  if (ctx && url) {
+    const c = el.querySelector('.news-back-context');
+    if (c) c.onclick = () => window.open(url, '_blank', 'noopener');
+  }
+}
+
+// Flip the news-flow display language and re-render the visible news UI.
+function toggleNewsflowLang() {
+  _newsflowLang = _newsflowLang === 'zh' ? 'de' : 'zh';
+  localStorage.setItem('newsflowLang', _newsflowLang);
+  _renderNewsFront();
+  _renderNewsBackSource(sentence);
+  _syncNewsflowLangSwitch();
+}
+
+// Keep the settings switch label in sync with the current value.
+function _syncNewsflowLangSwitch() {
+  const sw = document.getElementById('newsflow-lang-switch');
+  if (sw) {
+    sw.checked = _newsflowLang === 'zh';
+    const lbl = document.getElementById('newsflow-lang-value');
+    if (lbl) lbl.textContent = _newsflowLang === 'zh' ? '中文' : 'Original (DE)';
+  }
+}
+
+function setNewsflowLangFromSwitch(checked) {
+  _newsflowLang = checked ? 'zh' : 'de';
+  localStorage.setItem('newsflowLang', _newsflowLang);
+  _renderNewsFront();
+  _renderNewsBackSource(sentence);
+  _syncNewsflowLangSwitch();
+}
+
 function openReasoning() {
   if (!_currentReasoning && !_currentSourceUrl) return;
   document.getElementById('reasoning-modal-title').textContent =
@@ -6080,8 +6182,20 @@ function openStoryModal() {
   if (!story?.sentences?.length) return;
   const escAttr = s => String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const currentPos = sentence?.position ?? -1;
-  const html = story.sentences.map(s => {
+  const parts = [];
+  for (const s of story.sentences) {
     const isCurrent = s.position === currentPos;
+    const url = s.source_url || '';
+    // News flow: context sentence(s) preceding this target — shown between the
+    // target sentences (Chinese + German), clickable to the source (issue #452).
+    const ctxZh = s.reasoning_zh || '';
+    const ctxDe = s.context_de || '';
+    if (ctxZh || ctxDe) {
+      parts.push(`<div class="story-context${url ? ' clickable-sentence' : ''}"${url ? ` data-url="${escAttr(url)}"` : ''}>
+        ${ctxZh ? `<div class="story-context-zh">${escAttr(ctxZh)}</div>` : ''}
+        ${ctxDe ? `<div class="story-context-de">🇩🇪 ${escAttr(ctxDe)}</div>` : ''}
+      </div>`);
+    }
     const highlighted = s.sentence_zh.replace(
       s.word_zh,
       `<span class="story-target">${s.word_zh}</span>`
@@ -6089,21 +6203,27 @@ function openStoryModal() {
     const conceptBadge = s.concept_zh
       ? `<div class="story-concept-badge" title="${s.concept_en || ''}">
            <span class="concept-name">${s.concept_zh}</span>
-           ${s.source_url ? `<a href="${escAttr(s.source_url)}" target="_blank" rel="noopener" class="story-source-link" onclick="event.stopPropagation()">打开原文 ↗</a>` : ''}
          </div>`
       : '';
-    return `<div class="story-sentence${isCurrent ? ' story-sentence-current' : ''}" data-idx="${s.position}">
+    const srcLine = _newsSourceHtml(s);
+    parts.push(`<div class="story-sentence${isCurrent ? ' story-sentence-current' : ''}" data-idx="${s.position}">
       <span class="story-num">${s.position + 1}</span>
       <div class="story-content">
-        <div class="story-zh">${highlighted}</div>
+        <div class="story-zh${url ? ' clickable-sentence' : ''}"${url ? ` data-url="${escAttr(url)}"` : ''}>${highlighted}</div>
         ${conceptBadge}
         ${s.sentence_fr ? `<div class="story-fr">🇫🇷 ${s.sentence_fr}</div>` : ''}
         ${s.sentence_de ? `<div class="story-de">🇩🇪 ${s.sentence_de}</div>` : ''}
+        ${srcLine ? `<div class="news-source-line-wrap">${srcLine}</div>` : ''}
       </div>
       <button class="story-play-btn" onclick="storyJumpTo(${s.position})" title="Play">▶</button>
-    </div>`;
-  }).join('');
-  document.getElementById('story-modal-body').innerHTML = html;
+    </div>`);
+  }
+  document.getElementById('story-modal-body').innerHTML = parts.join('');
+  // Attach click-to-open handlers for elements carrying a source URL (avoids
+  // inline-onclick URL-injection issues).
+  document.querySelectorAll('#story-modal-body [data-url]').forEach(el => {
+    el.onclick = (ev) => { ev.stopPropagation(); window.open(el.dataset.url, '_blank', 'noopener'); };
+  });
   document.getElementById('story-modal-title').textContent = story.topic || 'Full story';
   if (_storyPlaying && _currentPlayIdx >= 0) updateStoryHighlight(_currentPlayIdx);
   document.getElementById('story-modal-overlay').style.display = 'block';
@@ -7738,6 +7858,12 @@ document.addEventListener('keydown', async e => {
       closeStoryModal();
       return;
     }
+    const reasoningModal = document.getElementById('reasoning-modal');
+    if (reasoningModal && reasoningModal.style.display !== 'none') {
+      e.preventDefault();
+      closeReasoning();
+      return;
+    }
     // Blur input fields in review view so space bar can flip the card
     if (inInput) {
       const reviewView = document.getElementById('view-review');
@@ -7908,8 +8034,16 @@ document.addEventListener('keydown', async e => {
       if (deckId) openOptions(deckId);
     } else if (e.key === 'g') {
       e.preventDefault();
-      const _rOpen = document.getElementById('reasoning-modal')?.style.display !== 'none';
-      if (_rOpen) closeReasoning(); else openReasoning();
+      // Kahneman cards keep g for the reasoning popup; everything else uses g to
+      // flip the news-flow display language (original DE ↔ Chinese, issue #452).
+      const _lampVisible = document.getElementById('sentence-reasoning-btn')?.style.display !== 'none'
+        && document.getElementById('sentence-concept-row')?.style.display !== 'none';
+      if (_lampVisible) {
+        const _rOpen = document.getElementById('reasoning-modal')?.style.display !== 'none';
+        if (_rOpen) closeReasoning(); else openReasoning();
+      } else {
+        toggleNewsflowLang();
+      }
     }
     return;
   }
