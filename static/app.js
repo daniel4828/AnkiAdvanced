@@ -47,6 +47,24 @@ let story       = null;   // story dict with sentences[]
 let sentence    = null;   // current sentence from story (may be null)
 let wordDetails = null;   // full word data: examples + characters
 let _currentWordId = null; // word ID open in word-detail view
+
+// Autoplay delay for the listening category (issue #454). Cached per deck preset
+// so we don't re-fetch on every card; manual replay is never delayed.
+let _autoplayDelayMs = null;
+let _autoplayDeckId  = null;
+let _autoplayTimer   = null;
+async function _getAutoplayDelay() {
+  const id = rootDeckId || deckId;
+  if (id === _autoplayDeckId && _autoplayDelayMs != null) return _autoplayDelayMs;
+  try {
+    const preset = await api('GET', `/api/decks/${id}/preset`);
+    _autoplayDelayMs = preset?.autoplay_delay_ms ?? 1000;
+  } catch (e) {
+    _autoplayDelayMs = 1000;
+  }
+  _autoplayDeckId = id;
+  return _autoplayDelayMs;
+}
 let _prevView = null;      // view we came from before opening word-detail
 let _sessionReviewedCount = 0; // cards rated this session (for clap animation)
 let _sessionReviewedIds = [];  // card ids reviewed this session (for summary graph)
@@ -2567,6 +2585,11 @@ function renderSettings() {
           <span id="newsflow-lang-value">${nfZh ? '中文' : 'Original (DE)'}</span>
         </label>
       </div>
+    </div>
+    <div class="keymap-panel">
+      <h2 class="keymap-heading">Server logs</h2>
+      <p class="keymap-hint">View the last lines of the server log (helpful for debugging story generation, TTS, etc).</p>
+      <button class="keymap-reset-all" onclick="openLogsViewer()">Open logs</button>
     </div>`;
 }
 function startKeyCapture(id) {
@@ -2610,6 +2633,47 @@ function _settingsKeydown(e) {
   _capturingAction = null; _settingsMsg = ''; renderSettings();
 }
 document.addEventListener('keydown', _settingsKeydown, true);
+
+// ── Server logs viewer (issue #454) ─────────────────────────────────────────
+let _logsRawText = '';
+let _logsAutoTimer = null;
+
+async function openLogsViewer() {
+  document.getElementById('logs-modal-overlay').style.display = 'block';
+  document.getElementById('logs-modal').style.display = 'flex';
+  await refreshLogs();
+}
+
+function closeLogsViewer() {
+  document.getElementById('logs-modal-overlay').style.display = 'none';
+  document.getElementById('logs-modal').style.display = 'none';
+  if (_logsAutoTimer) { clearInterval(_logsAutoTimer); _logsAutoTimer = null; }
+}
+
+async function refreshLogs() {
+  try {
+    const res = await fetch('/api/logs?lines=800');
+    _logsRawText = res.ok ? await res.text() : `Failed to load logs (${res.status})`;
+  } catch (e) {
+    _logsRawText = 'Failed to load logs: ' + e.message;
+  }
+  _applyLogsFilter();
+}
+
+function _applyLogsFilter() {
+  const body = document.getElementById('logs-body');
+  const q = (document.getElementById('logs-filter')?.value || '').toLowerCase();
+  const text = q
+    ? _logsRawText.split('\n').filter(line => line.toLowerCase().includes(q)).join('\n')
+    : _logsRawText;
+  body.textContent = text;
+  body.scrollTop = body.scrollHeight;
+}
+
+function toggleLogsAuto(checked) {
+  if (_logsAutoTimer) { clearInterval(_logsAutoTimer); _logsAutoTimer = null; }
+  if (checked) _logsAutoTimer = setInterval(refreshLogs, 2000);
+}
 
 async function openCostModal() {
   try {
@@ -2851,6 +2915,7 @@ function loadPresetFields(preset) {
   document.getElementById('opt-desired-retention').value = Math.round((preset.desired_retention ?? 0.9) * 100);
   document.getElementById('opt-max-int').value         = preset.maximum_interval ?? 36500;
   document.getElementById('opt-reading-enabled').checked = !!preset.reading_enabled;
+  document.getElementById('opt-autoplay-delay').value = preset.autoplay_delay_ms ?? 1000;
   applySchedulerVisibility();
 
   // Category order
@@ -3022,6 +3087,10 @@ async function saveOptions() {
     maximum_interval:       Math.max(1, parseInt(document.getElementById('opt-max-int').value) || 36500),
     category_order: _getCategoryOrderUI(),
     reading_enabled:        document.getElementById('opt-reading-enabled').checked ? 1 : 0,
+    autoplay_delay_ms:      (() => {
+      const v = parseInt(document.getElementById('opt-autoplay-delay').value);
+      return Number.isFinite(v) && v >= 0 ? v : 1000; // 0 is a valid "play immediately" value
+    })(),
   };
   try {
     const [savedPreset] = await Promise.all([
@@ -3038,6 +3107,7 @@ async function saveOptions() {
         return api('DELETE', `/api/presets/${presetId}/categories/${cat}`).catch(() => {});
       }
     }));
+    _autoplayDelayMs = null; // invalidate cache so the next card picks up the new value
     closeModal();
     loadDecks();
   } catch (e) {
@@ -3502,6 +3572,7 @@ async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, gram
 
 // ── Load a card ─────────────────────────────────────────────────────────────
 function loadCard(c, counts) {
+  clearTimeout(_autoplayTimer);
   card = c;
   wordDetails = null;
   renderReviewCatRow(); // clear circles immediately when new card loads
@@ -3629,13 +3700,13 @@ function loadCard(c, counts) {
         }
         // Auto-play deferred from loadCard: play now that story is loaded
         if (snap.category === 'listening' && document.getElementById('side-back').style.display === 'none') {
-          playSentence();
+          _getAutoplayDelay().then(d => { if (card === snap) _autoplayTimer = setTimeout(playSentence, d); });
         }
       }).catch(() => {
         // On fetch error, still play audio (falls back to word_zh)
         if (card === snap && snap.category === 'listening' &&
             document.getElementById('side-back').style.display === 'none') {
-          playSentence();
+          _getAutoplayDelay().then(d => { if (card === snap) _autoplayTimer = setTimeout(playSentence, d); });
         }
       });
   }
@@ -3720,7 +3791,8 @@ function loadCard(c, counts) {
     if (!sentence && (unfinishedMode || rootDeckId)) {
       // Deferred — fetch callback will call playSentence() once story is loaded
     } else {
-      playSentence();
+      const snap = c;
+      _getAutoplayDelay().then(d => { if (card === snap) _autoplayTimer = setTimeout(playSentence, d); });
     }
   }
 }
@@ -4085,8 +4157,14 @@ function revealAnswer() {
   renderVocabDetail();
   renderReviewCatRow();
 
-  // Auto-play audio on reveal for all categories
-  playSentence();
+  // Auto-play audio on reveal for all categories, delayed per deck preset
+  // (issue #454). Clear any still-pending front-side autoplay first so the
+  // two timers can't both fire.
+  clearTimeout(_autoplayTimer);
+  const _revealSnap = card;
+  _getAutoplayDelay().then(d => {
+    _autoplayTimer = setTimeout(() => { if (card === _revealSnap) playSentence(); }, d);
+  });
 }
 
 // ── Populate vocab detail (chars + examples) ────────────────────────────────
@@ -7767,6 +7845,7 @@ function _hasOpenModal() {
     'conflict-modal-overlay',
     'kahneman-examples-overlay',
     'session-summary-overlay',
+    'logs-modal-overlay',
   ];
   return modalIds.some(_isVisible);
 }
@@ -7888,6 +7967,12 @@ document.addEventListener('keydown', async e => {
     if (reasoningModal && reasoningModal.style.display !== 'none') {
       e.preventDefault();
       closeReasoning();
+      return;
+    }
+    const logsOverlay = document.getElementById('logs-modal-overlay');
+    if (logsOverlay && logsOverlay.style.display !== 'none') {
+      e.preventDefault();
+      closeLogsViewer();
       return;
     }
     // Blur input fields in review view so space bar can flip the card
