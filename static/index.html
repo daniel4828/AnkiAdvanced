@@ -120,6 +120,8 @@
 
           <!-- Front side (content varies by category) -->
           <div id="side-front">
+            <!-- News flow: clickable article title · publisher, above the context/sentence (issue #454) -->
+            <div class="news-source-line-wrap" id="news-source-front" style="display:none"></div>
             <!-- News flow: German context of the preceding summary sentences (always above the Chinese sentence) -->
             <div class="sentence-context-de" id="sentence-context-de" style="display:none"></div>
             <!-- Listening: hint sentence with slider (shows % of non-target chars) -->
@@ -145,8 +147,6 @@
             </div>
             <!-- Reading / Cloze: Chinese sentence on front (reading shows full, cloze shows blanked) -->
             <div class="sentence" id="sentence-front"></div>
-            <!-- News flow: clickable article title · publisher under the sentence (issue #452) -->
-            <div class="news-source-line-wrap" id="news-source-front" style="display:none"></div>
             <div class="creating-input-wrap" id="creating-input-wrap">
               <div class="input-label" id="creating-input-label">Fill in the blank</div>
               <input type="text" id="creating-input" placeholder="Type the missing word…"
@@ -503,6 +503,11 @@
     </div>
 
     <div class="opt-group">
+      <div class="opt-group-label">Audio</div>
+      <div class="opt-row"><span class="opt-label">Autoplay delay (ms)</span><input class="opt-input" id="opt-autoplay-delay" type="number" min="0" step="100" title="Delay before audio auto-plays — when a listening card loads and after revealing the answer. Manual replay is never delayed."></div>
+    </div>
+
+    <div class="opt-group">
       <div class="opt-group-label">Category Overrides <span style="font-weight:400;font-size:11px;color:var(--muted)">— leave blank to use preset default</span></div>
       <div id="cat-overrides-container">
         <!-- Listening -->
@@ -798,6 +803,24 @@
     <button class="edit-modal-close" onclick="closeCostModal()">✕</button>
   </div>
   <div id="cost-modal-body"></div>
+</div>
+
+<!-- Server logs modal -->
+<div id="logs-modal-overlay" onclick="closeLogsViewer()" style="display:none"></div>
+<div id="logs-modal" style="display:none">
+  <div class="edit-modal-header">
+    <span class="edit-modal-title">Server logs</span>
+    <button class="edit-modal-close" onclick="closeLogsViewer()">✕</button>
+  </div>
+  <div class="logs-toolbar">
+    <input type="text" id="logs-filter" placeholder="Filter…" oninput="_applyLogsFilter()">
+    <button class="keymap-reset-all" onclick="refreshLogs()">Refresh</button>
+    <label class="switch-wrap">
+      <input type="checkbox" id="logs-auto" onchange="toggleLogsAuto(this.checked)" style="width:16px;height:16px;cursor:pointer">
+      <span>Auto</span>
+    </label>
+  </div>
+  <pre id="logs-body"></pre>
 </div>
 
 <!-- Import modal -->

@@ -322,6 +322,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN enable_probation INTEGER NOT NULL DEFAULT 1")
     if "reading_enabled" not in preset_cols:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN reading_enabled INTEGER NOT NULL DEFAULT 0")
+    if "autoplay_delay_ms" not in preset_cols:
+        conn.execute("ALTER TABLE deck_presets ADD COLUMN autoplay_delay_ms INTEGER NOT NULL DEFAULT 1000")
 
     conn.execute("""CREATE TABLE IF NOT EXISTS preset_category_overrides (
         id                  INTEGER PRIMARY KEY AUTOINCREMENT,

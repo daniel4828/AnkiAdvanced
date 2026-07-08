@@ -1287,6 +1287,17 @@ main.browse-open {
 }
 .story-context-zh { font-size: 14px; line-height: 1.5; color: var(--muted); }
 .story-context-de { font-size: 12px; color: var(--muted); margin-top: 2px; }
+/* News flow: article section header in the full-story modal, inserted once per
+   source article (issue #454, replaces the old per-sentence source line). */
+.story-article-header {
+  margin: 18px 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+}
+.story-article-header:first-child { margin-top: 4px; }
+.story-article-header:hover { text-decoration: underline; }
 .story-controls {
   display: flex;
   align-items: center;
@@ -3325,6 +3336,61 @@ select.opt-input {
 #cost-modal-body {
   overflow-y: auto;
   padding: 16px 20px 24px;
+}
+
+/* ── Server logs modal (issue #454) ─────────────────────── */
+#logs-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 200;
+}
+#logs-modal {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(94vw, 960px);
+  height: min(86vh, 720px);
+  background: var(--card);
+  border-radius: 18px;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.22);
+  z-index: 201;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+#logs-modal .edit-modal-header {
+  padding: 18px 20px 16px;
+  border-bottom: 1.5px solid var(--border);
+  flex-shrink: 0;
+}
+.logs-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-bottom: 1.5px solid var(--border);
+  flex-shrink: 0;
+}
+.logs-toolbar #logs-filter {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+}
+#logs-body {
+  flex: 1;
+  overflow: auto;
+  margin: 0;
+  padding: 14px 20px 20px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
 }
 .cost-total {
   display: flex;

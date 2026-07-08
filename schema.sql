@@ -129,7 +129,11 @@ CREATE TABLE IF NOT EXISTS deck_presets (
 
     -- Fraction of current interval applied as additional sibling separation
     -- effective_separation = max(sibling_separation, floor(interval * sibling_factor))
-    sibling_factor          REAL NOT NULL DEFAULT 0.2
+    sibling_factor          REAL NOT NULL DEFAULT 0.2,
+
+    -- Delay (ms) before auto-playing audio when a new card is flipped.
+    -- Only affects auto-play; manual replay is never delayed.
+    autoplay_delay_ms       INTEGER NOT NULL DEFAULT 1000
 );
 
 -- ---------------------------------------------------------------------------

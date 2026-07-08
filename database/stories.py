@@ -283,6 +283,39 @@ def get_story_sentences(story_id: int) -> list[dict]:
     return result
 
 
+def get_story_position_map(deck_id: int, category: str, date_str: str,
+                            lang: str | None = None) -> dict[int, int]:
+    """Map word_id → story_sentences.position for today's active News-flow-style
+    story (briefing/news/paste — issue #454), used to order the review queue to
+    match the summary's reading order. Returns {} when there is no active story
+    or its gen_params.mode isn't one of those three (e.g. plain story/kahneman
+    modes, which don't have a meaningful "reading order" for review purposes).
+    """
+    story = get_active_story(date_str, category, deck_id, lang)
+    if not story:
+        return {}
+    gen_params = story.get("gen_params")
+    if not gen_params:
+        return {}
+    try:
+        mode = json.loads(gen_params).get("mode")
+    except (ValueError, TypeError):
+        return {}
+    if mode not in ("briefing", "news", "paste"):
+        return {}
+
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT sw.word_id, ss.position
+           FROM story_sentence_words sw
+           JOIN story_sentences ss ON ss.id = sw.sentence_id
+           WHERE ss.story_id = ?""",
+        (story["id"],),
+    ).fetchall()
+    conn.close()
+    return {r["word_id"]: r["position"] for r in rows}
+
+
 def get_due_cards_unified(deck_id: int, lang: str | None = None) -> list[dict]:
     """Collect due cards from all 3 categories for a unified story, deduplicated by word_id.
     Order matches review priority (state → category → due) so story sentence positions

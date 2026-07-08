@@ -1,15 +1,22 @@
 """
-Tests for the briefing mode rework (issue #444):
-  - validate_briefing_items: Python-only (no AI) validation of raw AI output
+Tests for the briefing mode rework (issue #444) and News flow v2 (issue #454):
+  - validate_briefing_items: Python-only (no AI) validation of raw AI output,
+    including article_idx monotonicity (#454)
   - _dedupe_consecutive_briefing_context: fallback repair for consecutive context runs
-  - generate_briefing_sentences: single validation retry is triggered on violations
+  - generate_briefing_sentences: single validation retry is triggered on violations,
+    plus the AI fact-check retry path (#454)
   - resolve_briefing_model: env var + OpenAI models-API verification + fallback chain
+  - database.get_story_position_map: word_id → sentence position for queue ordering (#454)
 """
 
 import json
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 import ai
+import database
+import database.core
 
 CARDS = [
     {"word_id": 1, "word_zh": "担心", "pinyin": "dān xīn", "definition": "to worry"},
@@ -95,6 +102,36 @@ class TestValidateBriefingItems:
         issues = ai.validate_briefing_items(items, CARDS)
         assert any("超过" in i for i in issues)
 
+    def test_monotonic_article_idx_is_fine(self):
+        items = [
+            {"sentence_zh": "今天天气很好。", "target_word": None, "article_idx": 0},
+            {"sentence_zh": "她很担心考试。", "target_word": "担心", "article_idx": 0},
+            {"sentence_zh": "他每天努力学习。", "target_word": "努力", "article_idx": 1},
+            {"sentence_zh": "她看到了他的进步。", "target_word": "进步", "article_idx": 1},
+        ]
+        issues = ai.validate_briefing_items(items, CARDS)
+        assert not any("回跳" in i for i in issues)
+
+    def test_article_idx_backtrack_detected(self):
+        items = [
+            {"sentence_zh": "今天天气很好。", "target_word": None, "article_idx": 1},
+            {"sentence_zh": "她很担心考试。", "target_word": "担心", "article_idx": 1},
+            {"sentence_zh": "他每天努力学习。", "target_word": "努力", "article_idx": 0},
+            {"sentence_zh": "她看到了他的进步。", "target_word": "进步", "article_idx": 1},
+        ]
+        issues = ai.validate_briefing_items(items, CARDS)
+        assert any("回跳" in i for i in issues)
+
+    def test_missing_article_idx_is_skipped_not_a_violation(self):
+        items = [
+            {"sentence_zh": "今天天气很好。", "target_word": None, "article_idx": 0},
+            {"sentence_zh": "她很担心考试。", "target_word": "担心"},  # no article_idx at all
+            {"sentence_zh": "他每天努力学习。", "target_word": "努力", "article_idx": 0},
+            {"sentence_zh": "她看到了他的进步。", "target_word": "进步", "article_idx": 1},
+        ]
+        issues = ai.validate_briefing_items(items, CARDS)
+        assert not any("回跳" in i for i in issues)
+
 
 # ---------------------------------------------------------------------------
 # _dedupe_consecutive_briefing_context
@@ -160,11 +197,15 @@ class TestGenerateBriefingSentencesRetry:
         response is valid. generate_briefing_sentences must call the AI
         exactly twice (initial + one validation retry) and return sentences
         built from the corrected (retry) response."""
+        # fact_check_briefing makes its own _call_api call — mocked separately
+        # (return []/"pass") since these tests only exercise the Python
+        # validation retry path, not the fact-check path (issue #454).
         responses = [
             json.dumps(INVALID_ITEMS_CONSECUTIVE_CONTEXT),
             json.dumps(VALID_ITEMS),
         ]
         with patch("ai._call_api", side_effect=responses) as mock_call, \
+             patch("ai.fact_check_briefing", return_value=[]), \
              patch("ai._fill_translations", lambda sentences, **kw: None):
             result = ai.generate_briefing_sentences(CARDS, ARTICLES, model="gpt-5.1")
 
@@ -178,6 +219,7 @@ class TestGenerateBriefingSentencesRetry:
         API call — only the (separate) missing-word retry loop may still run,
         and here there are no missing words so the loop exits after attempt 1."""
         with patch("ai._call_api", return_value=json.dumps(VALID_ITEMS)) as mock_call, \
+             patch("ai.fact_check_briefing", return_value=[]), \
              patch("ai._fill_translations", lambda sentences, **kw: None):
             result = ai.generate_briefing_sentences(CARDS, ARTICLES, model="gpt-5.1")
 
@@ -193,6 +235,7 @@ class TestGenerateBriefingSentencesRetry:
             json.dumps(INVALID_ITEMS_CONSECUTIVE_CONTEXT),
         ]
         with patch("ai._call_api", side_effect=responses) as mock_call, \
+             patch("ai.fact_check_briefing", return_value=[]), \
              patch("ai._fill_translations", lambda sentences, **kw: None):
             result = ai.generate_briefing_sentences(CARDS, ARTICLES, model="gpt-5.1")
 
@@ -200,6 +243,20 @@ class TestGenerateBriefingSentencesRetry:
         assert len(result) == len(CARDS)
         matched_words = {s["word_ids"][0] for s in result}
         assert matched_words == {c["word_id"] for c in CARDS}
+
+    def test_fact_check_issue_triggers_one_regeneration(self):
+        """When fact_check_briefing reports issues on the first pass, the
+        sentences are regenerated once more; a second fact-check pass (if any)
+        is logged only and never triggers a further retry."""
+        with patch("ai._call_api", return_value=json.dumps(VALID_ITEMS)) as mock_call, \
+             patch("ai.fact_check_briefing", side_effect=[["句子1：数字不符"], []]) as mock_fc, \
+             patch("ai._fill_translations", lambda sentences, **kw: None):
+            result = ai.generate_briefing_sentences(CARDS, ARTICLES, model="gpt-5.1")
+
+        # 1 initial generation + 1 fact-check-triggered regeneration = 2 calls
+        assert mock_call.call_count == 2
+        assert mock_fc.call_count == 2
+        assert len(result) == len(CARDS)
 
 
 # ---------------------------------------------------------------------------
@@ -258,3 +315,66 @@ class TestResolveBriefingModel:
             second = ai.resolve_briefing_model()
         assert first == second == "gpt-5.1"
         mock_cls.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# database.get_story_position_map (issue #454 — review queue ordering)
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def tmp_db(tmp_path, monkeypatch):
+    """Isolated temp-DB fixture. NOTE: patches database.core.DB_PATH directly —
+    database.DB_PATH is just a wildcard-import copy (see database/__init__.py's
+    `from .core import *`) and does NOT affect what get_db() reads; patching
+    only the package-level name silently leaves get_db() pointed at the real
+    data/srs.db (test_api.py has this same pre-existing bug, out of scope here)."""
+    db_file = tmp_path / "test.db"
+    monkeypatch.setattr(database.core, "DB_PATH", str(db_file))
+    database.init_db()
+    return db_file
+
+
+class TestGetStoryPositionMap:
+
+    def _make_words(self):
+        w1 = database.insert_word({"word_zh": "担心", "lang": "zh", "definition": "to worry"})
+        w2 = database.insert_word({"word_zh": "努力", "lang": "zh", "definition": "to work hard"})
+        w3 = database.insert_word({"word_zh": "进步", "lang": "zh", "definition": "progress"})
+        return w1, w2, w3
+
+    def test_returns_word_id_to_position_map_for_briefing_story(self, tmp_db):
+        deck_id = database.get_or_create_deck("TestDeck")
+        w1, w2, w3 = self._make_words()
+        today = database.anki_today().isoformat()
+
+        sentences = [
+            {"position": 0, "sentence_zh": "她很担心考试。", "word_ids": [w1]},
+            {"position": 1, "sentence_zh": "他每天努力学习。", "word_ids": [w2]},
+            {"position": 2, "sentence_zh": "她看到了他的进步。", "word_ids": [w3]},
+        ]
+        database.create_story(today, "reading", deck_id, sentences,
+                              gen_params={"mode": "briefing", "model": "gpt-5.1"}, lang="zh")
+
+        pos_map = database.get_story_position_map(deck_id, "reading", today, lang="zh")
+        assert pos_map == {w1: 0, w2: 1, w3: 2}
+
+    def test_non_briefing_mode_returns_empty_map(self, tmp_db):
+        deck_id = database.get_or_create_deck("TestDeck")
+        w1, w2, w3 = self._make_words()
+        today = database.anki_today().isoformat()
+
+        sentences = [
+            {"position": 0, "sentence_zh": "她很担心考试。", "word_ids": [w1]},
+            {"position": 1, "sentence_zh": "他每天努力学习。", "word_ids": [w2]},
+            {"position": 2, "sentence_zh": "她看到了他的进步。", "word_ids": [w3]},
+        ]
+        database.create_story(today, "reading", deck_id, sentences,
+                              gen_params={"mode": "story", "model": "gpt-5.1"}, lang="zh")
+
+        pos_map = database.get_story_position_map(deck_id, "reading", today, lang="zh")
+        assert pos_map == {}
+
+    def test_no_active_story_returns_empty_map(self, tmp_db):
+        deck_id = database.get_or_create_deck("TestDeck")
+        today = database.anki_today().isoformat()
+        assert database.get_story_position_map(deck_id, "reading", today, lang="zh") == {}
