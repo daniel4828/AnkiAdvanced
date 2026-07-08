@@ -1,5 +1,6 @@
 import logging
 import threading
+import time
 from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException
 
@@ -171,6 +172,7 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
                   parent_deck_id: int | None = None, duration_ms: int | None = None,
                   next_note: str | None = None, unfinished_scope: str = "unfinished",
                   lang: str | None = None):
+    _t0 = time.perf_counter()
     card_before = database.get_card(card_id)
     # Persist the free-text "note for next time" the user left on this card
     # (None means "leave the existing note untouched"; "" clears it).
@@ -313,15 +315,24 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
         rating_label, updated["due"], ivl_str,
         updated["ease"], updated["lapses"],
     )
-    cat_totals = {
-        c: sum(database.count_due(deck_id, c).values())
-        for c in ("listening", "reading", "creating")
-    }
-    logger.info(
-        "Queue: %d lrn  %d rev  %d new  │ 听=%d  读=%d  创=%d",
-        counts["learning"], counts["review"], counts["new"],
-        cat_totals["listening"], cat_totals["reading"], cat_totals["creating"],
-    )
+    # The per-category totals below cost three extra count_due queries per review
+    # purely for this log line — only compute them when DEBUG logging is on so a
+    # normal review submit stays fast (issue #452).
+    if logger.isEnabledFor(logging.DEBUG):
+        cat_totals = {
+            c: sum(database.count_due(deck_id, c).values())
+            for c in ("listening", "reading", "creating")
+        }
+        logger.info(
+            "Queue: %d lrn  %d rev  %d new  │ 听=%d  读=%d  创=%d",
+            counts["learning"], counts["review"], counts["new"],
+            cat_totals["listening"], cat_totals["reading"], cat_totals["creating"],
+        )
+    else:
+        logger.info(
+            "Queue: %d lrn  %d rev  %d new",
+            counts["learning"], counts["review"], counts["new"],
+        )
     if updated.get("state") == "suspended":
         logger.warning(
             "Card #%d %s SUSPENDED (lapses=%d)",
@@ -340,6 +351,11 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
         "leech":   bool(updated.get("is_leech")) and state_to == "suspended",
         "learned": is_learned,
     }
+    _elapsed_ms = (time.perf_counter() - _t0) * 1000
+    if _elapsed_ms > 300:
+        logger.warning("submit_review SLOW: %.0f ms (card=#%d)", _elapsed_ms, card_id)
+    else:
+        logger.info("submit_review: %.0f ms", _elapsed_ms)
     return {"next_card": next_card, "counts": counts, "transition": transition}
 
 
