@@ -10,6 +10,7 @@ Tests for the briefing mode rework (issue #444) and News flow v2 (issue #454):
 """
 
 import json
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -378,6 +379,58 @@ class TestGetStoryPositionMap:
         deck_id = database.get_or_create_deck("TestDeck")
         today = database.anki_today().isoformat()
         assert database.get_story_position_map(deck_id, "reading", today, lang="zh") == {}
+
+
+# ---------------------------------------------------------------------------
+# database.get_recent_story_keys (issue #458 — morning pregen reproduces the
+# most recent real story keys instead of blindly generating for every leaf deck)
+# ---------------------------------------------------------------------------
+
+class TestGetRecentStoryKeys:
+
+    def _make_word(self):
+        return database.insert_word({"word_zh": "担心", "lang": "zh", "definition": "to worry"})
+
+    def test_finds_yesterdays_briefing_key_with_parsed_gen_params(self, tmp_db):
+        deck_id = database.get_or_create_deck("TestDeck")
+        w1 = self._make_word()
+        w2 = database.insert_word({"word_zh": "努力", "lang": "zh", "definition": "to work hard"})
+        today = database.anki_today()
+        yesterday = (today - timedelta(days=1)).isoformat()
+
+        sentences = [
+            {"position": 0, "sentence_zh": "她很担心考试。", "word_ids": [w1]},
+            {"position": 1, "sentence_zh": "他每天努力学习。", "word_ids": [w2]},
+        ]
+        database.create_story(yesterday, "listening", deck_id, sentences,
+                              gen_params={"mode": "briefing", "model": "gpt-5.1"}, lang="zh")
+
+        keys = database.get_recent_story_keys(today.isoformat())
+        assert len(keys) == 1
+        assert keys[0]["deck_id"] == deck_id
+        assert keys[0]["category"] == "listening"
+        assert keys[0]["lang"] == "zh"
+        assert keys[0]["gen_params"] == {"mode": "briefing", "model": "gpt-5.1"}
+
+    def test_single_sentence_again_row_is_filtered_out(self, tmp_db):
+        deck_id = database.get_or_create_deck("TestDeck")
+        w1 = self._make_word()
+        today = database.anki_today()
+        yesterday = (today - timedelta(days=1)).isoformat()
+
+        # Simulates database.store_again_sentence(): single-sentence row, real
+        # category, real-looking gen_params — must still be excluded because it
+        # only has 1 sentence (the actual again-sentinel uses AGAIN_CATEGORY too,
+        # but the < 2 sentence filter is what get_recent_story_keys relies on).
+        sentences = [{"position": 0, "sentence_zh": "她很担心考试。", "word_ids": [w1]}]
+        database.create_story(yesterday, "listening", deck_id, sentences,
+                              gen_params={"mode": "briefing", "model": "gpt-5.1"}, lang="zh")
+
+        assert database.get_recent_story_keys(today.isoformat()) == []
+
+    def test_no_history_returns_empty_list(self, tmp_db):
+        today = database.anki_today().isoformat()
+        assert database.get_recent_story_keys(today) == []
 
 
 # ---------------------------------------------------------------------------

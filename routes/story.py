@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import math
@@ -831,6 +832,88 @@ async def tts_progress(deck_id: int, category: str, lang: str | None = None):
     lang = lang or database.get_deck_lang(deck_id)
     key = f"{deck_id}/{category}/{lang}"
     return tts._preload_progress.get(key, {"done": 0, "total": 0})
+
+
+@router.post("/api/pregen-today")
+async def pregen_today():
+    """Morning pregen (issue #458): instead of blindly generating a story for
+    every leaf deck (the old behavior — 88 useless mode="story" stories, none
+    of which matched what Daniel actually reviews), reproduce the story keys
+    (deck_id, category, lang) that were really used on the most recent day with
+    real stories (database.get_recent_story_keys), each with its own gen_params
+    (mode/topic/grammar/…). `articles` is deliberately dropped so news/briefing
+    modes re-fetch today's news instead of replaying stale content.
+
+    For each key: skip if today's story is already cached, skip if there are no
+    due cards today, otherwise generate synchronously and warm the TTS cache.
+    A failure on one key is logged and does not stop the remaining keys.
+    """
+    today = database.anki_today().isoformat()
+    keys = database.get_recent_story_keys(today)
+    generated: list[str] = []
+    skipped_cached: list[str] = []
+    skipped_no_due: list[str] = []
+    failed: list[dict] = []
+
+    if DISABLE_AI:
+        logger.info("pregen-today  DISABLED (DISABLE_AI=1), %d candidate keys skipped", len(keys))
+        skipped_no_due = [f"{k['deck_id']}/{k['category']}/{k['lang']}" for k in keys]
+        return {"date": today, "keys": len(keys), "generated": generated,
+                "skipped_cached": skipped_cached, "skipped_no_due": skipped_no_due, "failed": failed}
+
+    for k in keys:
+        deck_id, category, lang = k["deck_id"], k["category"], k["lang"]
+        label = f"{deck_id}/{category}/{lang}"
+
+        if database.get_active_story(today, category, deck_id, lang=lang):
+            logger.info("pregen-today  SKIP-CACHED  %s", label)
+            skipped_cached.append(label)
+            continue
+
+        cards = _get_cards_for_story(deck_id, category, lang=lang)
+        if not cards:
+            logger.info("pregen-today  SKIP-NO-DUE  %s", label)
+            skipped_no_due.append(label)
+            continue
+
+        gp = k["gen_params"] or {}
+        mode = gp.get("mode", "story")
+        progress_key = f"{deck_id}/{category}/{lang}"
+        try:
+            chosen_model = _validated_model(gp.get("model"))
+            # _generate_and_store blocks for minutes (serial AI calls) — run it
+            # off the event loop so the server stays responsive during pregen.
+            result = await asyncio.to_thread(
+                _generate_and_store,
+                deck_id, category, today, cards,
+                topic=gp.get("topic"), max_hsk=gp.get("max_hsk", 3), model=chosen_model,
+                grammar_focus=gp.get("grammar_focus"), grammar_pct=gp.get("grammar_pct", 75),
+                mode=mode, chapter_ids=gp.get("chapter_ids"), articles=None,
+                progress_key=progress_key, lang=lang)
+            ai._story_progress.pop(progress_key, None)
+            if isinstance(result, dict) and result.get("error"):
+                raise RuntimeError(result.get("reason", "generation failed"))
+            n_sentences = len((result or {}).get("sentences", []))
+            logger.info("pregen-today  OK  %s mode=%s sentences=%d", label, mode, n_sentences)
+            generated.append(label)
+        except Exception as e:
+            logger.warning("pregen-today  FAIL  %s: %s", label, e)
+            failed.append({"key": label, "error": str(e)})
+            continue
+
+        try:
+            await preload_session(deck_id, category, quick=False, lang=lang)
+            logger.info("pregen-today  TTS-DONE  %s", label)
+        except Exception as e:
+            # Story generation already succeeded — a TTS preload failure is only
+            # logged, not counted as a failed key.
+            logger.warning("pregen-today  TTS-FAIL  %s: %s", label, e)
+
+    logger.info(
+        "pregen-today  SUMMARY  date=%s keys=%d generated=%d skipped_cached=%d skipped_no_due=%d failed=%d",
+        today, len(keys), len(generated), len(skipped_cached), len(skipped_no_due), len(failed))
+    return {"date": today, "keys": len(keys), "generated": generated,
+            "skipped_cached": skipped_cached, "skipped_no_due": skipped_no_due, "failed": failed}
 
 
 @router.get("/api/story-progress/{deck_id}/{category}")

@@ -1,10 +1,19 @@
 # scripts/
 
-## morning_pregen.py（issue #420）
+## morning_pregen.py（issue #420，issue #458 重构）
 
 新闻 / 简报模式的故事生成很慢（多次串行 AI 调用），Daniel 早上打开页面时
-不想等。这个脚本对**运行中的服务器**发请求，提前把今天所有有到期卡片的
-（牌组, 类别）的故事生成好，并预热对应的 TTS 音频缓存。
+不想等。这个脚本对**运行中的服务器**发一次 `POST /api/pregen-today` 请求，
+由服务器端"重复最近一天真正用过的故事键"：
+
+- 服务器找到最近一天（今天除外，最多回看 14 天）所有真正生成过的故事键
+  `(deck_id, category, lang)`——即 Daniel 昨天实际复习用到的牌组/类别/模式
+  组合（包括 briefing/news 等聚合牌组模式），各键沿用上次的生成参数
+  （mode/topic/grammar 等；news/briefing 的 articles 被丢弃，重新抓当天新闻）
+- 每个键：今天已有缓存故事→跳过；没有到期卡→跳过；否则同步生成故事并
+  预热 TTS 音频缓存
+- 旧版（#420）遍历全部叶子牌组、一律用默认 `mode="story"` 生成——每天产出
+  大量没人看的故事，真正用到的聚合牌组反而漏掉，已废弃
 
 只依赖 Python 标准库（`urllib.request`、`base64`、`json` 等），不需要安装
 任何依赖，本地（launchd）和服务器（cron，见 issue #417）都可以直接用同一
@@ -14,17 +23,9 @@
 
 - 服务器（`bash run.sh` 或对应 systemd 服务）必须已经在运行——脚本只发
   HTTP 请求，不会自己启动服务器。
-- 脚本读取 `GET /api/decks`，找出所有**叶子牌组**（没有子牌组的节点）里
-  到期数量（`counts.new + learning + review + learning_future`）大于 0、
-  且**未被暂停**（`all_suspended` 不为真）的（牌组, 类别）。
-  类别键名固定为 `listening`（听力）/ `reading`（阅读）/ `creating`（写作），
-  与 `routes/decks.py` 中的 `VALID_CATEGORIES` 一致。
-- 对每一项：`GET /api/story/{deck_id}/{category}`（已有今天的缓存故事则
-  秒回，否则同步生成——新闻/简报模式可能耗时数分钟，脚本设置了 15 分钟
-  超时），成功后再 `POST /api/preload-session/{deck_id}/{category}` 预热
-  TTS 音频缓存。
-- 串行执行（一次只处理一个），单项失败只记录错误、不中断整体，最后打印
-  成功/失败/跳过（已暂停）数量的汇总。
+- 服务器串行处理各键（新闻/简报模式可能耗时数分钟，脚本设置了 15 分钟
+  超时），单键失败只记录错误、不中断整体；脚本把返回的汇总
+  （generated / skipped_cached / skipped_no_due / failed）逐项打印。
 
 ### 用法
 
