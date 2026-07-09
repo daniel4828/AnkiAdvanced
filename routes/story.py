@@ -220,11 +220,12 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
                 articles = _auto_news_articles(model=model, progress_key=progress_key)
             if mode == "briefing":
                 sentences, prompt_text = _generate_briefing_story_sentences(
-                    cards, articles, model=model, progress_key=progress_key)
+                    cards, articles, model=model, progress_key=progress_key,
+                    max_hsk=max_hsk)
             else:
                 sentences, prompt_text = _generate_news_story_sentences(
                     cards, articles, model=model, progress_key=progress_key,
-                    generic=(mode == "paste"))
+                    generic=(mode == "paste"), max_hsk=max_hsk)
         else:
             sentences, prompt_text = _generate_story_sentences(
                 cards, topic=topic, max_hsk=max_hsk, model=model,
@@ -645,7 +646,7 @@ def _group_sentences_by_article(sentences: list[dict], articles: list[dict]) -> 
 
 def _generate_news_story_sentences(
     cards: list, articles: list[dict], model: str, progress_key: str | None,
-    generic: bool = False,
+    generic: bool = False, max_hsk: int = 3,
 ) -> tuple[list, str]:
     """Split cards into batches of ai.MAX_NEWS_BATCH, call AI once per batch, merge
     results. All batches share the same `articles` context so the sentences form
@@ -668,7 +669,7 @@ def _generate_news_story_sentences(
         label = f" ({idx + 1}/{len(chunks)})"
         chunk_sentences = ai.generate_news_sentences(
             chunk, articles, model=model, progress_key=progress_key,
-            attempt_label=label, generic=generic
+            attempt_label=label, generic=generic, max_hsk=max_hsk
         )
         all_sentences.extend(chunk_sentences)
 
@@ -677,6 +678,7 @@ def _generate_news_story_sentences(
 
 def _generate_briefing_story_sentences(
     cards: list, articles: list[dict], model: str, progress_key: str | None,
+    max_hsk: int = 3,
 ) -> tuple[list, str]:
     """News flow mode (issue #399): split cards into batches of ai.MAX_NEWS_BATCH,
     each batch produces its own flowing mini-summary (target-word sentences +
@@ -702,6 +704,7 @@ def _generate_briefing_story_sentences(
         label = f" ({idx + 1}/{len(chunks)})"
         chunk_sentences = ai.generate_briefing_sentences(
             chunk, articles, model=model, progress_key=progress_key, attempt_label=label,
+            max_hsk=max_hsk,
             progress_extra={
                 "words_done": words_done,
                 "words_total": len(cards),

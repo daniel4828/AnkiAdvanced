@@ -1313,7 +1313,7 @@ def generate_briefing_sentences(
     # HSK 1-5 background vocabulary (issue #448): Daniel is HSK 4-5 — capping
     # the non-target words at HSK 1-2 made sentences childish and was the
     # tightest remaining constraint after the #444 rework.
-    max_hsk: int = 5,
+    max_hsk: int = 3,
     progress_key: str | None = None,
     attempt_label: str = "",
     progress_extra: dict | None = None,
@@ -1393,12 +1393,14 @@ def generate_briefing_sentences(
   用来交代事实、数字和背景，让摘要自然连贯——绝对不允许连续出现两个或以上不含目标词的上下文句子
 - 因此句子总数不能超过目标词数量的两倍
 - 一句话最多包含一个目标词汇
-- 含目标词汇的句子长度为8到18个字，其中非目标词汇只用HSK 1-{max_hsk}的词汇
+- 【难度控制，严格遵守】含目标词汇的句子长度为8到18个字，其中除目标词外只允许
+  HSK 1-{max_hsk} 的词汇——这是学习者自己选择的难度上限，超纲词会让句子无法学习。
+  如果某个事实需要更难的词才能表达，把它放进上下文句子里，目标句只保留简单的部分
 - 【重要】含目标词汇的句子也必须传达该新闻中的一个具体事实（谁、做了什么、在哪里、多少），
   读者只看这一句也能学到新闻内容。严禁没有信息量的空洞句子，
   例如"组织很大。""火箭很快。""它指代。""未知很大。"这类句子绝对不可以出现
-- 上下文句子同样使用简单中文（可以包含具体数字和事实），不要写得比目标句复杂太多——
-  它最终会被翻译成德文显示在卡片正面，太长太难会打断学习
+- 上下文句子【不受 HSK 词汇限制】——它最终会被翻译成德文显示在卡片正面，可以自由
+  使用专有名词、数字和任何词汇来准确传达事实；长度保持一两句话的合理范围即可
 - 所有输出只用简体中文，绝对不要出现繁体字
 - 不要使用markdown格式
 - article_idx 是该句子所涉及的文章编号（上面的 0 开始编号）
