@@ -1,6 +1,9 @@
 import json
 import logging
 import os
+import threading
+import time
+import uuid
 from datetime import date, timedelta
 
 import ai
@@ -10,6 +13,30 @@ from fastapi import APIRouter, Form, HTTPException, UploadFile
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# ---------------------------------------------------------------------------
+# Background import jobs (issue #458) — the previous /api/import/upload ran
+# the AI-heavy import synchronously, blocking the browser for 1-2 minutes.
+# Now the request just kicks off a daemon thread and returns a job id; the
+# frontend polls /api/import/progress/{job_id} for status.
+# ---------------------------------------------------------------------------
+_import_jobs: dict[str, dict] = {}
+_import_jobs_lock = threading.Lock()
+_MAX_IMPORT_JOBS = 10
+
+
+def _prune_import_jobs() -> None:
+    """Keep at most _MAX_IMPORT_JOBS entries, oldest-first, never evicting a
+    job that's still running."""
+    with _import_jobs_lock:
+        if len(_import_jobs) <= _MAX_IMPORT_JOBS:
+            return
+        for job_id in list(_import_jobs.keys()):
+            if len(_import_jobs) <= _MAX_IMPORT_JOBS:
+                break
+            if _import_jobs[job_id]["status"] == "running":
+                continue
+            del _import_jobs[job_id]
 
 
 @router.post("/api/import/preview")
@@ -76,17 +103,53 @@ async def upload_import(
         except json.JSONDecodeError:
             raise HTTPException(status_code=400, detail="custom_fields must be valid JSON")
 
-    try:
-        result = importer.import_yaml_content(
-            content, deck_id,
-            resolutions=resolution_map,
-            card_configs=card_configs_map,
-            custom_fields=custom_fields_map,
-        )
-    except Exception as e:
-        logger.exception("Unhandled error during import (deck_id=%s): %s", deck_id, e)
-        raise HTTPException(status_code=500, detail=f"Import failed: {e}")
-    return {"deck_id": deck_id, **result}
+    job_id = uuid.uuid4().hex[:8]
+    with _import_jobs_lock:
+        _import_jobs[job_id] = {
+            "status": "running",
+            "message": "Importing…",
+            "started_at": time.time(),
+        }
+    _prune_import_jobs()
+
+    def _run_import():
+        try:
+            result = importer.import_yaml_content(
+                content, deck_id,
+                resolutions=resolution_map,
+                card_configs=card_configs_map,
+                custom_fields=custom_fields_map,
+            )
+            with _import_jobs_lock:
+                started_at = _import_jobs[job_id]["started_at"]
+                _import_jobs[job_id] = {
+                    "status": "done",
+                    "message": "Import complete",
+                    "summary": {"deck_id": deck_id, **result},
+                    "started_at": started_at,
+                }
+        except Exception as e:
+            logger.exception("Unhandled error during import (deck_id=%s): %s", deck_id, e)
+            with _import_jobs_lock:
+                started_at = _import_jobs.get(job_id, {}).get("started_at", time.time())
+                _import_jobs[job_id] = {
+                    "status": "error",
+                    "message": "Import failed",
+                    "error": str(e),
+                    "started_at": started_at,
+                }
+
+    threading.Thread(target=_run_import, daemon=True).start()
+    return {"job_id": job_id}
+
+
+@router.get("/api/import/progress/{job_id}")
+def import_progress(job_id: str):
+    """Poll status for a background import job started by /api/import/upload."""
+    job = _import_jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Unknown job id")
+    return job
 
 
 @router.post("/api/import/directory")
