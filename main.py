@@ -266,6 +266,42 @@ try:
                         response.status_code, ms)
         return response
 
+    # Request-timing middleware (issue #458 measurement) — logs how long every
+    # /api/ request actually takes, so slow endpoints show up in /api/logs
+    # without needing SSH access. High-frequency polling endpoints are
+    # excluded from routine logging (only surfaced if they somehow go slow),
+    # since logging every poll would flood the ring buffer.
+    _TIMING_QUIET_PREFIXES = (
+        "/api/logs",
+        "/api/story-progress",
+        "/api/tts-progress",
+        "/api/speak-status",
+    )
+
+    @app.middleware("http")
+    async def request_timing(request: Request, call_next):
+        path = request.url.path
+        if not path.startswith("/api/"):
+            return await call_next(request)
+
+        start = time.time()
+        response = await call_next(request)
+        ms = round((time.time() - start) * 1000)
+
+        quiet = any(path.startswith(p) for p in _TIMING_QUIET_PREFIXES)
+        if quiet:
+            if ms > 500:
+                logger.warning("SLOW %s %s: %d ms", request.method, path, ms)
+            return response
+
+        if ms > 500:
+            logger.warning("SLOW %s %s: %d ms", request.method, path, ms)
+        elif ms >= 100:
+            logger.info("%s %s: %d ms", request.method, path, ms)
+        else:
+            logger.debug("%s %s: %d ms", request.method, path, ms)
+        return response
+
     if os.path.exists("static"):
         app.mount("/static", StaticFiles(directory="static"), name="static")
 

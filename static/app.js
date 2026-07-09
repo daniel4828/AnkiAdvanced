@@ -7343,6 +7343,29 @@ async function doImport() {
   }
 }
 
+// Poll /api/import/progress/{jobId} until the background import thread
+// finishes (issue #458 — upload no longer blocks the request). Resolves with
+// the import summary dict, or throws on error/timeout.
+async function _pollImportJob(jobId, { timeoutMs = 5 * 60 * 1000, intervalMs = 1000 } = {}) {
+  const start = Date.now();
+  while (true) {
+    if (Date.now() - start > timeoutMs) throw new Error('Import timed out after 5 minutes.');
+    const res = await fetch(`/api/import/progress/${jobId}`);
+    if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
+    const job = await res.json();
+    if (job.status === 'done') return job.summary;
+    if (job.status === 'error') throw new Error(job.error || 'Import failed');
+    await new Promise(r => setTimeout(r, intervalMs));
+  }
+}
+
+function _showImportPollingSpinner(resultEl) {
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:4px 0">'
+    + '<div class="spinner" style="width:18px;height:18px;border-width:2px;margin:0"></div>'
+    + '<span>Importing…</span></div>';
+}
+
 async function _doUploadImport() {
   // Legacy flow: used when YAML editor previews a file via file input
   const fileInput = document.getElementById('import-file');
@@ -7396,7 +7419,10 @@ async function _doUploadImport() {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || res.statusText);
     }
-    const data = await res.json();
+    const { job_id } = await res.json();
+    _showImportPollingSpinner(resultEl);
+    const data = await _pollImportJob(job_id);
+    resultEl.style.display = 'none';
     closeImportModal();
     loadDecks();
 
@@ -7781,7 +7807,12 @@ async function importYamlEntry() {
     form.append('deck_path', _yamlEditDeckPath);
     const res = await fetch('/api/import/upload', { method: 'POST', body: form });
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || res.statusText);
-    const data = await res.json();
+    const { job_id } = await res.json();
+    feedbackEl.style.display = 'block';
+    feedbackEl.innerHTML = '<div style="display:flex;align-items:center;gap:8px">'
+      + '<div class="spinner" style="width:16px;height:16px;border-width:2px;margin:0"></div>'
+      + '<span>Importing…</span></div>';
+    const data = await _pollImportJob(job_id);
 
     feedbackEl.style.display = 'block';
     if (data.imported > 0) {

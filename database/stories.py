@@ -1,5 +1,6 @@
 import json
 import sqlite3
+from datetime import date, timedelta
 from .core import get_db
 
 
@@ -314,6 +315,64 @@ def get_story_position_map(deck_id: int, category: str, date_str: str,
     ).fetchall()
     conn.close()
     return {r["word_id"]: r["position"] for r in rows}
+
+
+def get_recent_story_keys(before_date: str, max_lookback_days: int = 14) -> list[dict]:
+    """Morning pregen (issue #458): find the most recent day before `before_date`
+    (looking back up to `max_lookback_days`) that had "real" stories, and return
+    the one active (deck_id, category, lang) key per story that day, each with its
+    parsed gen_params — so today's pregen can reproduce yesterday's actual usage
+    instead of blindly generating for every leaf deck.
+
+    "Real" story = gen_params is non-empty AND it has >= 2 sentences — this
+    excludes the single-sentence "again" regeneration rows (see AGAIN_CATEGORY)
+    without needing to special-case that category by name.
+
+    Returns [] if no matching day is found in the lookback window.
+    """
+    before = date.fromisoformat(before_date)
+    earliest = before - timedelta(days=max_lookback_days)
+
+    conn = get_db()
+    date_row = conn.execute(
+        """SELECT s.date FROM stories s
+           WHERE s.date < ? AND s.date >= ? AND s.gen_params IS NOT NULL
+             AND (SELECT COUNT(*) FROM story_sentences ss WHERE ss.story_id = s.id) >= 2
+           ORDER BY s.date DESC LIMIT 1""",
+        (before_date, earliest.isoformat()),
+    ).fetchone()
+    if not date_row:
+        conn.close()
+        return []
+    target_date = date_row["date"]
+
+    story_rows = conn.execute(
+        """SELECT * FROM stories s
+           WHERE s.date = ? AND s.gen_params IS NOT NULL
+             AND (SELECT COUNT(*) FROM story_sentences ss WHERE ss.story_id = s.id) >= 2
+           ORDER BY s.generated_at DESC""",
+        (target_date,),
+    ).fetchall()
+    conn.close()
+
+    seen: set[tuple] = set()
+    result: list[dict] = []
+    for row in story_rows:
+        key = (row["deck_id"], row["category"], row["lang"])
+        if key in seen:
+            continue  # keep only the latest generated_at per key (rows are DESC-ordered)
+        seen.add(key)
+        try:
+            gen_params = json.loads(row["gen_params"])
+        except (ValueError, TypeError):
+            continue
+        result.append({
+            "deck_id": row["deck_id"],
+            "category": row["category"],
+            "lang": row["lang"],
+            "gen_params": gen_params,
+        })
+    return result
 
 
 def get_due_cards_unified(deck_id: int, lang: str | None = None) -> list[dict]:
