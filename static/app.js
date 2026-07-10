@@ -6044,8 +6044,6 @@ function _newsSourceHtml(s) {
 
 // Front side: context (above the Chinese sentence) + source line (below it).
 function _renderNewsFront() {
-  const isListening = category === 'listening';
-  const isCreating  = category === 'creating';
   const ctxDe = document.getElementById('sentence-context-de');
   const ctxText = _newsContextText(sentence);
   ctxDe.textContent = ctxText;
@@ -6055,9 +6053,11 @@ function _renderNewsFront() {
   ctxDe.classList.toggle('clickable-sentence', ctxClickable);
   ctxDe.onclick = ctxClickable ? () => window.open(url, '_blank', 'noopener') : null;
 
+  // Title · publisher on the front for every category (issue #464) — listening
+  // and creating cards were previously excluded, matching nothing on the back.
   const srcEl = document.getElementById('news-source-front');
   if (srcEl) {
-    const html = (!isListening && !isCreating) ? _newsSourceHtml(sentence) : '';
+    const html = _newsSourceHtml(sentence);
     srcEl.innerHTML = html;
     srcEl.style.display = html ? 'block' : 'none';
   }
