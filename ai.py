@@ -1658,6 +1658,83 @@ idx is the item number in square brackets above."""
             for it in items[:max_items]]
 
 
+_PODCAST_DETAIL_WORDS = {
+    "short": "~150",
+    "medium": "~300",
+    "detailed": "500-700",
+}
+
+
+def summarize_podcast_transcript(transcript: str, title: str,
+                                 detail_level: str = "detailed") -> dict:
+    """Podcast crawler (issue #479): one AI call that turns a raw Chinese
+    transcript into a German summary + a list of HSK5+ vocabulary worth
+    reviewing before listening.
+
+    Uses resolve_briefing_model() (OpenAI) — same reasoning as news/briefing:
+    DeepSeek censors this kind of freeform content, and the model is already
+    verified/cached there.
+
+    Returns {"summary_de": str, "words": [{"word", "pinyin", "definition_de", "hsk"}]}.
+    Falls back to an empty-ish result (summary_de note, words=[]) on any
+    parse/API failure — callers store status='error' and move on, they don't
+    crash the whole crawl run over one bad transcript.
+    """
+    words_target = _PODCAST_DETAIL_WORDS.get(detail_level, _PODCAST_DETAIL_WORDS["detailed"])
+    # Transcripts can be long (auto-captions of a 30-60min episode) — cap input
+    # to keep the request within a reasonable token budget.
+    excerpt = transcript[:20000]
+
+    prompt = f"""You are summarizing a Chinese-language podcast episode for a German-speaking
+learner of Chinese (HSK 4-5 level, learning towards HSK 6).
+
+Episode title: {title}
+
+Transcript (Chinese, auto/manual captions, may contain minor recognition errors):
+{excerpt}
+
+Task:
+1. Write a detailed German-language summary of what is discussed in the episode, so the
+   listener understands the content before listening. Target length: {words_target} words.
+   Structure it into multiple paragraphs. Wrap the most important vocabulary/terms/names in
+   <strong>...</strong> HTML tags (these become the highlighted words in the email).
+2. Extract the 10-20 most important Chinese words/phrases from the transcript that are HSK
+   level 5 or above (i.e. non-basic vocabulary Daniel would benefit from pre-learning). For
+   each, give pinyin and a German definition.
+
+Return ONLY a JSON object, no other text, no markdown fences:
+{{
+  "summary_de": "<German HTML summary with <strong> tags>",
+  "words": [
+    {{"word": "词语", "pinyin": "cí yǔ", "definition_de": "kurze deutsche Definition", "hsk": 5}}
+  ]
+}}"""
+
+    model = resolve_briefing_model()
+    try:
+        raw = _call_api(model, [{"role": "user", "content": prompt}], 8192, purpose="podcast-summary")
+        start, end = raw.find("{"), raw.rfind("}") + 1
+        data = json.loads(raw[start:end]) if start != -1 and end != 0 else {}
+        summary_de = (data.get("summary_de") or "").strip()
+        words = []
+        for w in data.get("words") or []:
+            word = (w.get("word") or "").strip()
+            if not word:
+                continue
+            words.append({
+                "word": word,
+                "pinyin": (w.get("pinyin") or "").strip(),
+                "definition_de": (w.get("definition_de") or "").strip(),
+                "hsk": w.get("hsk") if isinstance(w.get("hsk"), int) else 5,
+            })
+        if summary_de:
+            return {"summary_de": summary_de, "words": words}
+        logger.warning("summarize_podcast_transcript: empty summary_de in AI reply")
+    except Exception as e:
+        logger.warning("summarize_podcast_transcript failed (%s)", e)
+    return {"summary_de": "", "words": []}
+
+
 def estimate_story_tokens(num_cards: int) -> int:
     """Rough token estimate for generating a story with num_cards words.
 

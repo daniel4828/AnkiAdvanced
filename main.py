@@ -192,7 +192,7 @@ try:
     from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
     import uvicorn
 
-    from routes import decks, review, story, browse, imports
+    from routes import decks, review, story, browse, imports, podcast as podcast_routes
 
     @asynccontextmanager
     async def lifespan(app):
@@ -347,6 +347,7 @@ try:
     app.include_router(story.router)
     app.include_router(browse.router)
     app.include_router(imports.router)
+    app.include_router(podcast_routes.router)
 
     import threading
     import time

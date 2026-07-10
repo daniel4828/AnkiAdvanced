@@ -482,6 +482,21 @@ def init_db() -> None:
                        VALUES (?, ?, 'zh', 'briefing', 2)""",
                     (all_deck["id"], cat))
             conn.commit()
+
+    # podcast_config seeding (issue #479): when the table is first created,
+    # seed the four settings Daniel asked for so the crawler works out of the
+    # box without a settings UI (that's a follow-up issue).
+    if "podcast_config" not in existing:
+        seed = {
+            "channel_url": "https://www.youtube.com/@shengfm/videos",
+            "email_to": "u82g@outlook.com",
+            "detail_level": "detailed",
+            "enabled": "1",
+        }
+        for k, v in seed.items():
+            conn.execute(
+                "INSERT OR IGNORE INTO podcast_config (key, value) VALUES (?, ?)", (k, v))
+        conn.commit()
     conn.close()
 
 
