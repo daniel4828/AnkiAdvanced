@@ -359,6 +359,14 @@ def get_recent_story_keys(before_date: str, max_lookback_days: int = 14) -> list
             continue
         if gen_params.get("origin") == "pregen":
             continue
+        # Legacy rows (pre-#469) have no "origin" key at all. The morning pregen
+        # cron runs at 06:0x Beijing = 22:0x UTC the previous day, so a story
+        # generated (UTC) before its own anki date can only be pregen output —
+        # user generations happen during the day with both on the same date.
+        # Without this, the untagged 07-08/07-09 leaf-deck batches keep getting
+        # reproduced until they age out of the lookback window (issue #471).
+        if "origin" not in gen_params and (row["generated_at"] or "")[:10] < row["date"]:
+            continue
         if target_date is None:
             target_date = row["date"]  # most recent day with a user-initiated story
         elif row["date"] != target_date:
