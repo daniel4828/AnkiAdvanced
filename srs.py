@@ -67,13 +67,19 @@ def _elapsed_days(card: dict) -> int:
 def _graduate_interval(card: dict, rating: int) -> int:
     """Day-interval when a learning card graduates with the given rating.
 
-    Under FSRS this comes from the initial stability; otherwise the legacy
-    graduating/easy interval preset values."""
+    Mirrors _handle_learning's _graduate: an already-seeded stability (from
+    step answers) drives the interval directly; otherwise it is seeded from
+    the graduating rating. FSRS off falls back to the preset values."""
     if not _fsrs_enabled(card):
         base = card.get("easy_interval", 4) if rating == 4 else card.get("graduating_interval", 1)
         return max(1, base)
     w, dr, mx = _fsrs_cfg(card)
-    s = fsrs.init_stability(w, rating)
+    s = card.get("stability")
+    if s:
+        if rating == 4:
+            s = fsrs.next_short_term_stability(w, s, 4)
+    else:
+        s = fsrs.init_stability(w, rating)
     return fsrs.next_interval(s, dr, mx)
 
 
@@ -87,6 +93,25 @@ def _relearn_graduate_interval(card: dict, rating: int) -> int:
     if rating == 4:
         s = fsrs.next_short_term_stability(w, s, 4)
     return max(card.get("minimum_interval", 1), fsrs.next_interval(s, dr, mx))
+
+
+def _touch_learning_memory(c: dict, preset: dict, rating: int) -> None:
+    """Short-term (same-day) FSRS memory update for a non-graduating step answer.
+
+    The first answer on a fresh card seeds S/D from that rating (FSRS-5
+    behaviour); later step answers nudge stability via the short-term formula
+    and update difficulty, so the graduation interval adapts to how the card
+    is actually going. No-op when FSRS is off."""
+    if not _fsrs_enabled(preset):
+        return
+    w, _, _ = _fsrs_cfg(preset)
+    if c.get("stability"):
+        c["stability"] = fsrs.next_short_term_stability(w, c["stability"], rating)
+        if c.get("difficulty") is not None:
+            c["difficulty"] = fsrs.next_difficulty(w, c["difficulty"], rating)
+    else:
+        c["stability"] = fsrs.init_stability(w, rating)
+        c["difficulty"] = fsrs.init_difficulty(w, rating)
 
 
 # ---------------------------------------------------------------------------
@@ -484,6 +509,7 @@ def _handle_learning(card: dict, preset: dict, rating: int) -> dict:
         c["state"] = "learning"
         c["step_index"] = 0
         c["due"] = next_learning_due(steps, 0)
+        _touch_learning_memory(c, preset, rating)
         return c
 
     if rating == 2:  # Hard — stay on current step, slow delay
@@ -498,6 +524,7 @@ def _handle_learning(card: dict, preset: dict, rating: int) -> dict:
         else:
             delay = steps[idx]
         c["due"] = _smart_due(datetime.now() + timedelta(minutes=delay))
+        _touch_learning_memory(c, preset, rating)
         return c
 
     # rating == 3: Good — advance step
@@ -510,6 +537,7 @@ def _handle_learning(card: dict, preset: dict, rating: int) -> dict:
         c["step_index"] = idx + 1
         c["state"] = "learning"
         c["due"] = next_learning_due(steps, c["step_index"])
+        _touch_learning_memory(c, preset, rating)
 
     return c
 
@@ -588,6 +616,7 @@ def _handle_relearn(card: dict, preset: dict, rating: int) -> dict:
         c["state"] = "relearn"
         c["step_index"] = 0
         c["due"] = next_learning_due(steps, 0)
+        _touch_learning_memory(c, preset, rating)
         return c
 
     if rating == 2:  # Hard — repeat current step
@@ -602,6 +631,7 @@ def _handle_relearn(card: dict, preset: dict, rating: int) -> dict:
         else:
             delay = steps[idx]
         c["due"] = _smart_due(datetime.now() + timedelta(minutes=delay))
+        _touch_learning_memory(c, preset, rating)
         return c
 
     idx = c["step_index"]
@@ -632,6 +662,7 @@ def _handle_relearn(card: dict, preset: dict, rating: int) -> dict:
         c["step_index"] = idx + 1
         c["state"] = "relearn"
         c["due"] = next_learning_due(steps, c["step_index"])
+        _touch_learning_memory(c, preset, rating)
 
     return c
 
