@@ -203,35 +203,42 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
             sentences, prompt_text = _generate_kahneman_story_sentences(
                 cards, parsed_chapter_ids, model=model, progress_key=progress_key)
         elif mode in ("news", "paste", "briefing"):
-            if mode == "briefing":
-                # Briefing (issue #444) ignores the frontend's model selection —
-                # it always uses BRIEFING_MODEL (env, default gpt-5.1, verified/
+            if mode in ("briefing", "paste"):
+                # Briefing (issue #444) and paste (issue #481, now sharing the
+                # briefing pipeline) both ignore the frontend's model selection —
+                # they always use BRIEFING_MODEL (env, default gpt-5.1, verified/
                 # cached via ai.resolve_briefing_model()), OpenAI only. Resolved
                 # before the article-selection call so summarize_news_items uses
                 # the same model as the sentence generation (issue #448).
                 model = ai.resolve_briefing_model()
-                logger.info("story  briefing model in use: %s", model)
+                logger.info("story  %s model in use: %s", mode, model)
             if mode in ("news", "briefing") and not articles:
                 # News/briefing modes always auto-fetch today's news and let the
                 # AI condense it into briefing source articles (issue #387).
                 # Rebinding `articles` here also persists the fetched articles
                 # in gen_params below, so Again-regeneration reuses them.
                 # Paste mode never auto-fetches: no pasted content is an error
-                # (raised inside _generate_news_story_sentences).
+                # (raised inside _generate_briefing_story_sentences).
                 # Articles already used by another category's story today are
                 # excluded so each category covers different news (issue #473).
                 used = database.get_today_used_article_urls(
                     today, lang, exclude_deck_id=deck_id, exclude_category=category)
                 articles = _auto_news_articles(model=model, progress_key=progress_key,
                                                exclude_urls=used)
-            if mode == "briefing":
+            if mode in ("briefing", "paste"):
+                # Paste (issue #481) reuses the briefing pipeline (context
+                # sentences, validation, dedup, fact-check) with generic=True
+                # swapping the news-briefing prompt wording for plain content
+                # framing — it never auto-fetches (guard above only applies to
+                # news/briefing), so missing articles surface as a clear error
+                # inside _generate_briefing_story_sentences.
                 sentences, prompt_text = _generate_briefing_story_sentences(
                     cards, articles, model=model, progress_key=progress_key,
-                    max_hsk=max_hsk)
+                    max_hsk=max_hsk, generic=(mode == "paste"))
             else:
                 sentences, prompt_text = _generate_news_story_sentences(
                     cards, articles, model=model, progress_key=progress_key,
-                    generic=(mode == "paste"), max_hsk=max_hsk)
+                    generic=False, max_hsk=max_hsk)
         else:
             sentences, prompt_text = _generate_story_sentences(
                 cards, topic=topic, max_hsk=max_hsk, model=model,
@@ -367,11 +374,13 @@ def generate_sentence_for_word(card: dict, gen_params: dict | None) -> dict | No
             else:  # book data missing → fall back to a plain sentence
                 sentences, _ = ai.generate_story([card], model=model, lang=lang)
         elif mode in ("news", "paste", "briefing"):
-            # Briefing Again-regen reuses the single-sentence news path: one word
-            # gets one fresh sentence from the same articles (no context chain).
-            # Briefing always uses BRIEFING_MODEL (issue #444), ignoring the
-            # story's stored model — same resolution as the main generation.
-            news_model = ai.resolve_briefing_model() if mode == "briefing" else model
+            # Briefing/paste Again-regen reuses the single-sentence news path:
+            # one word gets one fresh sentence from the same articles (no
+            # context chain). Both always use BRIEFING_MODEL (issue #444/#481),
+            # ignoring the story's stored model — same resolution as the main
+            # generation (paste's stored gen_params.model is already the
+            # resolved server model, but this stays consistent regardless).
+            news_model = ai.resolve_briefing_model() if mode in ("briefing", "paste") else model
             articles = gp.get("articles") or []
             if articles:
                 sentences = ai.generate_news_sentences(
@@ -690,14 +699,22 @@ def _generate_news_story_sentences(
 
 def _generate_briefing_story_sentences(
     cards: list, articles: list[dict], model: str, progress_key: str | None,
-    max_hsk: int = 3,
+    max_hsk: int = 3, generic: bool = False,
 ) -> tuple[list, str]:
     """News flow mode (issue #399): split cards into batches of ai.MAX_NEWS_BATCH,
     each batch produces its own flowing mini-summary (target-word sentences +
     context sentences attached as context_de). Card order = batch order, and
-    within a batch = order of appearance in the summary."""
+    within a batch = order of appearance in the summary.
+
+    generic=True (issue #481): paste mode reusing this same pipeline — content-
+    summary framing instead of news-briefing framing, everything else (context
+    sentences, validation, dedup, fact-check) identical. Paste never auto-fetches,
+    so the no-articles error below is the only guard against an empty run."""
     if not articles:
         raise RuntimeError(
+            "Paste mode requires at least one pasted text. "
+            "Please add content via the setup modal."
+            if generic else
             "News flow mode found no articles. "
             "Today's news fetch may have failed — please try again.")
 
@@ -710,13 +727,13 @@ def _generate_briefing_story_sentences(
     titles = [t for t in titles if t][:10]
 
     all_sentences: list[dict] = []
-    prompt_summary = f"briefing mode — {len(articles)} articles"
+    prompt_summary = f"{'paste' if generic else 'briefing'} mode — {len(articles)} articles"
     words_done = 0
     for idx, chunk in enumerate(chunks):
         label = f" ({idx + 1}/{len(chunks)})"
         chunk_sentences = ai.generate_briefing_sentences(
             chunk, articles, model=model, progress_key=progress_key, attempt_label=label,
-            max_hsk=max_hsk,
+            max_hsk=max_hsk, generic=generic,
             progress_extra={
                 "words_done": words_done,
                 "words_total": len(cards),
