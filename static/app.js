@@ -2651,8 +2651,9 @@ function _renderPregenPanel() {
     return `<div class="keymap-row">
       <span class="keymap-label">${cat[0].toUpperCase() + cat.slice(1)}</span>
       <select class="opt-input" id="pregen-mode-${cat}" style="flex:1">${modeOpts}</select>
+      <span style="font-size:12px;color:var(--muted);white-space:nowrap" title="Max HSK level for background vocabulary in the generated story">HSK&nbsp;≤</span>
       <input class="opt-input" id="pregen-hsk-${cat}" type="number" min="1" max="6"
-             value="${e?.max_hsk ?? 3}" title="Max HSK for background vocabulary" style="width:56px">
+             value="${e?.max_hsk ?? 3}" title="Max HSK level for background vocabulary in the generated story" style="width:56px">
     </div>`;
   }).join('');
   el.innerHTML = `
