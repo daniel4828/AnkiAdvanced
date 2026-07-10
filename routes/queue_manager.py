@@ -72,7 +72,7 @@ class QueueManager:
         """
         rebuilt = False
         if key not in self._queues or self._queues[key].built_date != today:
-            self._build(key, build_fn, today)
+            self._build(key, build_fn, today, now)
             rebuilt = True
 
         q = self._queues[key]
@@ -244,12 +244,23 @@ class QueueManager:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _build(self, key: tuple, build_fn, today: str) -> None:
-        """Call build_fn() and split the result into intraday / main."""
+    def _build(self, key: tuple, build_fn, today: str, now: str = "") -> None:
+        """Call build_fn() and split the result into intraday / main.
+
+        When build_fn's output is story-ordered (News-flow session, issue #462),
+        learning cards whose timestamp has already passed stay in main at their
+        story position instead of jumping the queue — only future timestamps
+        (e.g. the 10-minute re-show after Again) go intraday.
+        """
         cards = build_fn()
+        story_ordered = any(c.get("_story_ordered") for c in cards)
 
         def _is_intraday(c: dict) -> bool:
-            return c["state"] in ("learning", "relearn") and "T" in c.get("due", "")
+            if c["state"] not in ("learning", "relearn") or "T" not in c.get("due", ""):
+                return False
+            if story_ordered and now and c["due"] <= now:
+                return False
+            return True
 
         intraday = [
             {"id": c["id"], "due": c["due"]}

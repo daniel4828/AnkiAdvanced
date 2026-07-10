@@ -108,7 +108,12 @@ def _order_by_story(cards: list[dict], story_deck_id: int | None,
         pos = database.get_story_position_map(story_deck_id, "unified", today, lang)
     if not pos:
         return cards
-    return sorted(cards, key=lambda c: pos.get(c.get("word_id"), float("inf")))
+    ordered = sorted(cards, key=lambda c: pos.get(c.get("word_id"), float("inf")))
+    # Mark the result so QueueManager._build() knows story order is in effect:
+    # already-due intraday learning cards must NOT jump ahead of it (issue #462).
+    for c in ordered:
+        c["_story_ordered"] = True
+    return ordered
 
 
 def _key_and_build(
