@@ -5747,8 +5747,22 @@ function openStorySetup(sentenceCount, { isMixed = false, isUnfinished = false, 
   document.getElementById('setup-topic').value = '';
   document.getElementById('setup-grammar').value = '';
   document.getElementById('setup-grammar-pct').value = 50;
-  document.getElementById('setup-hsk-slider').value = 3;
-  document.getElementById('setup-mode').value = 'story';
+  // In-session regenerate: prefill mode + HSK from the active story's gen_params
+  // so a quick regenerate keeps News flow / kahneman / … instead of silently
+  // downgrading to mode=story (issue #468 — a briefing was overwritten exactly
+  // this way). Other entry points (fresh session, unfinished mode) keep the
+  // 'story' default so another deck's mode is never carried over by accident.
+  let _prefillGp = null;
+  if (_setupIsRegen) {
+    try {
+      const raw = story?.gen_params;
+      _prefillGp = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : null;
+    } catch { _prefillGp = null; }
+  }
+  document.getElementById('setup-hsk-slider').value = _prefillGp?.max_hsk ?? 3;
+  const _modeSel = document.getElementById('setup-mode');
+  _modeSel.value = _prefillGp?.mode || 'story';
+  if (_modeSel.selectedIndex < 0) _modeSel.value = 'story'; // unknown mode in gen_params
   updateHskLabel();
   _applySetupLangRestrictions();
   updateSetupMode();

@@ -328,44 +328,45 @@ def get_recent_story_keys(before_date: str, max_lookback_days: int = 14) -> list
     excludes the single-sentence "again" regeneration rows (see AGAIN_CATEGORY)
     without needing to special-case that category by name.
 
+    Stories whose gen_params has origin == "pregen" are skipped everywhere —
+    both when picking the target day and when collecting its keys. Otherwise
+    pregen's own output becomes the next day's input and one accidental batch
+    (or one accidental mode) self-perpetuates forever (issue #468). Only
+    user-initiated generations are reproduced.
+
     Returns [] if no matching day is found in the lookback window.
     """
     before = date.fromisoformat(before_date)
     earliest = before - timedelta(days=max_lookback_days)
 
     conn = get_db()
-    date_row = conn.execute(
-        """SELECT s.date FROM stories s
+    rows = conn.execute(
+        """SELECT * FROM stories s
            WHERE s.date < ? AND s.date >= ? AND s.gen_params IS NOT NULL
              AND (SELECT COUNT(*) FROM story_sentences ss WHERE ss.story_id = s.id) >= 2
-           ORDER BY s.date DESC LIMIT 1""",
+           ORDER BY s.date DESC, s.generated_at DESC""",
         (before_date, earliest.isoformat()),
-    ).fetchone()
-    if not date_row:
-        conn.close()
-        return []
-    target_date = date_row["date"]
-
-    story_rows = conn.execute(
-        """SELECT * FROM stories s
-           WHERE s.date = ? AND s.gen_params IS NOT NULL
-             AND (SELECT COUNT(*) FROM story_sentences ss WHERE ss.story_id = s.id) >= 2
-           ORDER BY s.generated_at DESC""",
-        (target_date,),
     ).fetchall()
     conn.close()
 
+    target_date = None
     seen: set[tuple] = set()
     result: list[dict] = []
-    for row in story_rows:
-        key = (row["deck_id"], row["category"], row["lang"])
-        if key in seen:
-            continue  # keep only the latest generated_at per key (rows are DESC-ordered)
-        seen.add(key)
+    for row in rows:
         try:
             gen_params = json.loads(row["gen_params"])
         except (ValueError, TypeError):
             continue
+        if gen_params.get("origin") == "pregen":
+            continue
+        if target_date is None:
+            target_date = row["date"]  # most recent day with a user-initiated story
+        elif row["date"] != target_date:
+            break  # rows are date DESC — we're past the target day
+        key = (row["deck_id"], row["category"], row["lang"])
+        if key in seen:
+            continue  # keep only the latest generated_at per key (rows are DESC-ordered)
+        seen.add(key)
         result.append({
             "deck_id": row["deck_id"],
             "category": row["category"],
