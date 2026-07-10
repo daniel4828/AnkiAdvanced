@@ -177,7 +177,8 @@ def _validated_model(model: str | None) -> str:
 
 def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
                         topic, max_hsk, model, grammar_focus, grammar_pct, mode,
-                        chapter_ids, articles=None, progress_key, lang: str | None = None) -> dict | None:
+                        chapter_ids, articles=None, progress_key, lang: str | None = None,
+                        origin: str | None = None) -> dict | None:
     """Generate a story for `cards`, persist it, and return the stored story
     (with sentences) — or an error dict on failure, or None if there is nothing
     to generate. Shared by the synchronous GET, the background thread, and regenerate.
@@ -236,7 +237,8 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
         gen_params = _gen_params_dict(
             topic=topic, max_hsk=max_hsk, model=model,
             grammar_focus=grammar_focus, grammar_pct=grammar_pct,
-            mode=mode, chapter_ids=chapter_ids, articles=articles, lang=lang)
+            mode=mode, chapter_ids=chapter_ids, articles=articles, lang=lang,
+            origin=origin)
         database.create_story(today, category, deck_id, sentences, prompt_text, topic, gen_params, lang=lang)
         story = database.get_active_story(today, category, deck_id, lang=lang)
     except Exception as e:
@@ -290,12 +292,16 @@ def _start_background_generation(deck_id: int, category: str, today: str, cards:
 
 
 def _gen_params_dict(*, topic, max_hsk, model, grammar_focus, grammar_pct,
-                     mode, chapter_ids, articles=None, lang="zh") -> dict:
+                     mode, chapter_ids, articles=None, lang="zh",
+                     origin=None) -> dict:
     """Bundle the story generation settings persisted on each story row, so the
     Again regeneration can reproduce the same style (see generate_sentence_for_word).
 
     articles: news mode's pasted article list ({url, title, text}), stored so
     single-word "Again" regenerations reuse the same news context.
+    origin: "pregen" when the story was created by the morning pregen —
+    get_recent_story_keys skips those rows so pregen only ever reproduces
+    user-initiated generations instead of feeding on its own output (issue #468).
     """
     return {
         "mode": mode,
@@ -307,6 +313,7 @@ def _gen_params_dict(*, topic, max_hsk, model, grammar_focus, grammar_pct,
         "chapter_ids": chapter_ids,
         "articles": articles,
         "lang": lang,
+        "origin": origin,
     }
 
 
@@ -892,7 +899,7 @@ async def pregen_today():
                 topic=gp.get("topic"), max_hsk=gp.get("max_hsk", 3), model=chosen_model,
                 grammar_focus=gp.get("grammar_focus"), grammar_pct=gp.get("grammar_pct", 75),
                 mode=mode, chapter_ids=gp.get("chapter_ids"), articles=None,
-                progress_key=progress_key, lang=lang)
+                progress_key=progress_key, lang=lang, origin="pregen")
             ai._story_progress.pop(progress_key, None)
             if isinstance(result, dict) and result.get("error"):
                 raise RuntimeError(result.get("reason", "generation failed"))
