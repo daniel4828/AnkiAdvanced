@@ -11,7 +11,10 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
+import pytest
+
 import srs
+import fsrs
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -248,6 +251,89 @@ class TestHandleProbation:
         assert result["state"] == "review"
         assert result["probation"] == 0
         assert result["lapses"] == 1            # unchanged by passing
+
+
+# ---------------------------------------------------------------------------
+# Learning-phase FSRS short-term memory (#470)
+# ---------------------------------------------------------------------------
+
+FSRS_PRESET = {
+    "learning_steps":           "10",
+    "graduating_interval":      1,
+    "easy_interval":            4,
+    "relearning_steps":         "10",
+    "minimum_interval":         1,
+    "learned_interval":         3,
+    "leech_threshold":          8,
+    "learning_leech_threshold": 6,
+    "leech_action":             "suspend",
+    "enable_fsrs":              1,
+    "enable_probation":         0,
+    "desired_retention":        0.9,
+    "maximum_interval":         36500,
+    "fsrs_weights":             None,
+    "learning_hard_1d":         0,
+    "learning_hard_days":       1,
+}
+
+W = fsrs.DEFAULT_WEIGHTS
+
+
+class TestLearningShortTermMemory:
+    def test_learning_again_seeds_memory(self):
+        card = make_card(state="new", step_index=0)
+        card["stability"] = None
+        card["difficulty"] = None
+        result = srs._handle_learning(card, FSRS_PRESET, rating=1)
+        assert result["stability"] == pytest.approx(W[0])  # w[0] = 0.40255
+        assert result["difficulty"] == pytest.approx(fsrs.init_difficulty(W, 1))
+
+    def test_learning_hard_shrinks_stability(self):
+        card = make_card(state="learning", step_index=0)
+        card["stability"] = 3.173
+        card["difficulty"] = 5.0
+        result = srs._handle_learning(card, FSRS_PRESET, rating=2)
+        expected = 3.173 * math.exp(0.51655 * (-1 + 0.6621))
+        assert result["stability"] == pytest.approx(expected)
+
+    def test_again_then_good_graduates_at_1d(self):
+        card = make_card(state="new", step_index=0)
+        card["stability"] = None
+        card["difficulty"] = None
+        after_again = srs._handle_learning(card, FSRS_PRESET, rating=1)
+        graduated = srs._handle_learning(after_again, FSRS_PRESET, rating=3)
+        assert graduated["state"] == "review"
+        assert graduated["interval"] == 1
+
+    def test_pure_good_graduation_unchanged(self, monkeypatch):
+        monkeypatch.setattr(srs, "_fuzz_interval", lambda x: x)
+        card = make_card(state="new", step_index=0)
+        card["stability"] = None
+        card["difficulty"] = None
+        result = srs._handle_learning(card, FSRS_PRESET, rating=3)
+        assert result["state"] == "review"
+        assert result["interval"] == 3
+
+        preview_card = make_card(state="new", step_index=0)
+        preview_card["stability"] = None
+        preview_card["difficulty"] = None
+        preview_card = {**preview_card, **FSRS_PRESET}
+        assert srs.preview_intervals(preview_card)[3] == "3d"
+
+    def test_fsrs_off_no_seeding(self):
+        preset = {**FSRS_PRESET, "enable_fsrs": 0}
+        card = make_card(state="new", step_index=0)
+        card["stability"] = None
+        card["difficulty"] = None
+        result = srs._handle_learning(card, preset, rating=1)
+        assert result.get("stability") is None
+
+    def test_preview_adapts_after_seeding(self):
+        card = make_card(state="learning", step_index=0)
+        card["stability"] = 0.57
+        card["difficulty"] = 5.0
+        card = {**card, **FSRS_PRESET}
+        assert srs.preview_intervals(card)[3] == "1d"
 
 
 # ---------------------------------------------------------------------------

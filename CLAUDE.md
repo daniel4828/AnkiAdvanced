@@ -222,6 +222,7 @@ decks → stories → story_sentences → entries（外键）
 - **Hard** → `learning_hard_1d` 开关（默认开）：任意步一律延迟 `learning_hard_days`（默认 1 天，可为小数）——让半记住的卡明天再现；开关关闭时用 Anki 经典行为（步骤均值/×1.5）
 - **Good** → 推进一步；最后一步 → 毕业
 - **Easy** → 立即毕业
+- **短期记忆（#470）**：FSRS 开启时，步骤阶段每次作答都更新 S/D——新卡第一次作答即播种，之后 Again ×0.50 / Hard ×0.84 / 推进步骤的 Good ×1.41（短期公式 w17/w18）；毕业间隔与按钮预览因此随作答历史自适应（先 Again 再 Good ≈ 1 天，纯 Good 仍 ≈ 3 天）
 
 ### 毕业间隔
 FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good ≈ 3 天，Easy ≈ 16 天**（`fsrs.init_stability`）。FSRS 关闭时用预设的 `graduating_interval`（1）/ `easy_interval`（4）。
