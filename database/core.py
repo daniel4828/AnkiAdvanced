@@ -464,6 +464,24 @@ def init_db() -> None:
     # Remove the legacy "Sentences" deck tree if it holds no cards (issue #394)
     _drop_sentences_decks(conn)
     conn.commit()
+
+    # pregen_config seeding (issue #473): when the table is first created, seed
+    # the actual usage — News flow every morning for the aggregate "All" deck's
+    # listening + creating categories. No-op when no root deck named "All"
+    # exists (fresh installs, dev databases).
+    if "pregen_config" not in existing:
+        all_deck = conn.execute(
+            "SELECT id FROM decks WHERE name = 'All' AND parent_id IS NULL "
+            "AND deleted_at IS NULL LIMIT 1"
+        ).fetchone()
+        if all_deck:
+            for cat in ("listening", "creating"):
+                conn.execute(
+                    """INSERT OR IGNORE INTO pregen_config
+                       (deck_id, category, lang, mode, max_hsk)
+                       VALUES (?, ?, 'zh', 'briefing', 2)""",
+                    (all_deck["id"], cat))
+            conn.commit()
     conn.close()
 
 

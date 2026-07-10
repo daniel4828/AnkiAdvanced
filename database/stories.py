@@ -384,6 +384,73 @@ def get_recent_story_keys(before_date: str, max_lookback_days: int = 14) -> list
     return result
 
 
+def get_pregen_config() -> list[dict]:
+    """All morning-pregen config rows (issue #473). Each row fixes the story
+    mode the 06:00 pregen uses for one (deck, category, lang) — independent of
+    whatever was regenerated during the day."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT deck_id, category, lang, mode, max_hsk FROM pregen_config "
+        "ORDER BY deck_id, category"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def set_pregen_config(deck_id: int, entries: list[dict]) -> None:
+    """Replace the pregen config rows for one deck. entries: [{category, mode,
+    max_hsk, lang?}] — categories omitted from the list are removed (mode
+    'off' in the UI simply isn't sent)."""
+    conn = get_db()
+    conn.execute("DELETE FROM pregen_config WHERE deck_id = ?", (deck_id,))
+    for e in entries:
+        conn.execute(
+            """INSERT INTO pregen_config (deck_id, category, lang, mode, max_hsk)
+               VALUES (?, ?, ?, ?, ?)""",
+            (deck_id, e["category"], e.get("lang") or "zh",
+             e["mode"], int(e.get("max_hsk") or 3)))
+    conn.commit()
+    conn.close()
+
+
+def get_today_used_article_urls(date_str: str, lang: str | None,
+                                exclude_deck_id: int, exclude_category: str) -> set:
+    """URLs of news articles already used by today's active news/briefing
+    stories of OTHER (deck, category) keys — so a second category generated the
+    same day picks different articles (issue #473). The excluded key is the one
+    about to generate: regenerating a category may reuse its own articles."""
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT deck_id, category, lang, gen_params FROM stories
+           WHERE date = ? AND gen_params IS NOT NULL
+           ORDER BY generated_at DESC""",
+        (date_str,),
+    ).fetchall()
+    conn.close()
+
+    urls: set = set()
+    seen_keys: set = set()
+    for row in rows:
+        key = (row["deck_id"], row["category"], row["lang"])
+        if key in seen_keys:
+            continue  # only the active (latest) story per key counts
+        seen_keys.add(key)
+        if (row["deck_id"], row["category"]) == (exclude_deck_id, exclude_category):
+            continue
+        if lang and row["lang"] and row["lang"] != lang:
+            continue
+        try:
+            gp = json.loads(row["gen_params"])
+        except (ValueError, TypeError):
+            continue
+        if gp.get("mode") not in ("news", "briefing"):
+            continue
+        for art in gp.get("articles") or []:
+            if art.get("url"):
+                urls.add(art["url"])
+    return urls
+
+
 def get_due_cards_unified(deck_id: int, lang: str | None = None) -> list[dict]:
     """Collect due cards from all 3 categories for a unified story, deduplicated by word_id.
     Order matches review priority (state → category → due) so story sentence positions

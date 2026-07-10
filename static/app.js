@@ -2587,10 +2587,106 @@ function renderSettings() {
       </div>
     </div>
     <div class="keymap-panel">
+      <h2 class="keymap-heading">Morning pre-generation</h2>
+      <p class="keymap-hint">Story type generated automatically each morning, per category. Independent of the style you pick when regenerating during the day. <b>Off</b> = repeat whatever you last generated manually.</p>
+      <div id="pregen-config-body">Loading…</div>
+    </div>
+    <div class="keymap-panel">
       <h2 class="keymap-heading">Server logs</h2>
       <p class="keymap-hint">View the last lines of the server log (helpful for debugging story generation, TTS, etc).</p>
       <button class="keymap-reset-all" onclick="openLogsViewer()">Open logs</button>
     </div>`;
+  _loadPregenSettings();
+}
+
+// ── Morning pre-generation config (issue #473) ──────────────────────────────
+const PREGEN_MODE_OPTIONS = [
+  ['', 'Off (repeat last manual)'],
+  ['story', 'Story'],
+  ['briefing', 'News flow'],
+  ['news', 'News briefing'],
+  ['kahneman', 'Kahneman'],
+];
+let _pregenDecks = [];
+let _pregenEntries = [];
+let _pregenDeckId = null;
+
+async function _loadPregenSettings() {
+  try {
+    const [cfg, decks] = await Promise.all([
+      api('GET', '/api/pregen-config'),
+      api('GET', '/api/decks'),
+    ]);
+    _pregenEntries = cfg.entries || [];
+    _pregenDecks = [];
+    const walk = (nodes, depth) => (nodes || []).forEach(d => {
+      _pregenDecks.push({ id: d.id, name: '  '.repeat(depth) + d.name });
+      walk(d.children, depth + 1);
+    });
+    walk(decks, 0);
+    if (_pregenDeckId == null || !_pregenDecks.some(d => d.id === _pregenDeckId)) {
+      _pregenDeckId = _pregenEntries[0]?.deck_id ?? _pregenDecks[0]?.id ?? null;
+    }
+    _renderPregenPanel();
+  } catch (e) {
+    const el = document.getElementById('pregen-config-body');
+    if (el) el.textContent = 'Failed to load: ' + e.message;
+  }
+}
+
+function _pregenSelectDeck(id) {
+  _pregenDeckId = parseInt(id);
+  _renderPregenPanel();
+}
+
+function _renderPregenPanel() {
+  const el = document.getElementById('pregen-config-body');
+  if (!el) return;
+  const deckOpts = _pregenDecks.map(d =>
+    `<option value="${d.id}" ${d.id === _pregenDeckId ? 'selected' : ''}>${d.name}</option>`).join('');
+  const rows = ['listening', 'creating', 'reading'].map(cat => {
+    const e = _pregenEntries.find(x => x.deck_id === _pregenDeckId && x.category === cat);
+    const modeOpts = PREGEN_MODE_OPTIONS.map(([v, label]) =>
+      `<option value="${v}" ${(e?.mode || '') === v ? 'selected' : ''}>${label}</option>`).join('');
+    return `<div class="keymap-row">
+      <span class="keymap-label">${cat[0].toUpperCase() + cat.slice(1)}</span>
+      <select class="opt-input" id="pregen-mode-${cat}" style="flex:1">${modeOpts}</select>
+      <input class="opt-input" id="pregen-hsk-${cat}" type="number" min="1" max="6"
+             value="${e?.max_hsk ?? 3}" title="Max HSK for background vocabulary" style="width:56px">
+    </div>`;
+  }).join('');
+  el.innerHTML = `
+    <div class="keymap-row">
+      <span class="keymap-label">Deck</span>
+      <select class="opt-input" id="pregen-deck-select" style="flex:1" onchange="_pregenSelectDeck(this.value)">${deckOpts}</select>
+    </div>
+    ${rows}
+    <div class="keymap-row">
+      <button class="keymap-reset-all" onclick="savePregenConfig()">Save morning settings</button>
+      <span id="pregen-save-msg" class="keymap-label"></span>
+    </div>`;
+}
+
+async function savePregenConfig() {
+  const entries = [];
+  for (const cat of ['listening', 'creating', 'reading']) {
+    const mode = document.getElementById(`pregen-mode-${cat}`)?.value;
+    if (!mode) continue; // Off → no row for this category
+    const hsk = parseInt(document.getElementById(`pregen-hsk-${cat}`)?.value) || 3;
+    entries.push({ category: cat, mode, max_hsk: hsk });
+  }
+  const msg = document.getElementById('pregen-save-msg');
+  try {
+    const res = await api('PUT', '/api/pregen-config', { deck_id: _pregenDeckId, entries });
+    if (res?.ok) {
+      _pregenEntries = res.entries || [];
+      if (msg) msg.textContent = '✓ Saved';
+    } else if (msg) {
+      msg.textContent = 'Error: ' + (res?.reason || 'save failed');
+    }
+  } catch (e) {
+    if (msg) msg.textContent = 'Error: ' + e.message;
+  }
 }
 function startKeyCapture(id) {
   _capturingAction = id; _settingsMsg = ''; renderSettings();
