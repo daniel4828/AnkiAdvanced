@@ -7078,27 +7078,9 @@ function importApplyGlobalDeck() {
   _importRenderTable();
 }
 
-async function openImportModal() {
-  // Hide modal in case this is a "Try Again" from an error state
-  document.getElementById('import-modal-overlay').style.display = 'none';
-  document.getElementById('import-modal').style.display = 'none';
+let _importDecksPromise = null;
 
-  importResolutions = {};
-  _previewEntries = [];
-  _cardConfigs = {};
-  _conflictData = [];
-  _conflictEdits = {};
-  _conflictSelections = {};
-  document.getElementById('import-file').value = '';
-  document.getElementById('import-preview').style.display = 'none';
-  document.getElementById('import-conflicts-section').style.display = 'none';
-  document.getElementById('import-result').style.display = 'none';
-  document.getElementById('import-submit-btn').style.display = '';
-  document.getElementById('import-deck-path').value = '';
-  document.getElementById('deck-picker-new-badge').style.display = 'none';
-  document.getElementById('deck-picker-dropdown').style.display = 'none';
-
-  // Build suggestion list for deck picker and per-card dropdown
+async function _loadImportDeckSuggestions() {
   const decks = await api('GET', '/api/decks');
   window._deckSuggestions = [];
   _importDeckOptions = [];
@@ -7120,9 +7102,34 @@ async function openImportModal() {
   // Populate datalist for duplicate move-target autocomplete
   const dl = document.getElementById('import-deck-datalist');
   if (dl) dl.innerHTML = _importDeckOptions.map(p => `<option value="${_ea(p)}">`).join('');
+}
 
-  // Open OS file picker — modal appears after file is chosen
+function openImportModal() {
+  // Hide modal in case this is a "Try Again" from an error state
+  document.getElementById('import-modal-overlay').style.display = 'none';
+  document.getElementById('import-modal').style.display = 'none';
+
+  importResolutions = {};
+  _previewEntries = [];
+  _cardConfigs = {};
+  _conflictData = [];
+  _conflictEdits = {};
+  _conflictSelections = {};
+  document.getElementById('import-file').value = '';
+  document.getElementById('import-preview').style.display = 'none';
+  document.getElementById('import-conflicts-section').style.display = 'none';
+  document.getElementById('import-result').style.display = 'none';
+  document.getElementById('import-submit-btn').style.display = '';
+  document.getElementById('import-deck-path').value = '';
+  document.getElementById('deck-picker-new-badge').style.display = 'none';
+  document.getElementById('deck-picker-dropdown').style.display = 'none';
+
+  // Open OS file picker immediately — .click() must stay synchronous within the
+  // user gesture; awaiting the network first delayed the picker by seconds (#466)
   document.getElementById('import-file').click();
+
+  // Deck suggestions load in parallel; previewImport awaits them before rendering
+  _importDecksPromise = _loadImportDeckSuggestions();
 }
 
 function closeImportModal() {
@@ -7238,6 +7245,10 @@ async function previewImport(yamlContent) {
         };
       }
     });
+
+    // Deck suggestions were kicked off in openImportModal; the table's per-card
+    // deck dropdowns need them, so wait here (usually already resolved)
+    if (_importDecksPromise) { try { await _importDecksPromise; } catch (e) { console.error('Deck suggestions failed to load:', e); } }
 
     _importRenderTable();
     document.getElementById('import-preview').style.display = 'block';
