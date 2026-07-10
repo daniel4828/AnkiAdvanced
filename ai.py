@@ -1255,10 +1255,15 @@ def _dedupe_consecutive_briefing_context(items: list[dict], cards: list[dict]) -
     return fixed
 
 
-def fact_check_briefing(articles: list[dict], items: list[dict], model: str) -> list[str]:
+def fact_check_briefing(articles: list[dict], items: list[dict], model: str,
+                        generic: bool = False) -> list[str]:
     """One extra AI call (issue #454) to catch hallucinated facts in the
     generated briefing sentences — numbers, names, causality invented rather
     than taken from the source articles.
+
+    generic=True: paste mode (#481) — same check, wording swapped from
+    "news article" framing to plain "content" framing (source can be an
+    email, blog post, book excerpt — not just news).
 
     Returns a list of Chinese issue descriptions ("句子N：问题描述"); an empty
     list means either everything checked out or the check itself failed —
@@ -1267,16 +1272,18 @@ def fact_check_briefing(articles: list[dict], items: list[dict], model: str) -> 
     if not articles or not items:
         return []
 
+    noun = "内容" if generic else "文章"
     articles_block = "\n\n".join(
-        f"文章{i}（标题：{a.get('title') or '（无标题）'}）：\n{a.get('text', '').strip()}"
+        f"{noun}{i}（标题：{a.get('title') or '（无标题）'}）：\n{a.get('text', '').strip()}"
         for i, a in enumerate(articles)
     )
     sentences_block = "\n".join(
         f"{i}. {item.get('sentence_zh', '')}" for i, item in enumerate(items)
     )
-    prompt = f"""任务：核对下面每一句中文摘要句子是否符合原始新闻文章的事实。
+    source_desc = "原始内容" if generic else "原始新闻文章"
+    prompt = f"""任务：核对下面每一句中文摘要句子是否符合{source_desc}的事实。
 
-新闻文章（按 0 开始编号）：
+{noun}（按 0 开始编号）：
 {articles_block}
 
 生成的摘要句子（按 0 开始编号）：
@@ -1317,6 +1324,7 @@ def generate_briefing_sentences(
     progress_key: str | None = None,
     attempt_label: str = "",
     progress_extra: dict | None = None,
+    generic: bool = False,
 ) -> list[dict]:
     """News flow mode (issue #399, reworked in #444): one flowing Chinese news
     summary instead of one forced sentence per word.
@@ -1345,9 +1353,38 @@ def generate_briefing_sentences(
     progress_extra: extra fields merged into every progress update (issue #407) —
     the chunker passes words_done/words_total/articles so the loading screen can
     show real overall progress; words_done is advanced here as words get covered.
+
+    generic: False = news-briefing framing (mode="briefing"); True = plain
+    content-summary framing for arbitrary pasted text (mode="paste", issue
+    #481) — same pipeline (context sentences, validation, dedup, fact-check),
+    only the prompt wording swaps "news article/briefing" for "content/summary".
     """
     if not cards or not articles:
         return []
+
+    # generic=True (paste mode, #481) swaps every "news article/briefing" noun
+    # in the prompt for a plain "content/summary" one — the pipeline itself
+    # (context sentences, validation, dedup, fact-check) is untouched.
+    noun = "内容" if generic else "文章"
+    task_line = (
+        "任务：根据下面提供的内容，写一篇连贯的中文摘要（自然地从一部分过渡到下一部分），\n"
+        "帮助HSK 4-5学习者复习词汇。" if generic else
+        "任务：根据下面的新闻文章，写一篇连贯的中文新闻摘要（像新闻串播一样，从一条新闻自然过渡到下一条），\n"
+        "帮助HSK 4-5学习者复习词汇。")
+    fact_rule = (
+        "- 【重要】含目标词汇的句子也必须传达该内容中的一个具体事实（是什么、涉及谁、在哪里、有多少），\n"
+        "  读者只看这一句也能学到这部分内容。严禁没有信息量的空洞句子，\n"
+        "  例如\"组织很大。\"\"火箭很快。\"\"它指代。\"\"未知很大。\"这类句子绝对不可以出现" if generic else
+        "- 【重要】含目标词汇的句子也必须传达该新闻中的一个具体事实（谁、做了什么、在哪里、多少），\n"
+        "  读者只看这一句也能学到新闻内容。严禁没有信息量的空洞句子，\n"
+        "  例如\"组织很大。\"\"火箭很快。\"\"它指代。\"\"未知很大。\"这类句子绝对不可以出现")
+    order_rule = (
+        f"- 【逐段处理】必须按{noun}编号顺序依次处理：先写完{noun}0涉及的所有句子（含其上下文句），\n"
+        f"  再开始写{noun}1的句子，以此类推——article_idx 在整个输出中只能递增或不变，绝不允许\n"
+        f"  写到{noun}1之后又跳回去写{noun}0的句子" if generic else
+        "- 【逐篇处理】必须按文章编号顺序依次处理：先写完文章0涉及的所有句子（含其上下文句），\n"
+        "  再开始写文章1的句子，以此类推——article_idx 在整个输出中只能递增或不变，绝不允许\n"
+        "  写到文章1之后又跳回去写文章0的句子")
 
     extra = dict(progress_extra or {})
     base_done = extra.get("words_done", 0)
@@ -1366,7 +1403,7 @@ def generate_briefing_sentences(
         _set_progress(progress_key, phase="request", msg=msg, **fields)
 
     articles_block = "\n\n".join(
-        f"文章{i}（标题：{a.get('title') or '（无标题）'}）：\n{a.get('text', '').strip()}"
+        f"{noun}{i}（标题：{a.get('title') or '（无标题）'}）：\n{a.get('text', '').strip()}"
         for i, a in enumerate(articles)
     )
 
@@ -1375,10 +1412,9 @@ def generate_briefing_sentences(
             f"{i + 1}. {c['word_zh']}（{c.get('pinyin', '')}）— {c.get('definition', '')}"
             for i, c in enumerate(batch)
         )
-        return f"""任务：根据下面的新闻文章，写一篇连贯的中文新闻摘要（像新闻串播一样，从一条新闻自然过渡到下一条），
-帮助HSK 4-5学习者复习词汇。
+        return f"""{task_line}
 
-新闻文章（按 0 开始编号）：
+{noun}（按 0 开始编号）：
 {articles_block}
 
 目标词汇（每个词必须在整篇摘要中恰好出现一次，以原文形式出现）：
@@ -1396,18 +1432,14 @@ def generate_briefing_sentences(
 - 【难度控制，严格遵守】含目标词汇的句子长度为8到18个字，其中除目标词外只允许
   HSK 1-{max_hsk} 的词汇——这是学习者自己选择的难度上限，超纲词会让句子无法学习。
   如果某个事实需要更难的词才能表达，把它放进上下文句子里，目标句只保留简单的部分
-- 【重要】含目标词汇的句子也必须传达该新闻中的一个具体事实（谁、做了什么、在哪里、多少），
-  读者只看这一句也能学到新闻内容。严禁没有信息量的空洞句子，
-  例如"组织很大。""火箭很快。""它指代。""未知很大。"这类句子绝对不可以出现
+{fact_rule}
 - 上下文句子【不受 HSK 词汇限制】——它最终会被翻译成德文显示在卡片正面，可以自由
   使用专有名词、数字和任何词汇来准确传达事实；长度保持一两句话的合理范围即可
 - 所有输出只用简体中文，绝对不要出现繁体字
 - 不要使用markdown格式
-- article_idx 是该句子所涉及的文章编号（上面的 0 开始编号）
+- article_idx 是该句子所涉及的{noun}编号（上面的 0 开始编号）
 - target_word 是该句包含的目标词汇原文；不含目标词的上下文句子填 null
-- 【逐篇处理】必须按文章编号顺序依次处理：先写完文章0涉及的所有句子（含其上下文句），
-  再开始写文章1的句子，以此类推——article_idx 在整个输出中只能递增或不变，绝不允许
-  写到文章1之后又跳回去写文章0的句子
+{order_rule}
 {extra_hint}
 
 仅返回如下JSON数组，不加任何其他文字：
@@ -1488,7 +1520,7 @@ def generate_briefing_sentences(
         if not fact_check_done:
             fact_check_done = True
             _progress(f"核对事实…{attempt_label}")
-            fc_issues = fact_check_briefing(articles, items, model)
+            fc_issues = fact_check_briefing(articles, items, model, generic=generic)
             if fc_issues:
                 logger.warning("briefing attempt %d: fact-check issues, retrying once: %s",
                                attempt + 1, fc_issues)
@@ -1503,7 +1535,7 @@ def generate_briefing_sentences(
                     try:
                         fc_retry_items = json.loads(fc_retry_raw[fc_r_start:fc_r_end])
                         items = _dedupe_consecutive_briefing_context(fc_retry_items, expected_cards)
-                        second_fc_issues = fact_check_briefing(articles, items, model)
+                        second_fc_issues = fact_check_briefing(articles, items, model, generic=generic)
                         if second_fc_issues:
                             logger.warning(
                                 "briefing: fact-check issues persist after retry (accepting): %s",
