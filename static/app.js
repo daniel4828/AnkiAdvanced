@@ -5957,15 +5957,16 @@ function _autoSwitchModelForMode(mode) {
   const modelSel = document.getElementById('setup-model');
   if (!modelSel) return;
 
-  // Briefing ignores this dropdown server-side — the server always resolves
+  // Briefing and paste (issue #481: paste now shares the briefing pipeline)
+  // both ignore this dropdown server-side — the server always resolves
   // BRIEFING_MODEL (env, default gpt-5.1). Lock the control and show that
   // honestly instead of a stale gpt-5-mini selection (issue #448).
   const serverOpt = document.getElementById('setup-model-server-opt');
-  if (mode === 'briefing') {
+  if (mode === 'briefing' || mode === 'paste') {
     if (!serverOpt) {
       const opt = document.createElement('option');
       opt.id = 'setup-model-server-opt';
-      opt.value = 'briefing-server';   // ignored by the server for briefing
+      opt.value = 'briefing-server';   // ignored by the server for briefing/paste
       opt.textContent = 'Server: BRIEFING_MODEL (gpt-5.1)';
       modelSel.appendChild(opt);
     }
@@ -5986,7 +5987,7 @@ function _autoSwitchModelForMode(mode) {
     serverOpt.remove();
   }
 
-  const isNewsFamily = mode === 'news' || mode === 'paste';
+  const isNewsFamily = mode === 'news';
   if (isNewsFamily) {
     if (modelSel.value !== 'gpt-5-mini') {
       _modelBeforeNewsMode = modelSel.value;
