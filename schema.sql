@@ -533,3 +533,16 @@ CREATE INDEX IF NOT EXISTS idx_cards_due
 
 CREATE INDEX IF NOT EXISTS idx_review_log_card_date
     ON review_log(card_id, reviewed_at);
+
+-- ---------------------------------------------------------------------------
+-- Morning pregen configuration (issue #473): per deck+category story mode the
+-- 06:00 pregen uses — independent of whatever was regenerated during the day
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS pregen_config (
+    deck_id  INTEGER NOT NULL REFERENCES decks(id) ON DELETE CASCADE,
+    category TEXT NOT NULL CHECK(category IN ('listening', 'reading', 'creating', 'unified')),
+    lang     TEXT NOT NULL DEFAULT 'zh',
+    mode     TEXT NOT NULL,
+    max_hsk  INTEGER NOT NULL DEFAULT 3,
+    PRIMARY KEY (deck_id, category, lang)
+);

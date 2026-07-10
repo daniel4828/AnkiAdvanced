@@ -218,7 +218,12 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
                 # in gen_params below, so Again-regeneration reuses them.
                 # Paste mode never auto-fetches: no pasted content is an error
                 # (raised inside _generate_news_story_sentences).
-                articles = _auto_news_articles(model=model, progress_key=progress_key)
+                # Articles already used by another category's story today are
+                # excluded so each category covers different news (issue #473).
+                used = database.get_today_used_article_urls(
+                    today, lang, exclude_deck_id=deck_id, exclude_category=category)
+                articles = _auto_news_articles(model=model, progress_key=progress_key,
+                                               exclude_urls=used)
             if mode == "briefing":
                 sentences, prompt_text = _generate_briefing_story_sentences(
                     cards, articles, model=model, progress_key=progress_key,
@@ -724,16 +729,29 @@ def _generate_briefing_story_sentences(
     return _group_sentences_by_article(all_sentences, articles), prompt_summary
 
 
-def _auto_news_articles(model: str, progress_key: str | None) -> list[dict]:
+def _auto_news_articles(model: str, progress_key: str | None,
+                        exclude_urls: set | None = None) -> list[dict]:
     """News auto mode: fetch today's news (sources per data/news_sources.json,
     cached per day) and have the AI pick + condense the most important items
     into briefing source articles ({url, title, text} — the pasted-articles shape).
+
+    exclude_urls: articles already used by another category's story today —
+    removed from the pool so the two categories cover different news (issue
+    #473). Skipped when filtering would leave an empty pool.
 
     news_fetcher.NewsFetchError propagates when every source fails, so the
     caller reports a clear error instead of silently using another mode."""
     ai._set_progress(progress_key, phase="request", msg="Fetching today's news…", percent=8)
     items = news_fetcher.fetch_all()
     logger.info("news auto: fetched %d items from sources", len(items))
+    if exclude_urls:
+        remaining = [i for i in items if i.get("url") not in exclude_urls]
+        if remaining:
+            logger.info("news auto: excluded %d already-used articles, %d remain",
+                        len(items) - len(remaining), len(remaining))
+            items = remaining
+        else:
+            logger.warning("news auto: exclusion would empty the pool — keeping all items")
     return ai.summarize_news_items(items, model=model, progress_key=progress_key)
 
 
@@ -860,6 +878,17 @@ async def pregen_today():
     """
     today = database.anki_today().isoformat()
     keys = database.get_recent_story_keys(today)
+    # Explicit pregen config (issue #473) takes priority: its gen_params come
+    # straight from the settings, never from whatever was regenerated during
+    # the day. Heuristic keys (reproduce the user's most recent generations)
+    # still fill in anything not configured.
+    config = database.get_pregen_config()
+    cfg_keys = {(c["deck_id"], c["category"], c["lang"]) for c in config}
+    keys = ([{"deck_id": c["deck_id"], "category": c["category"], "lang": c["lang"],
+              "gen_params": {"mode": c["mode"], "max_hsk": c["max_hsk"]}}
+             for c in config]
+            + [k for k in keys
+               if (k["deck_id"], k["category"], k["lang"]) not in cfg_keys])
     generated: list[str] = []
     skipped_cached: list[str] = []
     skipped_no_due: list[str] = []
@@ -924,6 +953,37 @@ async def pregen_today():
         today, len(keys), len(generated), len(skipped_cached), len(skipped_no_due), len(failed))
     return {"date": today, "keys": len(keys), "generated": generated,
             "skipped_cached": skipped_cached, "skipped_no_due": skipped_no_due, "failed": failed}
+
+
+_PREGEN_MODES = {"story", "qa", "expository", "kahneman", "news", "briefing"}
+_PREGEN_CATEGORIES = {"listening", "reading", "creating", "unified"}
+
+
+@router.get("/api/pregen-config")
+def get_pregen_config_endpoint():
+    """Morning-pregen config rows (issue #473) — what the 06:00 pregen generates
+    per (deck, category), independent of the day's ad-hoc regenerations."""
+    return {"entries": database.get_pregen_config()}
+
+
+@router.put("/api/pregen-config")
+def put_pregen_config(body: dict):
+    """Replace the config rows for one deck. body: {"deck_id": int,
+    "entries": [{"category", "mode", "max_hsk", "lang"?}]} — an empty entries
+    list clears the deck's config (every category back to heuristic pregen)."""
+    deck_id = body.get("deck_id")
+    entries = body.get("entries") or []
+    if not deck_id or not database.get_deck(deck_id):
+        return {"error": True, "reason": f"unknown deck_id {deck_id!r}"}
+    for e in entries:
+        if e.get("category") not in _PREGEN_CATEGORIES:
+            return {"error": True, "reason": f"invalid category {e.get('category')!r}"}
+        if e.get("mode") not in _PREGEN_MODES:
+            return {"error": True, "reason": f"invalid mode {e.get('mode')!r}"}
+    database.set_pregen_config(deck_id, entries)
+    logger.info("pregen-config  deck=%s set to %s", deck_id,
+                [(e["category"], e["mode"]) for e in entries])
+    return {"ok": True, "entries": database.get_pregen_config()}
 
 
 @router.get("/api/story-progress/{deck_id}/{category}")
