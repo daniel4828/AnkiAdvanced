@@ -826,7 +826,7 @@ function _triggerClapAnimation() {
 
 function showView(name) {
   if (name === 'done' && _sessionReviewedCount > 0) _triggerClapAnimation();
-  ['loading', 'decks', 'review', 'done', 'browse', 'word-detail', 'hanzi-detail', 'stats', 'settings'].forEach(v => {
+  ['loading', 'decks', 'review', 'done', 'browse', 'word-detail', 'hanzi-detail', 'stats', 'settings', 'podcast'].forEach(v => {
     document.getElementById(`view-${v}`).style.display = 'none';
   });
   document.getElementById(`view-${name}`).style.display =
@@ -842,7 +842,8 @@ function showView(name) {
     name === 'word-detail'  ? 'Word Detail' :
     name === 'hanzi-detail' ? 'Hanzi Detail' :
     name === 'stats'        ? 'Stats' :
-    name === 'settings'     ? 'Settings' : 'AnkiAdvanced';
+    name === 'settings'     ? 'Settings' :
+    name === 'podcast'      ? 'Podcasts' : 'AnkiAdvanced';
   if (name === 'decks') quickMode = false;
   const headerRegenBtn = document.getElementById('header-regen-btn');
   if (headerRegenBtn) headerRegenBtn.style.display = (name === 'review' && !unfinishedMode && !quickMode) ? '' : 'none';
@@ -1280,6 +1281,7 @@ function renderDecks(decks) {
     <div class="nav-row">
       <button class="nav-btn" onclick="openBrowse()" title="Shortcut: B">Browse Cards</button>
       <button class="nav-btn" onclick="openStats()">Stats</button>
+      <button class="nav-btn" onclick="openPodcasts()">🎙 Podcasts</button>
       <button class="nav-btn" onclick="openSettings()" title="Customize shortcuts">⚙ Settings</button>
       <button class="nav-btn" onclick="openCostModal()">API Costs</button>
       <button class="nav-btn" onclick="openImportModal()" title="Shortcut: Command+I">Import</button>
@@ -2689,6 +2691,162 @@ async function savePregenConfig() {
     if (msg) msg.textContent = 'Error: ' + e.message;
   }
 }
+
+// ── Podcasts (#480) ──────────────────────────────────────────────────────────
+// List view: GET /api/podcast/episodes (no transcript text — kept out for
+// payload size). Detail view: GET /api/podcast/episodes/{id} (full row,
+// including transcript_zh). Settings: GET/PUT /api/podcast/config.
+const PODCAST_STATUS_LABEL = {
+  summarized:    'Summarized',
+  no_transcript: 'No transcript',
+  error:         'Error',
+  pending:       'Pending',
+};
+const PODCAST_STATUS_CLASS = {
+  summarized:    'podcast-badge-ok',
+  no_transcript: 'podcast-badge-muted',
+  error:         'podcast-badge-error',
+  pending:       'podcast-badge-pending',
+};
+
+let _podcastEpisodes = [];
+let _podcastConfig = null;
+
+async function openPodcasts() {
+  location.hash = '';
+  setLoading('Loading podcasts…');
+  try {
+    const [episodes, config] = await Promise.all([
+      api('GET', '/api/podcast/episodes'),
+      api('GET', '/api/podcast/config'),
+    ]);
+    _podcastEpisodes = episodes || [];
+    _podcastConfig = config || {};
+    showView('podcast');
+    _renderPodcastList();
+  } catch (e) {
+    showError('Podcasts failed: ' + e.message);
+    showView('decks');
+  }
+}
+
+function _renderPodcastList() {
+  const el = document.getElementById('view-podcast-content');
+  if (!el) return;
+  const detailLevel = _podcastConfig?.detail_level || 'medium';
+  const rows = _podcastEpisodes.map(ep => {
+    const date = (ep.published_at || ep.created_at || '').slice(0, 10);
+    const status = ep.status || 'pending';
+    const label = PODCAST_STATUS_LABEL[status] || status;
+    const cls = PODCAST_STATUS_CLASS[status] || 'podcast-badge-muted';
+    const clickable = status === 'summarized';
+    return `<div class="podcast-row${clickable ? ' podcast-row-clickable' : ''}"
+                 ${clickable ? `onclick="openPodcastEpisode(${ep.id})"` : ''}>
+      <span class="podcast-row-title">${_escHtml(ep.title || '(untitled)')}</span>
+      <span class="podcast-row-date">${date}</span>
+      <span class="podcast-badge ${cls}">${label}</span>
+    </div>`;
+  }).join('') || '<div class="keymap-hint">No episodes yet.</div>';
+
+  el.innerHTML = `
+    <div class="keymap-panel">
+      <h2 class="keymap-heading">Podcasts</h2>
+      <p class="keymap-hint">Weekly episodes crawled from the configured YouTube channel — German summary, HSK vocabulary and Chinese transcript for each.</p>
+      <div class="keymap-row">
+        <span class="keymap-label">Summary detail level</span>
+        <select class="opt-input" id="podcast-detail-level" style="flex:1" onchange="_savePodcastDetailLevel(this.value)">
+          <option value="short" ${detailLevel === 'short' ? 'selected' : ''}>Short</option>
+          <option value="medium" ${detailLevel === 'medium' ? 'selected' : ''}>Medium</option>
+          <option value="detailed" ${detailLevel === 'detailed' ? 'selected' : ''}>Detailed</option>
+        </select>
+        <span id="podcast-detail-save-msg" style="font-size:12px;color:var(--muted);min-width:60px"></span>
+      </div>
+    </div>
+    <div class="podcast-list">${rows}</div>`;
+}
+
+async function _savePodcastDetailLevel(value) {
+  const msg = document.getElementById('podcast-detail-save-msg');
+  try {
+    const res = await api('PUT', '/api/podcast/config', { detail_level: value });
+    _podcastConfig = res || _podcastConfig;
+    if (msg) msg.textContent = '✓ Saved';
+  } catch (e) {
+    if (msg) msg.textContent = 'Error: ' + e.message;
+  }
+}
+
+async function openPodcastEpisode(id) {
+  setLoading('Loading episode…');
+  try {
+    const ep = await api('GET', `/api/podcast/episodes/${id}`);
+    location.hash = `podcast-${id}`;
+    showView('podcast');
+    _renderPodcastDetail(ep);
+  } catch (e) {
+    showError('Episode failed: ' + e.message);
+    openPodcasts();
+  }
+}
+
+function closePodcastDetail() {
+  openPodcasts();
+}
+
+function _renderPodcastDetail(ep) {
+  const el = document.getElementById('view-podcast-content');
+  if (!el) return;
+  const date = (ep.published_at || ep.created_at || '').slice(0, 10);
+  const hskRows = (ep.hsk_words || []).map(w => `<tr>
+      <td>${_escHtml(w.word || w.word_zh || '')}</td>
+      <td>${_escHtml(w.pinyin || '')}</td>
+      <td>${_escHtml(w.definition_de || w.definition || '')}</td>
+    </tr>`).join('');
+  const hskTable = hskRows
+    ? `<table class="cost-table"><thead><tr><th>Word</th><th>Pinyin</th><th>German</th></tr></thead><tbody>${hskRows}</tbody></table>`
+    : '<p class="keymap-hint">No HSK vocabulary extracted.</p>';
+  const links = [
+    ep.youtube_url ? `<a href="${_escHtml(ep.youtube_url)}" target="_blank" rel="noopener" class="btn-secondary">YouTube ↗</a>` : '',
+    ep.spotify_url ? `<a href="${_escHtml(ep.spotify_url)}" target="_blank" rel="noopener" class="btn-secondary">Spotify ↗</a>` : '',
+  ].filter(Boolean).join(' ');
+  const transcript = ep.transcript_zh
+    ? `<div class="podcast-transcript-wrap">
+         <button class="keymap-reset-all" onclick="_togglePodcastTranscript()">Show/hide transcript</button>
+         <div id="podcast-transcript-body" class="podcast-transcript" style="display:none">${_escHtml(ep.transcript_zh).replace(/\n/g, '<br>')}</div>
+       </div>`
+    : '';
+
+  el.innerHTML = `
+    <button class="keymap-reset-all" onclick="closePodcastDetail()">← Back to Podcasts</button>
+    <div class="keymap-panel">
+      <h2 class="keymap-heading">${_escHtml(ep.title || '(untitled)')}</h2>
+      <p class="keymap-hint">${date}</p>
+      <div style="margin:4px 0 10px">${links}</div>
+      <div id="podcast-summary-de">${ep.summary_de || ''}</div>
+    </div>
+    <div class="keymap-panel">
+      <h2 class="keymap-heading">HSK vocabulary</h2>
+      ${hskTable}
+    </div>
+    <div class="keymap-panel">
+      <h2 class="keymap-heading">Transcript</h2>
+      ${transcript || '<p class="keymap-hint">No transcript available.</p>'}
+    </div>`;
+}
+
+function _togglePodcastTranscript() {
+  const body = document.getElementById('podcast-transcript-body');
+  if (!body) return;
+  body.style.display = body.style.display === 'none' ? 'block' : 'none';
+}
+
+// Hash direct-link support: emails link to /#podcast-<id>. Called once at
+// boot, after the deck list has loaded, so the podcast view replaces it.
+function _openPodcastFromHash() {
+  const m = /^#podcast-(\d+)$/.exec(location.hash);
+  if (m) openPodcastEpisode(parseInt(m[1]));
+}
+
 function startKeyCapture(id) {
   _capturingAction = id; _settingsMsg = ''; renderSettings();
 }
@@ -8775,7 +8933,13 @@ async function _loadVersionBadge() {
 }
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
-loadDecks();
+// Hash direct-link (#480): if the URL already points at a podcast episode
+// (link from an email), open it straight away instead of the deck list.
+if (/^#podcast-\d+$/.test(location.hash)) {
+  _openPodcastFromHash();
+} else {
+  loadDecks();
+}
 _loadVersionBadge();
 
 
