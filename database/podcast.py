@@ -143,6 +143,23 @@ def list_episodes(limit: int = 100) -> list[dict]:
     return [_hydrate(r) for r in rows]
 
 
+def list_recent_error_episodes(max_age_days: int = 7) -> list[dict]:
+    """Episodes with status='error' created within the last `max_age_days`
+    days — run_check's automatic retry window (#491). Older failures are left
+    alone so a permanently-broken video can't be retried (and billed) forever.
+    created_at is stored via datetime('now') (UTC), so the comparison uses
+    the same clock."""
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT id, video_id, title FROM podcast_episodes
+           WHERE status = 'error' AND created_at >= datetime('now', ?)
+           ORDER BY id""",
+        (f"-{int(max_age_days)} days",),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
 def word_zh_exists(words: list[str]) -> set[str]:
     """Given candidate HSK words, return the subset already present in
     entries.word_zh — used to filter the AI's word list down to genuinely

@@ -1,6 +1,10 @@
 # Database
 data/
 
+# YouTube cookies for yt-dlp (#491) — already covered by data/ above, but
+# listed explicitly so they can never be committed even if data/ is unignored
+data/yt_cookies.txt
+
 # Python
 __pycache__/
 *.py[cod]

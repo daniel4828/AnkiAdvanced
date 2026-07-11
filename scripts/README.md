@@ -178,6 +178,29 @@ YouTube 频道（`podcast_config.channel_url`，默认 `@shengfm`）有没有新
 每期转录用了哪条路径（`captions`/`notebooklm`/`whisper`）都会记日志，并存进
 `podcast_episodes.transcript_source`，方便观察 NotebookLM 何时静默失效。
 
+### YouTube Cookie（issue #491，服务器必需）
+
+YouTube 对数据中心 IP 强制"Sign in to confirm you're not a bot"验证——服务器
+上**所有** yt-dlp 调用（元数据、字幕、音频）都会因此失败，必须提供一份登录
+浏览器导出的 Cookie 文件。路径取环境变量 `YT_DLP_COOKIES`（默认
+`data/yt_cookies.txt`，相对仓库根目录）；文件不存在时自动跳过（本地住宅
+IP 开发不需要）。
+
+在 Daniel 的 Mac 上导出并上传（Chrome 需已登录 YouTube；Safari 把
+`chrome` 换成 `safari`）：
+
+```bash
+.venv/bin/python -m yt_dlp --cookies-from-browser chrome --cookies yt_cookies.txt \
+  --skip-download "https://www.youtube.com/watch?v=jNQXAC9IVRw"
+scp yt_cookies.txt root@207.180.204.135:/home/anki/AnkiAdvanced/data/yt_cookies.txt
+ssh root@207.180.204.135 'chown anki:anki /home/anki/AnkiAdvanced/data/yt_cookies.txt && chmod 600 /home/anki/AnkiAdvanced/data/yt_cookies.txt'
+rm yt_cookies.txt
+```
+
+Cookie 会过期：当 `data/podcast-check.log` 里再次出现 bot 错误时，重复以上
+步骤即可。失败的单集会被每轮自动重试（7 天内的 error 状态），也可以用
+`POST /api/podcast/episodes/{id}/retry` 手动逐集重试。
+
 ### NotebookLM 一次性认证设置（issue #486）
 
 NotebookLM 没有公开 API，`notebooklm-py` 用的是非官方的浏览器 Cookie /
