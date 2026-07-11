@@ -724,7 +724,7 @@ function _updateStoryInfoRow() {
     const pos = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
     // News flow / news / paste / kahneman: show the mode name + story date to the
     // right of the counter (issue #452). Plain stories keep the topic.
-    const modeName = { kahneman: 'Kahneman', news: 'News', briefing: 'News flow', paste: 'Paste' }[_activeStoryMode()];
+    const modeName = { kahneman: 'Kahneman', news: 'News', briefing: 'News flow', paste: 'Paste', podcast: 'Podcast' }[_activeStoryMode()];
     const parts = [pos];
     if (modeName) {
       const date = String(story.date || story.generated_at || '').slice(0, 10);
@@ -3520,10 +3520,10 @@ function _resumeBackgroundReview(ctx) {
   deckName   = ctx.deckName;
   rootDeckId = ctx.rootDeckId;
   quickMode  = false;
-  _doStartReview(ctx.topic, ctx.maxHsk, ctx.model, ctx.grammarFocus, ctx.grammarPct, ctx.mode, ctx.chapterIds);
+  _doStartReview(ctx.topic, ctx.maxHsk, ctx.model, ctx.grammarFocus, ctx.grammarPct, ctx.mode, ctx.chapterIds, null, ctx.episodeId);
 }
 
-async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null) {
+async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null, episodeId = null) {
   if (quickMode) {
     setLoading('Loading audio…', true);
     try {
@@ -3553,19 +3553,19 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mo
     const resumeCtx = {
       key: `${storyDeckId}/${storyCategory}`,
       deckId, category, deckName, rootDeckId, storyDeckId, storyCategory,
-      topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds,
+      topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId,
     };
     _bgLeaveRequested = false;
     _bgActiveResume = resumeCtx;
     _showLoadingBgButton();
 
-    const storyUrl = `/api/story/${storyDeckId}/${storyCategory}` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
+    const storyUrl = `/api/story/${storyDeckId}/${storyCategory}` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId);
     const bgUrl = storyUrl + (storyUrl.includes('?') ? '&' : '?') + 'background=true';
     let todayData, storyData;
     try {
       todayData = await api('GET', `/api/today/${deckId}/${category}${_langQP('?')}`);
       storyData = await _fetchStoryOrNewsRegen(storyDeckId, storyCategory, topic, maxHsk, model,
-        grammarFocus, grammarPct, mode, chapterIds, articles, bgUrl);
+        grammarFocus, grammarPct, mode, chapterIds, articles, bgUrl, episodeId);
     } catch (e) {
       _stopFakeProgress(); _stopStoryProgressPoll(); _hideLoadingBgButton();
       _showLoadingError('AI request failed', e.message);
@@ -3614,16 +3614,17 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mo
 // GET/poll flow: it returns today's cached story if one exists (e.g. resuming
 // a session); news mode auto-fetches today's news server-side (issue #387).
 async function _fetchStoryOrNewsRegen(storyDeckId, storyCategory, topic, maxHsk, model,
-                                      grammarFocus, grammarPct, mode, chapterIds, articles, bgUrl) {
+                                      grammarFocus, grammarPct, mode, chapterIds, articles, bgUrl,
+                                      episodeId) {
   if (mode === 'paste' && articles && articles.length) {
     const url = `/api/story/${storyDeckId}/${storyCategory}/regenerate`
-      + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
+      + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId);
     return api('POST', url, { articles });
   }
   return _pollBackgroundStory(bgUrl);
 }
 
-function _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds) {
+function _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId) {
   const p = new URLSearchParams();
   if (topic)                              p.set('topic', topic);
   if (maxHsk !== 3)                       p.set('max_hsk', maxHsk);
@@ -3632,6 +3633,7 @@ function _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chap
   if (grammarFocus && grammarPct !== 75)  p.set('grammar_pct', grammarPct);
   if (mode && mode !== 'story')           p.set('mode', mode);
   if (chapterIds && chapterIds.length)    p.set('chapter_ids', chapterIds.join(','));
+  if (episodeId)                          p.set('episode_id', episodeId);
   // Active language tab (issue #436) — only sent once more than one language is
   // in use, so a pure-Chinese install's requests stay byte-identical.
   if (_langQ())                           p.set('lang', activeLang());
@@ -3680,7 +3682,7 @@ async function startReviewMixed(id, name, noStory = false, quick = false) {
   }
 }
 
-async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', noStory = false, chapterIds = null, articles = null) {
+async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', noStory = false, chapterIds = null, articles = null, episodeId = null) {
   setLoading(noStory ? 'Loading…' : 'Generating stories…', !noStory);
   if (!noStory) {
     setLoadingStep(10, null, 'Sending request to AI…');
@@ -3701,8 +3703,8 @@ async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPc
       // Load a single unified story covering all categories (1 AI call instead of 3)
       try {
         story = (mode === 'paste' && articles && articles.length)
-          ? await api('POST', `/api/story/${rootDeckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds), { articles })
-          : await api('GET', `/api/story/${rootDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds));
+          ? await api('POST', `/api/story/${rootDeckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId), { articles })
+          : await api('GET', `/api/story/${rootDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId));
       } catch (e) {
         _stopFakeProgress(); _stopStoryProgressPoll();
         _showLoadingError('AI request failed', e.message);
@@ -3787,7 +3789,7 @@ async function startReviewUnfinished() {
   }
 }
 
-async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null) {
+async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null, episodeId = null) {
   unfinishedMode = true;
   setLoading('Loading cards…');
   // In "existing" story mode, never trigger generation — fetch cached stories only.
@@ -3808,9 +3810,9 @@ async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, gram
     try {
       if (!noGen && mode === 'paste' && articles && articles.length) {
         story = await api('POST', `/api/story/${firstDeckId}/unified/regenerate`
-          + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds), { articles });
+          + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId), { articles });
       } else {
-        let url = `/api/story/${firstDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds);
+        let url = `/api/story/${firstDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId);
         if (noGen) url += (url.includes('?') ? '&' : '?') + 'no_generate=true';
         story = await api('GET', url);
       }
@@ -6063,8 +6065,10 @@ function updateSetupMode() {
   const kahnemanSection = document.getElementById('setup-kahneman-section');
   const newsSection = document.getElementById('setup-news-section');
   const pasteSection = document.getElementById('setup-paste-section');
+  const podcastSection = document.getElementById('setup-podcast-section');
   newsSection.style.display = 'none';
   pasteSection.style.display = 'none';
+  if (podcastSection) podcastSection.style.display = 'none';
   _autoSwitchModelForMode(mode);
   if (mode === 'qa') {
     topicLabel.childNodes[0].textContent = 'Question ';
@@ -6095,6 +6099,12 @@ function updateSetupMode() {
     pasteSection.style.display = 'block';
     btn.textContent = 'Generate summary';
     if (!document.getElementById('setup-paste-blocks').children.length) addPasteBlock();
+  } else if (mode === 'podcast') {
+    topicLabel.style.display = 'none';
+    kahnemanSection.style.display = 'none';
+    if (podcastSection) podcastSection.style.display = 'block';
+    btn.textContent = 'Generate podcast summary';
+    _loadPodcastEpisodesForSetup();
   } else {
     topicLabel.childNodes[0].textContent = 'Topic ';
     topicInput.placeholder = 'e.g. a day at a coffee shop';
@@ -6115,12 +6125,12 @@ function _autoSwitchModelForMode(mode) {
   const modelSel = document.getElementById('setup-model');
   if (!modelSel) return;
 
-  // Briefing and paste (issue #481: paste now shares the briefing pipeline)
-  // both ignore this dropdown server-side — the server always resolves
-  // BRIEFING_MODEL (env, default gpt-5.1). Lock the control and show that
-  // honestly instead of a stale gpt-5-mini selection (issue #448).
+  // Briefing, paste (issue #481) and podcast (issue #482) all share the
+  // briefing pipeline and ignore this dropdown server-side — the server always
+  // resolves BRIEFING_MODEL (env, default gpt-5.1). Lock the control and show
+  // that honestly instead of a stale gpt-5-mini selection (issue #448).
   const serverOpt = document.getElementById('setup-model-server-opt');
-  if (mode === 'briefing' || mode === 'paste') {
+  if (mode === 'briefing' || mode === 'paste' || mode === 'podcast') {
     if (!serverOpt) {
       const opt = document.createElement('option');
       opt.id = 'setup-model-server-opt';
@@ -6485,9 +6495,57 @@ function randomKahnemanChapters() {
   _updateKahnemanCount();
 }
 
+// ── Podcast episode picker (issue #482) — single-select, template copied from
+// the kahneman chapter selector above but radio-style (one episode per story).
+let _setupPodcastEpisodes = null; // null = not loaded yet, [] = loaded but empty
+
+async function _loadPodcastEpisodesForSetup() {
+  const container = document.getElementById('setup-podcast-episodes');
+  const loading = document.getElementById('setup-podcast-loading');
+  if (!container) return;
+  if (_setupPodcastEpisodes) { _renderPodcastEpisodes(); return; }
+  container.style.display = 'none';
+  if (loading) loading.style.display = 'block';
+  try {
+    const data = await api('GET', '/api/podcast/episodes');
+    // Only episodes with a finished summary can seed a story (issue #482).
+    _setupPodcastEpisodes = (data || []).filter(ep => ep.status === 'summarized');
+    if (loading) loading.style.display = 'none';
+    container.style.display = 'block';
+    _renderPodcastEpisodes();
+  } catch (e) {
+    if (loading) loading.textContent = 'Failed to load episodes.';
+  }
+}
+
+function _renderPodcastEpisodes() {
+  const container = document.getElementById('setup-podcast-episodes');
+  if (!container || !_setupPodcastEpisodes) return;
+  if (!_setupPodcastEpisodes.length) {
+    container.innerHTML = '<div style="padding:12px;text-align:center;color:var(--muted,#888);font-size:13px">No summarized episodes yet.</div>';
+    return;
+  }
+  const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  container.innerHTML = _setupPodcastEpisodes.map(ep => `
+    <label class="kahneman-chapter-row">
+      <input type="radio" class="podcast-episode-radio" name="podcast-episode" value="${ep.id}">
+      <div class="kahneman-chapter-info">
+        <span class="kahneman-chapter-title">${esc(ep.title || '(untitled)')}</span>
+        <span class="kahneman-chapter-concept">${esc((ep.published_at || '').slice(0, 10))} · ${esc(ep.summary_de || '')}</span>
+      </div>
+    </label>`).join('');
+}
+
 function _getSelectedChapterIds() {
   return Array.from(document.querySelectorAll('.kahneman-chapter-cb:checked'))
     .map(cb => parseInt(cb.value));
+}
+
+// Podcast episode picker (issue #482) — single-select, same idea as the
+// kahneman chapter checkboxes but radio-style (one episode per story).
+function _getSelectedEpisodeId() {
+  const checked = document.querySelector('.podcast-episode-radio:checked');
+  return checked ? parseInt(checked.value) : null;
 }
 
 function confirmStorySetup() {
@@ -6499,24 +6557,35 @@ function confirmStorySetup() {
   const mode        = document.getElementById('setup-mode').value;
   const chapterIds  = mode === 'kahneman' ? _getSelectedChapterIds() : null;
   const articles    = mode === 'paste' ? _collectPastedContents() : null;
+  const episodeId   = mode === 'podcast' ? _getSelectedEpisodeId() : null;
   // News mode never sends articles: today's news is auto-fetched server-side
   // (issue #387). Paste mode requires at least one non-empty text (issue #396).
   if (mode === 'paste' && !articles.length) {
     showError('Paste mode needs at least one text — paste some content first.');
     return;
   }
+  // Podcast mode requires picking exactly one episode (issue #482).
+  if (mode === 'podcast' && !episodeId) {
+    showError('Podcast mode needs an episode — select one first.');
+    return;
+  }
   _currentStoryMode = mode;
   _closeSetupModal();
   if (_setupIsDeckListRegen) {
-    _doRegenStoryForDeckList(_deckListRegenId, topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles);
+    _doRegenStoryForDeckList(_deckListRegenId, topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles, episodeId);
   } else if (_setupIsRegen) {
-    _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles);
+    _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles, episodeId);
   } else if (_setupIsUnfinished) {
-    _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles);
+    _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles, episodeId);
   } else if (_setupIsMixed) {
-    _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles);
+    // noStory=false: confirmStorySetup always wants a fresh generation, unlike
+    // the `?scope=` quick paths above that call this with noStory=true directly.
+    // (Pre-#482 this call under-supplied args, so chapterIds silently landed in
+    // the noStory slot — harmless for story/paste/news since chapterIds was null
+    // there, but it would have broken kahneman+podcast in mixed review.)
+    _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct, mode, false, chapterIds, articles, episodeId);
   } else {
-    _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles);
+    _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles, episodeId);
   }
 }
 
@@ -6954,7 +7023,7 @@ async function regenerateStory() {
   }
 }
 
-async function _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null) {
+async function _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null, episodeId = null) {
   setLoading('Regenerating story…', true);
   setLoadingStep(10, null, 'Sending request to AI…');
   _startFakeProgress(10, 55, 45000);
@@ -6964,7 +7033,7 @@ async function _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct
     _startStoryProgressPoll(storyDeckId, storyCategory);
     let storyData;
     try {
-      storyData = await api('POST', `/api/story/${storyDeckId}/${storyCategory}/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds), { articles });
+      storyData = await api('POST', `/api/story/${storyDeckId}/${storyCategory}/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId), { articles });
     } catch (e) {
       _stopFakeProgress(); _stopStoryProgressPoll();
       _showLoadingError('AI request failed', e.message);
@@ -7029,7 +7098,7 @@ async function regenerateStoryFromList(deckId) {
 // Regenerate a deck's story in the BACKGROUND: instead of a blocking full-screen
 // loader, show a small persistent banner and let the user keep reviewing. When
 // the new story is ready the banner turns into a clickable "open for review".
-async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null) {
+async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null, episodeId = null) {
   const deck = flatten(_cachedDecks || []).find(d => d.id === deckId);
   const deckName = deck ? deck.name : 'deck';
   const noStory = !!(deck && deck.no_story);
@@ -7043,7 +7112,7 @@ async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model, grammarFoc
   }
 
   try {
-    await api('POST', `/api/story/${deckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds), { articles });
+    await api('POST', `/api/story/${deckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId), { articles });
     // Warm the audio cache in the background so review starts fast; don't block
     // the "ready" banner on it.
     _preloadWithProgress(deckId, 'unified', () => {}).catch(() => {});
