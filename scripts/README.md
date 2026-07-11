@@ -136,3 +136,30 @@ cron 只负责在服务已经运行时定时触发预生成：
 ```cron
 0 6 * * * cd /opt/ankiadvanced && BASE_URL=http://127.0.0.1:8000 /usr/bin/python3 scripts/morning_pregen.py >> data/morning-pregen.log 2>&1
 ```
+
+---
+
+## podcast_check.py（issue #479）
+
+对运行中的服务器发一次 `POST /api/podcast/check` 请求：服务器检查配置的
+YouTube 频道（`podcast_config.channel_url`，默认 `@shengfm`）有没有新视频，
+对每个新视频下载中文转录（`yt-dlp`，只拿字幕元数据，不下载音视频）、生成
+德语摘要 + HSK5+ 生词表（AI，`ai.resolve_briefing_model()`），并给
+`podcast_config.email_to` 发邮件通知。同一视频（`video_id` 唯一约束）不会
+重复处理。风格与 `morning_pregen.py` 一致：纯标准库，不需要安装依赖（服务
+器端需要 `yt-dlp`，已在 `requirements.txt` 里）。
+
+用法与环境变量同 `morning_pregen.py`（`BASE_URL`/`AUTH_USERNAME`/`AUTH_PASSWORD`）。
+另外邮件发送需要 SMTP 环境变量（`SMTP_HOST`/`SMTP_PORT`/`SMTP_USERNAME`/
+`SMTP_PASSWORD`/`SMTP_FROM`/`PUBLIC_BASE_URL`，见 CLAUDE.md 环境变量表）——
+未配置时服务器只是跳过发信并记日志，不算失败。
+
+```bash
+python scripts/podcast_check.py
+```
+
+### 服务器 cron：每小时检查一次
+
+```cron
+0 * * * * cd /opt/ankiadvanced && /usr/bin/python3 scripts/podcast_check.py >> data/podcast-check.log 2>&1
+```

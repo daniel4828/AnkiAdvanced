@@ -546,3 +546,32 @@ CREATE TABLE IF NOT EXISTS pregen_config (
     max_hsk  INTEGER NOT NULL DEFAULT 3,
     PRIMARY KEY (deck_id, category, lang)
 );
+
+-- ---------------------------------------------------------------------------
+-- Podcast crawler (issue #479): discover new videos on a YouTube channel,
+-- download the Chinese transcript, summarize into German, extract HSK5+
+-- vocabulary, and email a notification.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS podcast_episodes (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    video_id         TEXT NOT NULL UNIQUE,
+    channel_id       TEXT,
+    title            TEXT NOT NULL,
+    published_at     TEXT,
+    youtube_url      TEXT NOT NULL,
+    spotify_url      TEXT,
+    transcript_zh    TEXT,
+    summary_de       TEXT,
+    hsk_words        TEXT,   -- JSON array of {word, pinyin, definition_de, hsk}
+    detail_level     TEXT,   -- detail_level used for the summary (short|medium|detailed)
+    status           TEXT NOT NULL DEFAULT 'pending'
+                     CHECK(status IN ('pending', 'no_transcript', 'summarized', 'error')),
+    error            TEXT,
+    email_sent_at    TEXT,
+    created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS podcast_config (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
