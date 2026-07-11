@@ -149,14 +149,70 @@ YouTube 频道（`podcast_config.channel_url`，默认 `@shengfm`）有没有新
 重复处理。风格与 `morning_pregen.py` 一致：纯标准库，不需要安装依赖（服务
 器端需要 `yt-dlp`，已在 `requirements.txt` 里）。
 
-**Whisper 音频转录回退（issue #485）：** `@shengfm` 频道没有任何字幕（人工/
-自动都关闭），所以字幕下载总是失败。`podcast_config.whisper_fallback`
-（默认 `1`）开启时，无字幕会触发音频回退：`yt-dlp` 下载最低码率音频到临时
-目录 → `ffmpeg` 转 16kHz 单声道 32kbps mp3（超过 20 分钟按段切分）→ 逐段调
-用 OpenAI `gpt-4o-mini-transcribe`（需要 `OPENAI_API_KEY`）转录后拼接。音频
-用完立即删除；单集超过 3 小时会被成本护栏跳过。**服务器需要安装
-`ffmpeg`**（`apt install ffmpeg`）——缺失时只记警告并跳过回退，不会崩溃。
-`DISABLE_AI=1`（开发模式）下永远不会触发这个回退，避免烧钱。
+**无字幕时的转录链（issue #486，取代 #485 的纯 Whisper 回退）：** `@shengfm`
+频道没有任何字幕（人工/自动都关闭），所以字幕下载总是失败。字幕缺失时按
+`podcast_config.transcriber`（默认 `auto`）走：
+
+1. **NotebookLM（免费，主力）**：`yt-dlp` 下载最低码率音频到临时目录 →
+   `ffmpeg` 转 16kHz 单声道 32kbps 单个 mp3 → 上传到专用笔记本
+   "AnkiAdvanced Transcripts"（笔记本 id 缓存进
+   `podcast_config.notebooklm_notebook_id`）→ 轮询等索引完成（上限 10
+   分钟）→ 读取来源全文（fulltext）作为转录 → 删除该来源（防止笔记本无限
+   膨胀）。用的是非官方库 `notebooklm-py`（见下方一次性设置）。
+2. **Whisper（付费，保底，issue #485）**：NotebookLM 未安装/未认证/失败时
+   落到这里——**但仅当单集标题包含 `podcast_config.whisper_title_filter`
+   （默认 `早咖啡`）时才会尝试**，否则直接跳过、记日志（Daniel 只想为
+   《声动早咖啡》这一个播客付费转录）。复用同一份已下载的 mp3（超过 20
+   分钟按段切分，`-c copy` 不重新编码）→ 逐段调用 OpenAI
+   `gpt-4o-mini-transcribe`（需要 `OPENAI_API_KEY`）转录后拼接。
+
+`transcriber` 可选值：`auto`（默认，NotebookLM 优先失败落 Whisper）|
+`notebooklm`（只走 NotebookLM，不落 Whisper）| `whisper`（跳过 NotebookLM，
+只走 Whisper，仍受标题过滤）| `off`（两条都不走，纯字幕模式）。旧键
+`whisper_fallback=0` 仍兼容，等价于 `off`。
+
+音频（无论走哪条路径）用完立即删除；单集超过 3 小时会被成本护栏跳过，两条
+路径共用同一份下载+转码结果，不会重复下载。**服务器需要安装 `ffmpeg`**
+（`apt install ffmpeg`）——缺失时只记警告并跳过整条音频转录链，不会崩溃。
+`DISABLE_AI=1`（开发模式）下两条路径都不会触发，避免意外调用外部服务。
+每期转录用了哪条路径（`captions`/`notebooklm`/`whisper`）都会记日志，并存进
+`podcast_episodes.transcript_source`，方便观察 NotebookLM 何时静默失效。
+
+### NotebookLM 一次性认证设置（issue #486）
+
+NotebookLM 没有公开 API，`notebooklm-py` 用的是非官方的浏览器 Cookie /
+master-token 方式，需要在**有浏览器的机器（Daniel 的 Mac）** 上登录一次，
+再把凭据文件复制到服务器：
+
+```bash
+# 1. 本地装库（含浏览器登录用的 Playwright 支持）
+pip install 'notebooklm-py[browser]'
+
+# 2. 本地登录（会弹出浏览器窗口，用 Google 账号登录一次）
+notebooklm login
+
+# 3. 认证信息默认存在 ~/.notebooklm/storage_state.json（或
+#    ~/.notebooklm/profiles/<profile>/storage_state.json，用了 profile 的话）
+#    把这个文件复制到服务器同样的路径（用普通用户权限运行播客爬虫的账号下）：
+scp ~/.notebooklm/storage_state.json anki@<server>:~/.notebooklm/storage_state.json
+
+# 4. 服务器上验证凭据可用（不需要浏览器，纯本地校验+可选网络测试）
+notebooklm auth check --test
+```
+
+服务器无头环境不需要装 `[browser]` extra（`requirements.txt` 里的
+`notebooklm-py` 是精简版，浏览器登录只在本地跑一次）。会话过期后
+`notebooklm auth refresh` 可自愈（刷新 CSRF/session token，不需要重新走浏览器
+登录），**建议服务器 cron 里定期跑一次**：
+
+```cron
+# 每天凌晨刷新一次 NotebookLM 会话，防止过期
+0 3 * * * NOTEBOOKLM_HOME=/home/anki/.notebooklm /usr/local/bin/notebooklm auth refresh --quiet >> /home/anki/AnkiAdvanced/data/notebooklm-refresh.log 2>&1
+```
+
+凭据文件不存在或加载失败时，`_transcribe_via_notebooklm` 只记 info 日志并
+返回 `None`（视为"未认证"），整条链自动落到 Whisper（如标题匹配过滤器）或
+`no_transcript`——**不会**让爬虫报错。
 
 用法与环境变量同 `morning_pregen.py`（`BASE_URL`/`AUTH_USERNAME`/`AUTH_PASSWORD`）。
 另外邮件发送需要 SMTP 环境变量（`SMTP_HOST`/`SMTP_PORT`/`SMTP_USERNAME`/

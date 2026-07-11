@@ -15,7 +15,14 @@ from .core import get_db
 
 # Keys the crawler/UI is allowed to read or write. Kept in one place so
 # routes/podcast.py's PUT endpoint can validate against the same whitelist.
-CONFIG_KEYS = ("channel_url", "email_to", "detail_level", "enabled", "channel_id", "whisper_fallback")
+# `whisper_fallback` (#485) is kept for backward compat, normalized into the
+# newer `transcriber` key (#486) by podcast._resolve_transcriber. `channel_id`
+# and `notebooklm_notebook_id` are crawler-internal caches, not meant to be
+# set directly via the PUT endpoint.
+CONFIG_KEYS = (
+    "channel_url", "email_to", "detail_level", "enabled", "channel_id",
+    "whisper_fallback", "transcriber", "whisper_title_filter", "notebooklm_notebook_id",
+)
 
 
 def get_podcast_config() -> dict:
@@ -125,6 +132,7 @@ def list_episodes(limit: int = 100) -> list[dict]:
     rows = conn.execute(
         """SELECT id, video_id, channel_id, title, published_at, youtube_url, spotify_url,
                   summary_de, hsk_words, detail_level, status, error, email_sent_at, created_at,
+                  transcript_source,
                   (transcript_zh IS NOT NULL AND transcript_zh != '') AS has_transcript
            FROM podcast_episodes
            ORDER BY COALESCE(published_at, created_at) DESC, id DESC

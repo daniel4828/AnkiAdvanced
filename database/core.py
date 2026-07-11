@@ -505,6 +505,31 @@ def init_db() -> None:
     conn.execute(
         "INSERT OR IGNORE INTO podcast_config (key, value) VALUES ('whisper_fallback', '1')")
     conn.commit()
+
+    # transcriber / whisper_title_filter seeding (issue #486): same pattern as
+    # whisper_fallback above — unconditional INSERT OR IGNORE so existing
+    # installs pick the new keys up without a migration. 'auto' means
+    # NotebookLM (free) first, then Whisper (paid) as fallback; see
+    # podcast._resolve_transcriber for how this combines with the legacy
+    # whisper_fallback key. whisper_title_filter gates the paid Whisper path
+    # to episodes whose title contains the substring (Daniel only wants to
+    # pay for one of his podcasts).
+    conn.execute(
+        "INSERT OR IGNORE INTO podcast_config (key, value) VALUES ('transcriber', 'auto')")
+    conn.execute(
+        "INSERT OR IGNORE INTO podcast_config (key, value) VALUES ('whisper_title_filter', '早咖啡')")
+    conn.commit()
+
+    # podcast_episodes.transcript_source column migration (issue #486): tracks
+    # which path (captions/notebooklm/whisper) produced each episode's
+    # transcript, so Daniel can see in the UI/logs when NotebookLM silently
+    # stops working.
+    if "podcast_episodes" in existing:
+        pe_cols = {r["name"] for r in conn.execute("PRAGMA table_info(podcast_episodes)").fetchall()}
+        if "transcript_source" not in pe_cols:
+            conn.execute("ALTER TABLE podcast_episodes ADD COLUMN transcript_source TEXT")
+            conn.commit()
+
     conn.close()
 
 
