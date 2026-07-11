@@ -5,11 +5,13 @@ AI, find a Spotify link, and email a notification.
 Style follows news_fetcher.py: mostly-pure functions + logger, one module for
 the whole pipeline. The one heavier dependency is yt-dlp (requirements.txt),
 used purely for metadata + subtitle URL extraction (skip_download=True — no
-video/audio is ever downloaded), except for the Whisper fallback (#485)
-below, which does download (and always deletes) a low-bitrate audio track.
+video/audio is ever downloaded), except when captions are missing, in which
+case an audio track is downloaded (and always deleted) and transcribed via
+NotebookLM (free, #486, primary) or OpenAI Whisper (paid, #485, fallback).
 """
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import logging
@@ -46,12 +48,31 @@ _ZH_LANG_CANDIDATES = ("zh-Hans", "zh-CN", "zh", "zh-Hant", "zh-TW", "zh-HK")
 # order and take the first match.
 _CHANNEL_ID_RE = re.compile(r'"(?:channelId|externalId|browseId)":"(UC[\w-]+)"')
 
-# Whisper fallback (#485) cost guardrails and tuning. @shengfm has captions
-# disabled entirely, so this is the only way to get a transcript for that
-# channel — but audio downloads + OpenAI transcription cost real money, so
-# we keep the segments small and refuse anything absurdly long.
-_WHISPER_MAX_AUDIO_SECONDS = 3 * 60 * 60  # 3h — guards against a mislabeled/huge video
+# Audio transcription (#485 Whisper, #486 NotebookLM) cost/time guardrails.
+# @shengfm has captions disabled entirely, so this is the only way to get a
+# transcript for that channel — audio downloads + transcription take time
+# (and, for Whisper, real money), so we refuse anything absurdly long and
+# keep Whisper segments small. This guardrail applies to the shared
+# download/transcode step, so it protects both transcription paths.
+_AUDIO_MAX_SECONDS = 3 * 60 * 60  # 3h — guards against a mislabeled/huge video
 _WHISPER_SEGMENT_SECONDS = 20 * 60  # 20min segments stay well under OpenAI's 25MB upload cap
+
+# NotebookLM (#486) settings. The notebook is created once and its id cached
+# in podcast_config so every episode's audio lands in the same place; the
+# source is deleted right after we read its fulltext so the notebook never
+# grows unbounded. notebooklm-py is unofficial (undocumented Google RPCs) and
+# has no documented per-source size cap; our mp3s are 16kHz/mono/32kbps, so
+# even a full 3h episode (the guardrail above) is only ~43MB — the ceiling
+# below is a generous safety net, not a known Google limit.
+NOTEBOOKLM_NOTEBOOK_TITLE = "AnkiAdvanced Transcripts"
+_NOTEBOOKLM_INDEX_TIMEOUT = 10 * 60  # 10min cap for source indexing to finish
+_NOTEBOOKLM_MAX_UPLOAD_BYTES = 190 * 1024 * 1024
+
+# Whisper (#485) is real money per Daniel's 2026-07-11 request, so it's now
+# gated to only run for episodes whose title contains this substring (default:
+# his one podcast worth paying for). Empty string disables the filter
+# entirely. NotebookLM (free) is not subject to this filter.
+_DEFAULT_WHISPER_TITLE_FILTER = "早咖啡"
 
 
 def _http_get(url: str, timeout: int = 20) -> bytes:
@@ -170,112 +191,244 @@ def _json3_to_text(data: dict) -> str:
     return " ".join(lines)
 
 
-def _transcribe_audio(video_id: str) -> str | None:
-    """Whisper fallback (#485) for channels with captions disabled entirely
-    (e.g. @shengfm): download the lowest-bitrate audio track with yt-dlp,
-    transcode+segment it with ffmpeg, and transcribe each segment via
-    OpenAI's audio.transcriptions endpoint.
+def _download_audio(video_id: str, tmp_dir: str) -> tuple[str, float]:
+    """Download the lowest-bitrate audio track for `video_id` with yt-dlp and
+    transcode it to a single 16kHz mono ~32kbps mp3 with ffmpeg. Shared by
+    both the NotebookLM (#486) and Whisper (#485) transcription paths so the
+    (slow) download+transcode only ever happens once per episode.
 
-    Returns None when a prerequisite is simply missing (ffmpeg not installed,
-    OPENAI_API_KEY not set) — that's a config choice, not a failure. Raises on
-    cost-guardrail violations or actual transcription failure; fetch_transcript
-    logs those and falls back to the pre-#485 no_transcript behavior either way
-    (issue #485: any fallback failure keeps the old behavior).
+    Returns (mp3_path, duration_seconds), with mp3_path inside tmp_dir (the
+    caller owns tmp_dir's lifetime/cleanup). Raises ValueError if duration
+    exceeds the cost guardrail, RuntimeError on yt-dlp/ffmpeg failures.
     """
-    if not shutil.which("ffmpeg"):
-        logger.warning("podcast: ffmpeg not found, skipping Whisper fallback for %s", video_id)
-        return None
-    if not os.environ.get("OPENAI_API_KEY"):
-        logger.warning("podcast: OPENAI_API_KEY not set, skipping Whisper fallback for %s", video_id)
-        return None
-
     import yt_dlp
 
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        url = f"https://www.youtube.com/watch?v={video_id}"
-        ydl_opts = {
-            "format": "worstaudio[abr>=32]/worstaudio",
-            "outtmpl": os.path.join(tmp_dir, "audio.%(ext)s"),
-            "quiet": True,
-            "no_warnings": True,
-        }
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    ydl_opts = {
+        "format": "worstaudio[abr>=32]/worstaudio",
+        "outtmpl": os.path.join(tmp_dir, "audio.%(ext)s"),
+        "quiet": True,
+        "no_warnings": True,
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=True)
 
-        duration = info.get("duration") or 0
-        if duration > _WHISPER_MAX_AUDIO_SECONDS:
-            raise ValueError(
-                f"podcast: audio for {video_id} is {duration / 3600:.1f}h, exceeds the "
-                f"{_WHISPER_MAX_AUDIO_SECONDS / 3600:.0f}h Whisper cost guardrail"
-            )
-
-        downloaded = next((f for f in os.listdir(tmp_dir) if f.startswith("audio.")), None)
-        if not downloaded:
-            raise RuntimeError(f"podcast: yt-dlp did not produce an audio file for {video_id}")
-        src_path = os.path.join(tmp_dir, downloaded)
-
-        # Transcode to 16kHz mono ~32kbps mp3 in one ffmpeg pass. For audio
-        # over the segment length, split directly during transcoding
-        # (-f segment) so each part stays comfortably under OpenAI's 25MB cap.
-        if duration > _WHISPER_SEGMENT_SECONDS:
-            cmd = [
-                "ffmpeg", "-y", "-i", src_path,
-                "-ar", "16000", "-ac", "1", "-b:a", "32k",
-                "-f", "segment", "-segment_time", str(_WHISPER_SEGMENT_SECONDS),
-                os.path.join(tmp_dir, "seg_%03d.mp3"),
-            ]
-        else:
-            cmd = [
-                "ffmpeg", "-y", "-i", src_path,
-                "-ar", "16000", "-ac", "1", "-b:a", "32k",
-                os.path.join(tmp_dir, "seg_000.mp3"),
-            ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise RuntimeError(f"podcast: ffmpeg failed for {video_id}: {result.stderr[-500:]}")
-
-        segments = sorted(f for f in os.listdir(tmp_dir) if f.startswith("seg_") and f.endswith(".mp3"))
-        if not segments:
-            raise RuntimeError(f"podcast: ffmpeg produced no audio segments for {video_id}")
-
-        import openai
-        client = openai.OpenAI()
-        texts: list[str] = []
-        for seg_name in segments:
-            seg_path = os.path.join(tmp_dir, seg_name)
-            text = None
-            for attempt in range(2):  # one retry on transient failure
-                try:
-                    with open(seg_path, "rb") as f:
-                        resp = client.audio.transcriptions.create(
-                            model="gpt-4o-mini-transcribe", file=f, language="zh",
-                        )
-                    text = resp.text
-                    break
-                except Exception as e:
-                    logger.warning(
-                        "podcast: Whisper transcription failed (attempt %d) for %s/%s: %s",
-                        attempt + 1, video_id, seg_name, e,
-                    )
-            if text is None:
-                raise RuntimeError(f"podcast: Whisper transcription failed twice for {video_id}/{seg_name}")
-            texts.append(text.strip())
-
-        transcript = " ".join(t for t in texts if t)
-        logger.info(
-            "podcast: Whisper fallback transcribed %s (%d segment(s), %.0fmin)",
-            video_id, len(segments), duration / 60,
+    duration = info.get("duration") or 0
+    if duration > _AUDIO_MAX_SECONDS:
+        raise ValueError(
+            f"podcast: audio for {video_id} is {duration / 3600:.1f}h, exceeds the "
+            f"{_AUDIO_MAX_SECONDS / 3600:.0f}h audio transcription cost guardrail"
         )
-        return transcript or None
+
+    downloaded = next((f for f in os.listdir(tmp_dir) if f.startswith("audio.")), None)
+    if not downloaded:
+        raise RuntimeError(f"podcast: yt-dlp did not produce an audio file for {video_id}")
+    src_path = os.path.join(tmp_dir, downloaded)
+
+    mp3_path = os.path.join(tmp_dir, "full.mp3")
+    cmd = [
+        "ffmpeg", "-y", "-i", src_path,
+        "-ar", "16000", "-ac", "1", "-b:a", "32k",
+        mp3_path,
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"podcast: ffmpeg failed for {video_id}: {result.stderr[-500:]}")
+
+    return mp3_path, duration
+
+
+def _split_audio_segments(mp3_path: str, tmp_dir: str, duration: float) -> list[str]:
+    """Split the already-transcoded mp3 into <=_WHISPER_SEGMENT_SECONDS chunks
+    for Whisper's per-request upload cap. Uses stream copy (-c copy, no
+    re-encode) since the source is already 16kHz/mono/32kbps. Returns the
+    single mp3_path unchanged if it's already short enough."""
+    if duration <= _WHISPER_SEGMENT_SECONDS:
+        return [mp3_path]
+
+    cmd = [
+        "ffmpeg", "-y", "-i", mp3_path,
+        "-c", "copy", "-f", "segment", "-segment_time", str(_WHISPER_SEGMENT_SECONDS),
+        os.path.join(tmp_dir, "seg_%03d.mp3"),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"podcast: ffmpeg segmenting failed: {result.stderr[-500:]}")
+
+    segments = sorted(f for f in os.listdir(tmp_dir) if f.startswith("seg_") and f.endswith(".mp3"))
+    if not segments:
+        raise RuntimeError("podcast: ffmpeg produced no audio segments")
+    return [os.path.join(tmp_dir, s) for s in segments]
+
+
+def _transcribe_via_whisper(mp3_path: str, duration: float, video_id: str, tmp_dir: str) -> str | None:
+    """Paid fallback (#485): segment the shared mp3 and transcribe each
+    segment via OpenAI's audio.transcriptions endpoint.
+
+    Returns None when OPENAI_API_KEY is simply missing (config choice, not a
+    failure). Raises on actual transcription failure; callers log and treat
+    that the same as no transcript.
+    """
+    if not os.environ.get("OPENAI_API_KEY"):
+        logger.warning("podcast: OPENAI_API_KEY not set, skipping Whisper for %s", video_id)
+        return None
+
+    segments = _split_audio_segments(mp3_path, tmp_dir, duration)
+
+    import openai
+    client = openai.OpenAI()
+    texts: list[str] = []
+    for seg_path in segments:
+        seg_name = os.path.basename(seg_path)
+        text = None
+        for attempt in range(2):  # one retry on transient failure
+            try:
+                with open(seg_path, "rb") as f:
+                    resp = client.audio.transcriptions.create(
+                        model="gpt-4o-mini-transcribe", file=f, language="zh",
+                    )
+                text = resp.text
+                break
+            except Exception as e:
+                logger.warning(
+                    "podcast: Whisper transcription failed (attempt %d) for %s/%s: %s",
+                    attempt + 1, video_id, seg_name, e,
+                )
+        if text is None:
+            raise RuntimeError(f"podcast: Whisper transcription failed twice for {video_id}/{seg_name}")
+        texts.append(text.strip())
+
+    transcript = " ".join(t for t in texts if t)
+    logger.info(
+        "podcast: Whisper transcribed %s (%d segment(s), %.0fmin)",
+        video_id, len(segments), duration / 60,
+    )
+    return transcript or None
+
+
+async def _get_or_create_notebooklm_notebook(client) -> str:
+    """Return the id of the dedicated 'AnkiAdvanced Transcripts' notebook,
+    reusing the id cached in podcast_config when it still resolves; creates
+    (and re-caches) a fresh one otherwise (first run, or the cached notebook
+    was deleted server-side)."""
+    cfg = database.get_podcast_config()
+    cached_id = cfg.get("notebooklm_notebook_id")
+    if cached_id:
+        notebook = await client.notebooks.get_or_none(cached_id)
+        if notebook is not None:
+            return notebook.id
+
+    notebook = await client.notebooks.create(NOTEBOOKLM_NOTEBOOK_TITLE)
+    database.set_podcast_config("notebooklm_notebook_id", notebook.id)
+    return notebook.id
+
+
+async def _run_notebooklm_transcription(audio_path: str, video_id: str) -> str | None:
+    import notebooklm
+
+    async with notebooklm.NotebookLMClient.from_storage() as client:
+        notebook_id = await _get_or_create_notebooklm_notebook(client)
+        source = await client.sources.add_file(
+            notebook_id, audio_path, title=f"podcast-{video_id}",
+        )
+        try:
+            await client.sources.wait_until_ready(
+                notebook_id, source.id, timeout=_NOTEBOOKLM_INDEX_TIMEOUT,
+            )
+            fulltext = await client.sources.get_fulltext(notebook_id, source.id)
+            return fulltext.content or None
+        finally:
+            # Always drop the source afterwards so the notebook doesn't grow
+            # unbounded — a delete failure here must not mask a successful
+            # transcription, just log and move on.
+            try:
+                await client.sources.delete(notebook_id, source.id)
+            except Exception as e:
+                logger.warning("podcast: failed to delete NotebookLM source for %s: %s", video_id, e)
+
+
+def _transcribe_via_notebooklm(audio_path: str, video_id: str) -> str | None:
+    """Free primary transcription path (#486): upload the shared mp3 to a
+    dedicated NotebookLM notebook, wait for indexing, read the source's
+    fulltext, then delete the source. Uses the unofficial notebooklm-py
+    client (one-time browser login on Daniel's machine, credentials copied to
+    the server — see scripts/README.md).
+
+    This is an undocumented, unofficial API that can break at any time, so
+    every failure mode (package not installed, not authenticated, RPC error,
+    indexing timeout, ...) logs and returns None instead of raising —
+    fetch_transcript then falls back to Whisper (or gives up, per
+    podcast_config.transcriber).
+    """
+    try:
+        import notebooklm  # noqa: F401 (import-only availability check)
+    except ImportError:
+        logger.info("podcast: notebooklm-py not installed, skipping NotebookLM for %s", video_id)
+        return None
+
+    size = os.path.getsize(audio_path)
+    if size > _NOTEBOOKLM_MAX_UPLOAD_BYTES:
+        logger.warning(
+            "podcast: audio for %s is %.0fMB, exceeds the NotebookLM upload guardrail, skipping",
+            video_id, size / 1024 / 1024,
+        )
+        return None
+
+    try:
+        transcript = asyncio.run(_run_notebooklm_transcription(audio_path, video_id))
+    except FileNotFoundError:
+        # AuthTokens.from_storage() raises this when no credentials file
+        # exists yet — i.e. `notebooklm login` was never run. Not an error.
+        logger.info("podcast: NotebookLM not authenticated (no credentials file), skipping for %s", video_id)
+        return None
+    except Exception as e:
+        logger.warning("podcast: NotebookLM transcription failed for %s: %s", video_id, e)
+        return None
+
+    if transcript:
+        logger.info("podcast: NotebookLM transcribed %s (%d chars)", video_id, len(transcript))
+    return transcript
+
+
+def _resolve_transcriber(cfg: dict) -> str:
+    """Normalize podcast_config into one of auto|notebooklm|whisper|off.
+
+    Reads the current `transcriber` key when set to a legal value; otherwise
+    falls back to the legacy `whisper_fallback` key (#485) so pre-#486
+    installs keep behaving the same way without a data migration:
+    whisper_fallback=0 -> off, anything else -> auto (NotebookLM first, then
+    Whisper — the new default behavior, strictly better than the old
+    Whisper-only fallback since NotebookLM is free).
+    """
+    val = cfg.get("transcriber")
+    if val in ("auto", "notebooklm", "whisper", "off"):
+        return val
+    if cfg.get("whisper_fallback", "1") not in ("1", "true", "True"):
+        return "off"
+    return "auto"
+
+
+def _whisper_title_allowed(title: str, cfg: dict) -> bool:
+    """Whisper costs real money (~$0.2-0.3/episode), so per Daniel's
+    2026-07-11 request it's gated to episodes whose title contains
+    podcast_config.whisper_title_filter (default: his one podcast worth
+    paying for, 早咖啡). Empty string disables the filter. NotebookLM (free)
+    is never subject to this filter."""
+    filt = cfg.get("whisper_title_filter", _DEFAULT_WHISPER_TITLE_FILTER)
+    if not filt:
+        return True
+    return filt in (title or "")
 
 
 def fetch_transcript(video_id: str) -> tuple[str | None, dict]:
     """Download the Chinese transcript for a video via yt-dlp (metadata only,
     no video/audio download). Manual captions are preferred over automatic
     ones. Returns (transcript_text_or_None, meta) — meta always has at least
-    'title'. transcript is None when no Chinese captions exist at all AND
-    the Whisper audio fallback (#485) is disabled/unavailable/fails (caller
-    stores status='no_transcript' in that case).
+    'title' and 'transcript_source' (one of 'captions'/'notebooklm'/'whisper'/
+    None). transcript is None when no Chinese captions exist AND the
+    transcription chain (NotebookLM #486 -> Whisper #485, per
+    podcast_config.transcriber) is disabled/unavailable/fails for this
+    episode (caller stores status='no_transcript' in that case).
     """
     import yt_dlp
 
@@ -284,7 +437,8 @@ def fetch_transcript(video_id: str) -> tuple[str | None, dict]:
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
 
-    meta = {"title": info.get("title") or video_id, "upload_date": info.get("upload_date")}
+    title = info.get("title") or video_id
+    meta = {"title": title, "upload_date": info.get("upload_date"), "transcript_source": None}
 
     manual = info.get("subtitles") or {}
     auto = info.get("automatic_captions") or {}
@@ -312,28 +466,63 @@ def fetch_transcript(video_id: str) -> tuple[str | None, dict]:
         logger.info("podcast: no Chinese captions for %s", video_id)
 
     if transcript:
+        meta["transcript_source"] = "captions"
+        logger.info("podcast: transcript source for %s = captions", video_id)
         return transcript, meta
 
-    # No usable captions (missing or download failed) — try the Whisper
-    # audio fallback (#485) unless disabled via config or dev mode.
+    # No usable captions (missing or download failed) — try the audio
+    # transcription chain: NotebookLM (free, #486) first, then Whisper (paid,
+    # #485), per podcast_config.transcriber.
     cfg = database.get_podcast_config()
-    whisper_enabled = cfg.get("whisper_fallback", "1") in ("1", "true", "True")
-    if not whisper_enabled:
+    transcriber = _resolve_transcriber(cfg)
+    if transcriber == "off":
+        logger.info("podcast: transcriber=off, skipping audio transcription for %s", video_id)
         return None, meta
 
     from routes.utils import DISABLE_AI
     if DISABLE_AI:
-        # Dev mode must never trigger a paid audio download/transcription.
-        logger.info("podcast: DISABLE_AI set, skipping Whisper fallback for %s", video_id)
+        # Dev mode must never trigger audio download/transcription (NotebookLM
+        # is free but still an external side effect; Whisper costs money).
+        logger.info("podcast: DISABLE_AI set, skipping audio transcription for %s", video_id)
+        return None, meta
+
+    if not shutil.which("ffmpeg"):
+        logger.warning("podcast: ffmpeg not found, skipping audio transcription for %s", video_id)
         return None, meta
 
     try:
-        transcript = _transcribe_audio(video_id)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            mp3_path, duration = _download_audio(video_id, tmp_dir)
+
+            if transcriber in ("auto", "notebooklm"):
+                transcript = _transcribe_via_notebooklm(mp3_path, video_id)
+                if transcript:
+                    meta["transcript_source"] = "notebooklm"
+                    logger.info("podcast: transcript source for %s = notebooklm", video_id)
+                    return transcript, meta
+                if transcriber == "notebooklm":
+                    logger.info("podcast: transcriber=notebooklm and NotebookLM failed, not trying Whisper for %s", video_id)
+                    return None, meta
+
+            # transcriber in ("auto", "whisper") at this point.
+            if not _whisper_title_allowed(title, cfg):
+                logger.info(
+                    "podcast: title %r doesn't match whisper_title_filter, skipping Whisper for %s",
+                    title, video_id,
+                )
+                return None, meta
+
+            transcript = _transcribe_via_whisper(mp3_path, duration, video_id, tmp_dir)
+            if transcript:
+                meta["transcript_source"] = "whisper"
+                logger.info("podcast: transcript source for %s = whisper", video_id)
+                return transcript, meta
     except Exception as e:
-        logger.warning("podcast: Whisper fallback failed for %s: %s", video_id, e)
+        logger.warning("podcast: audio transcription pipeline failed for %s: %s", video_id, e)
         return None, meta
 
-    return (transcript or None), meta
+    logger.info("podcast: transcript source for %s = none (all paths exhausted)", video_id)
+    return None, meta
 
 
 # ---------------------------------------------------------------------------
@@ -512,7 +701,10 @@ def run_check() -> dict:
             if not transcript:
                 database.update_episode(episode_id, status="no_transcript")
                 continue
-            database.update_episode(episode_id, transcript_zh=transcript)
+            database.update_episode(
+                episode_id, transcript_zh=transcript,
+                transcript_source=meta.get("transcript_source"),
+            )
 
             if DISABLE_AI:
                 # Dev mode: stop at pending with the transcript stored, no AI

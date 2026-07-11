@@ -13,3 +13,4 @@ deep-translator>=1.11,<2.0
 jieba>=0.42,<1.0
 pypinyin>=0.55,<1.0
 yt-dlp>=2026.1.0,<2027.0
+notebooklm-py>=0.7.3,<0.8.0

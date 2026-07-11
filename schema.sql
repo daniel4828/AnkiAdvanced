@@ -566,6 +566,7 @@ CREATE TABLE IF NOT EXISTS podcast_episodes (
     detail_level     TEXT,   -- detail_level used for the summary (short|medium|detailed)
     status           TEXT NOT NULL DEFAULT 'pending'
                      CHECK(status IN ('pending', 'no_transcript', 'summarized', 'error')),
+    transcript_source TEXT,  -- 'captions' | 'notebooklm' | 'whisper' | NULL (issue #486)
     error            TEXT,
     email_sent_at    TEXT,
     created_at       TEXT NOT NULL DEFAULT (datetime('now'))
