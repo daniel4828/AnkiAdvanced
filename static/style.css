@@ -2944,6 +2944,50 @@ a.news-source-line:hover {
 .keymap-reset-all { margin-top: 16px; align-self: flex-start; padding: 8px 14px; border: 1px solid var(--border, #ccc); border-radius: 6px; background: none; color: inherit; cursor: pointer; }
 .keymap-reset-all:hover { border-color: var(--primary); color: var(--primary); }
 
+/* — Podcasts view (#480) — */
+#view-podcast { display: none; }
+#view-podcast-content { max-width: 720px; margin: 0 auto; padding: 16px; }
+.podcast-list { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.podcast-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card, var(--bg));
+}
+.podcast-row-clickable { cursor: pointer; }
+.podcast-row-clickable:hover { border-color: var(--primary); }
+.podcast-row-title { flex: 1; color: var(--text); }
+.podcast-row-date { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.podcast-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+.podcast-badge-ok      { background: #dcfce7; color: #15803d; }
+.podcast-badge-muted   { background: #f1f5f9; color: #64748b; }
+.podcast-badge-error   { background: #fee2e2; color: #b91c1c; }
+.podcast-badge-pending { background: #fef3c7; color: #b45309; }
+#podcast-summary-de { line-height: 1.6; color: var(--text); }
+.podcast-transcript-wrap { margin-top: 4px; }
+.podcast-transcript {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.8;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
