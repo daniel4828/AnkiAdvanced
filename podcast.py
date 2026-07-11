@@ -81,6 +81,31 @@ def _http_get(url: str, timeout: int = 20) -> bytes:
         return resp.read()
 
 
+# Repo root (this file's directory) — used to resolve the default cookie file
+# path so it works regardless of the process cwd (systemd, cron, dev shell).
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def _ydl_opts(**extra) -> dict:
+    """Build the yt-dlp options dict shared by every call site: quiet flags
+    plus an optional Netscape cookie file (#491 — YouTube blocks datacenter
+    IPs with "Sign in to confirm you're not a bot"; cookies from a logged-in
+    browser get around that). The path comes from $YT_DLP_COOKIES (default
+    data/yt_cookies.txt; relative paths are resolved against the repo root)
+    and is silently omitted when the file doesn't exist, so local development
+    without a cookie file behaves exactly as before. Export/refresh
+    instructions live in scripts/README.md.
+    """
+    opts: dict = {"quiet": True, "no_warnings": True}
+    cookie_path = os.environ.get("YT_DLP_COOKIES") or os.path.join("data", "yt_cookies.txt")
+    if not os.path.isabs(cookie_path):
+        cookie_path = os.path.join(_BASE_DIR, cookie_path)
+    if os.path.isfile(cookie_path):
+        opts["cookiefile"] = cookie_path
+    opts.update(extra)
+    return opts
+
+
 # ---------------------------------------------------------------------------
 # Channel discovery
 # ---------------------------------------------------------------------------
@@ -204,12 +229,10 @@ def _download_audio(video_id: str, tmp_dir: str) -> tuple[str, float]:
     import yt_dlp
 
     url = f"https://www.youtube.com/watch?v={video_id}"
-    ydl_opts = {
-        "format": "worstaudio[abr>=32]/worstaudio",
-        "outtmpl": os.path.join(tmp_dir, "audio.%(ext)s"),
-        "quiet": True,
-        "no_warnings": True,
-    }
+    ydl_opts = _ydl_opts(
+        format="worstaudio[abr>=32]/worstaudio",
+        outtmpl=os.path.join(tmp_dir, "audio.%(ext)s"),
+    )
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
 
@@ -433,7 +456,7 @@ def fetch_transcript(video_id: str) -> tuple[str | None, dict]:
     import yt_dlp
 
     url = f"https://www.youtube.com/watch?v={video_id}"
-    ydl_opts = {"skip_download": True, "quiet": True, "no_warnings": True}
+    ydl_opts = _ydl_opts(skip_download=True)
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=False)
 
@@ -665,22 +688,129 @@ def send_email(episode: dict) -> bool:
 # Orchestration
 # ---------------------------------------------------------------------------
 
+# How far back run_check's automatic retry pass (#491) looks: episodes with
+# status='error' created within this many days get one re-attempt per cycle.
+# The window keeps a permanently-broken video from burning transcription
+# money forever (the Whisper title filter is the other cost guardrail).
+_AUTO_RETRY_MAX_AGE_DAYS = 7
+
+
+def _process_episode(episode_id: int, video: dict, detail_level: str, summary: dict) -> None:
+    """Process one already-inserted episode end-to-end: transcript -> AI
+    summary -> HSK word filter -> Spotify link -> store -> email. Shared by
+    run_check (new videos + the auto-retry pass) and the manual retry
+    endpoint (#491). `video` only needs 'video_id' and 'title'.
+
+    Never raises — any unexpected failure marks the episode 'error' and bumps
+    summary['failed'] (a missing transcript is 'no_transcript', not a
+    failure); success bumps summary['summarized'] / summary['emailed'].
+    """
+    from routes.utils import DISABLE_AI
+
+    try:
+        transcript, meta = fetch_transcript(video["video_id"])
+        if not transcript:
+            database.update_episode(episode_id, status="no_transcript")
+            return
+        database.update_episode(
+            episode_id, transcript_zh=transcript,
+            transcript_source=meta.get("transcript_source"),
+        )
+
+        if DISABLE_AI:
+            # Dev mode: stop at pending with the transcript stored, no AI
+            # call, no email — matches DISABLE_AI's behavior for stories.
+            return
+
+        result = summarize(transcript, video["title"], detail_level)
+        if not result.get("summary_de"):
+            database.update_episode(episode_id, status="error",
+                                    error="AI summary failed or empty")
+            summary["failed"] += 1
+            return
+
+        words = filter_new_words(result.get("words") or [])
+        spotify_url = find_spotify_url(video["title"])
+        database.update_episode(
+            episode_id,
+            summary_de=result["summary_de"],
+            hsk_words=words,
+            detail_level=detail_level,
+            spotify_url=spotify_url,
+            status="summarized",
+        )
+        summary["summarized"] += 1
+
+        episode = database.get_episode(episode_id)
+        try:
+            sent = send_email(episode)
+        except Exception as e:
+            # An SMTP hiccup must not downgrade a successfully summarized
+            # episode to 'error' — the summary is stored and viewable on
+            # the website regardless; only email_sent_at stays unset.
+            logger.warning("podcast: email failed for %s: %s", video["video_id"], e)
+            sent = False
+        if sent:
+            from datetime import datetime
+            database.update_episode(episode_id, email_sent_at=datetime.now().isoformat())
+            summary["emailed"] += 1
+    except Exception as e:
+        logger.error("podcast: episode %s failed: %s", video["video_id"], e)
+        database.update_episode(episode_id, status="error", error=str(e))
+        summary["failed"] += 1
+
+
+def retry_episode(episode_id: int) -> dict:
+    """Re-run the full processing pipeline for one existing episode (#491) —
+    used by POST /api/podcast/episodes/{id}/retry after e.g. an expired
+    YouTube cookie failed a whole batch. Reuses the existing row (video_id is
+    UNIQUE — no second INSERT) after resetting its status/error, so a retry
+    that fails again just lands back on 'error' with the fresh message.
+
+    The caller (the route) validates that the episode exists and its status
+    is retryable. Returns {status, transcript_source, error, emailed} read
+    back from the row after processing.
+    """
+    episode = database.get_episode(episode_id)
+    if not episode:
+        raise ValueError(f"podcast: episode {episode_id} not found")
+
+    cfg = database.get_podcast_config()
+    detail_level = cfg.get("detail_level") or "detailed"
+    database.update_episode(episode_id, status="pending", error=None)
+
+    summary = {"summarized": 0, "emailed": 0, "failed": 0}
+    video = {"video_id": episode["video_id"], "title": episode["title"]}
+    _process_episode(episode_id, video, detail_level, summary)
+
+    fresh = database.get_episode(episode_id)
+    return {
+        "status": fresh["status"],
+        "transcript_source": fresh.get("transcript_source"),
+        "error": fresh.get("error"),
+        "emailed": summary["emailed"] > 0,
+    }
+
+
 def run_check() -> dict:
     """Run one full crawl cycle: discover new videos, fetch transcripts,
     summarize, email. Never lets one episode's failure abort the rest — each
     is wrapped so a bad transcript/AI hiccup just marks that episode 'error'.
+    At the end, recent failures (status='error', created within the last
+    _AUTO_RETRY_MAX_AGE_DAYS days) each get one automatic re-attempt (#491),
+    so a fixed cookie/network issue heals old failures without manual work.
 
-    Returns a summary dict: {new, summarized, emailed, failed, skipped}.
+    Returns a summary dict: {new, summarized, emailed, failed, retried, skipped}.
     """
     cfg = database.get_podcast_config()
     if cfg.get("enabled", "1") not in ("1", "true", "True"):
         logger.info("podcast: disabled via config, skipping check")
-        return {"new": 0, "summarized": 0, "emailed": 0, "failed": 0, "skipped": True}
-
-    from routes.utils import DISABLE_AI
+        return {"new": 0, "summarized": 0, "emailed": 0, "failed": 0,
+                "retried": 0, "skipped": True}
 
     detail_level = cfg.get("detail_level") or "detailed"
-    summary = {"new": 0, "summarized": 0, "emailed": 0, "failed": 0, "skipped": False}
+    summary = {"new": 0, "summarized": 0, "emailed": 0, "failed": 0,
+               "retried": 0, "skipped": False}
 
     try:
         new_videos = fetch_new_videos()
@@ -690,62 +820,27 @@ def run_check() -> dict:
         summary["error"] = str(e)
         return summary
 
+    processed_ids: set[int] = set()
     for video in new_videos:
         episode_id = database.create_pending_episode(
             video["video_id"], video["channel_id"], video["title"],
             video["published_at"], video["youtube_url"],
         )
         summary["new"] += 1
-        try:
-            transcript, meta = fetch_transcript(video["video_id"])
-            if not transcript:
-                database.update_episode(episode_id, status="no_transcript")
-                continue
-            database.update_episode(
-                episode_id, transcript_zh=transcript,
-                transcript_source=meta.get("transcript_source"),
-            )
+        processed_ids.add(episode_id)
+        _process_episode(episode_id, video, detail_level, summary)
 
-            if DISABLE_AI:
-                # Dev mode: stop at pending with the transcript stored, no AI
-                # call, no email — matches DISABLE_AI's behavior for stories.
-                continue
-
-            result = summarize(transcript, video["title"], detail_level)
-            if not result.get("summary_de"):
-                database.update_episode(episode_id, status="error",
-                                        error="AI summary failed or empty")
-                summary["failed"] += 1
-                continue
-
-            words = filter_new_words(result.get("words") or [])
-            spotify_url = find_spotify_url(video["title"])
-            database.update_episode(
-                episode_id,
-                summary_de=result["summary_de"],
-                hsk_words=words,
-                detail_level=detail_level,
-                spotify_url=spotify_url,
-                status="summarized",
-            )
-            summary["summarized"] += 1
-
-            episode = database.get_episode(episode_id)
-            try:
-                sent = send_email(episode)
-            except Exception as e:
-                # An SMTP hiccup must not downgrade a successfully summarized
-                # episode to 'error' — the summary is stored and viewable on
-                # the website regardless; only email_sent_at stays unset.
-                logger.warning("podcast: email failed for %s: %s", video["video_id"], e)
-                sent = False
-            if sent:
-                from datetime import datetime
-                database.update_episode(episode_id, email_sent_at=datetime.now().isoformat())
-                summary["emailed"] += 1
-        except Exception as e:
-            logger.error("podcast: episode %s failed: %s", video["video_id"], e)
-            database.update_episode(episode_id, status="error", error=str(e))
-            summary["failed"] += 1
+    # Auto-retry pass (#491): give recent failures one more chance per cycle.
+    # Episodes that just failed above are skipped — retrying immediately in
+    # the same cycle would almost certainly fail the same way (and double the
+    # transcription cost); they'll be picked up on the next cron run instead.
+    for ep in database.list_recent_error_episodes(max_age_days=_AUTO_RETRY_MAX_AGE_DAYS):
+        if ep["id"] in processed_ids:
+            continue
+        logger.info("podcast: auto-retrying failed episode %s (%s)", ep["id"], ep["video_id"])
+        summary["retried"] += 1
+        database.update_episode(ep["id"], status="pending", error=None)
+        _process_episode(ep["id"], {"video_id": ep["video_id"], "title": ep["title"]},
+                         detail_level, summary)
 
     return summary

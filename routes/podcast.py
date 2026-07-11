@@ -36,6 +36,22 @@ def get_episode(episode_id: int):
     return episode
 
 
+@router.post("/api/podcast/episodes/{episode_id}/retry")
+def retry_episode(episode_id: int):
+    """Re-run the full processing pipeline for one failed episode (#491) —
+    the manual per-episode recovery path after e.g. an expired YouTube cookie
+    failed a whole batch. Only error/no_transcript episodes are retryable;
+    summarized episodes are done and pending ones are still being worked on."""
+    episode = database.get_episode(episode_id)
+    if not episode:
+        raise HTTPException(404, "Episode not found")
+    if episode["status"] in ("summarized", "pending"):
+        raise HTTPException(
+            400, f"Episode status is '{episode['status']}' — only error/no_transcript episodes can be retried"
+        )
+    return podcast.retry_episode(episode_id)
+
+
 class PodcastConfigUpdate(BaseModel):
     detail_level: str | None = None
     enabled: str | None = None
