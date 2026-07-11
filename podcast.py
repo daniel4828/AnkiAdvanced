@@ -68,11 +68,11 @@ NOTEBOOKLM_NOTEBOOK_TITLE = "AnkiAdvanced Transcripts"
 _NOTEBOOKLM_INDEX_TIMEOUT = 10 * 60  # 10min cap for source indexing to finish
 _NOTEBOOKLM_MAX_UPLOAD_BYTES = 190 * 1024 * 1024
 
-# Whisper (#485) is real money per Daniel's 2026-07-11 request, so it's now
-# gated to only run for episodes whose title contains this substring (default:
-# his one podcast worth paying for). Empty string disables the filter
-# entirely. NotebookLM (free) is not subject to this filter.
-_DEFAULT_WHISPER_TITLE_FILTER = "早咖啡"
+# Whisper (#485) is real money, so it only runs for short episodes (#495):
+# duration <= whisper_max_minutes. The earlier title filter ("早咖啡", #486)
+# never matched real episode titles and is retired (the config key is
+# ignored). NotebookLM (free) is not subject to this gate.
+_DEFAULT_WHISPER_MAX_MINUTES = 30
 
 
 def _http_get(url: str, timeout: int = 20) -> bytes:
@@ -431,16 +431,21 @@ def _resolve_transcriber(cfg: dict) -> str:
     return "auto"
 
 
-def _whisper_title_allowed(title: str, cfg: dict) -> bool:
-    """Whisper costs real money (~$0.2-0.3/episode), so per Daniel's
-    2026-07-11 request it's gated to episodes whose title contains
-    podcast_config.whisper_title_filter (default: his one podcast worth
-    paying for, 早咖啡). Empty string disables the filter. NotebookLM (free)
-    is never subject to this filter."""
-    filt = cfg.get("whisper_title_filter", _DEFAULT_WHISPER_TITLE_FILTER)
-    if not filt:
+def _whisper_duration_allowed(duration: float, cfg: dict) -> bool:
+    """Whisper costs real money, so it's gated to short episodes:
+    duration <= podcast_config.whisper_max_minutes (default 30). Daniel's
+    早咖啡-style daily episodes run 10-15 minutes; the long shows he doesn't
+    want to pay for run 60-90. Duration replaces the earlier title filter
+    (#486) because real episode titles never contain "早咖啡" (issue #495).
+    0/empty disables the gate. NotebookLM (free) is never subject to it."""
+    raw = cfg.get("whisper_max_minutes", str(_DEFAULT_WHISPER_MAX_MINUTES))
+    try:
+        max_minutes = float(raw)
+    except (TypeError, ValueError):
+        max_minutes = _DEFAULT_WHISPER_MAX_MINUTES
+    if max_minutes <= 0:
         return True
-    return filt in (title or "")
+    return duration <= max_minutes * 60
 
 
 def fetch_transcript(video_id: str) -> tuple[str | None, dict]:
@@ -528,10 +533,10 @@ def fetch_transcript(video_id: str) -> tuple[str | None, dict]:
                     return None, meta
 
             # transcriber in ("auto", "whisper") at this point.
-            if not _whisper_title_allowed(title, cfg):
+            if not _whisper_duration_allowed(duration, cfg):
                 logger.info(
-                    "podcast: title %r doesn't match whisper_title_filter, skipping Whisper for %s",
-                    title, video_id,
+                    "podcast: %s is %.0fmin, over whisper_max_minutes — skipping Whisper",
+                    video_id, duration / 60,
                 )
                 return None, meta
 
@@ -691,8 +696,20 @@ def send_email(episode: dict) -> bool:
 # How far back run_check's automatic retry pass (#491) looks: episodes with
 # status='error' created within this many days get one re-attempt per cycle.
 # The window keeps a permanently-broken video from burning transcription
-# money forever (the Whisper title filter is the other cost guardrail).
+# money forever (the Whisper duration gate is the other cost guardrail).
 _AUTO_RETRY_MAX_AGE_DAYS = 7
+
+# At most this many auto-retries per cycle (#495): a large error backlog
+# (15 episodes after the cookie outage) times NotebookLM's 10-minute indexing
+# ceiling would make one cycle run for hours; capping it lets the hourly cron
+# chew through the backlog a few episodes at a time. Oldest first.
+_AUTO_RETRY_PER_CYCLE = 3
+
+# Cross-process lock (#495) so a slow run (audio downloads + transcription
+# can exceed an hour) never overlaps the next hourly cron or a manual
+# POST /api/podcast/check. fcntl is POSIX-only — fine, prod is Linux and
+# dev is macOS.
+_RUN_LOCK_PATH = os.path.join(_BASE_DIR, "data", "podcast_check.lock")
 
 
 def _process_episode(episode_id: int, video: dict, detail_level: str, summary: dict) -> None:
@@ -802,11 +819,33 @@ def run_check() -> dict:
 
     Returns a summary dict: {new, summarized, emailed, failed, retried, skipped}.
     """
+    import fcntl
+
     cfg = database.get_podcast_config()
     if cfg.get("enabled", "1") not in ("1", "true", "True"):
         logger.info("podcast: disabled via config, skipping check")
         return {"new": 0, "summarized": 0, "emailed": 0, "failed": 0,
                 "retried": 0, "skipped": True}
+
+    # Non-blocking cross-process lock (#495): if another run is still going
+    # (transcribing a backlog can take over an hour), skip this cycle instead
+    # of processing the same episodes twice in parallel.
+    os.makedirs(os.path.dirname(_RUN_LOCK_PATH), exist_ok=True)
+    lock_file = open(_RUN_LOCK_PATH, "w")
+    try:
+        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        lock_file.close()
+        logger.info("podcast: another check is already running, skipping this cycle")
+        return {"new": 0, "summarized": 0, "emailed": 0, "failed": 0,
+                "retried": 0, "skipped": True}
+    try:
+        return _run_check_locked(cfg)
+    finally:
+        lock_file.close()
+
+
+def _run_check_locked(cfg: dict) -> dict:
 
     detail_level = cfg.get("detail_level") or "detailed"
     summary = {"new": 0, "summarized": 0, "emailed": 0, "failed": 0,
@@ -830,13 +869,15 @@ def run_check() -> dict:
         processed_ids.add(episode_id)
         _process_episode(episode_id, video, detail_level, summary)
 
-    # Auto-retry pass (#491): give recent failures one more chance per cycle.
-    # Episodes that just failed above are skipped — retrying immediately in
-    # the same cycle would almost certainly fail the same way (and double the
-    # transcription cost); they'll be picked up on the next cron run instead.
-    for ep in database.list_recent_error_episodes(max_age_days=_AUTO_RETRY_MAX_AGE_DAYS):
-        if ep["id"] in processed_ids:
-            continue
+    # Auto-retry pass (#491): give recent failures one more chance per cycle,
+    # capped at _AUTO_RETRY_PER_CYCLE oldest-first (#495) so a big backlog is
+    # chewed through gradually instead of one multi-hour run. Episodes that
+    # just failed above are skipped — retrying immediately in the same cycle
+    # would almost certainly fail the same way (and double the transcription
+    # cost); they'll be picked up on the next cron run instead.
+    retryable = [ep for ep in database.list_recent_error_episodes(max_age_days=_AUTO_RETRY_MAX_AGE_DAYS)
+                 if ep["id"] not in processed_ids]
+    for ep in retryable[:_AUTO_RETRY_PER_CYCLE]:
         logger.info("podcast: auto-retrying failed episode %s (%s)", ep["id"], ep["video_id"])
         summary["retried"] += 1
         database.update_episode(ep["id"], status="pending", error=None)

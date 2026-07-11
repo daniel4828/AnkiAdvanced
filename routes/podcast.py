@@ -59,7 +59,8 @@ class PodcastConfigUpdate(BaseModel):
     channel_url: str | None = None
     whisper_fallback: str | None = None  # deprecated (#485), superseded by transcriber (#486)
     transcriber: str | None = None
-    whisper_title_filter: str | None = None
+    whisper_title_filter: str | None = None  # deprecated (#486), superseded by whisper_max_minutes (#495)
+    whisper_max_minutes: str | None = None
 
 
 @router.get("/api/podcast/config")
@@ -74,6 +75,11 @@ def update_config(body: PodcastConfigUpdate):
         raise HTTPException(400, "detail_level must be short, medium or detailed")
     if "transcriber" in updates and updates["transcriber"] not in ("auto", "notebooklm", "whisper", "off"):
         raise HTTPException(400, "transcriber must be auto, notebooklm, whisper or off")
+    if "whisper_max_minutes" in updates:
+        try:
+            float(updates["whisper_max_minutes"])
+        except (TypeError, ValueError):
+            raise HTTPException(400, "whisper_max_minutes must be a number (0 = no limit)")
     for key, value in updates.items():
         database.set_podcast_config(key, value)
     if "channel_url" in updates:
