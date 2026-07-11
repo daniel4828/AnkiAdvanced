@@ -506,18 +506,17 @@ def init_db() -> None:
         "INSERT OR IGNORE INTO podcast_config (key, value) VALUES ('whisper_fallback', '1')")
     conn.commit()
 
-    # transcriber / whisper_title_filter seeding (issue #486): same pattern as
+    # transcriber (#486) / whisper_max_minutes (#495) seeding: same pattern as
     # whisper_fallback above — unconditional INSERT OR IGNORE so existing
     # installs pick the new keys up without a migration. 'auto' means
     # NotebookLM (free) first, then Whisper (paid) as fallback; see
-    # podcast._resolve_transcriber for how this combines with the legacy
-    # whisper_fallback key. whisper_title_filter gates the paid Whisper path
-    # to episodes whose title contains the substring (Daniel only wants to
-    # pay for one of his podcasts).
+    # podcast._resolve_transcriber. whisper_max_minutes gates the paid
+    # Whisper path to short episodes (Daniel only pays for the 10-15min
+    # 早咖啡-style dailies; it replaced the never-matching title filter).
     conn.execute(
         "INSERT OR IGNORE INTO podcast_config (key, value) VALUES ('transcriber', 'auto')")
     conn.execute(
-        "INSERT OR IGNORE INTO podcast_config (key, value) VALUES ('whisper_title_filter', '早咖啡')")
+        "INSERT OR IGNORE INTO podcast_config (key, value) VALUES ('whisper_max_minutes', '30')")
     conn.commit()
 
     # podcast_episodes.transcript_source column migration (issue #486): tracks

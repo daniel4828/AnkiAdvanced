@@ -21,7 +21,8 @@ from .core import get_db
 # set directly via the PUT endpoint.
 CONFIG_KEYS = (
     "channel_url", "email_to", "detail_level", "enabled", "channel_id",
-    "whisper_fallback", "transcriber", "whisper_title_filter", "notebooklm_notebook_id",
+    "whisper_fallback", "transcriber", "whisper_title_filter", "whisper_max_minutes",
+    "notebooklm_notebook_id",
 )
 
 

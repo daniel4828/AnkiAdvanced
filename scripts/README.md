@@ -160,11 +160,12 @@ YouTube 频道（`podcast_config.channel_url`，默认 `@shengfm`）有没有新
    分钟）→ 读取来源全文（fulltext）作为转录 → 删除该来源（防止笔记本无限
    膨胀）。用的是非官方库 `notebooklm-py`（见下方一次性设置）。
 2. **Whisper（付费，保底，issue #485）**：NotebookLM 未安装/未认证/失败时
-   落到这里——**但仅当单集标题包含 `podcast_config.whisper_title_filter`
-   （默认 `早咖啡`）时才会尝试**，否则直接跳过、记日志（Daniel 只想为
-   《声动早咖啡》这一个播客付费转录）。复用同一份已下载的 mp3（超过 20
-   分钟按段切分，`-c copy` 不重新编码）→ 逐段调用 OpenAI
-   `gpt-4o-mini-transcribe`（需要 `OPENAI_API_KEY`）转录后拼接。
+   落到这里——**但仅当单集时长 ≤ `podcast_config.whisper_max_minutes`
+   （默认 30 分钟，0=不限制）时才会尝试**，否则直接跳过、记日志（issue
+   #495：早咖啡类短节目 10-15 分钟，Daniel 不想为 60-90 分钟的长节目付费；
+   旧的 whisper_title_filter 因真实标题从不含"早咖啡"而废弃）。复用同一份
+   已下载的 mp3（超过 20 分钟按段切分，`-c copy` 不重新编码）→ 逐段调用
+   OpenAI `gpt-4o-mini-transcribe`（需要 `OPENAI_API_KEY`）转录后拼接。
 
 `transcriber` 可选值：`auto`（默认，NotebookLM 优先失败落 Whisper）|
 `notebooklm`（只走 NotebookLM，不落 Whisper）| `whisper`（跳过 NotebookLM，
