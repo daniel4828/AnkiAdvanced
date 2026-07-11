@@ -1170,7 +1170,8 @@ def _briefing_word_match(word_zh: str, sentence_zh: str) -> bool:
     return word_zh in sentence_zh
 
 
-def validate_briefing_items(items: list[dict], cards: list[dict]) -> list[str]:
+def validate_briefing_items(items: list[dict], cards: list[dict],
+                            include_context: bool = True) -> list[str]:
     """Python-only validation (no AI) of a raw briefing sentence array (issue #444).
 
     Checks:
@@ -1178,6 +1179,10 @@ def validate_briefing_items(items: list[dict], cards: list[dict]) -> list[str]:
       b) no two consecutive context sentences (sentences with no target word)
       c) target-word sentences are at most 18 characters
     Returns a list of human-readable violation descriptions — empty means valid.
+
+    include_context=False (podcast mode, issue #482): context sentences are not
+    allowed at all — rule b) is replaced by a flat "no context sentences" check
+    instead of the consecutive-run check.
     """
     issues: list[str] = []
     if not cards:
@@ -1201,12 +1206,16 @@ def validate_briefing_items(items: list[dict], cards: list[dict]) -> list[str]:
     if duplicated:
         issues.append(f"目标词重复出现（每个词必须恰好出现一次）：{'、'.join(duplicated)}")
 
-    run = 0
-    for ctx in is_context:
-        run = run + 1 if ctx else 0
-        if run >= 2:
-            issues.append("存在连续两个以上不含目标词的上下文句子（每个目标句前最多只能有一个上下文句）")
-            break
+    if not include_context:
+        if any(is_context):
+            issues.append("存在不含目标词的上下文句子（此模式不允许上下文句，每句都必须含一个目标词）")
+    else:
+        run = 0
+        for ctx in is_context:
+            run = run + 1 if ctx else 0
+            if run >= 2:
+                issues.append("存在连续两个以上不含目标词的上下文句子（每个目标句前最多只能有一个上下文句）")
+                break
 
     if len(items) > 2 * len(cards):
         issues.append(f"句子总数（{len(items)}）超过目标词数量两倍的上限（{2 * len(cards)}）")
@@ -1234,10 +1243,19 @@ def validate_briefing_items(items: list[dict], cards: list[dict]) -> list[str]:
     return issues
 
 
-def _dedupe_consecutive_briefing_context(items: list[dict], cards: list[dict]) -> list[dict]:
+def _dedupe_consecutive_briefing_context(items: list[dict], cards: list[dict],
+                                         include_context: bool = True) -> list[dict]:
     """Fallback repair when consecutive context-only sentences survive the
     validation retry: keep only the LAST sentence of each consecutive
-    context-only run, dropping the extras (issue #444 acceptance criteria)."""
+    context-only run, dropping the extras (issue #444 acceptance criteria).
+
+    include_context=False (podcast mode, issue #482): context sentences are
+    never allowed, so every one of them is simply dropped instead of being
+    collapsed one-per-run."""
+    if not include_context:
+        return [item for item in items
+                if (item.get("sentence_zh") or "").strip()
+                and any(_briefing_word_match(c["word_zh"], item["sentence_zh"]) for c in cards)]
     fixed: list[dict] = []
     buf: list[dict] = []
     for item in items:
@@ -1325,6 +1343,7 @@ def generate_briefing_sentences(
     attempt_label: str = "",
     progress_extra: dict | None = None,
     generic: bool = False,
+    include_context: bool = True,
 ) -> list[dict]:
     """News flow mode (issue #399, reworked in #444): one flowing Chinese news
     summary instead of one forced sentence per word.
@@ -1358,6 +1377,10 @@ def generate_briefing_sentences(
     content-summary framing for arbitrary pasted text (mode="paste", issue
     #481) — same pipeline (context sentences, validation, dedup, fact-check),
     only the prompt wording swaps "news article/briefing" for "content/summary".
+
+    include_context: False (mode="podcast", issue #482) — no context sentences
+    at all: every sentence in the output must contain exactly one target word.
+    Combines with generic=True for podcast (content framing, no context).
     """
     if not cards or not articles:
         return []
@@ -1378,13 +1401,48 @@ def generate_briefing_sentences(
         "- 【重要】含目标词汇的句子也必须传达该新闻中的一个具体事实（谁、做了什么、在哪里、多少），\n"
         "  读者只看这一句也能学到新闻内容。严禁没有信息量的空洞句子，\n"
         "  例如\"组织很大。\"\"火箭很快。\"\"它指代。\"\"未知很大。\"这类句子绝对不可以出现")
+    ctx_word = "其上下文句" if include_context else "所有句子"
     order_rule = (
-        f"- 【逐段处理】必须按{noun}编号顺序依次处理：先写完{noun}0涉及的所有句子（含其上下文句），\n"
+        f"- 【逐段处理】必须按{noun}编号顺序依次处理：先写完{noun}0涉及的所有句子（含{ctx_word}），\n"
         f"  再开始写{noun}1的句子，以此类推——article_idx 在整个输出中只能递增或不变，绝不允许\n"
         f"  写到{noun}1之后又跳回去写{noun}0的句子" if generic else
-        "- 【逐篇处理】必须按文章编号顺序依次处理：先写完文章0涉及的所有句子（含其上下文句），\n"
+        f"- 【逐篇处理】必须按文章编号顺序依次处理：先写完文章0涉及的所有句子（含{ctx_word}），\n"
         "  再开始写文章1的句子，以此类推——article_idx 在整个输出中只能递增或不变，绝不允许\n"
         "  写到文章1之后又跳回去写文章0的句子")
+
+    # include_context=False (podcast mode, issue #482): every sentence must
+    # contain a target word — no context sentences at all.
+    context_rule = (
+        "- 不是每句话都要包含目标词汇：目标词句子之间【最多插入一个】不含目标词的上下文句子，\n"
+        "  用来交代事实、数字和背景，让摘要自然连贯——绝对不允许连续出现两个或以上不含目标词的上下文句子\n"
+        "- 因此句子总数不能超过目标词数量的两倍"
+        if include_context else
+        "- 【重要】每一句话都必须恰好包含一个目标词汇——不允许出现任何不含目标词的句子，\n"
+        "  因此句子总数必须恰好等于目标词数量"
+    )
+    context_hsk_rule = (
+        "\n- 上下文句子【不受 HSK 词汇限制】——它最终会被翻译成德文显示在卡片正面，可以自由\n"
+        "  使用专有名词、数字和任何词汇来准确传达事实；长度保持一两句话的合理范围即可"
+        if include_context else ""
+    )
+    context_target_word_note = (
+        "；不含目标词的上下文句子填 null" if include_context else "（本模式没有上下文句子）"
+    )
+    hsk_overflow_rule = (
+        "\n  如果某个事实需要更难的词才能表达，把它放进上下文句子里，目标句只保留简单的部分"
+        if include_context else
+        "\n  如果某个事实需要更难的词才能表达，就换一种更简单的说法，或省略这个细节"
+    )
+    example_block = (
+        '[\n'
+        '  {"sentence_zh": "上下文句子", "target_word": null, "article_idx": 0},\n'
+        '  {"sentence_zh": "含目标词的句子", "target_word": "词汇", "article_idx": 0}\n'
+        ']'
+    ) if include_context else (
+        '[\n'
+        '  {"sentence_zh": "含目标词的句子", "target_word": "词汇", "article_idx": 0}\n'
+        ']'
+    )
 
     extra = dict(progress_extra or {})
     base_done = extra.get("words_done", 0)
@@ -1425,28 +1483,20 @@ def generate_briefing_sentences(
 
 规则：
 - 摘要按句子输出为 JSON 数组，数组顺序就是阅读顺序
-- 不是每句话都要包含目标词汇：目标词句子之间【最多插入一个】不含目标词的上下文句子，
-  用来交代事实、数字和背景，让摘要自然连贯——绝对不允许连续出现两个或以上不含目标词的上下文句子
-- 因此句子总数不能超过目标词数量的两倍
+{context_rule}
 - 一句话最多包含一个目标词汇
 - 【难度控制，严格遵守】含目标词汇的句子长度为8到18个字，其中除目标词外只允许
-  HSK 1-{max_hsk} 的词汇——这是学习者自己选择的难度上限，超纲词会让句子无法学习。
-  如果某个事实需要更难的词才能表达，把它放进上下文句子里，目标句只保留简单的部分
-{fact_rule}
-- 上下文句子【不受 HSK 词汇限制】——它最终会被翻译成德文显示在卡片正面，可以自由
-  使用专有名词、数字和任何词汇来准确传达事实；长度保持一两句话的合理范围即可
+  HSK 1-{max_hsk} 的词汇——这是学习者自己选择的难度上限，超纲词会让句子无法学习。{hsk_overflow_rule}
+{fact_rule}{context_hsk_rule}
 - 所有输出只用简体中文，绝对不要出现繁体字
 - 不要使用markdown格式
 - article_idx 是该句子所涉及的{noun}编号（上面的 0 开始编号）
-- target_word 是该句包含的目标词汇原文；不含目标词的上下文句子填 null
+- target_word 是该句包含的目标词汇原文{context_target_word_note}
 {order_rule}
 {extra_hint}
 
 仅返回如下JSON数组，不加任何其他文字：
-[
-  {{"sentence_zh": "上下文句子", "target_word": null, "article_idx": 0}},
-  {{"sentence_zh": "含目标词的句子", "target_word": "词汇", "article_idx": 0}}
-]"""
+{example_block}"""
 
     sentences: list[dict] = []
     remaining = list(cards)
@@ -1482,7 +1532,7 @@ def generate_briefing_sentences(
         # call, on whichever attempt first produces parseable JSON.
         if not validation_retried:
             validation_retried = True
-            issues = validate_briefing_items(items, expected_cards)
+            issues = validate_briefing_items(items, expected_cards, include_context=include_context)
             if issues:
                 logger.warning("briefing attempt %d: validation issues, retrying once: %s",
                                attempt + 1, issues)
@@ -1497,7 +1547,7 @@ def generate_briefing_sentences(
                     try:
                         retry_items = json.loads(retry_raw[r_start:r_end])
                         items = retry_items
-                        remaining_issues = validate_briefing_items(items, expected_cards)
+                        remaining_issues = validate_briefing_items(items, expected_cards, include_context=include_context)
                         if remaining_issues:
                             logger.warning(
                                 "briefing: validation issues persist after retry (accepting with "
@@ -1510,7 +1560,7 @@ def generate_briefing_sentences(
                                    "keeping original attempt")
                 # Fallback repair: collapse any remaining consecutive context runs
                 # to their last sentence — safe no-op if already valid.
-                items = _dedupe_consecutive_briefing_context(items, expected_cards)
+                items = _dedupe_consecutive_briefing_context(items, expected_cards, include_context=include_context)
 
         # AI fact-check against the source articles (issue #454) — runs once,
         # right after Python validation and before any translation. On issues,
@@ -1534,7 +1584,7 @@ def generate_briefing_sentences(
                 if fc_r_start != -1 and fc_r_end != 0:
                     try:
                         fc_retry_items = json.loads(fc_retry_raw[fc_r_start:fc_r_end])
-                        items = _dedupe_consecutive_briefing_context(fc_retry_items, expected_cards)
+                        items = _dedupe_consecutive_briefing_context(fc_retry_items, expected_cards, include_context=include_context)
                         second_fc_issues = fact_check_briefing(articles, items, model, generic=generic)
                         if second_fc_issues:
                             logger.warning(
