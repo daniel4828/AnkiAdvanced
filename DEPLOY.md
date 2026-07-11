@@ -51,10 +51,13 @@ sudo ufw status
 ### Python
 
 ```bash
-sudo apt install -y python3 python3-venv python3-pip lsof git sqlite3
+sudo apt install -y python3 python3-venv python3-pip lsof git sqlite3 ffmpeg
 ```
 
-（`lsof` 供 `run.sh` 清理 8000 端口使用；`sqlite3` CLI 供备份 `.backup` 命令使用。）
+（`lsof` 供 `run.sh` 清理 8000 端口使用；`sqlite3` CLI 供备份 `.backup` 命令使用；
+`ffmpeg` 供播客 Whisper 音频转录回退使用——issue #485，`@shengfm` 频道无字幕时
+把下载的音频转码/分段后送 OpenAI 转录；缺失时该功能只记警告并跳过，不影响
+其余功能。）
 
 ### Caddy（反向代理 + 自动 HTTPS）
 

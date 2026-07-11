@@ -5,7 +5,8 @@ AI, find a Spotify link, and email a notification.
 Style follows news_fetcher.py: mostly-pure functions + logger, one module for
 the whole pipeline. The one heavier dependency is yt-dlp (requirements.txt),
 used purely for metadata + subtitle URL extraction (skip_download=True — no
-video/audio is ever downloaded).
+video/audio is ever downloaded), except for the Whisper fallback (#485)
+below, which does download (and always deletes) a low-bitrate audio track.
 """
 from __future__ import annotations
 
@@ -14,7 +15,10 @@ import json
 import logging
 import os
 import re
+import shutil
 import smtplib
+import subprocess
+import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -41,6 +45,13 @@ _ZH_LANG_CANDIDATES = ("zh-Hans", "zh-CN", "zh", "zh-Hant", "zh-TW", "zh-HK")
 # current pages more reliably expose "externalId"/"browseId". Try them in
 # order and take the first match.
 _CHANNEL_ID_RE = re.compile(r'"(?:channelId|externalId|browseId)":"(UC[\w-]+)"')
+
+# Whisper fallback (#485) cost guardrails and tuning. @shengfm has captions
+# disabled entirely, so this is the only way to get a transcript for that
+# channel — but audio downloads + OpenAI transcription cost real money, so
+# we keep the segments small and refuse anything absurdly long.
+_WHISPER_MAX_AUDIO_SECONDS = 3 * 60 * 60  # 3h — guards against a mislabeled/huge video
+_WHISPER_SEGMENT_SECONDS = 20 * 60  # 20min segments stay well under OpenAI's 25MB upload cap
 
 
 def _http_get(url: str, timeout: int = 20) -> bytes:
@@ -159,12 +170,112 @@ def _json3_to_text(data: dict) -> str:
     return " ".join(lines)
 
 
+def _transcribe_audio(video_id: str) -> str | None:
+    """Whisper fallback (#485) for channels with captions disabled entirely
+    (e.g. @shengfm): download the lowest-bitrate audio track with yt-dlp,
+    transcode+segment it with ffmpeg, and transcribe each segment via
+    OpenAI's audio.transcriptions endpoint.
+
+    Returns None when a prerequisite is simply missing (ffmpeg not installed,
+    OPENAI_API_KEY not set) — that's a config choice, not a failure. Raises on
+    cost-guardrail violations or actual transcription failure; fetch_transcript
+    logs those and falls back to the pre-#485 no_transcript behavior either way
+    (issue #485: any fallback failure keeps the old behavior).
+    """
+    if not shutil.which("ffmpeg"):
+        logger.warning("podcast: ffmpeg not found, skipping Whisper fallback for %s", video_id)
+        return None
+    if not os.environ.get("OPENAI_API_KEY"):
+        logger.warning("podcast: OPENAI_API_KEY not set, skipping Whisper fallback for %s", video_id)
+        return None
+
+    import yt_dlp
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        url = f"https://www.youtube.com/watch?v={video_id}"
+        ydl_opts = {
+            "format": "worstaudio[abr>=32]/worstaudio",
+            "outtmpl": os.path.join(tmp_dir, "audio.%(ext)s"),
+            "quiet": True,
+            "no_warnings": True,
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+
+        duration = info.get("duration") or 0
+        if duration > _WHISPER_MAX_AUDIO_SECONDS:
+            raise ValueError(
+                f"podcast: audio for {video_id} is {duration / 3600:.1f}h, exceeds the "
+                f"{_WHISPER_MAX_AUDIO_SECONDS / 3600:.0f}h Whisper cost guardrail"
+            )
+
+        downloaded = next((f for f in os.listdir(tmp_dir) if f.startswith("audio.")), None)
+        if not downloaded:
+            raise RuntimeError(f"podcast: yt-dlp did not produce an audio file for {video_id}")
+        src_path = os.path.join(tmp_dir, downloaded)
+
+        # Transcode to 16kHz mono ~32kbps mp3 in one ffmpeg pass. For audio
+        # over the segment length, split directly during transcoding
+        # (-f segment) so each part stays comfortably under OpenAI's 25MB cap.
+        if duration > _WHISPER_SEGMENT_SECONDS:
+            cmd = [
+                "ffmpeg", "-y", "-i", src_path,
+                "-ar", "16000", "-ac", "1", "-b:a", "32k",
+                "-f", "segment", "-segment_time", str(_WHISPER_SEGMENT_SECONDS),
+                os.path.join(tmp_dir, "seg_%03d.mp3"),
+            ]
+        else:
+            cmd = [
+                "ffmpeg", "-y", "-i", src_path,
+                "-ar", "16000", "-ac", "1", "-b:a", "32k",
+                os.path.join(tmp_dir, "seg_000.mp3"),
+            ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise RuntimeError(f"podcast: ffmpeg failed for {video_id}: {result.stderr[-500:]}")
+
+        segments = sorted(f for f in os.listdir(tmp_dir) if f.startswith("seg_") and f.endswith(".mp3"))
+        if not segments:
+            raise RuntimeError(f"podcast: ffmpeg produced no audio segments for {video_id}")
+
+        import openai
+        client = openai.OpenAI()
+        texts: list[str] = []
+        for seg_name in segments:
+            seg_path = os.path.join(tmp_dir, seg_name)
+            text = None
+            for attempt in range(2):  # one retry on transient failure
+                try:
+                    with open(seg_path, "rb") as f:
+                        resp = client.audio.transcriptions.create(
+                            model="gpt-4o-mini-transcribe", file=f, language="zh",
+                        )
+                    text = resp.text
+                    break
+                except Exception as e:
+                    logger.warning(
+                        "podcast: Whisper transcription failed (attempt %d) for %s/%s: %s",
+                        attempt + 1, video_id, seg_name, e,
+                    )
+            if text is None:
+                raise RuntimeError(f"podcast: Whisper transcription failed twice for {video_id}/{seg_name}")
+            texts.append(text.strip())
+
+        transcript = " ".join(t for t in texts if t)
+        logger.info(
+            "podcast: Whisper fallback transcribed %s (%d segment(s), %.0fmin)",
+            video_id, len(segments), duration / 60,
+        )
+        return transcript or None
+
+
 def fetch_transcript(video_id: str) -> tuple[str | None, dict]:
     """Download the Chinese transcript for a video via yt-dlp (metadata only,
     no video/audio download). Manual captions are preferred over automatic
     ones. Returns (transcript_text_or_None, meta) — meta always has at least
-    'title'. transcript is None when no Chinese captions exist at all
-    (caller stores status='no_transcript').
+    'title'. transcript is None when no Chinese captions exist at all AND
+    the Whisper audio fallback (#485) is disabled/unavailable/fails (caller
+    stores status='no_transcript' in that case).
     """
     import yt_dlp
 
@@ -178,26 +289,48 @@ def fetch_transcript(video_id: str) -> tuple[str | None, dict]:
     manual = info.get("subtitles") or {}
     auto = info.get("automatic_captions") or {}
     tracks = _pick_caption_track(manual) or _pick_caption_track(auto)
-    if not tracks:
+    transcript = None
+    if tracks:
+        # Prefer json3 (structured, easy to dedupe); fall back to any available format.
+        track = next((t for t in tracks if t.get("ext") == "json3"), tracks[0])
+        try:
+            raw = _http_get(track["url"], timeout=30)
+            if track.get("ext") == "json3":
+                transcript = _json3_to_text(json.loads(raw))
+            else:
+                # Best-effort plain-text fallback for non-json3 formats (vtt/srv3):
+                # strip tags/timestamps, keep the rest.
+                text = raw.decode("utf-8", errors="replace")
+                text = re.sub(r"<[^>]+>", " ", text)
+                text = re.sub(r"^\s*\d+\s*$", "", text, flags=re.MULTILINE)
+                text = re.sub(r"\d{2}:\d{2}:\d{2}[.,]\d{3}.*", "", text)
+                transcript = re.sub(r"\s+", " ", text).strip()
+        except (urllib.error.URLError, json.JSONDecodeError, KeyError) as e:
+            logger.warning("podcast: caption download failed for %s: %s", video_id, e)
+            transcript = None
+    else:
         logger.info("podcast: no Chinese captions for %s", video_id)
+
+    if transcript:
+        return transcript, meta
+
+    # No usable captions (missing or download failed) — try the Whisper
+    # audio fallback (#485) unless disabled via config or dev mode.
+    cfg = database.get_podcast_config()
+    whisper_enabled = cfg.get("whisper_fallback", "1") in ("1", "true", "True")
+    if not whisper_enabled:
         return None, meta
 
-    # Prefer json3 (structured, easy to dedupe); fall back to any available format.
-    track = next((t for t in tracks if t.get("ext") == "json3"), tracks[0])
+    from routes.utils import DISABLE_AI
+    if DISABLE_AI:
+        # Dev mode must never trigger a paid audio download/transcription.
+        logger.info("podcast: DISABLE_AI set, skipping Whisper fallback for %s", video_id)
+        return None, meta
+
     try:
-        raw = _http_get(track["url"], timeout=30)
-        if track.get("ext") == "json3":
-            transcript = _json3_to_text(json.loads(raw))
-        else:
-            # Best-effort plain-text fallback for non-json3 formats (vtt/srv3):
-            # strip tags/timestamps, keep the rest.
-            text = raw.decode("utf-8", errors="replace")
-            text = re.sub(r"<[^>]+>", " ", text)
-            text = re.sub(r"^\s*\d+\s*$", "", text, flags=re.MULTILINE)
-            text = re.sub(r"\d{2}:\d{2}:\d{2}[.,]\d{3}.*", "", text)
-            transcript = re.sub(r"\s+", " ", text).strip()
-    except (urllib.error.URLError, json.JSONDecodeError, KeyError) as e:
-        logger.warning("podcast: caption download failed for %s: %s", video_id, e)
+        transcript = _transcribe_audio(video_id)
+    except Exception as e:
+        logger.warning("podcast: Whisper fallback failed for %s: %s", video_id, e)
         return None, meta
 
     return (transcript or None), meta
