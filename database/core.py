@@ -497,6 +497,14 @@ def init_db() -> None:
             conn.execute(
                 "INSERT OR IGNORE INTO podcast_config (key, value) VALUES (?, ?)", (k, v))
         conn.commit()
+
+    # whisper_fallback seeding (issue #485): added after podcast_config already
+    # existed in production, so it can't rely on the "table just created"
+    # branch above — INSERT OR IGNORE unconditionally on every startup so
+    # existing installs (including production) pick it up without a migration.
+    conn.execute(
+        "INSERT OR IGNORE INTO podcast_config (key, value) VALUES ('whisper_fallback', '1')")
+    conn.commit()
     conn.close()
 
 

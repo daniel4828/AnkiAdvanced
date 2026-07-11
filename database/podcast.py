@@ -15,7 +15,7 @@ from .core import get_db
 
 # Keys the crawler/UI is allowed to read or write. Kept in one place so
 # routes/podcast.py's PUT endpoint can validate against the same whitelist.
-CONFIG_KEYS = ("channel_url", "email_to", "detail_level", "enabled", "channel_id")
+CONFIG_KEYS = ("channel_url", "email_to", "detail_level", "enabled", "channel_id", "whisper_fallback")
 
 
 def get_podcast_config() -> dict:

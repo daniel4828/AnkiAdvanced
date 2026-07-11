@@ -149,6 +149,15 @@ YouTube 频道（`podcast_config.channel_url`，默认 `@shengfm`）有没有新
 重复处理。风格与 `morning_pregen.py` 一致：纯标准库，不需要安装依赖（服务
 器端需要 `yt-dlp`，已在 `requirements.txt` 里）。
 
+**Whisper 音频转录回退（issue #485）：** `@shengfm` 频道没有任何字幕（人工/
+自动都关闭），所以字幕下载总是失败。`podcast_config.whisper_fallback`
+（默认 `1`）开启时，无字幕会触发音频回退：`yt-dlp` 下载最低码率音频到临时
+目录 → `ffmpeg` 转 16kHz 单声道 32kbps mp3（超过 20 分钟按段切分）→ 逐段调
+用 OpenAI `gpt-4o-mini-transcribe`（需要 `OPENAI_API_KEY`）转录后拼接。音频
+用完立即删除；单集超过 3 小时会被成本护栏跳过。**服务器需要安装
+`ffmpeg`**（`apt install ffmpeg`）——缺失时只记警告并跳过回退，不会崩溃。
+`DISABLE_AI=1`（开发模式）下永远不会触发这个回退，避免烧钱。
+
 用法与环境变量同 `morning_pregen.py`（`BASE_URL`/`AUTH_USERNAME`/`AUTH_PASSWORD`）。
 另外邮件发送需要 SMTP 环境变量（`SMTP_HOST`/`SMTP_PORT`/`SMTP_USERNAME`/
 `SMTP_PASSWORD`/`SMTP_FROM`/`PUBLIC_BASE_URL`，见 CLAUDE.md 环境变量表）——

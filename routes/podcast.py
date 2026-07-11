@@ -41,6 +41,7 @@ class PodcastConfigUpdate(BaseModel):
     enabled: str | None = None
     email_to: str | None = None
     channel_url: str | None = None
+    whisper_fallback: str | None = None
 
 
 @router.get("/api/podcast/config")
