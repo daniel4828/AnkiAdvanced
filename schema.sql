@@ -578,3 +578,15 @@ CREATE TABLE IF NOT EXISTS podcast_config (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+
+-- Podcast source list (issue #502): replaces podcast_config.feeds (a plain
+-- JSON array with no per-feed settings) with one row per RSS feed, so each
+-- source can be toggled between fully-automatic processing and manual
+-- (metadata-only ingestion, transcription triggered per-episode from the UI).
+CREATE TABLE IF NOT EXISTS podcast_feeds (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    url          TEXT NOT NULL UNIQUE,   -- RSS feed URL
+    title        TEXT,                   -- RSS channel <title>, fetched on add
+    auto_process INTEGER NOT NULL DEFAULT 0,  -- 1 = new episodes are transcribed+summarized automatically
+    created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+);

@@ -535,6 +535,31 @@ def init_db() -> None:
     )
     conn.commit()
 
+    # podcast_feeds migration (issue #502): one-time move of the JSON array
+    # in podcast_config.feeds into the new per-feed table (per-feed
+    # auto_process toggle). Idempotent: only runs while podcast_feeds is
+    # still empty, so it never re-inserts/duplicates on later startups (and
+    # never overwrites feeds added/edited via the UI afterwards). Daniel's
+    # existing 声动早咖啡 subscription (ximalaya) keeps its current
+    # fully-automatic behavior; any other legacy feed defaults to manual.
+    # title is left NULL here (no network request at startup) — the next
+    # crawl (fetch_new_videos) backfills it from the RSS channel <title>.
+    feeds_row_count = conn.execute("SELECT COUNT(*) FROM podcast_feeds").fetchone()[0]
+    if feeds_row_count == 0:
+        try:
+            legacy_feeds = json.loads(conn.execute(
+                "SELECT value FROM podcast_config WHERE key = 'feeds'"
+            ).fetchone()[0])
+        except (TypeError, ValueError, AttributeError):
+            legacy_feeds = []
+        for url in legacy_feeds:
+            auto_process = 1 if "ximalaya" in url else 0
+            conn.execute(
+                "INSERT OR IGNORE INTO podcast_feeds (url, auto_process) VALUES (?, ?)",
+                (url, auto_process),
+            )
+        conn.commit()
+
     # podcast_episodes column migrations (issue #486 transcript_source; #497
     # audio_url/duration_seconds for the RSS-direct pipeline).
     if "podcast_episodes" in existing:

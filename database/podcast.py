@@ -1,6 +1,8 @@
-"""Podcast crawler storage (issues #479, #497, #498): episodes discovered
-from podcast RSS feeds + a small key-value config table (feed list,
-notification email, summary detail level, enabled flag).
+"""Podcast crawler storage (issues #479, #497, #498, #502): episodes
+discovered from podcast RSS feeds (podcast_feeds, one row per source, #502)
++ a small key-value config table (notification email, summary detail level,
+enabled flag; the legacy `feeds` key is unused since #502 but kept for
+backward compat, see database/core.py's one-time migration).
 
 All SQL for the podcast feature lives here — podcast.py (the crawler logic)
 and routes/podcast.py only call into this module.
@@ -46,6 +48,71 @@ def set_podcast_config(key: str, value: str) -> None:
         "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         (key, value),
     )
+    conn.commit()
+    conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Feeds (issue #502)
+# ---------------------------------------------------------------------------
+
+def list_feeds() -> list[dict]:
+    """All configured RSS feeds, oldest-added first (created_at ASC) so the
+    list order stays stable as new feeds are appended, with each feed's
+    stored episode count attached."""
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT f.*, COUNT(e.id) AS episode_count
+           FROM podcast_feeds f
+           LEFT JOIN podcast_episodes e ON e.channel_id = f.url
+           GROUP BY f.id
+           ORDER BY f.created_at, f.id"""
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_feed(feed_id: int) -> dict | None:
+    conn = get_db()
+    row = conn.execute("SELECT * FROM podcast_feeds WHERE id = ?", (feed_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def create_feed(url: str, title: str | None = None, auto_process: int = 0) -> int:
+    """Insert a new feed row. Raises sqlite3.IntegrityError (caller/route
+    turns it into a 400) if `url` is already subscribed (UNIQUE constraint)."""
+    conn = get_db()
+    cur = conn.execute(
+        "INSERT INTO podcast_feeds (url, title, auto_process) VALUES (?, ?, ?)",
+        (url, title, int(auto_process)),
+    )
+    conn.commit()
+    feed_id = cur.lastrowid
+    conn.close()
+    return feed_id
+
+
+def update_feed(feed_id: int, **fields) -> None:
+    """Generic column update for a feed (title/auto_process)."""
+    if not fields:
+        return
+    conn = get_db()
+    set_clause = ", ".join(f"{k} = ?" for k in fields)
+    conn.execute(
+        f"UPDATE podcast_feeds SET {set_clause} WHERE id = ?",
+        (*fields.values(), feed_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def delete_feed(feed_id: int) -> None:
+    """Remove a feed's subscription row. Episodes already ingested from it
+    are left in place as history (channel_id keeps pointing at the feed URL,
+    which no longer resolves to a podcast_feeds row)."""
+    conn = get_db()
+    conn.execute("DELETE FROM podcast_feeds WHERE id = ?", (feed_id,))
     conn.commit()
     conn.close()
 
@@ -144,19 +211,25 @@ def get_episode(episode_id: int) -> dict | None:
     return _hydrate(row) if row else None
 
 
-def list_episodes(limit: int = 100) -> list[dict]:
-    """Episode list without the transcript full text (kept out for payload size)."""
+def list_episodes(limit: int = 100, feed_url: str | None = None) -> list[dict]:
+    """Episode list without the transcript full text (kept out for payload
+    size). `feed_url` (#502, the podcast_feeds.url / episode's channel_id)
+    optionally restricts the list to one source, for the per-feed episode
+    list view."""
     conn = get_db()
-    rows = conn.execute(
-        """SELECT id, video_id, channel_id, title, published_at, youtube_url, spotify_url,
-                  summary_de, hsk_words, detail_level, status, error, email_sent_at, created_at,
-                  transcript_source,
-                  (transcript_zh IS NOT NULL AND transcript_zh != '') AS has_transcript
-           FROM podcast_episodes
-           ORDER BY COALESCE(published_at, created_at) DESC, id DESC
-           LIMIT ?""",
-        (limit,),
-    ).fetchall()
+    query = """SELECT id, video_id, channel_id, title, published_at, youtube_url, spotify_url,
+                      audio_url, duration_seconds,
+                      summary_de, hsk_words, detail_level, status, error, email_sent_at, created_at,
+                      transcript_source,
+                      (transcript_zh IS NOT NULL AND transcript_zh != '') AS has_transcript
+               FROM podcast_episodes"""
+    params: list = []
+    if feed_url:
+        query += " WHERE channel_id = ?"
+        params.append(feed_url)
+    query += " ORDER BY COALESCE(published_at, created_at) DESC, id DESC LIMIT ?"
+    params.append(limit)
+    rows = conn.execute(query, params).fetchall()
     conn.close()
     return [_hydrate(r) for r in rows]
 

@@ -138,7 +138,7 @@ Daniel 在中国需要 VPN 访问 GitHub。`gh` 命令报 `EOF` 错误时（`cur
 ├── importer.py            # YAML 词汇导入器（中文 + 法语格式）
 ├── ai.py                  # AI 提供商调用（每种提示词类型一个函数）
 ├── news_fetcher.py        # 新闻抓取（Tagesschau API + RSS；按天缓存 data/news_cache/）
-├── podcast.py              # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、转录链听悟主力+Whisper保底+NotebookLM可选（#498/#485/#486）、AI 德语摘要+HSK生词、邮件通知
+├── podcast.py              # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、每源 auto_process 开关+非自动源只入库元数据（#502，podcast_feeds 表）、转录链听悟主力+Whisper保底+NotebookLM可选（#498/#485/#486）、AI 德语摘要+HSK生词、邮件通知
 ├── tts.py                 # edge-tts 封装
 ├── translator.py          # 翻译（Google Translate，deep-translator，可选）
 ├── yaml_fixer.py          # 修复 AI 生成的格式错误 YAML
@@ -304,12 +304,14 @@ GET  /api/tts-file ；POST /api/preload ；POST /api/preload-session/{deck_id}/{
 GET  /api/tts-progress/{deck_id}/{category} ；GET /api/story-progress/{deck_id}/{category}
 GET  /api/news/status                                → 当日新闻缓存状态 {cached, count}
 
-# 播客爬虫（#479，仅后端；复习模式/设置界面见后续议题）
+# 播客爬虫（#479）+ 播客管理页（#502）
 POST /api/podcast/check                              → 跑一轮抓取，返回汇总 {new, summarized, emailed, failed}
-GET  /api/podcast/episodes                            → 列表（不含转录全文）
+GET  /api/podcast/episodes                            → 列表（不含转录全文；?feed_id= 按源过滤；手动处理中的单集 status 显示为 processing）
 GET  /api/podcast/episodes/{id}                       → 详情（摘要 + 转录 + HSK 生词）
-POST /api/podcast/episodes/{id}/retry                 → 重跑失败单集（仅 error/no_transcript；#491）
-GET/PUT /api/podcast/config                           → 读/改设置（feeds/email_to/detail_level/enabled/transcriber/whisper_max_minutes；whisper_fallback、channel_url、channel_id、whisper_title_filter 已废弃但兼容，#497）
+POST /api/podcast/episodes/{id}/retry                 → 同步重跑单集（error/no_transcript/pending；#491/#500）
+POST /api/podcast/episodes/{id}/process               → 手动触发单集转录+摘要（后台线程，立即返回；重复提交 409；#502）
+GET/POST /api/podcast/feeds ；PUT/DELETE /api/podcast/feeds/{id} → RSS 源管理（#502；POST 抓取验证并提取节目标题；PUT 改 auto_process/title）
+GET/PUT /api/podcast/config                           → 读/改设置（email_to/detail_level/enabled/transcriber/whisper_max_minutes；feeds 已迁到 podcast_feeds 表（#502），whisper_fallback、channel_url、channel_id、whisper_title_filter 已废弃但兼容，#497）
 
 # 其他
 POST /api/import                                     → 触发 YAML 导入
