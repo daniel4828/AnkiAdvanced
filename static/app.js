@@ -4094,17 +4094,21 @@ function loadCard(c, counts) {
         const sentFront = document.getElementById('sentence-front');
         if (sentFront.style.display !== 'none') sentFront.innerHTML = renderSentence();
       } else if (isCloze) {
-        // Word bank: sentence just loaded — update hint and rebuild token bank
+        // Word bank: sentence just loaded — update hint text and rebuild token bank.
+        // Visibility (hidden unless "always show translation" is on) is controlled
+        // by toggleCreatingFrontTranslation() / the t key, not here (#515).
         const enFront = document.getElementById('sentence-en-front');
-        enFront.style.display = 'flex';
         enFront.textContent = sentence.sentence_de || sentence.sentence_fr || sentence.sentence_en || '';
+        enFront.style.display = _alwaysTranslation && enFront.textContent ? 'block' : 'none';
+        _syncFrontTransToggle();
         if (document.getElementById('word-bank-wrap').style.display !== 'none') {
           renderWordBankUI();
         }
       } else if (isCreating && isSentenceNt) {
-        // Sentence notes: update English prompt
+        // Sentence notes: update translation prompt text (visibility unchanged here).
         const inp = document.getElementById('sentence-en-front');
-        if (inp.style.display !== 'none') inp.textContent = sentence.sentence_de || sentence.sentence_fr || '';
+        inp.textContent = sentence.sentence_de || sentence.sentence_fr || '';
+        _syncFrontTransToggle();
       }
     };
     // In unfinished "existing story" mode, only fetch a cached story (never generate).
@@ -4282,8 +4286,12 @@ function showFront() {
   sentFront.onclick = _sentClickable ? () => window.open(_sourceUrl, '_blank', 'noopener') : null;
   _renderNewsFront();
 
-  // Creating: show English hint + appropriate input
-  document.getElementById('sentence-en-front').style.display   = isCreating ? 'flex' : 'none';
+  // Creating: show translation row + appropriate input. The translation text
+  // itself starts hidden (no blur-on-hover any more, #515) — press t to reveal
+  // it, or tap the 🇩🇪 button on mobile; shown by default only when the
+  // persistent "always show translation" preference is on.
+  document.getElementById('sentence-en-front-row').style.display = isCreating ? 'flex' : 'none';
+  document.getElementById('sentence-en-front').style.display     = 'none';
   document.getElementById('creating-input-wrap').style.display = (isCreating && !isCloze) ? 'flex' : 'none';
   document.getElementById('word-bank-wrap').style.display      = isCloze ? 'flex' : 'none';
   if (isCloze) _initWordBankSlider();
@@ -4338,6 +4346,11 @@ function showFront() {
       userInput = '';
       renderWordBankUI();
     }
+    // Default visibility: shown when "always show translation" is on, else hidden
+    // (press t to toggle, or tap the 🇩🇪 button on mobile).
+    const _enFront = document.getElementById('sentence-en-front');
+    _enFront.style.display = (_alwaysTranslation && _enFront.textContent) ? 'block' : 'none';
+    _syncFrontTransToggle();
   }
 
   // Rename reveal button for creating
@@ -6020,8 +6033,38 @@ function setAlwaysTranslation(on) {
     const de = document.getElementById('sentence-de');
     if (fr.textContent) fr.style.display = '';
     if (de.textContent) de.style.display = '';
+    const enFront = document.getElementById('sentence-en-front');
+    if (enFront.textContent) enFront.style.display = 'block';
   }
   _syncTransEye();
+  _syncFrontTransToggle();
+}
+
+// ── Creating-mode front translation toggle (replaces the old blur-on-hover, #515) ──
+// Same shortcut ('t') and persistent "always show" preference as the back-side
+// toggle above — pressing t on the front (creating mode, card not flipped) or
+// tapping the 🇩🇪 button (mobile, no keyboard) shows/hides this element only.
+function toggleCreatingFrontTranslation() {
+  const front = document.getElementById('sentence-en-front');
+  if (!front || !front.textContent) return;
+  const show = front.style.display === 'none';
+  front.style.display = show ? 'block' : 'none';
+  // Hiding it while "always show" is on deactivates the preference (mirrors toggleTranslation).
+  if (!show && _alwaysTranslation) {
+    _alwaysTranslation = false;
+    localStorage.setItem('alwaysTranslation', '0');
+  }
+  _syncFrontTransToggle();
+}
+
+// The tap button stays visible at all times in creating mode (it's the only way to
+// reveal the translation on mobile), but highlights when the translation is showing.
+function _syncFrontTransToggle() {
+  const front = document.getElementById('sentence-en-front');
+  const btn   = document.getElementById('sentence-en-front-toggle');
+  if (!btn) return;
+  const visible = !!(front && front.textContent && front.style.display !== 'none');
+  btn.classList.toggle('active', visible);
 }
 
 // ── Creating-mode translation hint toggle (🇬🇧/🇫🇷/🇩🇪) ───────────────────────
@@ -8660,7 +8703,11 @@ document.addEventListener('keydown', async e => {
     } else if (e.key === _key('pinyin')) {
       e.preventDefault(); togglePinyin();
     } else if (e.key === _key('translation')) {
-      e.preventDefault(); toggleTranslation();
+      e.preventDefault();
+      // Front side of a creating-mode card: toggle the front translation hint
+      // instead of the back-side sentence-fr/sentence-de pair (#515).
+      if (!backVisible && category === 'creating') toggleCreatingFrontTranslation();
+      else toggleTranslation();
     } else if (e.key === _key('worddef')) {
       e.preventDefault(); toggleWordDef();
     } else if (e.key === _key('reveal')) {
