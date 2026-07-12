@@ -3107,50 +3107,70 @@ function closeCostModal() {
   document.getElementById('cost-modal').style.display = 'none';
 }
 
-function _formatPurpose(p) {
-  if (!p || p === 'story') return 'Story';
-  if (p.startsWith('hanzi:')) return 'Hanzi ' + p.slice(6);
-  return p.charAt(0).toUpperCase() + p.slice(1);
+function _prettyModel(model) {
+  return model
+    .replace('claude-', '')
+    .replace('-20251001', '')
+    .replace('gpt-5.1', 'GPT-5.1')
+    .replace('gpt-5-mini', 'GPT-5 Mini')
+    .replace('gpt-4o-mini-transcribe', 'Whisper (audio)')
+    .replace('deepseek-v4-flash', 'DeepSeek V4 Flash')
+    .replace('deepseek-v4-pro', 'DeepSeek V4 Pro')
+    .replace('deepseek-chat', 'DeepSeek V3')
+    .replace('deepseek-reasoner', 'DeepSeek R1')
+    .replace('glm-4-flash', 'GLM-4-Flash')
+    .replace('glm-4-air', 'GLM-4-Air')
+    .replace('qwen-turbo', 'Qwen Turbo')
+    .replace('qwen-plus', 'Qwen Plus');
 }
 
 function renderCostModal(data) {
-  const fmt = n => '$' + n.toFixed(4);
-  const fmtFull = n => '$' + n.toFixed(6);
+  const fmt = n => '$' + n.toFixed(2);
+  const fmtCost = n => (n === null || n === undefined) ? '?' : '$' + n.toFixed(4);
 
-  let html = `<div class="cost-total">Total spent <b>${fmt(data.total_cost)}</b></div>`;
+  let html = `<div class="cost-total">
+    <span>Total spent <b>${fmt(data.total_cost)}</b></span>
+    <span>Last 30 days <b>${fmt(data.total_cost_30d)}</b></span>
+  </div>`;
 
-  if (!data.calls.length) {
+  if (data.deepseek_balance) {
+    const b = data.deepseek_balance;
+    const symbol = b.currency === 'CNY' ? '¥' : (b.currency === 'USD' ? '$' : (b.currency + ' '));
+    html += `<div class="cost-balance">DeepSeek balance: ${symbol}${b.balance}</div>`;
+  }
+
+  if (data.unknown_calls > 0) {
+    html += `<div class="cost-warning">⚠ ${data.unknown_calls} call(s) could not be priced ` +
+      `(unknown models: ${data.unknown_models.join(', ')})</div>`;
+  }
+
+  if (!data.groups.length) {
     html += '<div class="cost-empty">No API calls logged yet.</div>';
   } else {
     html += `<table class="cost-table">
       <thead><tr>
-        <th>Date</th><th>Model</th><th>Purpose</th><th>Tokens in / out</th>
-        <th style="text-align:right">Cost</th>
+        <th>Service</th><th>Model</th><th>Calls</th><th>Tokens in / out</th>
+        <th style="text-align:right">Cost (30d)</th><th style="text-align:right">Cost (all)</th>
       </tr></thead><tbody>`;
-    for (const c of data.calls) {
-      const dt = c.called_at.slice(0, 16).replace('T', ' ');
-      const model = c.model
-        .replace('claude-', '')
-        .replace('-20251001', '')
-        .replace('deepseek-v4-flash', 'DeepSeek V4 Flash')
-        .replace('deepseek-v4-pro', 'DeepSeek V4 Pro')
-        .replace('deepseek-chat', 'DeepSeek V3')
-        .replace('deepseek-reasoner', 'DeepSeek R1')
-        .replace('glm-4-flash', 'GLM-4-Flash')
-        .replace('glm-4-air', 'GLM-4-Air')
-        .replace('qwen-turbo', 'Qwen Turbo')
-        .replace('qwen-plus', 'Qwen Plus');
-      const purpose = _formatPurpose(c.purpose);
+    let lastService = null;
+    for (const g of data.groups) {
+      const model = _prettyModel(g.model);
+      const showService = g.service !== lastService;
+      lastService = g.service;
+      const cachedTitle = g.cached_tokens > 0 ? ` title="(${g.cached_tokens.toLocaleString()} cached)"` : '';
       html += `<tr>
-        <td style="color:var(--muted);font-size:12px;white-space:nowrap">${dt}</td>
+        <td>${showService ? g.service : ''}</td>
         <td><span class="cost-model">${model}</span></td>
-        <td style="color:var(--muted);font-size:12px">${purpose}</td>
-        <td class="cost-num" style="color:var(--muted)">${c.input_tokens.toLocaleString()} / ${c.output_tokens.toLocaleString()}</td>
-        <td class="cost-num cost-value">${fmtFull(c.cost)}</td>
+        <td class="cost-num" style="color:var(--muted)">${g.calls.toLocaleString()}</td>
+        <td class="cost-num" style="color:var(--muted)"${cachedTitle}>${g.input_tokens.toLocaleString()} / ${g.output_tokens.toLocaleString()}</td>
+        <td class="cost-num" style="color:var(--muted)">${fmtCost(g.cost_30d)}</td>
+        <td class="cost-num cost-value">${fmtCost(g.cost)}</td>
       </tr>`;
     }
     html += '</tbody></table>';
   }
+
+  html += `<div class="cost-footnote">Prices as of ${data.pricing_as_of} — edit database/stats.py when providers change pricing.</div>`;
 
   document.getElementById('cost-modal-body').innerHTML = html;
 }

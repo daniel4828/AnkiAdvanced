@@ -77,13 +77,18 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str,
         client = anthropic.Anthropic()
         msg = client.messages.create(model=model, max_tokens=max_tokens, messages=messages)
         elapsed = time.time() - t0
-        logger.info("[%s] API call done in %.1fs — in=%d out=%d purpose=%s",
-                    model, elapsed, msg.usage.input_tokens, msg.usage.output_tokens, purpose)
+        cached_tokens = getattr(msg.usage, "cache_read_input_tokens", 0) or 0
+        logger.info("[%s] API call done in %.1fs — in=%d out=%d cached=%d purpose=%s",
+                    model, elapsed, msg.usage.input_tokens, msg.usage.output_tokens, cached_tokens, purpose)
         database.log_api_call(
-            model=msg.model,
+            # Log the requested model id, not msg.model (the API returns a dated
+            # snapshot name like "claude-sonnet-4-6-20260115" that the pricing
+            # table can't match exactly — see database.stats._lookup_pricing).
+            model=model,
             input_tokens=msg.usage.input_tokens,
             output_tokens=msg.usage.output_tokens,
             purpose=purpose,
+            cached_input_tokens=cached_tokens,
         )
         return msg.content[0].text.strip()
     else:
@@ -111,15 +116,28 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str,
         reasoning = getattr(choice.message, "reasoning_content", None)
         reasoning_chars = len(reasoning) if reasoning else 0
 
-        logger.info("[%s] API call done in %.1fs — in=%d out=%d reasoning_chars=%d purpose=%s",
+        # Cache-hit tokens: DeepSeek reports prompt_cache_hit_tokens directly;
+        # OpenAI reports prompt_tokens_details.cached_tokens. Use whichever is
+        # present (nonzero) for this provider — the other is always 0/absent.
+        deepseek_cached = getattr(resp.usage, "prompt_cache_hit_tokens", 0) or 0
+        openai_cached = getattr(
+            getattr(resp.usage, "prompt_tokens_details", None), "cached_tokens", 0
+        ) or 0
+        cached_tokens = deepseek_cached or openai_cached
+
+        logger.info("[%s] API call done in %.1fs — in=%d out=%d cached=%d reasoning_chars=%d purpose=%s",
                     model, elapsed,
                     resp.usage.prompt_tokens, resp.usage.completion_tokens,
-                    reasoning_chars, purpose)
+                    cached_tokens, reasoning_chars, purpose)
         database.log_api_call(
-            model=resp.model,
+            # Log the requested model id, not resp.model (the API returns a
+            # dated snapshot name that the pricing table can't match exactly —
+            # see database.stats._lookup_pricing).
+            model=model,
             input_tokens=resp.usage.prompt_tokens,
             output_tokens=resp.usage.completion_tokens,
             purpose=purpose,
+            cached_input_tokens=cached_tokens,
         )
 
         if choice.finish_reason == "length":
@@ -1834,3 +1852,34 @@ def estimate_story_tokens(num_cards: int) -> int:
     Output: ~75 tokens/card + 100 overhead
     """
     return 200 + 13 * num_cards + 75 * num_cards + 100
+
+
+def get_deepseek_balance() -> dict | None:
+    """Fetch the current DeepSeek account balance (issue #508 — a 'real anchor'
+    shown alongside the estimated cost breakdown in the API Costs modal).
+
+    Returns {"balance": str, "currency": str} or None if the key isn't
+    configured or the request fails for any reason. This is a nice-to-have —
+    it must never raise or block the cost modal from rendering.
+    """
+    api_key = os.environ.get("DEEPSEEK_API_KEY")
+    if not api_key:
+        return None
+    try:
+        import urllib.request
+
+        req = urllib.request.Request(
+            "https://api.deepseek.com/user/balance",
+            headers={"Authorization": f"Bearer {api_key}"},
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read())
+        info = (data.get("balance_infos") or [{}])[0]
+        balance = info.get("total_balance")
+        currency = info.get("currency")
+        if balance is None or currency is None:
+            return None
+        return {"balance": balance, "currency": currency}
+    except Exception as e:
+        logger.debug("get_deepseek_balance failed: %s", e)
+        return None
