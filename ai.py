@@ -1258,6 +1258,20 @@ def validate_briefing_items(items: list[dict], cards: list[dict],
         if s_zh and any(_briefing_word_match(c["word_zh"], s_zh) for c in cards) and len(s_zh) > 18:
             issues.append(f"目标句超过18字（{len(s_zh)}字）：{s_zh}")
 
+    # Context sentences must be a single short clause (issue #511) — long,
+    # multi-clause sentences with several commas were a recurring complaint.
+    # Only checked when context sentences are allowed at all.
+    if include_context:
+        for item in items:
+            s_zh = (item.get("sentence_zh") or "").strip()
+            if not s_zh or any(_briefing_word_match(c["word_zh"], s_zh) for c in cards):
+                continue
+            pause_count = sum(s_zh.count(p) for p in "，、；")
+            if len(s_zh) > 25 or pause_count >= 2:
+                issues.append(
+                    f"上下文句子过长或分句过多，必须是单独一个短句（≤25字，最多一个逗号）："
+                    f"{s_zh}")
+
     return issues
 
 
@@ -1349,6 +1363,99 @@ def fact_check_briefing(articles: list[dict], items: list[dict], model: str,
         return []
 
 
+def _repair_briefing_sentences(articles: list[dict], items: list[dict], issues: list[str],
+                               model: str, generic: bool = False) -> list[dict]:
+    """Targeted repair (issue #511) for sentences flagged by the second
+    fact-check pass, instead of accepting hallucinated sentences wholesale.
+
+    `issues` is the fact_check_briefing() output — strings shaped like
+    "句子N：问题描述", where N is the index into `items`. Parses out the
+    indices, bundles just those sentences (plus their source article text and
+    the fact-check verdict) into ONE repair call, and asks the AI to rewrite
+    only those sentences. Returns a new items list with the rewrites spliced
+    in at their original positions; on any failure (unparseable issues, bad
+    JSON, missing indices) returns `items` unchanged so the caller can fall
+    back to its existing accept-with-warning behavior.
+    """
+    idx_pattern = re.compile(r"句子\s*(\d+)")
+    flagged: dict[int, str] = {}
+    for issue in issues:
+        m = idx_pattern.search(issue)
+        if not m:
+            continue
+        idx = int(m.group(1))
+        if 0 <= idx < len(items):
+            flagged[idx] = issue
+    if not flagged:
+        logger.warning("briefing repair: could not parse sentence indices from issues — "
+                       "skipping repair")
+        return items
+
+    noun = "内容" if generic else "文章"
+    problems_block_parts = []
+    for idx in sorted(flagged):
+        item = items[idx]
+        article_idx = item.get("article_idx")
+        source_text = ""
+        if isinstance(article_idx, int) and 0 <= article_idx < len(articles):
+            source_text = articles[article_idx].get("text", "").strip()
+        problems_block_parts.append(
+            f"句子{idx}（原句）：{item.get('sentence_zh', '')}\n"
+            f"核查意见：{flagged[idx]}\n"
+            f"来源{noun}原文：{source_text}"
+        )
+    problems_block = "\n\n".join(problems_block_parts)
+
+    prompt = f"""任务：下面这些中文句子被事实核查发现有问题（编造了原文没有的细节，或加入了主观评论/情绪/气氛描写）。
+请仅根据各自的来源原文重写每一句，不要引入原文没有的新信息。
+
+{problems_block}
+
+重写要求：
+- 如果原句包含目标词汇（见下方"原句"是否明显在描述一个词），重写后的句子必须保持8到18个字，
+  只使用来源原文明确陈述的事实，原来的目标词必须【原样、恰好出现一次】保留在句子中
+- 如果原句不含目标词汇（上下文句子），重写后必须是单独一个短句，不超过25个字，最多一个逗号
+- 只允许使用来源原文明确陈述的事实，禁止主观评论、情绪、气氛或场景描写
+- 所有输出只用简体中文，不要使用markdown格式
+
+仅返回如下JSON数组（顺序不限，用 idx 标明对应哪一句），不加任何其他文字：
+[
+  {{"idx": {sorted(flagged)[0]}, "sentence_zh": "重写后的句子"}}
+]"""
+
+    try:
+        raw = _call_api(model, [{"role": "user", "content": prompt}], 2048, purpose="briefing_repair")
+        r_start, r_end = raw.find("["), raw.rfind("]") + 1
+        if r_start == -1 or r_end == 0:
+            logger.warning("briefing repair: no JSON array in response — keeping original")
+            return items
+        repaired = json.loads(raw[r_start:r_end])
+    except Exception as e:
+        logger.warning("briefing repair: call/parse failed (%s) — keeping original", e)
+        return items
+
+    new_items = list(items)
+    applied = 0
+    for entry in repaired:
+        if not isinstance(entry, dict):
+            continue
+        idx = entry.get("idx")
+        new_sentence = (entry.get("sentence_zh") or "").strip()
+        if not isinstance(idx, int) or idx not in flagged or not new_sentence:
+            continue
+        replaced = dict(new_items[idx])
+        replaced["sentence_zh"] = new_sentence
+        new_items[idx] = replaced
+        applied += 1
+
+    if applied == 0:
+        logger.warning("briefing repair: response had no usable rewrites — keeping original")
+        return items
+
+    logger.info("briefing repair: rewrote %d/%d flagged sentence(s)", applied, len(flagged))
+    return new_items
+
+
 def generate_briefing_sentences(
     cards: list[dict],
     articles: list[dict],
@@ -1415,10 +1522,16 @@ def generate_briefing_sentences(
     fact_rule = (
         "- 【重要】含目标词汇的句子也必须传达该内容中的一个具体事实（是什么、涉及谁、在哪里、有多少），\n"
         "  读者只看这一句也能学到这部分内容。严禁没有信息量的空洞句子，\n"
-        "  例如\"组织很大。\"\"火箭很快。\"\"它指代。\"\"未知很大。\"这类句子绝对不可以出现" if generic else
+        "  例如\"组织很大。\"\"火箭很快。\"\"它指代。\"\"未知很大。\"这类句子绝对不可以出现\n"
+        "- 【重要】只允许使用原文中明确陈述的事实——禁止添加原文没有的主观评论、情绪、\n"
+        "  气氛或场景描写（例如猜测人物的心情、渲染现场气氛、评价某件事做得好不好）。\n"
+        "  宁可句子写得朴素平实，也绝不可以编造原文没有的细节" if generic else
         "- 【重要】含目标词汇的句子也必须传达该新闻中的一个具体事实（谁、做了什么、在哪里、多少），\n"
         "  读者只看这一句也能学到新闻内容。严禁没有信息量的空洞句子，\n"
-        "  例如\"组织很大。\"\"火箭很快。\"\"它指代。\"\"未知很大。\"这类句子绝对不可以出现")
+        "  例如\"组织很大。\"\"火箭很快。\"\"它指代。\"\"未知很大。\"这类句子绝对不可以出现\n"
+        "- 【重要】只允许使用原文中明确陈述的事实——禁止添加原文没有的主观评论、情绪、\n"
+        "  气氛或场景描写（例如猜测人物的心情、渲染现场气氛、评价某件事做得好不好）。\n"
+        "  宁可句子写得朴素平实，也绝不可以编造原文没有的细节")
     ctx_word = "其上下文句" if include_context else "所有句子"
     order_rule = (
         f"- 【逐段处理】必须按{noun}编号顺序依次处理：先写完{noun}0涉及的所有句子（含{ctx_word}），\n"
@@ -1433,6 +1546,8 @@ def generate_briefing_sentences(
     context_rule = (
         "- 不是每句话都要包含目标词汇：目标词句子之间【最多插入一个】不含目标词的上下文句子，\n"
         "  用来交代事实、数字和背景，让摘要自然连贯——绝对不允许连续出现两个或以上不含目标词的上下文句子\n"
+        "- 只有当下一个目标句确实需要这段背景才能读懂时才插入上下文句子——能省则省，\n"
+        "  不要为了凑数或过渡而硬加\n"
         "- 因此句子总数不能超过目标词数量的两倍"
         if include_context else
         "- 【重要】每一句话都必须恰好包含一个目标词汇——不允许出现任何不含目标词的句子，\n"
@@ -1440,7 +1555,8 @@ def generate_briefing_sentences(
     )
     context_hsk_rule = (
         "\n- 上下文句子【不受 HSK 词汇限制】——它最终会被翻译成德文显示在卡片正面，可以自由\n"
-        "  使用专有名词、数字和任何词汇来准确传达事实；长度保持一两句话的合理范围即可"
+        "  使用专有名词、数字和任何词汇来准确传达事实；但【必须是单独的一个短句】，\n"
+        "  不超过25个字，最多包含一个逗号——绝不能是多个分句拼接而成的长句"
         if include_context else ""
     )
     context_target_word_note = (
@@ -1606,8 +1722,10 @@ def generate_briefing_sentences(
                         second_fc_issues = fact_check_briefing(articles, items, model, generic=generic)
                         if second_fc_issues:
                             logger.warning(
-                                "briefing: fact-check issues persist after retry (accepting): %s",
-                                second_fc_issues)
+                                "briefing: fact-check issues persist after retry, attempting "
+                                "targeted repair: %s", second_fc_issues)
+                            items = _repair_briefing_sentences(
+                                articles, items, second_fc_issues, model, generic=generic)
                     except json.JSONDecodeError as e:
                         logger.warning("briefing: fact-check retry JSON parse error (%s) — "
                                        "keeping original attempt", e)
