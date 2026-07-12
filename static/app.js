@@ -826,6 +826,9 @@ function _triggerClapAnimation() {
 
 function showView(name) {
   if (name === 'done' && _sessionReviewedCount > 0) _triggerClapAnimation();
+  // Leaving the podcast view (#502): stop the episode-list "processing"
+  // poll loop — it has no reason to keep firing once the view isn't visible.
+  if (name !== 'podcast' && typeof _clearPodcastPoll === 'function') _clearPodcastPoll();
   ['loading', 'decks', 'review', 'done', 'browse', 'word-detail', 'hanzi-detail', 'stats', 'settings', 'podcast'].forEach(v => {
     document.getElementById(`view-${v}`).style.display = 'none';
   });
@@ -2692,66 +2695,83 @@ async function savePregenConfig() {
   }
 }
 
-// ── Podcasts (#480) ──────────────────────────────────────────────────────────
-// List view: GET /api/podcast/episodes (no transcript text — kept out for
-// payload size). Detail view: GET /api/podcast/episodes/{id} (full row,
-// including transcript_zh). Settings: GET/PUT /api/podcast/config.
+// ── Podcasts (#480, per-feed manager #502) ──────────────────────────────────
+// Three layers, hash-routed:
+//   #podcast              -> layer 1: feed list (GET /api/podcast/feeds)
+//   #podcast-feed-<id>    -> layer 2: one feed's episodes (GET /api/podcast/episodes?feed_id=)
+//   #podcast-<id>         -> layer 3: episode detail (GET /api/podcast/episodes/{id})
+// Settings: GET/PUT /api/podcast/config (detail_level only — feeds/auto now
+// live in the podcast_feeds table via /api/podcast/feeds).
 const PODCAST_STATUS_LABEL = {
   summarized:    'Summarized',
   no_transcript: 'No transcript',
   error:         'Error',
   pending:       'Pending',
+  processing:    'processing…',
 };
 const PODCAST_STATUS_CLASS = {
   summarized:    'podcast-badge-ok',
   no_transcript: 'podcast-badge-muted',
   error:         'podcast-badge-error',
   pending:       'podcast-badge-pending',
+  processing:    'podcast-badge-pending',
 };
 
+let _podcastFeeds = [];
 let _podcastEpisodes = [];
 let _podcastConfig = null;
+let _podcastCurrentFeedId = null;   // layer 2/3: which feed's episode list we're in
+let _podcastPollTimer = null;       // layer 2: re-poll while any episode is "processing"
+
+function _clearPodcastPoll() {
+  if (_podcastPollTimer) { clearTimeout(_podcastPollTimer); _podcastPollTimer = null; }
+}
+
+// Layer 1: feed list ----------------------------------------------------------
 
 async function openPodcasts() {
-  location.hash = '';
+  location.hash = 'podcast';
+  _clearPodcastPoll();
+  _podcastCurrentFeedId = null;
   setLoading('Loading podcasts…');
   try {
-    const [episodes, config] = await Promise.all([
-      api('GET', '/api/podcast/episodes'),
+    const [feeds, config] = await Promise.all([
+      api('GET', '/api/podcast/feeds'),
       api('GET', '/api/podcast/config'),
     ]);
-    _podcastEpisodes = episodes || [];
+    _podcastFeeds = feeds || [];
     _podcastConfig = config || {};
     showView('podcast');
-    _renderPodcastList();
+    _renderPodcastFeedList();
   } catch (e) {
     showError('Podcasts failed: ' + e.message);
     showView('decks');
   }
 }
 
-function _renderPodcastList() {
+function _renderPodcastFeedList() {
   const el = document.getElementById('view-podcast-content');
   if (!el) return;
   const detailLevel = _podcastConfig?.detail_level || 'medium';
-  const rows = _podcastEpisodes.map(ep => {
-    const date = (ep.published_at || ep.created_at || '').slice(0, 10);
-    const status = ep.status || 'pending';
-    const label = PODCAST_STATUS_LABEL[status] || status;
-    const cls = PODCAST_STATUS_CLASS[status] || 'podcast-badge-muted';
-    const clickable = status === 'summarized';
-    return `<div class="podcast-row${clickable ? ' podcast-row-clickable' : ''}"
-                 ${clickable ? `onclick="openPodcastEpisode(${ep.id})"` : ''}>
-      <span class="podcast-row-title">${_escHtml(ep.title || '(untitled)')}</span>
-      <span class="podcast-row-date">${date}</span>
-      <span class="podcast-badge ${cls}">${label}</span>
-    </div>`;
-  }).join('') || '<div class="keymap-hint">No episodes yet.</div>';
+  const cards = _podcastFeeds.map(f => `
+    <div class="podcast-feed-card">
+      <div class="podcast-feed-card-main" onclick="openPodcastFeed(${f.id})">
+        <span class="podcast-feed-card-title">${_escHtml(f.title || f.url)}</span>
+        <span class="podcast-feed-card-count">${f.episode_count} episode${f.episode_count === 1 ? '' : 's'}</span>
+      </div>
+      <div class="podcast-feed-card-controls">
+        <label class="podcast-feed-auto-toggle">
+          <input type="checkbox" ${f.auto_process ? 'checked' : ''} onchange="_toggleFeedAuto(${f.id}, this.checked)">
+          Auto-process new episodes
+        </label>
+        <button class="btn-secondary podcast-feed-delete" onclick="_deletePodcastFeed(${f.id})">Delete</button>
+      </div>
+    </div>`).join('') || '<div class="keymap-hint">No feeds yet — add one below.</div>';
 
   el.innerHTML = `
     <div class="keymap-panel">
       <h2 class="keymap-heading">Podcasts</h2>
-      <p class="keymap-hint">Weekly episodes crawled from the configured YouTube channel — German summary, HSK vocabulary and Chinese transcript for each.</p>
+      <p class="keymap-hint">RSS feeds crawled hourly for new episodes — German summary, HSK vocabulary and Chinese transcript for each. Auto-process feeds are transcribed+summarized automatically; other feeds only store new episodes' metadata until you pick one to transcribe.</p>
       <div class="keymap-row">
         <span class="keymap-label">Summary detail level</span>
         <select class="opt-input" id="podcast-detail-level" style="flex:1" onchange="_savePodcastDetailLevel(this.value)">
@@ -2762,7 +2782,52 @@ function _renderPodcastList() {
         <span id="podcast-detail-save-msg" style="font-size:12px;color:var(--muted);min-width:60px"></span>
       </div>
     </div>
-    <div class="podcast-list">${rows}</div>`;
+    <div class="podcast-feed-list">${cards}</div>
+    <div class="keymap-panel podcast-add-feed-panel">
+      <h2 class="keymap-heading">Add feed</h2>
+      <div class="keymap-row">
+        <input type="text" class="opt-input" id="podcast-add-feed-url" placeholder="RSS feed URL" style="flex:1">
+        <button class="btn-secondary" onclick="_addPodcastFeed()">Add</button>
+      </div>
+      <span id="podcast-add-feed-msg" style="font-size:12px;color:var(--muted)"></span>
+    </div>`;
+}
+
+async function _toggleFeedAuto(feedId, checked) {
+  try {
+    await api('PUT', `/api/podcast/feeds/${feedId}`, { auto_process: checked });
+    const f = _podcastFeeds.find(x => x.id === feedId);
+    if (f) f.auto_process = checked ? 1 : 0;
+  } catch (e) {
+    showError('Failed to update feed: ' + e.message);
+    _renderPodcastFeedList();
+  }
+}
+
+async function _deletePodcastFeed(feedId) {
+  if (!confirm('Delete this feed? Already-ingested episodes are kept as history.')) return;
+  try {
+    await api('DELETE', `/api/podcast/feeds/${feedId}`);
+    _podcastFeeds = _podcastFeeds.filter(f => f.id !== feedId);
+    _renderPodcastFeedList();
+  } catch (e) {
+    showError('Failed to delete feed: ' + e.message);
+  }
+}
+
+async function _addPodcastFeed() {
+  const input = document.getElementById('podcast-add-feed-url');
+  const msg = document.getElementById('podcast-add-feed-msg');
+  const url = (input?.value || '').trim();
+  if (!url) return;
+  if (msg) msg.textContent = 'Adding…';
+  try {
+    const feed = await api('POST', '/api/podcast/feeds', { url });
+    _podcastFeeds.push({ ...feed, episode_count: 0 });
+    _renderPodcastFeedList();
+  } catch (e) {
+    if (msg) msg.textContent = 'Error: ' + e.message;
+  }
 }
 
 async function _savePodcastDetailLevel(value) {
@@ -2776,11 +2841,98 @@ async function _savePodcastDetailLevel(value) {
   }
 }
 
+// Layer 2: one feed's episode list ---------------------------------------------
+
+async function openPodcastFeed(feedId) {
+  location.hash = `podcast-feed-${feedId}`;
+  _clearPodcastPoll();
+  _podcastCurrentFeedId = feedId;
+  setLoading('Loading episodes…');
+  try {
+    const episodes = await api('GET', `/api/podcast/episodes?feed_id=${feedId}`);
+    _podcastEpisodes = episodes || [];
+    showView('podcast');
+    _renderPodcastEpisodeList();
+    _schedulePodcastPollIfNeeded();
+  } catch (e) {
+    showError('Episodes failed: ' + e.message);
+    openPodcasts();
+  }
+}
+
+function _formatPodcastDuration(seconds) {
+  if (!seconds) return '';
+  return `${Math.round(seconds / 60)} min`;
+}
+
+function _renderPodcastEpisodeList() {
+  const el = document.getElementById('view-podcast-content');
+  if (!el) return;
+  const feed = _podcastFeeds.find(f => f.id === _podcastCurrentFeedId);
+  const rows = _podcastEpisodes.map(ep => {
+    const date = (ep.published_at || ep.created_at || '').slice(0, 10);
+    const status = ep.status || 'pending';
+    const label = PODCAST_STATUS_LABEL[status] || status;
+    const cls = PODCAST_STATUS_CLASS[status] || 'podcast-badge-muted';
+    const clickable = status === 'summarized';
+    const duration = _formatPodcastDuration(ep.duration_seconds);
+    const transcribable = ['pending', 'no_transcript', 'error'].includes(status);
+    const transcribeBtn = transcribable
+      ? `<button class="btn-secondary podcast-transcribe-btn" onclick="event.stopPropagation(); _transcribePodcastEpisode(${ep.id})">Transcribe</button>`
+      : '';
+    return `<div class="podcast-row${clickable ? ' podcast-row-clickable' : ''}"
+                 ${clickable ? `onclick="openPodcastEpisode(${ep.id})"` : ''}>
+      <span class="podcast-row-title">${_escHtml(ep.title || '(untitled)')}</span>
+      <span class="podcast-row-date">${date}</span>
+      ${duration ? `<span class="podcast-row-date">${duration}</span>` : ''}
+      <span class="podcast-badge ${cls}">${label}</span>
+      ${transcribeBtn}
+    </div>`;
+  }).join('') || '<div class="keymap-hint">No episodes yet.</div>';
+
+  el.innerHTML = `
+    <button class="keymap-reset-all" onclick="openPodcasts()">← Podcasts</button>
+    <div class="keymap-panel">
+      <h2 class="keymap-heading">${_escHtml(feed?.title || feed?.url || 'Feed')}</h2>
+    </div>
+    <div class="podcast-list">${rows}</div>`;
+}
+
+async function _transcribePodcastEpisode(episodeId) {
+  try {
+    await api('POST', `/api/podcast/episodes/${episodeId}/process`);
+    const ep = _podcastEpisodes.find(e => e.id === episodeId);
+    if (ep) ep.status = 'processing';
+    _renderPodcastEpisodeList();
+    _schedulePodcastPollIfNeeded();
+  } catch (e) {
+    showError('Failed to start transcription: ' + e.message);
+  }
+}
+
+function _schedulePodcastPollIfNeeded() {
+  _clearPodcastPoll();
+  const hasProcessing = _podcastEpisodes.some(ep => ep.status === 'processing');
+  if (!hasProcessing || _podcastCurrentFeedId == null) return;
+  _podcastPollTimer = setTimeout(async () => {
+    if (_podcastCurrentFeedId == null) return;  // left this view meanwhile
+    try {
+      const episodes = await api('GET', `/api/podcast/episodes?feed_id=${_podcastCurrentFeedId}`);
+      _podcastEpisodes = episodes || [];
+      _renderPodcastEpisodeList();
+      _schedulePodcastPollIfNeeded();
+    } catch (e) { /* transient error — next poll cycle will retry */ }
+  }, 10000);
+}
+
+// Layer 3: episode detail -------------------------------------------------------
+
 async function openPodcastEpisode(id) {
   setLoading('Loading episode…');
   try {
     const ep = await api('GET', `/api/podcast/episodes/${id}`);
     location.hash = `podcast-${id}`;
+    _clearPodcastPoll();
     showView('podcast');
     _renderPodcastDetail(ep);
   } catch (e) {
@@ -2790,7 +2942,11 @@ async function openPodcastEpisode(id) {
 }
 
 function closePodcastDetail() {
-  openPodcasts();
+  if (_podcastCurrentFeedId != null) {
+    openPodcastFeed(_podcastCurrentFeedId);
+  } else {
+    openPodcasts();
+  }
 }
 
 function _renderPodcastDetail(ep) {
@@ -2840,9 +2996,14 @@ function _togglePodcastTranscript() {
   body.style.display = body.style.display === 'none' ? 'block' : 'none';
 }
 
-// Hash direct-link support: emails link to /#podcast-<id>. Called once at
-// boot, after the deck list has loaded, so the podcast view replaces it.
+// Hash direct-link support: emails link to /#podcast-<id> (episode detail).
+// Called once at boot, after the deck list has loaded, so the podcast view
+// replaces it. #podcast-feed-<id> must be checked *before* #podcast-<id> —
+// otherwise the plain episode-detail regex below never gets a chance to
+// reject it, since both start with "#podcast-".
 function _openPodcastFromHash() {
+  const feedMatch = /^#podcast-feed-(\d+)$/.exec(location.hash);
+  if (feedMatch) { openPodcastFeed(parseInt(feedMatch[1])); return; }
   const m = /^#podcast-(\d+)$/.exec(location.hash);
   if (m) openPodcastEpisode(parseInt(m[1]));
 }
@@ -9002,9 +9163,11 @@ async function _loadVersionBadge() {
 }
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
-// Hash direct-link (#480): if the URL already points at a podcast episode
-// (link from an email), open it straight away instead of the deck list.
-if (/^#podcast-\d+$/.test(location.hash)) {
+// Hash direct-link (#480, feed layer #502): if the URL already points at a
+// podcast episode (link from an email) or feed, open it straight away
+// instead of the deck list. #podcast-feed- must be checked first — it also
+// matches the plain #podcast-\d+ shape's prefix.
+if (/^#podcast-feed-\d+$/.test(location.hash) || /^#podcast-\d+$/.test(location.hash)) {
   _openPodcastFromHash();
 } else {
   loadDecks();

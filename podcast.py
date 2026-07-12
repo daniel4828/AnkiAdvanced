@@ -5,8 +5,8 @@ find a Spotify link, and email a notification.
 Style follows news_fetcher.py: mostly-pure functions + logger, one module for
 the whole pipeline.
 
-Source (#497): plain public RSS feeds (podcast_config.feeds, a JSON array of
-feed URLs) — the original YouTube-channel source (#479) was retired because
+Source (#497, feeds moved to the podcast_feeds table in #502): plain public
+RSS feeds — the original YouTube-channel source (#479) was retired because
 YouTube started bot-verifying the server's datacenter IP with no durable
 Cookie fix (#491). RSS gives a direct MP3 enclosure link, so there is no
 audio *download* step for the primary transcription path (Tingwu, #498)
@@ -43,8 +43,12 @@ logger = logging.getLogger(__name__)
 # On a feed's very first crawl (no episodes from that feed in the DB yet)
 # only backfill this many of its most recent episodes — otherwise
 # subscribing to an established feed would try to transcribe/summarize its
-# entire back catalog in one cycle (#497).
-FIRST_RUN_BACKFILL = 3
+# entire back catalog in one cycle (#497). Backfilled episodes are never
+# auto-processed (#502, see _run_check_locked's is_backfill check) — they're
+# metadata-only rows the UI lists for manual transcription — so this can be
+# generous (10, was 3 pre-#502) without risking a burst of paid/slow
+# transcription work on a freshly-added source.
+FIRST_RUN_BACKFILL = 10
 
 # itunes:duration namespace, used to read episode duration straight from the
 # RSS feed (#497) — this is what lets duration-based guardrails/gates run
@@ -138,41 +142,58 @@ def _parse_rss_pubdate(raw: str | None) -> str | None:
 
 def fetch_new_videos() -> list[dict]:
     """Return episodes from the configured podcast RSS feeds
-    (podcast_config.feeds, a JSON array of feed URLs, #497) that aren't in
-    the DB yet. Zero API keys needed — plain public RSS/XML, no bot walls.
+    (podcast_feeds table, #502 — one row per source with its own
+    auto_process flag) that aren't in the DB yet. Zero API keys needed —
+    plain public RSS/XML, no bot walls.
 
     Per feed: if that specific feed has zero episodes in the DB yet, only
-    its latest FIRST_RUN_BACKFILL episodes are returned (backfill mode).
-    Otherwise, RSS items are newest-first by convention, so items are walked
-    from the top and collection *stops at the first already-known guid* —
-    everything older than that was either already ingested or deliberately
-    left out of the initial backfill, and must stay left out forever (else
-    every subsequent crawl of a long-running feed like 声动早咖啡, which has
-    ~1000 back-catalog episodes, would dump the *entire* backlog as "new" in
-    one shot the very next cycle — this was caught by a real backfill+re-run
+    its latest FIRST_RUN_BACKFILL episodes are returned (backfill mode,
+    marked `is_backfill: True`, see below). Otherwise, RSS items are
+    newest-first by convention, so items are walked from the top and
+    collection *stops at the first already-known guid* — everything older
+    than that was either already ingested or deliberately left out of the
+    initial backfill, and must stay left out forever (else every subsequent
+    crawl of a long-running feed like 声动早咖啡, which has ~1000
+    back-catalog episodes, would dump the *entire* backlog as "new" in one
+    shot the very next cycle — this was caught by a real backfill+re-run
     test against both of Daniel's feeds during #497's implementation, not
     just theorized). A feed that fails to fetch/parse is logged and
     skipped — one broken feed must not block the others.
+
+    Each returned dict carries `auto_process` (bool, copied from the feed
+    row) and `is_backfill` (bool, True for episodes discovered on a feed's
+    very first crawl) — `_run_check_locked` uses both to decide whether to
+    immediately transcribe+summarize a newly-discovered episode (#502):
+    only non-backfill episodes from an auto_process feed are processed
+    automatically; everything else is stored metadata-only for manual
+    transcription from the UI.
+
+    If a feed's `title` is still unset (freshly added via the UI, no
+    network request made at add-time), it's backfilled here from the RSS
+    channel's own <title> element.
     """
-    cfg = database.get_podcast_config()
-    try:
-        feeds = json.loads(cfg.get("feeds") or "[]")
-    except (TypeError, ValueError):
-        feeds = []
+    feeds = database.list_feeds()
     if not feeds:
-        logger.warning("podcast: no feeds configured (podcast_config.feeds)")
+        logger.warning("podcast: no feeds configured (podcast_feeds table)")
         return []
 
     known = database.get_known_video_ids()
 
     videos: list[dict] = []
-    for feed_url in feeds:
+    for feed in feeds:
+        feed_url = feed["url"]
         try:
             root = ElementTree.fromstring(_http_get(feed_url, timeout=30))
         except (urllib.error.URLError, ElementTree.ParseError) as e:
             logger.warning("podcast: failed to fetch/parse feed %s: %s", feed_url, e)
             continue
 
+        if not feed.get("title"):
+            channel_title_el = root.find("channel/title")
+            if channel_title_el is not None and channel_title_el.text:
+                database.update_feed(feed["id"], title=channel_title_el.text.strip())
+
+        auto_process = bool(feed.get("auto_process"))
         is_first_run = not database.has_any_episode_for_feed(feed_url)
         feed_videos: list[dict] = []
         for item in root.findall(".//item"):
@@ -205,6 +226,8 @@ def fetch_new_videos() -> list[dict]:
                 "audio_url": audio_url,
                 "duration_seconds": _parse_itunes_duration(
                     duration_el.text if duration_el is not None else None),
+                "auto_process": auto_process,
+                "is_backfill": is_first_run,
             })
             if is_first_run and len(feed_videos) >= FIRST_RUN_BACKFILL:
                 break
@@ -1024,8 +1047,13 @@ def _run_check_locked(cfg: dict) -> dict:
             video.get("audio_url"), video.get("duration_seconds"),
         )
         summary["new"] += 1
-        processed_ids.add(episode_id)
-        _process_episode(episode_id, video, detail_level, summary)
+        # Auto-processing (#502): only immediately transcribe+summarize when
+        # the source feed has auto_process=1 *and* this isn't part of a
+        # feed's first-run backfill — a freshly-subscribed feed's back
+        # catalog is stored metadata-only, transcribed on demand from the UI.
+        if video.get("auto_process") and not video.get("is_backfill"):
+            processed_ids.add(episode_id)
+            _process_episode(episode_id, video, detail_level, summary)
 
     # Auto-retry pass (#491): give recent failures one more chance per cycle,
     # capped at _AUTO_RETRY_PER_CYCLE oldest-first (#495) so a big backlog is
