@@ -30,6 +30,13 @@ DEFAULT_MODEL = "deepseek-v4-flash"
 BRIEFING_MODEL_FALLBACKS = ("gpt-5.1", "gpt-5", "gpt-5-mini")
 _briefing_model_cache: str | None = None
 
+# issue #514: if the OpenAI account runs out of quota mid-run (429
+# insufficient_quota), briefing/paste/podcast calls have no OpenAI fallback
+# model to try (DeepSeek can't be used — it censors news content). Rather
+# than fail the whole pregen key, retry once on Claude for these purposes only.
+_QUOTA_FALLBACK_MODEL = "claude-sonnet-5"
+_QUOTA_FALLBACK_PURPOSES = {"briefing", "briefing_fact_check"}
+
 # Per-session story generation progress: key → {phase, msg, percent, translate_warn?}
 _story_progress: dict[str, dict] = {}
 
@@ -97,19 +104,27 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str,
         if model.startswith("deepseek-"):
             extra["extra_body"] = {"thinking": {"type": "enabled" if thinking else "disabled"}}
             logger.debug("[%s] thinking=%s", model, thinking)
-        if model.startswith("gpt-"):
-            # gpt-5 series (Chat Completions): max_completion_tokens replaces max_tokens
-            # and is shared with internal reasoning tokens; custom temperature is not
-            # supported. reasoning_effort="low" — sentence generation needs no deep
-            # reasoning, and higher efforts can eat the whole token budget.
-            resp = client.chat.completions.create(
-                model=model, max_completion_tokens=max_tokens, messages=messages,
-                reasoning_effort="low",
-            )
-        else:
-            resp = client.chat.completions.create(
-                model=model, max_tokens=max_tokens, messages=messages, **extra
-            )
+        try:
+            if model.startswith("gpt-"):
+                # gpt-5 series (Chat Completions): max_completion_tokens replaces max_tokens
+                # and is shared with internal reasoning tokens; custom temperature is not
+                # supported. reasoning_effort="low" — sentence generation needs no deep
+                # reasoning, and higher efforts can eat the whole token budget.
+                resp = client.chat.completions.create(
+                    model=model, max_completion_tokens=max_tokens, messages=messages,
+                    reasoning_effort="low",
+                )
+            else:
+                resp = client.chat.completions.create(
+                    model=model, max_tokens=max_tokens, messages=messages, **extra
+                )
+        except Exception as e:
+            if (purpose in _QUOTA_FALLBACK_PURPOSES and "insufficient_quota" in str(e)
+                    and model != _QUOTA_FALLBACK_MODEL):
+                logger.warning("[%s] insufficient_quota on purpose=%s — falling back to %s",
+                               model, purpose, _QUOTA_FALLBACK_MODEL)
+                return _call_api(_QUOTA_FALLBACK_MODEL, messages, max_tokens, purpose, thinking)
+            raise
         elapsed = time.time() - t0
         choice = resp.choices[0]
         content = choice.message.content

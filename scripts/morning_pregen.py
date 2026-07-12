@@ -38,9 +38,11 @@ AUTH_USERNAME = os.environ.get("AUTH_USERNAME")
 AUTH_PASSWORD = os.environ.get("AUTH_PASSWORD")
 
 # /api/pregen-today 对每个键都可能同步生成故事——新闻/简报模式可能涉及多次
-# 串行 AI 调用，加上多个键顺序处理，耗时可达数分钟到十几分钟，因此设置较长
-# 的超时。
-STORY_TIMEOUT_SECONDS = 15 * 60
+# 串行 AI 调用（生成+核查+整篇重试+再核查，单个 briefing chunk 就要 2-3
+# 分钟），加上多个键顺序处理，实测可达 30 分钟以上，因此设置较长的超时
+# （issue #514：15 分钟曾在服务器仍在正常生成时就客户端超时，日志里看不到
+# 任何结果，误以为预生成坏了）。
+STORY_TIMEOUT_SECONDS = 60 * 60
 
 
 def _log(msg: str) -> None:
@@ -77,7 +79,21 @@ def main() -> int:
     try:
         summary = _request("POST", "/api/pregen-today", STORY_TIMEOUT_SECONDS)
     except urllib.error.URLError as e:
-        _log(f"无法连接服务器 {BASE_URL}: {e}")
+        if isinstance(e, urllib.error.URLError) and isinstance(e.reason, TimeoutError):
+            _log(
+                f"客户端等待 {STORY_TIMEOUT_SECONDS // 60} 分钟后超时，但服务器"
+                f"可能仍在后台继续生成——请稍后查 journalctl（服务名 ankiadvanced）"
+                f"确认实际结果，不要立即当作失败重跑。"
+            )
+        else:
+            _log(f"无法连接服务器 {BASE_URL}: {e}")
+        return 1
+    except TimeoutError:
+        _log(
+            f"客户端等待 {STORY_TIMEOUT_SECONDS // 60} 分钟后超时，但服务器"
+            f"可能仍在后台继续生成——请稍后查 journalctl（服务名 ankiadvanced）"
+            f"确认实际结果，不要立即当作失败重跑。"
+        )
         return 1
     except Exception as e:
         _log(f"预生成请求失败: {e}")
@@ -101,12 +117,20 @@ def main() -> int:
         _log(f"  - 跳过（今天已有故事） {label}")
     for label in skipped_no_due:
         _log(f"  - 跳过（无到期卡片，或 AI 已禁用） {label}")
+    quota_failed = 0
     for item in failed:
-        _log(f"  ✗ 失败 {item.get('key')}: {item.get('error')}")
+        error = item.get("error") or ""
+        if "insufficient_quota" in error:
+            quota_failed += 1
+            _log(f"  ✗ 失败 {item.get('key')}: OpenAI 余额不足，请充值（{error}）")
+        else:
+            _log(f"  ✗ 失败 {item.get('key')}: {error}")
 
     _log("---- 汇总 ----")
     _log(f"候选键: {keys}  已生成: {len(generated)}  跳过(已缓存): {len(skipped_cached)}  "
          f"跳过(无到期): {len(skipped_no_due)}  失败: {len(failed)}")
+    if quota_failed:
+        _log(f"其中 {quota_failed} 个失败原因是 OpenAI 余额不足，请充值后重跑。")
 
     return 0 if not failed else 1
 
