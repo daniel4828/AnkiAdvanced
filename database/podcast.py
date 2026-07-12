@@ -27,7 +27,7 @@ from .core import get_db
 CONFIG_KEYS = (
     "feeds", "email_to", "detail_level", "enabled", "channel_url", "channel_id",
     "whisper_fallback", "transcriber", "whisper_title_filter", "whisper_max_minutes",
-    "notebooklm_notebook_id",
+    "notebooklm_notebook_id", "summarizer",
 )
 
 

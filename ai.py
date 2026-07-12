@@ -1765,31 +1765,18 @@ _PODCAST_DETAIL_WORDS = {
 }
 
 
-def summarize_podcast_transcript(transcript: str, title: str,
-                                 detail_level: str = "detailed") -> dict:
-    """Podcast crawler (issue #479): one AI call that turns a raw Chinese
-    transcript into a German summary + a list of HSK5+ vocabulary worth
-    reviewing before listening.
-
-    Uses resolve_briefing_model() (OpenAI) first — the model is already
-    verified/cached there and gpt writes the best German. If that fails
-    (e.g. a 429 insufficient_quota on the OpenAI account, which blocked all
-    podcast summaries on 2026-07-12) it falls back to DEFAULT_MODEL
-    (DeepSeek) when its key is configured (#506): unlike the news briefing,
-    a podcast content summary isn't the censorship-sensitive case that
-    forced news onto OpenAI, so a cheap DeepSeek pass beats no summary.
-
-    Returns {"summary_de": str, "words": [{"word", "pinyin", "definition_de", "hsk"}]}.
-    Falls back to an empty-ish result (summary_de note, words=[]) on any
-    parse/API failure — callers store status='error' and move on, they don't
-    crash the whole crawl run over one bad transcript.
-    """
+def build_podcast_summary_prompt(transcript: str, title: str, detail_level: str) -> str:
+    """Shared prompt builder for both the API summary path
+    (summarize_podcast_transcript, gpt/DeepSeek) and the free NotebookLM
+    chat.ask path (podcast._summarize_via_notebooklm, #510) — same prompt
+    text, same JSON contract, so parse_podcast_summary_json below can parse
+    either response the same way."""
     words_target = _PODCAST_DETAIL_WORDS.get(detail_level, _PODCAST_DETAIL_WORDS["detailed"])
     # Transcripts can be long (auto-captions of a 30-60min episode) — cap input
     # to keep the request within a reasonable token budget.
     excerpt = transcript[:20000]
 
-    prompt = f"""You are summarizing a Chinese-language podcast episode for a German-speaking
+    return f"""You are summarizing a Chinese-language podcast episode for a German-speaking
 learner of Chinese (HSK 4-5 level, learning towards HSK 6).
 
 Episode title: {title}
@@ -1814,6 +1801,63 @@ Return ONLY a JSON object, no other text, no markdown fences:
   ]
 }}"""
 
+
+def parse_podcast_summary_json(raw: str) -> dict:
+    """Parse a podcast-summary JSON reply (shared by both the API path and
+    the NotebookLM chat.ask path, #510). Strips NotebookLM-style citation
+    markers like "[1]" before parsing — harmless no-op for plain API
+    responses, which never contain them.
+
+    Returns {"summary_de": str, "words": [...]}; summary_de is "" and
+    words is [] on any parse failure (mirrors the previous inline
+    behavior in summarize_podcast_transcript).
+    """
+    raw = re.sub(r"\[\d+\]", "", raw)
+    start, end = raw.find("{"), raw.rfind("}") + 1
+    try:
+        data = json.loads(raw[start:end]) if start != -1 and end != 0 else {}
+    except (TypeError, ValueError, json.JSONDecodeError):
+        data = {}
+    summary_de = (data.get("summary_de") or "").strip()
+    words = []
+    for w in data.get("words") or []:
+        word = (w.get("word") or "").strip()
+        if not word:
+            continue
+        words.append({
+            "word": word,
+            "pinyin": (w.get("pinyin") or "").strip(),
+            "definition_de": (w.get("definition_de") or "").strip(),
+            "hsk": w.get("hsk") if isinstance(w.get("hsk"), int) else 5,
+        })
+    return {"summary_de": summary_de, "words": words}
+
+
+def summarize_podcast_transcript(transcript: str, title: str,
+                                 detail_level: str = "detailed") -> dict:
+    """Podcast crawler (issue #479): one AI call that turns a raw Chinese
+    transcript into a German summary + a list of HSK5+ vocabulary worth
+    reviewing before listening.
+
+    Uses resolve_briefing_model() (OpenAI) first — the model is already
+    verified/cached there and gpt writes the best German. If that fails
+    (e.g. a 429 insufficient_quota on the OpenAI account, which blocked all
+    podcast summaries on 2026-07-12) it falls back to DEFAULT_MODEL
+    (DeepSeek) when its key is configured (#506): unlike the news briefing,
+    a podcast content summary isn't the censorship-sensitive case that
+    forced news onto OpenAI, so a cheap DeepSeek pass beats no summary.
+
+    This is the "api" summarizer path — podcast.summarize() (#510) tries the
+    free NotebookLM chat.ask path first when podcast_config.summarizer=auto,
+    falling back to this function.
+
+    Returns {"summary_de": str, "words": [{"word", "pinyin", "definition_de", "hsk"}]}.
+    Falls back to an empty-ish result (summary_de note, words=[]) on any
+    parse/API failure — callers store status='error' and move on, they don't
+    crash the whole crawl run over one bad transcript.
+    """
+    prompt = build_podcast_summary_prompt(transcript, title, detail_level)
+
     primary = resolve_briefing_model()
     candidates = [primary]
     if not primary.startswith("deepseek-") and os.environ.get("DEEPSEEK_API_KEY"):
@@ -1821,24 +1865,11 @@ Return ONLY a JSON object, no other text, no markdown fences:
     for model in candidates:
         try:
             raw = _call_api(model, [{"role": "user", "content": prompt}], 8192, purpose="podcast-summary")
-            start, end = raw.find("{"), raw.rfind("}") + 1
-            data = json.loads(raw[start:end]) if start != -1 and end != 0 else {}
-            summary_de = (data.get("summary_de") or "").strip()
-            words = []
-            for w in data.get("words") or []:
-                word = (w.get("word") or "").strip()
-                if not word:
-                    continue
-                words.append({
-                    "word": word,
-                    "pinyin": (w.get("pinyin") or "").strip(),
-                    "definition_de": (w.get("definition_de") or "").strip(),
-                    "hsk": w.get("hsk") if isinstance(w.get("hsk"), int) else 5,
-                })
-            if summary_de:
+            result = parse_podcast_summary_json(raw)
+            if result["summary_de"]:
                 if model != primary:
                     logger.info("summarize_podcast_transcript: fell back to %s after %s failed", model, primary)
-                return {"summary_de": summary_de, "words": words}
+                return result
             logger.warning("summarize_podcast_transcript: empty summary_de in AI reply (%s)", model)
         except Exception as e:
             logger.warning("summarize_podcast_transcript failed on %s (%s)", model, e)

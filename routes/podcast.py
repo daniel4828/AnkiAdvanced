@@ -180,6 +180,7 @@ class PodcastConfigUpdate(BaseModel):
     whisper_fallback: str | None = None  # deprecated (#485), superseded by transcriber (#486)
     transcriber: str | None = None
     whisper_max_minutes: str | None = None
+    summarizer: str | None = None
 
 
 @router.get("/api/podcast/config")
@@ -205,6 +206,8 @@ def update_config(body: PodcastConfigUpdate):
             float(updates["whisper_max_minutes"])
         except (TypeError, ValueError):
             raise HTTPException(400, "whisper_max_minutes must be a number (0 = no limit)")
+    if "summarizer" in updates and updates["summarizer"] not in ("auto", "api"):
+        raise HTTPException(400, "summarizer must be auto or api")
     if "feeds" in updates:
         if not updates["feeds"] or not all(isinstance(u, str) and u.strip() for u in updates["feeds"]):
             raise HTTPException(400, "feeds must be a non-empty list of RSS feed URLs")
