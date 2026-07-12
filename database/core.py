@@ -523,6 +523,14 @@ def init_db() -> None:
         "INSERT OR IGNORE INTO podcast_config (key, value) VALUES ('whisper_max_minutes', '30')")
     conn.commit()
 
+    # summarizer (#510) seeding: same unconditional INSERT OR IGNORE pattern.
+    # 'auto' means the free NotebookLM chat.ask summary is tried first (when
+    # credentials are present), falling back to the gpt/DeepSeek API chain;
+    # see podcast.summarize.
+    conn.execute(
+        "INSERT OR IGNORE INTO podcast_config (key, value) VALUES ('summarizer', 'auto')")
+    conn.commit()
+
     # feeds (#497) seeding: RSS direct-link sources replacing the dead
     # YouTube channel_url (YouTube started bot-verifying the server's IP with
     # no Cookie fix that stuck, #491/#497). Same unconditional INSERT OR

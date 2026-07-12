@@ -416,6 +416,36 @@ def _normalize_transcript(text: str) -> str:
     return text
 
 
+def _notebooklm_credentials_available() -> bool:
+    """Best-effort presence check for NotebookLM login credentials (#510),
+    used to decide whether the 'auto' transcriber/summarizer chains should
+    even attempt the free NotebookLM path first. Not a hard gate — the
+    actual calls (_transcribe_via_notebooklm, _summarize_via_notebooklm)
+    still handle FileNotFoundError from notebooklm-py itself (e.g.
+    credentials revoked after this check ran), same as before #510.
+
+    Mirrors notebooklm-py's own storage_state.json lookup (see
+    scripts/README.md): $NOTEBOOKLM_HOME/storage_state.json, or (if a
+    profile was used at login) $NOTEBOOKLM_HOME/profiles/<profile>/
+    storage_state.json. Split into its own function so tests can monkeypatch
+    it directly instead of poking os.path.
+    """
+    try:
+        import notebooklm  # noqa: F401 (import-only availability check)
+    except ImportError:
+        return False
+
+    home = os.environ.get("NOTEBOOKLM_HOME") or os.path.expanduser("~/.notebooklm")
+    if os.path.isfile(os.path.join(home, "storage_state.json")):
+        return True
+    profiles_dir = os.path.join(home, "profiles")
+    if os.path.isdir(profiles_dir):
+        for name in os.listdir(profiles_dir):
+            if os.path.isfile(os.path.join(profiles_dir, name, "storage_state.json")):
+                return True
+    return False
+
+
 def _transcribe_via_notebooklm(audio_path: str, video_id: str) -> str | None:
     """Free primary transcription path (#486): upload the shared mp3 to a
     dedicated NotebookLM notebook, wait for indexing, read the source's
@@ -457,6 +487,83 @@ def _transcribe_via_notebooklm(audio_path: str, video_id: str) -> str | None:
     if transcript:
         logger.info("podcast: NotebookLM transcribed %s (%d chars)", video_id, len(transcript))
     return transcript
+
+
+# NotebookLM sources have no documented per-source size cap; a transcript is
+# plain text (much denser than audio), so this defensive ceiling is far more
+# generous than any real episode transcript will hit — it just prevents an
+# unbounded upload if something ever feeds this a huge string.
+_NOTEBOOKLM_SUMMARY_TEXT_MAX_CHARS = 200_000
+
+
+async def _run_notebooklm_summary(transcript: str, title: str, detail_level: str) -> str | None:
+    """Async body of _summarize_via_notebooklm (#510): upload the transcript
+    as a text source, wait for indexing, ask the same summary question used
+    by the API path (ai.build_podcast_summary_prompt) restricted to that one
+    source, then delete the source. Returns the raw answer text (still needs
+    ai.parse_podcast_summary_json) or None on any handled failure."""
+    import notebooklm
+
+    async with notebooklm.NotebookLMClient.from_storage() as client:
+        notebook_id = await _get_or_create_notebooklm_notebook(client)
+        source = await client.sources.add_text(
+            notebook_id, f"podcast-transcript-{title}",
+            transcript[:_NOTEBOOKLM_SUMMARY_TEXT_MAX_CHARS],
+        )
+        try:
+            await client.sources.wait_until_ready(
+                notebook_id, source.id, timeout=_NOTEBOOKLM_INDEX_TIMEOUT,
+            )
+            question = ai.build_podcast_summary_prompt(transcript, title, detail_level)
+            result = await client.chat.ask(notebook_id, question, source_ids=[source.id])
+            return result.answer or None
+        finally:
+            # Same reasoning as _run_notebooklm_transcription: never let a
+            # delete failure mask a successful summary, just log and move on.
+            try:
+                await client.sources.delete(notebook_id, source.id)
+            except Exception as e:
+                logger.warning("podcast: failed to delete NotebookLM summary source for %r: %s", title, e)
+
+
+def _summarize_via_notebooklm(transcript: str, title: str, detail_level: str) -> dict | None:
+    """Free summary path (#510): ask NotebookLM's chat interface to summarize
+    the transcript (already-uploaded-and-deleted per episode, so this
+    uploads its own throwaway text source) using the exact same prompt/JSON
+    contract as the paid API path (ai.summarize_podcast_transcript), so
+    downstream code (podcast._process_episode) doesn't care which path ran.
+
+    Same unofficial-API failure posture as _transcribe_via_notebooklm: every
+    failure mode (package missing, not authenticated, RPC error, indexing
+    timeout, empty/unparseable answer, ...) logs and returns None instead of
+    raising — summarize() then falls back to the API chain.
+    """
+    try:
+        import notebooklm  # noqa: F401 (import-only availability check)
+    except ImportError:
+        logger.info("podcast: notebooklm-py not installed, skipping NotebookLM summary for %r", title)
+        return None
+
+    try:
+        answer = asyncio.run(_run_notebooklm_summary(transcript, title, detail_level))
+    except FileNotFoundError:
+        logger.info("podcast: NotebookLM not authenticated (no credentials file), skipping summary for %r", title)
+        return None
+    except Exception as e:
+        logger.warning("podcast: NotebookLM summary failed for %r: %s", title, e)
+        return None
+
+    if not answer:
+        logger.warning("podcast: NotebookLM summary returned no answer for %r", title)
+        return None
+
+    result = ai.parse_podcast_summary_json(answer)
+    if not result.get("summary_de"):
+        logger.warning("podcast: NotebookLM summary answer was unparseable/empty for %r", title)
+        return None
+
+    logger.info("podcast: NotebookLM summarized %r (%d word(s))", title, len(result.get("words") or []))
+    return result
 
 
 def _parse_tingwu_transcript(result_json: dict) -> str:
@@ -598,8 +705,8 @@ def _resolve_transcriber(cfg: dict) -> str:
     Reads the current `transcriber` key when set to a legal value; otherwise
     falls back to the legacy `whisper_fallback` key (#485) so old installs
     keep behaving the same way without a data migration: whisper_fallback=0
-    -> off, anything else -> auto (Tingwu #498 -> Whisper #485 -> NotebookLM
-    #486, per fetch_transcript's ordering).
+    -> off, anything else -> auto (NotebookLM #486 -> Tingwu #498 -> Whisper
+    #485, per fetch_transcript's ordering, reordered free-first in #510).
     """
     val = cfg.get("transcriber")
     if val in ("auto", "tingwu", "notebooklm", "whisper", "off"):
@@ -632,15 +739,29 @@ def fetch_transcript(video: dict) -> tuple[str | None, dict]:
     fetch_new_videos() entry both satisfy this).
 
     Returns (transcript_text_or_None, meta) — meta always has at least
-    'title' and 'transcript_source' (one of 'tingwu'/'whisper'/'notebooklm'/
-    None). Tries the transcription chain in order — Tingwu (#498, primary,
-    submitted the RSS mp3 URL directly, no download) -> Whisper (#485, paid,
-    gated to duration <= whisper_max_minutes, needs the audio downloaded) ->
-    NotebookLM (#486, free but unofficial/optional, auto-skips if not
-    authenticated) — per podcast_config.transcriber ('auto' tries all three
-    in that order; a specific value tries only that one). transcript is None
-    when the chain is disabled/unavailable/fails entirely for this episode
-    (caller stores status='no_transcript' in that case).
+    'title' and 'transcript_source' (one of 'notebooklm'/'tingwu'/'whisper'/
+    None). Tries the transcription chain in order — NotebookLM (#486, free
+    but unofficial/optional, first per #510 since it's free) -> Tingwu (#498,
+    cheap, submitted the RSS mp3 URL directly, no download) -> Whisper (#485,
+    paid, gated to duration <= whisper_max_minutes) — per
+    podcast_config.transcriber ('auto' tries all three in that order; a
+    specific value tries only that one). transcript is None when the chain
+    is disabled/unavailable/fails entirely for this episode (caller stores
+    status='no_transcript' in that case).
+
+    Each step is wrapped in its own try/except (#510): an exception raised
+    by one transcriber (e.g. a 429 from OpenAI mid-Whisper-call) must not
+    abort the whole chain and skip the remaining steps — that bug is exactly
+    what stranded short episodes with no transcript at all on 2026-07-12,
+    since the (paid, duration-gated) Whisper step used to run inside the
+    same try/except as the NotebookLM step that would otherwise have caught
+    them.
+
+    NotebookLM and Whisper both need the audio downloaded+transcoded first;
+    Tingwu doesn't (it's submitted the RSS URL directly). The download is
+    attempted at most once and its result reused by whichever of
+    NotebookLM/Whisper actually runs — a download failure only rules out
+    those two, Tingwu can still be tried.
     """
     video_id = video["video_id"]
     title = video.get("title") or video_id
@@ -672,50 +793,82 @@ def fetch_transcript(video: dict) -> tuple[str | None, dict]:
         logger.info("podcast: DISABLE_AI set, skipping transcription for %s", video_id)
         return None, meta
 
-    if transcriber in ("auto", "tingwu"):
-        transcript = _transcribe_via_tingwu(audio_url, video_id)
-        if transcript:
-            meta["transcript_source"] = "tingwu"
-            logger.info("podcast: transcript source for %s = tingwu", video_id)
-            return transcript, meta
-        if transcriber == "tingwu":
-            logger.info("podcast: transcriber=tingwu and Tingwu failed, not trying further for %s", video_id)
-            return None, meta
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        download_state = {"attempted": False, "path": None}
 
-    # transcriber in ("auto", "whisper", "notebooklm") at this point — both
-    # remaining paths need the audio downloaded+transcoded locally first.
-    if not shutil.which("ffmpeg"):
-        logger.warning("podcast: ffmpeg not found, skipping remaining transcription paths for %s", video_id)
-        return None, meta
+        def get_mp3_path() -> str | None:
+            """Lazily download+transcode the audio once, reused by both the
+            NotebookLM and Whisper steps below. Returns None (logged) on
+            missing ffmpeg or a download/transcode failure — callers treat
+            that the same as "this step can't run", not a chain-abort."""
+            if download_state["attempted"]:
+                return download_state["path"]
+            download_state["attempted"] = True
+            if not shutil.which("ffmpeg"):
+                logger.warning("podcast: ffmpeg not found, skipping audio download for %s", video_id)
+                return None
+            try:
+                download_state["path"] = _download_audio(audio_url, video_id, tmp_dir)
+            except Exception as e:
+                logger.warning("podcast: audio download failed for %s: %s", video_id, e)
+            return download_state["path"]
 
-    try:
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            mp3_path = _download_audio(audio_url, video_id, tmp_dir)
-
-            if transcriber in ("auto", "whisper"):
-                if _whisper_duration_allowed(duration, cfg):
-                    transcript = _transcribe_via_whisper(mp3_path, duration, video_id, tmp_dir)
-                    if transcript:
-                        meta["transcript_source"] = "whisper"
-                        logger.info("podcast: transcript source for %s = whisper", video_id)
-                        return transcript, meta
-                else:
-                    logger.info(
-                        "podcast: %s is %.0fmin, over whisper_max_minutes — skipping Whisper",
-                        video_id, duration / 60,
-                    )
-                if transcriber == "whisper":
-                    return None, meta
-
-            if transcriber in ("auto", "notebooklm"):
-                transcript = _transcribe_via_notebooklm(mp3_path, video_id)
+        # 1. NotebookLM (#486, free, tried first per #510) — only attempted
+        # when credentials are present, so 'auto' doesn't waste a download
+        # on it when it can't possibly work.
+        if transcriber in ("auto", "notebooklm"):
+            if _notebooklm_credentials_available():
+                transcript = None
+                try:
+                    mp3_path = get_mp3_path()
+                    if mp3_path:
+                        transcript = _transcribe_via_notebooklm(mp3_path, video_id)
+                except Exception as e:
+                    logger.warning("podcast: NotebookLM step raised for %s: %s", video_id, e)
                 if transcript:
                     meta["transcript_source"] = "notebooklm"
                     logger.info("podcast: transcript source for %s = notebooklm", video_id)
                     return transcript, meta
-    except Exception as e:
-        logger.warning("podcast: audio transcription pipeline failed for %s: %s", video_id, e)
-        return None, meta
+            if transcriber == "notebooklm":
+                return None, meta
+
+        # 2. Tingwu (#498, cheap, no download needed — can still run even if
+        # the download above failed/was skipped).
+        if transcriber in ("auto", "tingwu"):
+            transcript = None
+            try:
+                transcript = _transcribe_via_tingwu(audio_url, video_id)
+            except Exception as e:
+                logger.warning("podcast: Tingwu step raised for %s: %s", video_id, e)
+            if transcript:
+                meta["transcript_source"] = "tingwu"
+                logger.info("podcast: transcript source for %s = tingwu", video_id)
+                return transcript, meta
+            if transcriber == "tingwu":
+                logger.info("podcast: transcriber=tingwu and Tingwu failed, not trying further for %s", video_id)
+                return None, meta
+
+        # 3. Whisper (#485, paid, last resort — gated to short episodes).
+        if transcriber in ("auto", "whisper"):
+            if _whisper_duration_allowed(duration, cfg):
+                transcript = None
+                try:
+                    mp3_path = get_mp3_path()
+                    if mp3_path:
+                        transcript = _transcribe_via_whisper(mp3_path, duration, video_id, tmp_dir)
+                except Exception as e:
+                    logger.warning("podcast: Whisper step raised for %s: %s", video_id, e)
+                if transcript:
+                    meta["transcript_source"] = "whisper"
+                    logger.info("podcast: transcript source for %s = whisper", video_id)
+                    return transcript, meta
+            else:
+                logger.info(
+                    "podcast: %s is %.0fmin, over whisper_max_minutes — skipping Whisper",
+                    video_id, duration / 60,
+                )
+            if transcriber == "whisper":
+                return None, meta
 
     logger.info("podcast: transcript source for %s = none (all paths exhausted)", video_id)
     return None, meta
@@ -726,9 +879,18 @@ def fetch_transcript(video: dict) -> tuple[str | None, dict]:
 # ---------------------------------------------------------------------------
 
 def summarize(transcript: str, title: str, detail_level: str) -> dict:
-    """Thin wrapper over ai.summarize_podcast_transcript — kept here so
-    podcast.py's public surface is self-contained (run_check only imports
-    from this module + database)."""
+    """Summarize a transcript into {"summary_de", "words"} (#479, NotebookLM
+    path added in #510). When podcast_config.summarizer is 'auto' (default)
+    and NotebookLM credentials are present, tries the free
+    _summarize_via_notebooklm path first; any failure (or summarizer='api')
+    falls back to the paid/quota-limited API chain in
+    ai.summarize_podcast_transcript so the pipeline never breaks over it."""
+    cfg = database.get_podcast_config()
+    summarizer = cfg.get("summarizer") or "auto"
+    if summarizer == "auto" and _notebooklm_credentials_available():
+        result = _summarize_via_notebooklm(transcript, title, detail_level)
+        if result:
+            return result
     return ai.summarize_podcast_transcript(transcript, title, detail_level)
 
 
