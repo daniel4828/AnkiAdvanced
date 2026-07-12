@@ -14,3 +14,4 @@ jieba>=0.42,<1.0
 pypinyin>=0.55,<1.0
 notebooklm-py>=0.7.3,<0.8.0
 alibabacloud_tingwu20230930>=2.0.25,<3.0.0
+zhconv>=1.4,<2.0

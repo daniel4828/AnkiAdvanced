@@ -21,6 +21,7 @@ import base64
 import json
 import logging
 import os
+import re
 import shutil
 import smtplib
 import subprocess
@@ -358,6 +359,30 @@ async def _run_notebooklm_transcription(audio_path: str, video_id: str) -> str |
                 await client.sources.delete(notebook_id, source.id)
             except Exception as e:
                 logger.warning("podcast: failed to delete NotebookLM source for %s: %s", video_id, e)
+
+
+def _normalize_transcript(text: str) -> str:
+    """Clean up ASR output before storing/summarizing (#500). NotebookLM's
+    speech recognition emits Traditional Chinese with a space between every
+    character ("用 聲 音  生 動 活 潑") — that breaks jieba segmentation in
+    the podcast review mode, HSK word matching against entries.word_zh, and
+    wastes prompt tokens. Two steps:
+      1. drop whitespace adjacent to any CJK character or full-width
+         punctuation (keeps spacing inside pure-Latin runs; "2026 年" ->
+         "2026年", "AI 记忆" -> "AI记忆", "活泼。 2026" -> "活泼。2026")
+      2. Traditional -> Simplified via zhconv (pure-Python, requirements.txt)
+    Tingwu/Whisper output is already Simplified without spacing — running it
+    through here is a harmless no-op, so every source is normalized uniformly.
+    """
+    if not text:
+        return text
+    text = re.sub(r"(?<=[一-鿿　-〿＀-￯])\s+|\s+(?=[一-鿿　-〿＀-￯])", "", text)
+    try:
+        from zhconv import convert
+        text = convert(text, "zh-cn")
+    except ImportError:  # dependency missing (old venv) — spacing fix still applies
+        logger.warning("podcast: zhconv not installed, skipping Traditional->Simplified conversion")
+    return text
 
 
 def _transcribe_via_notebooklm(audio_path: str, video_id: str) -> str | None:
@@ -839,14 +864,29 @@ def _process_episode(episode_id: int, video: dict, detail_level: str, summary: d
     from routes.utils import DISABLE_AI
 
     try:
-        transcript, meta = fetch_transcript(video)
-        if not transcript:
-            database.update_episode(episode_id, status="no_transcript")
-            return
-        database.update_episode(
-            episode_id, transcript_zh=transcript,
-            transcript_source=meta.get("transcript_source"),
-        )
+        # Reuse an already-stored transcript (#500): after e.g. an OpenAI-quota
+        # failure in the summary step, the retry must not re-run the whole
+        # transcription (a NotebookLM upload+indexing round takes ~10 minutes
+        # and Tingwu/Whisper cost money) — the transcript is already good.
+        existing = database.get_episode(episode_id) or {}
+        stored = (existing.get("transcript_zh") or "").strip()
+        if stored:
+            transcript = _normalize_transcript(stored)
+            meta = {"transcript_source": existing.get("transcript_source")}
+            logger.info("podcast: reusing existing transcript for %s (%d chars)",
+                        video["video_id"], len(transcript))
+            if transcript != stored:
+                database.update_episode(episode_id, transcript_zh=transcript)
+        else:
+            transcript, meta = fetch_transcript(video)
+            transcript = _normalize_transcript(transcript) if transcript else transcript
+            if not transcript:
+                database.update_episode(episode_id, status="no_transcript")
+                return
+            database.update_episode(
+                episode_id, transcript_zh=transcript,
+                transcript_source=meta.get("transcript_source"),
+            )
 
         if DISABLE_AI:
             # Dev mode: stop at pending with the transcript stored, no AI
