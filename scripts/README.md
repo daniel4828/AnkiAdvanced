@@ -139,67 +139,92 @@ cron 只负责在服务已经运行时定时触发预生成：
 
 ---
 
-## podcast_check.py（issue #479）
+## podcast_check.py（issue #479，RSS 源 #497，听悟转录 #498）
 
-对运行中的服务器发一次 `POST /api/podcast/check` 请求：服务器检查配置的
-YouTube 频道（`podcast_config.channel_url`，默认 `@shengfm`）有没有新视频，
-对每个新视频下载中文转录（`yt-dlp`，只拿字幕元数据，不下载音视频）、生成
+对运行中的服务器发一次 `POST /api/podcast/check` 请求：服务器遍历配置的
+播客 RSS 源（`podcast_config.feeds`，JSON 数组，默认种子为声动早咖啡 +
+声东击西两个 feed）看有没有新单集，对每个新单集转录（见下方转录链）、生成
 德语摘要 + HSK5+ 生词表（AI，`ai.resolve_briefing_model()`），并给
-`podcast_config.email_to` 发邮件通知。同一视频（`video_id` 唯一约束）不会
-重复处理。风格与 `morning_pregen.py` 一致：纯标准库，不需要安装依赖（服务
-器端需要 `yt-dlp`，已在 `requirements.txt` 里）。
+`podcast_config.email_to` 发邮件通知。同一单集（RSS item guid，存在
+`video_id` 列，唯一约束）不会重复处理。风格与 `morning_pregen.py` 一致：
+除转录链的可选依赖外不需要额外安装。
 
-**无字幕时的转录链（issue #486，取代 #485 的纯 Whisper 回退）：** `@shengfm`
-频道没有任何字幕（人工/自动都关闭），所以字幕下载总是失败。字幕缺失时按
-`podcast_config.transcriber`（默认 `auto`）走：
+**RSS 源（issue #497，取代已死的 YouTube 频道源）：** YouTube 对服务器
+数据中心 IP 强制 bot 验证，Cookie 方案（#491）也很快失效，於是改用播客
+官方 RSS 的 MP3 enclosure 直链——没有 bot 墙，不需要 Cookie，标题/日期/
+时长都在 feed 里现成。`fetch_new_videos()` 遍历 `podcast_config.feeds`
+里的每个 feed URL，用标准库 `xml.etree` 解析：单集唯一 id 用 `<guid>`
+（没有则退化用 enclosure URL），标题/发布时间/单集网页链接
+（`<link>`，存进 `youtube_url` 列，字段名是历史遗留）、MP3 直链
+（`<enclosure url=...>`，存 `audio_url`）、时长（`<itunes:duration>`，
+支持"秒"/"MM:SS"/"H:MM:SS"三种格式，解析成 `duration_seconds`）都直接来自
+feed。每个 feed **首次**被爬到时（该 feed 在库里一集都没有）只回填最新 3
+期；之后的每次爬取只收集"比库里已知的最新一集更新"的单集（feed 按惯例
+新到旧排列，扫到第一个已知 guid 就停），避免像声动早咖啡这种有上千期历史
+的日更节目在某一轮把几百期旧节目全部当作"新"的塞进来。
 
-1. **NotebookLM（免费，主力）**：`yt-dlp` 下载最低码率音频到临时目录 →
-   `ffmpeg` 转 16kHz 单声道 32kbps 单个 mp3 → 上传到专用笔记本
+单集时长（RSS 自带，不用下载音频就知道）作为**下载前**的护栏：超过 3
+小时的单集直接跳过（成本/时间护栏），Whisper 另有独立的
+`whisper_max_minutes` 门槛（见下）。
+
+**转录链（issue #498 通义听悟为主力，取代 #486/#485 的 NotebookLM/Whisper
+两级链）：**
+
+1. **通义听悟（官方 API，主力，issue #498）**：把 RSS 的 MP3 直链原样提交
+   给阿里云通义听悟离线转写接口（`CreateTask`，`type=offline`，
+   `Input.FileUrl=<直链>`，`Input.SourceLanguage=cn`）——**不需要下载音频**，
+   官方 API，约 ¥0.6/小时（比 Whisper 的约 ¥1.3/小时更便宜），新用户有
+   90 天每天 2 小时免费额度。轮询 `GetTaskInfo`（间隔 15 秒，上限 20
+   分钟）等 `TaskStatus=COMPLETED`，再从 `Result.Transcription`（一个指向
+   JSON 转写结果的 URL）下载并拼接成纯文本。需要环境变量
+   `ALIBABA_CLOUD_ACCESS_KEY_ID`/`ALIBABA_CLOUD_ACCESS_KEY_SECRET`（SDK
+   标准命名）+ `TINGWU_APP_KEY`（控制台创建应用拿到），任一缺失或调用失败
+   都只记日志、落到下一级，不会让爬虫报错（见下方一次性开通步骤）。
+2. **Whisper（付费，保底，issue #485）**：听悟未配置/失败时落到这里——
+   **但仅当单集时长 ≤ `podcast_config.whisper_max_minutes`（默认 30
+   分钟，0=不限制）时才会尝试**，否则直接跳过、记日志（issue #495：早咖啡
+   类短节目 10-15 分钟，Daniel 不想为 60-90 分钟的长节目付费）。这一级
+   才会真正下载音频（`urllib` 直接拉 RSS 的 MP3 直链，不再用 yt-dlp）→
+   `ffmpeg` 转 16kHz 单声道 32kbps 单个 mp3（超过 20 分钟按段切分，
+   `-c copy` 不重新编码）→ 逐段调用 OpenAI `gpt-4o-mini-transcribe`（需要
+   `OPENAI_API_KEY`）转录后拼接。
+3. **NotebookLM（免费但非官方，可选，issue #486）**：Whisper 也失败/被
+   门槛跳过时落到这里，复用同一份已下载的 mp3 → 上传到专用笔记本
    "AnkiAdvanced Transcripts"（笔记本 id 缓存进
    `podcast_config.notebooklm_notebook_id`）→ 轮询等索引完成（上限 10
    分钟）→ 读取来源全文（fulltext）作为转录 → 删除该来源（防止笔记本无限
-   膨胀）。用的是非官方库 `notebooklm-py`（见下方一次性设置）。
-2. **Whisper（付费，保底，issue #485）**：NotebookLM 未安装/未认证/失败时
-   落到这里——**但仅当单集时长 ≤ `podcast_config.whisper_max_minutes`
-   （默认 30 分钟，0=不限制）时才会尝试**，否则直接跳过、记日志（issue
-   #495：早咖啡类短节目 10-15 分钟，Daniel 不想为 60-90 分钟的长节目付费；
-   旧的 whisper_title_filter 因真实标题从不含"早咖啡"而废弃）。复用同一份
-   已下载的 mp3（超过 20 分钟按段切分，`-c copy` 不重新编码）→ 逐段调用
-   OpenAI `gpt-4o-mini-transcribe`（需要 `OPENAI_API_KEY`）转录后拼接。
+   膨胀）。用的是非官方库 `notebooklm-py`（见下方一次性设置），未认证时
+   自动跳过（不报错）。
 
-`transcriber` 可选值：`auto`（默认，NotebookLM 优先失败落 Whisper）|
-`notebooklm`（只走 NotebookLM，不落 Whisper）| `whisper`（跳过 NotebookLM，
-只走 Whisper，仍受标题过滤）| `off`（两条都不走，纯字幕模式）。旧键
+`transcriber` 可选值：`auto`（默认，依次尝试听悟 → Whisper → NotebookLM）
+| `tingwu`（只走听悟）| `whisper`（跳过听悟，只走 Whisper，仍受时长门槛）
+| `notebooklm`（只走 NotebookLM）| `off`（整条转录链都不走）。旧键
 `whisper_fallback=0` 仍兼容，等价于 `off`。
 
-音频（无论走哪条路径）用完立即删除；单集超过 3 小时会被成本护栏跳过，两条
-路径共用同一份下载+转码结果，不会重复下载。**服务器需要安装 `ffmpeg`**
-（`apt install ffmpeg`）——缺失时只记警告并跳过整条音频转录链，不会崩溃。
-`DISABLE_AI=1`（开发模式）下两条路径都不会触发，避免意外调用外部服务。
-每期转录用了哪条路径（`captions`/`notebooklm`/`whisper`）都会记日志，并存进
-`podcast_episodes.transcript_source`，方便观察 NotebookLM 何时静默失效。
+音频（走 Whisper/NotebookLM 时）用完立即删除，两条路径共用同一份下载+
+转码结果，不会重复下载；听悟提交直链完全不下载。**Whisper/NotebookLM 需要
+服务器安装 `ffmpeg`**（`apt install ffmpeg`）——缺失时只记警告并跳过这两条
+路径（听悟不受影响）。`DISABLE_AI=1`（开发模式）下整条转录链都不会触发，
+避免意外调用外部服务。每期转录用了哪条路径（`tingwu`/`whisper`/
+`notebooklm`）都会记日志，并存进 `podcast_episodes.transcript_source`。
 
-### YouTube Cookie（issue #491，服务器必需）
+### 通义听悟一次性开通设置（issue #498）
 
-YouTube 对数据中心 IP 强制"Sign in to confirm you're not a bot"验证——服务器
-上**所有** yt-dlp 调用（元数据、字幕、音频）都会因此失败，必须提供一份登录
-浏览器导出的 Cookie 文件。路径取环境变量 `YT_DLP_COOKIES`（默认
-`data/yt_cookies.txt`，相对仓库根目录）；文件不存在时自动跳过（本地住宅
-IP 开发不需要）。
-
-在 Daniel 的 Mac 上导出并上传（Chrome 需已登录 YouTube；Safari 把
-`chrome` 换成 `safari`）：
+1. 阿里云控制台开通"通义听悟"服务（新用户 90 天每天 2 小时免费额度）
+2. 控制台 [RAM 访问控制] 创建 AccessKey（`AccessKey ID` /
+   `AccessKey Secret`），建议用独立的最小权限子账号而非主账号 root key
+3. 通义听悟控制台创建一个"应用"，拿到 `AppKey`
+4. 把三个值写进服务器的 `.env`（或 systemd 环境文件）：
 
 ```bash
-.venv/bin/python -m yt_dlp --cookies-from-browser chrome --cookies yt_cookies.txt \
-  --skip-download "https://www.youtube.com/watch?v=jNQXAC9IVRw"
-scp yt_cookies.txt root@207.180.204.135:/home/anki/AnkiAdvanced/data/yt_cookies.txt
-ssh root@207.180.204.135 'chown anki:anki /home/anki/AnkiAdvanced/data/yt_cookies.txt && chmod 600 /home/anki/AnkiAdvanced/data/yt_cookies.txt'
-rm yt_cookies.txt
+ALIBABA_CLOUD_ACCESS_KEY_ID=xxxx
+ALIBABA_CLOUD_ACCESS_KEY_SECRET=xxxx
+TINGWU_APP_KEY=xxxx
 ```
 
-Cookie 会过期：当 `data/podcast-check.log` 里再次出现 bot 错误时，重复以上
-步骤即可。失败的单集会被每轮自动重试（7 天内的 error 状态），也可以用
+未配置这三个变量时 `_transcribe_via_tingwu` 只记 info 日志并返回
+`None`（视为"未开通"），整条链自动落到 Whisper/NotebookLM——**不会**让
+爬虫报错。失败的单集会被每轮自动重试（7 天内的 error 状态），也可以用
 `POST /api/podcast/episodes/{id}/retry` 手动逐集重试。
 
 ### NotebookLM 一次性认证设置（issue #486）
@@ -235,7 +260,7 @@ notebooklm auth check --test
 ```
 
 凭据文件不存在或加载失败时，`_transcribe_via_notebooklm` 只记 info 日志并
-返回 `None`（视为"未认证"），整条链自动落到 Whisper（如标题匹配过滤器）或
+返回 `None`（视为"未认证"）——NotebookLM 是转录链最后一级，失败即
 `no_transcript`——**不会**让爬虫报错。
 
 用法与环境变量同 `morning_pregen.py`（`BASE_URL`/`AUTH_USERNAME`/`AUTH_PASSWORD`）。

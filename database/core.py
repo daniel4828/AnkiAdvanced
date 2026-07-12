@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import sqlite3
 from datetime import date, datetime, timedelta
 
@@ -484,11 +485,11 @@ def init_db() -> None:
             conn.commit()
 
     # podcast_config seeding (issue #479): when the table is first created,
-    # seed the four settings Daniel asked for so the crawler works out of the
-    # box without a settings UI (that's a follow-up issue).
+    # seed the settings Daniel asked for so the crawler works out of the box
+    # without a settings UI (that's a follow-up issue). channel_url was the
+    # original (now-retired, #497) YouTube source.
     if "podcast_config" not in existing:
         seed = {
-            "channel_url": "https://www.youtube.com/@shengfm/videos",
             "email_to": "u82g@outlook.com",
             "detail_level": "detailed",
             "enabled": "1",
@@ -519,14 +520,49 @@ def init_db() -> None:
         "INSERT OR IGNORE INTO podcast_config (key, value) VALUES ('whisper_max_minutes', '30')")
     conn.commit()
 
-    # podcast_episodes.transcript_source column migration (issue #486): tracks
-    # which path (captions/notebooklm/whisper) produced each episode's
-    # transcript, so Daniel can see in the UI/logs when NotebookLM silently
-    # stops working.
+    # feeds (#497) seeding: RSS direct-link sources replacing the dead
+    # YouTube channel_url (YouTube started bot-verifying the server's IP with
+    # no Cookie fix that stuck, #491/#497). Same unconditional INSERT OR
+    # IGNORE pattern as the keys above, seeded once with Daniel's two
+    # subscriptions; existing installs pick it up on next startup without a
+    # data migration.
+    conn.execute(
+        "INSERT OR IGNORE INTO podcast_config (key, value) VALUES ('feeds', ?)",
+        (json.dumps([
+            "https://www.ximalaya.com/album/51076156.xml",
+            "https://feeds.fireside.fm/shengdongjixi/rss",
+        ]),),
+    )
+    conn.commit()
+
+    # podcast_episodes column migrations (issue #486 transcript_source; #497
+    # audio_url/duration_seconds for the RSS-direct pipeline).
     if "podcast_episodes" in existing:
         pe_cols = {r["name"] for r in conn.execute("PRAGMA table_info(podcast_episodes)").fetchall()}
         if "transcript_source" not in pe_cols:
             conn.execute("ALTER TABLE podcast_episodes ADD COLUMN transcript_source TEXT")
+        if "audio_url" not in pe_cols:
+            conn.execute("ALTER TABLE podcast_episodes ADD COLUMN audio_url TEXT")
+        if "duration_seconds" not in pe_cols:
+            conn.execute("ALTER TABLE podcast_episodes ADD COLUMN duration_seconds INTEGER")
+        conn.commit()
+
+        # Purge stale legacy YouTube rows (#497): yt-dlp is retired, so any
+        # row that never got a transcript is now permanently stuck (it can
+        # never be retried successfully) and would just keep eating the
+        # auto-retry pass's budget forever. YouTube video ids are always
+        # exactly 11 chars of [A-Za-z0-9_-]; RSS guids never match that
+        # (ximalaya uses "xmly_track_<digits>", fireside uses UUIDs) so this
+        # is a safe, precise filter. Summarized rows are always kept — they
+        # have a real transcript worth preserving even though the source is
+        # dead. These episodes will re-enter cleanly via the new RSS feeds.
+        stale = conn.execute(
+            "SELECT id, video_id FROM podcast_episodes WHERE status != 'summarized'"
+        ).fetchall()
+        stale_ids = [r["id"] for r in stale if re.fullmatch(r"[A-Za-z0-9_-]{11}", r["video_id"] or "")]
+        if stale_ids:
+            conn.executemany(
+                "DELETE FROM podcast_episodes WHERE id = ?", [(i,) for i in stale_ids])
             conn.commit()
 
     conn.close()

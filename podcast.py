@@ -1,13 +1,18 @@
-"""Podcast crawler (issue #479): discover new videos on a YouTube channel,
-download the Chinese transcript, summarize into German + HSK5+ vocabulary via
-AI, find a Spotify link, and email a notification.
+"""Podcast crawler (issue #479): discover new episodes from podcast RSS
+feeds, transcribe them, summarize into German + HSK5+ vocabulary via AI,
+find a Spotify link, and email a notification.
 
 Style follows news_fetcher.py: mostly-pure functions + logger, one module for
-the whole pipeline. The one heavier dependency is yt-dlp (requirements.txt),
-used purely for metadata + subtitle URL extraction (skip_download=True — no
-video/audio is ever downloaded), except when captions are missing, in which
-case an audio track is downloaded (and always deleted) and transcribed via
-NotebookLM (free, #486, primary) or OpenAI Whisper (paid, #485, fallback).
+the whole pipeline.
+
+Source (#497): plain public RSS feeds (podcast_config.feeds, a JSON array of
+feed URLs) — the original YouTube-channel source (#479) was retired because
+YouTube started bot-verifying the server's datacenter IP with no durable
+Cookie fix (#491). RSS gives a direct MP3 enclosure link, so there is no
+audio *download* step for the primary transcription path (Tingwu, #498)
+at all — only the paid/optional fallbacks (Whisper #485, NotebookLM #486)
+still need the audio downloaded+transcoded locally, via plain urllib (no
+more yt-dlp).
 """
 from __future__ import annotations
 
@@ -16,16 +21,17 @@ import base64
 import json
 import logging
 import os
-import re
 import shutil
 import smtplib
 import subprocess
 import tempfile
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import parsedate_to_datetime
 from xml.etree import ElementTree
 
 import ai
@@ -33,28 +39,25 @@ import database
 
 logger = logging.getLogger(__name__)
 
-# On the very first run (no episodes in the DB yet) only backfill this many
-# of the most recent videos — otherwise the first crawl of an established
-# channel would try to transcribe/summarize its entire back catalog.
-FIRST_RUN_BACKFILL = 5
+# On a feed's very first crawl (no episodes from that feed in the DB yet)
+# only backfill this many of its most recent episodes — otherwise
+# subscribing to an established feed would try to transcribe/summarize its
+# entire back catalog in one cycle (#497).
+FIRST_RUN_BACKFILL = 3
 
-# Manual/automatic Chinese caption language codes to try, in priority order.
-# Manual captions (human-made) are always preferred over automatic ones.
-_ZH_LANG_CANDIDATES = ("zh-Hans", "zh-CN", "zh", "zh-Hant", "zh-TW", "zh-HK")
+# itunes:duration namespace, used to read episode duration straight from the
+# RSS feed (#497) — this is what lets duration-based guardrails/gates run
+# *before* any download.
+_ITUNES_NS = {"itunes": "http://www.itunes.com/dtds/podcast-1.0.dtd"}
 
-# YouTube's channel page embeds the id under different keys depending on
-# where in the page JSON it appears — "channelId" is the classic one but
-# current pages more reliably expose "externalId"/"browseId". Try them in
-# order and take the first match.
-_CHANNEL_ID_RE = re.compile(r'"(?:channelId|externalId|browseId)":"(UC[\w-]+)"')
-
-# Audio transcription (#485 Whisper, #486 NotebookLM) cost/time guardrails.
-# @shengfm has captions disabled entirely, so this is the only way to get a
-# transcript for that channel — audio downloads + transcription take time
-# (and, for Whisper, real money), so we refuse anything absurdly long and
-# keep Whisper segments small. This guardrail applies to the shared
-# download/transcode step, so it protects both transcription paths.
-_AUDIO_MAX_SECONDS = 3 * 60 * 60  # 3h — guards against a mislabeled/huge video
+# Audio transcription (#485 Whisper, #486 NotebookLM, #498 Tingwu) cost/time
+# guardrails. Whisper/NotebookLM segments stay small; this guardrail applies
+# to the shared download/transcode step, so it protects both paid/optional
+# fallback paths. Tingwu (primary) is submitted as a direct URL — Alibaba
+# does its own duration limiting server-side — but the same 3h check is
+# applied up front (before any transcriber runs) since RSS gives us the
+# duration for free.
+_AUDIO_MAX_SECONDS = 3 * 60 * 60  # 3h — guards against a mislabeled/huge episode
 _WHISPER_SEGMENT_SECONDS = 20 * 60  # 20min segments stay well under OpenAI's 25MB upload cap
 
 # NotebookLM (#486) settings. The notebook is created once and its id cached
@@ -71,8 +74,17 @@ _NOTEBOOKLM_MAX_UPLOAD_BYTES = 190 * 1024 * 1024
 # Whisper (#485) is real money, so it only runs for short episodes (#495):
 # duration <= whisper_max_minutes. The earlier title filter ("早咖啡", #486)
 # never matched real episode titles and is retired (the config key is
-# ignored). NotebookLM (free) is not subject to this gate.
+# ignored). NotebookLM (free) is not subject to this gate. Tingwu (#498,
+# primary) isn't subject to it either — it's cheaper than Whisper per hour.
 _DEFAULT_WHISPER_MAX_MINUTES = 30
+
+# Tongyi Tingwu (通义听悟, #498) offline transcription task polling. Tasks
+# for a 15-90min podcast episode typically finish in a few minutes; 20min at
+# 15s intervals is a generous ceiling before giving up and falling back.
+_TINGWU_ENDPOINT = "tingwu.cn-beijing.aliyuncs.com"
+_TINGWU_REGION = "cn-beijing"
+_TINGWU_POLL_INTERVAL_SECONDS = 15
+_TINGWU_POLL_TIMEOUT_SECONDS = 20 * 60
 
 
 def _http_get(url: str, timeout: int = 20) -> bytes:
@@ -81,172 +93,150 @@ def _http_get(url: str, timeout: int = 20) -> bytes:
         return resp.read()
 
 
-# Repo root (this file's directory) — used to resolve the default cookie file
-# path so it works regardless of the process cwd (systemd, cron, dev shell).
+# Repo root (this file's directory) — kept around for path resolution
+# (e.g. the run-lock file below).
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-def _ydl_opts(**extra) -> dict:
-    """Build the yt-dlp options dict shared by every call site: quiet flags
-    plus an optional Netscape cookie file (#491 — YouTube blocks datacenter
-    IPs with "Sign in to confirm you're not a bot"; cookies from a logged-in
-    browser get around that). The path comes from $YT_DLP_COOKIES (default
-    data/yt_cookies.txt; relative paths are resolved against the repo root)
-    and is silently omitted when the file doesn't exist, so local development
-    without a cookie file behaves exactly as before. Export/refresh
-    instructions live in scripts/README.md.
-    """
-    opts: dict = {"quiet": True, "no_warnings": True}
-    cookie_path = os.environ.get("YT_DLP_COOKIES") or os.path.join("data", "yt_cookies.txt")
-    if not os.path.isabs(cookie_path):
-        cookie_path = os.path.join(_BASE_DIR, cookie_path)
-    if os.path.isfile(cookie_path):
-        opts["cookiefile"] = cookie_path
-    opts.update(extra)
-    return opts
-
-
 # ---------------------------------------------------------------------------
-# Channel discovery
+# Episode discovery (RSS, #497)
 # ---------------------------------------------------------------------------
 
-def resolve_channel_id(channel_url: str) -> str:
-    """Resolve a YouTube channel handle URL (e.g. .../@shengfm/videos) to its
-    stable UC... channel id, by scraping the channel page HTML. Cached in
-    podcast_config so this only runs once per channel.
-    """
-    cfg = database.get_podcast_config()
-    cached = cfg.get("channel_id")
-    if cached:
-        return cached
+def _parse_itunes_duration(raw: str | None) -> int | None:
+    """Parse an itunes:duration value into whole seconds. The iTunes podcast
+    spec allows plain seconds, MM:SS or H:MM:SS — real feeds use all three
+    (Daniel's two feeds alone mix MM:SS and H:MM:SS)."""
+    if not raw:
+        return None
+    raw = raw.strip()
+    if not raw:
+        return None
+    try:
+        parts = [int(p) for p in raw.split(":")]
+    except ValueError:
+        return None
+    if len(parts) == 1:
+        return parts[0]
+    if len(parts) == 2:
+        return parts[0] * 60 + parts[1]
+    if len(parts) == 3:
+        return parts[0] * 3600 + parts[1] * 60 + parts[2]
+    return None
 
-    html = _http_get(channel_url).decode("utf-8", errors="replace")
-    m = _CHANNEL_ID_RE.search(html)
-    if not m:
-        raise ValueError(f"Could not find channelId in {channel_url}")
-    channel_id = m.group(1)
-    database.set_podcast_config("channel_id", channel_id)
-    logger.info("podcast: resolved channel_id=%s for %s", channel_id, channel_url)
-    return channel_id
+
+def _parse_rss_pubdate(raw: str | None) -> str | None:
+    """RSS <pubDate> (RFC 822) -> ISO 8601, matching the format previously
+    stored from YouTube's Atom <published> (which was already ISO)."""
+    if not raw:
+        return None
+    try:
+        return parsedate_to_datetime(raw).isoformat()
+    except (TypeError, ValueError):
+        return raw  # best-effort: keep the raw string rather than lose it
 
 
 def fetch_new_videos() -> list[dict]:
-    """Return videos from the channel RSS feed that aren't in the DB yet
-    (newest first, per YouTube's feed order). Zero API quota — RSS is public.
+    """Return episodes from the configured podcast RSS feeds
+    (podcast_config.feeds, a JSON array of feed URLs, #497) that aren't in
+    the DB yet. Zero API keys needed — plain public RSS/XML, no bot walls.
 
-    On the first-ever run (empty podcast_episodes table), only the latest
-    FIRST_RUN_BACKFILL videos are returned, to avoid backfilling the whole
-    channel history on day one.
+    Per feed: if that specific feed has zero episodes in the DB yet, only
+    its latest FIRST_RUN_BACKFILL episodes are returned (backfill mode).
+    Otherwise, RSS items are newest-first by convention, so items are walked
+    from the top and collection *stops at the first already-known guid* —
+    everything older than that was either already ingested or deliberately
+    left out of the initial backfill, and must stay left out forever (else
+    every subsequent crawl of a long-running feed like 声动早咖啡, which has
+    ~1000 back-catalog episodes, would dump the *entire* backlog as "new" in
+    one shot the very next cycle — this was caught by a real backfill+re-run
+    test against both of Daniel's feeds during #497's implementation, not
+    just theorized). A feed that fails to fetch/parse is logged and
+    skipped — one broken feed must not block the others.
     """
     cfg = database.get_podcast_config()
-    channel_url = cfg.get("channel_url") or "https://www.youtube.com/@shengfm/videos"
-    channel_id = resolve_channel_id(channel_url)
-
-    feed_url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
-    root = ElementTree.fromstring(_http_get(feed_url))
-    ns = {"atom": "http://www.w3.org/2005/Atom", "yt": "http://www.youtube.com/xml/schemas/2015"}
+    try:
+        feeds = json.loads(cfg.get("feeds") or "[]")
+    except (TypeError, ValueError):
+        feeds = []
+    if not feeds:
+        logger.warning("podcast: no feeds configured (podcast_config.feeds)")
+        return []
 
     known = database.get_known_video_ids()
-    is_first_run = not database.has_any_episode()
 
     videos: list[dict] = []
-    for entry in root.findall("atom:entry", ns):
-        video_id_el = entry.find("yt:videoId", ns)
-        title_el = entry.find("atom:title", ns)
-        published_el = entry.find("atom:published", ns)
-        video_id = video_id_el.text if video_id_el is not None else None
-        if not video_id or video_id in known:
+    for feed_url in feeds:
+        try:
+            root = ElementTree.fromstring(_http_get(feed_url, timeout=30))
+        except (urllib.error.URLError, ElementTree.ParseError) as e:
+            logger.warning("podcast: failed to fetch/parse feed %s: %s", feed_url, e)
             continue
-        videos.append({
-            "video_id": video_id,
-            "channel_id": channel_id,
-            "title": title_el.text if title_el is not None else video_id,
-            "published_at": published_el.text if published_el is not None else None,
-            "youtube_url": f"https://www.youtube.com/watch?v={video_id}",
-        })
 
-    if is_first_run:
-        videos = videos[:FIRST_RUN_BACKFILL]
+        is_first_run = not database.has_any_episode_for_feed(feed_url)
+        feed_videos: list[dict] = []
+        for item in root.findall(".//item"):
+            enclosure_el = item.find("enclosure")
+            audio_url = enclosure_el.get("url") if enclosure_el is not None else None
+            guid_el = item.find("guid")
+            guid = guid_el.text.strip() if guid_el is not None and guid_el.text else None
+            # Fall back to the enclosure URL as the unique id when a feed
+            # omits <guid> (not expected for either of Daniel's feeds, but
+            # cheap insurance) — never fall back to nothing, we need a
+            # stable video_id for the UNIQUE constraint / dedup.
+            video_id = guid or audio_url
+            if not video_id:
+                continue
+            if video_id in known:
+                if is_first_run:
+                    continue  # shouldn't happen (nothing's known yet), but harmless
+                break  # newest-first feed: everything from here on is old backlog
+
+            title_el = item.find("title")
+            link_el = item.find("link")
+            pubdate_el = item.find("pubDate")
+            duration_el = item.find("itunes:duration", _ITUNES_NS)
+            feed_videos.append({
+                "video_id": video_id,
+                "channel_id": feed_url,
+                "title": (title_el.text.strip() if title_el is not None and title_el.text else video_id),
+                "published_at": _parse_rss_pubdate(pubdate_el.text if pubdate_el is not None else None),
+                "youtube_url": (link_el.text.strip() if link_el is not None and link_el.text else feed_url),
+                "audio_url": audio_url,
+                "duration_seconds": _parse_itunes_duration(
+                    duration_el.text if duration_el is not None else None),
+            })
+            if is_first_run and len(feed_videos) >= FIRST_RUN_BACKFILL:
+                break
+
+        videos.extend(feed_videos)
+
     return videos
 
 
 # ---------------------------------------------------------------------------
-# Transcript download (yt-dlp, metadata only — skip_download=True)
+# Audio download (#497: plain urllib from the RSS enclosure URL, no yt-dlp)
 # ---------------------------------------------------------------------------
 
-def _pick_caption_track(subs_by_lang: dict) -> list[dict] | None:
-    """Given a {lang: [{ext, url}, ...]} dict, return the track list for the
-    first matching Chinese lang candidate, preferring json3 format within it."""
-    for lang in _ZH_LANG_CANDIDATES:
-        for key, tracks in subs_by_lang.items():
-            if key == lang or key.startswith(lang + "-"):
-                return tracks
-    return None
+def _download_audio(audio_url: str, video_id: str, tmp_dir: str) -> str:
+    """Download the RSS enclosure mp3 directly and transcode it to a single
+    16kHz mono ~32kbps mp3 with ffmpeg. Shared by the Whisper (#485) and
+    NotebookLM (#486) transcription paths (Tingwu, #498, is primary and
+    needs no download at all — it's submitted the audio_url directly) so
+    the (slow) download+transcode only ever happens once per episode.
 
-
-def _json3_to_text(data: dict) -> str:
-    """Flatten a YouTube json3 caption payload into plain text, de-duplicating
-    the rolling/incremental lines automatic captions produce (each event often
-    repeats-and-extends the previous one as the caption scrolls)."""
-    lines: list[str] = []
-    prev = ""
-    for event in data.get("events", []):
-        segs = event.get("segs")
-        if not segs:
-            continue
-        text = "".join(seg.get("utf8", "") for seg in segs).strip()
-        text = text.replace("\n", " ").strip()
-        if not text:
-            continue
-        if text.startswith(prev) and prev:
-            # Rolling caption growing incrementally — this event supersedes
-            # the previous partial line, don't emit prev as a separate line.
-            prev = text
-            if lines:
-                lines[-1] = text
-            else:
-                lines.append(text)
-            continue
-        if prev and prev in text:
-            lines[-1] = text
-            prev = text
-            continue
-        lines.append(text)
-        prev = text
-    return " ".join(lines)
-
-
-def _download_audio(video_id: str, tmp_dir: str) -> tuple[str, float]:
-    """Download the lowest-bitrate audio track for `video_id` with yt-dlp and
-    transcode it to a single 16kHz mono ~32kbps mp3 with ffmpeg. Shared by
-    both the NotebookLM (#486) and Whisper (#485) transcription paths so the
-    (slow) download+transcode only ever happens once per episode.
-
-    Returns (mp3_path, duration_seconds), with mp3_path inside tmp_dir (the
-    caller owns tmp_dir's lifetime/cleanup). Raises ValueError if duration
-    exceeds the cost guardrail, RuntimeError on yt-dlp/ffmpeg failures.
+    Returns mp3_path inside tmp_dir (the caller owns tmp_dir's lifetime).
+    Duration is not re-derived here — the RSS itunes:duration guardrail
+    check already happened in fetch_transcript *before* this is called, per
+    issue #497 ("guardrails before download"). Raises RuntimeError on
+    download/ffmpeg failures.
     """
-    import yt_dlp
-
-    url = f"https://www.youtube.com/watch?v={video_id}"
-    ydl_opts = _ydl_opts(
-        format="worstaudio[abr>=32]/worstaudio",
-        outtmpl=os.path.join(tmp_dir, "audio.%(ext)s"),
-    )
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-
-    duration = info.get("duration") or 0
-    if duration > _AUDIO_MAX_SECONDS:
-        raise ValueError(
-            f"podcast: audio for {video_id} is {duration / 3600:.1f}h, exceeds the "
-            f"{_AUDIO_MAX_SECONDS / 3600:.0f}h audio transcription cost guardrail"
-        )
-
-    downloaded = next((f for f in os.listdir(tmp_dir) if f.startswith("audio.")), None)
-    if not downloaded:
-        raise RuntimeError(f"podcast: yt-dlp did not produce an audio file for {video_id}")
-    src_path = os.path.join(tmp_dir, downloaded)
+    src_path = os.path.join(tmp_dir, "src_audio")
+    req = urllib.request.Request(audio_url, headers={"User-Agent": "AnkiAdvanced/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp, open(src_path, "wb") as f:
+            shutil.copyfileobj(resp, f)
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"podcast: failed to download audio for {video_id}: {e}")
 
     mp3_path = os.path.join(tmp_dir, "full.mp3")
     cmd = [
@@ -258,7 +248,7 @@ def _download_audio(video_id: str, tmp_dir: str) -> tuple[str, float]:
     if result.returncode != 0:
         raise RuntimeError(f"podcast: ffmpeg failed for {video_id}: {result.stderr[-500:]}")
 
-    return mp3_path, duration
+    return mp3_path
 
 
 def _split_audio_segments(mp3_path: str, tmp_dir: str, duration: float) -> list[str]:
@@ -413,18 +403,150 @@ def _transcribe_via_notebooklm(audio_path: str, video_id: str) -> str | None:
     return transcript
 
 
+def _parse_tingwu_transcript(result_json: dict) -> str:
+    """Best-effort flatten of the Tingwu offline transcription result JSON
+    (fetched from the URL in Result.Transcription once the task completes)
+    into plain text.
+
+    The documented shape is Transcription.Paragraphs[], each either carrying
+    a Text field directly or a Words[] list of {Text: ...} tokens to join —
+    walk both. Falls back to recursively collecting every "Text" string
+    found anywhere in the payload if neither matches, so an undocumented/
+    changed shape degrades to "some text" instead of an empty transcript
+    (this fallback is exercised by the unit tests; the primary shape is
+    unverified against a real response since #498 shipped without
+    credentials to test with — see CLAUDE.md/scripts/README.md).
+    """
+    paragraphs = (
+        (result_json.get("Transcription") or {}).get("Paragraphs")
+        or result_json.get("Paragraphs")
+        or []
+    )
+    lines: list[str] = []
+    for p in paragraphs:
+        if p.get("Text"):
+            lines.append(p["Text"])
+        else:
+            words = p.get("Words") or []
+            text = "".join(w.get("Text", "") for w in words)
+            if text:
+                lines.append(text)
+    if lines:
+        return " ".join(lines)
+
+    collected: list[str] = []
+
+    def _walk(node):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                if k == "Text" and isinstance(v, str) and v.strip():
+                    collected.append(v.strip())
+                else:
+                    _walk(v)
+        elif isinstance(node, list):
+            for item in node:
+                _walk(item)
+
+    _walk(result_json)
+    return " ".join(collected)
+
+
+def _transcribe_via_tingwu(audio_url: str, video_id: str) -> str | None:
+    """Primary transcription path (#498): submit the RSS enclosure mp3 URL
+    directly to Alibaba Cloud's Tongyi Tingwu (通义听悟) offline
+    transcription API — no audio download needed at all, official API,
+    ~¥0.6/hour (vs Whisper's ~¥1.3/hour), 90-day free tier for new accounts.
+
+    Requires ALIBABA_CLOUD_ACCESS_KEY_ID / ALIBABA_CLOUD_ACCESS_KEY_SECRET
+    (the alibabacloud SDK's standard env var names) plus TINGWU_APP_KEY (an
+    application created once in the Tingwu console — see scripts/README.md).
+    Missing config or any failure (create/poll/timeout/download/parse) logs
+    and returns None; fetch_transcript falls back to Whisper/NotebookLM.
+    """
+    access_key_id = os.environ.get("ALIBABA_CLOUD_ACCESS_KEY_ID")
+    access_key_secret = os.environ.get("ALIBABA_CLOUD_ACCESS_KEY_SECRET")
+    app_key = os.environ.get("TINGWU_APP_KEY")
+    if not access_key_id or not access_key_secret or not app_key:
+        logger.info("podcast: Tingwu credentials not configured, skipping for %s", video_id)
+        return None
+
+    try:
+        from alibabacloud_tea_openapi import models as open_api_models
+        from alibabacloud_tingwu20230930 import models as tingwu_models
+        from alibabacloud_tingwu20230930.client import Client as TingwuClient
+    except ImportError:
+        logger.info("podcast: alibabacloud_tingwu20230930 not installed, skipping Tingwu for %s", video_id)
+        return None
+
+    try:
+        client = TingwuClient(open_api_models.Config(
+            access_key_id=access_key_id,
+            access_key_secret=access_key_secret,
+            endpoint=_TINGWU_ENDPOINT,
+            region_id=_TINGWU_REGION,
+        ))
+        create_response = client.create_task(tingwu_models.CreateTaskRequest(
+            app_key=app_key,
+            type="offline",
+            input=tingwu_models.CreateTaskRequestInput(
+                file_url=audio_url,
+                source_language="cn",
+            ),
+        ))
+        task_id = create_response.body.data.task_id if create_response.body and create_response.body.data else None
+        if not task_id:
+            logger.warning("podcast: Tingwu CreateTask returned no task_id for %s", video_id)
+            return None
+
+        result_url = None
+        elapsed = 0
+        while elapsed < _TINGWU_POLL_TIMEOUT_SECONDS:
+            time.sleep(_TINGWU_POLL_INTERVAL_SECONDS)
+            elapsed += _TINGWU_POLL_INTERVAL_SECONDS
+            info = client.get_task_info(task_id)
+            data = info.body.data if info.body else None
+            status = data.task_status if data else None
+            if status == "COMPLETED":
+                result_url = data.result.transcription if data.result else None
+                break
+            if status == "FAILED":
+                logger.warning(
+                    "podcast: Tingwu task failed for %s: %s",
+                    video_id, data.error_message if data else "unknown error",
+                )
+                return None
+        else:
+            logger.warning(
+                "podcast: Tingwu task timed out after %ds for %s",
+                _TINGWU_POLL_TIMEOUT_SECONDS, video_id,
+            )
+            return None
+
+        if not result_url:
+            logger.warning("podcast: Tingwu task completed with no transcription result for %s", video_id)
+            return None
+
+        transcript = _parse_tingwu_transcript(json.loads(_http_get(result_url, timeout=30)))
+    except Exception as e:
+        logger.warning("podcast: Tingwu transcription failed for %s: %s", video_id, e)
+        return None
+
+    if transcript:
+        logger.info("podcast: Tingwu transcribed %s (%d chars)", video_id, len(transcript))
+    return transcript or None
+
+
 def _resolve_transcriber(cfg: dict) -> str:
-    """Normalize podcast_config into one of auto|notebooklm|whisper|off.
+    """Normalize podcast_config into one of auto|tingwu|whisper|notebooklm|off.
 
     Reads the current `transcriber` key when set to a legal value; otherwise
-    falls back to the legacy `whisper_fallback` key (#485) so pre-#486
-    installs keep behaving the same way without a data migration:
-    whisper_fallback=0 -> off, anything else -> auto (NotebookLM first, then
-    Whisper — the new default behavior, strictly better than the old
-    Whisper-only fallback since NotebookLM is free).
+    falls back to the legacy `whisper_fallback` key (#485) so old installs
+    keep behaving the same way without a data migration: whisper_fallback=0
+    -> off, anything else -> auto (Tingwu #498 -> Whisper #485 -> NotebookLM
+    #486, per fetch_transcript's ordering).
     """
     val = cfg.get("transcriber")
-    if val in ("auto", "notebooklm", "whisper", "off"):
+    if val in ("auto", "tingwu", "notebooklm", "whisper", "off"):
         return val
     if cfg.get("whisper_fallback", "1") not in ("1", "true", "True"):
         return "off"
@@ -437,7 +559,7 @@ def _whisper_duration_allowed(duration: float, cfg: dict) -> bool:
     早咖啡-style daily episodes run 10-15 minutes; the long shows he doesn't
     want to pay for run 60-90. Duration replaces the earlier title filter
     (#486) because real episode titles never contain "早咖啡" (issue #495).
-    0/empty disables the gate. NotebookLM (free) is never subject to it."""
+    0/empty disables the gate. Tingwu/NotebookLM are never subject to it."""
     raw = cfg.get("whisper_max_minutes", str(_DEFAULT_WHISPER_MAX_MINUTES))
     try:
         max_minutes = float(raw)
@@ -448,79 +570,86 @@ def _whisper_duration_allowed(duration: float, cfg: dict) -> bool:
     return duration <= max_minutes * 60
 
 
-def fetch_transcript(video_id: str) -> tuple[str | None, dict]:
-    """Download the Chinese transcript for a video via yt-dlp (metadata only,
-    no video/audio download). Manual captions are preferred over automatic
-    ones. Returns (transcript_text_or_None, meta) — meta always has at least
-    'title' and 'transcript_source' (one of 'captions'/'notebooklm'/'whisper'/
-    None). transcript is None when no Chinese captions exist AND the
-    transcription chain (NotebookLM #486 -> Whisper #485, per
-    podcast_config.transcriber) is disabled/unavailable/fails for this
-    episode (caller stores status='no_transcript' in that case).
+def fetch_transcript(video: dict) -> tuple[str | None, dict]:
+    """Get the Chinese transcript for one RSS episode. `video` needs
+    video_id/title/audio_url/duration_seconds (an episode row or a
+    fetch_new_videos() entry both satisfy this).
+
+    Returns (transcript_text_or_None, meta) — meta always has at least
+    'title' and 'transcript_source' (one of 'tingwu'/'whisper'/'notebooklm'/
+    None). Tries the transcription chain in order — Tingwu (#498, primary,
+    submitted the RSS mp3 URL directly, no download) -> Whisper (#485, paid,
+    gated to duration <= whisper_max_minutes, needs the audio downloaded) ->
+    NotebookLM (#486, free but unofficial/optional, auto-skips if not
+    authenticated) — per podcast_config.transcriber ('auto' tries all three
+    in that order; a specific value tries only that one). transcript is None
+    when the chain is disabled/unavailable/fails entirely for this episode
+    (caller stores status='no_transcript' in that case).
     """
-    import yt_dlp
+    video_id = video["video_id"]
+    title = video.get("title") or video_id
+    audio_url = video.get("audio_url")
+    duration = video.get("duration_seconds") or 0
+    meta = {"title": title, "transcript_source": None}
 
-    url = f"https://www.youtube.com/watch?v={video_id}"
-    ydl_opts = _ydl_opts(skip_download=True)
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
+    if not audio_url:
+        logger.warning("podcast: no audio_url for %s, cannot transcribe", video_id)
+        return None, meta
 
-    title = info.get("title") or video_id
-    meta = {"title": title, "upload_date": info.get("upload_date"), "transcript_source": None}
+    if duration and duration > _AUDIO_MAX_SECONDS:
+        logger.warning(
+            "podcast: %s is %.1fh, exceeds the %.0fh audio transcription cost guardrail, skipping",
+            video_id, duration / 3600, _AUDIO_MAX_SECONDS / 3600,
+        )
+        return None, meta
 
-    manual = info.get("subtitles") or {}
-    auto = info.get("automatic_captions") or {}
-    tracks = _pick_caption_track(manual) or _pick_caption_track(auto)
-    transcript = None
-    if tracks:
-        # Prefer json3 (structured, easy to dedupe); fall back to any available format.
-        track = next((t for t in tracks if t.get("ext") == "json3"), tracks[0])
-        try:
-            raw = _http_get(track["url"], timeout=30)
-            if track.get("ext") == "json3":
-                transcript = _json3_to_text(json.loads(raw))
-            else:
-                # Best-effort plain-text fallback for non-json3 formats (vtt/srv3):
-                # strip tags/timestamps, keep the rest.
-                text = raw.decode("utf-8", errors="replace")
-                text = re.sub(r"<[^>]+>", " ", text)
-                text = re.sub(r"^\s*\d+\s*$", "", text, flags=re.MULTILINE)
-                text = re.sub(r"\d{2}:\d{2}:\d{2}[.,]\d{3}.*", "", text)
-                transcript = re.sub(r"\s+", " ", text).strip()
-        except (urllib.error.URLError, json.JSONDecodeError, KeyError) as e:
-            logger.warning("podcast: caption download failed for %s: %s", video_id, e)
-            transcript = None
-    else:
-        logger.info("podcast: no Chinese captions for %s", video_id)
-
-    if transcript:
-        meta["transcript_source"] = "captions"
-        logger.info("podcast: transcript source for %s = captions", video_id)
-        return transcript, meta
-
-    # No usable captions (missing or download failed) — try the audio
-    # transcription chain: NotebookLM (free, #486) first, then Whisper (paid,
-    # #485), per podcast_config.transcriber.
     cfg = database.get_podcast_config()
     transcriber = _resolve_transcriber(cfg)
     if transcriber == "off":
-        logger.info("podcast: transcriber=off, skipping audio transcription for %s", video_id)
+        logger.info("podcast: transcriber=off, skipping transcription for %s", video_id)
         return None, meta
 
     from routes.utils import DISABLE_AI
     if DISABLE_AI:
-        # Dev mode must never trigger audio download/transcription (NotebookLM
-        # is free but still an external side effect; Whisper costs money).
-        logger.info("podcast: DISABLE_AI set, skipping audio transcription for %s", video_id)
+        # Dev mode must never trigger transcription (Tingwu/Whisper cost
+        # money; NotebookLM is free but still an external side effect).
+        logger.info("podcast: DISABLE_AI set, skipping transcription for %s", video_id)
         return None, meta
 
+    if transcriber in ("auto", "tingwu"):
+        transcript = _transcribe_via_tingwu(audio_url, video_id)
+        if transcript:
+            meta["transcript_source"] = "tingwu"
+            logger.info("podcast: transcript source for %s = tingwu", video_id)
+            return transcript, meta
+        if transcriber == "tingwu":
+            logger.info("podcast: transcriber=tingwu and Tingwu failed, not trying further for %s", video_id)
+            return None, meta
+
+    # transcriber in ("auto", "whisper", "notebooklm") at this point — both
+    # remaining paths need the audio downloaded+transcoded locally first.
     if not shutil.which("ffmpeg"):
-        logger.warning("podcast: ffmpeg not found, skipping audio transcription for %s", video_id)
+        logger.warning("podcast: ffmpeg not found, skipping remaining transcription paths for %s", video_id)
         return None, meta
 
     try:
         with tempfile.TemporaryDirectory() as tmp_dir:
-            mp3_path, duration = _download_audio(video_id, tmp_dir)
+            mp3_path = _download_audio(audio_url, video_id, tmp_dir)
+
+            if transcriber in ("auto", "whisper"):
+                if _whisper_duration_allowed(duration, cfg):
+                    transcript = _transcribe_via_whisper(mp3_path, duration, video_id, tmp_dir)
+                    if transcript:
+                        meta["transcript_source"] = "whisper"
+                        logger.info("podcast: transcript source for %s = whisper", video_id)
+                        return transcript, meta
+                else:
+                    logger.info(
+                        "podcast: %s is %.0fmin, over whisper_max_minutes — skipping Whisper",
+                        video_id, duration / 60,
+                    )
+                if transcriber == "whisper":
+                    return None, meta
 
             if transcriber in ("auto", "notebooklm"):
                 transcript = _transcribe_via_notebooklm(mp3_path, video_id)
@@ -528,23 +657,6 @@ def fetch_transcript(video_id: str) -> tuple[str | None, dict]:
                     meta["transcript_source"] = "notebooklm"
                     logger.info("podcast: transcript source for %s = notebooklm", video_id)
                     return transcript, meta
-                if transcriber == "notebooklm":
-                    logger.info("podcast: transcriber=notebooklm and NotebookLM failed, not trying Whisper for %s", video_id)
-                    return None, meta
-
-            # transcriber in ("auto", "whisper") at this point.
-            if not _whisper_duration_allowed(duration, cfg):
-                logger.info(
-                    "podcast: %s is %.0fmin, over whisper_max_minutes — skipping Whisper",
-                    video_id, duration / 60,
-                )
-                return None, meta
-
-            transcript = _transcribe_via_whisper(mp3_path, duration, video_id, tmp_dir)
-            if transcript:
-                meta["transcript_source"] = "whisper"
-                logger.info("podcast: transcript source for %s = whisper", video_id)
-                return transcript, meta
     except Exception as e:
         logger.warning("podcast: audio transcription pipeline failed for %s: %s", video_id, e)
         return None, meta
@@ -669,7 +781,7 @@ def send_email(episode: dict) -> bool:
       <p>
         <a href="{transcript_link}">Transkript ansehen</a> ·
         <a href="{episode.get('spotify_url') or ''}">Spotify</a> ·
-        <a href="{episode['youtube_url']}">YouTube</a>
+        <a href="{episode['youtube_url']}">Folge</a>
       </p>
     </body></html>
     """
@@ -715,8 +827,10 @@ _RUN_LOCK_PATH = os.path.join(_BASE_DIR, "data", "podcast_check.lock")
 def _process_episode(episode_id: int, video: dict, detail_level: str, summary: dict) -> None:
     """Process one already-inserted episode end-to-end: transcript -> AI
     summary -> HSK word filter -> Spotify link -> store -> email. Shared by
-    run_check (new videos + the auto-retry pass) and the manual retry
-    endpoint (#491). `video` only needs 'video_id' and 'title'.
+    run_check (new episodes + the auto-retry pass) and the manual retry
+    endpoint (#491). `video` needs 'video_id', 'title', 'audio_url' and
+    'duration_seconds' (#497 — fetch_transcript needs the last two now that
+    there's no yt-dlp metadata lookup to fall back on).
 
     Never raises — any unexpected failure marks the episode 'error' and bumps
     summary['failed'] (a missing transcript is 'no_transcript', not a
@@ -725,7 +839,7 @@ def _process_episode(episode_id: int, video: dict, detail_level: str, summary: d
     from routes.utils import DISABLE_AI
 
     try:
-        transcript, meta = fetch_transcript(video["video_id"])
+        transcript, meta = fetch_transcript(video)
         if not transcript:
             database.update_episode(episode_id, status="no_transcript")
             return
@@ -779,10 +893,10 @@ def _process_episode(episode_id: int, video: dict, detail_level: str, summary: d
 
 def retry_episode(episode_id: int) -> dict:
     """Re-run the full processing pipeline for one existing episode (#491) —
-    used by POST /api/podcast/episodes/{id}/retry after e.g. an expired
-    YouTube cookie failed a whole batch. Reuses the existing row (video_id is
-    UNIQUE — no second INSERT) after resetting its status/error, so a retry
-    that fails again just lands back on 'error' with the fresh message.
+    used by POST /api/podcast/episodes/{id}/retry after e.g. a failed
+    transcription attempt. Reuses the existing row (video_id is UNIQUE — no
+    second INSERT) after resetting its status/error, so a retry that fails
+    again just lands back on 'error' with the fresh message.
 
     The caller (the route) validates that the episode exists and its status
     is retryable. Returns {status, transcript_source, error, emailed} read
@@ -797,7 +911,10 @@ def retry_episode(episode_id: int) -> dict:
     database.update_episode(episode_id, status="pending", error=None)
 
     summary = {"summarized": 0, "emailed": 0, "failed": 0}
-    video = {"video_id": episode["video_id"], "title": episode["title"]}
+    video = {
+        "video_id": episode["video_id"], "title": episode["title"],
+        "audio_url": episode.get("audio_url"), "duration_seconds": episode.get("duration_seconds"),
+    }
     _process_episode(episode_id, video, detail_level, summary)
 
     fresh = database.get_episode(episode_id)
@@ -864,6 +981,7 @@ def _run_check_locked(cfg: dict) -> dict:
         episode_id = database.create_pending_episode(
             video["video_id"], video["channel_id"], video["title"],
             video["published_at"], video["youtube_url"],
+            video.get("audio_url"), video.get("duration_seconds"),
         )
         summary["new"] += 1
         processed_ids.add(episode_id)
@@ -881,7 +999,9 @@ def _run_check_locked(cfg: dict) -> dict:
         logger.info("podcast: auto-retrying failed episode %s (%s)", ep["id"], ep["video_id"])
         summary["retried"] += 1
         database.update_episode(ep["id"], status="pending", error=None)
-        _process_episode(ep["id"], {"video_id": ep["video_id"], "title": ep["title"]},
-                         detail_level, summary)
+        _process_episode(ep["id"], {
+            "video_id": ep["video_id"], "title": ep["title"],
+            "audio_url": ep.get("audio_url"), "duration_seconds": ep.get("duration_seconds"),
+        }, detail_level, summary)
 
     return summary
