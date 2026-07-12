@@ -47,9 +47,9 @@ def retry_episode(episode_id: int):
     episode = database.get_episode(episode_id)
     if not episode:
         raise HTTPException(404, "Episode not found")
-    if episode["status"] in ("summarized", "pending"):
+    if episode["status"] == "summarized":
         raise HTTPException(
-            400, f"Episode status is '{episode['status']}' — only error/no_transcript episodes can be retried"
+            400, "Episode is already summarized — nothing to retry"
         )
     return podcast.retry_episode(episode_id)
 

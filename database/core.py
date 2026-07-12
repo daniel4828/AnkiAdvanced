@@ -565,6 +565,30 @@ def init_db() -> None:
                 "DELETE FROM podcast_episodes WHERE id = ?", [(i,) for i in stale_ids])
             conn.commit()
 
+    # One-time transcript normalization (#500): NotebookLM ASR output stored
+    # before the fix is Traditional Chinese with per-character spacing —
+    # rewrite existing rows with the same cleanup podcast._normalize_transcript
+    # now applies on ingest (logic duplicated here because core.py must not
+    # import podcast.py — podcast.py imports database). Idempotent: already
+    # clean rows rewrite to themselves and are skipped.
+    import re as _re
+    try:
+        from zhconv import convert as _zh_convert
+    except ImportError:
+        _zh_convert = None
+    rows = conn.execute(
+        "SELECT id, transcript_zh FROM podcast_episodes "
+        "WHERE transcript_zh IS NOT NULL AND transcript_zh != ''"
+    ).fetchall()
+    for row in rows:
+        cleaned = _re.sub(r"(?<=[一-鿿　-〿＀-￯])\s+|\s+(?=[一-鿿　-〿＀-￯])", "", row["transcript_zh"])
+        if _zh_convert is not None:
+            cleaned = _zh_convert(cleaned, "zh-cn")
+        if cleaned != row["transcript_zh"]:
+            conn.execute("UPDATE podcast_episodes SET transcript_zh = ? WHERE id = ?",
+                         (cleaned, row["id"]))
+    conn.commit()
+
     conn.close()
 
 
