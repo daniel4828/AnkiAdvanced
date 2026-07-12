@@ -1753,9 +1753,13 @@ def summarize_podcast_transcript(transcript: str, title: str,
     transcript into a German summary + a list of HSK5+ vocabulary worth
     reviewing before listening.
 
-    Uses resolve_briefing_model() (OpenAI) — same reasoning as news/briefing:
-    DeepSeek censors this kind of freeform content, and the model is already
-    verified/cached there.
+    Uses resolve_briefing_model() (OpenAI) first — the model is already
+    verified/cached there and gpt writes the best German. If that fails
+    (e.g. a 429 insufficient_quota on the OpenAI account, which blocked all
+    podcast summaries on 2026-07-12) it falls back to DEFAULT_MODEL
+    (DeepSeek) when its key is configured (#506): unlike the news briefing,
+    a podcast content summary isn't the censorship-sensitive case that
+    forced news onto OpenAI, so a cheap DeepSeek pass beats no summary.
 
     Returns {"summary_de": str, "words": [{"word", "pinyin", "definition_de", "hsk"}]}.
     Falls back to an empty-ish result (summary_de note, words=[]) on any
@@ -1792,28 +1796,34 @@ Return ONLY a JSON object, no other text, no markdown fences:
   ]
 }}"""
 
-    model = resolve_briefing_model()
-    try:
-        raw = _call_api(model, [{"role": "user", "content": prompt}], 8192, purpose="podcast-summary")
-        start, end = raw.find("{"), raw.rfind("}") + 1
-        data = json.loads(raw[start:end]) if start != -1 and end != 0 else {}
-        summary_de = (data.get("summary_de") or "").strip()
-        words = []
-        for w in data.get("words") or []:
-            word = (w.get("word") or "").strip()
-            if not word:
-                continue
-            words.append({
-                "word": word,
-                "pinyin": (w.get("pinyin") or "").strip(),
-                "definition_de": (w.get("definition_de") or "").strip(),
-                "hsk": w.get("hsk") if isinstance(w.get("hsk"), int) else 5,
-            })
-        if summary_de:
-            return {"summary_de": summary_de, "words": words}
-        logger.warning("summarize_podcast_transcript: empty summary_de in AI reply")
-    except Exception as e:
-        logger.warning("summarize_podcast_transcript failed (%s)", e)
+    primary = resolve_briefing_model()
+    candidates = [primary]
+    if not primary.startswith("deepseek-") and os.environ.get("DEEPSEEK_API_KEY"):
+        candidates.append(DEFAULT_MODEL)
+    for model in candidates:
+        try:
+            raw = _call_api(model, [{"role": "user", "content": prompt}], 8192, purpose="podcast-summary")
+            start, end = raw.find("{"), raw.rfind("}") + 1
+            data = json.loads(raw[start:end]) if start != -1 and end != 0 else {}
+            summary_de = (data.get("summary_de") or "").strip()
+            words = []
+            for w in data.get("words") or []:
+                word = (w.get("word") or "").strip()
+                if not word:
+                    continue
+                words.append({
+                    "word": word,
+                    "pinyin": (w.get("pinyin") or "").strip(),
+                    "definition_de": (w.get("definition_de") or "").strip(),
+                    "hsk": w.get("hsk") if isinstance(w.get("hsk"), int) else 5,
+                })
+            if summary_de:
+                if model != primary:
+                    logger.info("summarize_podcast_transcript: fell back to %s after %s failed", model, primary)
+                return {"summary_de": summary_de, "words": words}
+            logger.warning("summarize_podcast_transcript: empty summary_de in AI reply (%s)", model)
+        except Exception as e:
+            logger.warning("summarize_podcast_transcript failed on %s (%s)", model, e)
     return {"summary_de": "", "words": []}
 
 
