@@ -1,6 +1,6 @@
-"""Podcast crawler storage (issue #479): episodes discovered from a YouTube
-channel + a small key-value config table (channel URL, notification email,
-summary detail level, enabled flag).
+"""Podcast crawler storage (issues #479, #497, #498): episodes discovered
+from podcast RSS feeds + a small key-value config table (feed list,
+notification email, summary detail level, enabled flag).
 
 All SQL for the podcast feature lives here — podcast.py (the crawler logic)
 and routes/podcast.py only call into this module.
@@ -16,11 +16,14 @@ from .core import get_db
 # Keys the crawler/UI is allowed to read or write. Kept in one place so
 # routes/podcast.py's PUT endpoint can validate against the same whitelist.
 # `whisper_fallback` (#485) is kept for backward compat, normalized into the
-# newer `transcriber` key (#486) by podcast._resolve_transcriber. `channel_id`
-# and `notebooklm_notebook_id` are crawler-internal caches, not meant to be
-# set directly via the PUT endpoint.
+# newer `transcriber` key (#486) by podcast._resolve_transcriber.
+# `notebooklm_notebook_id` is a crawler-internal cache, not meant to be set
+# directly via the PUT endpoint. `channel_url`/`channel_id`/
+# `whisper_title_filter` are retired (#497) — kept so old rows/installs don't
+# break, no longer read by the crawler. `feeds` (#497, JSON array of RSS
+# feed URLs) replaces `channel_url` as the source list.
 CONFIG_KEYS = (
-    "channel_url", "email_to", "detail_level", "enabled", "channel_id",
+    "feeds", "email_to", "detail_level", "enabled", "channel_url", "channel_id",
     "whisper_fallback", "transcriber", "whisper_title_filter", "whisper_max_minutes",
     "notebooklm_notebook_id",
 )
@@ -68,23 +71,37 @@ def get_known_video_ids() -> set[str]:
     return {r["video_id"] for r in rows}
 
 
-def has_any_episode() -> bool:
-    """True once at least one episode has ever been stored — used to detect
-    the crawler's first run, which only backfills the latest 5 videos."""
+def has_any_episode_for_feed(feed_url: str) -> bool:
+    """True once at least one episode from this specific RSS feed (stored in
+    the `channel_id` column, #497) has ever been stored — used to detect a
+    feed's first crawl, which only backfills its latest FIRST_RUN_BACKFILL
+    episodes instead of its entire back catalog."""
     conn = get_db()
-    row = conn.execute("SELECT 1 FROM podcast_episodes LIMIT 1").fetchone()
+    row = conn.execute(
+        "SELECT 1 FROM podcast_episodes WHERE channel_id = ? LIMIT 1", (feed_url,)
+    ).fetchone()
     conn.close()
     return row is not None
 
 
 def create_pending_episode(video_id: str, channel_id: str | None, title: str,
-                           published_at: str | None, youtube_url: str) -> int:
-    """Insert a new episode row with status=pending. Returns the new id."""
+                           published_at: str | None, youtube_url: str,
+                           audio_url: str | None = None,
+                           duration_seconds: int | None = None) -> int:
+    """Insert a new episode row with status=pending. Returns the new id.
+
+    `channel_id` stores the source RSS feed URL (#497, was a YouTube channel
+    id pre-#497). `youtube_url` stores the episode's webpage link (item
+    <link>; name kept for backward compat with existing rows/column).
+    `audio_url`/`duration_seconds` (#497) come from the RSS enclosure and
+    itunes:duration.
+    """
     conn = get_db()
     cur = conn.execute(
-        """INSERT INTO podcast_episodes (video_id, channel_id, title, published_at, youtube_url, status)
-           VALUES (?, ?, ?, ?, ?, 'pending')""",
-        (video_id, channel_id, title, published_at, youtube_url),
+        """INSERT INTO podcast_episodes
+           (video_id, channel_id, title, published_at, youtube_url, audio_url, duration_seconds, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')""",
+        (video_id, channel_id, title, published_at, youtube_url, audio_url, duration_seconds),
     )
     conn.commit()
     episode_id = cur.lastrowid
@@ -152,7 +169,7 @@ def list_recent_error_episodes(max_age_days: int = 7) -> list[dict]:
     the same clock."""
     conn = get_db()
     rows = conn.execute(
-        """SELECT id, video_id, title FROM podcast_episodes
+        """SELECT id, video_id, title, audio_url, duration_seconds FROM podcast_episodes
            WHERE status = 'error' AND created_at >= datetime('now', ?)
            ORDER BY id""",
         (f"-{int(max_age_days)} days",),

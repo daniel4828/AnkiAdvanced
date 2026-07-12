@@ -548,17 +548,19 @@ CREATE TABLE IF NOT EXISTS pregen_config (
 );
 
 -- ---------------------------------------------------------------------------
--- Podcast crawler (issue #479): discover new videos on a YouTube channel,
--- download the Chinese transcript, summarize into German, extract HSK5+
--- vocabulary, and email a notification.
+-- Podcast crawler (issue #479): discover new episodes from podcast RSS feeds
+-- (#497 — replaced the original YouTube-channel source), transcribe them,
+-- summarize into German, extract HSK5+ vocabulary, and email a notification.
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS podcast_episodes (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
-    video_id         TEXT NOT NULL UNIQUE,
-    channel_id       TEXT,
+    video_id         TEXT NOT NULL UNIQUE,  -- RSS item guid (or enclosure URL if no guid), #497; legacy rows used the YouTube video id
+    channel_id       TEXT,   -- source RSS feed URL, #497; legacy rows used the YouTube channel id
     title            TEXT NOT NULL,
     published_at     TEXT,
-    youtube_url      TEXT NOT NULL,
+    youtube_url      TEXT NOT NULL,  -- episode webpage link (RSS item <link>), #497; column name kept for backward compat
+    audio_url        TEXT,   -- RSS enclosure MP3 direct link, #497
+    duration_seconds INTEGER, -- parsed itunes:duration, #497 — used as a pre-download guardrail/gate
     spotify_url      TEXT,
     transcript_zh    TEXT,
     summary_de       TEXT,
@@ -566,7 +568,7 @@ CREATE TABLE IF NOT EXISTS podcast_episodes (
     detail_level     TEXT,   -- detail_level used for the summary (short|medium|detailed)
     status           TEXT NOT NULL DEFAULT 'pending'
                      CHECK(status IN ('pending', 'no_transcript', 'summarized', 'error')),
-    transcript_source TEXT,  -- 'captions' | 'notebooklm' | 'whisper' | NULL (issue #486)
+    transcript_source TEXT,  -- 'tingwu' | 'whisper' | 'notebooklm' | NULL (#498/#486); legacy rows may say 'captions'
     error            TEXT,
     email_sent_at    TEXT,
     created_at       TEXT NOT NULL DEFAULT (datetime('now'))
