@@ -1,3 +1,4 @@
+import re
 import sqlite3
 import datetime as _dt
 from datetime import date, datetime
@@ -81,30 +82,102 @@ def get_stats(deck_id: int | None = None, lang: str | None = None) -> dict:
 # API cost tracking
 # ---------------------------------------------------------------------------
 
-# Prices per million tokens (USD) as of 2026
+# Prices per million tokens (USD). Providers don't expose a pricing API, so
+# this table is hand-maintained — update it (and the static price table in
+# static/index.html's story-setup modal) whenever a provider changes pricing
+# or a new model is adopted. See CLAUDE.md "规范与约束".
+_PRICING_AS_OF = "2026-07-12"
 _MODEL_PRICING: dict[str, dict[str, float]] = {
-    # Anthropic
-    "claude-haiku-4-5-20251001": {"input": 0.80,  "output": 4.00},
-    "claude-sonnet-4-6":         {"input": 3.00,  "output": 15.00},
-    "claude-opus-4-6":           {"input": 15.00, "output": 75.00},
-    # Zhipu (glm-4-flash is free)
-    "glm-4-flash":               {"input": 0.00,  "output": 0.00},
-    "glm-4-air":                 {"input": 0.06,  "output": 0.06},
-    # DeepSeek
-    "deepseek-chat":             {"input": 0.28,  "output": 0.42},
-    "deepseek-reasoner":         {"input": 0.50,  "output": 2.18},
-    # Qwen / DashScope
-    "qwen-turbo":                {"input": 0.065, "output": 0.26},
-    "qwen-plus":                 {"input": 0.40,  "output": 1.20},
+    # OpenAI (news/briefing/podcast summaries)
+    "gpt-5.1":      {"input": 1.25, "cached": 0.125, "output": 10.00},
+    "gpt-5":        {"input": 1.25, "cached": 0.125, "output": 10.00},
+    "gpt-5-mini":   {"input": 0.25, "cached": 0.025, "output": 2.00},
+    # OpenAI audio transcription (podcast Whisper path) — billed per minute;
+    # input_tokens stores audio *seconds* for these rows (see podcast.py).
+    "gpt-4o-mini-transcribe": {"per_minute": 0.003},
+    # DeepSeek (default story/enrichment models)
+    "deepseek-v4-flash": {"input": 0.14,  "cached": 0.0028,   "output": 0.28},
+    "deepseek-v4-pro":   {"input": 0.435, "cached": 0.003625, "output": 0.87},
+    # Legacy models kept so old api_call_log rows still price correctly
+    "deepseek-chat":     {"input": 0.28, "output": 0.42},
+    "deepseek-reasoner": {"input": 0.50, "output": 2.18},
+    "glm-4-flash":       {"input": 0.00, "output": 0.00},
+    "glm-4-air":         {"input": 0.06, "output": 0.06},
+    "qwen-turbo":        {"input": 0.065, "output": 0.26},
+    "qwen-plus":         {"input": 0.40, "output": 1.20},
+    "claude-haiku-4-5-20251001": {"input": 0.80, "output": 4.00},
+    "claude-sonnet-4-6": {"input": 3.00, "output": 15.00},
+    "claude-opus-4-6":   {"input": 15.00, "output": 75.00},
 }
+
+_SNAPSHOT_SUFFIX_RE = re.compile(r"(-\d{4}-\d{2}-\d{2}|-\d{8})$")
+
+
+def _lookup_pricing(model: str) -> dict | None:
+    """Resolve a model id to its pricing entry.
+
+    Tries, in order: exact match; the id with a trailing date-snapshot suffix
+    (-YYYY-MM-DD or -YYYYMMDD) stripped; the longest pricing-table key that is
+    a prefix of the model id (so "gpt-5.1-2026-04-14" matches "gpt-5.1" before
+    the shorter "gpt-5"). Returns None if nothing matches.
+    """
+    if model in _MODEL_PRICING:
+        return _MODEL_PRICING[model]
+
+    stripped = _SNAPSHOT_SUFFIX_RE.sub("", model)
+    if stripped in _MODEL_PRICING:
+        return _MODEL_PRICING[stripped]
+
+    matches = [k for k in _MODEL_PRICING if stripped.startswith(k) or model.startswith(k)]
+    if matches:
+        best = max(matches, key=len)
+        return _MODEL_PRICING[best]
+
+    return None
+
+
+def _row_cost(row: dict) -> float | None:
+    """Compute the USD cost of one api_call_log row, or None if the model's
+    pricing is unknown."""
+    pricing = _lookup_pricing(row["model"])
+    if pricing is None:
+        return None
+
+    if "per_minute" in pricing:
+        # Audio transcription rows store duration in *seconds* in input_tokens.
+        return row["input_tokens"] / 60 * pricing["per_minute"]
+
+    cached = min(row.get("cached_input_tokens") or 0, row["input_tokens"])
+    miss = row["input_tokens"] - cached
+    cached_price = pricing.get("cached", pricing["input"])
+    return (miss * pricing["input"] + cached * cached_price +
+            row["output_tokens"] * pricing["output"]) / 1_000_000
+
+
+def _service_for_purpose(purpose: str) -> str:
+    """Map an api_call_log.purpose value to a UI-facing service grouping."""
+    if purpose == "story" or purpose == "kahneman" or purpose == "fix_commas" \
+            or purpose.startswith("regen:"):
+        return "Stories"
+    if purpose in ("news", "news-select", "briefing", "briefing_fact_check"):
+        return "News briefing"
+    if purpose == "paste":
+        return "Paste"
+    if purpose in ("podcast-summary", "podcast-transcribe"):
+        return "Podcast"
+    if purpose.startswith("enrich:") or purpose.startswith("hanzi:"):
+        return "Word enrichment"
+    return "Other"
 
 
 def log_api_call(model: str, input_tokens: int, output_tokens: int,
-                 purpose: str = "story") -> None:
+                 purpose: str = "story", cached_input_tokens: int = 0) -> None:
     conn = get_db()
     conn.execute(
-        "INSERT INTO api_call_log (model, input_tokens, output_tokens, purpose) VALUES (?, ?, ?, ?)",
-        (model, input_tokens, output_tokens, purpose),
+        """INSERT INTO api_call_log
+           (model, input_tokens, output_tokens, purpose, cached_input_tokens)
+           VALUES (?, ?, ?, ?, ?)""",
+        (model, input_tokens, output_tokens, purpose, cached_input_tokens),
     )
     conn.commit()
     conn.close()
@@ -112,23 +185,84 @@ def log_api_call(model: str, input_tokens: int, output_tokens: int,
 
 def get_api_costs() -> dict:
     conn = get_db()
-    rows = conn.execute(
+    rows = [dict(r) for r in conn.execute(
         "SELECT * FROM api_call_log ORDER BY called_at DESC"
-    ).fetchall()
+    ).fetchall()]
     conn.close()
 
-    calls = []
-    total_cost = 0.0
-    for r in rows:
-        r = dict(r)
-        pricing = _MODEL_PRICING.get(r["model"], {"input": 0.0, "output": 0.0})
-        cost = (r["input_tokens"] * pricing["input"] +
-                r["output_tokens"] * pricing["output"]) / 1_000_000
-        r["cost"] = round(cost, 6)
-        total_cost += cost
-        calls.append(r)
+    # called_at is stored via SQLite's datetime('now') — "YYYY-MM-DD HH:MM:SS"
+    # (UTC, space-separated, no microseconds). Match that format exactly so
+    # the string comparison below is valid.
+    thirty_days_ago = (datetime.utcnow() - _dt.timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
 
-    return {"calls": calls, "total_cost": round(total_cost, 6)}
+    total_cost = 0.0
+    total_cost_30d = 0.0
+    unknown_calls = 0
+    unknown_models: list[str] = []
+
+    # groups[(service, model)] -> aggregate dict
+    groups: dict[tuple[str, str], dict] = {}
+
+    for r in rows:
+        cost = _row_cost(r)
+        is_recent = r["called_at"] >= thirty_days_ago
+
+        if cost is None:
+            unknown_calls += 1
+            if r["model"] not in unknown_models:
+                unknown_models.append(r["model"])
+        else:
+            total_cost += cost
+            if is_recent:
+                total_cost_30d += cost
+
+        service = _service_for_purpose(r["purpose"])
+        key = (service, r["model"])
+        g = groups.get(key)
+        if g is None:
+            g = groups[key] = {
+                "service": service, "model": r["model"],
+                "calls": 0, "input_tokens": 0, "output_tokens": 0,
+                "cached_tokens": 0, "cost": None,
+                "calls_30d": 0, "cost_30d": None,
+            }
+        g["calls"] += 1
+        g["input_tokens"] += r["input_tokens"]
+        g["output_tokens"] += r["output_tokens"]
+        g["cached_tokens"] += r.get("cached_input_tokens") or 0
+        if cost is not None:
+            g["cost"] = (g["cost"] or 0.0) + cost
+        if is_recent:
+            g["calls_30d"] += 1
+            if cost is not None:
+                g["cost_30d"] = (g["cost_30d"] or 0.0) + cost
+
+    for g in groups.values():
+        if g["cost"] is not None:
+            g["cost"] = round(g["cost"], 6)
+        if g["cost_30d"] is not None:
+            g["cost_30d"] = round(g["cost_30d"], 6)
+
+    # Sort services as contiguous blocks (most expensive service first, then
+    # most expensive model within it) — the UI only prints the service name
+    # on the first row of each block, so blocks must stay together.
+    service_totals: dict[str, float] = {}
+    for g in groups.values():
+        service_totals[g["service"]] = service_totals.get(g["service"], 0.0) + (g["cost"] or 0.0)
+    groups_list = sorted(
+        groups.values(),
+        key=lambda g: (-service_totals[g["service"]], g["service"],
+                       -(g["cost"] if g["cost"] is not None else -1)),
+    )
+
+    return {
+        "pricing_as_of": _PRICING_AS_OF,
+        "total_cost": round(total_cost, 6),
+        "total_cost_30d": round(total_cost_30d, 6),
+        "unknown_calls": unknown_calls,
+        "unknown_models": unknown_models,
+        "groups": groups_list,
+    }
 
 
 def get_retention_bulk(days: int = 30, lang: str | None = None) -> dict:

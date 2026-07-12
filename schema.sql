@@ -406,12 +406,13 @@ CREATE TABLE IF NOT EXISTS story_sentence_words (
 -- api_call_log
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS api_call_log (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    called_at       TEXT NOT NULL DEFAULT (datetime('now')),
-    model           TEXT NOT NULL,
-    input_tokens    INTEGER NOT NULL,
-    output_tokens   INTEGER NOT NULL,
-    purpose         TEXT NOT NULL DEFAULT 'story'
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    called_at            TEXT NOT NULL DEFAULT (datetime('now')),
+    model                TEXT NOT NULL,
+    input_tokens         INTEGER NOT NULL,
+    output_tokens        INTEGER NOT NULL,
+    purpose              TEXT NOT NULL DEFAULT 'story',
+    cached_input_tokens  INTEGER NOT NULL DEFAULT 0
 );
 
 -- ---------------------------------------------------------------------------

@@ -358,3 +358,4 @@ python main.py status [--deck X]     # 显示每个牌组/类别的到期数量
 - 前端无构建步骤——直接编辑 `static/` 下的文件
 - API 密钥只从环境变量读取，绝不写入代码或仓库
 - **不要在 8000 端口跑测试服务器**——Daniel 的浏览器连着它
+- API 价格表在 `database/stats.py` 的 `_MODEL_PRICING`（含 `_PRICING_AS_OF` 生效日期）；各提供商都没有价格查询 API，价格变动或新模型上线时需手动更新该表，并同步 `static/index.html` 里的静态价格表（设置弹窗 `price-table-popup`）

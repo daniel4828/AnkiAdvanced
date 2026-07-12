@@ -340,6 +340,14 @@ def _transcribe_via_whisper(mp3_path: str, duration: float, video_id: str, tmp_d
         "podcast: Whisper transcribed %s (%d segment(s), %.0fmin)",
         video_id, len(segments), duration / 60,
     )
+    # Whisper is billed per minute, not per token. Log the audio duration (in
+    # seconds) as input_tokens so database.stats._row_cost can price it via
+    # the "per_minute" pricing entry — only on success, since a failed call
+    # above already raised before reaching here.
+    database.log_api_call(
+        model="gpt-4o-mini-transcribe", input_tokens=int(duration),
+        output_tokens=0, purpose="podcast-transcribe",
+    )
     return transcript or None
 
 
