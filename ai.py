@@ -1986,13 +1986,12 @@ def summarize_podcast_transcript(transcript: str, title: str,
     transcript into a German summary + a list of HSK5+ vocabulary worth
     reviewing before listening.
 
-    Uses resolve_briefing_model() (OpenAI) first — the model is already
-    verified/cached there and gpt writes the best German. If that fails
-    (e.g. a 429 insufficient_quota on the OpenAI account, which blocked all
-    podcast summaries on 2026-07-12) it falls back to DEFAULT_MODEL
-    (DeepSeek) when its key is configured (#506): unlike the news briefing,
-    a podcast content summary isn't the censorship-sensitive case that
-    forced news onto OpenAI, so a cheap DeepSeek pass beats no summary.
+    Uses DEFAULT_MODEL (DeepSeek) first when DEEPSEEK_API_KEY is configured —
+    unlike the news briefing, a podcast content summary isn't the
+    censorship-sensitive case that forced news onto OpenAI, so a cheap
+    DeepSeek pass is preferred to save money (#532). Falls back to
+    resolve_briefing_model() (OpenAI/gpt) if DeepSeek is unavailable or its
+    reply fails to parse — gpt is the paid-but-reliable backstop.
 
     This is the "api" summarizer path — podcast.summarize() (#510) tries the
     free NotebookLM chat.ask path first when podcast_config.summarizer=auto,
@@ -2005,10 +2004,13 @@ def summarize_podcast_transcript(transcript: str, title: str,
     """
     prompt = build_podcast_summary_prompt(transcript, title, detail_level)
 
-    primary = resolve_briefing_model()
-    candidates = [primary]
-    if not primary.startswith("deepseek-") and os.environ.get("DEEPSEEK_API_KEY"):
+    candidates = []
+    if os.environ.get("DEEPSEEK_API_KEY"):
         candidates.append(DEFAULT_MODEL)
+    fallback = resolve_briefing_model()
+    if fallback not in candidates:
+        candidates.append(fallback)
+    primary = candidates[0]
     for model in candidates:
         try:
             raw = _call_api(model, [{"role": "user", "content": prompt}], 8192, purpose="podcast-summary")
