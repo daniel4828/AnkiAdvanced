@@ -3567,6 +3567,90 @@ select.opt-input {
 .cost-num { text-align: right; font-variant-numeric: tabular-nums; }
 .cost-value { color: var(--primary); font-weight: 600; }
 
+/* ── Cost modal: action timeline (issue #525) ───────────────────────────── */
+.cost-action-row { cursor: pointer; }
+.cost-action-arrow {
+  width: 16px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.cost-action-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.cost-action-label { font-weight: 500; }
+.cost-action-detail td { padding: 0 12px 12px; background: var(--bg); }
+.cost-calls-table { font-size: 12.5px; margin: 0; }
+.cost-calls-table th { background: transparent; padding: 6px 10px; }
+.cost-calls-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); }
+.cost-calls-table tbody tr:last-child td { border-bottom: none; }
+.cost-prompt-btn {
+  background: var(--border);
+  border: none;
+  border-radius: 6px;
+  padding: 3px 9px;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--text);
+}
+.cost-prompt-btn:hover { background: var(--primary); color: #fff; }
+
+/* ── Cost modal: prompt viewer overlay ──────────────────────────────────── */
+.cost-prompt-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1100;
+  align-items: center;
+  justify-content: center;
+}
+.cost-prompt-box {
+  background: var(--card-bg, #fff);
+  border-radius: 12px;
+  width: min(720px, 92vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+.cost-prompt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  color: var(--text);
+}
+.cost-prompt-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 0 4px;
+}
+.cost-prompt-body {
+  margin: 0;
+  padding: 14px 16px;
+  overflow: auto;
+  max-height: 60vh;
+  font-family: monospace;
+  font-size: 12.5px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+  background: var(--bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  .cost-prompt-box { background: var(--card-bg, #1e1e1e); }
+}
+
 /* ── Model price info popup ─────────────────────────────────────────────── */
 .price-info-btn {
   background: none; border: none; cursor: pointer;

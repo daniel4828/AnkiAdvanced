@@ -3160,6 +3160,21 @@ function _prettyModel(model) {
     .replace('qwen-plus', 'Qwen Plus');
 }
 
+// called_at is stored as UTC "YYYY-MM-DD HH:MM:SS" (SQLite datetime('now'),
+// no timezone marker) — append 'Z' so Date parses it as UTC, then format in
+// the viewer's local time. Today's calls show just HH:MM; older ones get the
+// date prefixed.
+function _fmtCostTime(calledAt) {
+  const d = new Date(calledAt.replace(' ', 'T') + 'Z');
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const hhmm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const sameDay = d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  if (sameDay) return hhmm;
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hhmm}`;
+}
+
 function renderCostModal(data) {
   const fmt = n => '$' + n.toFixed(2);
   const fmtCost = n => (n === null || n === undefined) ? '?' : '$' + n.toFixed(4);
@@ -3180,35 +3195,93 @@ function renderCostModal(data) {
       `(unknown models: ${data.unknown_models.join(', ')})</div>`;
   }
 
-  if (!data.groups.length) {
+  if (!data.actions.length) {
     html += '<div class="cost-empty">No API calls logged yet.</div>';
   } else {
-    html += `<table class="cost-table">
-      <thead><tr>
-        <th>Service</th><th>Model</th><th>Calls</th><th>Tokens in / out</th>
-        <th style="text-align:right">Cost (30d)</th><th style="text-align:right">Cost (all)</th>
-      </tr></thead><tbody>`;
-    let lastService = null;
-    for (const g of data.groups) {
-      const model = _prettyModel(g.model);
-      const showService = g.service !== lastService;
-      lastService = g.service;
-      const cachedTitle = g.cached_tokens > 0 ? ` title="(${g.cached_tokens.toLocaleString()} cached)"` : '';
-      html += `<tr>
-        <td>${showService ? g.service : ''}</td>
-        <td><span class="cost-model">${model}</span></td>
-        <td class="cost-num" style="color:var(--muted)">${g.calls.toLocaleString()}</td>
-        <td class="cost-num" style="color:var(--muted)"${cachedTitle}>${g.input_tokens.toLocaleString()} / ${g.output_tokens.toLocaleString()}</td>
-        <td class="cost-num" style="color:var(--muted)">${fmtCost(g.cost_30d)}</td>
-        <td class="cost-num cost-value">${fmtCost(g.cost)}</td>
+    html += '<table class="cost-table cost-actions-table"><tbody>';
+    data.actions.forEach((a, idx) => {
+      const callWord = a.call_count === 1 ? 'call' : 'calls';
+      html += `<tr class="cost-action-row" onclick="toggleCostAction(${idx})">
+        <td class="cost-action-arrow" id="cost-action-arrow-${idx}">&#9656;</td>
+        <td class="cost-action-time">${_fmtCostTime(a.started_at)}</td>
+        <td class="cost-action-label">${_escHtml(a.label)}</td>
+        <td class="cost-num" style="color:var(--muted)">${a.call_count} ${callWord}</td>
+        <td class="cost-num cost-value">${fmtCost(a.total_cost)}</td>
       </tr>`;
-    }
+      html += `<tr class="cost-action-detail" id="cost-action-${idx}" style="display:none">
+        <td colspan="5">
+          <table class="cost-table cost-calls-table">
+            <thead><tr>
+              <th>Time</th><th>Model</th><th>Purpose</th><th>Tokens in / out</th>
+              <th style="text-align:right">Cost</th><th></th>
+            </tr></thead>
+            <tbody>`;
+      for (const c of a.calls) {
+        const model = _prettyModel(c.model);
+        const cachedTitle = c.cached_input_tokens > 0
+          ? ` title="(${c.cached_input_tokens.toLocaleString()} cached)"` : '';
+        const promptBtn = c.has_prompt
+          ? `<button class="cost-prompt-btn" onclick="event.stopPropagation(); showCostPrompt(${c.id})">Prompt</button>`
+          : '';
+        html += `<tr>
+          <td>${_fmtCostTime(c.called_at)}</td>
+          <td><span class="cost-model">${model}</span></td>
+          <td style="color:var(--muted)">${_escHtml(c.purpose)}</td>
+          <td class="cost-num" style="color:var(--muted)"${cachedTitle}>${c.input_tokens.toLocaleString()} / ${c.output_tokens.toLocaleString()}</td>
+          <td class="cost-num cost-value">${fmtCost(c.cost)}</td>
+          <td>${promptBtn}</td>
+        </tr>`;
+      }
+      html += '</tbody></table></td></tr>';
+    });
     html += '</tbody></table>';
   }
 
   html += `<div class="cost-footnote">Prices as of ${data.pricing_as_of} — edit database/stats.py when providers change pricing.</div>`;
 
   document.getElementById('cost-modal-body').innerHTML = html;
+}
+
+function toggleCostAction(idx) {
+  const row = document.getElementById('cost-action-' + idx);
+  const arrow = document.getElementById('cost-action-arrow-' + idx);
+  if (!row) return;
+  const open = row.style.display !== 'none';
+  row.style.display = open ? 'none' : 'table-row';
+  arrow.innerHTML = open ? '&#9656;' : '&#9662;';
+}
+
+async function showCostPrompt(callId) {
+  let overlay = document.getElementById('cost-prompt-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'cost-prompt-overlay';
+    overlay.className = 'cost-prompt-overlay';
+    overlay.innerHTML = `
+      <div class="cost-prompt-box">
+        <div class="cost-prompt-header">
+          <span>Prompt</span>
+          <button class="cost-prompt-close" onclick="closeCostPrompt()">&times;</button>
+        </div>
+        <pre class="cost-prompt-body" id="cost-prompt-body">Loading…</pre>
+      </div>`;
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeCostPrompt(); });
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = 'flex';
+  const body = document.getElementById('cost-prompt-body');
+  body.textContent = 'Loading…';
+  try {
+    const data = await api('GET', `/api/costs/call/${callId}`);
+    body.textContent = data.prompt || '(no prompt stored)';
+  } catch (e) {
+    body.textContent = 'Failed to load prompt: ' + e.message;
+  }
+}
+
+function closeCostPrompt() {
+  const overlay = document.getElementById('cost-prompt-overlay');
+  if (overlay) overlay.style.display = 'none';
 }
 
 function renderStats(data) {

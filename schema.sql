@@ -412,7 +412,10 @@ CREATE TABLE IF NOT EXISTS api_call_log (
     input_tokens         INTEGER NOT NULL,
     output_tokens        INTEGER NOT NULL,
     purpose              TEXT NOT NULL DEFAULT 'story',
-    cached_input_tokens  INTEGER NOT NULL DEFAULT 0
+    cached_input_tokens  INTEGER NOT NULL DEFAULT 0,
+    action_id            TEXT,
+    action_label         TEXT,
+    prompt               TEXT
 );
 
 -- ---------------------------------------------------------------------------

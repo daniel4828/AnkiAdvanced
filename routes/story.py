@@ -195,6 +195,37 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
     lang = lang or database.get_deck_lang(deck_id)
     ai.fix_definition_commas(cards)
     ai._story_progress[progress_key] = {"phase": "starting", "msg": "Starting…", "percent": 5}
+    with database.action_context(_action_label_for_story(mode, deck_id)):
+        return _generate_and_store_body(
+            deck_id, category, today, cards,
+            topic=topic, max_hsk=max_hsk, model=model, grammar_focus=grammar_focus,
+            grammar_pct=grammar_pct, mode=mode, chapter_ids=chapter_ids,
+            articles=articles, progress_key=progress_key, lang=lang,
+            origin=origin, episode_id=episode_id,
+        )
+
+
+def _action_label_for_story(mode: str, deck_id: int) -> str:
+    """Cost-modal action label for a story generation run (issue #525)."""
+    if mode == "briefing":
+        return "Generate News Flash"
+    if mode == "news":
+        return "Generate News"
+    if mode == "kahneman":
+        return "Generate Kahneman Story"
+    if mode == "paste":
+        return "Generate Paste Story"
+    if mode == "podcast":
+        return "Generate Podcast Review"
+    deck = database.get_deck(deck_id)
+    deck_name = deck["name"] if deck else str(deck_id)
+    return f"Generate Story: {deck_name}"
+
+
+def _generate_and_store_body(deck_id: int, category: str, today: str, cards: list, *,
+                             topic, max_hsk, model, grammar_focus, grammar_pct, mode,
+                             chapter_ids, articles, progress_key, lang: str,
+                             origin: str | None, episode_id: int | None) -> dict | None:
     try:
         if mode == "news":
             # Issue #512: the old auto-fetch-only "news" mode has been removed

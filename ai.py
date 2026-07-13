@@ -71,6 +71,17 @@ def _openai_client(model: str) -> openai.OpenAI:
     raise ValueError(f"Unknown provider for model: {model}")
 
 
+def _extract_prompt(messages: list) -> str:
+    """Join the content of all user-role messages (for cost-modal display).
+
+    Truncation to a display-safe length happens in database.log_api_call, not
+    here — never trust the caller to have already truncated.
+    """
+    return "\n\n".join(
+        m.get("content", "") for m in messages if m.get("role") == "user"
+    )
+
+
 def _call_api(model: str, messages: list, max_tokens: int, purpose: str,
               thinking: bool = False) -> str:
     """Call the appropriate provider, log usage, and return the raw text response.
@@ -80,6 +91,7 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str,
               explicitly disable it for tasks that don't need chain-of-thought.
     """
     t0 = time.time()
+    prompt_text = _extract_prompt(messages)
     if model.startswith("claude-"):
         client = anthropic.Anthropic()
         msg = client.messages.create(model=model, max_tokens=max_tokens, messages=messages)
@@ -96,6 +108,7 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str,
             output_tokens=msg.usage.output_tokens,
             purpose=purpose,
             cached_input_tokens=cached_tokens,
+            prompt=prompt_text,
         )
         return msg.content[0].text.strip()
     else:
@@ -153,6 +166,7 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str,
             output_tokens=resp.usage.completion_tokens,
             purpose=purpose,
             cached_input_tokens=cached_tokens,
+            prompt=prompt_text,
         )
 
         if choice.finish_reason == "length":
