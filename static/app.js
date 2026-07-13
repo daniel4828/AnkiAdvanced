@@ -2614,6 +2614,7 @@ const PREGEN_MODE_OPTIONS = [
 let _pregenDecks = [];
 let _pregenEntries = [];
 let _pregenDeckId = null;
+let _pregenEnabled = true;
 
 async function _loadPregenSettings() {
   try {
@@ -2622,6 +2623,7 @@ async function _loadPregenSettings() {
       api('GET', '/api/decks'),
     ]);
     _pregenEntries = cfg.entries || [];
+    _pregenEnabled = cfg.enabled !== false;
     _pregenDecks = [];
     const walk = (nodes, depth) => (nodes || []).forEach(d => {
       _pregenDecks.push({ id: d.id, name: '  '.repeat(depth) + d.name });
@@ -2660,16 +2662,38 @@ function _renderPregenPanel() {
              value="${e?.max_hsk ?? 3}" title="Max HSK level for background vocabulary in the generated story" style="width:56px">
     </div>`;
   }).join('');
+  const dimmed = _pregenEnabled ? '' : 'opacity:0.4;pointer-events:none';
   el.innerHTML = `
     <div class="keymap-row">
-      <span class="keymap-label">Deck</span>
-      <select class="opt-input" id="pregen-deck-select" style="flex:1" onchange="_pregenSelectDeck(this.value)">${deckOpts}</select>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="pregen-enabled-switch" ${_pregenEnabled ? 'checked' : ''}
+               onchange="setPregenEnabled(this.checked)" style="width:18px;height:18px;cursor:pointer">
+        <span class="keymap-label">Enable morning pre-generation</span>
+      </label>
     </div>
-    ${rows}
-    <div class="keymap-row">
-      <button class="keymap-reset-all" onclick="savePregenConfig()">Save morning settings</button>
-      <span id="pregen-save-msg" class="keymap-label"></span>
+    ${_pregenEnabled ? '' :
+      '<p class="keymap-hint" style="margin:2px 0 8px">Off — the server generates nothing in the morning; open a category during the day to generate on demand.</p>'}
+    <div style="${dimmed}">
+      <div class="keymap-row">
+        <span class="keymap-label">Deck</span>
+        <select class="opt-input" id="pregen-deck-select" style="flex:1" onchange="_pregenSelectDeck(this.value)">${deckOpts}</select>
+      </div>
+      ${rows}
+      <div class="keymap-row">
+        <button class="keymap-reset-all" onclick="savePregenConfig()">Save morning settings</button>
+        <span id="pregen-save-msg" class="keymap-label"></span>
+      </div>
     </div>`;
+}
+
+async function setPregenEnabled(enabled) {
+  try {
+    const res = await api('PUT', '/api/pregen-enabled', { enabled });
+    _pregenEnabled = res?.enabled !== false && enabled;
+  } catch (e) {
+    _pregenEnabled = !enabled; // revert optimistic state on failure
+  }
+  _renderPregenPanel();
 }
 
 async function savePregenConfig() {

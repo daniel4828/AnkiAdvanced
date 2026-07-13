@@ -557,6 +557,17 @@ CREATE TABLE IF NOT EXISTS pregen_config (
 );
 
 -- ---------------------------------------------------------------------------
+-- Generic key/value app settings (issue #528): global scalar toggles that
+-- don't belong to any deck/category. First key: pregen_enabled — the master
+-- switch for morning pre-generation (POST /api/pregen-today short-circuits
+-- when it's not '1').
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS app_settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+-- ---------------------------------------------------------------------------
 -- Podcast crawler (issue #479): discover new episodes from podcast RSS feeds
 -- (#497 — replaced the original YouTube-channel source), transcribe them,
 -- summarize into German, extract HSK5+ vocabulary, and email a notification.

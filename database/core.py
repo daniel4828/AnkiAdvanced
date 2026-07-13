@@ -537,6 +537,14 @@ def init_db() -> None:
         "INSERT OR IGNORE INTO podcast_config (key, value) VALUES ('summarizer', 'auto')")
     conn.commit()
 
+    # pregen_enabled seeding (issue #528): the master switch for morning
+    # pre-generation. Unconditional INSERT OR IGNORE (same pattern as the
+    # podcast_config keys above) so existing installs — including production —
+    # pick the default '1' (enabled) up without a migration.
+    conn.execute(
+        "INSERT OR IGNORE INTO app_settings (key, value) VALUES ('pregen_enabled', '1')")
+    conn.commit()
+
     # feeds (#497) seeding: RSS direct-link sources replacing the dead
     # YouTube channel_url (YouTube started bot-verifying the server's IP with
     # no Cookie fix that stuck, #491/#497). Same unconditional INSERT OR

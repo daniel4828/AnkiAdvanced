@@ -933,6 +933,16 @@ async def pregen_today():
     A failure on one key is logged and does not stop the remaining keys.
     """
     today = database.anki_today().isoformat()
+
+    # Master switch (issue #528): when the user has turned morning pre-generation
+    # off in the settings, short-circuit before doing any work — the server-side
+    # cron still fires POST /api/pregen-today, but nothing is generated and no
+    # AI cost is incurred.
+    if database.get_app_setting("pregen_enabled", "1") != "1":
+        logger.info("pregen-today  DISABLED (pregen_enabled=0, user turned it off)")
+        return {"date": today, "disabled": True, "keys": 0, "generated": [],
+                "skipped_cached": [], "skipped_no_due": [], "failed": []}
+
     keys = database.get_recent_story_keys(today)
     # Explicit pregen config (issue #473) takes priority: its gen_params come
     # straight from the settings, never from whatever was regenerated during
@@ -1018,8 +1028,22 @@ _PREGEN_CATEGORIES = {"listening", "reading", "creating", "unified"}
 @router.get("/api/pregen-config")
 def get_pregen_config_endpoint():
     """Morning-pregen config rows (issue #473) — what the 06:00 pregen generates
-    per (deck, category), independent of the day's ad-hoc regenerations."""
-    return {"entries": database.get_pregen_config()}
+    per (deck, category), independent of the day's ad-hoc regenerations.
+    `enabled` (issue #528) is the master switch: when false, pregen-today does
+    nothing regardless of these rows."""
+    return {"entries": database.get_pregen_config(),
+            "enabled": database.get_app_setting("pregen_enabled", "1") == "1"}
+
+
+@router.put("/api/pregen-enabled")
+def put_pregen_enabled(body: dict):
+    """Master switch for morning pre-generation (issue #528). body: {"enabled":
+    bool}. When off, POST /api/pregen-today short-circuits and generates
+    nothing."""
+    enabled = bool(body.get("enabled"))
+    database.set_app_setting("pregen_enabled", "1" if enabled else "0")
+    logger.info("pregen-enabled  set to %s", enabled)
+    return {"ok": True, "enabled": enabled}
 
 
 @router.put("/api/pregen-config")
