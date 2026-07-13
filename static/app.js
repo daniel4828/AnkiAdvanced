@@ -4682,6 +4682,7 @@ function revealAnswer() {
   _sentFrEl.style.display = (_alwaysTranslation && _sentFrEl.textContent) ? '' : 'none';
   _sentDeEl.style.display = (_alwaysTranslation && _sentDeEl.textContent) ? '' : 'none';
   _syncTransEye();
+  _syncCardToggleBar();
 
   // Kahneman concept box (compact: part + chapter title only) + reasoning light
   // bulb — Kahneman mode only. News flow shows context + clickable article
@@ -6154,6 +6155,36 @@ async function togglePinyin() {
   if (!text) return;
   await _loadPinyinRow(text);
   row.classList.toggle('pinyin-revealed');
+  _syncCardToggleBar();
+}
+
+// ── Back-side tap toggle bar (#535) ───────────────────────────────────────────
+// Gives touch/mouse users the p (pinyin) and t (translation) shortcuts on the
+// back of a card. Each button shows only when the card has that content and
+// highlights while it's currently visible, so tapping and pressing the key stay
+// in sync. Called on reveal and after every relevant toggle.
+function _syncCardToggleBar() {
+  const bar = document.getElementById('card-toggle-bar');
+  if (!bar) return;
+  const pinBtn   = document.getElementById('toggle-pinyin-btn');
+  const transBtn = document.getElementById('toggle-trans-btn');
+
+  // Pinyin: Chinese decks only (pypinyin garbles other scripts).
+  const pinAvail = currentCardLang() === 'zh' && !!(sentence?.sentence_zh || card?.word_zh);
+  pinBtn.style.display = pinAvail ? '' : 'none';
+  pinBtn.classList.toggle('active',
+    !!document.getElementById('pinyin-row')?.classList.contains('pinyin-revealed'));
+
+  // Translation: only when this card carries fr/de text.
+  const fr = document.getElementById('sentence-fr');
+  const de = document.getElementById('sentence-de');
+  const transAvail = !!(fr?.textContent || de?.textContent);
+  transBtn.style.display = transAvail ? '' : 'none';
+  const transVisible = (fr?.textContent && fr.style.display !== 'none') ||
+                       (de?.textContent && de.style.display !== 'none');
+  transBtn.classList.toggle('active', !!transVisible);
+
+  bar.style.display = (pinAvail || transAvail) ? '' : 'none';
 }
 
 // ── Translation toggle (German/French sentence translation) ───────────────────
@@ -6173,6 +6204,7 @@ function toggleTranslation() {
     localStorage.setItem('alwaysTranslation', '0');
   }
   _syncTransEye();
+  _syncCardToggleBar();
 }
 
 // Persistent "always show translation" preference (survives across sessions).

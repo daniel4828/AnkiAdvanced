@@ -216,6 +216,15 @@
               <div class="sentence" id="sentence-back"></div>
             </div>
 
+            <!-- Tap toggles for pinyin / translation — give touch/mouse users the
+                 p and t shortcuts on the back (mobile has no keyboard, #535). Each
+                 button appears only when the card has that content and highlights
+                 while it's showing; both mirror the keys and stay in sync. -->
+            <div class="card-toggle-bar" id="card-toggle-bar" style="display:none">
+              <button class="card-toggle-btn" id="toggle-pinyin-btn" onclick="togglePinyin()" style="display:none">拼音</button>
+              <button class="card-toggle-btn" id="toggle-trans-btn" onclick="toggleTranslation()" style="display:none">译文</button>
+            </div>
+
             <!-- 2. Pinyin row (hidden by default; press p to toggle) -->
             <div class="pinyin-row" id="pinyin-row"></div>
             <!-- French and German translation (hidden by default; press u to toggle).
