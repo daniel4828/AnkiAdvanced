@@ -4786,14 +4786,13 @@ function revealAnswer() {
   renderVocabDetail();
   renderReviewCatRow();
 
-  // Auto-play audio on reveal for all categories, delayed per deck preset
-  // (issue #454). Clear any still-pending front-side autoplay first so the
-  // two timers can't both fire.
+  // Auto-play audio immediately on reveal (all categories). The autoplay delay
+  // (issue #454) exists only so the user can read the context before hearing
+  // the audio on the listening *front* — after flipping there's nothing left to
+  // read first, so play right away (issue #539). Clear any still-pending
+  // front-side autoplay first so the two timers can't both fire.
   clearTimeout(_autoplayTimer);
-  const _revealSnap = card;
-  _getAutoplayDelay().then(d => {
-    _autoplayTimer = setTimeout(() => { if (card === _revealSnap) playSentence(); }, d);
-  });
+  playSentence();
 }
 
 // ── Populate vocab detail (chars + examples) ────────────────────────────────
