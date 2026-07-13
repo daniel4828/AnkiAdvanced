@@ -1,6 +1,9 @@
 import re
 import sqlite3
+import uuid
 import datetime as _dt
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import date, datetime
 from .core import get_db, anki_today
 
@@ -154,39 +157,79 @@ def _row_cost(row: dict) -> float | None:
             row["output_tokens"] * pricing["output"]) / 1_000_000
 
 
-def _service_for_purpose(purpose: str) -> str:
-    """Map an api_call_log.purpose value to a UI-facing service grouping."""
-    if purpose == "story" or purpose == "kahneman" or purpose == "fix_commas" \
-            or purpose.startswith("regen:"):
-        return "Stories"
-    if purpose in ("news", "news-select", "briefing", "briefing_fact_check"):
-        return "News briefing"
-    if purpose == "paste":
-        return "Paste"
-    if purpose in ("podcast-summary", "podcast-transcribe"):
-        return "Podcast"
-    if purpose.startswith("enrich:") or purpose.startswith("hanzi:"):
-        return "Word enrichment"
-    return "Other"
+# Current "action" (a coherent unit of work that may make several API calls,
+# e.g. "generate a story" or "transcribe & summarize an episode") — issue #525.
+# Module-level ContextVar so log_api_call can tag calls without every caller
+# threading an action id/label through its call chain. contextvars are
+# per-thread/per-task by default and do NOT propagate into a thread started
+# with threading.Thread — callers running work in a background thread must
+# enter action_context() from *inside* that thread, not the thread that
+# spawned it.
+_ACTION_CTX: ContextVar[tuple[str, str] | None] = ContextVar("_action_ctx", default=None)
+
+
+@contextmanager
+def action_context(label: str):
+    """Tag every database.log_api_call() made inside this block with a shared
+    action_id/action_label, so the cost modal can group them as one operation.
+
+    Must be entered in the thread that will actually run the API calls.
+    """
+    token = _ACTION_CTX.set((uuid.uuid4().hex, label))
+    try:
+        yield
+    finally:
+        _ACTION_CTX.reset(token)
+
+
+# Prompts are stored for the cost-modal "show prompt" button but must not
+# bloat api_call_log or the /api/costs payload indefinitely — truncate here,
+# in the single place every log_api_call() caller funnels through, rather
+# than trusting each call site to have already truncated.
+_PROMPT_MAX_CHARS = 10000
 
 
 def log_api_call(model: str, input_tokens: int, output_tokens: int,
-                 purpose: str = "story", cached_input_tokens: int = 0) -> None:
+                 purpose: str = "story", cached_input_tokens: int = 0,
+                 prompt: str | None = None) -> None:
+    action = _ACTION_CTX.get()
+    action_id, action_label = action if action else (None, None)
+    if prompt is not None and len(prompt) > _PROMPT_MAX_CHARS:
+        prompt = prompt[:_PROMPT_MAX_CHARS]
+
     conn = get_db()
     conn.execute(
         """INSERT INTO api_call_log
-           (model, input_tokens, output_tokens, purpose, cached_input_tokens)
-           VALUES (?, ?, ?, ?, ?)""",
-        (model, input_tokens, output_tokens, purpose, cached_input_tokens),
+           (model, input_tokens, output_tokens, purpose, cached_input_tokens,
+            action_id, action_label, prompt)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        (model, input_tokens, output_tokens, purpose, cached_input_tokens,
+         action_id, action_label, prompt),
     )
     conn.commit()
     conn.close()
 
 
-def get_api_costs() -> dict:
+def get_api_call_prompt(call_id: int) -> str | None:
     conn = get_db()
+    row = conn.execute(
+        "SELECT prompt FROM api_call_log WHERE id = ?", (call_id,)
+    ).fetchone()
+    conn.close()
+    if row is None:
+        return None
+    return row["prompt"]
+
+
+def get_api_costs(limit: int = 100) -> dict:
+    conn = get_db()
+    # Never SELECT prompt here — actions/calls feed the /api/costs payload and
+    # prompts are fetched on demand via get_api_call_prompt() instead.
     rows = [dict(r) for r in conn.execute(
-        "SELECT * FROM api_call_log ORDER BY called_at DESC"
+        """SELECT id, called_at, model, input_tokens, output_tokens, purpose,
+                  cached_input_tokens, action_id, action_label,
+                  (prompt IS NOT NULL) AS has_prompt
+           FROM api_call_log ORDER BY called_at DESC"""
     ).fetchall()]
     conn.close()
 
@@ -200,8 +243,12 @@ def get_api_costs() -> dict:
     unknown_calls = 0
     unknown_models: list[str] = []
 
-    # groups[(service, model)] -> aggregate dict
-    groups: dict[tuple[str, str], dict] = {}
+    # Group calls into "actions" — a shared action_id groups its calls into
+    # one operation; a NULL action_id (calls made outside action_context(),
+    # e.g. legacy rows predating #525) becomes its own single-call action,
+    # labeled by purpose.
+    actions: dict[str, dict] = {}
+    order: list[str] = []  # preserves first-seen order per synthetic key
 
     for r in rows:
         cost = _row_cost(r)
@@ -216,44 +263,47 @@ def get_api_costs() -> dict:
             if is_recent:
                 total_cost_30d += cost
 
-        service = _service_for_purpose(r["purpose"])
-        key = (service, r["model"])
-        g = groups.get(key)
-        if g is None:
-            g = groups[key] = {
-                "service": service, "model": r["model"],
-                "calls": 0, "input_tokens": 0, "output_tokens": 0,
-                "cached_tokens": 0, "cost": None,
-                "calls_30d": 0, "cost_30d": None,
+        if r["action_id"] is not None:
+            key = r["action_id"]
+            label = r["action_label"] or r["purpose"]
+        else:
+            key = f"call:{r['id']}"
+            label = r["purpose"]
+
+        a = actions.get(key)
+        if a is None:
+            a = actions[key] = {
+                "action_id": r["action_id"], "label": label,
+                "started_at": r["called_at"], "calls": [],
+                "call_count": 0, "total_cost": None,
             }
-        g["calls"] += 1
-        g["input_tokens"] += r["input_tokens"]
-        g["output_tokens"] += r["output_tokens"]
-        g["cached_tokens"] += r.get("cached_input_tokens") or 0
+            order.append(key)
+        # rows are in called_at DESC order, so the *last* row seen for this
+        # action has the earliest timestamp — keep that as started_at.
+        a["started_at"] = r["called_at"]
+        a["calls"].append({
+            "id": r["id"], "called_at": r["called_at"], "model": r["model"],
+            "purpose": r["purpose"], "input_tokens": r["input_tokens"],
+            "output_tokens": r["output_tokens"],
+            "cached_input_tokens": r["cached_input_tokens"] or 0,
+            "cost": round(cost, 6) if cost is not None else None,
+            "has_prompt": bool(r["has_prompt"]),
+        })
+        a["call_count"] += 1
         if cost is not None:
-            g["cost"] = (g["cost"] or 0.0) + cost
-        if is_recent:
-            g["calls_30d"] += 1
-            if cost is not None:
-                g["cost_30d"] = (g["cost_30d"] or 0.0) + cost
+            a["total_cost"] = (a["total_cost"] or 0.0) + cost
 
-    for g in groups.values():
-        if g["cost"] is not None:
-            g["cost"] = round(g["cost"], 6)
-        if g["cost_30d"] is not None:
-            g["cost_30d"] = round(g["cost_30d"], 6)
+    for a in actions.values():
+        if a["total_cost"] is not None:
+            a["total_cost"] = round(a["total_cost"], 6)
 
-    # Sort services as contiguous blocks (most expensive service first, then
-    # most expensive model within it) — the UI only prints the service name
-    # on the first row of each block, so blocks must stay together.
-    service_totals: dict[str, float] = {}
-    for g in groups.values():
-        service_totals[g["service"]] = service_totals.get(g["service"], 0.0) + (g["cost"] or 0.0)
-    groups_list = sorted(
-        groups.values(),
-        key=lambda g: (-service_totals[g["service"]], g["service"],
-                       -(g["cost"] if g["cost"] is not None else -1)),
-    )
+    # rows (and thus order) are already called_at DESC, and an action's
+    # started_at is its earliest call — sort actions by that so the most
+    # recently-started operation shows first, matching the flat log's order.
+    actions_list = sorted(
+        (actions[k] for k in order),
+        key=lambda a: a["started_at"], reverse=True,
+    )[:limit]
 
     return {
         "pricing_as_of": _PRICING_AS_OF,
@@ -261,7 +311,7 @@ def get_api_costs() -> dict:
         "total_cost_30d": round(total_cost_30d, 6),
         "unknown_calls": unknown_calls,
         "unknown_models": unknown_models,
-        "groups": groups_list,
+        "actions": actions_list,
     }
 
 

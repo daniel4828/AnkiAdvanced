@@ -1123,80 +1123,82 @@ def _process_episode(episode_id: int, video: dict, detail_level: str, summary: d
     """
     from routes.utils import DISABLE_AI
 
-    try:
-        # Reuse an already-stored transcript (#500): after e.g. an OpenAI-quota
-        # failure in the summary step, the retry must not re-run the whole
-        # transcription (a NotebookLM upload+indexing round takes ~10 minutes
-        # and Tingwu/Whisper cost money) — the transcript is already good.
-        existing = database.get_episode(episode_id) or {}
-        stored = (existing.get("transcript_zh") or "").strip()
-        if stored:
-            transcript = _normalize_transcript(stored)
-            meta = {"transcript_source": existing.get("transcript_source")}
-            logger.info("podcast: reusing existing transcript for %s (%d chars)",
-                        video["video_id"], len(transcript))
-            if transcript != stored:
-                database.update_episode(episode_id, transcript_zh=transcript)
-        else:
-            transcript, meta = fetch_transcript(video)
-            transcript = _normalize_transcript(transcript) if transcript else transcript
-            if not transcript:
-                database.update_episode(episode_id, status="no_transcript")
+    label = f"Transcribe & Summarize: {video['title'][:30]}"
+    with database.action_context(label):
+        try:
+            # Reuse an already-stored transcript (#500): after e.g. an OpenAI-quota
+            # failure in the summary step, the retry must not re-run the whole
+            # transcription (a NotebookLM upload+indexing round takes ~10 minutes
+            # and Tingwu/Whisper cost money) — the transcript is already good.
+            existing = database.get_episode(episode_id) or {}
+            stored = (existing.get("transcript_zh") or "").strip()
+            if stored:
+                transcript = _normalize_transcript(stored)
+                meta = {"transcript_source": existing.get("transcript_source")}
+                logger.info("podcast: reusing existing transcript for %s (%d chars)",
+                            video["video_id"], len(transcript))
+                if transcript != stored:
+                    database.update_episode(episode_id, transcript_zh=transcript)
+            else:
+                transcript, meta = fetch_transcript(video)
+                transcript = _normalize_transcript(transcript) if transcript else transcript
+                if not transcript:
+                    database.update_episode(episode_id, status="no_transcript")
+                    return
+                database.update_episode(
+                    episode_id, transcript_zh=transcript,
+                    transcript_source=meta.get("transcript_source"),
+                )
+
+            if DISABLE_AI:
+                # Dev mode: stop at pending with the transcript stored, no AI
+                # call, no email — matches DISABLE_AI's behavior for stories.
                 return
+
+            result = summarize(transcript, video["title"], detail_level)
+            if not result.get("summary_de"):
+                database.update_episode(episode_id, status="error",
+                                        error="AI summary failed or empty")
+                summary["failed"] += 1
+                return
+
+            words = filter_new_words(result.get("words") or [])
+            spotify_url = find_spotify_url(video["title"])
             database.update_episode(
-                episode_id, transcript_zh=transcript,
-                transcript_source=meta.get("transcript_source"),
+                episode_id,
+                summary_de=result["summary_de"],
+                hsk_words=words,
+                detail_level=detail_level,
+                spotify_url=spotify_url,
+                status="summarized",
             )
+            summary["summarized"] += 1
 
-        if DISABLE_AI:
-            # Dev mode: stop at pending with the transcript stored, no AI
-            # call, no email — matches DISABLE_AI's behavior for stories.
-            return
+            episode = database.get_episode(episode_id)
+            try:
+                sent = send_email(episode)
+            except Exception as e:
+                # An SMTP hiccup must not downgrade a successfully summarized
+                # episode to 'error' — the summary is stored and viewable on
+                # the website regardless; only email_sent_at stays unset.
+                logger.warning("podcast: email failed for %s: %s", video["video_id"], e)
+                sent = False
+            if sent:
+                from datetime import datetime
+                database.update_episode(episode_id, email_sent_at=datetime.now().isoformat())
+                summary["emailed"] += 1
 
-        result = summarize(transcript, video["title"], detail_level)
-        if not result.get("summary_de"):
-            database.update_episode(episode_id, status="error",
-                                    error="AI summary failed or empty")
+            try:
+                send_signal(episode)
+            except Exception as e:
+                # Signal and email are independent, best-effort channels — a
+                # signal-cli hiccup must not downgrade a successfully
+                # summarized episode to 'error' either.
+                logger.warning("podcast: Signal notification failed for %s: %s", video["video_id"], e)
+        except Exception as e:
+            logger.error("podcast: episode %s failed: %s", video["video_id"], e)
+            database.update_episode(episode_id, status="error", error=str(e))
             summary["failed"] += 1
-            return
-
-        words = filter_new_words(result.get("words") or [])
-        spotify_url = find_spotify_url(video["title"])
-        database.update_episode(
-            episode_id,
-            summary_de=result["summary_de"],
-            hsk_words=words,
-            detail_level=detail_level,
-            spotify_url=spotify_url,
-            status="summarized",
-        )
-        summary["summarized"] += 1
-
-        episode = database.get_episode(episode_id)
-        try:
-            sent = send_email(episode)
-        except Exception as e:
-            # An SMTP hiccup must not downgrade a successfully summarized
-            # episode to 'error' — the summary is stored and viewable on
-            # the website regardless; only email_sent_at stays unset.
-            logger.warning("podcast: email failed for %s: %s", video["video_id"], e)
-            sent = False
-        if sent:
-            from datetime import datetime
-            database.update_episode(episode_id, email_sent_at=datetime.now().isoformat())
-            summary["emailed"] += 1
-
-        try:
-            send_signal(episode)
-        except Exception as e:
-            # Signal and email are independent, best-effort channels — a
-            # signal-cli hiccup must not downgrade a successfully
-            # summarized episode to 'error' either.
-            logger.warning("podcast: Signal notification failed for %s: %s", video["video_id"], e)
-    except Exception as e:
-        logger.error("podcast: episode %s failed: %s", video["video_id"], e)
-        database.update_episode(episode_id, status="error", error=str(e))
-        summary["failed"] += 1
 
 
 def retry_episode(episode_id: int) -> dict:

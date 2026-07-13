@@ -502,8 +502,16 @@ def get_card_evolution(days: int = 365, deck_id: int | None = None, lang: str | 
 
 
 @router.get("/api/costs")
-def get_api_costs():
-    return {**database.get_api_costs(), "deepseek_balance": ai.get_deepseek_balance()}
+def get_api_costs(limit: int = 100):
+    return {**database.get_api_costs(limit=limit), "deepseek_balance": ai.get_deepseek_balance()}
+
+
+@router.get("/api/costs/call/{call_id}")
+def get_api_cost_call_prompt(call_id: int):
+    prompt = database.get_api_call_prompt(call_id)
+    if prompt is None:
+        raise HTTPException(status_code=404, detail="Call not found or has no stored prompt")
+    return {"id": call_id, "prompt": prompt}
 
 
 @router.get("/api/pinyin")

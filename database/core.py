@@ -167,6 +167,12 @@ def init_db() -> None:
     api_call_log_cols = {r["name"] for r in conn.execute("PRAGMA table_info(api_call_log)").fetchall()}
     if "cached_input_tokens" not in api_call_log_cols:
         conn.execute("ALTER TABLE api_call_log ADD COLUMN cached_input_tokens INTEGER NOT NULL DEFAULT 0")
+    if "action_id" not in api_call_log_cols:
+        conn.execute("ALTER TABLE api_call_log ADD COLUMN action_id TEXT")
+    if "action_label" not in api_call_log_cols:
+        conn.execute("ALTER TABLE api_call_log ADD COLUMN action_label TEXT")
+    if "prompt" not in api_call_log_cols:
+        conn.execute("ALTER TABLE api_call_log ADD COLUMN prompt TEXT")
 
     story_cols = {r["name"] for r in conn.execute("PRAGMA table_info(stories)").fetchall()}
     if "prompt_text" not in story_cols:
