@@ -113,6 +113,39 @@ def process_episode(episode_id: int):
     return {"status": "processing"}
 
 
+class NotifyBody(BaseModel):
+    channel: str
+
+
+@router.post("/api/podcast/episodes/{episode_id}/notify")
+def notify_episode(episode_id: int, body: NotifyBody):
+    """Manually (re-)send the notification for an already-summarized episode
+    (#530) — Daniel wants an on-demand "Send to Signal"/"Send Email" button
+    on the episode detail page, independent of whether it was already sent
+    automatically. Runs synchronously (sending itself only takes a few
+    seconds). email_sent_at is intentionally left untouched on resend — that
+    column means "first automatic send time", not "last sent"."""
+    if body.channel not in ("signal", "email"):
+        raise HTTPException(400, "channel must be 'signal' or 'email'")
+    episode = database.get_episode(episode_id)
+    if not episode:
+        raise HTTPException(404, "Episode not found")
+    if episode["status"] != "summarized":
+        raise HTTPException(400, "Episode is not summarized yet — nothing to send")
+
+    if body.channel == "signal":
+        sent = podcast.send_signal(episode)
+    else:
+        sent = podcast.send_email(episode)
+
+    if sent:
+        return {"sent": True}
+    return {
+        "sent": False,
+        "detail": "SIGNAL_ACCOUNT/SMTP not configured or send failed — check server logs",
+    }
+
+
 @router.get("/api/podcast/feeds")
 def list_feeds():
     return database.list_feeds()

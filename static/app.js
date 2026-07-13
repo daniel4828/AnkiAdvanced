@@ -2980,6 +2980,7 @@ function _renderPodcastDetail(ep) {
   // index instead of serializing them into onclick attributes (avoids
   // quote/apostrophe escaping issues in word_zh/definition_de text).
   _podcastDetailWords = ep.hsk_words || [];
+  _podcastDetailEpisodeId = ep.id;
   const hskRows = _podcastDetailWords.map((w, idx) => `<tr>
       <td>${_escHtml(w.word || w.word_zh || '')}</td>
       <td>${_escHtml(w.pinyin || '')}</td>
@@ -2992,6 +2993,8 @@ function _renderPodcastDetail(ep) {
   const links = [
     ep.youtube_url ? `<a href="${_escHtml(ep.youtube_url)}" target="_blank" rel="noopener" class="btn-secondary">YouTube ↗</a>` : '',
     ep.spotify_url ? `<a href="${_escHtml(ep.spotify_url)}" target="_blank" rel="noopener" class="btn-secondary">Spotify ↗</a>` : '',
+    ep.status === 'summarized' ? `<button id="podcast-notify-signal" class="btn-secondary" onclick="doPodcastNotify('signal')">Send to Signal</button>` : '',
+    ep.status === 'summarized' ? `<button id="podcast-notify-email" class="btn-secondary" onclick="doPodcastNotify('email')">Send Email</button>` : '',
   ].filter(Boolean).join(' ');
   const transcript = ep.transcript_zh
     ? `<div class="podcast-transcript-wrap">
@@ -3029,6 +3032,35 @@ function _togglePodcastTranscript() {
 // instead of embedding word data (with possible quotes/apostrophes) in
 // onclick attributes. Set in _renderPodcastDetail.
 let _podcastDetailWords = [];
+
+// Episode id for the currently rendered podcast detail — used by
+// doPodcastNotify (#530) so the Send to Signal/Email buttons don't need to
+// embed the id in their onclick attribute.
+let _podcastDetailEpisodeId = null;
+
+async function doPodcastNotify(channel) {
+  const btnId = channel === 'signal' ? 'podcast-notify-signal' : 'podcast-notify-email';
+  const label = channel === 'signal' ? 'Send to Signal' : 'Send Email';
+  const btn = document.getElementById(btnId);
+  if (!btn || !_podcastDetailEpisodeId) return;
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    const result = await api('POST', `/api/podcast/episodes/${_podcastDetailEpisodeId}/notify`, { channel });
+    if (result.sent) {
+      btn.textContent = '✓ sent';
+      setTimeout(() => { btn.disabled = false; btn.textContent = label; }, 2000);
+    } else {
+      btn.disabled = false;
+      btn.textContent = label;
+      showError(result.detail || `Failed to send via ${channel}`);
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = label;
+    showError(e.message || `Failed to send via ${channel}`);
+  }
+}
 
 async function doPodcastAddWord(idx) {
   const w = _podcastDetailWords[idx];
