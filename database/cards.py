@@ -202,7 +202,24 @@ def get_card(card_id: int) -> dict | None:
 
 
 def _count_new_introduced_today_multi(conn, deck_ids: list[int], category: str, today: str) -> int:
-    return sum(_count_new_introduced_today(conn, did, category, today) for did in deck_ids)
+    """Batched: one grouped query instead of one query per deck (issue #513)."""
+    if not deck_ids:
+        return 0
+    ph = ",".join("?" * len(deck_ids))
+    row = conn.execute(
+        f"""SELECT COUNT(DISTINCT c.id) FROM cards c
+            WHERE c.deck_id IN ({ph}) AND c.category = ?
+              AND EXISTS (
+                SELECT 1 FROM review_log rl
+                WHERE rl.card_id = c.id AND date(rl.reviewed_at) = ?
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM review_log rl
+                WHERE rl.card_id = c.id AND date(rl.reviewed_at) < ?
+              )""",
+        deck_ids + [category, today, today],
+    ).fetchone()
+    return row[0]
 
 
 def _count_new_introduced_today(conn, deck_id: int, category: str, today: str) -> int:
@@ -326,8 +343,14 @@ def _interleave_cards(base: list, inserts: list) -> list:
     return result
 
 
-def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = False) -> list[dict]:
-    """All due cards for a category, ordered per preset display-order settings."""
+def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = False,
+                   _preset: dict | None = None, _new_done_today: int | None = None) -> list[dict]:
+    """All due cards for a category, ordered per preset display-order settings.
+
+    _preset / _new_done_today let callers that already batch-fetched these values
+    for many decks at once (get_due_cards_multi, issue #513) skip the per-deck
+    preset/new-count queries this function would otherwise run on every call.
+    """
     import random
     from itertools import groupby
 
@@ -340,9 +363,10 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
     now = datetime.now().isoformat(timespec="seconds")
     conn = get_db()
 
-    preset = get_preset_for_deck(deck_id, category)
+    preset = _preset if _preset is not None else get_preset_for_deck(deck_id, category)
     new_limit = preset["new_per_day"]
-    new_done_today = _count_new_introduced_today(conn, deck_id, category, today)
+    new_done_today = (_new_done_today if _new_done_today is not None
+                       else _count_new_introduced_today(conn, deck_id, category, today))
     new_remaining = max(0, new_limit - new_done_today)
 
     rows = conn.execute(
@@ -484,6 +508,150 @@ def get_next_card(deck_id: int, category: str) -> dict | None:
         cards.sort(key=lambda c: story_pos.get(c["word_id"], NO_POS))
 
     return cards[0]
+
+
+def _get_presets_bulk(deck_ids: list[int], category: str | None = None) -> dict[int, dict]:
+    """Batched equivalent of calling get_preset_for_deck(did, category) for each
+    deck_id — one JOIN query + one override query instead of 2 queries per deck
+    (issue #513: aggregate decks with 100+ leaves were paying this N+1 on every
+    /api/today request)."""
+    if not deck_ids:
+        return {}
+    conn = get_db()
+    placeholders = ",".join("?" * len(deck_ids))
+    rows = conn.execute(
+        f"""SELECT d.id AS deck_id, p.*,
+                   d.new_review_order_override AS deck_nro_override,
+                   d.bury_quick_mode           AS deck_bury_quick_mode
+            FROM decks d JOIN deck_presets p ON p.id = d.preset_id
+            WHERE d.id IN ({placeholders})""",
+        deck_ids,
+    ).fetchall()
+
+    result: dict[int, dict] = {}
+    for row in rows:
+        d = dict(row)
+        did = d.pop("deck_id")
+        deck_nro = d.pop("deck_nro_override", None)
+        if deck_nro is not None:
+            d["new_review_order_override"] = deck_nro
+        deck_bury = d.pop("deck_bury_quick_mode", None)
+        if deck_bury is not None:
+            d["bury_quick_mode"] = deck_bury
+        result[did] = d
+
+    if category:
+        preset_ids = list({p["id"] for p in result.values()})
+        if preset_ids:
+            ph2 = ",".join("?" * len(preset_ids))
+            override_rows = conn.execute(
+                f"SELECT * FROM preset_category_overrides WHERE category = ? AND preset_id IN ({ph2})",
+                [category] + preset_ids,
+            ).fetchall()
+            overrides_by_preset = {r["preset_id"]: dict(r) for r in override_rows}
+            for preset in result.values():
+                override = overrides_by_preset.get(preset["id"])
+                if override:
+                    for key, val in override.items():
+                        if key not in ("id", "preset_id", "category") and val is not None:
+                            preset[key] = val
+    conn.close()
+    return result
+
+
+def _count_due_bulk(deck_ids: list[int], category: str) -> dict[int, dict]:
+    """Batched equivalent of calling count_due(did, category) for each deck_id.
+
+    Turns the O(N) per-deck queries (due rows / new-introduced-today / learning-
+    future / preset, each on its own connection) into a fixed handful of grouped
+    queries — this was the dominant cost of /api/today for aggregate decks with
+    many leaves (issue #513: ~1300 queries for a 111-leaf deck)."""
+    zero = {"new": 0, "learning": 0, "review": 0, "learning_future": 0}
+    result = {did: dict(zero) for did in deck_ids}
+    if not deck_ids:
+        return result
+
+    locked = get_locked_deck_ids()
+    active_ids = [did for did in deck_ids if did not in locked]
+    if not active_ids:
+        return result
+
+    today = anki_today().isoformat()
+    now = datetime.now().isoformat(timespec="seconds")
+    presets = _get_presets_bulk(active_ids, category)
+
+    conn = get_db()
+    ph = ",".join("?" * len(active_ids))
+
+    new_today_rows = conn.execute(
+        f"""SELECT c.deck_id, COUNT(DISTINCT c.id) AS cnt FROM cards c
+            WHERE c.deck_id IN ({ph}) AND c.category = ?
+              AND EXISTS (
+                SELECT 1 FROM review_log rl
+                WHERE rl.card_id = c.id AND date(rl.reviewed_at) = ?
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM review_log rl
+                WHERE rl.card_id = c.id AND date(rl.reviewed_at) < ?
+              )
+            GROUP BY c.deck_id""",
+        active_ids + [category, today, today],
+    ).fetchall()
+    new_today = {r["deck_id"]: r["cnt"] for r in new_today_rows}
+
+    due_rows = conn.execute(
+        f"""SELECT c.deck_id, c.state, c.due, c.interval FROM cards c
+            WHERE c.deck_id IN ({ph}) AND c.category = ?
+              AND c.state != 'suspended'
+              AND c.deleted_at IS NULL
+              AND (c.buried_until IS NULL OR c.buried_until < ?)
+              AND (
+                (c.state IN ('learning', 'relearn') AND c.due <= ?)
+                OR (c.state = 'review' AND c.due <= ?)
+                OR (c.state = 'new' AND c.due <= ?)
+              )""",
+        active_ids + [category, today, now, today, today],
+    ).fetchall()
+    by_deck_rows: dict[int, list] = {}
+    for r in due_rows:
+        by_deck_rows.setdefault(r["deck_id"], []).append(r)
+
+    learning_future_rows = conn.execute(
+        f"""SELECT deck_id, COUNT(*) AS cnt FROM cards
+            WHERE deck_id IN ({ph}) AND category = ?
+              AND state IN ('learning', 'relearn')
+              AND due > ?
+              AND deleted_at IS NULL
+              AND (buried_until IS NULL OR buried_until < ?)
+            GROUP BY deck_id""",
+        active_ids + [category, now, today],
+    ).fetchall()
+    learning_future = {r["deck_id"]: r["cnt"] for r in learning_future_rows}
+    conn.close()
+
+    for did in active_ids:
+        preset = presets.get(did) or {}
+        new_limit = preset.get("new_per_day", 20)
+        threshold = preset.get("learned_interval", 4)
+        new_done_today = new_today.get(did, 0)
+        new_remaining = max(0, new_limit - new_done_today)
+        rows = by_deck_rows.get(did, [])
+
+        def _is_learning(r) -> bool:
+            return (r["state"] in ("learning", "relearn")
+                    or (r["state"] == "review" and (r["interval"] or 0) < threshold))
+
+        learning = sum(1 for r in rows if _is_learning(r))
+        review = sum(1 for r in rows if r["state"] == "review" and not _is_learning(r))
+        new_avail = sum(1 for r in rows if r["state"] == "new")
+
+        result[did] = {
+            "new": min(new_avail, new_remaining),
+            "learning": learning,
+            "review": review,
+            "learning_future": learning_future.get(did, 0),
+        }
+    return result
 
 
 def count_due(deck_id: int, category: str) -> dict:
@@ -810,13 +978,18 @@ def count_due_any_cat(root_deck_id: int, lang: str | None = None) -> dict:
 def count_due_by_category(root_deck_id: int, lang: str | None = None) -> dict:
     """Per-category {new, learning, review} counts for mixed review display."""
     leaf_pairs = _leaf_decks_with_category(root_deck_id, lang=lang)
-    result: dict[str, dict[str, int]] = {}
+    ids_by_category: dict[str, list[int]] = {}
     for deck_id, category in leaf_pairs:
-        c = count_due(deck_id, category)
-        if category not in result:
-            result[category] = {"new": 0, "learning": 0, "review": 0}
-        for k in ("new", "learning", "review"):
-            result[category][k] += c[k]
+        ids_by_category.setdefault(category, []).append(deck_id)
+
+    result: dict[str, dict[str, int]] = {}
+    for category, cat_deck_ids in ids_by_category.items():
+        per_deck = _count_due_bulk(cat_deck_ids, category)
+        agg = {"new": 0, "learning": 0, "review": 0}
+        for c in per_deck.values():
+            for k in agg:
+                agg[k] += c[k]
+        result[category] = agg
 
     # Apply root deck's per-category new cap (Anki parent-deck behaviour)
     today = anki_today().isoformat()
@@ -847,14 +1020,45 @@ def get_due_cards_multi(deck_ids: list[int], category: str, *, root_deck_id: int
     root_deck_id: if provided, its new_per_day limit acts as a combined cap
     across all leaf decks (Anki parent-deck behaviour).
     """
+    # Batch-fetch what get_due_cards() would otherwise look up per deck (issue
+    # #513: this was 2 preset queries + 1 new-count query PER deck — for a
+    # 111-leaf aggregate deck that's 300+ queries just for these inputs).
+    presets_by_cat = _get_presets_bulk(deck_ids, category)
+    presets_base = _get_presets_bulk(deck_ids, None)
+    new_today_map: dict[int, int] = {}
+    if deck_ids:
+        today = anki_today().isoformat()
+        conn = get_db()
+        ph = ",".join("?" * len(deck_ids))
+        rows = conn.execute(
+            f"""SELECT c.deck_id, COUNT(DISTINCT c.id) AS cnt FROM cards c
+                WHERE c.deck_id IN ({ph}) AND c.category = ?
+                  AND EXISTS (
+                    SELECT 1 FROM review_log rl
+                    WHERE rl.card_id = c.id AND date(rl.reviewed_at) = ?
+                  )
+                  AND NOT EXISTS (
+                    SELECT 1 FROM review_log rl
+                    WHERE rl.card_id = c.id AND date(rl.reviewed_at) < ?
+                  )
+                GROUP BY c.deck_id""",
+            deck_ids + [category, today, today],
+        ).fetchall()
+        new_today_map = {r["deck_id"]: r["cnt"] for r in rows}
+        conn.close()
+
     all_cards = []
     for deck_id in deck_ids:
-        all_cards.extend(get_due_cards(deck_id, category, sibling_suppression=sibling_suppression))
+        all_cards.extend(get_due_cards(
+            deck_id, category, sibling_suppression=sibling_suppression,
+            _preset=presets_by_cat.get(deck_id),
+            _new_done_today=new_today_map.get(deck_id, 0),
+        ))
 
     # Each deck may have its own learned_interval; a review card below its deck's
     # threshold is still "learning" and queues with the learning group.
     thresholds = {
-        did: (get_preset_for_deck(did) or {}).get("learned_interval", 4)
+        did: (presets_base.get(did) or {}).get("learned_interval", 4)
         for did in deck_ids
     }
     def _lrn(c: dict) -> bool:
@@ -879,7 +1083,7 @@ def get_due_cards_multi(deck_ids: list[int], category: str, *, root_deck_id: int
     review_cards.sort(key=lambda c: c["due"])
     # new_cards keep the per-deck gather/sort order from get_due_cards
 
-    preset = get_preset_for_deck(deck_ids[0]) if deck_ids else {}
+    preset = presets_base.get(deck_ids[0], {}) if deck_ids else {}
     nr_o = preset.get("new_review_order_override") or preset.get("new_review_order", "mixed")
 
     if nr_o == "new_first":
@@ -901,8 +1105,9 @@ def get_next_card_multi(deck_ids: list[int], category: str) -> dict | None:
 def count_due_multi(deck_ids: list[int], category: str, *, root_deck_id: int | None = None) -> dict:
     """Aggregate due counts across multiple decks."""
     total = {"new": 0, "learning": 0, "review": 0}
+    per_deck = _count_due_bulk(deck_ids, category)
     for deck_id in deck_ids:
-        c = count_due(deck_id, category)
+        c = per_deck.get(deck_id, {"new": 0, "learning": 0, "review": 0})
         for k in total:
             total[k] += c[k]
 
