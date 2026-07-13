@@ -1415,6 +1415,36 @@ main.browse-open {
   filter: none;
 }
 
+/* Back-side tap toggles (#535): compact pills that mirror the p/t keys so
+   touch/mouse users can reveal pinyin and translation without a keyboard. */
+.card-toggle-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 4px 0 2px;
+}
+.card-toggle-btn {
+  flex: 0 0 auto;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  opacity: 0.75;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+  user-select: none;
+}
+.card-toggle-btn:hover { opacity: 1; }
+.card-toggle-btn.active { /* highlighted = content is currently showing */
+  opacity: 1;
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
 .char-row:last-child { border-bottom: none; }
 .char-row-link  { cursor: pointer; }
 .char-row-link:hover { background: var(--bg); }
