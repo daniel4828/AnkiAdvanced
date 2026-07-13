@@ -3610,6 +3610,17 @@ select.opt-input {
   white-space: nowrap;
 }
 .cost-action-label { font-weight: 500; }
+.cost-approx-tag {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 5px;
+  margin-left: 6px;
+  white-space: nowrap;
+  cursor: help;
+}
 .cost-action-detail td { padding: 0 12px 12px; background: var(--bg); }
 .cost-calls-table { font-size: 12.5px; margin: 0; }
 .cost-calls-table th { background: transparent; padding: 6px 10px; }

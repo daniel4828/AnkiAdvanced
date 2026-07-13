@@ -3264,10 +3264,15 @@ function renderCostModal(data) {
     html += '<table class="cost-table cost-actions-table"><tbody>';
     data.actions.forEach((a, idx) => {
       const callWord = a.call_count === 1 ? 'call' : 'calls';
+      // Legacy actions (#537) are reconstructed from time-adjacency, not a real
+      // action_id — flag them so the grouping reads as approximate, not exact.
+      const approxTag = a.approx
+        ? ` <span class="cost-approx-tag" title="Grouped by timing — these calls predate per-action tracking, so the grouping is approximate.">≈ grouped</span>`
+        : '';
       html += `<tr class="cost-action-row" onclick="toggleCostAction(${idx})">
         <td class="cost-action-arrow" id="cost-action-arrow-${idx}">&#9656;</td>
         <td class="cost-action-time">${_fmtCostTime(a.started_at)}</td>
-        <td class="cost-action-label">${_escHtml(a.label)}</td>
+        <td class="cost-action-label">${_escHtml(a.label)}${approxTag}</td>
         <td class="cost-num" style="color:var(--muted)">${a.call_count} ${callWord}</td>
         <td class="cost-num cost-value">${fmtCost(a.total_cost)}</td>
       </tr>`;

@@ -188,6 +188,19 @@ def action_context(label: str):
 # than trusting each call site to have already truncated.
 _PROMPT_MAX_CHARS = 10000
 
+# Rows predating the action_context() grouping (#525) have a NULL action_id.
+# Rather than list each on its own line, get_api_costs clusters NULL-action rows
+# that fired within this many seconds of each other into one synthetic "legacy"
+# action (#537) — a single story/briefing run made several calls seconds apart,
+# so time-adjacency reconstructs the action well enough for old history. Purely a
+# display-time heuristic (no DB write); such actions are flagged approx=True.
+_LEGACY_CLUSTER_GAP_SECONDS = 90
+
+# Auxiliary steps that ride along with a primary generation (comma cleanup, news
+# fact-check/repair) — excluded when labeling a legacy cluster so the row shows
+# the main action ("story"), not a 1:1 helper pass ("fix_commas").
+_AUX_PURPOSES = {"fix_commas", "briefing_fact_check", "briefing_repair"}
+
 
 def log_api_call(model: str, input_tokens: int, output_tokens: int,
                  purpose: str = "story", cached_input_tokens: int = 0,
@@ -221,6 +234,16 @@ def get_api_call_prompt(call_id: int) -> str | None:
     return row["prompt"]
 
 
+def _parse_log_time(called_at: str) -> _dt.datetime | None:
+    """Parse api_call_log.called_at ("YYYY-MM-DD HH:MM:SS", from SQLite's
+    datetime('now')) into a datetime, or None if it doesn't match — the caller
+    then treats the row as un-clusterable rather than crashing."""
+    try:
+        return _dt.datetime.strptime(called_at, "%Y-%m-%d %H:%M:%S")
+    except (ValueError, TypeError):
+        return None
+
+
 def get_api_costs(limit: int = 100) -> dict:
     conn = get_db()
     # Never SELECT prompt here — actions/calls feed the /api/costs payload and
@@ -243,12 +266,16 @@ def get_api_costs(limit: int = 100) -> dict:
     unknown_calls = 0
     unknown_models: list[str] = []
 
-    # Group calls into "actions" — a shared action_id groups its calls into
-    # one operation; a NULL action_id (calls made outside action_context(),
-    # e.g. legacy rows predating #525) becomes its own single-call action,
-    # labeled by purpose.
+    # Group calls into "actions". A shared action_id (database.action_context,
+    # #525) groups its calls into one operation. Rows with a NULL action_id
+    # predate #525; rather than list each on its own line, cluster the ones that
+    # fired close together in time into a synthetic "legacy" action (#537) — see
+    # _LEGACY_CLUSTER_GAP_SECONDS. Such actions are flagged approx=True and get
+    # labeled by their dominant purpose after the loop.
     actions: dict[str, dict] = {}
     order: list[str] = []  # preserves first-seen order per synthetic key
+    legacy_key: str | None = None            # open legacy cluster's key, or None
+    legacy_last: _dt.datetime | None = None  # timestamp of its most recent call
 
     for r in rows:
         cost = _row_cost(r)
@@ -266,16 +293,27 @@ def get_api_costs(limit: int = 100) -> dict:
         if r["action_id"] is not None:
             key = r["action_id"]
             label = r["action_label"] or r["purpose"]
+            approx = False
+            legacy_key = legacy_last = None  # a real action breaks any open cluster
         else:
-            key = f"call:{r['id']}"
-            label = r["purpose"]
+            ts = _parse_log_time(r["called_at"])
+            # rows are DESC, so legacy_last (the previous NULL row) is at or after
+            # ts — join the open cluster when the gap is small, else start a new one.
+            if (legacy_key is not None and legacy_last is not None and ts is not None
+                    and (legacy_last - ts).total_seconds() <= _LEGACY_CLUSTER_GAP_SECONDS):
+                key = legacy_key
+            else:
+                key = legacy_key = f"legacy:{r['id']}"
+            legacy_last = ts
+            label = None  # filled from dominant purpose after the loop
+            approx = True
 
         a = actions.get(key)
         if a is None:
             a = actions[key] = {
                 "action_id": r["action_id"], "label": label,
                 "started_at": r["called_at"], "calls": [],
-                "call_count": 0, "total_cost": None,
+                "call_count": 0, "total_cost": None, "approx": approx,
             }
             order.append(key)
         # rows are in called_at DESC order, so the *last* row seen for this
@@ -296,6 +334,15 @@ def get_api_costs(limit: int = 100) -> dict:
     for a in actions.values():
         if a["total_cost"] is not None:
             a["total_cost"] = round(a["total_cost"], 6)
+        # Legacy clusters have no stored label — name them by dominant purpose so
+        # the row reads e.g. "briefing · legacy" instead of a bare synthetic key.
+        # Ignore auxiliary steps (comma-fix, fact-check, repair) when picking the
+        # label so it reflects the primary action, not a cleanup pass tied 1:1 with it.
+        if a["label"] is None:
+            purposes = [c["purpose"] for c in a["calls"]]
+            primary = [p for p in purposes if p not in _AUX_PURPOSES] or purposes
+            dominant = max(set(primary), key=primary.count)
+            a["label"] = f"{dominant} · legacy"
 
     # rows (and thus order) are already called_at DESC, and an action's
     # started_at is its earliest call — sort actions by that so the most
