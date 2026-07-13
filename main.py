@@ -190,6 +190,7 @@ try:
     from fastapi import FastAPI, Request
     from fastapi.staticfiles import StaticFiles
     from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+    from starlette.middleware.gzip import GZipMiddleware
     import uvicorn
 
     from routes import decks, review, story, browse, imports, podcast as podcast_routes
@@ -211,6 +212,10 @@ try:
             logger.info("[dev] DB and TTS cache cleared on exit.")
 
     app = FastAPI(title="AnkiAdvanced", lifespan=lifespan)
+
+    # gzip JSON/JS/CSS responses over ~500 bytes (issue #513: app.js is ~9000
+    # lines uncompressed, and /api/decks etc. can also be sizeable JSON).
+    app.add_middleware(GZipMiddleware, minimum_size=500)
 
     ui_logger = logging.getLogger("ui")
 
@@ -300,6 +305,18 @@ try:
             logger.info("%s %s: %d ms", request.method, path, ms)
         else:
             logger.debug("%s %s: %d ms", request.method, path, ms)
+        return response
+
+    @app.middleware("http")
+    async def static_cache_headers(request: Request, call_next):
+        """Short max-age + must-revalidate for /static/* (issue #513): browsers
+        skip the request entirely for 60s instead of always round-tripping, but
+        deploys (~2min after a PR merges) are still picked up quickly since the
+        cache is short and StaticFiles' ETag/Last-Modified handle revalidation.
+        """
+        response = await call_next(request)
+        if request.url.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "public, max-age=60, must-revalidate"
         return response
 
     if os.path.exists("static"):
