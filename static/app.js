@@ -2952,13 +2952,18 @@ function _renderPodcastDetail(ep) {
   const el = document.getElementById('view-podcast-content');
   if (!el) return;
   const date = (ep.published_at || ep.created_at || '').slice(0, 10);
-  const hskRows = (ep.hsk_words || []).map(w => `<tr>
+  // Keep the raw word objects around so click handlers can look them up by
+  // index instead of serializing them into onclick attributes (avoids
+  // quote/apostrophe escaping issues in word_zh/definition_de text).
+  _podcastDetailWords = ep.hsk_words || [];
+  const hskRows = _podcastDetailWords.map((w, idx) => `<tr>
       <td>${_escHtml(w.word || w.word_zh || '')}</td>
       <td>${_escHtml(w.pinyin || '')}</td>
       <td>${_escHtml(w.definition_de || w.definition || '')}</td>
+      <td><button id="podcast-add-word-${idx}" class="btn-secondary" onclick="doPodcastAddWord(${idx})">+ Add</button></td>
     </tr>`).join('');
   const hskTable = hskRows
-    ? `<table class="cost-table"><thead><tr><th>Word</th><th>Pinyin</th><th>German</th></tr></thead><tbody>${hskRows}</tbody></table>`
+    ? `<table class="cost-table"><thead><tr><th>Word</th><th>Pinyin</th><th>German</th><th>Add</th></tr></thead><tbody>${hskRows}</tbody></table>`
     : '<p class="keymap-hint">No HSK vocabulary extracted.</p>';
   const links = [
     ep.youtube_url ? `<a href="${_escHtml(ep.youtube_url)}" target="_blank" rel="noopener" class="btn-secondary">YouTube ↗</a>` : '',
@@ -2993,6 +2998,38 @@ function _togglePodcastTranscript() {
   const body = document.getElementById('podcast-transcript-body');
   if (!body) return;
   body.style.display = body.style.display === 'none' ? 'block' : 'none';
+}
+
+// HSK words for the currently rendered podcast episode detail — kept as a
+// module-level array so the "Add" buttons can look words up by index
+// instead of embedding word data (with possible quotes/apostrophes) in
+// onclick attributes. Set in _renderPodcastDetail.
+let _podcastDetailWords = [];
+
+async function doPodcastAddWord(idx) {
+  const w = _podcastDetailWords[idx];
+  const btn = document.getElementById(`podcast-add-word-${idx}`);
+  if (!w || !btn) return;
+  btn.disabled = true;
+  btn.textContent = '…';
+  try {
+    const result = await api('POST', '/api/quick-add-word', {
+      word_zh: w.word || w.word_zh || '',
+      pinyin: w.pinyin,
+      meaning: w.definition_de || w.definition,
+    });
+    const labels = {
+      created: '✓ added',
+      added_to_deck: '✓ added',
+      already_in_deck: '✓ in deck',
+    };
+    btn.textContent = labels[result.status] || '✓ added';
+    // Stays disabled — button reflects a completed, non-repeatable action.
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '+ Add';
+    showError(e.message || 'Failed to add word');
+  }
 }
 
 // Hash direct-link support: emails link to /#podcast-<id> (episode detail).
