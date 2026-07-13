@@ -1,5 +1,6 @@
 import re
 import sqlite3
+import time
 from datetime import date
 
 from .core import anki_today, get_db, _ensure_default_preset
@@ -30,6 +31,7 @@ def insert_deck(name: str, parent_id: int | None, preset_id: int,
     conn.commit()
     deck_id = cur.lastrowid
     conn.close()
+    _invalidate_locked_deck_cache()
     return deck_id
 
 
@@ -103,6 +105,7 @@ def rename_deck(deck_id: int, name: str) -> None:
     conn.execute("UPDATE decks SET name = ? WHERE id = ?", (name, deck_id))
     conn.commit()
     conn.close()
+    _invalidate_locked_deck_cache()
 
 
 def delete_deck(deck_id: int) -> None:
@@ -111,6 +114,7 @@ def delete_deck(deck_id: int) -> None:
     conn.execute("UPDATE decks SET deleted_at = datetime('now') WHERE id = ?", (deck_id,))
     conn.commit()
     conn.close()
+    _invalidate_locked_deck_cache()
 
 
 def delete_all_deck_cards(deck_id: int) -> int:
@@ -168,6 +172,7 @@ def restore_deck(deck_id: int) -> None:
     conn.execute("UPDATE decks SET deleted_at = NULL WHERE id = ?", (deck_id,))
     conn.commit()
     conn.close()
+    _invalidate_locked_deck_cache()
 
 
 def purge_all_cards_from_deck(deck_id: int) -> int:
@@ -233,6 +238,7 @@ def get_or_create_deck(name: str, parent_id: int | None = None,
     conn.commit()
     deck_id = cur.lastrowid
     conn.close()
+    _invalidate_locked_deck_cache()
     return deck_id
 
 
@@ -336,11 +342,33 @@ def parse_daily_deck_date(name: str, today: date | None = None) -> date | None:
     return None
 
 
+# get_locked_deck_ids() is called dozens/hundreds of times per /api/today
+# request for aggregate decks with many leaves (issue #513: it was doing a
+# full decks-table scan + regex-heavy tree walk on every single call, ~50%
+# of that endpoint's latency). Locked status only changes when a deck is
+# created/renamed/restored or the calendar day rolls over, so a short TTL
+# cache collapses the N+1 to ~1 recompute per few seconds with negligible
+# staleness for a single-user app.
+_locked_deck_cache: dict = {"ts": 0.0, "value": None}
+_LOCKED_DECK_CACHE_TTL = 10.0  # seconds
+
+
+def _invalidate_locked_deck_cache() -> None:
+    """Force the next get_locked_deck_ids() call to recompute — called after any
+    write that can change deck name/parent/deleted_at (issue #513 cache)."""
+    _locked_deck_cache["value"] = None
+
+
 def get_locked_deck_ids() -> dict[int, str]:
     """Return {deck_id: unlock_date_iso} for every deck locked because it is a
     future-dated daily deck (a date-named child of a 'daily' root) or a descendant
     of one. Locked decks contribute no due cards and cannot be reviewed until then.
     """
+    now_ts = time.time()
+    if (_locked_deck_cache["value"] is not None
+            and now_ts - _locked_deck_cache["ts"] < _LOCKED_DECK_CACHE_TTL):
+        return _locked_deck_cache["value"]
+
     today = anki_today()
     conn = get_db()
     rows = conn.execute(
@@ -370,6 +398,9 @@ def get_locked_deck_ids() -> dict[int, str]:
             locked[cur] = iso
             for kid in children.get(cur, []):
                 stack.append(kid["id"])
+
+    _locked_deck_cache["value"] = locked
+    _locked_deck_cache["ts"] = now_ts
     return locked
 
 
