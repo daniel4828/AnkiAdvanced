@@ -138,7 +138,7 @@ Daniel 在中国需要 VPN 访问 GitHub。`gh` 命令报 `EOF` 错误时（`cur
 ├── importer.py            # YAML 词汇导入器（中文 + 法语格式）
 ├── ai.py                  # AI 提供商调用（每种提示词类型一个函数）
 ├── news_fetcher.py        # 新闻抓取（Tagesschau API + RSS；按天缓存 data/news_cache/）
-├── podcast.py              # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、每源 auto_process 开关+非自动源只入库元数据（#502，podcast_feeds 表）、转录链 NotebookLM 免费主力+听悟+Whisper 保底、单步异常不中止整链（#510 重排，链式降级，原 #498/#485/#486）、摘要 NotebookLM chat.ask 免费优先+gpt/DeepSeek API 链回退（#510）、HSK生词、邮件通知
+├── podcast.py              # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、每源 auto_process 开关+非自动源只入库元数据（#502，podcast_feeds 表）、转录链 NotebookLM 免费主力+听悟+Whisper 保底、单步异常不中止整链（#510 重排，链式降级，原 #498/#485/#486）、摘要 NotebookLM chat.ask 免费优先+gpt/DeepSeek API 链回退（#510）、HSK生词、邮件通知+Signal 通知（signal-cli 关联设备，发 Note to Self，#521，二者独立可选、互不影响）
 ├── tts.py                 # edge-tts 封装
 ├── translator.py          # 翻译（Google Translate，deep-translator，可选）
 ├── yaml_fixer.py          # 修复 AI 生成的格式错误 YAML
@@ -342,7 +342,8 @@ python main.py status [--deck X]     # 显示每个牌组/类别的到期数量
 | `AUTH_USERNAME` / `AUTH_PASSWORD` | 可选 | 两者都设置时启用 HTTP Basic Auth（保护所有路径） |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `SMTP_FROM` | 可选 | 播客爬虫（#479）邮件通知用；`SMTP_PORT` 默认 587（STARTTLS）；未配置时跳过发信，记日志，不算失败 |
 | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | 可选 | 播客爬虫用 Spotify Web API 搜索单集链接；未配置时退化为 Spotify 搜索链接 |
-| `PUBLIC_BASE_URL` | `https://powerdaniel3000.duckdns.org` | 播客邮件里转录页链接的域名前缀 |
+| `PUBLIC_BASE_URL` | `https://powerdaniel3000.duckdns.org` | 播客邮件/Signal 通知里转录页链接的域名前缀 |
+| `SIGNAL_ACCOUNT` / `SIGNAL_CLI_PATH` | 可选 | 播客爬虫（#521）Signal 通知用；`SIGNAL_ACCOUNT` 是 Daniel 关联设备所属号码（如 `+49…`），`SIGNAL_CLI_PATH` 默认 `signal-cli`；`SIGNAL_ACCOUNT` 未配置时跳过发送，记日志，不算失败。一次性 signal-cli 安装/扫码关联步骤见 `scripts/README.md` |
 | `ALIBABA_CLOUD_ACCESS_KEY_ID` / `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | 可选 | 播客爬虫（#498）通义听悟（转录主力）用的阿里云 AccessKey；未配置时自动跳过，落到 Whisper/NotebookLM |
 | `TINGWU_APP_KEY` | 可选 | 播客爬虫（#498）通义听悟控制台创建的应用 AppKey；与上面两个 AccessKey 变量任一缺失都会跳过听悟。一次性开通步骤见 `scripts/README.md` |
 

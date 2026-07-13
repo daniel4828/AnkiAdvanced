@@ -263,10 +263,48 @@ notebooklm auth check --test
 返回 `None`（视为"未认证"）——NotebookLM 是转录链最后一级，失败即
 `no_transcript`——**不会**让爬虫报错。
 
+### Signal 通知一次性安装/关联设置（issue #521）
+
+播客通知除了邮件还可以发到 Signal（Daniel 自己账号的"给自己的备忘 /
+Note to Self"），走 `signal-cli` 以**关联设备**方式挂在 Daniel 的手机号
+下——像 Signal Desktop 一样扫码配对，不需要第二个手机号，也不需要额外
+付费。以下步骤在**服务器**上、以运行播客爬虫的 `anki` 用户执行：
+
+```bash
+# 1. 装依赖：Java 运行时（signal-cli 需要）+ qrencode（终端里显示二维码）
+sudo apt install openjdk-21-jre-headless qrencode
+
+# 2. 从 GitHub releases 下载 signal-cli 并解压到 /opt/signal-cli
+#    （版本号去 https://github.com/AsamK/signal-cli/releases 查最新的）
+SIGNAL_CLI_VERSION=0.13.x
+curl -L -o /tmp/signal-cli.tar.gz \
+  https://github.com/AsamK/signal-cli/releases/download/v${SIGNAL_CLI_VERSION}/signal-cli-${SIGNAL_CLI_VERSION}.tar.gz
+sudo tar xf /tmp/signal-cli.tar.gz -C /opt
+sudo mv /opt/signal-cli-${SIGNAL_CLI_VERSION} /opt/signal-cli
+sudo ln -sf /opt/signal-cli/bin/signal-cli /usr/local/bin/signal-cli
+
+# 3. 以 anki 用户关联设备：打印出一个 sgnl:// URI，
+#    用 qrencode 转成终端二维码，然后用手机 Signal App
+#    「关联新设备」扫码（必须由 anki 用户运行——关联数据存在
+#    anki 用户的 home 目录下，其他用户跑 signal-cli 看不到这个账号）
+sudo -u anki signal-cli link -n "AnkiAdvanced" | qrencode -t ansiutf8
+
+# 4. 关联成功后，把号码写进服务器的 .env（或 systemd 环境文件）：
+SIGNAL_ACCOUNT=+49xxxxxxxxx
+SIGNAL_CLI_PATH=/usr/local/bin/signal-cli   # 可省略，默认就是 "signal-cli"
+```
+
+关联数据（session/身份密钥）存在 `/home/anki/.local/share/signal-cli`——
+**必须**始终以 `anki` 用户执行 `signal-cli` 命令（包括手动测试），换用户
+会看不到这个已关联的账号，需要重新扫码关联。`SIGNAL_ACCOUNT` 未配置时
+`send_signal` 只记 info 日志并返回 `False`（视为"未启用"）——**不会**让
+爬虫报错，与邮件通知完全独立、互不影响。
+
 用法与环境变量同 `morning_pregen.py`（`BASE_URL`/`AUTH_USERNAME`/`AUTH_PASSWORD`）。
 另外邮件发送需要 SMTP 环境变量（`SMTP_HOST`/`SMTP_PORT`/`SMTP_USERNAME`/
-`SMTP_PASSWORD`/`SMTP_FROM`/`PUBLIC_BASE_URL`，见 CLAUDE.md 环境变量表）——
-未配置时服务器只是跳过发信并记日志，不算失败。
+`SMTP_PASSWORD`/`SMTP_FROM`/`PUBLIC_BASE_URL`，见 CLAUDE.md 环境变量表），
+Signal 通知需要 `SIGNAL_ACCOUNT`/`SIGNAL_CLI_PATH`（见上）——两者任一未配置时
+服务器只是跳过对应通道并记日志，不算失败。
 
 ```bash
 python scripts/podcast_check.py
