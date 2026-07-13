@@ -2609,7 +2609,6 @@ const PREGEN_MODE_OPTIONS = [
   ['', 'Off (repeat last manual)'],
   ['story', 'Story'],
   ['briefing', 'News flow'],
-  ['news', 'News briefing'],
   ['kahneman', 'Kahneman'],
 ];
 let _pregenDecks = [];
@@ -6311,11 +6310,11 @@ function updateSetupMode() {
     kahnemanSection.style.display = 'block';
     btn.textContent = 'Generate Kahneman';
     _loadKahnemanChapters();
-  } else if (mode === 'news' || mode === 'briefing') {
+  } else if (mode === 'briefing') {
     topicLabel.style.display = 'none';
     kahnemanSection.style.display = 'none';
     newsSection.style.display = 'block';
-    btn.textContent = mode === 'briefing' ? 'Generate news flow' : 'Generate news briefing';
+    btn.textContent = 'Generate news flow';
     _loadNewsStatus();
   } else if (mode === 'paste') {
     topicLabel.style.display = 'none';
@@ -6338,11 +6337,11 @@ function updateSetupMode() {
   }
 }
 
-// ── News-family modes default to gpt-5-mini ─────────────────────────────────
-// news/briefing/paste are designed for OpenAI (DeepSeek censors news content).
-// Switching to one of them auto-selects gpt-5-mini and remembers the previous
-// model; switching back restores it. A manual model change while in a news
-// mode is respected (we only restore what we auto-switched away from).
+// ── News-family modes (briefing/paste/podcast) lock the model select ────────
+// briefing/paste/podcast share the server-side briefing pipeline and always
+// use BRIEFING_MODEL (DeepSeek censors news content, so it's OpenAI-only).
+// Switching to one of them locks the dropdown to a "Server: BRIEFING_MODEL"
+// placeholder and remembers the previous model; switching back restores it.
 let _modelBeforeNewsMode = null;
 
 function _autoSwitchModelForMode(mode) {
@@ -6377,18 +6376,6 @@ function _autoSwitchModelForMode(mode) {
       modelSel.value = _modelBeforeNewsMode || 'gpt-5-mini';
     }
     serverOpt.remove();
-  }
-
-  const isNewsFamily = mode === 'news';
-  if (isNewsFamily) {
-    if (modelSel.value !== 'gpt-5-mini') {
-      _modelBeforeNewsMode = modelSel.value;
-      modelSel.value = 'gpt-5-mini';
-    }
-  } else if (_modelBeforeNewsMode !== null) {
-    // Only restore if the user kept our auto-choice; a manual change sticks.
-    if (modelSel.value === 'gpt-5-mini') modelSel.value = _modelBeforeNewsMode;
-    _modelBeforeNewsMode = null;
   }
 }
 
