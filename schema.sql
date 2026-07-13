@@ -535,6 +535,11 @@ CREATE INDEX IF NOT EXISTS idx_cards_due
 CREATE INDEX IF NOT EXISTS idx_review_log_card_date
     ON review_log(card_id, reviewed_at);
 
+-- Supports calendar-stats / card-evolution date-range scans over review_log
+-- that aren't filtered by a specific card_id (issue #513).
+CREATE INDEX IF NOT EXISTS idx_review_log_reviewed_at
+    ON review_log(reviewed_at);
+
 -- ---------------------------------------------------------------------------
 -- Morning pregen configuration (issue #473): per deck+category story mode the
 -- 06:00 pregen uses — independent of whatever was regenerated during the day
