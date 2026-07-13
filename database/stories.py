@@ -397,6 +397,28 @@ def get_pregen_config() -> list[dict]:
     return [dict(r) for r in rows]
 
 
+def get_app_setting(key: str, default: str | None = None) -> str | None:
+    """Read one generic app_settings value (issue #528), or `default` if the
+    key isn't present."""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT value FROM app_settings WHERE key = ?", (key,)
+    ).fetchone()
+    conn.close()
+    return row["value"] if row else default
+
+
+def set_app_setting(key: str, value: str) -> None:
+    """Insert or update one generic app_settings value (issue #528)."""
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO app_settings (key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (key, value))
+    conn.commit()
+    conn.close()
+
+
 def set_pregen_config(deck_id: int, entries: list[dict]) -> None:
     """Replace the pregen config rows for one deck. entries: [{category, mode,
     max_hsk, lang?}] — categories omitted from the list are removed (mode

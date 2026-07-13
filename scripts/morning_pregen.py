@@ -103,6 +103,10 @@ def main() -> int:
         _log("服务器没有返回汇总结果（响应为空），视为失败。")
         return 1
 
+    if summary.get("disabled"):
+        _log("早晨预生成已被用户在设置里关闭（pregen_enabled=0），本次不生成任何故事。")
+        return 0
+
     keys = summary.get("keys", 0)
     generated = summary.get("generated", [])
     skipped_cached = summary.get("skipped_cached", [])
