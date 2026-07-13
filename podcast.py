@@ -1019,6 +1019,73 @@ def send_email(episode: dict) -> bool:
     return True
 
 
+def send_signal(episode: dict) -> bool:
+    """Send a plain-text Signal "Note to Self" notification for a freshly-
+    summarized episode via a linked-device signal-cli install (#521).
+    Returns True if sent, False if skipped (SIGNAL_ACCOUNT not configured)
+    — skipping is not an error, mirrors send_email. Never raises."""
+    account = os.environ.get("SIGNAL_ACCOUNT")
+    if not account:
+        logger.info("podcast: SIGNAL_ACCOUNT not configured, skipping Signal notification for %s",
+                     episode["video_id"])
+        return False
+
+    cli_path = os.environ.get("SIGNAL_CLI_PATH", "signal-cli")
+    public_base = os.environ.get("PUBLIC_BASE_URL", "https://powerdaniel3000.duckdns.org")
+    transcript_link = f"{public_base}/#podcast-{episode['id']}"
+
+    # summary_de may be None; strip HTML tags (the email version is HTML)
+    # and cap length so the Signal message stays readable.
+    summary_de = re.sub(r"<[^>]+>", "", episode.get("summary_de") or "").strip()
+    if len(summary_de) > 1500:
+        summary_de = summary_de[:1500].rstrip() + "…"
+
+    # hsk_words comes back as a list from database.get_episode (_hydrate
+    # parses the stored JSON), but be defensive in case a raw row or a
+    # pre-hydration dict is ever passed in.
+    hsk_words = episode.get("hsk_words") or []
+    if isinstance(hsk_words, str):
+        try:
+            hsk_words = json.loads(hsk_words) if hsk_words else []
+        except (ValueError, TypeError):
+            hsk_words = []
+
+    word_lines = "\n".join(
+        f"- {w.get('word', '')} ({w.get('pinyin', '')}) – {w.get('definition_de', '')}"
+        for w in hsk_words[:10]
+    )
+
+    lines = [f"🎙 {episode['title']}", transcript_link]
+    if episode.get("spotify_url"):
+        lines.append(episode["spotify_url"])
+    if summary_de:
+        lines.append("")
+        lines.append(summary_de)
+    if word_lines:
+        lines.append("")
+        lines.append("Neue HSK5+ Vokabeln:")
+        lines.append(word_lines)
+    text = "\n".join(lines)
+
+    try:
+        result = subprocess.run(
+            [cli_path, "-a", account, "send", "--note-to-self", "-m", text],
+            capture_output=True, timeout=60,
+        )
+    except Exception as e:
+        logger.warning("podcast: signal-cli invocation failed for %s: %s", episode["video_id"], e)
+        return False
+
+    if result.returncode != 0:
+        stderr = result.stderr.decode("utf-8", "replace") if isinstance(result.stderr, bytes) else result.stderr
+        logger.warning("podcast: signal-cli exited %s for %s: %s",
+                        result.returncode, episode["video_id"], stderr)
+        return False
+
+    logger.info("podcast: Signal notification sent for %s", episode["video_id"])
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
@@ -1118,6 +1185,14 @@ def _process_episode(episode_id: int, video: dict, detail_level: str, summary: d
             from datetime import datetime
             database.update_episode(episode_id, email_sent_at=datetime.now().isoformat())
             summary["emailed"] += 1
+
+        try:
+            send_signal(episode)
+        except Exception as e:
+            # Signal and email are independent, best-effort channels — a
+            # signal-cli hiccup must not downgrade a successfully
+            # summarized episode to 'error' either.
+            logger.warning("podcast: Signal notification failed for %s: %s", video["video_id"], e)
     except Exception as e:
         logger.error("podcast: episode %s failed: %s", video["video_id"], e)
         database.update_episode(episode_id, status="error", error=str(e))
