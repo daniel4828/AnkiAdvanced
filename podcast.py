@@ -30,10 +30,12 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import parsedate_to_datetime
 from xml.etree import ElementTree
+from zoneinfo import ZoneInfo
 
 import ai
 import database
@@ -1055,9 +1057,28 @@ def send_signal(episode: dict) -> bool:
         for w in hsk_words[:10]
     )
 
-    lines = [f"🎙 {episode['title']}", transcript_link]
-    if episode.get("spotify_url"):
-        lines.append(episode["spotify_url"])
+    # 抬头行：播客名 · 星期几（德语） · 日期（#532）。播客名从 channel_id
+    # （feed 的 url）反查 podcast_feeds；查不到就省略播客名部分，只留星期+日期。
+    feed_title = None
+    channel_id = episode.get("channel_id")
+    if channel_id:
+        feed = database.get_feed_by_url(channel_id)
+        if feed:
+            feed_title = feed.get("title")
+
+    weekday_de = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+    date_part = None
+    raw_date = episode.get("published_at") or episode.get("created_at")
+    if raw_date:
+        try:
+            dt = datetime.fromisoformat(raw_date).astimezone(ZoneInfo("Europe/Berlin"))
+            date_part = f"{weekday_de[dt.weekday()]} · {dt.strftime('%d.%m.%Y')}"
+        except (ValueError, TypeError):
+            date_part = None
+
+    header_parts = [p for p in (feed_title, date_part) if p]
+    lines = [" · ".join(header_parts)] if header_parts else []
+    lines.append(f"🎙 {episode['title']}")
     if summary_de:
         lines.append("")
         lines.append(summary_de)
@@ -1065,6 +1086,10 @@ def send_signal(episode: dict) -> bool:
         lines.append("")
         lines.append("Neue HSK5+ Vokabeln:")
         lines.append(word_lines)
+    lines.append("")
+    lines.append(f"🔗 {transcript_link}")
+    if episode.get("spotify_url"):
+        lines.append(episode["spotify_url"])
     text = "\n".join(lines)
 
     try:

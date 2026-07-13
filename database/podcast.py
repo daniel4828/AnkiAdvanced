@@ -79,6 +79,15 @@ def get_feed(feed_id: int) -> dict | None:
     return dict(row) if row else None
 
 
+def get_feed_by_url(url: str) -> dict | None:
+    """Look up a feed by its RSS URL — episodes store the feed's url as
+    channel_id (#532: Signal notification needs the podcast title)."""
+    conn = get_db()
+    row = conn.execute("SELECT * FROM podcast_feeds WHERE url = ?", (url,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
 def create_feed(url: str, title: str | None = None, auto_process: int = 0) -> int:
     """Insert a new feed row. Raises sqlite3.IntegrityError (caller/route
     turns it into a 400) if `url` is already subscribed (UNIQUE constraint)."""

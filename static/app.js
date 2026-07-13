@@ -2888,12 +2888,19 @@ function _formatPodcastDuration(seconds) {
   return `${Math.round(seconds / 60)} min`;
 }
 
+// 把 ISO 时间字符串转成柏林时区的 YYYY-MM-DD（#532：修正单集日期时区偏差）
+function _localDate(iso) {
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleDateString('sv-SE', { timeZone: 'Europe/Berlin' }); }
+  catch (e) { return String(iso).slice(0, 10); }
+}
+
 function _renderPodcastEpisodeList() {
   const el = document.getElementById('view-podcast-content');
   if (!el) return;
   const feed = _podcastFeeds.find(f => f.id === _podcastCurrentFeedId);
   const rows = _podcastEpisodes.map(ep => {
-    const date = (ep.published_at || ep.created_at || '').slice(0, 10);
+    const date = _localDate(ep.published_at || ep.created_at || '');
     const status = ep.status || 'pending';
     const label = PODCAST_STATUS_LABEL[status] || status;
     const cls = PODCAST_STATUS_CLASS[status] || 'podcast-badge-muted';
@@ -2975,7 +2982,7 @@ function closePodcastDetail() {
 function _renderPodcastDetail(ep) {
   const el = document.getElementById('view-podcast-content');
   if (!el) return;
-  const date = (ep.published_at || ep.created_at || '').slice(0, 10);
+  const date = _localDate(ep.published_at || ep.created_at || '');
   // Keep the raw word objects around so click handlers can look them up by
   // index instead of serializing them into onclick attributes (avoids
   // quote/apostrophe escaping issues in word_zh/definition_de text).
@@ -6908,7 +6915,7 @@ function _renderPodcastEpisodes() {
       <input type="radio" class="podcast-episode-radio" name="podcast-episode" value="${ep.id}">
       <div class="kahneman-chapter-info">
         <span class="kahneman-chapter-title">${esc(ep.title || '(untitled)')}</span>
-        <span class="kahneman-chapter-concept">${esc((ep.published_at || '').slice(0, 10))} · ${esc(ep.summary_de || '')}</span>
+        <span class="kahneman-chapter-concept">${esc(_localDate(ep.published_at || ''))} · ${esc(ep.summary_de || '')}</span>
       </div>
     </label>`).join('');
 }
