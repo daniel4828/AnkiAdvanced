@@ -1018,9 +1018,20 @@ function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
 function showError(msg) {
   const el = document.getElementById('error-banner');
+  el.classList.remove('notice');
   el.textContent = msg;
   el.style.display = 'block';
   setTimeout(() => { el.style.display = 'none'; }, 6000);
+}
+
+// Non-alarming amber notice (reuses the error banner). Used e.g. when a story
+// fails to generate and we silently fall back to words-only quick mode.
+function showNotice(msg) {
+  const el = document.getElementById('error-banner');
+  el.classList.add('notice');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; el.classList.remove('notice'); }, 6000);
 }
 
 // ── Deck list ───────────────────────────────────────────────────────────────
@@ -3792,8 +3803,7 @@ async function startReview(id, cat, name, noStory = false, quick = false) {
       await openStorySetup(count, { learningCount: learning, estimatedTokens: estimated_tokens });
     }
   } catch (e) {
-    showError('Failed to start session: ' + e.message);
-    showView('decks');
+    await _startQuickFallback(e.message);
     return;
   }
 }
@@ -3925,11 +3935,7 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mo
       storyData = await _fetchStoryOrNewsRegen(storyDeckId, storyCategory, topic, maxHsk, model,
         grammarFocus, grammarPct, mode, chapterIds, articles, bgUrl, episodeId);
     } catch (e) {
-      _stopFakeProgress(); _stopStoryProgressPoll(); _hideLoadingBgButton();
-      _showLoadingError('AI request failed', e.message);
-      await new Promise(r => setTimeout(r, 2500));
-      showError('Failed to start session: ' + e.message);
-      showView('decks');
+      await _startQuickFallback(e.message);
       return;
     }
 
@@ -3959,9 +3965,41 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mo
     showView('review');
     loadCard(todayData.card, todayData.counts);
   } catch (e) {
-    _stopFakeProgress(); _stopStoryProgressPoll(); _hideLoadingBgButton();
+    await _startQuickFallback(e.message);
+  }
+}
+
+// Story generation failed (network hiccup or AI provider unreachable). Rather than
+// kicking the user back to the deck list with nothing to review, silently fall back
+// to words-only quick mode so they can keep going (issue #545). /api/today hits the
+// local DB, so it works even when only the AI provider is down. Only if that also
+// fails (server itself unreachable) do we surface the error and return to the decks.
+async function _startQuickFallback(reason) {
+  _stopFakeProgress(); _stopStoryProgressPoll(); _hideLoadingBgButton();
+  _bgLeaveRequested = false; _bgActiveResume = null;
+  quickMode = true;
+  story = null;
+  sentence = null;
+  // Shown on the banner above the review view. If the fallback itself fails below,
+  // showError() overwrites this same element, so no contradictory message lingers.
+  showNotice('Story unavailable — words-only mode.');
+  try {
+    if (rootDeckId) {
+      // Mixed (all-category) session — reuse its own words-only path.
+      await _doStartReviewMixed(null, 2, null, null, 50, 'story', true);
+      return;
+    }
+    setLoading('Loading words…', true);
+    const todayData = await api('GET', `/api/today/${deckId}/${category}${_langQP('?')}`);
+    if (!todayData.card) { showView('done'); return; }
+    try {
+      await fetch(`/api/preload-session/${deckId}/${category}?quick=true${_langQP('&')}`, { method: 'POST' });
+    } catch (_) {}
+    showView('review');
+    loadCard(todayData.card, todayData.counts);
+  } catch (e) {
     _showLoadingError('Failed to load session', e.message);
-    await new Promise(r => setTimeout(r, 2500));
+    await new Promise(r => setTimeout(r, 2000));
     showError('Failed to start session: ' + e.message);
     showView('decks');
   }
@@ -4034,9 +4072,7 @@ async function startReviewMixed(id, name, noStory = false, quick = false) {
       openStorySetup(total, { isMixed: true, learningCount: learning, estimatedTokens: estimated_tokens });
     }
   } catch (e) {
-    showError('Failed to start session: ' + e.message);
-    rootDeckId = null;
-    showView('decks');
+    await _startQuickFallback(e.message);
   }
 }
 
@@ -4064,12 +4100,7 @@ async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPc
           ? await api('POST', `/api/story/${rootDeckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId), { articles })
           : await api('GET', `/api/story/${rootDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId));
       } catch (e) {
-        _stopFakeProgress(); _stopStoryProgressPoll();
-        _showLoadingError('AI request failed', e.message);
-        await new Promise(r => setTimeout(r, 2500));
-        showError('Failed to generate story: ' + e.message);
-        rootDeckId = null;
-        showView('decks');
+        await _startQuickFallback(e.message);
         return;
       }
       _stopFakeProgress(); _stopStoryProgressPoll();
