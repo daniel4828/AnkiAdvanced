@@ -1908,7 +1908,7 @@ idx is the item number in square brackets above."""
 _PODCAST_DETAIL_WORDS = {
     "short": "~150",
     "medium": "~300",
-    "detailed": "500-700",
+    "detailed": "900-1300",
 }
 
 
@@ -1920,8 +1920,9 @@ def build_podcast_summary_prompt(transcript: str, title: str, detail_level: str)
     either response the same way."""
     words_target = _PODCAST_DETAIL_WORDS.get(detail_level, _PODCAST_DETAIL_WORDS["detailed"])
     # Transcripts can be long (auto-captions of a 30-60min episode) — cap input
-    # to keep the request within a reasonable token budget.
-    excerpt = transcript[:20000]
+    # to keep the request within a reasonable token budget. Raised to 30000
+    # (#541) so a "detailed" summary can actually cover the whole episode.
+    excerpt = transcript[:30000]
 
     return f"""You are summarizing a Chinese-language podcast episode for a German-speaking
 learner of Chinese (HSK 4-5 level, learning towards HSK 6).
@@ -1934,8 +1935,16 @@ Transcript (Chinese, auto/manual captions, may contain minor recognition errors)
 Task:
 1. Write a detailed German-language summary of what is discussed in the episode, so the
    listener understands the content before listening. Target length: {words_target} words.
-   Structure it into multiple paragraphs. Wrap the most important vocabulary/terms/names in
-   <strong>...</strong> HTML tags (these become the highlighted words in the email).
+   Structure it into multiple paragraphs. Be concrete: include the specific facts, numbers,
+   names and arguments actually mentioned in the episode — do not stay generic or vague.
+   - Whenever you name a company, organization, brand or institution, add its common Chinese
+     name in parentheses right after it, e.g. "Airbnb (爱彼迎)", "Lawn Tennis Association
+     (英国草地网球协会)". If no established Chinese name exists, give a natural Chinese rendering.
+   - If (and ONLY if) the transcript contains timestamps, add an approximate timestamp in
+     parentheses when you introduce each major topic, e.g. "(ca. 12:30)", so the listener can
+     jump to it. If the transcript contains no timestamps, do NOT invent any.
+   Wrap the most important vocabulary/terms/names in <strong>...</strong> HTML tags (these
+   become the highlighted words in the email).
 2. Extract the 10-20 most important Chinese words/phrases from the transcript that are HSK
    level 5 or above (i.e. non-basic vocabulary Daniel would benefit from pre-learning). For
    each, give pinyin and a German definition.
