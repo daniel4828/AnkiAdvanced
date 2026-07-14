@@ -6446,8 +6446,11 @@ function openStorySetup(sentenceCount, { isMixed = false, isUnfinished = false, 
   _setupIsMixed = isMixed;
   _setupIsUnfinished = isUnfinished;
   _setupIsDeckListRegen = false;
-  document.getElementById('setup-count-label').textContent =
+  const _countLabel = document.getElementById('setup-count-label');
+  _countLabel.textContent =
     `This story will have ${sentenceCount} sentence${sentenceCount !== 1 ? 's' : ''}.`;
+  // Remember this text so switching away from Words-only mode restores it (#547).
+  _countLabel.dataset.storyText = _countLabel.textContent;
   const warn = document.getElementById('setup-learning-warning');
   if (learningCount > 0) {
     warn.textContent = `⚠ ${learningCount} card${learningCount !== 1 ? 's' : ''} still in the Again queue. Generating now may cause a mismatch between story order and review order.`;
@@ -6533,6 +6536,24 @@ function updateSetupMode() {
   pasteSection.style.display = 'none';
   if (podcastSection) podcastSection.style.display = 'none';
   _autoSwitchModelForMode(mode);
+
+  // Words-only mode (issue #547): no story is generated, so the story-only
+  // controls (model, HSK-background level, grammar focus) don't apply — hide them.
+  // Non-vocab modes restore Model/HSK unconditionally; grammar follows the deck's
+  // language (Chinese-only, same rule as _applySetupLangRestrictions).
+  const isVocab = mode === 'vocab';
+  const modelLabel = document.getElementById('setup-model-label');
+  const hskLabel = document.getElementById('setup-hsk-label');
+  const grammarLabel = document.getElementById('setup-grammar-label');
+  if (modelLabel) modelLabel.style.display = isVocab ? 'none' : '';
+  if (hskLabel) hskLabel.style.display = isVocab ? 'none' : '';
+  if (grammarLabel) grammarLabel.style.display =
+    isVocab ? 'none' : ((_deckLangById[deckId] || 'zh') === 'zh' ? '' : 'none');
+  const countLabel = document.getElementById('setup-count-label');
+  // Restore the story-count text when switching back from Words-only mode.
+  if (!isVocab && countLabel && countLabel.dataset.storyText != null)
+    countLabel.textContent = countLabel.dataset.storyText;
+
   if (mode === 'qa') {
     topicLabel.childNodes[0].textContent = 'Question ';
     topicInput.placeholder = 'e.g. How was life in ancient China?';
@@ -6568,6 +6589,11 @@ function updateSetupMode() {
     if (podcastSection) podcastSection.style.display = 'block';
     btn.textContent = 'Generate podcast summary';
     _loadPodcastEpisodesForSetup();
+  } else if (mode === 'vocab') {
+    topicLabel.style.display = 'none';
+    kahnemanSection.style.display = 'none';
+    btn.textContent = 'Start (words only)';
+    if (countLabel) countLabel.textContent = 'Review the due words directly — no story is generated.';
   } else {
     topicLabel.childNodes[0].textContent = 'Topic ';
     topicInput.placeholder = 'e.g. a day at a coffee shop';
@@ -7022,6 +7048,24 @@ function confirmStorySetup() {
   }
   _currentStoryMode = mode;
   _closeSetupModal();
+  // Words-only mode (issue #547): no story to generate — start a quick words-only
+  // session directly, reusing the same path as the ⚡ speed button. Handled before
+  // the story-generation dispatch below so every entry point behaves consistently.
+  if (mode === 'vocab') {
+    quickMode = true;
+    story = null;
+    if (_setupIsDeckListRegen) {
+      // Deck-list ↺ targets a whole deck → words-only mixed (all-category) review.
+      rootDeckId = _deckListRegenId;
+      deckId = _deckListRegenId;
+      _doStartReviewMixed(null, 2, null, null, 50, 'story', true);
+    } else if (_setupIsMixed || rootDeckId) {
+      _doStartReviewMixed(null, 2, null, null, 50, 'story', true);
+    } else {
+      _doStartReview(null, 2);
+    }
+    return;
+  }
   if (_setupIsDeckListRegen) {
     _doRegenStoryForDeckList(_deckListRegenId, topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles, episodeId);
   } else if (_setupIsRegen) {
@@ -7530,8 +7574,11 @@ async function regenerateStoryFromList(deckId) {
     const data = await api('GET', `/api/story/${deckId}/unified/count${_langQP('?')}`);
     sentenceCount = data?.count ?? 0;
   } catch (_) {}
-  document.getElementById('setup-count-label').textContent =
+  const _countLabel = document.getElementById('setup-count-label');
+  _countLabel.textContent =
     `This story will have ${sentenceCount} sentence${sentenceCount !== 1 ? 's' : ''}.`;
+  // Remember this text so switching away from Words-only mode restores it (#547).
+  _countLabel.dataset.storyText = _countLabel.textContent;
   const warn = document.getElementById('setup-learning-warning');
   warn.style.display = 'none';
   const tokenWarn = document.getElementById('setup-token-warning');
@@ -7541,6 +7588,9 @@ async function regenerateStoryFromList(deckId) {
   document.getElementById('setup-grammar-pct').value = 50;
   document.getElementById('setup-hsk-slider').value = 3;
   updateHskLabel();
+  // Sync the per-mode control visibility to the current dropdown value (e.g. hide
+  // story-only controls when Words-only is selected, #547).
+  updateSetupMode();
   document.getElementById('setup-modal-overlay').style.display = 'block';
   document.getElementById('setup-modal').style.display = 'flex';
   document.getElementById('setup-topic').focus();
