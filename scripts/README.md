@@ -196,8 +196,9 @@ feed。每个 feed **首次**被爬到时（该 feed 在库里一集都没有）
    膨胀）。用的是非官方库 `notebooklm-py`（见下方一次性设置），未认证时
    自动跳过（不报错）。
 
-`transcriber` 可选值：`auto`（默认，依次尝试听悟 → Whisper → NotebookLM）
-| `tingwu`（只走听悟）| `whisper`（跳过听悟，只走 Whisper，仍受时长门槛）
+`transcriber` 可选值：`auto`（默认，免费优先依次尝试 NotebookLM → 听悟 →
+Whisper，#510）| `tingwu`（只走听悟；听悟带段级时间戳，摘要可标注大致时间点，
+#543）| `whisper`（跳过听悟，只走 Whisper，仍受时长门槛）
 | `notebooklm`（只走 NotebookLM）| `off`（整条转录链都不走）。旧键
 `whisper_fallback=0` 仍兼容，等价于 `off`。
 

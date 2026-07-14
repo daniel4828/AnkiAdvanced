@@ -568,10 +568,39 @@ def _summarize_via_notebooklm(transcript: str, title: str, detail_level: str) ->
     return result
 
 
+def _fmt_timestamp(ms: float) -> str:
+    """Milliseconds -> "[MM:SS]" (or "[H:MM:SS]" past the hour) for prefixing
+    a transcript paragraph (#543), so the summary AI can cite roughly when a
+    topic was discussed."""
+    total = int(ms // 1000)
+    h, rem = divmod(total, 3600)
+    m, s = divmod(rem, 60)
+    return f"[{h}:{m:02d}:{s:02d}]" if h else f"[{m:02d}:{s:02d}]"
+
+
+def _paragraph_start_ms(p: dict) -> int | None:
+    """Extract a paragraph's start time in milliseconds from a Tingwu
+    paragraph (#543). Tingwu's exact key isn't verified against a real
+    response (see _parse_tingwu_transcript), so try the plausible paragraph-
+    level keys, then fall back to the first word's start. Returns None when no
+    timing is present — the caller then emits that paragraph without a prefix."""
+    for key in ("Start", "BeginTime", "StartTime"):
+        v = p.get(key)
+        if isinstance(v, (int, float)):
+            return int(v)
+    for w in p.get("Words") or []:
+        for key in ("Start", "BeginTime", "StartTime"):
+            v = w.get(key)
+            if isinstance(v, (int, float)):
+                return int(v)
+    return None
+
+
 def _parse_tingwu_transcript(result_json: dict) -> str:
     """Best-effort flatten of the Tingwu offline transcription result JSON
     (fetched from the URL in Result.Transcription once the task completes)
-    into plain text.
+    into plain text, each paragraph prefixed with its start timestamp when
+    available (#543).
 
     The documented shape is Transcription.Paragraphs[], each either carrying
     a Text field directly or a Words[] list of {Text: ...} tokens to join —
@@ -589,13 +618,14 @@ def _parse_tingwu_transcript(result_json: dict) -> str:
     )
     lines: list[str] = []
     for p in paragraphs:
-        if p.get("Text"):
-            lines.append(p["Text"])
-        else:
+        text = p.get("Text")
+        if not text:
             words = p.get("Words") or []
             text = "".join(w.get("Text", "") for w in words)
-            if text:
-                lines.append(text)
+        if not text:
+            continue
+        start_ms = _paragraph_start_ms(p)
+        lines.append(f"{_fmt_timestamp(start_ms)} {text}" if start_ms is not None else text)
     if lines:
         return " ".join(lines)
 
