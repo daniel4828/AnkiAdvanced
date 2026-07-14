@@ -178,6 +178,12 @@ main.browse-open {
   font-size: 14px;
   display: none;
 }
+/* Info variant (amber, non-alarming): e.g. fell back to words-only mode */
+#error-banner.notice {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: #fde68a;
+}
 
 /* Clickable banner: a background story finished generating */
 #bg-story-banner {
