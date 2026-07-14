@@ -706,6 +706,7 @@
         <option value="briefing" class="setup-mode-zh-only">🗞️ News flow — summary with German context</option>
         <option value="paste" class="setup-mode-zh-only">📋 Paste content — summarize anything</option>
         <option value="podcast" class="setup-mode-zh-only">🎙️ Podcast — summarize an episode</option>
+        <option value="vocab">🔤 Words only — no story, single vocab</option>
       </select>
     </label>
     <!-- Kahneman chapter selector (shown only in kahneman mode) -->
@@ -752,7 +753,7 @@
         <span style="font-size:13px;color:var(--muted,#888);white-space:nowrap">%</span>
       </div>
     </label>
-    <label class="edit-label">
+    <label class="edit-label" id="setup-model-label">
       <span style="display:flex;align-items:center;gap:6px">
         Model
         <button class="price-info-btn" onclick="togglePriceTable(event)" title="Pricing info">ℹ</button>
@@ -785,7 +786,7 @@
         <option value="gpt-5-mini">GPT-5 Mini — OpenAI, news mode</option>
       </select>
     </label>
-    <label class="edit-label">
+    <label class="edit-label" id="setup-hsk-label">
       Max HSK level for background vocabulary
       <div class="setup-slider-row">
         <span class="setup-slider-min">1</span>
