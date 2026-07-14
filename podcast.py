@@ -1036,11 +1036,14 @@ def send_signal(episode: dict) -> bool:
     public_base = os.environ.get("PUBLIC_BASE_URL", "https://powerdaniel3000.duckdns.org")
     transcript_link = f"{public_base}/#podcast-{episode['id']}"
 
-    # summary_de may be None; strip HTML tags (the email version is HTML)
-    # and cap length so the Signal message stays readable.
+    # summary_de may be None; strip HTML tags (the email version is HTML).
+    # Send the FULL summary (#541) — Daniel reads it directly in Signal and the
+    # old 1500-char cap cut it off mid-sentence. Keep only a high safety cap so
+    # a pathologically long summary can't produce a runaway message; a normal
+    # "detailed" summary (~900-1300 words ≈ up to ~9000 chars) fits well under it.
     summary_de = re.sub(r"<[^>]+>", "", episode.get("summary_de") or "").strip()
-    if len(summary_de) > 1500:
-        summary_de = summary_de[:1500].rstrip() + "…"
+    if len(summary_de) > 12000:
+        summary_de = summary_de[:12000].rstrip() + "…"
 
     # hsk_words comes back as a list from database.get_episode (_hydrate
     # parses the stored JSON), but be defensive in case a raw row or a
