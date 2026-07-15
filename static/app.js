@@ -2157,7 +2157,7 @@ function renderWordDetail(word) {
   if (regenAllBtn) regenAllBtn.onclick = () => word.id && regenAllFields(word.id);
   document.getElementById('wd-hanzi').textContent = word.word_zh || '';
   document.getElementById('wd-pinyin').textContent = word.pinyin || '';
-  document.getElementById('wd-def').textContent = word.definition || '';
+  document.getElementById('wd-def').textContent = word.definition ? `🇬🇧 ${word.definition}` : '';
   const posEl = document.getElementById('wd-pos');
   posEl.textContent = word.pos || '—';
   posEl.style.display = 'inline-block';
@@ -4780,7 +4780,7 @@ function revealAnswer() {
   const wordPinEl = document.getElementById('word-pin');
   wordPinEl.textContent = isSentenceNote ? '' : (card.pinyin || '');
   wordPinEl.style.display = isSentenceNote ? 'none' : '';
-  document.getElementById('word-def').textContent = card.definition || '';
+  document.getElementById('word-def').textContent = card.definition ? `🇬🇧 ${card.definition}` : '';
   const wordDefDeEl = document.getElementById('word-def-de');
   wordDefDeEl.textContent = card.definition_de ? `🇩🇪 ${card.definition_de}` : '';
   wordDefDeEl.style.display = card.definition_de ? 'block' : 'none';
@@ -5238,7 +5238,7 @@ async function _applyRegenResult() {
           const posEl = document.getElementById('wd-pos');
           if (posEl) { posEl.textContent = updated.pos || '—'; posEl.style.display = 'inline-block'; }
           const defEl = document.getElementById('wd-def');
-          if (defEl) defEl.textContent = updated.definition || '';
+          if (defEl) defEl.textContent = updated.definition ? `🇬🇧 ${updated.definition}` : '';
           const defZhEl = document.getElementById('wd-def-zh');
           if (defZhEl) { defZhEl.textContent = updated.definition_zh || ''; defZhEl.style.display = updated.definition_zh ? 'block' : 'none'; }
           const defDeEl = document.getElementById('wd-def-de');
@@ -7433,7 +7433,7 @@ async function saveEditCard() {
       });
       document.getElementById('word-zh').textContent  = updated.word_zh || '';
       document.getElementById('word-pin').textContent = updated.pinyin  || '';
-      document.getElementById('word-def').textContent = updated.definition || '';
+      document.getElementById('word-def').textContent = updated.definition ? `🇬🇧 ${updated.definition}` : '';
       const wordDefDeEl2 = document.getElementById('word-def-de');
       wordDefDeEl2.textContent = updated.definition_de ? `🇩🇪 ${updated.definition_de}` : '';
       wordDefDeEl2.style.display = updated.definition_de ? 'block' : 'none';
