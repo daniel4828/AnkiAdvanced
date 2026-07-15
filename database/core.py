@@ -595,6 +595,8 @@ def init_db() -> None:
             conn.execute("ALTER TABLE podcast_episodes ADD COLUMN audio_url TEXT")
         if "duration_seconds" not in pe_cols:
             conn.execute("ALTER TABLE podcast_episodes ADD COLUMN duration_seconds INTEGER")
+        if "transcript_de" not in pe_cols:
+            conn.execute("ALTER TABLE podcast_episodes ADD COLUMN transcript_de TEXT")
         conn.commit()
 
         # Purge stale legacy YouTube rows (#497): yt-dlp is retired, so any

@@ -60,6 +60,18 @@ def get_episode(episode_id: int):
     episode = database.get_episode(episode_id)
     if not episode:
         raise HTTPException(404, "Episode not found")
+    # Lazy bilingual-transcript backfill (#553): episodes summarized before this
+    # feature have transcript_zh but no transcript_de — build it on first detail
+    # view so old episodes also get the parallel view. Best-effort, one-time.
+    if episode.get("transcript_zh") and not episode.get("transcript_de"):
+        try:
+            pairs = podcast.build_transcript_de(episode["transcript_zh"])
+            if pairs:
+                database.update_episode(episode_id, transcript_de=pairs)
+                episode["transcript_de"] = pairs
+        except Exception:
+            logger.warning("podcast: lazy transcript_de backfill failed for episode %s",
+                           episode_id, exc_info=True)
     return _overlay_processing_status(episode)
 
 

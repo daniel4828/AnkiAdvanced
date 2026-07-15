@@ -1940,12 +1940,16 @@ Task:
    - Whenever you name a company, organization, brand or institution, add its common Chinese
      name in parentheses right after it, e.g. "Airbnb (爱彼迎)", "Lawn Tennis Association
      (英国草地网球协会)". If no established Chinese name exists, give a natural Chinese rendering.
+   - Whenever you use one of the HSK5+ vocabulary words you extract in Task 2 inside the
+     German summary, add its Chinese form in parentheses right after the German rendering,
+     e.g. "Rezession (经济衰退)", "Lieferkette (供应链)", so Daniel links the German meaning
+     to the Chinese word he is pre-learning.
    - If (and ONLY if) the transcript contains timestamps, add an approximate timestamp in
      parentheses when you introduce each major topic, e.g. "(ca. 12:30)", so the listener can
      jump to it. If the transcript contains no timestamps, do NOT invent any.
    Wrap the most important vocabulary/terms/names in <strong>...</strong> HTML tags (these
    become the highlighted words in the email).
-2. Extract the 10-20 most important Chinese words/phrases from the transcript that are HSK
+2. Extract the 20-35 most important Chinese words/phrases from the transcript that are HSK
    level 5 or above (i.e. non-basic vocabulary Daniel would benefit from pre-learning). For
    each, give pinyin and a German definition.
 

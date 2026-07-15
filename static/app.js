@@ -3014,10 +3014,17 @@ function _renderPodcastDetail(ep) {
     ep.status === 'summarized' ? `<button id="podcast-notify-signal" class="btn-secondary" onclick="doPodcastNotify('signal')">Send to Signal</button>` : '',
     ep.status === 'summarized' ? `<button id="podcast-notify-email" class="btn-secondary" onclick="doPodcastNotify('email')">Send Email</button>` : '',
   ].filter(Boolean).join(' ');
-  const transcript = ep.transcript_zh
+  const trPairs = Array.isArray(ep.transcript_de) ? ep.transcript_de : [];
+  const trBody = trPairs.length
+    ? trPairs.map(p => `<div class="podcast-tr-pair">
+         <div class="podcast-tr-zh">${_escHtml(p.zh || '')}</div>
+         <div class="podcast-tr-de">${_escHtml(p.de || '')}</div>
+       </div>`).join('')
+    : (ep.transcript_zh ? _escHtml(ep.transcript_zh).replace(/\n/g, '<br>') : '');
+  const transcript = (trPairs.length || ep.transcript_zh)
     ? `<div class="podcast-transcript-wrap">
          <button class="keymap-reset-all" onclick="_togglePodcastTranscript()">Show/hide transcript</button>
-         <div id="podcast-transcript-body" class="podcast-transcript" style="display:none">${_escHtml(ep.transcript_zh).replace(/\n/g, '<br>')}</div>
+         <div id="podcast-transcript-body" class="podcast-transcript" style="display:none">${trBody}</div>
        </div>`
     : '';
 
