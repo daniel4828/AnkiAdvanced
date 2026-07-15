@@ -186,12 +186,13 @@ def create_pending_episode(video_id: str, channel_id: str | None, title: str,
 
 
 def update_episode(episode_id: int, **fields) -> None:
-    """Generic column update for an episode. hsk_words (if present) is
-    serialized to JSON automatically."""
+    """Generic column update for an episode. hsk_words and transcript_de (if
+    present) are serialized to JSON automatically."""
     if not fields:
         return
-    if "hsk_words" in fields and not isinstance(fields["hsk_words"], str):
-        fields["hsk_words"] = json.dumps(fields["hsk_words"], ensure_ascii=False)
+    for _jcol in ("hsk_words", "transcript_de"):
+        if _jcol in fields and not isinstance(fields[_jcol], str):
+            fields[_jcol] = json.dumps(fields[_jcol], ensure_ascii=False)
     conn = get_db()
     set_clause = ", ".join(f"{k} = ?" for k in fields)
     conn.execute(
@@ -209,6 +210,11 @@ def _hydrate(row: dict) -> dict:
         d["hsk_words"] = json.loads(raw) if raw else []
     except (ValueError, TypeError):
         d["hsk_words"] = []
+    raw_de = d.get("transcript_de")
+    try:
+        d["transcript_de"] = json.loads(raw_de) if raw_de else []
+    except (ValueError, TypeError):
+        d["transcript_de"] = []
     return d
 
 

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import html
 import json
 import logging
 import os
@@ -39,6 +40,7 @@ from zoneinfo import ZoneInfo
 
 import ai
 import database
+import translator
 
 logger = logging.getLogger(__name__)
 
@@ -936,6 +938,56 @@ def filter_new_words(words: list[dict]) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Bilingual transcript (#553)
+# ---------------------------------------------------------------------------
+
+def _split_transcript_segments(text: str) -> list[str]:
+    """Split a Chinese transcript into roughly sentence-sized segments for the
+    parallel zh/de view (#553). Splits after each sentence-ending punctuation
+    (。！？…), keeping any leading Tingwu timestamp attached to the sentence
+    that follows. Blank pieces are dropped."""
+    if not text:
+        return []
+    parts = re.split(r"(?<=[。！？…])\s*", text)
+    return [p.strip() for p in parts if p.strip()]
+
+
+def _translate_segments_de(zh_segments: list[str]) -> list[str]:
+    """Translate each Chinese segment to German via Google Translate, batching
+    under the free endpoint's ~5000-char request limit (translate_batch joins
+    a batch with newlines into one request). Returns a list aligned 1:1 with
+    zh_segments (translate_batch already falls back to the source text for any
+    segment it can't translate)."""
+    out: list[str] = []
+    batch: list[str] = []
+    size = 0
+    for seg in zh_segments:
+        if batch and size + len(seg) > 4500:
+            out.extend(translator.translate_batch(batch, target="de", source="zh-CN"))
+            batch, size = [], 0
+        batch.append(seg)
+        size += len(seg) + 1
+    if batch:
+        out.extend(translator.translate_batch(batch, target="de", source="zh-CN"))
+    return out
+
+
+def build_transcript_de(transcript_zh: str) -> list[dict]:
+    """Build the bilingual segment-pair list [{"zh","de"}] for a transcript
+    (#553). Best-effort: returns [] if the transcript is empty or translation
+    is unavailable/fails."""
+    segs = _split_transcript_segments(transcript_zh)
+    if not segs:
+        return []
+    try:
+        de = _translate_segments_de(segs)
+    except Exception as e:
+        logger.warning("podcast: transcript translation failed: %s", e)
+        return []
+    return [{"zh": z, "de": (d or "")} for z, d in zip(segs, de)]
+
+
+# ---------------------------------------------------------------------------
 # Spotify link
 # ---------------------------------------------------------------------------
 
@@ -1002,6 +1054,20 @@ def _words_table_html(words: list[dict]) -> str:
     )
 
 
+def _bilingual_transcript_html(pairs: list[dict]) -> str:
+    """Render the bilingual (zh/de) transcript block appended to the end of
+    the notification email (#553). Plain-text segments are HTML-escaped."""
+    if not pairs:
+        return ""
+    rows = "".join(
+        "<div style='margin:0 0 8px'>"
+        f"<div>{html.escape(p.get('zh', ''))}</div>"
+        f"<div style='color:#666'>{html.escape(p.get('de', ''))}</div></div>"
+        for p in pairs
+    )
+    return f"<h3>Transkript (中德对照)</h3><div style='font-size:14px'>{rows}</div>"
+
+
 def send_email(episode: dict) -> bool:
     """Send the HTML notification email for a freshly-summarized episode.
     Returns True if sent, False if skipped (SMTP not configured) — skipping
@@ -1021,8 +1087,9 @@ def send_email(episode: dict) -> bool:
 
     transcript_link = f"{public_base}/#podcast-{episode['id']}"
     words_html = _words_table_html(episode.get("hsk_words") or [])
+    transcript_html = _bilingual_transcript_html(episode.get("transcript_de") or [])
 
-    html = f"""
+    body_html = f"""
     <html><body style="font-family:sans-serif;max-width:640px">
       <h2>{episode['title']}</h2>
       <div>{episode.get('summary_de') or ''}</div>
@@ -1033,6 +1100,7 @@ def send_email(episode: dict) -> bool:
         <a href="{episode.get('spotify_url') or ''}">Spotify</a> ·
         <a href="{episode['youtube_url']}">Folge</a>
       </p>
+      {transcript_html}
     </body></html>
     """
 
@@ -1040,7 +1108,7 @@ def send_email(episode: dict) -> bool:
     msg["Subject"] = f"Neue Podcast-Folge: {episode['title']}"
     msg["From"] = from_addr
     msg["To"] = to_addr
-    msg.attach(MIMEText(html, "html", "utf-8"))
+    msg.attach(MIMEText(body_html, "html", "utf-8"))
 
     with smtplib.SMTP(host, port, timeout=30) as server:
         server.starttls()
@@ -1212,6 +1280,18 @@ def _process_episode(episode_id: int, video: dict, detail_level: str, summary: d
                 # Dev mode: stop at pending with the transcript stored, no AI
                 # call, no email — matches DISABLE_AI's behavior for stories.
                 return
+
+            # Bilingual transcript (#553): translate the Chinese transcript to
+            # German segment-by-segment for the parallel view + email. Skip if
+            # already built (retry path). Best-effort — must not fail the episode.
+            if not (database.get_episode(episode_id) or {}).get("transcript_de"):
+                try:
+                    pairs = build_transcript_de(transcript)
+                    if pairs:
+                        database.update_episode(episode_id, transcript_de=pairs)
+                except Exception as e:
+                    logger.warning("podcast: transcript_de build failed for %s: %s",
+                                   video["video_id"], e)
 
             result = summarize(transcript, video["title"], detail_level)
             if not result.get("summary_de"):

@@ -583,6 +583,7 @@ CREATE TABLE IF NOT EXISTS podcast_episodes (
     duration_seconds INTEGER, -- parsed itunes:duration, #497 — used as a pre-download guardrail/gate
     spotify_url      TEXT,
     transcript_zh    TEXT,
+    transcript_de    TEXT,   -- JSON array of {"zh","de"} bilingual segment pairs (#553)
     summary_de       TEXT,
     hsk_words        TEXT,   -- JSON array of {word, pinyin, definition_de, hsk}
     detail_level     TEXT,   -- detail_level used for the summary (short|medium|detailed)
