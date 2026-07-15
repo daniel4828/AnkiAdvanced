@@ -48,23 +48,6 @@ let sentence    = null;   // current sentence from story (may be null)
 let wordDetails = null;   // full word data: examples + characters
 let _currentWordId = null; // word ID open in word-detail view
 
-// Autoplay delay for the listening category (issue #454). Cached per deck preset
-// so we don't re-fetch on every card; manual replay is never delayed.
-let _autoplayDelayMs = null;
-let _autoplayDeckId  = null;
-let _autoplayTimer   = null;
-async function _getAutoplayDelay() {
-  const id = rootDeckId || deckId;
-  if (id === _autoplayDeckId && _autoplayDelayMs != null) return _autoplayDelayMs;
-  try {
-    const preset = await api('GET', `/api/decks/${id}/preset`);
-    _autoplayDelayMs = preset?.autoplay_delay_ms ?? 1000;
-  } catch (e) {
-    _autoplayDelayMs = 1000;
-  }
-  _autoplayDeckId = id;
-  return _autoplayDelayMs;
-}
 let _prevView = null;      // view we came from before opening word-detail
 let _sessionReviewedCount = 0; // cards rated this session (for clap animation)
 let _sessionReviewedIds = [];  // card ids reviewed this session (for summary graph)
@@ -3546,7 +3529,6 @@ function loadPresetFields(preset) {
   document.getElementById('opt-desired-retention').value = Math.round((preset.desired_retention ?? 0.9) * 100);
   document.getElementById('opt-max-int').value         = preset.maximum_interval ?? 36500;
   document.getElementById('opt-reading-enabled').checked = !!preset.reading_enabled;
-  document.getElementById('opt-autoplay-delay').value = preset.autoplay_delay_ms ?? 1000;
   applySchedulerVisibility();
 
   // Category order
@@ -3718,10 +3700,6 @@ async function saveOptions() {
     maximum_interval:       Math.max(1, parseInt(document.getElementById('opt-max-int').value) || 36500),
     category_order: _getCategoryOrderUI(),
     reading_enabled:        document.getElementById('opt-reading-enabled').checked ? 1 : 0,
-    autoplay_delay_ms:      (() => {
-      const v = parseInt(document.getElementById('opt-autoplay-delay').value);
-      return Number.isFinite(v) && v >= 0 ? v : 1000; // 0 is a valid "play immediately" value
-    })(),
   };
   try {
     const [savedPreset] = await Promise.all([
@@ -3738,7 +3716,6 @@ async function saveOptions() {
         return api('DELETE', `/api/presets/${presetId}/categories/${cat}`).catch(() => {});
       }
     }));
-    _autoplayDelayMs = null; // invalidate cache so the next card picks up the new value
     closeModal();
     loadDecks();
   } catch (e) {
@@ -4225,7 +4202,6 @@ async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, gram
 
 // ── Load a card ─────────────────────────────────────────────────────────────
 function loadCard(c, counts) {
-  clearTimeout(_autoplayTimer);
   card = c;
   wordDetails = null;
   renderReviewCatRow(); // clear circles immediately when new card loads
@@ -4295,6 +4271,7 @@ function loadCard(c, counts) {
   // Warm the browser cache for the flip audio right away (#554); the async story
   // path below re-prefetches once the real sentence arrives.
   _prefetchSentenceAudio();
+  _prefetchStoryAudio(story?.sentences);
 
   // In unfinished mode or mixed mode: story may be from a different deck/category.
   // Async-load the correct story and update the display when it arrives.
@@ -4343,6 +4320,7 @@ function loadCard(c, counts) {
         if (s?.sentences) {
           story    = s;
           sentence = story.sentences.find(s => s.word_ids?.includes(card.word_id)) || null;
+          _prefetchStoryAudio(story.sentences);
         }
         if (sentence) {
           applySentenceToUI();
@@ -4363,13 +4341,13 @@ function loadCard(c, counts) {
         }
         // Auto-play deferred from loadCard: play now that story is loaded
         if (snap.category === 'listening' && document.getElementById('side-back').style.display === 'none') {
-          _getAutoplayDelay().then(d => { if (card === snap) _autoplayTimer = setTimeout(playSentence, d); });
+          if (card === snap) playSentence();
         }
       }).catch(() => {
         // On fetch error, still play audio (falls back to word_zh)
         if (card === snap && snap.category === 'listening' &&
             document.getElementById('side-back').style.display === 'none') {
-          _getAutoplayDelay().then(d => { if (card === snap) _autoplayTimer = setTimeout(playSentence, d); });
+          if (card === snap) playSentence();
         }
       });
   }
@@ -4455,7 +4433,7 @@ function loadCard(c, counts) {
       // Deferred — fetch callback will call playSentence() once story is loaded
     } else {
       const snap = c;
-      _getAutoplayDelay().then(d => { if (card === snap) _autoplayTimer = setTimeout(playSentence, d); });
+      if (card === snap) playSentence();
     }
   }
 }
@@ -4830,12 +4808,7 @@ function revealAnswer() {
   renderVocabDetail();
   renderReviewCatRow();
 
-  // Auto-play audio immediately on reveal (all categories). The autoplay delay
-  // (issue #454) exists only so the user can read the context before hearing
-  // the audio on the listening *front* — after flipping there's nothing left to
-  // read first, so play right away (issue #539). Clear any still-pending
-  // front-side autoplay first so the two timers can't both fire.
-  clearTimeout(_autoplayTimer);
+  // Auto-play audio immediately on reveal (all categories) — issue #539.
   playSentence();
 }
 
@@ -7503,28 +7476,47 @@ function _updateListenCounters() {
   });
 }
 
-// TTS URL for the current card's sentence (falls back to the bare word).
-function _sentenceAudioUrl() {
-  const text = sentence?.sentence_zh || card?.word_zh;
+// TTS URL for `text` in `lang`.
+function _ttsUrl(text, lang) {
   if (!text) return null;
-  return `/api/tts-file?text=${encodeURIComponent(text)}&lang=${currentCardLang()}`;
+  return `/api/tts-file?text=${encodeURIComponent(text)}&lang=${lang}`;
 }
 
-// Warm the browser cache for the back-side audio while the front is showing, so
-// flipping plays instantly instead of waiting for a network round trip (#554).
-// /api/tts-file sends Cache-Control: immutable, so once buffered here the audio
-// element playSentence() creates on flip replays from cache with no delay.
-let _prefetchedAudio = null;
-let _prefetchedUrl   = null;
-function _prefetchSentenceAudio() {
-  const url = _sentenceAudioUrl();
-  if (!url || url === _prefetchedUrl) return;
-  const a = new Audio();
+// TTS URL for the current card's sentence (falls back to the bare word).
+function _sentenceAudioUrl() {
+  return _ttsUrl(sentence?.sentence_zh || card?.word_zh, currentCardLang());
+}
+
+// Browser-side TTS prefetch (#554, #557). /api/tts-file is immutable-cached, so
+// warming a URL makes any later `new Audio(url)` replay from the browser cache
+// with no network round trip. _warmed maps url→buffered element (LRU-capped) both
+// to dedup and to hold references so buffers aren't garbage-collected before play.
+const _warmed = new Map();
+const _WARM_MAX = 40;
+function _warmAudio(url) {
+  if (!url) return null;
+  let a = _warmed.get(url);
+  if (a) return a;
+  a = new Audio();
   a.preload = 'auto';
   a.src = url;
   a.load();
-  _prefetchedAudio = a;
-  _prefetchedUrl   = url;
+  _warmed.set(url, a);
+  if (_warmed.size > _WARM_MAX) _warmed.delete(_warmed.keys().next().value);
+  return a;
+}
+
+// Warm the current card's sentence audio.
+function _prefetchSentenceAudio() {
+  _warmAudio(_sentenceAudioUrl());
+}
+
+// Warm every sentence in the loaded story so later listening fronts / flips play
+// instantly — prefetched in the background while the user reviews earlier cards.
+function _prefetchStoryAudio(sentences) {
+  if (!Array.isArray(sentences)) return;
+  const lang = currentCardLang();
+  for (const s of sentences) _warmAudio(_ttsUrl(s?.sentence_zh, lang));
 }
 
 function playSentence() {
@@ -7533,14 +7525,15 @@ function playSentence() {
   _listenCount++;
   _updateListenCounters();
   if (_currentAudio) { _currentAudio.onended = null; _currentAudio.pause(); _currentAudio = null; }
-  // Reuse the pre-buffered element when it matches (#554) — plays with no wait.
+  // Reuse the pre-buffered element when warmed (#554/#557) — gapless, no wait;
+  // otherwise a fresh element still replays instantly from the immutable HTTP cache.
+  const warm = _warmed.get(url);
   let audio;
-  if (_prefetchedAudio && _prefetchedUrl === url) {
-    audio = _prefetchedAudio;
+  if (warm) {
+    audio = warm;
     try { audio.currentTime = 0; } catch (_) {}
-    _prefetchedAudio = null;
   } else {
-    audio = new Audio(url);
+    audio = _warmAudio(url);
   }
   _currentAudio = audio;
   audio.play().catch(() => {});
