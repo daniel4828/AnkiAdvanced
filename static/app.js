@@ -4285,6 +4285,10 @@ function loadCard(c, counts) {
     || story?.sentences?.find(s => s.word_ids?.includes(card.word_id))
     || null;
 
+  // Warm the browser cache for the flip audio right away (#554); the async story
+  // path below re-prefetches once the real sentence arrives.
+  _prefetchSentenceAudio();
+
   // In unfinished mode or mixed mode: story may be from a different deck/category.
   // Async-load the correct story and update the display when it arrives.
   if (!sentence && (unfinishedMode || rootDeckId) && !quickMode) {
@@ -4318,6 +4322,8 @@ function loadCard(c, counts) {
         inp.textContent = sentence.sentence_de || sentence.sentence_fr || '';
         _syncFrontTransToggle();
       }
+      // Real sentence now known — prefetch its audio so the flip plays instantly (#554).
+      _prefetchSentenceAudio();
     };
     // In unfinished "existing story" mode, only fetch a cached story (never generate).
     const unfNoGen = unfinishedMode && _unfinishedStoryMode === 'existing';
@@ -7490,13 +7496,45 @@ function _updateListenCounters() {
   });
 }
 
-function playSentence() {
+// TTS URL for the current card's sentence (falls back to the bare word).
+function _sentenceAudioUrl() {
   const text = sentence?.sentence_zh || card?.word_zh;
-  if (!text) return;
+  if (!text) return null;
+  return `/api/tts-file?text=${encodeURIComponent(text)}&lang=${currentCardLang()}`;
+}
+
+// Warm the browser cache for the back-side audio while the front is showing, so
+// flipping plays instantly instead of waiting for a network round trip (#554).
+// /api/tts-file sends Cache-Control: immutable, so once buffered here the audio
+// element playSentence() creates on flip replays from cache with no delay.
+let _prefetchedAudio = null;
+let _prefetchedUrl   = null;
+function _prefetchSentenceAudio() {
+  const url = _sentenceAudioUrl();
+  if (!url || url === _prefetchedUrl) return;
+  const a = new Audio();
+  a.preload = 'auto';
+  a.src = url;
+  a.load();
+  _prefetchedAudio = a;
+  _prefetchedUrl   = url;
+}
+
+function playSentence() {
+  const url = _sentenceAudioUrl();
+  if (!url) return;
   _listenCount++;
   _updateListenCounters();
   if (_currentAudio) { _currentAudio.onended = null; _currentAudio.pause(); _currentAudio = null; }
-  const audio = new Audio(`/api/tts-file?text=${encodeURIComponent(text)}&lang=${currentCardLang()}`);
+  // Reuse the pre-buffered element when it matches (#554) — plays with no wait.
+  let audio;
+  if (_prefetchedAudio && _prefetchedUrl === url) {
+    audio = _prefetchedAudio;
+    try { audio.currentTime = 0; } catch (_) {}
+    _prefetchedAudio = null;
+  } else {
+    audio = new Audio(url);
+  }
   _currentAudio = audio;
   audio.play().catch(() => {});
 }
