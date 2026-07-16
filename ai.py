@@ -117,6 +117,11 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str,
         if model.startswith("deepseek-"):
             extra["extra_body"] = {"thinking": {"type": "enabled" if thinking else "disabled"}}
             logger.debug("[%s] thinking=%s", model, thinking)
+        elif model.startswith(("glm-4.5", "glm-4.6", "glm-4.7", "glm-5")):
+            # GLM-4.5 起支持 thinking 模式且默认开启 —— 生成句子不需要思维链，
+            # 显式关闭以省时省钱（旧 glm-4-flash/air 不认识该参数，故不加）。
+            extra["extra_body"] = {"thinking": {"type": "enabled" if thinking else "disabled"}}
+            logger.debug("[%s] thinking=%s", model, thinking)
         try:
             if model.startswith("gpt-"):
                 # gpt-5 series (Chat Completions): max_completion_tokens replaces max_tokens
@@ -1843,6 +1848,137 @@ def generate_briefing_sentences(
         except Exception as e:
             logger.warning("briefing: context translation failed — %s", e)
 
+    return sentences
+
+
+def generate_podcast_sentences(
+    cards: list[dict],
+    summary: str,            # the episode's German summary_de (caller ensures non-empty)
+    episode_title: str,
+    model: str = "gpt-5-mini",
+    max_hsk: int = 3,
+    progress_key: str | None = None,
+    attempt_label: str = "",
+    source_url: str | None = None,
+    source_title: str | None = None,
+) -> list[dict]:
+    """Podcast mode rework (issue #561) — a lean single-purpose pipeline that
+    replaces reuse of the briefing machinery (originally #482).
+
+    One main call + up to 2 missing-word retry rounds + fallback sentences.
+    Deliberately has NO fact-check and NO whole-summary validation retry —
+    those are what make briefing slow and expensive, and podcast summaries
+    (unlike news) are AI-authored to begin with, so there's no external source
+    to fact-check against. The only input is the German episode summary
+    (detailed enough since #541) — the full transcript is never sent.
+
+    attempt_label: chunk marker like " (2/3)" appended to every progress
+    message — the route batches cards by MAX_NEWS_BATCH and calls this once
+    per chunk (same convention as generate_briefing_sentences).
+    """
+    if not cards or not summary.strip():
+        return []
+
+    def _build_prompt(batch: list[dict], extra_hint: str = "") -> str:
+        word_list = "\n".join(
+            f"{i + 1}. {c['word_zh']}（{c.get('pinyin', '')}）— {c.get('definition', '')}"
+            for i, c in enumerate(batch)
+        )
+        return f"""任务：下面是一期播客单集的内容摘要（德语）。请用简体中文写一篇该单集内容的连贯总结，
+帮助 HSK 4-5 学习者复习词汇。
+
+单集标题：{episode_title}
+
+内容摘要（德语）：
+{summary}
+
+目标词汇（每个词必须在总结中恰好出现一次，以原文形式出现）：
+{word_list}
+
+规则：
+- 总结按句子输出为 JSON 数组，数组顺序就是阅读顺序
+- 【重要】每一句话都必须恰好包含一个目标词汇——不允许出现任何不含目标词的句子，
+  因此句子总数必须恰好等于目标词数量
+- 【词序自由】任意安排目标词出现的先后顺序，选择能写出最自然、最连贯总结的顺序
+- 【难度控制，严格遵守】每句 8 到 20 个字，其中除目标词外只允许 HSK 1-{max_hsk} 的词汇；
+  如果某个事实需要更难的词才能表达，就换一种更简单的说法，或省略这个细节
+- 【重要】每句都必须传达摘要中的一个具体事实（是什么、涉及谁、有多少），
+  严禁没有信息量的空洞句子，例如"内容很有趣。""他说了很多。"这类句子绝对不可以出现
+- 【重要】只允许使用摘要中明确陈述的事实——禁止编造摘要没有的细节或主观评论
+- 所有输出只用简体中文，绝对不要出现繁体字；不要使用markdown格式
+- target_word 是该句包含的目标词汇原文
+{extra_hint}
+
+仅返回如下JSON数组，不加任何其他文字：
+[
+  {{"sentence_zh": "含目标词的句子", "target_word": "词汇"}}
+]"""
+
+    sentences: list[dict] = []
+    remaining = list(cards)
+
+    for attempt in range(3):
+        if not remaining:
+            break
+        msg = (f"生成播客总结…{attempt_label}" if attempt == 0
+               else f"补漏 {len(remaining)} 个词（第{attempt + 1}轮）…{attempt_label}")
+        _set_progress(progress_key, phase="request", msg=msg, percent=20 + attempt * 25)
+        raw = _call_api(model, [{"role": "user", "content": _build_prompt(remaining)}],
+                         4096, purpose="podcast")
+
+        json_start = raw.find("[")
+        json_end = raw.rfind("]") + 1
+        if json_start == -1 or json_end == 0:
+            logger.warning("podcast attempt %d: no JSON array found", attempt + 1)
+            continue
+        try:
+            items = json.loads(raw[json_start:json_end])
+        except json.JSONDecodeError as e:
+            logger.warning("podcast attempt %d: JSON parse error: %s", attempt + 1, e)
+            continue
+
+        # Scan in order: not trusting the AI's target_word tag, only the actual
+        # sentence content counts (same approach as briefing).
+        for item in items:
+            s_zh = (item.get("sentence_zh") or "").strip()
+            if not s_zh:
+                continue
+            matched = next((c for c in remaining if _briefing_word_match(c["word_zh"], s_zh)), None)
+            if matched is None:
+                continue          # no target word → drop (this mode allows no context sentences)
+            remaining.remove(matched)
+            sentences.append({
+                "word_ids": [matched["word_id"]],
+                "sentence_zh": s_zh,
+                "sentence_en": "",
+                "concept_en": "",
+                "concept_zh": "",
+                "reasoning_zh": "",
+                "source_url": source_url,
+                "source_title": source_title,
+                "tokens": [],
+            })
+
+        if remaining:
+            logger.warning("podcast attempt %d: missing words (will re-request): %s",
+                           attempt + 1, [c["word_zh"] for c in remaining])
+
+    # Per-word fallback so every card ends up with a sentence.
+    for card in remaining:
+        logger.warning("podcast: using fallback sentence for %s", card["word_zh"])
+        sentences.append({
+            "word_ids": [card["word_id"]],
+            "sentence_zh": card.get("source_sentence") or f"我学了{card['word_zh']}这个词。",
+            "sentence_en": "",
+            "concept_en": "",
+            "concept_zh": "",
+            "reasoning_zh": "",
+            "source_url": source_url,
+            "source_title": source_title,
+            "tokens": [],
+        })
+
+    _fill_translations(sentences, progress_key=progress_key)
     return sentences
 
 

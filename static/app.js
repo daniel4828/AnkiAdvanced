@@ -6613,23 +6613,35 @@ function updateSetupMode() {
   }
 }
 
-// ── News-family modes (briefing/paste/podcast) lock the model select ────────
-// briefing/paste/podcast share the server-side briefing pipeline and always
-// use BRIEFING_MODEL (DeepSeek censors news content, so it's OpenAI-only).
+// ── News-family modes (briefing/paste) lock the model select ────────────────
+// briefing/paste share the server-side briefing pipeline and always use
+// BRIEFING_MODEL (DeepSeek censors news content, so it's OpenAI-only).
 // Switching to one of them locks the dropdown to a "Server: BRIEFING_MODEL"
 // placeholder and remembers the previous model; switching back restores it.
+// podcast (issue #561 rework) is no longer part of this lock — it picks its
+// own model, remembered per-mode via localStorage (see MODE_MODEL_DEFAULTS
+// below) instead of sharing BRIEFING_MODEL.
 let _modelBeforeNewsMode = null;
+
+// Per-mode remembered model (issue #561): podcast defaults to gpt-5-mini the
+// first time it's opened, then remembers whatever the user picked last.
+const MODE_MODEL_DEFAULTS = { podcast: 'gpt-5-mini' };
+let _modelSelMode = 'story';   // mode the model dropdown's current value belongs to
 
 function _autoSwitchModelForMode(mode) {
   const modelSel = document.getElementById('setup-model');
   if (!modelSel) return;
 
-  // Briefing, paste (issue #481) and podcast (issue #482) all share the
-  // briefing pipeline and ignore this dropdown server-side — the server always
-  // resolves BRIEFING_MODEL (env, default gpt-5.1). Lock the control and show
-  // that honestly instead of a stale gpt-5-mini selection (issue #448).
+  // Briefing and paste (issues #481/#444) share the briefing pipeline and
+  // ignore this dropdown server-side — the server always resolves
+  // BRIEFING_MODEL (env, default gpt-5.1). Lock the control and show that
+  // honestly instead of a stale gpt-5-mini selection (issue #448).
   const serverOpt = document.getElementById('setup-model-server-opt');
-  if (mode === 'briefing' || mode === 'paste' || mode === 'podcast') {
+  if (mode === 'briefing' || mode === 'paste') {
+    // Remember the outgoing mode's selection before overwriting it — but
+    // never persist the server placeholder itself as a "model".
+    if (_modelSelMode && modelSel.value !== 'briefing-server')
+      localStorage.setItem('setupModel:' + _modelSelMode, modelSel.value);
     if (!serverOpt) {
       const opt = document.createElement('option');
       opt.id = 'setup-model-server-opt';
@@ -6643,6 +6655,7 @@ function _autoSwitchModelForMode(mode) {
     }
     modelSel.disabled = true;
     modelSel.title = 'News flow always uses BRIEFING_MODEL on the server (default gpt-5.1)';
+    _modelSelMode = null;   // dropdown shows the server placeholder, not a real mode's model
     return;
   }
   modelSel.disabled = false;
@@ -6653,6 +6666,15 @@ function _autoSwitchModelForMode(mode) {
     }
     serverOpt.remove();
   }
+  // Every other mode remembers its own model selection (issue #561) — save
+  // the outgoing mode's value, then restore the incoming mode's last pick
+  // (or its hardcoded default, or just leave the current value untouched).
+  if (_modelSelMode && modelSel.value !== 'briefing-server')
+    localStorage.setItem('setupModel:' + _modelSelMode, modelSel.value);
+  const remembered = localStorage.getItem('setupModel:' + mode);
+  modelSel.value = remembered || MODE_MODEL_DEFAULTS[mode] || modelSel.value;
+  if (!modelSel.value) modelSel.selectedIndex = 0;   // remembered value no longer in the list
+  _modelSelMode = mode;
 }
 
 // ── Paste mode: repeatable pasted-content blocks ────────────────────────────
@@ -6982,43 +7004,77 @@ function randomKahnemanChapters() {
   _updateKahnemanCount();
 }
 
-// ── Podcast episode picker (issue #482) — single-select, template copied from
-// the kahneman chapter selector above but radio-style (one episode per story).
-let _setupPodcastEpisodes = null; // null = not loaded yet, [] = loaded but empty
+// ── Podcast episode picker (issue #482, feed filter added in #561) —
+// single-select, template copied from the kahneman chapter selector above
+// but radio-style (one episode per story).
+let _setupPodcastFeeds = null;              // null = not loaded yet
+let _setupPodcastEpisodesByFeed = {};       // key '' (all) or feed_id → episodes array
 
 async function _loadPodcastEpisodesForSetup() {
   const container = document.getElementById('setup-podcast-episodes');
   const loading = document.getElementById('setup-podcast-loading');
+  const feedSel = document.getElementById('setup-podcast-feed');
   if (!container) return;
-  if (_setupPodcastEpisodes) { _renderPodcastEpisodes(); return; }
+  if (_setupPodcastFeeds === null) {
+    try {
+      const feeds = await api('GET', '/api/podcast/feeds');
+      _setupPodcastFeeds = feeds || [];
+      if (feedSel) {
+        const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        feedSel.innerHTML = '<option value="">All podcasts</option>' +
+          _setupPodcastFeeds.map(f => `<option value="${f.id}">${esc(f.title || f.url)}</option>`).join('');
+        feedSel.onchange = _onPodcastFeedFilterChange;
+      }
+    } catch (e) {
+      _setupPodcastFeeds = [];
+    }
+  }
+  await _loadPodcastEpisodesForCurrentFeed();
+}
+
+function _onPodcastFeedFilterChange() {
+  _loadPodcastEpisodesForCurrentFeed();
+}
+
+async function _loadPodcastEpisodesForCurrentFeed() {
+  const container = document.getElementById('setup-podcast-episodes');
+  const loading = document.getElementById('setup-podcast-loading');
+  const feedSel = document.getElementById('setup-podcast-feed');
+  if (!container) return;
+  const feedId = feedSel ? feedSel.value : '';
+  if (_setupPodcastEpisodesByFeed[feedId]) { _renderPodcastEpisodes(feedId); return; }
   container.style.display = 'none';
   if (loading) loading.style.display = 'block';
   try {
-    const data = await api('GET', '/api/podcast/episodes');
+    const url = '/api/podcast/episodes?limit=1000' + (feedId ? `&feed_id=${feedId}` : '');
+    const data = await api('GET', url);
     // Only episodes with a finished summary can seed a story (issue #482).
-    _setupPodcastEpisodes = (data || []).filter(ep => ep.status === 'summarized');
+    _setupPodcastEpisodesByFeed[feedId] = (data || []).filter(ep => ep.status === 'summarized');
     if (loading) loading.style.display = 'none';
     container.style.display = 'block';
-    _renderPodcastEpisodes();
+    _renderPodcastEpisodes(feedId);
   } catch (e) {
     if (loading) loading.textContent = 'Failed to load episodes.';
   }
 }
 
-function _renderPodcastEpisodes() {
+function _renderPodcastEpisodes(feedId) {
   const container = document.getElementById('setup-podcast-episodes');
-  if (!container || !_setupPodcastEpisodes) return;
-  if (!_setupPodcastEpisodes.length) {
+  const episodes = _setupPodcastEpisodesByFeed[feedId];
+  if (!container || !episodes) return;
+  if (!episodes.length) {
     container.innerHTML = '<div style="padding:12px;text-align:center;color:var(--muted,#888);font-size:13px">No summarized episodes yet.</div>';
     return;
   }
   const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  container.innerHTML = _setupPodcastEpisodes.map(ep => `
+  // Rows show just title + date (issue #561) — the summary preview was
+  // dropped, it made the list too tall to scan with many episodes.
+  container.innerHTML = episodes.map(ep => `
     <label class="kahneman-chapter-row">
       <input type="radio" class="podcast-episode-radio" name="podcast-episode" value="${ep.id}">
       <div class="kahneman-chapter-info">
         <span class="kahneman-chapter-title">${esc(ep.title || '(untitled)')}</span>
-        <span class="kahneman-chapter-concept">${esc(_localDate(ep.published_at || ''))} · ${esc(ep.summary_de || '')}</span>
+        <span class="kahneman-chapter-concept">${esc(_localDate(ep.published_at || ''))}</span>
       </div>
     </label>`).join('');
 }
@@ -7042,6 +7098,9 @@ function confirmStorySetup() {
   const grammarFocus = document.getElementById('setup-grammar').value.trim() || null;
   const grammarPct  = parseInt(document.getElementById('setup-grammar-pct').value, 10) || 75;
   const mode        = document.getElementById('setup-mode').value;
+  // Remember this mode's model choice (issue #561) — never the briefing/paste
+  // server placeholder, which isn't a real model selection.
+  if (model && model !== 'briefing-server') localStorage.setItem('setupModel:' + mode, model);
   const chapterIds  = mode === 'kahneman' ? _getSelectedChapterIds() : null;
   const articles    = mode === 'paste' ? _collectPastedContents() : null;
   const episodeId   = mode === 'podcast' ? _getSelectedEpisodeId() : null;

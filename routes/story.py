@@ -165,14 +165,18 @@ ALLOWED_MODELS = {
     "claude-sonnet-4-6",
     "claude-opus-4-6",
     "gpt-5-mini",
+    "glm-5",
+    "glm-4.7",
+    "glm-4.7-flashx",
+    "glm-4.7-flash",
 }
 DEFAULT_MODEL = ai.DEFAULT_MODEL
 
 
-def _validated_model(model: str | None) -> str:
+def _validated_model(model: str | None, default: str | None = None) -> str:
     if model and model in ALLOWED_MODELS:
         return model
-    return DEFAULT_MODEL
+    return default or DEFAULT_MODEL
 
 
 def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
@@ -241,14 +245,13 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
             parsed_chapter_ids = [int(x) for x in chapter_ids.split(",") if x.strip()] if chapter_ids else []
             sentences, prompt_text = _generate_kahneman_story_sentences(
                 cards, parsed_chapter_ids, model=model, progress_key=progress_key)
-        elif mode in ("paste", "briefing", "podcast"):
-            # Briefing (issue #444), paste (issue #481) and podcast (issue
-            # #482) all share the briefing pipeline and ignore the frontend's
-            # model selection — they always use BRIEFING_MODEL (env, default
-            # gpt-5.1, verified/cached via ai.resolve_briefing_model()),
-            # OpenAI only. Resolved before the article-selection call so
-            # summarize_news_items uses the same model as the sentence
-            # generation (issue #448).
+        elif mode in ("paste", "briefing"):
+            # Briefing (issue #444) and paste (issue #481) share the briefing
+            # pipeline and ignore the frontend's model selection — they always
+            # use BRIEFING_MODEL (env, default gpt-5.1, verified/cached via
+            # ai.resolve_briefing_model()), OpenAI only. Resolved before the
+            # article-selection call so summarize_news_items uses the same
+            # model as the sentence generation (issue #448).
             model = ai.resolve_briefing_model()
             logger.info("story  %s model in use: %s", mode, model)
             if mode == "briefing" and not articles:
@@ -264,35 +267,45 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
                     today, lang, exclude_deck_id=deck_id, exclude_category=category)
                 articles = _auto_news_articles(model=model, progress_key=progress_key,
                                                exclude_urls=used)
-            if mode == "podcast" and not articles:
-                # Podcast mode (issue #482): the single article is the selected
-                # episode's Chinese transcript — no auto-fetch, no pasted text.
-                # Truncated to a safe length (transcripts can be very long).
-                if not episode_id:
-                    raise ValueError("Podcast mode requires selecting an episode.")
-                episode = database.get_episode(episode_id)
-                if not episode:
-                    raise ValueError(f"Podcast episode {episode_id} not found.")
-                transcript = (episode.get("transcript_zh") or "").strip()
-                if not transcript:
-                    raise ValueError("Selected podcast episode has no transcript.")
-                articles = [{
-                    "url": episode.get("youtube_url"),
-                    "title": episode.get("title"),
-                    "text": transcript[:15000],
-                }]
-            # Paste (issue #481) and podcast (issue #482) reuse the briefing
-            # pipeline (Python validation, dedup, fact-check) with generic=True
-            # swapping the news-briefing prompt wording for plain content
-            # framing. Podcast additionally sets include_context=False — every
-            # sentence must carry a target word, no context sentences at all.
-            # Neither mode auto-fetches, so missing articles surface as a
-            # clear error inside _generate_briefing_story_sentences (podcast's
-            # own no-episode error above fires first).
+            # Paste (issue #481) reuses the briefing pipeline (Python
+            # validation, dedup, fact-check) with generic=True swapping the
+            # news-briefing prompt wording for plain content framing. It
+            # never auto-fetches, so a missing pasted article surfaces as a
+            # clear error inside _generate_briefing_story_sentences.
             sentences, prompt_text = _generate_briefing_story_sentences(
                 cards, articles, model=model, progress_key=progress_key,
-                max_hsk=max_hsk, generic=(mode in ("paste", "podcast")),
-                include_context=(mode != "podcast"))
+                max_hsk=max_hsk, generic=(mode == "paste"),
+                include_context=True)
+        elif mode == "podcast":
+            # Podcast mode rework (issue #561): drops the briefing pipeline —
+            # only the episode's German summary is sent (detailed enough since
+            # #541, never the full transcript), one lean call per batch of
+            # MAX_NEWS_BATCH words plus missing-word top-ups, no fact-check.
+            # The model is the user's dropdown pick, no longer locked to
+            # BRIEFING_MODEL; default gpt-5-mini (glm-4.7 once Daniel's Zhipu
+            # registration clears — a dropdown click, no code change).
+            if not episode_id:
+                raise ValueError("Podcast mode requires selecting an episode.")
+            episode = database.get_episode(episode_id)
+            if not episode:
+                raise ValueError(f"Podcast episode {episode_id} not found.")
+            summary = (episode.get("summary_de") or "").strip()
+            if not summary:
+                raise ValueError("Selected podcast episode has no summary yet.")
+            model = _validated_model(model, default="gpt-5-mini")
+            logger.info("story  podcast model in use: %s", model)
+            chunk_size = ai.MAX_NEWS_BATCH
+            chunks = [cards[i:i + chunk_size] for i in range(0, len(cards), chunk_size)]
+            sentences = []
+            for idx, chunk in enumerate(chunks):
+                label = f" ({idx + 1}/{len(chunks)})" if len(chunks) > 1 else ""
+                sentences.extend(ai.generate_podcast_sentences(
+                    chunk, summary, episode.get("title") or "",
+                    model=model, max_hsk=max_hsk, progress_key=progress_key,
+                    attempt_label=label,
+                    source_url=episode.get("youtube_url") or f"/#podcast-{episode_id}",
+                    source_title=episode.get("title")))
+            prompt_text = f"podcast mode — episode {episode_id}"
         else:
             sentences, prompt_text = _generate_story_sentences(
                 cards, topic=topic, max_hsk=max_hsk, model=model,
@@ -368,8 +381,9 @@ def _gen_params_dict(*, topic, max_hsk, model, grammar_focus, grammar_pct,
     origin: "pregen" when the story was created by the morning pregen —
     get_recent_story_keys skips those rows so pregen only ever reproduces
     user-initiated generations instead of feeding on its own output (issue #468).
-    episode_id: podcast mode's selected episode (issue #482) — kept alongside
-    articles purely for display/debugging; Again-regen reuses `articles`.
+    episode_id: podcast mode's selected episode (issue #482, summary-only
+    pipeline since #561) — Again-regen re-fetches the episode's summary_de by
+    this id rather than reusing `articles` (podcast stories don't store any).
     """
     return {
         "mode": mode,
@@ -430,19 +444,33 @@ def generate_sentence_for_word(card: dict, gen_params: dict | None) -> dict | No
                 sentences = ai.generate_kahneman_sentences([card], chapter, model=model)
             else:  # book data missing → fall back to a plain sentence
                 sentences, _ = ai.generate_story([card], model=model, lang=lang)
-        elif mode in ("news", "paste", "briefing", "podcast"):
-            # Briefing/paste/podcast Again-regen reuses the single-sentence news
-            # path: one word gets one fresh sentence from the same articles (no
-            # context chain). All three always use BRIEFING_MODEL (issue
-            # #444/#481/#482), ignoring the story's stored model — same
-            # resolution as the main generation (paste/podcast's stored
-            # gen_params.model is already the resolved server model, but this
-            # stays consistent regardless).
-            news_model = ai.resolve_briefing_model() if mode in ("briefing", "paste", "podcast") else model
+        elif mode == "podcast":
+            # Podcast Again-regen (issue #561): same lean pipeline, one card +
+            # the episode summary, honoring the story's stored user-picked
+            # model (old stories stored gpt-5.1, which is not whitelisted, so
+            # _validated_model falls back). No summary → plain sentence.
+            ep = database.get_episode(gp["episode_id"]) if gp.get("episode_id") else None
+            summary = ((ep or {}).get("summary_de") or "").strip()
+            if summary:
+                sentences = ai.generate_podcast_sentences(
+                    [card], summary, ep.get("title") or "",
+                    model=_validated_model(gp.get("model"), default="gpt-5-mini"),
+                    max_hsk=gp.get("max_hsk", 3),
+                    source_url=ep.get("youtube_url") or f"/#podcast-{ep['id']}",
+                    source_title=ep.get("title"))
+            else:
+                sentences, _ = ai.generate_story([card], model=model, lang=lang)
+        elif mode in ("news", "paste", "briefing"):
+            # Briefing/paste Again-regen reuses the single-sentence news path:
+            # one word gets one fresh sentence from the same articles (no
+            # context chain). Both always use BRIEFING_MODEL (issue #444/#481),
+            # ignoring the story's stored model — same resolution as the main
+            # generation.
+            news_model = ai.resolve_briefing_model() if mode in ("briefing", "paste") else model
             articles = gp.get("articles") or []
             if articles:
                 sentences = ai.generate_news_sentences(
-                    [card], articles, model=news_model, generic=(mode in ("paste", "podcast")))
+                    [card], articles, model=news_model, generic=(mode == "paste"))
             else:  # no articles context saved → fall back to a plain sentence
                 sentences, _ = ai.generate_story([card], model=news_model, lang=lang)
         else:
@@ -578,9 +606,10 @@ def regenerate_story(deck_id: int, category: str,
     """Regenerate today's story. body (optional JSON): {"articles": [{"url", "title", "text"}]}
     — pasted texts for mode="paste" (too long to fit in a query string).
     mode="briefing" ignores pasted articles and auto-fetches today's news (issue #387);
-    mode="paste" with no articles is an error (issue #396); mode="podcast" builds
-    its single article from the episode_id's transcript (issue #482). mode="news"
-    (the old auto-fetch-only mode) has been removed (issue #512) and is rejected."""
+    mode="paste" with no articles is an error (issue #396); mode="podcast" uses the
+    episode_id's German summary directly, no articles involved (reworked #561).
+    mode="news" (the old auto-fetch-only mode) has been removed (issue #512) and
+    is rejected."""
     if DISABLE_AI:
         return None
     chosen_model = _validated_model(model)
@@ -744,8 +773,9 @@ def _generate_briefing_story_sentences(
     sentences, validation, dedup, fact-check) identical. Paste never auto-fetches,
     so the no-articles error below is the only guard against an empty run.
 
-    include_context=False (issue #482): podcast mode — no context sentences,
-    every sentence carries a target word."""
+    include_context: kept as a parameter (default True) for callers, but only
+    briefing/paste call this function now — podcast moved to its own lean
+    pipeline (ai.generate_podcast_sentences, issue #561) and never calls it."""
     if not articles:
         raise RuntimeError(
             "Paste mode requires at least one pasted text. "
