@@ -2866,7 +2866,7 @@ async function openPodcastFeed(feedId) {
   _podcastCurrentFeedId = feedId;
   setLoading('Loading episodes…');
   try {
-    const episodes = await api('GET', `/api/podcast/episodes?feed_id=${feedId}`);
+    const episodes = await api('GET', `/api/podcast/episodes?feed_id=${feedId}&limit=1000`);
     _podcastEpisodes = episodes || [];
     showView('podcast');
     _renderPodcastEpisodeList();
@@ -2919,7 +2919,31 @@ function _renderPodcastEpisodeList() {
     <div class="keymap-panel">
       <h2 class="keymap-heading">${_escHtml(feed?.title || feed?.url || 'Feed')}</h2>
     </div>
-    <div class="podcast-list">${rows}</div>`;
+    <div class="podcast-list">${rows}</div>
+    <div class="podcast-load-more-row">
+      <button class="btn-secondary" id="podcast-load-more-btn" onclick="_loadMorePodcastEpisodes()">Load more</button>
+      <span id="podcast-load-more-msg" style="font-size:12px;color:var(--muted)"></span>
+    </div>`;
+}
+
+async function _loadMorePodcastEpisodes() {
+  if (_podcastCurrentFeedId == null) return;
+  const btn = document.getElementById('podcast-load-more-btn');
+  const msg = document.getElementById('podcast-load-more-msg');
+  if (btn) btn.disabled = true;
+  if (msg) msg.textContent = 'Loading…';
+  try {
+    const res = await api('POST', `/api/podcast/feeds/${_podcastCurrentFeedId}/load-more`);
+    const episodes = await api('GET', `/api/podcast/episodes?feed_id=${_podcastCurrentFeedId}&limit=1000`);
+    _podcastEpisodes = episodes || [];
+    _renderPodcastEpisodeList();
+    const added = res?.added || 0;
+    const laterMsg = document.getElementById('podcast-load-more-msg');
+    if (laterMsg) laterMsg.textContent = added ? `+${added} episode${added === 1 ? '' : 's'}` : 'No older episodes.';
+  } catch (e) {
+    if (msg) msg.textContent = 'Error: ' + e.message;
+    if (btn) btn.disabled = false;
+  }
 }
 
 async function _transcribePodcastEpisode(episodeId) {
@@ -2941,7 +2965,7 @@ function _schedulePodcastPollIfNeeded() {
   _podcastPollTimer = setTimeout(async () => {
     if (_podcastCurrentFeedId == null) return;  // left this view meanwhile
     try {
-      const episodes = await api('GET', `/api/podcast/episodes?feed_id=${_podcastCurrentFeedId}`);
+      const episodes = await api('GET', `/api/podcast/episodes?feed_id=${_podcastCurrentFeedId}&limit=1000`);
       _podcastEpisodes = episodes || [];
       _renderPodcastEpisodeList();
       _schedulePodcastPollIfNeeded();
