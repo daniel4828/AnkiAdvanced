@@ -217,6 +217,19 @@ def delete_feed(feed_id: int):
     return {"deleted": True}
 
 
+@router.post("/api/podcast/feeds/{feed_id}/load-more")
+def load_more_feed(feed_id: int):
+    """Pull in the next page of older back-catalog episodes for this feed,
+    metadata-only (transcribe on demand). See podcast.load_more_episodes."""
+    try:
+        return podcast.load_more_episodes(feed_id)
+    except ValueError:
+        raise HTTPException(404, "Feed not found")
+    except Exception as e:
+        logger.error("podcast load-more failed for feed %s: %s", feed_id, e)
+        raise HTTPException(500, str(e))
+
+
 class PodcastConfigUpdate(BaseModel):
     detail_level: str | None = None
     enabled: str | None = None

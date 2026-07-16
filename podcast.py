@@ -54,6 +54,11 @@ logger = logging.getLogger(__name__)
 # transcription work on a freshly-added source.
 FIRST_RUN_BACKFILL = 10
 
+# "Load more" (#559) pulls back-catalog older than the initial backfill in
+# on-demand pages of this size, metadata-only. Kept modest so one click on a
+# huge feed (声动早咖啡 ~1000 eps) adds a manageable chunk, not the whole backlog.
+LOAD_MORE_PAGE = 20
+
 # itunes:duration namespace, used to read episode duration straight from the
 # RSS feed (#497) — this is what lets duration-based guardrails/gates run
 # *before* any download.
@@ -144,6 +149,33 @@ def _parse_rss_pubdate(raw: str | None) -> str | None:
         return raw  # best-effort: keep the raw string rather than lose it
 
 
+def _parse_feed_item(item, feed_url: str) -> dict | None:
+    """Extract one RSS <item> into an episode dict, or None if it has no
+    stable id. Shared by fetch_new_videos() and load_more_episodes() so the
+    two stay in lockstep on how a feed item maps to an episode row."""
+    enclosure_el = item.find("enclosure")
+    audio_url = enclosure_el.get("url") if enclosure_el is not None else None
+    guid_el = item.find("guid")
+    guid = guid_el.text.strip() if guid_el is not None and guid_el.text else None
+    # Fall back to the enclosure URL as the unique id when a feed omits <guid>.
+    video_id = guid or audio_url
+    if not video_id:
+        return None
+    title_el = item.find("title")
+    link_el = item.find("link")
+    pubdate_el = item.find("pubDate")
+    duration_el = item.find("itunes:duration", _ITUNES_NS)
+    return {
+        "video_id": video_id,
+        "channel_id": feed_url,
+        "title": (title_el.text.strip() if title_el is not None and title_el.text else video_id),
+        "published_at": _parse_rss_pubdate(pubdate_el.text if pubdate_el is not None else None),
+        "youtube_url": (link_el.text.strip() if link_el is not None and link_el.text else feed_url),
+        "audio_url": audio_url,
+        "duration_seconds": _parse_itunes_duration(duration_el.text if duration_el is not None else None),
+    }
+
+
 def fetch_new_videos() -> list[dict]:
     """Return episodes from the configured podcast RSS feeds
     (podcast_feeds table, #502 — one row per source with its own
@@ -201,44 +233,57 @@ def fetch_new_videos() -> list[dict]:
         is_first_run = not database.has_any_episode_for_feed(feed_url)
         feed_videos: list[dict] = []
         for item in root.findall(".//item"):
-            enclosure_el = item.find("enclosure")
-            audio_url = enclosure_el.get("url") if enclosure_el is not None else None
-            guid_el = item.find("guid")
-            guid = guid_el.text.strip() if guid_el is not None and guid_el.text else None
-            # Fall back to the enclosure URL as the unique id when a feed
-            # omits <guid> (not expected for either of Daniel's feeds, but
-            # cheap insurance) — never fall back to nothing, we need a
-            # stable video_id for the UNIQUE constraint / dedup.
-            video_id = guid or audio_url
-            if not video_id:
+            video = _parse_feed_item(item, feed_url)
+            if video is None:
                 continue
-            if video_id in known:
+            if video["video_id"] in known:
                 if is_first_run:
                     continue  # shouldn't happen (nothing's known yet), but harmless
                 break  # newest-first feed: everything from here on is old backlog
 
-            title_el = item.find("title")
-            link_el = item.find("link")
-            pubdate_el = item.find("pubDate")
-            duration_el = item.find("itunes:duration", _ITUNES_NS)
-            feed_videos.append({
-                "video_id": video_id,
-                "channel_id": feed_url,
-                "title": (title_el.text.strip() if title_el is not None and title_el.text else video_id),
-                "published_at": _parse_rss_pubdate(pubdate_el.text if pubdate_el is not None else None),
-                "youtube_url": (link_el.text.strip() if link_el is not None and link_el.text else feed_url),
-                "audio_url": audio_url,
-                "duration_seconds": _parse_itunes_duration(
-                    duration_el.text if duration_el is not None else None),
-                "auto_process": auto_process,
-                "is_backfill": is_first_run,
-            })
+            video["auto_process"] = auto_process
+            video["is_backfill"] = is_first_run
+            feed_videos.append(video)
             if is_first_run and len(feed_videos) >= FIRST_RUN_BACKFILL:
                 break
 
         videos.extend(feed_videos)
 
     return videos
+
+
+def load_more_episodes(feed_id: int) -> dict:
+    """Ingest the next page of older back-catalog episodes for one feed,
+    metadata-only (never auto-processed). Regular check() only walks the
+    newest items and stops at the first already-known guid, so a feed's
+    back-catalog older than the initial backfill is otherwise unreachable;
+    this pulls it in on demand, LOAD_MORE_PAGE at a time, skipping anything
+    already stored. Returns {"added": N}. Raises ValueError (unknown feed) /
+    RuntimeError (fetch/parse failure) for the route to map to 404/500."""
+    feed = database.get_feed(feed_id)
+    if not feed:
+        raise ValueError("feed not found")
+    feed_url = feed["url"]
+    try:
+        root = ElementTree.fromstring(_http_get(feed_url, timeout=30))
+    except (urllib.error.URLError, ElementTree.ParseError) as e:
+        raise RuntimeError(f"failed to fetch/parse feed: {e}")
+
+    known = database.get_known_video_ids()
+    added = 0
+    for item in root.findall(".//item"):
+        video = _parse_feed_item(item, feed_url)
+        if video is None or video["video_id"] in known:
+            continue
+        database.create_pending_episode(
+            video["video_id"], video["channel_id"], video["title"],
+            video["published_at"], video["youtube_url"],
+            video.get("audio_url"), video.get("duration_seconds"),
+        )
+        added += 1
+        if added >= LOAD_MORE_PAGE:
+            break
+    return {"added": added}
 
 
 # ---------------------------------------------------------------------------
