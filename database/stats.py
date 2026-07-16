@@ -89,7 +89,7 @@ def get_stats(deck_id: int | None = None, lang: str | None = None) -> dict:
 # this table is hand-maintained — update it (and the static price table in
 # static/index.html's story-setup modal) whenever a provider changes pricing
 # or a new model is adopted. See CLAUDE.md "规范与约束".
-_PRICING_AS_OF = "2026-07-12"
+_PRICING_AS_OF = "2026-07-16"
 _MODEL_PRICING: dict[str, dict[str, float]] = {
     # OpenAI (news/briefing/podcast summaries)
     "gpt-5.1":      {"input": 1.25, "cached": 0.125, "output": 10.00},
@@ -106,6 +106,11 @@ _MODEL_PRICING: dict[str, dict[str, float]] = {
     "deepseek-reasoner": {"input": 0.50, "output": 2.18},
     "glm-4-flash":       {"input": 0.00, "output": 0.00},
     "glm-4-air":         {"input": 0.06, "output": 0.06},
+    # GLM-4.7/5 (podcast mode rework, issue #561)
+    "glm-5":           {"input": 1.00, "output": 3.20},
+    "glm-4.7":         {"input": 0.60, "output": 2.20},
+    "glm-4.7-flashx":  {"input": 0.07, "output": 0.40},
+    "glm-4.7-flash":   {"input": 0.00, "output": 0.00},
     "qwen-turbo":        {"input": 0.065, "output": 0.26},
     "qwen-plus":         {"input": 0.40, "output": 1.20},
     "claude-haiku-4-5-20251001": {"input": 0.80, "output": 4.00},

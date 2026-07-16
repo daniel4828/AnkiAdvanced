@@ -739,6 +739,7 @@
       <div style="font-size:12px;color:var(--muted,#888);margin:2px 0 6px">
         Pick one summarized episode — the sentences will summarize its content (no context sentences).
       </div>
+      <select class="edit-input" id="setup-podcast-feed" style="margin-bottom:6px"></select>
       <div id="setup-podcast-episodes" style="max-height:220px;overflow-y:auto;border:1px solid var(--border,#ddd);border-radius:6px;padding:4px 0"></div>
       <div id="setup-podcast-loading" style="display:none;padding:12px;text-align:center;color:var(--muted,#888);font-size:13px">Loading episodes…</div>
     </div>
@@ -761,8 +762,10 @@
         <table class="price-table">
           <thead><tr><th>Model</th><th>Provider</th><th>Input</th><th>Output</th></tr></thead>
           <tbody>
-            <tr><td>GLM-4-Flash</td><td>Zhipu</td><td class="price-free">FREE</td><td class="price-free">FREE</td></tr>
-            <tr><td>GLM-4-Air</td><td>Zhipu</td><td>$0.06</td><td>$0.06</td></tr>
+            <tr><td>GLM-4.7-Flash</td><td>Zhipu</td><td class="price-free">FREE</td><td class="price-free">FREE</td></tr>
+            <tr><td>GLM-4.7-FlashX</td><td>Zhipu</td><td>$0.07</td><td>$0.40</td></tr>
+            <tr><td>GLM-4.7</td><td>Zhipu</td><td>$0.60</td><td>$2.20</td></tr>
+            <tr><td>GLM-5</td><td>Zhipu</td><td>$1.00</td><td>$3.20</td></tr>
             <tr><td>DeepSeek V4 Flash</td><td>DeepSeek</td><td>$0.14</td><td>$0.28</td></tr>
             <tr><td>DeepSeek V4 Pro</td><td>DeepSeek</td><td>$0.44</td><td>$0.87</td></tr>
             <tr><td>Qwen Turbo</td><td>Alibaba</td><td>$0.07</td><td>$0.26</td></tr>
@@ -775,8 +778,10 @@
         <p class="price-table-note">Prices per 1M tokens (USD)</p>
       </div>
       <select class="edit-input" id="setup-model">
-        <option value="glm-4-flash">GLM-4-Flash — free, great Chinese</option>
-        <option value="glm-4-air">GLM-4-Air — paid, higher quality</option>
+        <option value="glm-4.7">GLM-4.7 — Zhipu, best Chinese value</option>
+        <option value="glm-5">GLM-5 — Zhipu flagship</option>
+        <option value="glm-4.7-flashx">GLM-4.7-FlashX — Zhipu, very cheap</option>
+        <option value="glm-4.7-flash">GLM-4.7-Flash — Zhipu, free</option>
         <option value="deepseek-v4-flash" selected>DeepSeek V4 Flash — cheap, reliable</option>
         <option value="deepseek-v4-pro">DeepSeek V4 Pro — higher quality</option>
         <option value="qwen-turbo">Qwen Turbo — Alibaba, cheap</option>
@@ -1110,8 +1115,10 @@
     <p id="story-error-history-note" style="font-size:11px;color:var(--clr-muted,#888);margin:0 0 8px;display:none"></p>
     <label class="edit-label">Try a different model
       <select class="edit-input" id="story-error-model">
-        <option value="glm-4-flash">GLM-4-Flash — free, great Chinese</option>
-        <option value="glm-4-air">GLM-4-Air — paid, higher quality</option>
+        <option value="glm-4.7">GLM-4.7 — Zhipu, best Chinese value</option>
+        <option value="glm-5">GLM-5 — Zhipu flagship</option>
+        <option value="glm-4.7-flashx">GLM-4.7-FlashX — Zhipu, very cheap</option>
+        <option value="glm-4.7-flash">GLM-4.7-Flash — Zhipu, free</option>
         <option value="deepseek-v4-flash">DeepSeek V4 Flash — cheap, reliable</option>
         <option value="deepseek-v4-pro">DeepSeek V4 Pro — higher quality</option>
         <option value="qwen-turbo">Qwen Turbo — Alibaba, cheap</option>
