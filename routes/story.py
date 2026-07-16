@@ -182,7 +182,8 @@ def _validated_model(model: str | None, default: str | None = None) -> str:
 def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
                         topic, max_hsk, model, grammar_focus, grammar_pct, mode,
                         chapter_ids, articles=None, progress_key, lang: str | None = None,
-                        origin: str | None = None, episode_id: int | None = None) -> dict | None:
+                        origin: str | None = None, episode_id: int | None = None,
+                        batch_size: int | None = None) -> dict | None:
     """Generate a story for `cards`, persist it, and return the stored story
     (with sentences) — or an error dict on failure, or None if there is nothing
     to generate. Shared by the synchronous GET, the background thread, and regenerate.
@@ -205,7 +206,7 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
             topic=topic, max_hsk=max_hsk, model=model, grammar_focus=grammar_focus,
             grammar_pct=grammar_pct, mode=mode, chapter_ids=chapter_ids,
             articles=articles, progress_key=progress_key, lang=lang,
-            origin=origin, episode_id=episode_id,
+            origin=origin, episode_id=episode_id, batch_size=batch_size,
         )
 
 
@@ -229,7 +230,8 @@ def _action_label_for_story(mode: str, deck_id: int) -> str:
 def _generate_and_store_body(deck_id: int, category: str, today: str, cards: list, *,
                              topic, max_hsk, model, grammar_focus, grammar_pct, mode,
                              chapter_ids, articles, progress_key, lang: str,
-                             origin: str | None, episode_id: int | None) -> dict | None:
+                             origin: str | None, episode_id: int | None,
+                             batch_size: int | None = None) -> dict | None:
     try:
         if mode == "news":
             # Issue #512: the old auto-fetch-only "news" mode has been removed
@@ -293,8 +295,10 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
             if not summary:
                 raise ValueError("Selected podcast episode has no summary yet.")
             model = _validated_model(model, default="gpt-5-mini")
-            logger.info("story  podcast model in use: %s", model)
-            chunk_size = ai.MAX_NEWS_BATCH
+            logger.info("story  podcast model in use: %s batch_size=%s", model, batch_size)
+            # batch_size (issue #563): user-controlled words-per-call from the
+            # setup modal; empty/0 = everything in one call (the default).
+            chunk_size = batch_size if batch_size and batch_size > 0 else len(cards)
             chunks = [cards[i:i + chunk_size] for i in range(0, len(cards), chunk_size)]
             sentences = []
             for idx, chunk in enumerate(chunks):
@@ -317,7 +321,7 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
             topic=topic, max_hsk=max_hsk, model=model,
             grammar_focus=grammar_focus, grammar_pct=grammar_pct,
             mode=mode, chapter_ids=chapter_ids, articles=articles, lang=lang,
-            origin=origin, episode_id=episode_id)
+            origin=origin, episode_id=episode_id, batch_size=batch_size)
         database.create_story(today, category, deck_id, sentences, prompt_text, topic, gen_params, lang=lang)
         story = database.get_active_story(today, category, deck_id, lang=lang)
     except Exception as e:
@@ -339,7 +343,8 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
 def _start_background_generation(deck_id: int, category: str, today: str, cards: list, *,
                                  topic, max_hsk, model, grammar_focus, grammar_pct,
                                  mode, chapter_ids, articles=None, progress_key,
-                                 lang: str | None = None, episode_id: int | None = None) -> None:
+                                 lang: str | None = None, episode_id: int | None = None,
+                                 batch_size: int | None = None) -> None:
     """Spawn a daemon thread that generates+stores a story, recording a terminal
     progress state (done/error) the frontend can poll. De-duped by progress_key."""
     def _run() -> None:
@@ -350,7 +355,7 @@ def _start_background_generation(deck_id: int, category: str, today: str, cards:
                 topic=topic, max_hsk=max_hsk, model=model,
                 grammar_focus=grammar_focus, grammar_pct=grammar_pct,
                 mode=mode, chapter_ids=chapter_ids, articles=articles, progress_key=progress_key,
-                lang=lang, episode_id=episode_id)
+                lang=lang, episode_id=episode_id, batch_size=batch_size)
             if isinstance(result, dict) and result.get("error"):
                 ai._story_progress[progress_key] = {
                     "phase": "error", "percent": 0, "msg": result.get("reason", "Generation failed")}
@@ -372,7 +377,7 @@ def _start_background_generation(deck_id: int, category: str, today: str, cards:
 
 def _gen_params_dict(*, topic, max_hsk, model, grammar_focus, grammar_pct,
                      mode, chapter_ids, articles=None, lang="zh",
-                     origin=None, episode_id=None) -> dict:
+                     origin=None, episode_id=None, batch_size=None) -> dict:
     """Bundle the story generation settings persisted on each story row, so the
     Again regeneration can reproduce the same style (see generate_sentence_for_word).
 
@@ -384,6 +389,8 @@ def _gen_params_dict(*, topic, max_hsk, model, grammar_focus, grammar_pct,
     episode_id: podcast mode's selected episode (issue #482, summary-only
     pipeline since #561) — Again-regen re-fetches the episode's summary_de by
     this id rather than reusing `articles` (podcast stories don't store any).
+    batch_size: podcast mode's words-per-AI-call (issue #563); None/0 = all at
+    once. Stored for handoff/reproducibility only — Again-regen is single-card.
     """
     return {
         "mode": mode,
@@ -397,6 +404,7 @@ def _gen_params_dict(*, topic, max_hsk, model, grammar_focus, grammar_pct,
         "lang": lang,
         "origin": origin,
         "episode_id": episode_id,
+        "batch_size": batch_size,
     }
 
 
@@ -495,6 +503,7 @@ def get_story(deck_id: int, category: str,
               mode: str = "story",
               chapter_ids: str | None = None,
               episode_id: int | None = None,
+              batch_size: int | None = None,
               no_generate: bool = False,
               background: bool = False,
               lang: str | None = None):
@@ -574,7 +583,7 @@ def get_story(deck_id: int, category: str,
             topic=topic, max_hsk=max_hsk, model=chosen_model,
             grammar_focus=grammar_focus, grammar_pct=grammar_pct,
             mode=mode, chapter_ids=chapter_ids, progress_key=progress_key, lang=lang,
-            episode_id=episode_id)
+            episode_id=episode_id, batch_size=batch_size)
         return {"generating": True}
 
     # ── Synchronous mode (default): generate now and return the story ─────────
@@ -588,7 +597,7 @@ def get_story(deck_id: int, category: str,
         topic=topic, max_hsk=max_hsk, model=chosen_model,
         grammar_focus=grammar_focus, grammar_pct=grammar_pct,
         mode=mode, chapter_ids=chapter_ids, progress_key=progress_key, lang=lang,
-        episode_id=episode_id)
+        episode_id=episode_id, batch_size=batch_size)
     ai._story_progress.pop(progress_key, None)
     return result
 
@@ -601,6 +610,7 @@ def regenerate_story(deck_id: int, category: str,
                      mode: str = "story",
                      chapter_ids: str | None = None,
                      episode_id: int | None = None,
+                     batch_size: int | None = None,
                      body: dict | None = None,
                      lang: str | None = None):
     """Regenerate today's story. body (optional JSON): {"articles": [{"url", "title", "text"}]}
@@ -627,7 +637,7 @@ def regenerate_story(deck_id: int, category: str,
         topic=topic, max_hsk=max_hsk, model=chosen_model,
         grammar_focus=grammar_focus, grammar_pct=grammar_pct,
         mode=mode, chapter_ids=chapter_ids, articles=articles, progress_key=progress_key, lang=lang,
-        episode_id=episode_id)
+        episode_id=episode_id, batch_size=batch_size)
     ai._story_progress.pop(progress_key, None)
     if result:
         # A new story means word→position mapping changed — invalidate every

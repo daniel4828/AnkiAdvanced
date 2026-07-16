@@ -4038,6 +4038,10 @@ function _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chap
   if (mode && mode !== 'story')           p.set('mode', mode);
   if (chapterIds && chapterIds.length)    p.set('chapter_ids', chapterIds.join(','));
   if (episodeId)                          p.set('episode_id', episodeId);
+  // Podcast words-per-call (issue #563) — a module global (set in
+  // confirmStorySetup, persisted in localStorage) rather than yet another
+  // positional parameter through every call chain. Unset = all at once.
+  if (mode === 'podcast' && _podcastBatchSize) p.set('batch_size', _podcastBatchSize);
   // Active language tab (issue #436) — only sent once more than one language is
   // in use, so a pure-Chinese install's requests stay byte-identical.
   if (_langQ())                           p.set('lang', activeLang());
@@ -6599,6 +6603,8 @@ function updateSetupMode() {
     if (podcastSection) podcastSection.style.display = 'block';
     btn.textContent = 'Generate podcast summary';
     _loadPodcastEpisodesForSetup();
+    const batchInp = document.getElementById('setup-podcast-batch');
+    if (batchInp) batchInp.value = _podcastBatchSize || '';
   } else if (mode === 'vocab') {
     topicLabel.style.display = 'none';
     kahnemanSection.style.display = 'none';
@@ -7009,6 +7015,9 @@ function randomKahnemanChapters() {
 // but radio-style (one episode per story).
 let _setupPodcastFeeds = null;              // null = not loaded yet
 let _setupPodcastEpisodesByFeed = {};       // key '' (all) or feed_id → episodes array
+// Podcast words-per-AI-call (issue #563): null = all due words in one call
+// (the default). Read by _storyParams for every podcast generation URL.
+let _podcastBatchSize = parseInt(localStorage.getItem('podcastBatchSize'), 10) || null;
 
 async function _loadPodcastEpisodesForSetup() {
   const container = document.getElementById('setup-podcast-episodes');
@@ -7114,6 +7123,14 @@ function confirmStorySetup() {
   if (mode === 'podcast' && !episodeId) {
     showError('Podcast mode needs an episode — select one first.');
     return;
+  }
+  // Podcast words-per-call (issue #563): empty input = all at once (null).
+  if (mode === 'podcast') {
+    const batchInp = document.getElementById('setup-podcast-batch');
+    const v = parseInt((batchInp && batchInp.value) || '', 10);
+    _podcastBatchSize = v > 0 ? v : null;
+    if (_podcastBatchSize) localStorage.setItem('podcastBatchSize', _podcastBatchSize);
+    else localStorage.removeItem('podcastBatchSize');
   }
   _currentStoryMode = mode;
   _closeSetupModal();

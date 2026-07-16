@@ -742,6 +742,10 @@
       <select class="edit-input" id="setup-podcast-feed" style="margin-bottom:6px"></select>
       <div id="setup-podcast-episodes" style="max-height:220px;overflow-y:auto;border:1px solid var(--border,#ddd);border-radius:6px;padding:4px 0"></div>
       <div id="setup-podcast-loading" style="display:none;padding:12px;text-align:center;color:var(--muted,#888);font-size:13px">Loading episodes…</div>
+      <!-- Words per AI call (issue #563): empty = all due words in one call -->
+      <label class="edit-label" style="margin-top:8px">Words per AI call <span style="font-weight:400;text-transform:none">(empty = all at once)</span>
+        <input class="edit-input" id="setup-podcast-batch" type="number" min="1" step="1" placeholder="all">
+      </label>
     </div>
     <label class="edit-label" id="setup-topic-label">Topic <span style="font-weight:400;text-transform:none">(optional)</span>
       <input class="edit-input" id="setup-topic" type="text" placeholder="e.g. a day at a coffee shop" onkeydown="if(event.key==='Enter')confirmStorySetup()">

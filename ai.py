@@ -1923,8 +1923,11 @@ def generate_podcast_sentences(
         msg = (f"生成播客总结…{attempt_label}" if attempt == 0
                else f"补漏 {len(remaining)} 个词（第{attempt + 1}轮）…{attempt_label}")
         _set_progress(progress_key, phase="request", msg=msg, percent=20 + attempt * 25)
+        # 8192: all-at-once batching (issue #563) can mean 30+ sentences in one
+        # response, and the gpt-5 series shares this budget with internal
+        # reasoning tokens (same rationale as the briefing call).
         raw = _call_api(model, [{"role": "user", "content": _build_prompt(remaining)}],
-                         4096, purpose="podcast")
+                         8192, purpose="podcast")
 
         json_start = raw.find("[")
         json_end = raw.rfind("]") + 1
