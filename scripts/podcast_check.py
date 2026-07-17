@@ -59,7 +59,14 @@ def main() -> int:
         return 1
 
     if summary.get("skipped"):
-        _log("播客爬虫已在设置里禁用，跳过。")
+        # 服务器用 reason 区分两种跳过（#565）；老服务器没有 reason 字段，
+        # 按原来的"已禁用"提示处理。
+        if summary.get("reason") == "busy":
+            held = summary.get("held_minutes")
+            extra = f"（已运行 {held:.0f} 分钟）" if isinstance(held, (int, float)) else ""
+            _log(f"上一轮播客检查仍在进行{extra}，本轮跳过。")
+        else:
+            _log("播客爬虫已在设置里禁用，跳过。")
         return 0
 
     new = summary.get("new", 0)
