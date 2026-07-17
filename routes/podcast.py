@@ -125,6 +125,43 @@ def process_episode(episode_id: int):
     return {"status": "processing"}
 
 
+def _regenerate_summary_thread(episode_id: int) -> None:
+    """Background thread body for POST /episodes/{id}/regenerate-summary
+    (#567) — podcast.regenerate_summary never downgrades the episode on
+    failure, this wrapper just keeps a stray raise from vanishing silently
+    and releases the processing guard."""
+    try:
+        podcast.regenerate_summary(episode_id)
+    except Exception as e:
+        logger.error("podcast: summary regeneration failed for episode %s: %s", episode_id, e)
+    finally:
+        with _PROCESSING_LOCK:
+            _PROCESSING_IDS.discard(episode_id)
+
+
+@router.post("/api/podcast/episodes/{episode_id}/regenerate-summary")
+def regenerate_summary(episode_id: int):
+    """Regenerate ONLY the summary of an already-summarized episode (#567),
+    reusing the stored transcript — for re-styling old episodes after a
+    prompt change or redoing an unsatisfying summary. Runs in a background
+    thread (a NotebookLM summary round can take ~10 min); while it runs the
+    episode shows status='processing' via _overlay_processing_status, and on
+    failure the existing summary stays untouched."""
+    episode = database.get_episode(episode_id)
+    if not episode:
+        raise HTTPException(404, "Episode not found")
+    if episode["status"] != "summarized":
+        raise HTTPException(400, "Only summarized episodes can regenerate their summary — use process/retry instead")
+    if not (episode.get("transcript_zh") or "").strip():
+        raise HTTPException(400, "Episode has no stored transcript")
+    with _PROCESSING_LOCK:
+        if episode_id in _PROCESSING_IDS:
+            raise HTTPException(409, "Episode is already being processed")
+        _PROCESSING_IDS.add(episode_id)
+    threading.Thread(target=_regenerate_summary_thread, args=(episode_id,), daemon=True).start()
+    return {"status": "processing"}
+
+
 class NotifyBody(BaseModel):
     channel: str
 

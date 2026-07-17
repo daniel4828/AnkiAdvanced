@@ -1192,11 +1192,18 @@ def send_signal(episode: dict) -> bool:
     transcript_link = f"{public_base}/#podcast-{episode['id']}"
 
     # summary_de may be None; strip HTML tags (the email version is HTML).
+    # Paragraph boundaries must survive as blank lines (#567: summaries are
+    # <p>-structured now, and a plain tag-strip would glue paragraphs
+    # together), so turn </p> and <br> into newlines first.
     # Send the FULL summary (#541) — Daniel reads it directly in Signal and the
     # old 1500-char cap cut it off mid-sentence. Keep only a high safety cap so
     # a pathologically long summary can't produce a runaway message; a normal
     # "detailed" summary (~900-1300 words ≈ up to ~9000 chars) fits well under it.
-    summary_de = re.sub(r"<[^>]+>", "", episode.get("summary_de") or "").strip()
+    summary_de = episode.get("summary_de") or ""
+    summary_de = re.sub(r"(?i)</p\s*>", "\n\n", summary_de)
+    summary_de = re.sub(r"(?i)<br\s*/?>", "\n", summary_de)
+    summary_de = re.sub(r"<[^>]+>", "", summary_de).strip()
+    summary_de = re.sub(r"\n{3,}", "\n\n", summary_de)
     if len(summary_de) > 12000:
         summary_de = summary_de[:12000].rstrip() + "…"
 
@@ -1394,6 +1401,49 @@ def _process_episode(episode_id: int, video: dict, detail_level: str, summary: d
             logger.error("podcast: episode %s failed: %s", video["video_id"], e)
             database.update_episode(episode_id, status="error", error=str(e))
             summary["failed"] += 1
+
+
+def regenerate_summary(episode_id: int) -> dict:
+    """Re-run ONLY the summary step for an already-summarized episode (#567)
+    — used by POST /api/podcast/episodes/{id}/regenerate-summary after e.g. a
+    prompt/style change, reusing the stored transcript (no re-transcription,
+    no notifications). Unlike _process_episode, a failure must NOT downgrade
+    the episode: status stays 'summarized' and the existing summary_de /
+    hsk_words are left untouched, so the worst case is "nothing changed".
+
+    The caller (the route) validates that the episode exists, is summarized
+    and has a transcript. Returns {"regenerated": bool, "error": str|None}.
+    """
+    episode = database.get_episode(episode_id)
+    if not episode:
+        raise ValueError(f"podcast: episode {episode_id} not found")
+    transcript = (episode.get("transcript_zh") or "").strip()
+    if not transcript:
+        raise ValueError(f"podcast: episode {episode_id} has no transcript")
+
+    cfg = database.get_podcast_config()
+    detail_level = cfg.get("detail_level") or "detailed"
+
+    with database.action_context(f"Regenerate summary: {episode['title'][:30]}"):
+        try:
+            result = summarize(_normalize_transcript(transcript), episode["title"], detail_level)
+        except Exception as e:
+            logger.error("podcast: summary regeneration raised for episode %s: %s", episode_id, e)
+            return {"regenerated": False, "error": str(e)}
+
+    if not result.get("summary_de"):
+        logger.warning("podcast: summary regeneration returned empty for episode %s", episode_id)
+        return {"regenerated": False, "error": "AI summary failed or empty"}
+
+    words = filter_new_words(result.get("words") or [])
+    database.update_episode(
+        episode_id,
+        summary_de=result["summary_de"],
+        hsk_words=words,
+        detail_level=detail_level,
+    )
+    logger.info("podcast: summary regenerated for episode %s (%d word(s))", episode_id, len(words))
+    return {"regenerated": True, "error": None}
 
 
 def retry_episode(episode_id: int) -> dict:

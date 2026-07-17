@@ -3020,6 +3020,8 @@ function _renderPodcastDetail(ep) {
     ep.spotify_url ? `<a href="${_escHtml(ep.spotify_url)}" target="_blank" rel="noopener" class="btn-secondary">Spotify ↗</a>` : '',
     ep.status === 'summarized' ? `<button id="podcast-notify-signal" class="btn-secondary" onclick="doPodcastNotify('signal')">Send to Signal</button>` : '',
     ep.status === 'summarized' ? `<button id="podcast-notify-email" class="btn-secondary" onclick="doPodcastNotify('email')">Send Email</button>` : '',
+    ep.status === 'summarized' ? `<button id="podcast-regen-summary" class="btn-secondary" onclick="doPodcastRegenerateSummary()">Regenerate summary</button>` : '',
+    ep.status === 'processing' ? `<span class="keymap-hint">⏳ processing…</span>` : '',
   ].filter(Boolean).join(' ');
   const trPairs = Array.isArray(ep.transcript_de) ? ep.transcript_de : [];
   const trBody = trPairs.length
@@ -3069,6 +3071,40 @@ let _podcastDetailWords = [];
 // doPodcastNotify (#530) so the Send to Signal/Email buttons don't need to
 // embed the id in their onclick attribute.
 let _podcastDetailEpisodeId = null;
+
+// Regenerate the summary of the currently shown episode (#567): POST kicks
+// off a background thread on the server, then poll the detail endpoint until
+// the overlaid status leaves 'processing' and re-render with the new summary.
+// A NotebookLM round can take ~10 min, so polling is deliberately patient.
+let _podcastRegenTimer = null;
+
+async function doPodcastRegenerateSummary() {
+  const btn = document.getElementById('podcast-regen-summary');
+  const id = _podcastDetailEpisodeId;
+  if (!btn || !id) return;
+  btn.disabled = true;
+  btn.textContent = 'Regenerating…';
+  try {
+    await api('POST', `/api/podcast/episodes/${id}/regenerate-summary`);
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Regenerate summary';
+    showError(e.message || 'Failed to start regeneration');
+    return;
+  }
+  const poll = async () => {
+    if (_podcastDetailEpisodeId !== id) return; // user navigated away
+    try {
+      const ep = await api('GET', `/api/podcast/episodes/${id}`);
+      if (ep.status !== 'processing') {
+        _renderPodcastDetail(ep);
+        return;
+      }
+    } catch (e) { /* transient error — keep polling */ }
+    _podcastRegenTimer = setTimeout(poll, 5000);
+  };
+  _podcastRegenTimer = setTimeout(poll, 5000);
+}
 
 async function doPodcastNotify(channel) {
   const btnId = channel === 'signal' ? 'podcast-notify-signal' : 'podcast-notify-email';
