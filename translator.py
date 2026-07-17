@@ -7,11 +7,29 @@ can also translate other learner languages (e.g. French) into German.
 Requires internet access (VPN recommended in China).
 Install: pip install deep-translator
 """
+import concurrent.futures
 import logging
 
 logger = logging.getLogger(__name__)
 
 _translators: dict[tuple[str, str], object] = {}
+
+# deep-translator's underlying requests call sets no timeout, so one stalled
+# connection can hang the calling thread forever — a podcast check once froze
+# for 14h this way while holding its run lock (#565).
+_REQUEST_TIMEOUT_SECONDS = 90
+
+
+def _translate_with_timeout(t, text: str) -> str:
+    """Run t.translate(text) with a hard deadline on a throwaway thread. On
+    timeout the worker thread is abandoned (it dies whenever its socket does)
+    and concurrent.futures.TimeoutError propagates to the caller's existing
+    fallback handling."""
+    ex = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    try:
+        return ex.submit(t.translate, text).result(timeout=_REQUEST_TIMEOUT_SECONDS)
+    finally:
+        ex.shutdown(wait=False)
 
 
 def _load(source: str, target: str) -> object | None:
@@ -36,7 +54,7 @@ def translate_zh(text: str, target: str = "en", source: str = "zh-CN") -> str:
     if t is None or not text.strip():
         return text
     try:
-        return t.translate(text) or text
+        return _translate_with_timeout(t, text) or text
     except Exception as e:
         logger.warning("translator: error (source=%s, target=%s) — %s", source, target, e)
         return text
@@ -53,7 +71,7 @@ def translate_batch(texts: list[str], target: str = "en", source: str = "zh-CN")
     sep = "\n"
     combined = sep.join(text.strip() or " " for text in texts)
     try:
-        translated = t.translate(combined) or combined
+        translated = _translate_with_timeout(t, combined) or combined
         parts = translated.split(sep)
         if len(parts) == len(texts):
             return [p.strip() or orig for p, orig in zip(parts, texts)]

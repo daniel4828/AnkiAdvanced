@@ -83,6 +83,12 @@ _WHISPER_SEGMENT_SECONDS = 20 * 60  # 20min segments stay well under OpenAI's 25
 # below is a generous safety net, not a known Google limit.
 NOTEBOOKLM_NOTEBOOK_TITLE = "AnkiAdvanced Transcripts"
 _NOTEBOOKLM_INDEX_TIMEOUT = 10 * 60  # 10min cap for source indexing to finish
+# Hard ceiling for a whole NotebookLM round (upload + indexing + fulltext/ask).
+# wait_until_ready only bounds the indexing wait — the other RPCs have no
+# timeout of their own, and one stalled call froze a check for 14h holding the
+# run lock (#565). On expiry asyncio.wait_for cancels the round and the caller
+# falls back down its chain (Tingwu/Whisper, API summarizers).
+_NOTEBOOKLM_RUN_TIMEOUT = _NOTEBOOKLM_INDEX_TIMEOUT + 15 * 60
 _NOTEBOOKLM_MAX_UPLOAD_BYTES = 190 * 1024 * 1024
 
 # Whisper (#485) is real money, so it only runs for short episodes (#495):
@@ -523,7 +529,10 @@ def _transcribe_via_notebooklm(audio_path: str, video_id: str) -> str | None:
         return None
 
     try:
-        transcript = asyncio.run(_run_notebooklm_transcription(audio_path, video_id))
+        transcript = asyncio.run(asyncio.wait_for(
+            _run_notebooklm_transcription(audio_path, video_id),
+            timeout=_NOTEBOOKLM_RUN_TIMEOUT,
+        ))
     except FileNotFoundError:
         # AuthTokens.from_storage() raises this when no credentials file
         # exists yet — i.e. `notebooklm login` was never run. Not an error.
@@ -594,7 +603,10 @@ def _summarize_via_notebooklm(transcript: str, title: str, detail_level: str) ->
         return None
 
     try:
-        answer = asyncio.run(_run_notebooklm_summary(transcript, title, detail_level))
+        answer = asyncio.run(asyncio.wait_for(
+            _run_notebooklm_summary(transcript, title, detail_level),
+            timeout=_NOTEBOOKLM_RUN_TIMEOUT,
+        ))
     except FileNotFoundError:
         logger.info("podcast: NotebookLM not authenticated (no credentials file), skipping summary for %r", title)
         return None
@@ -1435,24 +1447,48 @@ def run_check() -> dict:
     if cfg.get("enabled", "1") not in ("1", "true", "True"):
         logger.info("podcast: disabled via config, skipping check")
         return {"new": 0, "summarized": 0, "emailed": 0, "failed": 0,
-                "retried": 0, "skipped": True}
+                "retried": 0, "skipped": True, "reason": "disabled"}
 
     # Non-blocking cross-process lock (#495): if another run is still going
     # (transcribing a backlog can take over an hour), skip this cycle instead
-    # of processing the same episodes twice in parallel.
+    # of processing the same episodes twice in parallel. Opened "a+" (not
+    # "w") so a failed acquisition doesn't truncate the holder's start
+    # timestamp (#565); the holder writes its own start time below so the
+    # busy branch can report how long the other run has been going.
     os.makedirs(os.path.dirname(_RUN_LOCK_PATH), exist_ok=True)
-    lock_file = open(_RUN_LOCK_PATH, "w")
+    lock_file = open(_RUN_LOCK_PATH, "a+")
     try:
         fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:
+        held_minutes = _lock_age_minutes(lock_file)
         lock_file.close()
-        logger.info("podcast: another check is already running, skipping this cycle")
+        logger.info(
+            "podcast: another check is already running%s, skipping this cycle",
+            f" (started {held_minutes:.0f} min ago)" if held_minutes is not None else "",
+        )
         return {"new": 0, "summarized": 0, "emailed": 0, "failed": 0,
-                "retried": 0, "skipped": True}
+                "retried": 0, "skipped": True, "reason": "busy",
+                "held_minutes": held_minutes}
     try:
+        lock_file.seek(0)
+        lock_file.truncate()
+        lock_file.write(datetime.now().isoformat(timespec="seconds"))
+        lock_file.flush()
         return _run_check_locked(cfg)
     finally:
         lock_file.close()
+
+
+def _lock_age_minutes(lock_file) -> float | None:
+    """How long ago the current holder of the run lock started, in minutes,
+    read from the ISO timestamp it wrote into the lock file — None if the
+    file is empty/unparseable (e.g. a holder from before #565)."""
+    try:
+        lock_file.seek(0)
+        started = datetime.fromisoformat(lock_file.read().strip())
+        return max((datetime.now() - started).total_seconds() / 60, 0.0)
+    except (OSError, ValueError):
+        return None
 
 
 def _run_check_locked(cfg: dict) -> dict:
