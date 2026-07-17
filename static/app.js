@@ -4677,7 +4677,9 @@ function revealAnswer() {
   if (_mascotBack) _mascotBack.style.display = 'none';
   const _vcBack = document.getElementById('vocab-content');
   if (_vcBack) _vcBack.style.display = 'block';
-  document.getElementById('meta-play-btn').style.display = isCreating ? 'none' : 'flex';
+  // Back of card = answer revealed, so audio is fine for every mode (including
+  // creating, where the front deliberately hides it to avoid leaking the answer).
+  document.getElementById('meta-play-btn').style.display = 'flex';
   _updateListenCounters();
 
   // Pre-load pinyin in background (shown blurred until p is pressed).
