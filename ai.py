@@ -2074,7 +2074,15 @@ Transcript (Chinese, auto/manual captions, may contain minor recognition errors)
 Task:
 1. Write a detailed German-language summary of what is discussed in the episode, so the
    listener understands the content before listening. Target length: {words_target} words.
-   Structure it into multiple paragraphs. Be concrete: include the specific facts, numbers,
+   Structure it into multiple paragraphs, in the style of the table.media briefings:
+   - Wrap every paragraph in <p>...</p> tags.
+   - Each paragraph MUST begin with ONE lead sentence that summarizes the whole paragraph,
+     wrapped in <b>...</b> tags. The remaining sentences of the paragraph give the details.
+     Someone reading only the bold lead sentences must get the complete skeleton of the
+     episode. Example paragraph:
+     <p><b>Hinter den Enthüllungen stehen diverse problematische Anreize.</b> Dazu gehört
+     ein exzessiver Fokus auf quantitativen Output. ...</p>
+   Be concrete: include the specific facts, numbers,
    names and arguments actually mentioned in the episode — do not stay generic or vague.
    - Whenever you name a company, organization, brand or institution, add its common Chinese
      name in parentheses right after it, e.g. "Airbnb (爱彼迎)", "Lawn Tennis Association
@@ -2094,7 +2102,7 @@ Task:
 
 Return ONLY a JSON object, no other text, no markdown fences:
 {{
-  "summary_de": "<German HTML summary with <strong> tags>",
+  "summary_de": "<German HTML summary: <p> paragraphs, each starting with a <b> lead sentence, <strong> highlights>",
   "words": [
     {{"word": "词语", "pinyin": "cí yǔ", "definition_de": "kurze deutsche Definition", "hsk": 5}}
   ]
