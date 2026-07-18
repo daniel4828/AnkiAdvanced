@@ -173,6 +173,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE api_call_log ADD COLUMN action_label TEXT")
     if "prompt" not in api_call_log_cols:
         conn.execute("ALTER TABLE api_call_log ADD COLUMN prompt TEXT")
+    if "response" not in api_call_log_cols:
+        conn.execute("ALTER TABLE api_call_log ADD COLUMN response TEXT")
 
     story_cols = {r["name"] for r in conn.execute("PRAGMA table_info(stories)").fetchall()}
     if "prompt_text" not in story_cols:

@@ -187,11 +187,12 @@ def action_context(label: str):
         _ACTION_CTX.reset(token)
 
 
-# Prompts are stored for the cost-modal "show prompt" button but must not
-# bloat api_call_log or the /api/costs payload indefinitely — truncate here,
-# in the single place every log_api_call() caller funnels through, rather
-# than trusting each call site to have already truncated.
-_PROMPT_MAX_CHARS = 10000
+# Prompts/responses are stored for the cost-modal Prompt/Response buttons but
+# must not bloat api_call_log indefinitely — truncate here, in the single place
+# every log_api_call() caller funnels through, rather than trusting each call
+# site to have already truncated. 30000 chars fits every current prompt whole
+# (issue #579: 10000 cut off the format guides of long briefing prompts).
+_PROMPT_MAX_CHARS = 30000
 
 # Rows predating the action_context() grouping (#525) have a NULL action_id.
 # Rather than list each on its own line, get_api_costs clusters NULL-action rows
@@ -216,34 +217,38 @@ _AGAIN_LABEL_SUFFIX = "Again Sentences"
 
 def log_api_call(model: str, input_tokens: int, output_tokens: int,
                  purpose: str = "story", cached_input_tokens: int = 0,
-                 prompt: str | None = None) -> None:
+                 prompt: str | None = None, response: str | None = None) -> None:
     action = _ACTION_CTX.get()
     action_id, action_label = action if action else (None, None)
     if prompt is not None and len(prompt) > _PROMPT_MAX_CHARS:
         prompt = prompt[:_PROMPT_MAX_CHARS]
+    if response is not None and len(response) > _PROMPT_MAX_CHARS:
+        response = response[:_PROMPT_MAX_CHARS]
 
     conn = get_db()
     conn.execute(
         """INSERT INTO api_call_log
            (model, input_tokens, output_tokens, purpose, cached_input_tokens,
-            action_id, action_label, prompt)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            action_id, action_label, prompt, response)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (model, input_tokens, output_tokens, purpose, cached_input_tokens,
-         action_id, action_label, prompt),
+         action_id, action_label, prompt, response),
     )
     conn.commit()
     conn.close()
 
 
-def get_api_call_prompt(call_id: int) -> str | None:
+def get_api_call_details(call_id: int) -> dict | None:
+    """Prompt + response of one logged call (fetched on demand, issue #579) —
+    or None if the call id doesn't exist."""
     conn = get_db()
     row = conn.execute(
-        "SELECT prompt FROM api_call_log WHERE id = ?", (call_id,)
+        "SELECT prompt, response FROM api_call_log WHERE id = ?", (call_id,)
     ).fetchone()
     conn.close()
     if row is None:
         return None
-    return row["prompt"]
+    return {"prompt": row["prompt"], "response": row["response"]}
 
 
 def _parse_log_time(called_at: str) -> _dt.datetime | None:
@@ -259,11 +264,12 @@ def _parse_log_time(called_at: str) -> _dt.datetime | None:
 def get_api_costs(limit: int = 100) -> dict:
     conn = get_db()
     # Never SELECT prompt here — actions/calls feed the /api/costs payload and
-    # prompts are fetched on demand via get_api_call_prompt() instead.
+    # prompts/responses are fetched on demand via get_api_call_details() instead.
     rows = [dict(r) for r in conn.execute(
         """SELECT id, called_at, model, input_tokens, output_tokens, purpose,
                   cached_input_tokens, action_id, action_label,
-                  (prompt IS NOT NULL) AS has_prompt
+                  (prompt IS NOT NULL) AS has_prompt,
+                  (response IS NOT NULL) AS has_response
            FROM api_call_log ORDER BY called_at DESC"""
     ).fetchall()]
     conn.close()
@@ -338,6 +344,7 @@ def get_api_costs(limit: int = 100) -> dict:
             "cached_input_tokens": r["cached_input_tokens"] or 0,
             "cost": round(cost, 6) if cost is not None else None,
             "has_prompt": bool(r["has_prompt"]),
+            "has_response": bool(r["has_response"]),
         })
         a["call_count"] += 1
         if cost is not None:

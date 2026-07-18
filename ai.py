@@ -72,14 +72,20 @@ def _openai_client(model: str) -> openai.OpenAI:
 
 
 def _extract_prompt(messages: list) -> str:
-    """Join the content of all user-role messages (for cost-modal display).
+    """Join the content of ALL messages (for cost-modal display).
 
-    Truncation to a display-safe length happens in database.log_api_call, not
-    here — never trust the caller to have already truncated.
+    System messages carry the format guides, so they must show too (issue #579)
+    — non-user roles are prefixed with a [role] marker so the reader can tell
+    them apart. Truncation to a display-safe length happens in
+    database.log_api_call, not here — never trust the caller to have already
+    truncated.
     """
-    return "\n\n".join(
-        m.get("content", "") for m in messages if m.get("role") == "user"
-    )
+    parts = []
+    for m in messages:
+        content = m.get("content", "")
+        role = m.get("role", "user")
+        parts.append(content if role == "user" else f"[{role}]\n{content}")
+    return "\n\n".join(parts)
 
 
 def _call_api(model: str, messages: list, max_tokens: int, purpose: str,
@@ -99,6 +105,7 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str,
         cached_tokens = getattr(msg.usage, "cache_read_input_tokens", 0) or 0
         logger.info("[%s] API call done in %.1fs — in=%d out=%d cached=%d purpose=%s",
                     model, elapsed, msg.usage.input_tokens, msg.usage.output_tokens, cached_tokens, purpose)
+        text = msg.content[0].text.strip()
         database.log_api_call(
             # Log the requested model id, not msg.model (the API returns a dated
             # snapshot name like "claude-sonnet-4-6-20260115" that the pricing
@@ -109,8 +116,9 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str,
             purpose=purpose,
             cached_input_tokens=cached_tokens,
             prompt=prompt_text,
+            response=text,
         )
-        return msg.content[0].text.strip()
+        return text
     else:
         client = _openai_client(model)
         extra: dict = {}
@@ -172,6 +180,7 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str,
             purpose=purpose,
             cached_input_tokens=cached_tokens,
             prompt=prompt_text,
+            response=content,
         )
 
         if choice.finish_reason == "length":

@@ -3349,9 +3349,11 @@ function renderCostModal(data) {
         const model = _prettyModel(c.model);
         const cachedTitle = c.cached_input_tokens > 0
           ? ` title="(${c.cached_input_tokens.toLocaleString()} cached)"` : '';
-        const promptBtn = c.has_prompt
-          ? `<button class="cost-prompt-btn" onclick="event.stopPropagation(); showCostPrompt(${c.id})">Prompt</button>`
-          : '';
+        const promptBtn = (c.has_prompt
+          ? `<button class="cost-prompt-btn" onclick="event.stopPropagation(); showCostPrompt(${c.id}, 'prompt')">Prompt</button>`
+          : '') + (c.has_response
+          ? ` <button class="cost-prompt-btn" onclick="event.stopPropagation(); showCostPrompt(${c.id}, 'response')">Response</button>`
+          : '');
         html += `<tr>
           <td>${_fmtCostTime(c.called_at)}</td>
           <td><span class="cost-model">${model}</span></td>
@@ -3380,7 +3382,7 @@ function toggleCostAction(idx) {
   arrow.innerHTML = open ? '&#9656;' : '&#9662;';
 }
 
-async function showCostPrompt(callId) {
+async function showCostPrompt(callId, kind = 'prompt') {
   let overlay = document.getElementById('cost-prompt-overlay');
   if (!overlay) {
     overlay = document.createElement('div');
@@ -3389,7 +3391,7 @@ async function showCostPrompt(callId) {
     overlay.innerHTML = `
       <div class="cost-prompt-box">
         <div class="cost-prompt-header">
-          <span>Prompt</span>
+          <span id="cost-prompt-title">Prompt</span>
           <button class="cost-prompt-close" onclick="closeCostPrompt()">&times;</button>
         </div>
         <pre class="cost-prompt-body" id="cost-prompt-body">Loading…</pre>
@@ -3398,13 +3400,15 @@ async function showCostPrompt(callId) {
     document.body.appendChild(overlay);
   }
   overlay.style.display = 'flex';
+  const title = kind === 'response' ? 'Response' : 'Prompt';
+  document.getElementById('cost-prompt-title').textContent = title;
   const body = document.getElementById('cost-prompt-body');
   body.textContent = 'Loading…';
   try {
     const data = await api('GET', `/api/costs/call/${callId}`);
-    body.textContent = data.prompt || '(no prompt stored)';
+    body.textContent = data[kind] || `(no ${kind} stored)`;
   } catch (e) {
-    body.textContent = 'Failed to load prompt: ' + e.message;
+    body.textContent = `Failed to load ${kind}: ` + e.message;
   }
 }
 
