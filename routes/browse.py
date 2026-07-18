@@ -503,7 +503,7 @@ def get_card_evolution(days: int = 365, deck_id: int | None = None, lang: str | 
 
 @router.get("/api/costs")
 def get_api_costs(limit: int = 100):
-    return {**database.get_api_costs(limit=limit), "deepseek_balance": ai.get_deepseek_balance()}
+    return {**database.get_api_costs(limit=limit), "balances": ai.get_provider_balances()}
 
 
 @router.get("/api/costs/call/{call_id}")

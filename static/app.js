@@ -3308,10 +3308,17 @@ function renderCostModal(data) {
     <span>Last 30 days <b>${fmt(data.total_cost_30d)}</b></span>
   </div>`;
 
-  if (data.deepseek_balance) {
-    const b = data.deepseek_balance;
-    const symbol = b.currency === 'CNY' ? '¥' : (b.currency === 'USD' ? '$' : (b.currency + ' '));
-    html += `<div class="cost-balance">DeepSeek balance: ${symbol}${b.balance}</div>`;
+  for (const b of data.balances || []) {
+    let value;
+    if (b.unsupported) {
+      value = `<span style="color:var(--muted)">${_escHtml(b.note || 'no balance API')}</span>`;
+    } else if (b.balance == null) {
+      value = `<span style="color:var(--muted)">unavailable</span>`;
+    } else {
+      const symbol = b.currency === 'CNY' ? '¥' : (b.currency === 'USD' ? '$' : (b.currency + ' '));
+      value = `${symbol}${b.balance}`;
+    }
+    html += `<div class="cost-balance">${_escHtml(b.provider)} balance: ${value}</div>`;
   }
 
   if (data.unknown_calls > 0) {
