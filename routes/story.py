@@ -180,6 +180,8 @@ ALLOWED_MODELS = {
     "claude-sonnet-4-6",
     "claude-opus-4-6",
     "gpt-5-mini",
+    "gpt-5",
+    "gpt-5.1",
     "glm-5",
     "glm-4.7",
     "glm-4.7-flashx",
