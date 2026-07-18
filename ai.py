@@ -2232,3 +2232,108 @@ def get_deepseek_balance() -> dict | None:
     except Exception as e:
         logger.debug("get_deepseek_balance failed: %s", e)
         return None
+
+
+def _get_alibaba_balance() -> dict | None:
+    """Fetch the Alibaba Cloud account balance via the BSS OpenAPI
+    QueryAccountBalance action (issue #580), signed with the classic RPC
+    HMAC-SHA1 scheme — stdlib only, no alibabacloud_bssopenapi dependency.
+
+    Reuses the Tingwu AccessKey pair (ALIBABA_CLOUD_ACCESS_KEY_ID/SECRET).
+    Tries the international endpoint first (Daniel's account uses
+    dashscope-intl), then the mainland one. Returns {"balance", "currency"}
+    or None — never raises (nice-to-have, same contract as DeepSeek)."""
+    ak = os.environ.get("ALIBABA_CLOUD_ACCESS_KEY_ID")
+    sk = os.environ.get("ALIBABA_CLOUD_ACCESS_KEY_SECRET")
+    if not (ak and sk):
+        return None
+    import base64
+    import hashlib
+    import hmac
+    import urllib.parse
+    import urllib.request
+    import uuid
+    from datetime import datetime, timezone
+
+    params = {
+        "Action": "QueryAccountBalance",
+        "Version": "2017-12-14",
+        "Format": "JSON",
+        "AccessKeyId": ak,
+        "SignatureMethod": "HMAC-SHA1",
+        "SignatureVersion": "1.0",
+        "SignatureNonce": uuid.uuid4().hex,
+        "Timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+    def _pct(s: str) -> str:
+        return urllib.parse.quote(str(s), safe="-_.~")
+
+    canonical = "&".join(f"{_pct(k)}={_pct(v)}" for k, v in sorted(params.items()))
+    string_to_sign = "GET&%2F&" + _pct(canonical)
+    params["Signature"] = base64.b64encode(
+        hmac.new((sk + "&").encode(), string_to_sign.encode(), hashlib.sha1).digest()
+    ).decode()
+    query = urllib.parse.urlencode(params)
+    # The signature covers only the query string, not the host — one signature
+    # works for both endpoints.
+    for host in ("business.ap-southeast-1.aliyuncs.com", "business.aliyuncs.com"):
+        try:
+            with urllib.request.urlopen(f"https://{host}/?{query}", timeout=5) as resp:
+                data = json.loads(resp.read())
+            d = data.get("Data") or {}
+            if d.get("AvailableAmount") is not None:
+                return {"balance": d["AvailableAmount"], "currency": d.get("Currency") or "CNY"}
+        except Exception as e:
+            logger.debug("alibaba balance via %s failed: %s", host, e)
+    return None
+
+
+# Provider-balance cache (issue #580): the fetches block the cost modal, so a
+# 5-minute cache keeps repeat opens instant. Balances only change when Daniel
+# tops up or generates something — staleness is harmless.
+_balance_cache: dict = {"at": 0.0, "data": None}
+_BALANCE_CACHE_TTL_SECONDS = 300
+
+
+def get_provider_balances() -> list[dict]:
+    """Balance rows for every configured AI provider (issue #580).
+
+    Row shape: {"provider": str, "balance": str|None, "currency": str|None,
+    "unsupported": bool, "note": str|None}. Providers whose key isn't
+    configured are omitted; providers with no balance API (OpenAI, Anthropic,
+    Zhipu) get unsupported=True with a pointer to their console. Fetch
+    failures show balance=None so the frontend can say "unavailable"."""
+    import time as _time
+    now = _time.time()
+    if _balance_cache["data"] is not None and now - _balance_cache["at"] < _BALANCE_CACHE_TTL_SECONDS:
+        return _balance_cache["data"]
+
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f_ds = ex.submit(get_deepseek_balance)
+        f_ali = ex.submit(_get_alibaba_balance)
+        ds, ali = f_ds.result(), f_ali.result()
+
+    rows: list[dict] = []
+
+    def _row(provider: str, balance: dict | None = None, note: str | None = None,
+             unsupported: bool = False) -> dict:
+        return {"provider": provider,
+                "balance": (balance or {}).get("balance"),
+                "currency": (balance or {}).get("currency"),
+                "unsupported": unsupported, "note": note}
+
+    if os.environ.get("DEEPSEEK_API_KEY"):
+        rows.append(_row("DeepSeek", ds))
+    if os.environ.get("ALIBABA_CLOUD_ACCESS_KEY_ID"):
+        rows.append(_row("Alibaba", ali))
+    if os.environ.get("ZHIPU_API_KEY"):
+        rows.append(_row("Zhipu", unsupported=True, note="no balance API — bigmodel.cn console"))
+    if os.environ.get("OPENAI_API_KEY"):
+        rows.append(_row("OpenAI", unsupported=True, note="no balance API — platform.openai.com"))
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        rows.append(_row("Anthropic", unsupported=True, note="no balance API — console.anthropic.com"))
+
+    _balance_cache.update(at=now, data=rows)
+    return rows
