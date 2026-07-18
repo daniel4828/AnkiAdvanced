@@ -12,7 +12,7 @@ import database
 import ai
 import news_fetcher
 import tts
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
 from .utils import DISABLE_AI, leaf_ids, queue_mgr
@@ -676,6 +676,47 @@ def regenerate_story(deck_id: int, category: str,
         # cheap: queues are just rebuilt lazily from cheap DB queries.
         queue_mgr.invalidate()
     return result
+
+
+# ── 自定义提示词模板（issue #581）──────────────────────────────────────────────
+
+def _require_editable_mode(mode: str) -> None:
+    if mode not in ai.DEFAULT_PROMPT_TEMPLATES:
+        raise HTTPException(status_code=404,
+                            detail=f"Mode '{mode}' has no editable prompt template")
+
+
+@router.get("/api/prompt-template/{mode}")
+def get_prompt_template(mode: str):
+    """当前生效模板（自定义优先）+ 内置默认 + 可用记号列表。"""
+    _require_editable_mode(mode)
+    custom = database.get_prompt_template(mode)
+    default = ai.DEFAULT_PROMPT_TEMPLATES[mode]
+    return {"mode": mode, "template": custom or default, "default": default,
+            "is_custom": custom is not None,
+            "variables": ai.PROMPT_TEMPLATE_VARIABLES[mode]}
+
+
+@router.put("/api/prompt-template/{mode}")
+def put_prompt_template(mode: str, body: dict):
+    _require_editable_mode(mode)
+    template = (body or {}).get("template") or ""
+    if "{words}" not in template:
+        raise HTTPException(status_code=400,
+                            detail="Template must contain the {words} placeholder")
+    # 存回未改动的默认模板 = 视为重置，避免默认将来更新时被旧快照锁死
+    if template.strip() == ai.DEFAULT_PROMPT_TEMPLATES[mode].strip():
+        database.delete_prompt_template(mode)
+        return {"mode": mode, "is_custom": False}
+    database.set_prompt_template(mode, template)
+    return {"mode": mode, "is_custom": True}
+
+
+@router.delete("/api/prompt-template/{mode}")
+def reset_prompt_template(mode: str):
+    _require_editable_mode(mode)
+    database.delete_prompt_template(mode)
+    return {"mode": mode, "is_custom": False}
 
 
 @router.get("/api/story/{deck_id}/{category}/history")
