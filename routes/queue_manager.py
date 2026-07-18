@@ -137,9 +137,13 @@ class QueueManager:
         - Otherwise pop it from the front of main (it was just answered) and
           remove it from intraday if it happened to be there.
         - buried_sibling_ids: card IDs that bury_siblings() just buried in the
-          DB.  They are removed from both queues so the DB and in-memory state
-          stay in sync.
+          DB.  Burying is global state, so they are removed from ALL cached
+          queues — not just this one — or a queue built earlier for another
+          category would still serve them (issue #573).
         """
+        if buried_sibling_ids:
+            self.discard_everywhere(buried_sibling_ids)
+
         if key not in self._queues:
             logger.debug("[QueueMgr] after_review key=%s — queue not found, skipping", key)
             return
@@ -172,25 +176,10 @@ class QueueManager:
             entries = list(q.intraday) + [{"id": card_id, "due": new_due}]
             q.intraday = deque(sorted(entries, key=lambda e: e["due"]))
 
-        # Remove siblings that bury_siblings() just buried in the DB
-        buried_removed_main     = []
-        buried_removed_intraday = []
-        if buried_sibling_ids:
-            remove_set = set(buried_sibling_ids)
-            new_main = deque(cid for cid in q.main if cid not in remove_set)
-            buried_removed_main = [cid for cid in q.main if cid in remove_set]
-            q.main = new_main
-            new_intraday = deque(e for e in q.intraday if e["id"] not in remove_set)
-            buried_removed_intraday = [e["id"] for e in q.intraday if e["id"] in remove_set]
-            q.intraday = new_intraday
-            q.requeued = deque(e for e in q.requeued if e["id"] not in remove_set)
-
         logger.debug(
             "[QueueMgr] after_review key=%s card=#%d → state=%s due=%s\n"
             "  removed_from: %s   becomes_intraday=%s\n"
-            "  buried_sibling_ids=%s\n"
-            "  buried_removed_from_main=%s\n"
-            "  buried_removed_from_intraday=%s\n"
+            "  buried_sibling_ids=%s (removed from ALL queues)\n"
             "  main before[0:10]=%s\n"
             "  main after [0:8] =%s\n"
             "  intraday before=%s\n"
@@ -198,13 +187,34 @@ class QueueManager:
             key, card_id, new_state, new_due,
             removed_from, becomes_intraday,
             buried_sibling_ids,
-            buried_removed_main,
-            buried_removed_intraday,
             main_before,
             list(q.main)[:8],
             intraday_before,
             [e["id"] for e in q.intraday],
         )
+
+    def discard_everywhere(self, card_ids) -> None:
+        """Remove the given card IDs from every cached queue.
+
+        Used for state changes that are global rather than per-session —
+        e.g. a card buried/suspended in the DB must stop being served by
+        every queue that was built before the change (issue #573).
+        """
+        remove_set = set(card_ids)
+        if not remove_set:
+            return
+        for key, q in self._queues.items():
+            removed = [cid for cid in q.main if cid in remove_set] + \
+                      [e["id"] for e in q.intraday if e["id"] in remove_set] + \
+                      [e["id"] for e in q.requeued if e["id"] in remove_set]
+            if not removed:
+                continue
+            q.main = deque(cid for cid in q.main if cid not in remove_set)
+            q.intraday = deque(e for e in q.intraday if e["id"] not in remove_set)
+            q.requeued = deque(e for e in q.requeued if e["id"] not in remove_set)
+            logger.debug(
+                "[QueueMgr] discard_everywhere key=%s removed=%s", key, removed,
+            )
 
     def soft_requeue(self, key: tuple, card_id: int, due: str) -> bool:
         """Re-show a card at `due` WITHOUT changing its DB scheduling state.
