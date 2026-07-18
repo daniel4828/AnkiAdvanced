@@ -158,18 +158,34 @@ def _key_and_build(
 
 
 def _next_card_from_queue(key, build_fn) -> dict | None:
-    """Ask the queue manager for the next card ID, then fetch the full card."""
+    """Ask the queue manager for the next card ID, then fetch the full card.
+
+    Queues are built once per Anki day, so a card can be buried/suspended/
+    deleted in the DB after the queue was built (e.g. bury_siblings from a
+    review in another category, issue #573).  Such stale entries are dropped
+    here instead of being served.
+    """
     today = database.anki_today().isoformat()
     now = datetime.now().isoformat(timespec="seconds")
-    card_id = _queue_mgr.get_next(key, build_fn, today, now)
-    if card_id is None:
-        return None
-    card = database.get_card(card_id)
-    if card:
+    while True:
+        card_id = _queue_mgr.get_next(key, build_fn, today, now)
+        if card_id is None:
+            return None
+        card = database.get_card(card_id)
+        if (card is None or card["state"] == "suspended"
+                or (card.get("buried_until") or "") >= today):
+            logger.debug(
+                "[review] skipping stale queue entry #%s (%s)",
+                card_id,
+                "deleted" if card is None else
+                f"state={card['state']} buried_until={card.get('buried_until')}",
+            )
+            _queue_mgr.discard_everywhere([card_id])
+            continue
         card["intervals"] = srs.preview_intervals(card)
         card["fsrs"] = srs.explain_card(card)
         _attach_again_sentence(card)
-    return card
+        return card
 
 
 # ---------------------------------------------------------------------------
@@ -498,8 +514,9 @@ def undo_review():
     for sib in entry.get("siblings_snapshot", []):
         database.set_card_buried_until(sib["id"], sib["buried_until"])
 
-    # Invalidate the queue so the restored card is picked up on next access
-    _queue_mgr.invalidate(entry.get("queue_key"))
+    # Invalidate ALL queues: the restored card belongs to this queue, but the
+    # un-buried siblings may sit in queues of other categories (issue #573).
+    _queue_mgr.invalidate()
 
     # Return the restored card so the frontend can show it
     restored = database.get_card(cb["id"])
