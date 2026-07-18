@@ -7,3 +7,4 @@ from .browse import *
 from .stories import *
 from .stats import *
 from .podcast import *
+from .prompts import *

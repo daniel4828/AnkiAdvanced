@@ -3424,6 +3424,86 @@ function closeCostPrompt() {
   if (overlay) overlay.style.display = 'none';
 }
 
+// ── Prompt template editor (issue #581) ──────────────────────────────────────
+// Edit the full prompt of the currently selected story mode; dynamic content
+// ({words}, {topic}, …) stays as placeholders so the word list never clutters
+// the editor. Stored server-side (prompt_templates table), applies everywhere
+// the mode generates — full stories and Again single-sentence regens alike.
+let _promptEditorMode = null;
+
+async function openPromptEditor() {
+  const mode = document.getElementById('setup-mode').value;
+  let overlay = document.getElementById('prompt-editor-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'prompt-editor-overlay';
+    overlay.className = 'cost-prompt-overlay';
+    overlay.innerHTML = `
+      <div class="cost-prompt-box" style="display:flex;flex-direction:column;gap:8px">
+        <div class="cost-prompt-header">
+          <span id="prompt-editor-title">Prompt template</span>
+          <button class="cost-prompt-close" onclick="closePromptEditor()">&times;</button>
+        </div>
+        <div id="prompt-editor-vars" style="font-size:12px;color:var(--muted,#888)"></div>
+        <textarea id="prompt-editor-text" spellcheck="false"
+          style="width:100%;min-height:50vh;font-family:monospace;font-size:12px;line-height:1.45;resize:vertical"></textarea>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="edit-cancel-btn" onclick="resetPromptTemplate()">Reset to default</button>
+          <button class="edit-save-btn" onclick="savePromptTemplate()">Save</button>
+        </div>
+      </div>`;
+    overlay.addEventListener('click', e => { if (e.target === overlay) closePromptEditor(); });
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = 'flex';
+  _promptEditorMode = mode;
+  const title = document.getElementById('prompt-editor-title');
+  const ta = document.getElementById('prompt-editor-text');
+  title.textContent = 'Loading…';
+  ta.value = '';
+  try {
+    const data = await api('GET', `/api/prompt-template/${mode}`);
+    title.textContent = `Prompt template — ${mode}${data.is_custom ? ' (custom)' : ''}`;
+    document.getElementById('prompt-editor-vars').textContent =
+      'Placeholders (replaced at generation time): ' + data.variables.map(v => `{${v}}`).join('  ');
+    ta.value = data.template;
+  } catch (e) {
+    title.textContent = 'Failed to load template';
+    ta.value = e.message;
+  }
+}
+
+async function savePromptTemplate() {
+  if (!_promptEditorMode) return;
+  try {
+    const r = await api('PUT', `/api/prompt-template/${_promptEditorMode}`,
+                        { template: document.getElementById('prompt-editor-text').value });
+    document.getElementById('prompt-editor-title').textContent =
+      `Prompt template — ${_promptEditorMode}${r.is_custom ? ' (custom)' : ''}`;
+    closePromptEditor();
+  } catch (e) {
+    showError('Save failed — the template must keep the {words} placeholder.');
+  }
+}
+
+async function resetPromptTemplate() {
+  if (!_promptEditorMode) return;
+  try {
+    await api('DELETE', `/api/prompt-template/${_promptEditorMode}`);
+    const data = await api('GET', `/api/prompt-template/${_promptEditorMode}`);
+    document.getElementById('prompt-editor-text').value = data.template;
+    document.getElementById('prompt-editor-title').textContent =
+      `Prompt template — ${_promptEditorMode}`;
+  } catch (e) {
+    showError('Reset failed: ' + e.message);
+  }
+}
+
+function closePromptEditor() {
+  const overlay = document.getElementById('prompt-editor-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
 function renderStats(data) {
   // Big numbers
   document.getElementById('stat-grid').innerHTML = [
@@ -6617,6 +6697,14 @@ function updateSetupMode() {
   const batchInp = document.getElementById('setup-batch-size');
   if (batchLabel) batchLabel.style.display = isVocab ? 'none' : '';
   if (batchInp) batchInp.value = _savedBatchSize(mode) || '';
+  // Prompt template editor (issue #581): only modes with an editable template,
+  // zh decks only (fr uses the built-in language-neutral prompt path).
+  const editPromptBtn = document.getElementById('setup-edit-prompt-btn');
+  if (editPromptBtn) {
+    const editable = ['story', 'qa', 'expository', 'podcast'].includes(mode)
+      && (_deckLangById[deckId] || 'zh') === 'zh';
+    editPromptBtn.style.display = editable ? '' : 'none';
+  }
   if (grammarLabel) grammarLabel.style.display =
     isVocab ? 'none' : ((_deckLangById[deckId] || 'zh') === 'zh' ? '' : 'none');
   const countLabel = document.getElementById('setup-count-label');

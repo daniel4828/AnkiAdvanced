@@ -420,6 +420,16 @@ CREATE TABLE IF NOT EXISTS api_call_log (
 );
 
 -- ---------------------------------------------------------------------------
+-- prompt_templates — user-edited story prompt templates (issue #581);
+-- no row for a mode = built-in default (ai.DEFAULT_PROMPT_TEMPLATES)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS prompt_templates (
+    mode        TEXT PRIMARY KEY,
+    template    TEXT NOT NULL,
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ---------------------------------------------------------------------------
 -- entry_components  (formerly note_components — links sentences/chengyu to their component vocabulary)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS entry_components (

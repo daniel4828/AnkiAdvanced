@@ -242,6 +242,129 @@ def resolve_briefing_model() -> str:
 # Public API
 # ---------------------------------------------------------------------------
 
+# ── 自定义提示词模板（issue #581）──────────────────────────────────────────────
+# 每个可自定义模式一份内置模板；database.get_prompt_template(mode) 有自定义行时
+# 覆盖内置。渲染用 _render_prompt 做逐记号字符串替换（不是 str.format——模板里
+# 的 JSON 示例花括号无需转义）。默认模板的渲染结果与旧的内联 f-string 逐字一致，
+# 提示词质量不受重构影响。目前仅覆盖 zh；fr 走原内置路径。
+DEFAULT_PROMPT_TEMPLATES: dict[str, str] = {
+    "story": """Write a short Mandarin Chinese story to help an HSK 4-5 learner review vocabulary.
+
+{grammar_block}Target words (each must appear verbatim in at least one sentence):
+{words}
+
+Rules:
+- Each target word MUST appear verbatim in at least one sentence
+- Write the sentences in the same order as the target word list above
+- For items marked [SENTENCE]: use that exact text as the sentence, unchanged
+- Use proper Chinese punctuation — include commas（，）where natural pauses occur
+- Use only HSK 1-{max_hsk} vocabulary for non-target words; each sentence must contain exactly ONE target word from the list — do not use other target words from the list in that sentence
+- Keep each sentence short and simple
+{topic_block}- The sentences must form a coherent narrative with the same recurring characters
+- NEVER highlight, quote, or mark target words in any way — no "quotes", no 「brackets」, no （parentheses）, no bold, no underline; write them as plain text embedded naturally in the sentence
+- NEVER use markdown formatting (**bold**, _italic_, etc.) anywhere in the output — write plain text only
+
+Return ONLY a numbered list of Chinese sentences, no explanation:
+1. ...
+2. ...""",
+    "qa": """Answer the following question in Mandarin Chinese, one sentence at a time, to help an HSK 4-5 learner review vocabulary.
+Question: {topic}
+
+{grammar_block}Target words (each must appear verbatim in at least one sentence):
+{words}
+
+Rules:
+- Each target word MUST appear verbatim in at least one sentence
+- Write the sentences in the same order as the target word list above
+- For items marked [SENTENCE]: use that exact text as the sentence, unchanged
+- Use proper Chinese punctuation — include commas（，）where natural pauses occur
+- Use only HSK 1-{max_hsk} vocabulary for non-target words; each sentence must contain exactly ONE target word from the list — do not use other target words from the list in that sentence
+- Keep each sentence short and simple
+- The sentences together should form a coherent, informative answer to the question above
+- Do NOT use fictional characters or narrative story structure
+- NEVER highlight, quote, or mark target words in any way — no "quotes", no 「brackets」, no （parentheses）, no bold, no underline; write them as plain text embedded naturally in the sentence
+- NEVER use markdown formatting (**bold**, _italic_, etc.) anywhere in the output — write plain text only
+
+Return ONLY a numbered list of Chinese sentences, no explanation:
+1. ...
+2. ...""",
+    "expository": """Write a short informative text in Mandarin Chinese about the following topic, to help an HSK 4-5 learner review vocabulary.
+Topic: {topic}
+
+{grammar_block}Target words (each must appear verbatim in at least one sentence):
+{words}
+
+Rules:
+- Each target word MUST appear verbatim in at least one sentence
+- Write the sentences in the same order as the target word list above
+- For items marked [SENTENCE]: use that exact text as the sentence, unchanged
+- Use proper Chinese punctuation — include commas（，）where natural pauses occur
+- Use only HSK 1-{max_hsk} vocabulary for non-target words; each sentence must contain exactly ONE target word from the list — do not use other target words from the list in that sentence
+- Keep each sentence short and simple
+- The sentences together should form a coherent, factual explanation of the topic above
+- Do NOT use fictional characters or narrative story structure
+- NEVER highlight, quote, or mark target words in any way — no "quotes", no 「brackets」, no （parentheses）, no bold, no underline; write them as plain text embedded naturally in the sentence
+- NEVER use markdown formatting (**bold**, _italic_, etc.) anywhere in the output — write plain text only
+
+Return ONLY a numbered list of Chinese sentences, no explanation:
+1. ...
+2. ...""",
+    "podcast": """任务：下面是一期播客单集的内容摘要（德语）。请用简体中文写一篇该单集内容的连贯总结，
+帮助 HSK 4-5 学习者复习词汇。
+
+单集标题：{title}
+
+内容摘要（德语）：
+{summary}
+
+目标词汇（每个词必须在总结中恰好出现一次，以原文形式出现）：
+{words}
+
+规则：
+- 总结按句子输出为 JSON 数组，数组顺序就是阅读顺序
+- 【重要】每一句话都必须恰好包含一个目标词汇——不允许出现任何不含目标词的句子，
+  因此句子总数必须恰好等于目标词数量
+- 【词序自由】任意安排目标词出现的先后顺序，选择能写出最自然、最连贯总结的顺序
+- 【难度控制，严格遵守】每句 8 到 20 个字，其中除目标词外只允许 HSK 1-{max_hsk} 的词汇；
+  如果某个事实需要更难的词才能表达，就换一种更简单的说法，或省略这个细节
+- 【重要】每句都必须传达摘要中的一个具体事实（是什么、涉及谁、有多少），
+  严禁没有信息量的空洞句子，例如"内容很有趣。""他说了很多。"这类句子绝对不可以出现
+- 【重要】只允许使用摘要中明确陈述的事实——禁止编造摘要没有的细节或主观评论
+- 所有输出只用简体中文，绝对不要出现繁体字；不要使用markdown格式
+- target_word 是该句包含的目标词汇原文
+{extra_hint}
+
+仅返回如下JSON数组，不加任何其他文字：
+[
+  {"sentence_zh": "含目标词的句子", "target_word": "词汇"}
+]""",
+}
+
+# 编辑器界面展示给用户的可用记号（routes/story.py 的 GET 接口返回）。
+PROMPT_TEMPLATE_VARIABLES: dict[str, list[str]] = {
+    "story": ["words", "max_hsk", "grammar_block", "topic_block"],
+    "qa": ["words", "max_hsk", "grammar_block", "topic"],
+    "expository": ["words", "max_hsk", "grammar_block", "topic"],
+    "podcast": ["words", "summary", "title", "max_hsk", "extra_hint"],
+}
+
+
+def _render_prompt(template: str, variables: dict[str, str]) -> str:
+    for k, v in variables.items():
+        template = template.replace("{" + k + "}", v)
+    return template
+
+
+def _story_prompt_template(mode: str) -> str:
+    """自定义模板（DB）优先，否则内置默认。查询失败一律回退默认——
+    提示词渲染绝不能因为模板表出问题而阻断生成。"""
+    try:
+        return database.get_prompt_template(mode) or DEFAULT_PROMPT_TEMPLATES[mode]
+    except Exception as e:
+        logger.warning("prompt template lookup failed for %s: %s", mode, e)
+        return DEFAULT_PROMPT_TEMPLATES[mode]
+
+
 def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2,
                    model: str = DEFAULT_MODEL,
                    progress_key: str | None = None,
@@ -314,38 +437,23 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
         grammar_first = ""
 
     if lang == "zh":
-        # zh prompt kept EXACTLY as before the multi-language pipeline — no template
-        # sharing with non-zh so this path can never drift when other languages change.
+        # zh 提示词内容与多语言管线之前完全一致，只是搬进了 DEFAULT_PROMPT_TEMPLATES
+        # （issue #581）——用户可按模式在 DB 里覆盖模板，动态部分用记号替换。
+        variables = {
+            "grammar_block": grammar_first,
+            "words": word_list,
+            "max_hsk": str(max_hsk),
+        }
         if mode == "qa":
-            task_line = f"Answer the following question in Mandarin Chinese, one sentence at a time, to help an HSK 4-5 learner review vocabulary.\nQuestion: {topic or 'Describe something interesting.'}"
-            style_rule = "- The sentences together should form a coherent, informative answer to the question above\n- Do NOT use fictional characters or narrative story structure"
+            variables["topic"] = topic or "Describe something interesting."
         elif mode == "expository":
-            task_line = f"Write a short informative text in Mandarin Chinese about the following topic, to help an HSK 4-5 learner review vocabulary.\nTopic: {topic or 'an interesting subject'}"
-            style_rule = "- The sentences together should form a coherent, factual explanation of the topic above\n- Do NOT use fictional characters or narrative story structure"
+            variables["topic"] = topic or "an interesting subject"
         else:
-            task_line = "Write a short Mandarin Chinese story to help an HSK 4-5 learner review vocabulary."
-            topic_clause = f"- The story should be set around this topic or theme: {topic}\n" if topic else ""
-            style_rule = f"{topic_clause}- The sentences must form a coherent narrative with the same recurring characters"
-
-        prompt = f"""{task_line}
-
-{grammar_first}Target words (each must appear verbatim in at least one sentence):
-{word_list}
-
-Rules:
-- Each target word MUST appear verbatim in at least one sentence
-- Write the sentences in the same order as the target word list above
-- For items marked [SENTENCE]: use that exact text as the sentence, unchanged
-- Use proper Chinese punctuation — include commas（，）where natural pauses occur
-- Use only HSK 1-{max_hsk} vocabulary for non-target words; each sentence must contain exactly ONE target word from the list — do not use other target words from the list in that sentence
-- Keep each sentence short and simple
-{style_rule}
-- NEVER highlight, quote, or mark target words in any way — no "quotes", no 「brackets」, no （parentheses）, no bold, no underline; write them as plain text embedded naturally in the sentence
-- NEVER use markdown formatting (**bold**, _italic_, etc.) anywhere in the output — write plain text only
-
-Return ONLY a numbered list of Chinese sentences, no explanation:
-1. ...
-2. ..."""
+            variables["topic_block"] = (
+                f"- The story should be set around this topic or theme: {topic}\n" if topic else ""
+            )
+        tpl_mode = mode if mode in ("qa", "expository") else "story"
+        prompt = _render_prompt(_story_prompt_template(tpl_mode), variables)
     else:
         cfg = languages.get_lang_config(lang)
         lang_name = cfg["name_en"]
@@ -1888,40 +1996,21 @@ def generate_podcast_sentences(
     if not cards or not summary.strip():
         return []
 
+    # 模板可被用户自定义覆盖（issue #581）；默认渲染结果与旧内联 f-string 逐字一致。
+    tpl = _story_prompt_template("podcast")
+
     def _build_prompt(batch: list[dict], extra_hint: str = "") -> str:
         word_list = "\n".join(
             f"{i + 1}. {c['word_zh']}（{c.get('pinyin', '')}）— {c.get('definition', '')}"
             for i, c in enumerate(batch)
         )
-        return f"""任务：下面是一期播客单集的内容摘要（德语）。请用简体中文写一篇该单集内容的连贯总结，
-帮助 HSK 4-5 学习者复习词汇。
-
-单集标题：{episode_title}
-
-内容摘要（德语）：
-{summary}
-
-目标词汇（每个词必须在总结中恰好出现一次，以原文形式出现）：
-{word_list}
-
-规则：
-- 总结按句子输出为 JSON 数组，数组顺序就是阅读顺序
-- 【重要】每一句话都必须恰好包含一个目标词汇——不允许出现任何不含目标词的句子，
-  因此句子总数必须恰好等于目标词数量
-- 【词序自由】任意安排目标词出现的先后顺序，选择能写出最自然、最连贯总结的顺序
-- 【难度控制，严格遵守】每句 8 到 20 个字，其中除目标词外只允许 HSK 1-{max_hsk} 的词汇；
-  如果某个事实需要更难的词才能表达，就换一种更简单的说法，或省略这个细节
-- 【重要】每句都必须传达摘要中的一个具体事实（是什么、涉及谁、有多少），
-  严禁没有信息量的空洞句子，例如"内容很有趣。""他说了很多。"这类句子绝对不可以出现
-- 【重要】只允许使用摘要中明确陈述的事实——禁止编造摘要没有的细节或主观评论
-- 所有输出只用简体中文，绝对不要出现繁体字；不要使用markdown格式
-- target_word 是该句包含的目标词汇原文
-{extra_hint}
-
-仅返回如下JSON数组，不加任何其他文字：
-[
-  {{"sentence_zh": "含目标词的句子", "target_word": "词汇"}}
-]"""
+        return _render_prompt(tpl, {
+            "title": episode_title,
+            "summary": summary,
+            "words": word_list,
+            "max_hsk": str(max_hsk),
+            "extra_hint": extra_hint,
+        })
 
     sentences: list[dict] = []
     remaining = list(cards)
