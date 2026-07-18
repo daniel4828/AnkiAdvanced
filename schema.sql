@@ -415,7 +415,8 @@ CREATE TABLE IF NOT EXISTS api_call_log (
     cached_input_tokens  INTEGER NOT NULL DEFAULT 0,
     action_id            TEXT,
     action_label         TEXT,
-    prompt               TEXT
+    prompt               TEXT,
+    response             TEXT
 );
 
 -- ---------------------------------------------------------------------------
