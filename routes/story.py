@@ -22,6 +22,16 @@ KAHNEMAN_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "kahneman_
 # 每次 Kahneman AI 调用最多处理的词数（词太多会漏词、句子质量下降）
 MAX_KAHNEMAN_BATCH = 10
 
+# Again 单句重生成的成本动作标签（issue #578）——按故事模式区分；
+# get_api_costs 会把相邻的同标签 "… Again Sentences" 动作合并成一行。
+_AGAIN_ACTION_LABELS = {
+    "podcast": "Podcast Again Sentences",
+    "kahneman": "Kahneman Again Sentences",
+    "news": "News Again Sentences",
+    "briefing": "News Again Sentences",
+    "paste": "Paste Again Sentences",
+}
+
 # 《思考，快与慢》原书的 5 个部分（Part）—— 按章节号区间划分。
 # 数据文件不存部分信息，统一在此按章节号计算，保证一致性。
 _KAHNEMAN_PARTS = [
@@ -203,9 +213,11 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
     if not cards:
         return None
     lang = lang or database.get_deck_lang(deck_id)
-    ai.fix_definition_commas(cards)
     ai._story_progress[progress_key] = {"phase": "starting", "msg": "Starting…", "percent": 5}
     with database.action_context(_action_label_for_story(mode, deck_id)):
+        # Inside the action context (issue #578): fix_commas calls previously ran
+        # before it and showed up as orphan "fix_commas · legacy" cost rows.
+        ai.fix_definition_commas(cards)
         return _generate_and_store_body(
             deck_id, category, today, cards,
             topic=topic, max_hsk=max_hsk, model=model, grammar_focus=grammar_focus,
@@ -455,47 +467,53 @@ def generate_sentence_for_word(card: dict, gen_params: dict | None) -> dict | No
     mode = gp.get("mode") or "story"
     model = _validated_model(gp.get("model"))
     lang = gp.get("lang") or database.get_deck_lang(card["deck_id"])
+    # Action label (issue #578): without this the calls logged NULL action_ids
+    # and the cost history showed them as cryptic "podcast · legacy" rows.
+    # get_api_costs merges adjacent same-label "… Again Sentences" actions into
+    # one expandable row, so each click doesn't clutter the list.
+    action_label = _AGAIN_ACTION_LABELS.get(mode, "Story Again Sentences")
     try:
-        if mode == "kahneman":
-            chapter = _pick_kahneman_chapter(gp.get("chapter_ids"))
-            if chapter is not None:
-                sentences = ai.generate_kahneman_sentences([card], chapter, model=model)
-            else:  # book data missing → fall back to a plain sentence
-                sentences, _ = ai.generate_story([card], model=model, lang=lang)
-        elif mode == "podcast":
-            # Podcast Again-regen (issue #561): same lean pipeline, one card +
-            # the episode summary, honoring the story's stored user-picked
-            # model (old stories stored gpt-5.1, which is not whitelisted, so
-            # _validated_model falls back). No summary → plain sentence.
-            ep = database.get_episode(gp["episode_id"]) if gp.get("episode_id") else None
-            summary = ((ep or {}).get("summary_de") or "").strip()
-            if summary:
-                sentences = ai.generate_podcast_sentences(
-                    [card], summary, ep.get("title") or "",
-                    model=_validated_model(gp.get("model"), default="gpt-5-mini"),
-                    max_hsk=gp.get("max_hsk", 3),
-                    source_url=ep.get("youtube_url") or f"/#podcast-{ep['id']}",
-                    source_title=ep.get("title"))
+        with database.action_context(action_label):
+            if mode == "kahneman":
+                chapter = _pick_kahneman_chapter(gp.get("chapter_ids"))
+                if chapter is not None:
+                    sentences = ai.generate_kahneman_sentences([card], chapter, model=model)
+                else:  # book data missing → fall back to a plain sentence
+                    sentences, _ = ai.generate_story([card], model=model, lang=lang)
+            elif mode == "podcast":
+                # Podcast Again-regen (issue #561): same lean pipeline, one card +
+                # the episode summary, honoring the story's stored user-picked
+                # model (old stories stored gpt-5.1, which is not whitelisted, so
+                # _validated_model falls back). No summary → plain sentence.
+                ep = database.get_episode(gp["episode_id"]) if gp.get("episode_id") else None
+                summary = ((ep or {}).get("summary_de") or "").strip()
+                if summary:
+                    sentences = ai.generate_podcast_sentences(
+                        [card], summary, ep.get("title") or "",
+                        model=_validated_model(gp.get("model"), default="gpt-5-mini"),
+                        max_hsk=gp.get("max_hsk", 3),
+                        source_url=ep.get("youtube_url") or f"/#podcast-{ep['id']}",
+                        source_title=ep.get("title"))
+                else:
+                    sentences, _ = ai.generate_story([card], model=model, lang=lang)
+            elif mode in ("news", "paste", "briefing"):
+                # Briefing/paste Again-regen reuses the single-sentence news path:
+                # one word gets one fresh sentence from the same articles (no
+                # context chain). Both always use BRIEFING_MODEL (issue #444/#481),
+                # ignoring the story's stored model — same resolution as the main
+                # generation.
+                news_model = ai.resolve_briefing_model() if mode in ("briefing", "paste") else model
+                articles = gp.get("articles") or []
+                if articles:
+                    sentences = ai.generate_news_sentences(
+                        [card], articles, model=news_model, generic=(mode == "paste"))
+                else:  # no articles context saved → fall back to a plain sentence
+                    sentences, _ = ai.generate_story([card], model=news_model, lang=lang)
             else:
-                sentences, _ = ai.generate_story([card], model=model, lang=lang)
-        elif mode in ("news", "paste", "briefing"):
-            # Briefing/paste Again-regen reuses the single-sentence news path:
-            # one word gets one fresh sentence from the same articles (no
-            # context chain). Both always use BRIEFING_MODEL (issue #444/#481),
-            # ignoring the story's stored model — same resolution as the main
-            # generation.
-            news_model = ai.resolve_briefing_model() if mode in ("briefing", "paste") else model
-            articles = gp.get("articles") or []
-            if articles:
-                sentences = ai.generate_news_sentences(
-                    [card], articles, model=news_model, generic=(mode == "paste"))
-            else:  # no articles context saved → fall back to a plain sentence
-                sentences, _ = ai.generate_story([card], model=news_model, lang=lang)
-        else:
-            sentences, _ = ai.generate_story(
-                [card], topic=gp.get("topic"), max_hsk=gp.get("max_hsk", 2),
-                model=model, grammar_focus=gp.get("grammar_focus"),
-                grammar_pct=gp.get("grammar_pct", 75), mode=mode, lang=lang)
+                sentences, _ = ai.generate_story(
+                    [card], topic=gp.get("topic"), max_hsk=gp.get("max_hsk", 2),
+                    model=model, grammar_focus=gp.get("grammar_focus"),
+                    grammar_pct=gp.get("grammar_pct", 75), mode=mode, lang=lang)
     except Exception as e:
         logger.warning("again-regen  generation error for word=%s: %s", card.get("word_zh"), e)
         return None

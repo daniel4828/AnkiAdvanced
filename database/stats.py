@@ -206,6 +206,13 @@ _LEGACY_CLUSTER_GAP_SECONDS = 90
 # the main action ("story"), not a 1:1 helper pass ("fix_commas").
 _AUX_PURPOSES = {"fix_commas", "briefing_fact_check", "briefing_repair"}
 
+# Single-word Again regenerations get a per-mode "… Again Sentences" action label
+# (issue #578). Each click is its own action (one call), so adjacent actions with
+# the same Again label within this gap are merged into one expandable row —
+# a review session's Again clicks read as one line instead of dozens.
+_AGAIN_MERGE_GAP_SECONDS = 1800
+_AGAIN_LABEL_SUFFIX = "Again Sentences"
+
 
 def log_api_call(model: str, input_tokens: int, output_tokens: int,
                  purpose: str = "story", cached_input_tokens: int = 0,
@@ -352,10 +359,34 @@ def get_api_costs(limit: int = 100) -> dict:
     # rows (and thus order) are already called_at DESC, and an action's
     # started_at is its earliest call — sort actions by that so the most
     # recently-started operation shows first, matching the flat log's order.
-    actions_list = sorted(
+    actions_sorted = sorted(
         (actions[k] for k in order),
         key=lambda a: a["started_at"], reverse=True,
-    )[:limit]
+    )
+
+    # Merge adjacent same-label "… Again Sentences" actions (issue #578): each
+    # Again click is its own one-call action, so without this a review session
+    # fills the list with dozens of single-call rows. Newest-first order means
+    # the previous merged row's earliest call vs this action's latest call is
+    # the true gap between them.
+    merged: list[dict] = []
+    for a in actions_sorted:
+        prev = merged[-1] if merged else None
+        if (prev is not None and a["label"] == prev["label"]
+                and (a["label"] or "").endswith(_AGAIN_LABEL_SUFFIX)):
+            prev_earliest = _parse_log_time(prev["started_at"])
+            a_latest = _parse_log_time(a["calls"][0]["called_at"]) if a["calls"] else None
+            if (prev_earliest is not None and a_latest is not None
+                    and (prev_earliest - a_latest).total_seconds() <= _AGAIN_MERGE_GAP_SECONDS):
+                prev["calls"].extend(a["calls"])
+                prev["call_count"] += a["call_count"]
+                if a["total_cost"] is not None:
+                    prev["total_cost"] = round((prev["total_cost"] or 0.0) + a["total_cost"], 6)
+                prev["started_at"] = a["started_at"]
+                prev["action_id"] = None  # spans several action_ids now
+                continue
+        merged.append(a)
+    actions_list = merged[:limit]
 
     return {
         "pricing_as_of": _PRICING_AS_OF,
