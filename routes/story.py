@@ -129,15 +129,20 @@ CHUNK_SIZE = 70
 
 
 def _generate_story_sentences(cards: list, *, topic, max_hsk, model, progress_key,
-                               grammar_focus, grammar_pct, mode, lang: str = "zh") -> tuple[list, str]:
-    """Generate story sentences, splitting into chunks of CHUNK_SIZE when cards > CHUNK_SIZE."""
-    if len(cards) <= CHUNK_SIZE:
+                               grammar_focus, grammar_pct, mode, lang: str = "zh",
+                               batch_size: int | None = None) -> tuple[list, str]:
+    """Generate story sentences, splitting into chunks of CHUNK_SIZE when cards > CHUNK_SIZE.
+
+    batch_size (issue #574): user-chosen words-per-AI-call from the setup modal;
+    overrides CHUNK_SIZE when set."""
+    chunk_limit = batch_size if batch_size and batch_size > 0 else CHUNK_SIZE
+    if len(cards) <= chunk_limit:
         return ai.generate_story(cards, topic=topic, max_hsk=max_hsk, model=model,
                                  progress_key=progress_key, grammar_focus=grammar_focus,
                                  grammar_pct=grammar_pct, mode=mode, lang=lang)
 
-    chunks = [cards[i:i + CHUNK_SIZE] for i in range(0, len(cards), CHUNK_SIZE)]
-    logger.info("story  CHUNKED %d cards → %d chunks of ≤%d", len(cards), len(chunks), CHUNK_SIZE)
+    chunks = [cards[i:i + chunk_limit] for i in range(0, len(cards), chunk_limit)]
+    logger.info("story  CHUNKED %d cards → %d chunks of ≤%d", len(cards), len(chunks), chunk_limit)
     all_sentences: list[dict] = []
     combined_prompt = ""
     for idx, chunk in enumerate(chunks):
@@ -246,7 +251,8 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
         if mode == "kahneman":
             parsed_chapter_ids = [int(x) for x in chapter_ids.split(",") if x.strip()] if chapter_ids else []
             sentences, prompt_text = _generate_kahneman_story_sentences(
-                cards, parsed_chapter_ids, model=model, progress_key=progress_key)
+                cards, parsed_chapter_ids, model=model, progress_key=progress_key,
+                batch_size=batch_size)
         elif mode in ("paste", "briefing"):
             # Briefing (issue #444) and paste (issue #481) share the briefing
             # pipeline and ignore the frontend's model selection — they always
@@ -277,7 +283,7 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
             sentences, prompt_text = _generate_briefing_story_sentences(
                 cards, articles, model=model, progress_key=progress_key,
                 max_hsk=max_hsk, generic=(mode == "paste"),
-                include_context=True)
+                include_context=True, batch_size=batch_size)
         elif mode == "podcast":
             # Podcast mode rework (issue #561): drops the briefing pipeline —
             # only the episode's German summary is sent (detailed enough since
@@ -314,7 +320,8 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
             sentences, prompt_text = _generate_story_sentences(
                 cards, topic=topic, max_hsk=max_hsk, model=model,
                 progress_key=progress_key, grammar_focus=grammar_focus,
-                grammar_pct=grammar_pct, mode=mode, lang=lang)
+                grammar_pct=grammar_pct, mode=mode, lang=lang,
+                batch_size=batch_size)
         for i, s in enumerate(sentences):
             s["position"] = i
         gen_params = _gen_params_dict(
@@ -389,8 +396,11 @@ def _gen_params_dict(*, topic, max_hsk, model, grammar_focus, grammar_pct,
     episode_id: podcast mode's selected episode (issue #482, summary-only
     pipeline since #561) — Again-regen re-fetches the episode's summary_de by
     this id rather than reusing `articles` (podcast stories don't store any).
-    batch_size: podcast mode's words-per-AI-call (issue #563); None/0 = all at
-    once. Stored for handoff/reproducibility only — Again-regen is single-card.
+    batch_size: user-chosen words-per-AI-call (issue #563 podcast-only, #574 all
+    modes); None/0 = each mode's default chunking (podcast: all at once; story
+    family: CHUNK_SIZE; kahneman: per-chapter split capped at MAX_KAHNEMAN_BATCH;
+    briefing/paste: MAX_NEWS_BATCH). Stored for handoff/reproducibility only —
+    Again-regen is single-card.
     """
     return {
         "mode": mode,
@@ -712,6 +722,7 @@ def _load_kahneman_chapter(chapter_id: int) -> dict | None:
 def _generate_kahneman_story_sentences(
     cards: list, chapter_ids: list[int] | None,
     model: str, progress_key: str | None,
+    batch_size: int | None = None,
 ) -> tuple[list, str]:
     """Distribute cards across selected chapters, call AI once per chapter, merge results."""
     if not os.path.exists(KAHNEMAN_PATH):
@@ -735,7 +746,11 @@ def _generate_kahneman_story_sentences(
     n = len(selected)
     # Cap words per AI call: large batches make the model skip words and dilute
     # sentence quality. Extra batches cycle through the selected chapters.
-    chunk_size = min(math.ceil(len(cards) / n), MAX_KAHNEMAN_BATCH)
+    # batch_size (issue #574): user-chosen override from the setup modal.
+    if batch_size and batch_size > 0:
+        chunk_size = batch_size
+    else:
+        chunk_size = min(math.ceil(len(cards) / n), MAX_KAHNEMAN_BATCH)
     chunks = [cards[i:i + chunk_size] for i in range(0, len(cards), chunk_size)]
 
     all_sentences: list[dict] = []
@@ -772,6 +787,7 @@ def _group_sentences_by_article(sentences: list[dict], articles: list[dict]) -> 
 def _generate_briefing_story_sentences(
     cards: list, articles: list[dict], model: str, progress_key: str | None,
     max_hsk: int = 3, generic: bool = False, include_context: bool = True,
+    batch_size: int | None = None,
 ) -> tuple[list, str]:
     """News flow mode (issue #399): split cards into batches of ai.MAX_NEWS_BATCH,
     each batch produces its own flowing mini-summary (target-word sentences +
@@ -794,7 +810,9 @@ def _generate_briefing_story_sentences(
             "News flow mode found no articles. "
             "Today's news fetch may have failed — please try again.")
 
-    chunk_size = ai.MAX_NEWS_BATCH
+    # batch_size (issue #574): user-chosen words-per-AI-call from the setup modal;
+    # empty = the long-standing MAX_NEWS_BATCH default.
+    chunk_size = batch_size if batch_size and batch_size > 0 else ai.MAX_NEWS_BATCH
     chunks = [cards[i:i + chunk_size] for i in range(0, len(cards), chunk_size)]
 
     # Detailed loading-screen progress (issue #407): overall word counter and the

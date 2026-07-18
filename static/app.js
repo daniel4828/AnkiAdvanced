@@ -4074,10 +4074,11 @@ function _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chap
   if (mode && mode !== 'story')           p.set('mode', mode);
   if (chapterIds && chapterIds.length)    p.set('chapter_ids', chapterIds.join(','));
   if (episodeId)                          p.set('episode_id', episodeId);
-  // Podcast words-per-call (issue #563) — a module global (set in
-  // confirmStorySetup, persisted in localStorage) rather than yet another
-  // positional parameter through every call chain. Unset = all at once.
-  if (mode === 'podcast' && _podcastBatchSize) p.set('batch_size', _podcastBatchSize);
+  // Words per AI call (issue #563 podcast-only, #574 all modes) — persisted
+  // per mode in localStorage (like setupModel) rather than yet another
+  // positional parameter through every call chain. Unset = mode default.
+  const _bs = _savedBatchSize(mode);
+  if (_bs)                                p.set('batch_size', _bs);
   // Active language tab (issue #436) — only sent once more than one language is
   // in use, so a pure-Chinese install's requests stay byte-identical.
   if (_langQ())                           p.set('lang', activeLang());
@@ -6599,6 +6600,12 @@ function updateSetupMode() {
   const grammarLabel = document.getElementById('setup-grammar-label');
   if (modelLabel) modelLabel.style.display = isVocab ? 'none' : '';
   if (hskLabel) hskLabel.style.display = isVocab ? 'none' : '';
+  // Words per AI call (issue #574): per-mode persisted value, hidden in
+  // words-only mode (nothing is generated there).
+  const batchLabel = document.getElementById('setup-batch-label');
+  const batchInp = document.getElementById('setup-batch-size');
+  if (batchLabel) batchLabel.style.display = isVocab ? 'none' : '';
+  if (batchInp) batchInp.value = _savedBatchSize(mode) || '';
   if (grammarLabel) grammarLabel.style.display =
     isVocab ? 'none' : ((_deckLangById[deckId] || 'zh') === 'zh' ? '' : 'none');
   const countLabel = document.getElementById('setup-count-label');
@@ -6641,8 +6648,6 @@ function updateSetupMode() {
     if (podcastSection) podcastSection.style.display = 'block';
     btn.textContent = 'Generate podcast summary';
     _loadPodcastEpisodesForSetup();
-    const batchInp = document.getElementById('setup-podcast-batch');
-    if (batchInp) batchInp.value = _podcastBatchSize || '';
   } else if (mode === 'vocab') {
     topicLabel.style.display = 'none';
     kahnemanSection.style.display = 'none';
@@ -7053,9 +7058,20 @@ function randomKahnemanChapters() {
 // but radio-style (one episode per story).
 let _setupPodcastFeeds = null;              // null = not loaded yet
 let _setupPodcastEpisodesByFeed = {};       // key '' (all) or feed_id → episodes array
-// Podcast words-per-AI-call (issue #563): null = all due words in one call
-// (the default). Read by _storyParams for every podcast generation URL.
-let _podcastBatchSize = parseInt(localStorage.getItem('podcastBatchSize'), 10) || null;
+// Words per AI call (issue #563 podcast-only, #574 all modes): persisted per
+// mode like setupModel. null = the mode's default chunking. Read by
+// _storyParams for every generation URL.
+function _savedBatchSize(mode) {
+  return parseInt(localStorage.getItem('setupBatch:' + mode), 10) || null;
+}
+// One-time migration from the podcast-only #563 key.
+(() => {
+  const old = localStorage.getItem('podcastBatchSize');
+  if (old) {
+    localStorage.setItem('setupBatch:podcast', old);
+    localStorage.removeItem('podcastBatchSize');
+  }
+})();
 
 async function _loadPodcastEpisodesForSetup() {
   const container = document.getElementById('setup-podcast-episodes');
@@ -7162,13 +7178,13 @@ function confirmStorySetup() {
     showError('Podcast mode needs an episode — select one first.');
     return;
   }
-  // Podcast words-per-call (issue #563): empty input = all at once (null).
-  if (mode === 'podcast') {
-    const batchInp = document.getElementById('setup-podcast-batch');
+  // Words per AI call (issue #563 podcast-only, #574 all modes): empty input
+  // = the mode's default chunking; persisted per mode like setupModel.
+  {
+    const batchInp = document.getElementById('setup-batch-size');
     const v = parseInt((batchInp && batchInp.value) || '', 10);
-    _podcastBatchSize = v > 0 ? v : null;
-    if (_podcastBatchSize) localStorage.setItem('podcastBatchSize', _podcastBatchSize);
-    else localStorage.removeItem('podcastBatchSize');
+    if (v > 0) localStorage.setItem('setupBatch:' + mode, v);
+    else localStorage.removeItem('setupBatch:' + mode);
   }
   _currentStoryMode = mode;
   _closeSetupModal();
