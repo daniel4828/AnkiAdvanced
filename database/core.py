@@ -7,17 +7,52 @@ from datetime import date, datetime, timedelta
 DB_PATH = os.environ.get("DB_PATH", "data/srs.db")
 SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "..", "schema.sql")
 
-DAY_CUTOFF_HOUR = 4  # New day starts at 4am, like Anki
+DEFAULT_DAY_CUTOFF_HOUR = 5  # New day starts at 5am by default (issue #588)
+
+# Cached day-cutoff hour. anki_today() runs dozens of times per request, so we
+# must not open a DB connection each call. This module-level cache is refreshed
+# by refresh_day_cutoff_hour() at the end of init_db() and whenever the setting
+# is changed via the API. (issue #588)
+_day_cutoff_hour = DEFAULT_DAY_CUTOFF_HOUR
+
+
+def get_day_cutoff_hour() -> int:
+    """Hour (0-23) at which a new Anki day begins. Reads the cached value; the
+    cache is seeded/refreshed by refresh_day_cutoff_hour(). (issue #588)"""
+    return _day_cutoff_hour
+
+
+def refresh_day_cutoff_hour() -> int:
+    """Reload the day-cutoff hour from app_settings into the module cache and
+    return it. Called at init and after the setting is updated. Falls back to
+    the default on any error or invalid value. (issue #588)"""
+    global _day_cutoff_hour
+    try:
+        conn = get_db()
+        try:
+            row = conn.execute(
+                "SELECT value FROM app_settings WHERE key = 'day_cutoff_hour'"
+            ).fetchone()
+        finally:
+            conn.close()
+        if row is not None:
+            h = int(row["value"])
+            if 0 <= h <= 23:
+                _day_cutoff_hour = h
+    except Exception:
+        pass
+    return _day_cutoff_hour
 
 
 def anki_today() -> date:
-    """Return today's date using 4am as the day boundary (like Anki).
+    """Return today's date using the configurable day boundary (default 5am,
+    like Anki's 4am; issue #588).
 
-    Between midnight and 3:59am, returns yesterday's date so that late-night
-    review sessions still count as the previous calendar day.
+    Between midnight and the cutoff hour, returns yesterday's date so that
+    late-night review sessions still count as the previous calendar day.
     """
     now = datetime.now()
-    if now.hour < DAY_CUTOFF_HOUR:
+    if now.hour < _day_cutoff_hour:
         return (now - timedelta(days=1)).date()
     return now.date()
 
@@ -547,6 +582,14 @@ def init_db() -> None:
         "INSERT OR IGNORE INTO app_settings (key, value) VALUES ('pregen_enabled', '1')")
     conn.commit()
 
+    # day_cutoff_hour seeding (issue #588): the hour a new Anki day begins.
+    # Default 5 (Daniel reviews past midnight and doesn't want the next day's
+    # cards appearing before 5am). Same unconditional INSERT OR IGNORE pattern;
+    # existing installs pick up the default on next startup without a migration.
+    conn.execute(
+        "INSERT OR IGNORE INTO app_settings (key, value) VALUES ('day_cutoff_hour', '5')")
+    conn.commit()
+
     # feeds (#497) seeding: RSS direct-link sources replacing the dead
     # YouTube channel_url (YouTube started bot-verifying the server's IP with
     # no Cookie fix that stuck, #491/#497). Same unconditional INSERT OR
@@ -644,6 +687,10 @@ def init_db() -> None:
     conn.commit()
 
     conn.close()
+
+    # Seed the day-cutoff cache now that app_settings is guaranteed present
+    # (issue #588). Every anki_today() thereafter reads the cache, not the DB.
+    refresh_day_cutoff_hour()
 
 
 def _migrate_story_sentences_multi_word(conn: sqlite3.Connection) -> None:

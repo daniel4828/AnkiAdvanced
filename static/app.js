@@ -2545,10 +2545,39 @@ async function openStats() {
 // ── Settings (customize review shortcuts) ────────────────────────────────────
 let _capturingAction = null;
 let _settingsMsg = '';
+let _dayCutoffHour = 5;
 function openSettings() {
   _capturingAction = null; _settingsMsg = '';
   showView('settings');
   renderSettings();
+  _loadDayCutoffHour();
+}
+
+async function _loadDayCutoffHour() {
+  try {
+    const res = await api('GET', '/api/day-cutoff-hour');
+    if (res && Number.isInteger(res.hour)) {
+      _dayCutoffHour = res.hour;
+      renderSettings();
+    }
+  } catch (e) { /* keep default */ }
+}
+
+async function saveDayCutoffHour() {
+  const input = document.getElementById('day-cutoff-hour-input');
+  const msg = document.getElementById('day-cutoff-msg');
+  const hour = parseInt(input.value, 10);
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
+    if (msg) msg.textContent = 'Enter 0–23';
+    return;
+  }
+  try {
+    const res = await api('PUT', '/api/day-cutoff-hour', { hour });
+    _dayCutoffHour = res.hour;
+    if (msg) msg.textContent = 'Saved ✓';
+  } catch (e) {
+    if (msg) msg.textContent = 'Failed: ' + e.message;
+  }
 }
 function renderSettings() {
   const rows = KEYMAP_ACTIONS.map(a => {
@@ -2583,6 +2612,18 @@ function renderSettings() {
                  onchange="setNewsflowLangFromSwitch(this.checked)" style="width:18px;height:18px;cursor:pointer">
           <span id="newsflow-lang-value">${nfZh ? '中文' : 'Original (DE)'}</span>
         </label>
+      </div>
+    </div>
+    <div class="keymap-panel">
+      <h2 class="keymap-heading">Day boundary</h2>
+      <p class="keymap-hint">Hour a new day starts. Cards due the next day stay out of the stack until this time, so late-night reviews still count as the previous day. Default 5.</p>
+      <div class="keymap-row">
+        <span class="keymap-label">New day starts at</span>
+        <input class="opt-input" id="day-cutoff-hour-input" type="number" min="0" max="23"
+               value="${_dayCutoffHour}" style="width:64px">
+        <span class="keymap-label">:00</span>
+        <button class="keymap-reset-all" onclick="saveDayCutoffHour()">Save</button>
+        <span id="day-cutoff-msg" class="keymap-label"></span>
       </div>
     </div>
     <div class="keymap-panel">

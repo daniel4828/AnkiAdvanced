@@ -1165,6 +1165,30 @@ def put_pregen_enabled(body: dict):
     return {"ok": True, "enabled": enabled}
 
 
+@router.get("/api/day-cutoff-hour")
+def get_day_cutoff_hour_endpoint():
+    """The hour (0-23) at which a new Anki day begins (issue #588). Before this
+    hour, late-night reviews still count as the previous day and the next day's
+    cards stay out of the stack."""
+    return {"hour": database.get_day_cutoff_hour()}
+
+
+@router.put("/api/day-cutoff-hour")
+def put_day_cutoff_hour(body: dict):
+    """Set the day-boundary hour (issue #588). body: {"hour": int 0-23}.
+    Refreshes the in-memory cache so anki_today() picks it up immediately."""
+    try:
+        hour = int(body.get("hour"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="hour must be an integer")
+    if not 0 <= hour <= 23:
+        raise HTTPException(status_code=400, detail="hour must be between 0 and 23")
+    database.set_app_setting("day_cutoff_hour", str(hour))
+    database.refresh_day_cutoff_hour()
+    logger.info("day-cutoff-hour  set to %s", hour)
+    return {"ok": True, "hour": hour}
+
+
 @router.put("/api/pregen-config")
 def put_pregen_config(body: dict):
     """Replace the config rows for one deck. body: {"deck_id": int,
