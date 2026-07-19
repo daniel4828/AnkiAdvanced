@@ -288,13 +288,14 @@ def _smart_due(due_dt: datetime) -> str:
     same-day datetime in SQL comparisons, so the card is correctly included
     in story generation and review queries from the start of that day.
     """
-    next_4am = datetime.combine(
+    cutoff_hour = database.get_day_cutoff_hour()
+    next_cutoff = datetime.combine(
         database.anki_today() + timedelta(days=1),
-        dtime(database.DAY_CUTOFF_HOUR, 0, 0),
+        dtime(cutoff_hour, 0, 0),
     )
-    if due_dt >= next_4am:
+    if due_dt >= next_cutoff:
         # Determine the Anki day the card will be shown on
-        due_date = (due_dt.date() if due_dt.hour >= database.DAY_CUTOFF_HOUR
+        due_date = (due_dt.date() if due_dt.hour >= cutoff_hour
                     else (due_dt - timedelta(days=1)).date())
         return due_date.isoformat()
     return due_dt.isoformat(timespec="seconds")
