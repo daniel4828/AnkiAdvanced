@@ -2633,7 +2633,7 @@ function renderSettings() {
     </div>
     <div class="keymap-panel">
       <h2 class="keymap-heading">Server logs</h2>
-      <p class="keymap-hint">View the last lines of the server log (helpful for debugging story generation, TTS, etc).</p>
+      <p class="keymap-hint">View the last lines of the server log (helpful for debugging story generation, TTS, etc). Shortcut: Option+L (Alt+L).</p>
       <button class="keymap-reset-all" onclick="openLogsViewer()">Open logs</button>
     </div>`;
   _loadPregenSettings();
@@ -7819,16 +7819,13 @@ function playSentence() {
   _listenCount++;
   _updateListenCounters();
   if (_currentAudio) { _currentAudio.onended = null; _currentAudio.pause(); _currentAudio = null; }
-  // Reuse the pre-buffered element when warmed (#554/#557) — gapless, no wait;
-  // otherwise a fresh element still replays instantly from the immutable HTTP cache.
-  const warm = _warmed.get(url);
-  let audio;
-  if (warm) {
-    audio = warm;
-    try { audio.currentTime = 0; } catch (_) {}
-  } else {
-    audio = _warmAudio(url);
-  }
+  // Always create a fresh element inside this (user-gesture) call — iOS Safari
+  // refuses to play an Audio element that was created in the background (e.g. by
+  // _warmAudio's prefetch), so reusing a warmed element left listening cards
+  // silent on mobile (#590). The URL is immutable-cached, so a fresh element
+  // still replays instantly once the mp3 exists on disk; the warmed cache is
+  // kept only for gapless full-story playback in _playStoryAtIdx.
+  const audio = new Audio(url);
   _currentAudio = audio;
   audio.play().catch(() => {});
 }
@@ -9226,6 +9223,18 @@ document.addEventListener('keydown', async e => {
   // Shift+S toggles the FSRS scheduler inspector
   if (e.key === 'S' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
     if (!inInput) { e.preventDefault(); toggleFsrsInspector(); }
+    return;
+  }
+
+  // Alt+L (Option+L) toggles the logs viewer. Use e.code, not e.key: on macOS
+  // Option+L produces the character '¬', so e.key wouldn't be 'L'.
+  if (e.code === 'KeyL' && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+    if (!inInput) {
+      e.preventDefault();
+      const overlay = document.getElementById('logs-modal-overlay');
+      if (overlay && overlay.style.display !== 'none') closeLogsViewer();
+      else openLogsViewer();
+    }
     return;
   }
 
