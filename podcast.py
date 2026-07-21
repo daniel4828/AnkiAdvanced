@@ -258,22 +258,26 @@ def fetch_new_videos() -> list[dict]:
     return videos
 
 
-def load_more_episodes(feed_id: int) -> dict:
-    """Ingest the next page of older back-catalog episodes for one feed,
-    metadata-only (never auto-processed). Regular check() only walks the
-    newest items and stops at the first already-known guid, so a feed's
-    back-catalog older than the initial backfill is otherwise unreachable;
-    this pulls it in on demand, LOAD_MORE_PAGE at a time, skipping anything
-    already stored. Returns {"added": N}. Raises ValueError (unknown feed) /
-    RuntimeError (fetch/parse failure) for the route to map to 404/500."""
+def ingest_feed_episodes(feed_id: int, limit: int, root=None) -> int:
+    """Store up to `limit` not-yet-known episodes of one feed as pending
+    (metadata-only, never auto-processed), newest first. Shared by
+    load_more_episodes (back-catalog paging) and create_feed (immediate
+    backfill of the latest episodes right when a feed is added, #593).
+
+    `root` may be a pre-parsed RSS ElementTree to avoid a redundant fetch
+    (create_feed already fetched it to validate the URL); when None the feed
+    is fetched here. Skips episodes already in the DB. Returns the count
+    added. Raises ValueError (unknown feed) / RuntimeError (fetch/parse
+    failure) for callers/routes to map to 404/500."""
     feed = database.get_feed(feed_id)
     if not feed:
         raise ValueError("feed not found")
     feed_url = feed["url"]
-    try:
-        root = ElementTree.fromstring(_http_get(feed_url, timeout=30))
-    except (urllib.error.URLError, ElementTree.ParseError) as e:
-        raise RuntimeError(f"failed to fetch/parse feed: {e}")
+    if root is None:
+        try:
+            root = ElementTree.fromstring(_http_get(feed_url, timeout=30))
+        except (urllib.error.URLError, ElementTree.ParseError) as e:
+            raise RuntimeError(f"failed to fetch/parse feed: {e}")
 
     known = database.get_known_video_ids()
     added = 0
@@ -287,9 +291,20 @@ def load_more_episodes(feed_id: int) -> dict:
             video.get("audio_url"), video.get("duration_seconds"),
         )
         added += 1
-        if added >= LOAD_MORE_PAGE:
+        if added >= limit:
             break
-    return {"added": added}
+    return added
+
+
+def load_more_episodes(feed_id: int) -> dict:
+    """Ingest the next page of older back-catalog episodes for one feed,
+    metadata-only (never auto-processed). Regular check() only walks the
+    newest items and stops at the first already-known guid, so a feed's
+    back-catalog older than the initial backfill is otherwise unreachable;
+    this pulls it in on demand, LOAD_MORE_PAGE at a time, skipping anything
+    already stored. Returns {"added": N}. Raises ValueError (unknown feed) /
+    RuntimeError (fetch/parse failure) for the route to map to 404/500."""
+    return {"added": ingest_feed_episodes(feed_id, LOAD_MORE_PAGE)}
 
 
 # ---------------------------------------------------------------------------
