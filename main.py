@@ -197,7 +197,18 @@ try:
 
     @asynccontextmanager
     async def lifespan(app):
-        yield  # startup
+        # Recover podcast episodes orphaned by a mid-transcription restart/crash
+        # (#598): _process_episode marks an episode 'processing' while it works,
+        # so any 'processing' row at startup is a leftover (nothing runs yet) —
+        # flip it to 'error' so run_check's auto-retry reprocesses it, reusing
+        # any stored transcript. Best-effort: never block or crash startup.
+        try:
+            recovered = database.recover_orphaned_podcast_episodes()
+            if recovered:
+                logger.info("podcast: recovered %d episode(s) orphaned by a restart", recovered)
+        except Exception as e:
+            logger.warning("podcast: orphan recovery skipped at startup: %s", e)
+        yield  # startup done; below runs at shutdown
         if os.environ.get("DEV_CLEAR_DB"):
             import shutil
             import tts as _tts

@@ -203,6 +203,32 @@ def update_episode(episode_id: int, **fields) -> None:
     conn.close()
 
 
+def recover_orphaned_podcast_episodes() -> int:
+    """Reset episodes orphaned mid-transcription back to 'error' so run_check's
+    auto-retry (#491) reprocesses them, reusing any stored transcript (#500).
+
+    _process_episode stamps processing_started_at while it works and clears it
+    (via finally) on every normal exit, so at process startup — when nothing is
+    running yet — any row with processing_started_at still set was left by a
+    restart/crash that killed the process mid-transcription (#598). Backfilled
+    episodes never reach _process_episode, so their stamp stays NULL and they
+    are untouched. 'summarized' rows are left alone defensively (a stray stamp
+    there should not clobber a finished episode). Returns the number recovered."""
+    conn = get_db()
+    cur = conn.execute(
+        """UPDATE podcast_episodes
+           SET status = 'error',
+               error = 'Interrupted by a restart — will auto-retry',
+               processing_started_at = NULL
+           WHERE processing_started_at IS NOT NULL
+             AND status != 'summarized'""",
+    )
+    conn.commit()
+    n = cur.rowcount
+    conn.close()
+    return n
+
+
 def _hydrate(row: dict) -> dict:
     d = dict(row)
     raw = d.get("hsk_words")
