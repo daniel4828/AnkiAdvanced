@@ -333,11 +333,20 @@ def _strip_ellipsis(word_zh: str) -> str:
     return word_zh.strip('.')
 
 
+# CEFR level string → the shared 1-6 integer scale stored in entries.hsk_level
+# (A1=1 … C2=6; languages.py `level_system` tells the frontend how to label it).
+_CEFR_TO_INT = {"A1": 1, "A2": 2, "B1": 3, "B2": 4, "C1": 5, "C2": 6}
+
+
+def _cefr_to_int(level) -> int | None:
+    return _CEFR_TO_INT.get(str(level or "").strip().upper())
+
+
 def _normalize_fr_entry(entry: dict) -> dict:
     """Reshape a French-format YAML entry into the internal (Chinese-era) key
     layout so all downstream processing (_build_word_dict, examples, etc.)
-    stays untouched. Non-French language modules (characters, measure words,
-    word_analyses) are simply absent from the French format for now.
+    stays untouched. Chinese-only modules (characters, measure words,
+    word_analyses) are simply absent from the French format.
     """
     normalized = dict(entry)
     normalized["simplified"] = (
@@ -353,9 +362,21 @@ def _normalize_fr_entry(entry: dict) -> dict:
         }
         for ex in (entry.get("examples") or [])
     ]
-    # French format doesn't define these Chinese-only fields yet
+    # `level: B1` (CEFR string) → shared 1-6 integer level (issue #596)
+    normalized["cefr_level"] = _cefr_to_int(entry.get("level"))
+    # similar_sentences {fr, german} → internal {zh, de} keys (sentence entries)
+    normalized["similar_sentences"] = [
+        {
+            "zh":      ss.get("fr", ""),
+            "english": ss.get("english"),
+            "de":      ss.get("german") or ss.get("de"),
+            "pinyin":  None,
+        }
+        for ss in (entry.get("similar_sentences") or [])
+    ]
+    # French format doesn't define these Chinese-only fields
     for key in ("hsk", "traditional", "pinyin", "word_analyses",
-                "characters", "measure_words", "similar_sentences"):
+                "characters", "measure_words"):
         normalized.pop(key, None)
     return normalized
 
@@ -377,7 +398,9 @@ def _build_word_dict(entry: dict, source: str, note_type: str = "vocabulary",
         "definition_de":   entry.get("german"),
         "definition_fr":   entry.get("french"),
         "pos":             entry.get("pos"),
-        "hsk_level":       _hsk_to_int(str(entry.get("hsk", ""))),
+        # non-zh: CEFR level mapped to the same 1-6 scale (see _cefr_to_int)
+        "hsk_level":       entry.get("cefr_level") if lang != "zh"
+                           else _hsk_to_int(str(entry.get("hsk", ""))),
         "traditional":     entry.get("traditional"),
         "definition_zh":   entry.get("definition_zh"),
         "source":          source,
@@ -465,6 +488,36 @@ def _process_word_relations(entry: dict, word_id: int) -> None:
                 related_de=item.get("de") or item.get("meaning"),
                 relation_type=rel_type,
             )
+
+
+def _process_conjugations(entry: dict, word_id: int) -> None:
+    """Insert verb conjugations (issue #596) from an entry's `conjugations` mapping.
+
+    YAML shape: {tense: {person: form, …}} for personal tenses, or
+    {tense: "form"} for impersonal forms (participles, infinitive) — the person
+    is stored as '' for those. Insertion order of the mapping is preserved via
+    position so the UI shows tenses in the order the YAML defined them.
+    """
+    conjugations = entry.get("conjugations")
+    if not isinstance(conjugations, dict):
+        return
+    position = 0
+    for tense, forms in conjugations.items():
+        tense = str(tense).strip()
+        if not tense:
+            continue
+        if isinstance(forms, dict):
+            pairs = [(str(p).strip(), str(f).strip()) for p, f in forms.items()]
+        else:
+            pairs = [("", str(forms).strip())]
+        for person, form in pairs:
+            if not form:
+                continue
+            database.insert_word_conjugation(
+                word_id=word_id, tense=tense, person=person,
+                form=form, position=position,
+            )
+            position += 1
 
 
 def _import_grammar_entry(entry: dict, label: str) -> bool:
@@ -744,9 +797,15 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
                     example_type="similar",
                 )
 
+        # Synonyms / antonyms — language-neutral (fr synonyms use the same
+        # word/meaning keys, issue #596)
+        _process_word_relations(entry, word_id)
+
+        # Verb conjugations (fr and future conjugating languages, issue #596)
+        _process_conjugations(entry, word_id)
+
         # The following processors handle Chinese-only YAML fields (characters,
-        # measure words, synonyms/antonyms, grammar structures, word_analyses
-        # components) — French format doesn't define them yet.
+        # measure words, grammar structures, word_analyses components).
         if lang == "zh":
             # Legacy: top-level `characters:` on vocabulary entries.
             # New format uses `word_analyses:` for all entry types (handled below).
@@ -755,9 +814,6 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
 
             # Measure words (量词)
             _process_measure_words(entry, word_id)
-
-            # Synonyms / antonyms
-            _process_word_relations(entry, word_id)
 
             # Grammar structures (sentence entries)
             if note_type == "sentence":
