@@ -209,7 +209,12 @@ def create_feed(body: FeedCreate):
     """Add a new RSS feed subscription. Validates the URL is a parseable RSS
     feed (fetches it once, synchronously) and pulls the channel <title> for
     display before storing — new feeds default to auto_process=0 (manual),
-    matching #502's "opt in to automation per-source" design."""
+    matching #502's "opt in to automation per-source" design.
+
+    Immediately backfills the feed's latest FIRST_RUN_BACKFILL episodes as
+    metadata-only pending rows (#593), reusing the RSS root already fetched
+    for validation — so the newest episodes show up in the list right away
+    instead of waiting for the next crawl cycle. Nothing is transcribed."""
     url = body.url.strip()
     if not url:
         raise HTTPException(400, "url is required")
@@ -226,6 +231,12 @@ def create_feed(body: FeedCreate):
         # else here would be unexpected, but still just a 400 (bad input),
         # not a 500 (server bug).
         raise HTTPException(400, "Feed already exists")
+    # Backfill the latest episodes (metadata-only). A failure here must not
+    # undo the successful subscription — the next crawl cycle backfills too.
+    try:
+        podcast.ingest_feed_episodes(feed_id, podcast.FIRST_RUN_BACKFILL, root=root)
+    except Exception as e:
+        logger.warning("podcast: initial backfill failed for feed %s: %s", feed_id, e)
     return database.get_feed(feed_id)
 
 
