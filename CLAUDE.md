@@ -167,7 +167,9 @@ Daniel 在中国需要 VPN 访问 GitHub。`gh` 命令报 `EOF` 错误时（`cur
 
 - **`languages.py` 是语言注册表**：每种语言定义 TTS 语音、翻译源、分词方式（jieba/空格）、AI 提示词参数、功能开关（拼音/汉字/量词仅中文）。加新语言 = 加一个条目
 - **`decks.lang` / `entries.lang`**（默认 `'zh'`）：目标语言；子牌组创建时继承父牌组的 lang
-- `word_zh` 对所有语言存"目标语言词形"（`_zh` 后缀是历史遗留）；法语词条的 pinyin/hsk_level/characters 留空
+- `word_zh` 对所有语言存"目标语言词形"（`_zh` 后缀是历史遗留）；法语词条的 pinyin/characters 留空
+- **等级共用 1–6 整数**（#596）：`entries.hsk_level` 对中文存 HSK 1–6，对法语存 CEFR（A1=1 … C2=6，YAML 里写 `level: "B1"`）；故事设置弹窗的背景词汇难度滑块两种语言通用（1–6），前端按 `languages.py` 的 `level_system` 显示 "HSK 3" 或 "B1"，法语故事提示词用滑块值生成 "CEFR A1-X" 上限（原来写死 A1-A2）
+- **动词变位**（#596）：`entry_conjugations` 表按"时态 × 人称"通用存储（person='' 表示分词等无人称形式，position 保留 YAML 顺序）；法语 YAML 用 `conjugations:` 映射导入；`/api/word/{id}` 返回 `conjugations`，词条详情页和复习卡背面渲染 Conjugation 折叠区（每时态一张小卡片）；同义反义词/相似句处理对法语也启用
 - **已知限制：** `UNIQUE(word_zh)` 是全局约束——文字系统不同（中文 vs 法语）不冲突；将来加第二种拉丁字母语言需改为 `UNIQUE(word_zh, lang)`（要重建表）
 - **中文专属：** 汉字分解、量词、拼音、kahneman/paste/briefing 故事模式
 - **主页语言标签页**（#436）：`GET /api/langs` 返回使用中的语言；前端多于一种语言才显示标签栏，选择存 `localStorage`。所有主页/复习/故事/统计接口支持可选 `?lang=`（默认不过滤，向后兼容）；解析规则统一为 `lang 参数 或 get_deck_lang(deck_id)`
@@ -194,6 +196,7 @@ Daniel 在中国需要 VPN 访问 GitHub。`gh` 命令报 `EOF` 错误时（`cur
 deck_presets → decks（自引用 parent_id，支持嵌套）→ entries
                                                       ├── entry_examples
                                                       ├── entry_measure_words（量词）
+                                                      ├── entry_conjugations（动词变位，时态×人称，#596）
                                                       ├── entry_relations（同义词等关系）
                                                       ├── entry_components（sentence 类型的组成词）
                                                       ├── entry_characters → characters → character_compounds

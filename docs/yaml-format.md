@@ -14,6 +14,7 @@
 5. [类型：`grammar`（语法点）](#类型-grammar语法点-仅展示不导入)
 6. [嵌套结构：`word_analyses`](#嵌套结构-word_analyses)
 7. [向后兼容性](#向后兼容性)
+8. [法语格式（`lang: fr`）](#法语格式lang-fr)
 
 ---
 
@@ -316,3 +317,96 @@ word_analyses:
 | `grammar_structures` | `entry_grammar_structures` |
 | `characters` | `entry_characters` → `characters` → `character_compounds`（旧格式，仍支持） |
 | `word_analyses` | `entry_components` + 递归导入子词语（所有类型的统一格式） |
+
+---
+
+## 法语格式（`lang: fr`）
+
+文件顶层必须声明 `lang: fr`（或粘贴导入到法语牌组——此时可省略）。法语条目经
+`importer._normalize_fr_entry` 归一化后复用全部下游逻辑；中文专属模块（汉字分解、
+量词、拼音、`word_analyses`）不适用。
+
+### 与中文格式的字段差异
+
+| 字段 | 说明 |
+|------|------|
+| `word` / `sentence` / `expression` | 词形字段（代替 `simplified`），按 `type` 取名 |
+| `level` | CEFR 等级字符串 `"A1"`–`"C2"`（代替 `hsk`），映射为 1–6 存入 `entries.hsk_level` |
+| `english` / `german` | 英/德释义（同中文格式） |
+| `note` | 德语使用说明，**建议在其中包含简短词源（Étymologie）**——法语没有独立词源列 |
+| `examples[]` | 每项 `{fr, german, english}`（`fr` 代替 `zh`，`german` 代替 `de`） |
+| `similar_sentences[]` | 同上，`{fr, german}`，仅 sentence 类型 |
+| `synonyms` / `antonyms` | 同中文格式：`{word, meaning}`（meaning 用德语） |
+| `conjugations` | 动词专用，见下——存入 `entry_conjugations` 表（议题 #596） |
+| `register` | 同中文格式的取值集合 |
+
+### `conjugations` 结构（仅动词）
+
+映射的两种形态：**有人称的时态**用 `{人称: 形式}` 子映射；**无人称形式**
+（分词、不定式）直接写字符串。时态与人称的书写顺序会按原样保留并展示。
+
+```yaml
+lang: fr
+entries:
+  - type: word
+    date: "07/21"
+    word: parler
+    pos: verbe
+    english: to speak, to talk
+    german: sprechen, reden
+    level: "A1"
+    register: neutral
+    note: |
+      Regelmäßiges Verb auf -er.
+
+      **Étymologie:** Vom lateinischen *parabolare* („in Gleichnissen reden").
+    examples:
+      - fr: Je parle un peu français.
+        english: I speak a little French.
+        german: Ich spreche ein wenig Französisch.
+    synonyms:
+      - word: discuter
+        meaning: diskutieren, sich unterhalten
+    conjugations:
+      présent:
+        je: parle
+        tu: parles
+        il/elle: parle
+        nous: parlons
+        vous: parlez
+        ils/elles: parlent
+      passé composé:
+        je: ai parlé
+        tu: as parlé
+        il/elle: a parlé
+        nous: avons parlé
+        vous: avez parlé
+        ils/elles: ont parlé
+      participe présent: parlant
+      participe passé: parlé (avoir)
+```
+
+### sentence 类型（法语）
+
+```yaml
+  - type: sentence
+    date: "07/21"
+    source_de: Ich werde dir zur passenden Zeit die Wahrheit sagen.
+    sentence: Je te dirai la vérité au moment opportun.
+    english: I will tell you the truth at the appropriate time.
+    german: Ich werde dir zur geeigneten Zeit die Wahrheit sagen.
+    level: "B1"
+    explanations: |
+      „au moment opportun" ist eine formelle Zeitangabe.
+    similar_sentences:
+      - fr: Je te le dirai plus tard.
+        german: Ich sage es dir später.
+```
+
+### 法语专属数据库映射
+
+| YAML 字段 | 数据库表 / 列 |
+|-----------|--------------|
+| `word` / `sentence` / `expression` | `entries.word_zh`（列名是历史遗留，存目标语言词形） |
+| `level`（CEFR） | `entries.hsk_level`（A1=1 … C2=6） |
+| `conjugations` | `entry_conjugations`（word_id, tense, person, form, position；无人称形式 person=''） |
