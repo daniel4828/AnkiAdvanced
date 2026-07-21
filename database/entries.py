@@ -96,6 +96,7 @@ def get_word_full(word_id: int) -> dict | None:
     word["measure_words"] = get_word_measure_words(word_id)
     word["relations"] = get_word_relations(word_id)
     word["components"] = get_note_components(word_id)
+    word["conjugations"] = get_word_conjugations(word_id)
     return word
 
 
@@ -199,6 +200,30 @@ def insert_word_relation(word_id: int, related_zh: str,
     )
     conn.commit()
     conn.close()
+
+
+def insert_word_conjugation(word_id: int, tense: str, person: str,
+                            form: str, position: int) -> None:
+    """person is '' for impersonal forms (participles, infinitive)."""
+    conn = get_db()
+    conn.execute(
+        """INSERT OR IGNORE INTO entry_conjugations
+           (word_id, tense, person, form, position)
+           VALUES (?, ?, ?, ?, ?)""",
+        (word_id, tense, person, form, position),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_word_conjugations(word_id: int) -> list[dict]:
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM entry_conjugations WHERE word_id = ? ORDER BY position, id",
+        (word_id,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 
 def delete_word_examples(word_id: int) -> None:
