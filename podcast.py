@@ -1330,6 +1330,15 @@ def _process_episode(episode_id: int, video: dict, detail_level: str, summary: d
 
     label = f"Transcribe & Summarize: {video['title'][:30]}"
     with database.action_context(label):
+        # Stamp the episode as actively processing (#598): the finally below
+        # clears this on every normal exit (success/error/no_transcript/dev),
+        # so a still-set timestamp means the process was killed mid-transcription
+        # (restart/crash) and recover_orphaned_podcast_episodes() will flip the
+        # episode to 'error' at next startup for auto-retry. Backfilled episodes
+        # never reach here (they rest at 'pending' until manually processed), so
+        # this reliably marks "actively working" without a 'processing' status
+        # (the DB CHECK constraint forbids one).
+        database.update_episode(episode_id, processing_started_at=datetime.now().isoformat())
         try:
             # Reuse an already-stored transcript (#500): after e.g. an OpenAI-quota
             # failure in the summary step, the retry must not re-run the whole
@@ -1401,7 +1410,6 @@ def _process_episode(episode_id: int, video: dict, detail_level: str, summary: d
                 logger.warning("podcast: email failed for %s: %s", video["video_id"], e)
                 sent = False
             if sent:
-                from datetime import datetime
                 database.update_episode(episode_id, email_sent_at=datetime.now().isoformat())
                 summary["emailed"] += 1
 
@@ -1416,6 +1424,11 @@ def _process_episode(episode_id: int, video: dict, detail_level: str, summary: d
             logger.error("podcast: episode %s failed: %s", video["video_id"], e)
             database.update_episode(episode_id, status="error", error=str(e))
             summary["failed"] += 1
+        finally:
+            # Clear the "actively processing" stamp on every normal exit (#598).
+            # Only a hard kill (SIGKILL) skips this, leaving the timestamp set so
+            # startup recovery can spot the orphan.
+            database.update_episode(episode_id, processing_started_at=None)
 
 
 def regenerate_summary(episode_id: int) -> dict:
