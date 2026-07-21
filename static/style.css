@@ -1160,6 +1160,8 @@ main.browse-open {
   border-radius: var(--radius);
   box-shadow: 0 8px 40px rgba(0,0,0,0.18);
   width: min(420px, 92vw);
+  max-height: 92vh;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   padding: 20px 24px 24px;
@@ -1197,6 +1199,8 @@ main.browse-open {
   border-radius: var(--radius);
   box-shadow: 0 8px 40px rgba(0,0,0,0.18);
   width: min(440px, 92vw);
+  max-height: 92vh;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   padding: 20px 24px 24px;
