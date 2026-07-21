@@ -102,6 +102,13 @@ function currentCardLang() {
   return _deckLangById[id] || 'zh';
 }
 
+// Shared 1-6 difficulty value → per-language label (issue #596):
+// zh uses HSK levels, every other language the CEFR scale (A1=1 … C2=6).
+const CEFR_LABELS = { 1: 'A1', 2: 'A2', 3: 'B1', 4: 'B2', 5: 'C1', 6: 'C2' };
+function levelLabel(lang, lvl) {
+  return lang === 'zh' ? `HSK ${lvl}` : (CEFR_LABELS[lvl] || `${lvl}`);
+}
+
 // — Customizable review shortcuts —
 // Each action maps to one key. Defaults below are the active bindings.
 // User overrides persist in localStorage('reviewKeymap'). Rating keys 1-4 stay fixed.
@@ -2202,7 +2209,8 @@ function renderWordDetail(word) {
     relEl.innerHTML = '';
   }
 
-  // Shared sections (notes, word analysis, examples)
+  // Shared sections (notes, conjugation, word analysis, examples)
+  renderConjugationSection(document.getElementById('wd-conjugation-section'), word);
   renderNotesSection(document.getElementById('wd-notes-section'), word.notes, word.id);
   renderWordAnalysis(document.getElementById('wd-word-analysis-section'), word, word.id);
   renderVocabDetail(document.getElementById('wd-examples-section'), word.examples, word.id);
@@ -4570,11 +4578,20 @@ function loadCard(c, counts) {
     deckPath.style.display = 'none';
   }
 
-  // HSK badge — Chinese-only concept; hidden entirely for non-zh decks.
-  // Otherwise always visible; "HSK -" when unknown (click to AI-fill)
+  // Level badge — zh shows "HSK n" ("HSK -" when unknown, click to AI-fill);
+  // CEFR languages show "B1" etc. when the entry has a level, otherwise the
+  // badge is hidden (AI-enrich is a Chinese-only feature) — issue #596.
   const hskBadge = document.getElementById('card-hsk-badge');
-  if (currentCardLang() !== 'zh') {
-    hskBadge.style.display = 'none';
+  const _cardLang = currentCardLang();
+  if (_cardLang !== 'zh') {
+    if (card.hsk_level) {
+      hskBadge.textContent = levelLabel(_cardLang, card.hsk_level);
+      hskBadge.classList.remove('hsk-unknown');
+      hskBadge.disabled = true;
+      hskBadge.style.display = 'inline';
+    } else {
+      hskBadge.style.display = 'none';
+    }
   } else {
     hskBadge.textContent = card.hsk_level ? `HSK ${card.hsk_level}` : 'HSK -';
     hskBadge.classList.toggle('hsk-unknown', !card.hsk_level);
@@ -4612,6 +4629,7 @@ function loadCard(c, counts) {
         }
         renderVocabDetail();
         renderNotesSection();
+        renderConjugationSection();
         _callRenderWordAnalysis();
         // MOST IMPORTANT: Re-render category row with actual card data
         renderReviewCatRow();
@@ -5001,8 +5019,9 @@ function revealAnswer() {
   // Show multi-word rating UI when the sentence contains multiple vocab words
   _renderMultiRatingIfNeeded();
 
-  // Populate character breakdown, examples, notes, grammar, and word analysis
+  // Populate character breakdown, examples, notes, conjugation, and word analysis
   renderNotesSection();
+  renderConjugationSection();
   _callRenderWordAnalysis();
   renderVocabDetail();
   renderReviewCatRow();
@@ -5503,6 +5522,35 @@ function renderNotesSection(container, notes, wordId) {
       `<span><span id="${bodyId}-arrow">▷</span> Notes</span>${regenBtn}</div>` +
     `<div id="${bodyId}" class="section-peek" data-peek="1" data-state="peek">${bodyContent}</div>`;
   el.style.display = '';
+}
+
+// Verb conjugation section (issue #596) — French & future conjugating
+// languages. wordData.conjugations rows come pre-ordered by position; group
+// them back into per-tense cards (person '' = impersonal form, e.g. participle).
+function renderConjugationSection(container, wordData) {
+  const el = container ?? document.getElementById('conjugation-section');
+  if (!el) return;
+  const conj = (wordData ?? wordDetails)?.conjugations || [];
+  if (!conj.length) { el.innerHTML = ''; return; }
+  const tenses = [];
+  const byTense = new Map();
+  conj.forEach(c => {
+    if (!byTense.has(c.tense)) { byTense.set(c.tense, []); tenses.push(c.tense); }
+    byTense.get(c.tense).push(c);
+  });
+  const bodyId = el.id + '-body';
+  const cards = tenses.map(t => {
+    const rows = byTense.get(t).map(c =>
+      c.person
+        ? `<div class="conj-row"><span class="conj-person">${c.person}</span><span class="conj-form">${c.form}</span></div>`
+        : `<div class="conj-row"><span class="conj-form">${c.form}</span></div>`
+    ).join('');
+    return `<div class="conj-tense-card"><div class="conj-tense-name">${t}</div>${rows}</div>`;
+  }).join('');
+  el.innerHTML =
+    `<div class="section-label section-toggle" onclick="toggleSection('${bodyId}')">` +
+      `<span id="${bodyId}-arrow">▶</span> Conjugation</div>` +
+    `<div id="${bodyId}" style="display:none"><div class="conj-grid">${cards}</div></div>`;
 }
 
 function renderWordAnalysis(container, wordData, wordId) {
@@ -6667,7 +6715,10 @@ function openStorySetup(sentenceCount, { isMixed = false, isUnfinished = false, 
       _prefillGp = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : null;
     } catch { _prefillGp = null; }
   }
-  document.getElementById('setup-hsk-slider').value = _prefillGp?.max_hsk ?? 3;
+  // Default background level: HSK 3 for zh, A2 (=2) for CEFR languages (#596)
+  const _setupLang = _deckLangById[deckId] || 'zh';
+  document.getElementById('setup-hsk-slider').value =
+    _prefillGp?.max_hsk ?? (_setupLang === 'zh' ? 3 : 2);
   const _modeSel = document.getElementById('setup-mode');
   _modeSel.value = _prefillGp?.mode || 'story';
   if (_modeSel.selectedIndex < 0) _modeSel.value = 'story'; // unknown mode in gen_params
@@ -6694,6 +6745,11 @@ function _applySetupLangRestrictions() {
   }
   const grammarLabel = document.getElementById('setup-grammar-label');
   if (grammarLabel) grammarLabel.style.display = lang === 'zh' ? '' : 'none';
+  // Difficulty slider label follows the deck's level system (#596)
+  const hskLabelText = document.getElementById('setup-hsk-label-text');
+  if (hskLabelText) hskLabelText.textContent = lang === 'zh'
+    ? 'Max HSK level for background vocabulary'
+    : 'Max CEFR level for background vocabulary';
 }
 
 function togglePriceTable(e) {
@@ -6704,8 +6760,9 @@ function togglePriceTable(e) {
 }
 
 function updateHskLabel() {
-  const v = document.getElementById('setup-hsk-slider').value;
-  document.getElementById('setup-hsk-badge').textContent = `HSK ${v}`;
+  const v = parseInt(document.getElementById('setup-hsk-slider').value, 10);
+  const lang = _deckLangById[deckId] || 'zh';
+  document.getElementById('setup-hsk-badge').textContent = levelLabel(lang, v);
 }
 
 function updateSetupMode() {

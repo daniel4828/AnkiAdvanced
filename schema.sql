@@ -212,6 +212,21 @@ CREATE TABLE IF NOT EXISTS entry_relations (
 );
 
 -- ---------------------------------------------------------------------------
+-- entry_conjugations  (verb conjugation forms — generic tense × person grid,
+-- used by French (issue #596) and any future conjugating language; person is
+-- '' for impersonal forms like participles/infinitives)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS entry_conjugations (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    word_id     INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+    tense       TEXT NOT NULL,      -- e.g. 'présent', 'passé composé', 'participe passé'
+    person      TEXT NOT NULL DEFAULT '',  -- e.g. 'je', 'tu', 'il/elle', '' for impersonal
+    form        TEXT NOT NULL,      -- the conjugated form, e.g. 'parle'
+    position    INTEGER NOT NULL DEFAULT 0, -- preserves the YAML tense/person order
+    UNIQUE(word_id, tense, person)
+);
+
+-- ---------------------------------------------------------------------------
 -- entry_examples
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS entry_examples (

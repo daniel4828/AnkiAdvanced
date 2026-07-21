@@ -289,6 +289,7 @@
         </div>
         <div id="vocab-content" style="display:none">
           <div id="notes-section"></div>
+          <div id="conjugation-section"></div>
           <div id="word-analysis-section"></div>
           <div id="examples-section"></div>
           <div style="display:flex;gap:8px;justify-content:center">
@@ -414,6 +415,7 @@
     </div>
     <div class="wd-body">
       <div id="wd-relations-section"></div>
+      <div id="wd-conjugation-section"></div>
       <div id="wd-notes-section"></div>
       <div id="wd-word-analysis-section"></div>
       <div id="wd-examples-section"></div>
@@ -805,7 +807,7 @@
       <input class="edit-input" id="setup-batch-size" type="number" min="1" step="1" placeholder="default">
     </label>
     <label class="edit-label" id="setup-hsk-label">
-      Max HSK level for background vocabulary
+      <span id="setup-hsk-label-text">Max HSK level for background vocabulary</span>
       <div class="setup-slider-row">
         <span class="setup-slider-min">1</span>
         <input type="range" id="setup-hsk-slider" min="1" max="6" value="3" oninput="updateHskLabel()">

@@ -242,6 +242,10 @@ def resolve_briefing_model() -> str:
 # Public API
 # ---------------------------------------------------------------------------
 
+# Shared 1-6 difficulty value → CEFR label, for non-zh story prompts (issue
+# #596). Mirrors importer._CEFR_TO_INT (A1=1 … C2=6).
+_CEFR_LEVELS = {1: "A1", 2: "A2", 3: "B1", 4: "B2", 5: "C1", 6: "C2"}
+
 # ── 自定义提示词模板（issue #581）──────────────────────────────────────────────
 # 每个可自定义模式一份内置模板；database.get_prompt_template(mode) 有自定义行时
 # 覆盖内置。渲染用 _render_prompt 做逐记号字符串替换（不是 str.format——模板里
@@ -458,6 +462,10 @@ def generate_story(cards: list[dict], topic: str | None = None, max_hsk: int = 2
         cfg = languages.get_lang_config(lang)
         lang_name = cfg["name_en"]
         learner = cfg["learner_level"]
+        # Background-vocabulary cap follows the setup-modal slider (issue #596):
+        # the shared 1-6 value maps to CEFR A1…C2 instead of HSK levels.
+        cefr_cap = _CEFR_LEVELS.get(max_hsk, "B1")
+        background_vocab = f"CEFR A1-{cefr_cap}"
 
         if mode == "qa":
             task_line = f"Answer the following question in {lang_name}, one sentence at a time, to help a {learner} learner review vocabulary.\nQuestion: {topic or 'Describe something interesting.'}"
@@ -480,7 +488,7 @@ Rules:
 - Write the sentences in the same order as the target word list above
 - For items marked [SENTENCE]: use that exact text as the sentence, unchanged
 - Use natural {lang_name} punctuation
-- Use only simple {cfg["background_vocab"]} level vocabulary for non-target words; each sentence must contain exactly ONE target word from the list — do not use other target words from the list in that sentence
+- Use only simple {background_vocab} level vocabulary for non-target words; each sentence must contain exactly ONE target word from the list — do not use other target words from the list in that sentence
 - Keep each sentence short and simple (max {cfg["sentence_limit"]})
 {style_rule}
 - Each target word must appear in exactly the given form; you may adapt or drop its leading article (le/la/les/un/une) to fit the sentence
