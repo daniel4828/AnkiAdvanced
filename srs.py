@@ -416,6 +416,8 @@ def apply_review(card_id: int, rating: int,
         "learned_interval":    card.get("learned_interval", 4),
         "enable_probation":    card.get("enable_probation", 1),
         "leech_threshold":     card["leech_threshold"],
+        "learning_leech_threshold": card["learning_leech_threshold"],
+        "enable_learning_leech":    card.get("enable_learning_leech", 1),
         "leech_action":        card["leech_action"],
         "desired_retention":   card.get("desired_retention", 0.9),
         "maximum_interval":    card.get("maximum_interval", 36500),
@@ -437,6 +439,20 @@ def apply_review(card_id: int, rating: int,
         # suspended — shouldn't be reviewed, but handle gracefully
         updated = card
 
+    # Learning-phase leech: count Again presses while the card is still in a
+    # pre-review state (new/learning/relearn, probation included). Review-state
+    # lapses are handled separately by _check_leech via cards.lapses.
+    again_count = card.get("learning_again_count") or 0
+    if rating == 1 and state_before in ("new", "learning", "relearn"):
+        again_count += 1
+        if (preset["enable_learning_leech"]
+                and again_count >= preset["learning_leech_threshold"]
+                and preset["leech_action"] == "suspend"
+                and updated["state"] != "suspended"):
+            database.mark_leech_suspend(card_id)
+            updated["state"] = "suspended"
+    updated["learning_again_count"] = again_count
+
     database.update_card(
         card_id,
         state=updated["state"],
@@ -450,6 +466,7 @@ def apply_review(card_id: int, rating: int,
         stability=updated.get("stability"),
         difficulty=updated.get("difficulty"),
         last_review=updated.get("last_review"),
+        learning_again_count=updated["learning_again_count"],
     )
     log_id = database.insert_review(
         card_id, rating, user_response=user_response,
@@ -726,8 +743,11 @@ def _handle_probation(card: dict, preset: dict, rating: int) -> dict:
 
 
 def _check_leech(card: dict, preset: dict) -> None:
-    """Suspend card if lapses >= leech_threshold."""
+    """Flag + suspend a review-phase leech once lapses >= leech_threshold."""
     if card["lapses"] >= preset["leech_threshold"]:
         if preset["leech_action"] == "suspend":
-            database.suspend_card(card["id"])
+            # mark_leech_suspend sets is_leech=1 and preserves pre_suspend_state,
+            # so the review notification and the Leeched browse filter both work.
+            database.mark_leech_suspend(card["id"])
             card["state"] = "suspended"
+            card["is_leech"] = 1

@@ -3712,6 +3712,7 @@ function loadPresetFields(preset) {
   document.getElementById('opt-relearn-steps').value   = preset.relearning_steps;
   document.getElementById('opt-leech').value           = preset.leech_threshold;
   document.getElementById('opt-learning-leech').value  = preset.learning_leech_threshold;
+  document.getElementById('opt-enable-learning-leech').checked = preset.enable_learning_leech == null ? true : !!preset.enable_learning_leech;
   document.getElementById('opt-new-gather-order').value        = preset.new_gather_order                || 'ascending_position';
   document.getElementById('opt-new-sort-order').value          = preset.new_sort_order                  || 'card_type_gathered';
   document.getElementById('opt-new-review-order').value        = preset.new_review_order                || 'mixed';
@@ -3883,6 +3884,7 @@ async function saveOptions() {
     relearning_steps:    document.getElementById('opt-relearn-steps').value.trim(),
     leech_threshold:     parseInt(document.getElementById('opt-leech').value),
     learning_leech_threshold: parseInt(document.getElementById('opt-learning-leech').value),
+    enable_learning_leech:    document.getElementById('opt-enable-learning-leech').checked ? 1 : 0,
     new_gather_order:               document.getElementById('opt-new-gather-order').value,
     new_sort_order:                 document.getElementById('opt-new-sort-order').value,
     new_review_order:               document.getElementById('opt-new-review-order').value,

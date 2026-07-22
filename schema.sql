@@ -73,6 +73,8 @@ CREATE TABLE IF NOT EXISTS deck_presets (
     leech_threshold         INTEGER NOT NULL DEFAULT 3,
     -- learning_leech_threshold: Again presses in learning/relearn before flagging
     learning_leech_threshold INTEGER NOT NULL DEFAULT 6,
+    -- enable_learning_leech: whether learning/relearn Again presses count toward leech
+    enable_learning_leech   INTEGER NOT NULL DEFAULT 1,
     leech_action            TEXT NOT NULL DEFAULT 'suspend'
                                 CHECK(leech_action IN ('suspend', 'tag')),
 

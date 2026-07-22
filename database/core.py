@@ -351,6 +351,8 @@ def init_db() -> None:
         # Lower the review-leech threshold from the legacy default (8) to the new
         # default (3) for presets that never tuned it away from 8.
         conn.execute("UPDATE deck_presets SET leech_threshold = 3 WHERE leech_threshold = 8")
+    if "enable_learning_leech" not in preset_cols:
+        conn.execute("ALTER TABLE deck_presets ADD COLUMN enable_learning_leech INTEGER NOT NULL DEFAULT 1")
     if "desired_retention" not in preset_cols:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN desired_retention REAL NOT NULL DEFAULT 0.9")
     if "maximum_interval" not in preset_cols:
