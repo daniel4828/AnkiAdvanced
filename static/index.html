@@ -513,11 +513,11 @@
       <div class="opt-group-label">Lapses</div>
       <div class="opt-row"><span class="opt-label">Relearning steps (minutes)</span><input class="opt-input wide" id="opt-relearn-steps" type="text"></div>
       <div class="opt-row"><span class="opt-label">Leech threshold (review lapses)</span>  <input class="opt-input" id="opt-leech"         type="number" min="1"></div>
-      <div class="opt-row"><span class="opt-label">Learning leech threshold (Again presses)</span>  <input class="opt-input" id="opt-learning-leech" type="number" min="1"></div>
       <div class="opt-row">
         <span class="opt-label">Count learning-phase leeches<br><span style="font-weight:400;font-size:11px;color:var(--muted)">off = only review-state lapses can flag a leech; on = Again presses in learning/relearn count too</span></span>
-        <input type="checkbox" id="opt-enable-learning-leech" style="width:18px;height:18px;cursor:pointer">
+        <input type="checkbox" id="opt-enable-learning-leech" style="width:18px;height:18px;cursor:pointer" onchange="applyLearningLeechVisibility()">
       </div>
+      <div class="opt-row learning-leech-row"><span class="opt-label">Learning leech threshold (Again presses)</span>  <input class="opt-input" id="opt-learning-leech" type="number" min="1"></div>
     </div>
 
     <div class="opt-group">

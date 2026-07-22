@@ -3642,6 +3642,12 @@ function applySchedulerVisibility() {
   document.querySelectorAll('.sched-fsrs').forEach(el => { el.style.display = fsrs ? '' : 'none'; });
 }
 
+// Learning-leech off → hide the threshold input (it only matters when on).
+function applyLearningLeechVisibility() {
+  const on = document.getElementById('opt-enable-learning-leech').checked;
+  document.querySelectorAll('.learning-leech-row').forEach(el => { el.style.display = on ? '' : 'none'; });
+}
+
 // Clickable ⓘ explanations for scheduling fields.
 const INFO_TEXT = {
   enable_fsrs: ['Enable FSRS',
@@ -3731,6 +3737,7 @@ function loadPresetFields(preset) {
   document.getElementById('opt-max-int').value         = preset.maximum_interval ?? 36500;
   document.getElementById('opt-reading-enabled').checked = !!preset.reading_enabled;
   applySchedulerVisibility();
+  applyLearningLeechVisibility();
 
   // Category order
   const order = (preset.category_order || 'listening,reading,creating').split(',').map(s => s.trim());
