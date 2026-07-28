@@ -7517,7 +7517,45 @@ function openStoryModal() {
 let _storyPlaying = false;
 let _currentPlayIdx = -1;
 let _storyStoppedAt = -1;
-let _currentAudio = null;
+
+// ── iOS-friendly shared audio element (#606) ─────────────────────────────────
+// iOS Safari only lets you play() an Audio element whose FIRST play() happened
+// inside a user gesture. So we keep ONE element, unlock it on the first
+// pointerdown with a silent clip, then reuse it for every playback. That way
+// autoplay (listening front, reveal) and the onended-driven full-story chain —
+// none of which run inside a gesture — are still allowed to play on iPhone.
+const _SILENT_WAV = 'data:audio/wav;base64,UklGRnQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YVAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==';
+let _sharedAudio = null;
+let _playSeq = 0;   // bumped on every (re)start so stale onended/onerror handlers no-op
+
+function _getAudioEl() {
+  if (!_sharedAudio) { _sharedAudio = new Audio(); _sharedAudio.preload = 'auto'; }
+  return _sharedAudio;
+}
+
+// Stop whatever the shared element is doing and invalidate pending chain callbacks.
+function _stopSharedPlayback() {
+  _playSeq++;
+  const a = _sharedAudio;
+  if (a) { a.onended = null; a.onerror = null; try { a.pause(); } catch (_) {} }
+}
+
+// Unlock the shared element on the first pointerdown by play()ing a silent clip
+// inside the gesture; retries on each pointerdown until one succeeds.
+function _unlockAudio() {
+  const a = _getAudioEl();
+  try {
+    a.src = _SILENT_WAV;
+    const p = a.play();
+    const done = () => {
+      try { a.pause(); a.currentTime = 0; } catch (_) {}
+      document.removeEventListener('pointerdown', _unlockAudio, true);
+    };
+    if (p && p.then) p.then(done).catch(() => {});
+    else done();
+  } catch (_) {}
+}
+document.addEventListener('pointerdown', _unlockAudio, true);
 
 function updateStoryHighlight(idx) {
   document.querySelectorAll('#story-modal-body .story-sentence').forEach(el => {
@@ -7537,7 +7575,6 @@ function _playStoryAtIdx(idx) {
   if (!_storyPlaying || idx < 0 || idx >= story.sentences.length) {
     _storyPlaying = false;
     _currentPlayIdx = -1;
-    _currentAudio = null;
     updateStoryHighlight(-1);
     const btn = document.getElementById('story-play-all-btn');
     if (btn) btn.textContent = '▶ Play full story';
@@ -7547,12 +7584,15 @@ function _playStoryAtIdx(idx) {
   _currentPlayIdx = idx;
   updateStoryHighlight(idx);
 
-  const audio = new Audio(_storyAudioUrl(idx));
-  _currentAudio = audio;
-
-  audio.onended = () => { if (_currentAudio === audio) _playStoryAtIdx(idx + 1); };
-  audio.onerror = () => { if (_currentAudio === audio) _playStoryAtIdx(idx + 1); };
-  audio.play().catch(() => { if (_currentAudio === audio) _playStoryAtIdx(idx + 1); });
+  // Reuse the unlocked shared element so the onended-driven chain keeps playing
+  // on iOS (a fresh Audio() would be rejected outside the user gesture). seq
+  // guards against stale handlers firing after a jump/stop.
+  const seq = ++_playSeq;
+  const a = _getAudioEl();
+  a.onended = () => { if (seq === _playSeq) _playStoryAtIdx(idx + 1); };
+  a.onerror = () => { if (seq === _playSeq) _playStoryAtIdx(idx + 1); };
+  a.src = _storyAudioUrl(idx);
+  a.play().catch(() => { if (seq === _playSeq) _playStoryAtIdx(idx + 1); });
 }
 
 async function _startPlayback(startIdx) {
@@ -7580,7 +7620,7 @@ async function toggleFullStory() {
 }
 
 function storyJumpTo(idx) {
-  if (_currentAudio) { _currentAudio.onended = null; _currentAudio.pause(); _currentAudio = null; }
+  _stopSharedPlayback();
   if (!_storyPlaying) {
     _storyPlaying = true;
     const btn = document.getElementById('story-play-all-btn');
@@ -7611,7 +7651,7 @@ function stopFullStory() {
   _storyStoppedAt = _currentPlayIdx;
   _storyPlaying = false;
   _currentPlayIdx = -1;
-  if (_currentAudio) { _currentAudio.onended = null; _currentAudio.pause(); _currentAudio = null; }
+  _stopSharedPlayback();
   updateStoryHighlight(-1);
   const btn = document.getElementById('story-play-all-btn');
   if (btn) btn.textContent = '▶ Continue';
@@ -7847,23 +7887,19 @@ function _sentenceAudioUrl() {
   return _ttsUrl(sentence?.sentence_zh || card?.word_zh, currentCardLang());
 }
 
-// Browser-side TTS prefetch (#554, #557). /api/tts-file is immutable-cached, so
-// warming a URL makes any later `new Audio(url)` replay from the browser cache
-// with no network round trip. _warmed maps url→buffered element (LRU-capped) both
-// to dedup and to hold references so buffers aren't garbage-collected before play.
-const _warmed = new Map();
-const _WARM_MAX = 40;
+// Browser-side TTS prefetch (#554, #557, #606). /api/tts-file is immutable-cached,
+// so fetch()ing a URL downloads the mp3 into the browser HTTP cache; a later
+// play() of the same URL then starts with no network round trip. We use fetch()
+// (not Audio.load()) because iOS Safari ignores `preload` and won't buffer media
+// outside a user gesture, which left mobile playback slow. _warmed just dedups
+// URLs already fetched (LRU-capped).
+const _warmed = new Set();
+const _WARM_MAX = 200;
 function _warmAudio(url) {
-  if (!url) return null;
-  let a = _warmed.get(url);
-  if (a) return a;
-  a = new Audio();
-  a.preload = 'auto';
-  a.src = url;
-  a.load();
-  _warmed.set(url, a);
-  if (_warmed.size > _WARM_MAX) _warmed.delete(_warmed.keys().next().value);
-  return a;
+  if (!url || _warmed.has(url)) return;
+  _warmed.add(url);
+  if (_warmed.size > _WARM_MAX) _warmed.delete(_warmed.values().next().value);
+  fetch(url).catch(() => {});
 }
 
 // Warm the current card's sentence audio.
@@ -7884,16 +7920,14 @@ function playSentence() {
   if (!url) return;
   _listenCount++;
   _updateListenCounters();
-  if (_currentAudio) { _currentAudio.onended = null; _currentAudio.pause(); _currentAudio = null; }
-  // Always create a fresh element inside this (user-gesture) call — iOS Safari
-  // refuses to play an Audio element that was created in the background (e.g. by
-  // _warmAudio's prefetch), so reusing a warmed element left listening cards
-  // silent on mobile (#590). The URL is immutable-cached, so a fresh element
-  // still replays instantly once the mp3 exists on disk; the warmed cache is
-  // kept only for gapless full-story playback in _playStoryAtIdx.
-  const audio = new Audio(url);
-  _currentAudio = audio;
-  audio.play().catch(() => {});
+  _stopSharedPlayback();
+  // Play through the shared, gesture-unlocked element so autoplay (listening
+  // front, reveal) works on iOS too — a fresh Audio() created outside a user
+  // gesture is silently rejected on iPhone (#590 → #606). The URL is
+  // immutable-cached, so setting .src replays instantly once the mp3 is cached.
+  const a = _getAudioEl();
+  a.src = url;
+  a.play().catch(() => {});
 }
 
 // ── Regenerate story ─────────────────────────────────────────────────────────
