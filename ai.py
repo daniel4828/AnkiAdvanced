@@ -2194,9 +2194,11 @@ Task:
      name in parentheses right after it, e.g. "Airbnb (爱彼迎)", "Lawn Tennis Association
      (英国草地网球协会)". If no established Chinese name exists, give a natural Chinese rendering.
    - Whenever you use one of the HSK5+ vocabulary words you extract in Task 2 inside the
-     German summary, add its Chinese form in parentheses right after the German rendering,
-     e.g. "Rezession (经济衰退)", "Lieferkette (供应链)", so Daniel links the German meaning
-     to the Chinese word he is pre-learning.
+     German summary, add its pinyin AND Chinese form in parentheses right after the German
+     rendering, in the format "pinyin/汉字",
+     e.g. "Rezession (jīngjì shuāituì/经济衰退)", "Lieferkette (gōngyìng liàn/供应链)", so
+     Daniel links the German meaning to the Chinese word — and its pronunciation — he is
+     pre-learning. Use the same pinyin (with tone marks) you give for that word in Task 2.
    - If (and ONLY if) the transcript contains timestamps, add an approximate timestamp in
      parentheses when you introduce each major topic, e.g. "(ca. 12:30)", so the listener can
      jump to it. If the transcript contains no timestamps, do NOT invent any.
