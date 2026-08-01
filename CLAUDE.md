@@ -318,10 +318,15 @@ POST /api/podcast/episodes/{id}/regenerate-summary    → 仅重跑摘要步骤�
 GET/POST /api/podcast/feeds ；PUT/DELETE /api/podcast/feeds/{id} → RSS 源管理（#502；POST 抓取验证并提取节目标题；PUT 改 auto_process/title）
 GET/PUT /api/podcast/config                           → 读/改设置（email_to/detail_level/enabled/transcriber/whisper_max_minutes/summarizer[auto|api]（#510）；feeds 已迁到 podcast_feeds 表（#502），whisper_fallback、channel_url、channel_id、whisper_title_filter 已废弃但兼容，#497）
 
-# 提示词模板（#581；story/qa/expository/podcast，仅中文；无自定义行 = ai.DEFAULT_PROMPT_TEMPLATES 内置默认）
-GET    /api/prompt-template/{mode}                   → {template, default, is_custom, variables}
-PUT    /api/prompt-template/{mode}                   → 保存自定义（body {template}，必须含 {words} 记号；与默认相同时自动重置）
-DELETE /api/prompt-template/{mode}                   → 重置为内置默认
+# 提示词版本库（#581 单份自定义 → #610 每模式多个命名版本；story/qa/expository/podcast，仅中文）
+# prompt_presets 表：每 mode 可存多个命名版本，最多一行 is_active=1；无生效版本 = ai.DEFAULT_PROMPT_TEMPLATES 内置默认
+GET    /api/prompt-template/{mode}                   → {template, default, is_custom, variables, presets[], active_id}
+DELETE /api/prompt-template/{mode}                   → 取消生效（回内置默认；#610 起不再删除已保存版本）
+POST   /api/prompt-presets/{mode}                    → 新建命名版本并设为生效（body {name, template}，须含 {words}；重名 409）
+PUT    /api/prompt-presets/{id}                      → 改名/改内容（body {name?, template?}）
+POST   /api/prompt-presets/{id}/activate             → 设为该 mode 唯一生效版本
+DELETE /api/prompt-presets/{id}                      → 删除该版本
+# 旧的 PUT /api/prompt-template/{mode} 已由 POST/PUT /api/prompt-presets/* 取代（#610）
 
 # 成本
 GET  /api/costs                                      → 成本历史（动作分组；balances 列出各提供商余额，#580；Again 单句重生成有正式标签且相邻同标签 30 分钟内合并，#578）

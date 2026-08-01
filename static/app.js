@@ -3535,8 +3535,12 @@ async function loadPromptEditor() {
       'Placeholders (replaced at generation time): ' + data.variables.map(v => `{${v}}`).join('  ');
     ta.value = data.template;
 
-    select.innerHTML = '<option value="">Built-in default</option>' +
-      data.presets.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    // Build options via the DOM, not an HTML string — preset names are free
+    // text and would break the markup on a quote or angle bracket.
+    select.innerHTML = '';
+    const defaultOpt = new Option('Built-in default', '');
+    select.appendChild(defaultOpt);
+    data.presets.forEach(p => select.appendChild(new Option(p.name, String(p.id))));
     select.value = data.active_id != null ? String(data.active_id) : '';
 
     const active = data.presets.find(p => p.is_active);
