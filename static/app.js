@@ -3473,12 +3473,15 @@ function closeCostPrompt() {
   if (overlay) overlay.style.display = 'none';
 }
 
-// ── Prompt template editor (issue #581) ──────────────────────────────────────
+// ── Prompt template editor (issue #581, versioned presets since #610) ───────
 // Edit the full prompt of the currently selected story mode; dynamic content
 // ({words}, {topic}, …) stays as placeholders so the word list never clutters
-// the editor. Stored server-side (prompt_templates table), applies everywhere
-// the mode generates — full stories and Again single-sentence regens alike.
+// the editor. Each mode can hold several named versions (prompt_presets
+// table); at most one is "active" and applies everywhere the mode
+// generates — full stories and Again single-sentence regens alike. No
+// active version = built-in default.
 let _promptEditorMode = null;
+let _promptEditorData = null;  // last GET /api/prompt-template/{mode} response
 
 async function openPromptEditor() {
   const mode = document.getElementById('setup-mode').value;
@@ -3493,11 +3496,17 @@ async function openPromptEditor() {
           <span id="prompt-editor-title">Prompt template</span>
           <button class="cost-prompt-close" onclick="closePromptEditor()">&times;</button>
         </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select id="prompt-preset-select" class="edit-input" style="flex:1;min-width:140px" onchange="onPromptPresetChange()"></select>
+          <input id="prompt-preset-name" class="edit-input" style="flex:1;min-width:140px" placeholder="Name for new version">
+        </div>
         <div id="prompt-editor-vars" style="font-size:12px;color:var(--muted,#888)"></div>
         <textarea id="prompt-editor-text" spellcheck="false"
           style="width:100%;min-height:50vh;font-family:monospace;font-size:12px;line-height:1.45;resize:vertical"></textarea>
-        <div style="display:flex;gap:8px;justify-content:flex-end">
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
           <button class="edit-cancel-btn" onclick="resetPromptTemplate()">Reset to default</button>
+          <button class="edit-cancel-btn" onclick="deletePromptPreset()">Delete</button>
+          <button class="edit-save-btn" onclick="savePromptPresetAsNew()">Save as new</button>
           <button class="edit-save-btn" onclick="savePromptTemplate()">Save</button>
         </div>
       </div>`;
@@ -3506,32 +3515,105 @@ async function openPromptEditor() {
   }
   overlay.style.display = 'flex';
   _promptEditorMode = mode;
+  await loadPromptEditor();
+}
+
+// (Re)loads the mode's template metadata + presets from the server and
+// refreshes the title, placeholder hint, preset dropdown and textarea.
+async function loadPromptEditor() {
+  const mode = _promptEditorMode;
   const title = document.getElementById('prompt-editor-title');
   const ta = document.getElementById('prompt-editor-text');
+  const select = document.getElementById('prompt-preset-select');
+  document.getElementById('prompt-preset-name').value = '';
   title.textContent = 'Loading…';
   ta.value = '';
   try {
     const data = await api('GET', `/api/prompt-template/${mode}`);
-    title.textContent = `Prompt template — ${mode}${data.is_custom ? ' (custom)' : ''}`;
+    _promptEditorData = data;
     document.getElementById('prompt-editor-vars').textContent =
       'Placeholders (replaced at generation time): ' + data.variables.map(v => `{${v}}`).join('  ');
     ta.value = data.template;
+
+    // Build options via the DOM, not an HTML string — preset names are free
+    // text and would break the markup on a quote or angle bracket.
+    select.innerHTML = '';
+    const defaultOpt = new Option('Built-in default', '');
+    select.appendChild(defaultOpt);
+    data.presets.forEach(p => select.appendChild(new Option(p.name, String(p.id))));
+    select.value = data.active_id != null ? String(data.active_id) : '';
+
+    const active = data.presets.find(p => p.is_active);
+    title.textContent = `Prompt template — ${mode}` + (active ? ` · ${active.name}` : '');
   } catch (e) {
     title.textContent = 'Failed to load template';
     ta.value = e.message;
   }
 }
 
+// Switching the dropdown activates the chosen preset (or deactivates all
+// presets for "Built-in default") and reloads the editor with its content.
+async function onPromptPresetChange() {
+  const select = document.getElementById('prompt-preset-select');
+  const value = select.value;
+  try {
+    if (value) {
+      await api('POST', `/api/prompt-presets/${value}/activate`);
+    } else {
+      await api('DELETE', `/api/prompt-template/${_promptEditorMode}`);
+    }
+    await loadPromptEditor();
+  } catch (e) {
+    showError('Failed to switch version: ' + e.message);
+  }
+}
+
 async function savePromptTemplate() {
   if (!_promptEditorMode) return;
+  const template = document.getElementById('prompt-editor-text').value;
+  const activeId = _promptEditorData && _promptEditorData.active_id;
   try {
-    const r = await api('PUT', `/api/prompt-template/${_promptEditorMode}`,
-                        { template: document.getElementById('prompt-editor-text').value });
-    document.getElementById('prompt-editor-title').textContent =
-      `Prompt template — ${_promptEditorMode}${r.is_custom ? ' (custom)' : ''}`;
+    if (activeId != null) {
+      await api('PUT', `/api/prompt-presets/${activeId}`, { template });
+    } else {
+      const name = document.getElementById('prompt-preset-name').value.trim() || 'Custom';
+      await api('POST', `/api/prompt-presets/${_promptEditorMode}`, { name, template });
+    }
+    await loadPromptEditor();
     closePromptEditor();
   } catch (e) {
-    showError('Save failed — the template must keep the {words} placeholder.');
+    showError('Save failed: ' + e.message);
+  }
+}
+
+async function savePromptPresetAsNew() {
+  if (!_promptEditorMode) return;
+  const name = document.getElementById('prompt-preset-name').value.trim();
+  if (!name) {
+    showError('Enter a name for the new version.');
+    return;
+  }
+  const template = document.getElementById('prompt-editor-text').value;
+  try {
+    await api('POST', `/api/prompt-presets/${_promptEditorMode}`, { name, template });
+    await loadPromptEditor();
+  } catch (e) {
+    showError('Save failed: ' + e.message);
+  }
+}
+
+async function deletePromptPreset() {
+  const activeId = _promptEditorData && _promptEditorData.active_id;
+  if (activeId == null) {
+    showError('Select a saved version to delete.');
+    return;
+  }
+  if (!confirm('Delete this prompt version? This cannot be undone.')) return;
+  try {
+    await api('DELETE', `/api/prompt-presets/${activeId}`);
+    await loadPromptEditor();
+  } catch (e) {
+    showError('Delete failed: ' + e.message);
   }
 }
 
@@ -3539,10 +3621,7 @@ async function resetPromptTemplate() {
   if (!_promptEditorMode) return;
   try {
     await api('DELETE', `/api/prompt-template/${_promptEditorMode}`);
-    const data = await api('GET', `/api/prompt-template/${_promptEditorMode}`);
-    document.getElementById('prompt-editor-text').value = data.template;
-    document.getElementById('prompt-editor-title').textContent =
-      `Prompt template — ${_promptEditorMode}`;
+    await loadPromptEditor();
   } catch (e) {
     showError('Reset failed: ' + e.message);
   }

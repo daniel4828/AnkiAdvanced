@@ -690,6 +690,27 @@ def init_db() -> None:
                          (cleaned, row["id"]))
     conn.commit()
 
+    # One-time migration (#610): the old prompt_templates table held at most one
+    # custom template per mode; the new prompt_presets table supports several
+    # named versions per mode. Migrate any existing prompt_templates rows into
+    # a preset named "Saved", marked active, but only if that mode doesn't
+    # already have presets — this keeps init_db() idempotent across restarts.
+    # The old table is left untouched (not dropped) so this is safe to roll back.
+    old_rows = conn.execute("SELECT mode, template FROM prompt_templates").fetchall()
+    for row in old_rows:
+        mode = row["mode"]
+        already = conn.execute(
+            "SELECT 1 FROM prompt_presets WHERE mode = ?", (mode,)
+        ).fetchone()
+        if already:
+            continue
+        conn.execute(
+            """INSERT INTO prompt_presets (mode, name, template, is_active, updated_at)
+               VALUES (?, 'Saved', ?, 1, datetime('now'))""",
+            (mode, row["template"]),
+        )
+    conn.commit()
+
     conn.close()
 
     # Seed the day-cutoff cache now that app_settings is guaranteed present

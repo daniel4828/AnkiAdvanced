@@ -447,6 +447,21 @@ CREATE TABLE IF NOT EXISTS prompt_templates (
 );
 
 -- ---------------------------------------------------------------------------
+-- prompt_presets — 每个故事模式可保存多个命名提示词版本（issue #610）；
+-- 每个 mode 最多一行 is_active=1；无生效行 = 用 ai.DEFAULT_PROMPT_TEMPLATES
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS prompt_presets (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    mode        TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    template    TEXT NOT NULL,
+    is_active   INTEGER NOT NULL DEFAULT 0,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(mode, name)
+);
+
+-- ---------------------------------------------------------------------------
 -- entry_components  (formerly note_components — links sentences/chengyu to their component vocabulary)
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS entry_components (

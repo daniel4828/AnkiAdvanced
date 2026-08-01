@@ -1,9 +1,11 @@
-"""自定义提示词模板测试（issue #581）。
+"""提示词模板/版本库测试（issue #581 引入模板，#610 升级为多命名版本）。
 
 核心保证：默认模板经 _render_prompt 渲染后与重构前的内联 f-string 逐字一致
-（提示词质量不因重构漂移），以及 DB 覆盖/重置往返正确。
+（提示词质量不因重构漂移）；prompt_presets 的增删改查、生效切换往返正确；
+旧 prompt_templates 数据能幂等迁移为名为 "Saved" 的生效版本。
 """
 import os
+import sqlite3
 
 import pytest
 
@@ -82,15 +84,103 @@ def test_podcast_template_keeps_json_example_braces():
 
 
 def test_custom_template_roundtrip(db):
+    """创建一个 preset 就地生效；重命名/改内容不改变生效状态；删除后回落默认。"""
     assert database.get_prompt_template("story") is None
-    database.set_prompt_template("story", "MY TEMPLATE {words}")
+    preset_id = database.create_prompt_preset("story", "V1", "MY TEMPLATE {words}")
     assert database.get_prompt_template("story") == "MY TEMPLATE {words}"
     assert ai._story_prompt_template("story") == "MY TEMPLATE {words}"
-    database.set_prompt_template("story", "V2 {words}")  # upsert
+
+    database.update_prompt_preset(preset_id, template="V2 {words}")
     assert database.get_prompt_template("story") == "V2 {words}"
-    database.delete_prompt_template("story")
+
+    database.delete_prompt_preset(preset_id)
     assert database.get_prompt_template("story") is None
     assert ai._story_prompt_template("story") == ai.DEFAULT_PROMPT_TEMPLATES["story"]
+
+
+def test_create_preset_sets_active_and_deactivates_others(db):
+    p1 = database.create_prompt_preset("story", "Detective", "D {words}")
+    assert database.get_prompt_template("story") == "D {words}"
+    p2 = database.create_prompt_preset("story", "Everyday", "E {words}")
+    # Creating a second preset activates it and deactivates the first.
+    assert database.get_prompt_template("story") == "E {words}"
+    presets = {p["id"]: p for p in database.list_prompt_presets("story")}
+    assert presets[p1]["is_active"] == 0
+    assert presets[p2]["is_active"] == 1
+
+
+def test_activate_preset_switches_which_is_active(db):
+    p1 = database.create_prompt_preset("story", "Detective", "D {words}")
+    p2 = database.create_prompt_preset("story", "Everyday", "E {words}")
+    database.activate_prompt_preset(p1)
+    assert database.get_prompt_template("story") == "D {words}"
+    presets = {p["id"]: p for p in database.list_prompt_presets("story")}
+    assert presets[p1]["is_active"] == 1
+    assert presets[p2]["is_active"] == 0
+
+
+def test_rename_preset(db):
+    p1 = database.create_prompt_preset("story", "Detective", "D {words}")
+    database.update_prompt_preset(p1, name="Renamed")
+    preset = database.get_prompt_preset(p1)
+    assert preset["name"] == "Renamed"
+    assert preset["template"] == "D {words}"  # untouched
+
+
+def test_duplicate_preset_name_raises(db):
+    database.create_prompt_preset("story", "Detective", "D {words}")
+    with pytest.raises(sqlite3.IntegrityError):
+        database.create_prompt_preset("story", "Detective", "Other {words}")
+
+
+def test_presets_scoped_per_mode(db):
+    database.create_prompt_preset("story", "Same Name", "S {words}")
+    # Same name in a different mode is fine — UNIQUE is (mode, name).
+    database.create_prompt_preset("qa", "Same Name", "Q {words}")
+    assert database.get_prompt_template("story") == "S {words}"
+    assert database.get_prompt_template("qa") == "Q {words}"
+
+
+def test_delete_active_preset_falls_back_to_default(db):
+    p1 = database.create_prompt_preset("story", "Detective", "D {words}")
+    database.delete_prompt_preset(p1)
+    assert database.get_prompt_template("story") is None
+    assert ai._story_prompt_template("story") == ai.DEFAULT_PROMPT_TEMPLATES["story"]
+
+
+def test_deactivate_prompt_presets_keeps_saved_versions(db):
+    """DELETE /api/prompt-template/{mode} 语义（#610）：取消生效但不删除版本。"""
+    p1 = database.create_prompt_preset("story", "Detective", "D {words}")
+    database.deactivate_prompt_presets("story")
+    assert database.get_prompt_template("story") is None
+    # Preset still exists and can be re-activated.
+    assert database.get_prompt_preset(p1) is not None
+    database.activate_prompt_preset(p1)
+    assert database.get_prompt_template("story") == "D {words}"
+
+
+def test_migration_from_old_prompt_templates_table(db):
+    """旧 prompt_templates 行迁移为名为 Saved 的生效 preset；再次 init_db 不重复插入。"""
+    conn = database.core.get_db()
+    conn.execute(
+        "INSERT INTO prompt_templates (mode, template) VALUES (?, ?)",
+        ("expository", "OLD CUSTOM {words}"),
+    )
+    conn.commit()
+    conn.close()
+
+    database.init_db()
+    assert database.get_prompt_template("expository") == "OLD CUSTOM {words}"
+    presets = database.list_prompt_presets("expository")
+    assert len(presets) == 1
+    assert presets[0]["name"] == "Saved"
+    assert presets[0]["is_active"] == 1
+
+    # Running init_db() again must not duplicate the migrated preset, even
+    # though the old prompt_templates row is still there (never deleted).
+    database.init_db()
+    presets_again = database.list_prompt_presets("expository")
+    assert len(presets_again) == 1
 
 
 def test_every_template_declares_words_variable():

@@ -5,6 +5,7 @@ import math
 import os
 import random
 import re
+import sqlite3
 import threading
 
 import jieba
@@ -678,7 +679,7 @@ def regenerate_story(deck_id: int, category: str,
     return result
 
 
-# ── 自定义提示词模板（issue #581）──────────────────────────────────────────────
+# ── 提示词版本库（issue #610；原单份自定义模板见 #581）──────────────────────────
 
 def _require_editable_mode(mode: str) -> None:
     if mode not in ai.DEFAULT_PROMPT_TEMPLATES:
@@ -686,37 +687,98 @@ def _require_editable_mode(mode: str) -> None:
                             detail=f"Mode '{mode}' has no editable prompt template")
 
 
+def _validate_template(template: str) -> None:
+    if "{words}" not in (template or ""):
+        raise HTTPException(status_code=400,
+                            detail="Template must contain the {words} placeholder")
+
+
 @router.get("/api/prompt-template/{mode}")
 def get_prompt_template(mode: str):
-    """当前生效模板（自定义优先）+ 内置默认 + 可用记号列表。"""
+    """当前生效模板（生效 preset 优先）+ 内置默认 + 可用记号列表 + 版本列表。
+
+    字段 template/default/is_custom/variables 与 #581 时保持一致（向后兼容）；
+    presets/active_id 是 #610 新增的版本库信息。
+    """
     _require_editable_mode(mode)
     custom = database.get_prompt_template(mode)
     default = ai.DEFAULT_PROMPT_TEMPLATES[mode]
+    presets = database.list_prompt_presets(mode)
+    active = next((p for p in presets if p["is_active"]), None)
     return {"mode": mode, "template": custom or default, "default": default,
             "is_custom": custom is not None,
-            "variables": ai.PROMPT_TEMPLATE_VARIABLES[mode]}
+            "variables": ai.PROMPT_TEMPLATE_VARIABLES[mode],
+            "presets": presets,
+            "active_id": active["id"] if active else None}
 
 
-@router.put("/api/prompt-template/{mode}")
-def put_prompt_template(mode: str, body: dict):
+@router.post("/api/prompt-presets/{mode}")
+def create_prompt_preset(mode: str, body: dict):
+    """新建一个命名版本并立即设为生效版本。"""
     _require_editable_mode(mode)
+    name = ((body or {}).get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name must not be empty")
     template = (body or {}).get("template") or ""
-    if "{words}" not in template:
-        raise HTTPException(status_code=400,
-                            detail="Template must contain the {words} placeholder")
-    # 存回未改动的默认模板 = 视为重置，避免默认将来更新时被旧快照锁死
-    if template.strip() == ai.DEFAULT_PROMPT_TEMPLATES[mode].strip():
-        database.delete_prompt_template(mode)
-        return {"mode": mode, "is_custom": False}
-    database.set_prompt_template(mode, template)
-    return {"mode": mode, "is_custom": True}
+    _validate_template(template)
+    try:
+        new_id = database.create_prompt_preset(mode, name, template)
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=409,
+                            detail="A preset with that name already exists")
+    return {"id": new_id, "mode": mode, "name": name, "is_active": True}
+
+
+@router.put("/api/prompt-presets/{preset_id}")
+def update_prompt_preset(preset_id: int, body: dict):
+    """改名和/或改内容；两者都是可选的。"""
+    preset = database.get_prompt_preset(preset_id)
+    if preset is None:
+        raise HTTPException(status_code=404, detail="Preset not found")
+    body = body or {}
+    name = body.get("name")
+    if name is not None:
+        name = name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="Name must not be empty")
+    template = body.get("template")
+    if template is not None:
+        _validate_template(template)
+    try:
+        database.update_prompt_preset(preset_id, name=name, template=template)
+    except sqlite3.IntegrityError:
+        raise HTTPException(status_code=409,
+                            detail="A preset with that name already exists")
+    updated = database.get_prompt_preset(preset_id)
+    return {"id": preset_id, "name": updated["name"]}
+
+
+@router.post("/api/prompt-presets/{preset_id}/activate")
+def activate_prompt_preset(preset_id: int):
+    preset = database.get_prompt_preset(preset_id)
+    if preset is None:
+        raise HTTPException(status_code=404, detail="Preset not found")
+    database.activate_prompt_preset(preset_id)
+    return {"id": preset_id, "mode": preset["mode"], "is_active": True}
+
+
+@router.delete("/api/prompt-presets/{preset_id}")
+def delete_prompt_preset(preset_id: int):
+    preset = database.get_prompt_preset(preset_id)
+    if preset is None:
+        raise HTTPException(status_code=404, detail="Preset not found")
+    database.delete_prompt_preset(preset_id)
+    return {"deleted": True}
 
 
 @router.delete("/api/prompt-template/{mode}")
 def reset_prompt_template(mode: str):
+    """取消该 mode 的生效版本（issue #610 起语义变化：不再删除已保存版本，
+    只是回落到内置默认模板；原来的 #581 行为是彻底删除唯一的自定义模板，
+    效果相同但现在版本本身继续保留，可随时重新 activate）。"""
     _require_editable_mode(mode)
-    database.delete_prompt_template(mode)
-    return {"mode": mode, "is_custom": False}
+    database.deactivate_prompt_presets(mode)
+    return {"mode": mode, "is_active": False}
 
 
 @router.get("/api/story/{deck_id}/{category}/history")
