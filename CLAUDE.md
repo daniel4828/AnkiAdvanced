@@ -140,6 +140,9 @@ bash sync_offline.sh push    # 落地后（要有网）：把复习结果合并�
 - `PORT` 环境变量（默认 8000）让离线实例跑 8001，不占用 Daniel 浏览器连的端口
 - **同步只合并 `cards` + `review_log` 两张表**（`scripts/offline_sync_server.py`，纯标准库，通过 ssh stdin 管道执行，不依赖服务器已部署该版本）。离线期间服务器 cron 仍在写入（播客单集、预生成故事、成本日志），整库对拷会毁掉这些数据——**绝不整库覆盖**
 - **同步令牌**（`app_settings.offline_sync_token`）：`pull` 时写入服务器并随快照带走，`push` 时两边必须一致，合并后轮换 → 同一份离线库无法重复 push；手工拷贝的库没有令牌，直接拒绝
+- **传输量优化（链路很慢，实测到服务器只有 ~8 KB/s）**：
+  - 快照**瘦身**：`prepare` 在快照上（不动生产库）清空 `api_call_log`、`podcast_episodes.transcript_*`、`stories.prompt_text` 再 VACUUM → 29.6 MB 降到 18.5 MB，`scp -C` 压缩后实际传 ~7 MB。`prepare … --full` 可保留全部
+  - 音频**按需**：`scripts/offline_tts_manifest.py` 从拉下来的库算出真正会用到的语音（故事句子 `sentence_zh` + 到期词 `word_zh`，前端只请求这两种），再与服务器实际存在的文件取交集 → ~250 个文件 / 6.3 MB，而不是整个 118 MB 的 `data/tts/`。**必须取交集**，否则 rsync 会为缺失文件返回非零码，`set -e` 会中断整个脚本
 - 测试见 `tests/test_offline_sync.py`
 
 ---
@@ -174,7 +177,7 @@ bash sync_offline.sh push    # 落地后（要有网）：把复习结果合并�
 ├── requirements.txt       # Python 依赖清单
 ├── DEPLOY.md              # 服务器从零到上线的部署教程
 ├── deploy/                # systemd 单元、Caddyfile 示例、deploy.sh（自动部署）
-├── scripts/               # morning_pregen.py（早晨预生成故事+TTS）、podcast_check.py（播客爬虫定时脚本）、offline_sync_server.py（离线同步服务器端，#612）+ README
+├── scripts/               # morning_pregen.py（早晨预生成故事+TTS）、podcast_check.py（播客爬虫定时脚本）、offline_sync_server.py + offline_tts_manifest.py（离线同步，#612）+ README
 ├── docs/yaml-format.md    # YAML 词条格式完整文档
 └── data/
     ├── srs.db             # SQLite 数据库（生产版在服务器上！）
