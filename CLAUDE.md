@@ -124,6 +124,26 @@ Daniel 在中国需要 VPN 访问 GitHub。`gh` 命令报 `EOF` 错误时（`cur
 
 ---
 
+## 离线模式（2026-08-02，议题 #612）
+
+飞机上／没网时在笔记本上复习。**服务器永远是主库**，笔记本只是临时副本。
+
+```bash
+bash sync_offline.sh pull    # 起飞前（要有网）：拉数据库 + TTS 音频
+bash run.offline.sh          # 飞机上：http://localhost:8001
+bash sync_offline.sh push    # 落地后（要有网）：把复习结果合并回服务器
+```
+
+- **`OFFLINE_MODE=1`（`offline.py`）**：隐含 `DISABLE_AI`；TTS 只读 `data/tts/` 缓存，未命中抛 `tts.NotCachedOffline` → `/api/tts-file` 返回 404。**关键**：无网时 edge-tts 的 WebSocket 会挂到超时，拖死整个请求，所以缓存未命中必须立刻失败
+- 故事沿用同步下来的那一份（`DISABLE_AI` 分支本来就是"有缓存就返回、没有就返回 None"）；Again 单句重生成自动跳过
+- `GET /api/mode` → `{offline}`，前端据此显示顶部横幅并隐藏两个 Regenerate 按钮
+- `PORT` 环境变量（默认 8000）让离线实例跑 8001，不占用 Daniel 浏览器连的端口
+- **同步只合并 `cards` + `review_log` 两张表**（`scripts/offline_sync_server.py`，纯标准库，通过 ssh stdin 管道执行，不依赖服务器已部署该版本）。离线期间服务器 cron 仍在写入（播客单集、预生成故事、成本日志），整库对拷会毁掉这些数据——**绝不整库覆盖**
+- **同步令牌**（`app_settings.offline_sync_token`）：`pull` 时写入服务器并随快照带走，`push` 时两边必须一致，合并后轮换 → 同一份离线库无法重复 push；手工拷贝的库没有令牌，直接拒绝
+- 测试见 `tests/test_offline_sync.py`
+
+---
+
 ## 项目结构
 
 ```
@@ -139,7 +159,10 @@ Daniel 在中国需要 VPN 访问 GitHub。`gh` 命令报 `EOF` 错误时（`cur
 ├── ai.py                  # AI 提供商调用（每种提示词类型一个函数）
 ├── news_fetcher.py        # 新闻抓取（Tagesschau API + RSS；按天缓存 data/news_cache/）
 ├── podcast.py              # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、每源 auto_process 开关+非自动源只入库元数据（#502，podcast_feeds 表）、转录链 NotebookLM 免费主力+听悟+Whisper 保底、单步异常不中止整链（#510 重排，链式降级，原 #498/#485/#486）、摘要 NotebookLM chat.ask 免费优先+DeepSeek/gpt API 链回退（api 路径内部 DeepSeek 优先省钱，#532）、HSK生词、邮件通知+Signal 通知（signal-cli 关联设备，发 Note to Self，#521，二者独立可选、互不影响；消息抬头播客名·星期·日期、链接在末尾，单集日期按 Europe/Berlin 显示，#532）、摘要 table.media 风格（`<p>` 段落+每段首句 `<b>` 加粗总结，#567）+详情页 Regenerate summary 按钮
-├── tts.py                 # edge-tts 封装
+├── tts.py                 # edge-tts 封装（离线模式下只读缓存，#612）
+├── offline.py             # OFFLINE_MODE 全局开关（#612）
+├── sync_offline.sh        # 离线同步 pull/push（#612）
+├── run.offline.sh         # 离线启动（#612）
 ├── translator.py          # 翻译（Google Translate，deep-translator，可选）
 ├── yaml_fixer.py          # 修复 AI 生成的格式错误 YAML
 ├── schema.sql             # 数据库模式
@@ -151,7 +174,7 @@ Daniel 在中国需要 VPN 访问 GitHub。`gh` 命令报 `EOF` 错误时（`cur
 ├── requirements.txt       # Python 依赖清单
 ├── DEPLOY.md              # 服务器从零到上线的部署教程
 ├── deploy/                # systemd 单元、Caddyfile 示例、deploy.sh（自动部署）
-├── scripts/               # morning_pregen.py（早晨预生成故事+TTS）、podcast_check.py（播客爬虫定时脚本）+ README
+├── scripts/               # morning_pregen.py（早晨预生成故事+TTS）、podcast_check.py（播客爬虫定时脚本）、offline_sync_server.py（离线同步服务器端，#612）+ README
 ├── docs/yaml-format.md    # YAML 词条格式完整文档
 └── data/
     ├── srs.db             # SQLite 数据库（生产版在服务器上！）
@@ -281,6 +304,7 @@ POST   /api/decks ；PUT/DELETE /api/decks/{id}       → 创建 / 重命名 / �
 GET/PUT /api/decks/{id}/preset                       → 预设（yùshè - preset）设置
 GET/POST /api/presets ；DELETE /api/presets/{id}
 GET    /api/langs                                    → 当前使用的语言列表
+GET    /api/mode                                     → {offline}（#612，前端据此显示离线横幅）
 
 # 垃圾桶
 GET  /api/trash ；POST /api/trash/{deck_id}/restore
@@ -345,6 +369,7 @@ GET  /api/stats ；/api/retention ；/api/card-evolution（均支持 ?lang=）
 ```bash
 bash run.sh          # 生产启动（读取 .env，清理 8000 端口）——服务器上由 systemd 代替
 bash run.dev.sh      # 开发启动（DB_PATH=data/dev.db，DISABLE_AI=1）
+bash run.offline.sh  # 离线启动（OFFLINE_MODE=1，DB_PATH=data/offline.db，端口 8001）——见"离线模式"
 python main.py import                # 导入 imports/ 下的 YAML（目录需存在）
 python main.py status [--deck X]     # 显示每个牌组/类别的到期数量
 ```
@@ -356,6 +381,8 @@ python main.py status [--deck X]     # 显示每个牌组/类别的到期数量
 | `OPENAI_API_KEY` | 可选 | 新闻模式默认模型 `gpt-5-mini`（DeepSeek 会审查新闻，故用 OpenAI） |
 | `DB_PATH` | `data/srs.db` | 数据库路径（开发用 `data/dev.db`） |
 | `DISABLE_AI` | `0` | 设为 `1` 跳过 AI 故事生成 |
+| `OFFLINE_MODE` | `0` | 设为 `1` 进入离线模式（#612）：隐含 `DISABLE_AI`，TTS 只读缓存，零网络请求 |
+| `PORT` | `8000` | 服务监听端口（`run.offline.sh` 用 8001） |
 | `LOG_LEVEL` | `INFO` | 日志级别（`DEBUG` 输出详细日志） |
 | `DEV_CLEAR_DB` | `` | 设为任意值启动时清空数据库——生产环境绝不要设置 |
 | `AUTH_USERNAME` / `AUTH_PASSWORD` | 可选 | 两者都设置时启用 HTTP Basic Auth（保护所有路径） |
