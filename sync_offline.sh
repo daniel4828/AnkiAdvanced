@@ -17,6 +17,9 @@ REMOTE_INCOMING="/tmp/anki_offline_incoming.db"
 cd "$(dirname "$0")"
 LOCAL_DB="data/offline.db"
 SERVER_SCRIPT="scripts/offline_sync_server.py"
+MANIFEST="data/.offline_tts_manifest"
+# 提前多少天的到期词也一起同步音频——离线期间可以往前学
+DAYS_AHEAD="${ANKI_OFFLINE_DAYS_AHEAD:-14}"
 
 ACTION="${1:-}"
 
@@ -34,26 +37,44 @@ pull)
     echo "   ✅ 连接正常，生产数据库存在"
 
     echo
-    echo "== 步骤 2/5：在服务器上生成同步令牌并做数据库快照 =="
+    echo "== 步骤 2/5：在服务器上生成同步令牌并做数据库快照（约 20 秒）=="
     echo "   （令牌保证这份离线库只能被推回一次；快照对正在运行的服务是安全的）"
+    echo "   快照会剔除飞机上用不到的大块数据：API 调用日志、播客转录全文、故事提示词"
     run_remote "prepare '$REMOTE_DB' '$REMOTE_SNAPSHOT'"
     echo "   ✅ 快照完成"
 
     echo
-    echo "== 步骤 3/5：下载数据库到 $LOCAL_DB（约 30 MB，几秒钟）=="
+    echo "== 步骤 3/5：下载数据库到 $LOCAL_DB =="
+    echo "   压缩后约 7 MB。链路慢的话（实测过 ~8 KB/s）这一步可能要十几分钟。"
     mkdir -p data
     if [ -f "$LOCAL_DB" ]; then
         mv "$LOCAL_DB" "$LOCAL_DB.replaced-$(date +%Y%m%d-%H%M%S)"
         echo "   （上一份离线库已改名备份，没有覆盖）"
     fi
-    scp "$SERVER:$REMOTE_SNAPSHOT" "$LOCAL_DB"
+    scp -C "$SERVER:$REMOTE_SNAPSHOT" "$LOCAL_DB"
     ssh "$SERVER" "rm -f '$REMOTE_SNAPSHOT'"
     echo "   ✅ 数据库已下载"
 
     echo
-    echo "== 步骤 4/5：同步 TTS 音频缓存（首次约 120 MB，Wi-Fi 下 1–3 分钟；以后只传新增文件）=="
+    echo "== 步骤 4/5：同步会用到的 TTS 音频 =="
+    echo "   服务器上攒了 ~120 MB 音频，绝大部分是不到期的旧词。"
+    echo "   这里只算出接下来真正会听到的那些文件（故事句子 + 到期词），通常几 MB。"
     mkdir -p data/tts
-    rsync -a --info=progress2 "$SERVER:$REMOTE_DIR/data/tts/" data/tts/
+    PY=.venv/bin/python
+    [ -x "$PY" ] || PY=python3
+    "$PY" scripts/offline_tts_manifest.py "$LOCAL_DB" --days-ahead "$DAYS_AHEAD" \
+        | sort > "$MANIFEST.want"
+    echo "   会用到 $(wc -l < "$MANIFEST.want" | tr -d ' ') 段语音"
+    # 清单里有不少词服务器上还没生成过音频。先取交集，
+    # 否则 rsync 会为每个缺失文件报错并以非零码退出，让整个脚本中断。
+    ssh "$SERVER" "ls '$REMOTE_DIR/data/tts'" | sort > "$MANIFEST.have"
+    comm -12 "$MANIFEST.want" "$MANIFEST.have" > "$MANIFEST"
+    echo "   服务器上实际存在 $(wc -l < "$MANIFEST" | tr -d ' ') 个（其余的词服务器也还没生成过音频）"
+    if [ -s "$MANIFEST" ]; then
+        rsync -a --info=progress2 --files-from="$MANIFEST" \
+            "$SERVER:$REMOTE_DIR/data/tts/" data/tts/
+    fi
+    rm -f "$MANIFEST" "$MANIFEST.want" "$MANIFEST.have"
     echo "   ✅ 音频同步完成"
 
     echo
@@ -74,8 +95,8 @@ push)
     echo "   提示：如果离线服务还开着，先按 Ctrl+C 停掉，确保数据全部写盘"
 
     echo
-    echo "== 步骤 2/4：上传到服务器（约 30 MB，几秒钟）=="
-    scp "$LOCAL_DB" "$SERVER:$REMOTE_INCOMING"
+    echo "== 步骤 2/4：上传到服务器（压缩后约 7 MB）=="
+    scp -C "$LOCAL_DB" "$SERVER:$REMOTE_INCOMING"
     echo "   ✅ 上传完成"
 
     echo

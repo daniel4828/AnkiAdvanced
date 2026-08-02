@@ -139,6 +139,41 @@ def test_merge_without_prepare_is_refused(server_db, tmp_path):
     assert "never prepared" in str(exc.value)
 
 
+def test_slim_strips_bulk_from_the_snapshot_only(server_db, tmp_path):
+    """The snapshot loses the megabyte-heavy columns; production keeps them."""
+    conn = sqlite3.connect(server_db)
+    conn.execute("INSERT INTO api_call_log (model, input_tokens, output_tokens, prompt) "
+                 "VALUES ('m', 1, 1, '很长的提示词')")
+    conn.execute("INSERT INTO podcast_episodes (video_id, title, youtube_url, "
+                 "transcript_zh, summary_de) VALUES ('v', 't', 'u', '长转录', '摘要')")
+    conn.execute("INSERT INTO stories (deck_id, date, category, prompt_text) "
+                 "VALUES (2, '2026-08-02', 'reading', '很长的提示词')")
+    conn.commit()
+    conn.close()
+
+    snapshot = _prepare(server_db, tmp_path)
+
+    snap = sqlite3.connect(snapshot)
+    assert snap.execute("SELECT COUNT(*) FROM api_call_log").fetchone()[0] == 0
+    assert snap.execute("SELECT transcript_zh FROM podcast_episodes").fetchone()[0] is None
+    assert snap.execute("SELECT prompt_text FROM stories").fetchone()[0] is None
+    # the small, still-useful podcast fields survive
+    assert snap.execute("SELECT summary_de FROM podcast_episodes").fetchone()[0] == '摘要'
+
+    prod = sqlite3.connect(server_db)
+    assert prod.execute("SELECT COUNT(*) FROM api_call_log").fetchone()[0] == 1
+    assert prod.execute("SELECT transcript_zh FROM podcast_episodes").fetchone()[0] == '长转录'
+    assert prod.execute("SELECT prompt_text FROM stories").fetchone()[0] == '很长的提示词'
+
+
+def test_slimmed_snapshot_still_merges(server_db, tmp_path):
+    snapshot = _prepare(server_db, tmp_path)   # slimming runs by default
+    _review_offline(snapshot)
+    sync_server.cmd_merge(server_db, snapshot)
+    assert sqlite3.connect(server_db).execute(
+        "SELECT due FROM cards WHERE id = 1").fetchone()[0] == '2026-08-05'
+
+
 def test_untouched_cards_are_not_rewritten(server_db, tmp_path):
     """Only rows that actually differ get an UPDATE — a no-op sync changes nothing."""
     snapshot = _prepare(server_db, tmp_path)

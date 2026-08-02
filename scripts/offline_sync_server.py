@@ -5,11 +5,13 @@ Runs ON the VPS, piped in over ssh stdin by sync_offline.sh, so it never
 depends on the server having deployed the current commit. Standard library
 only for the same reason — it must not need the app's virtualenv.
 
-    python3 - prepare <prod_db> <snapshot_out>
+    python3 - prepare <prod_db> <snapshot_out> [--full]
         Stamp a fresh sync token + review_log watermark into the production
         database, then snapshot it (WAL-safe) to <snapshot_out>. The snapshot
         carries the same token, which is what lets `merge` later prove that an
         incoming file really came from this server and hasn't been used yet.
+        The snapshot is slimmed by default (see _SLIM_STATEMENTS) because the
+        link to the laptop can be very slow; --full keeps every byte.
 
     python3 - merge <prod_db> <incoming_db>
         Merge the reviews done offline back into production, then rotate the
@@ -70,7 +72,7 @@ def _set_setting(conn: sqlite3.Connection, key: str, value: str) -> None:
         "ON CONFLICT(key) DO UPDATE SET value = excluded.value", (key, value))
 
 
-def cmd_prepare(prod_db: str, snapshot_out: str) -> None:
+def cmd_prepare(prod_db: str, snapshot_out: str, slim: bool = True) -> None:
     conn = _connect(prod_db)
     token = uuid.uuid4().hex
     watermark = conn.execute("SELECT COALESCE(MAX(id), 0) AS m FROM review_log").fetchone()["m"]
@@ -86,11 +88,44 @@ def cmd_prepare(prod_db: str, snapshot_out: str) -> None:
     conn.backup(dest)
     dest.close()
     conn.close()
+
+    raw_kb = os.path.getsize(snapshot_out) // 1024
+    if slim:
+        _slim(snapshot_out)
     os.chmod(snapshot_out, 0o600)
 
     print(f"token={token}")
     print(f"review_log_watermark={watermark}")
-    print(f"snapshot={snapshot_out} ({os.path.getsize(snapshot_out) // 1024} KB)")
+    size_kb = os.path.getsize(snapshot_out) // 1024
+    note = f" (slimmed from {raw_kb} KB)" if slim else ""
+    print(f"snapshot={snapshot_out} ({size_kb} KB){note}")
+
+
+# Bulk that costs megabytes and is worthless on a plane. Dropping it from the
+# SNAPSHOT only — production is untouched — is safe because `merge` copies back
+# nothing but cards and review_log.
+_SLIM_STATEMENTS = [
+    # full AI prompts + responses, only ever read by the cost page
+    "DELETE FROM api_call_log",
+    # podcast transcripts are the single biggest table; the German summaries and
+    # HSK word lists are small, so they stay readable offline
+    "UPDATE podcast_episodes SET transcript_zh = NULL, transcript_de = NULL",
+    # the prompt that produced each story, shown only in a debug view
+    "UPDATE stories SET prompt_text = NULL",
+]
+
+
+def _slim(path: str) -> None:
+    conn = sqlite3.connect(path)
+    for statement in _SLIM_STATEMENTS:
+        try:
+            conn.execute(statement)
+        except sqlite3.OperationalError as e:
+            # A table missing on an older schema is not worth failing a sync over.
+            print(f"  slim: skipped ({e})", file=sys.stderr)
+    conn.commit()
+    conn.execute("VACUUM")   # actually reclaim the freed pages
+    conn.close()
 
 
 def cmd_merge(prod_db: str, incoming_db: str) -> None:
@@ -148,11 +183,13 @@ def cmd_merge(prod_db: str, incoming_db: str) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    flags = {a for a in sys.argv[1:] if a.startswith("--")}
+    if len(args) != 3:
         sys.exit(__doc__)
-    command, db, other = sys.argv[1], sys.argv[2], sys.argv[3]
+    command, db, other = args
     if command == "prepare":
-        cmd_prepare(db, other)
+        cmd_prepare(db, other, slim="--full" not in flags)
     elif command == "merge":
         cmd_merge(db, other)
     else:
