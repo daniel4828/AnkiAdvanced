@@ -4997,3 +4997,17 @@ table.fsrs-table td.ivl { font-weight: 700; }
   flex-shrink: 0;
 }
 .conj-form { color: var(--text); }
+
+/* ── Offline mode banner (#612) ───────────────────────────────────────────── */
+#offline-banner {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  padding: 6px 12px;
+  background: #7a5c00;
+  color: #fff5d6;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: 0.3px;
+}
