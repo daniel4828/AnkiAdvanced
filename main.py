@@ -417,7 +417,10 @@ if __name__ == "__main__":
         import uvicorn
         database.init_db()
         database.purge_old_trash()
-        uvicorn.run(app, host="0.0.0.0", port=8000, access_log=False)
+        # PORT lets the offline instance (run.offline.sh) run alongside
+        # anything already on 8000 — issue #612.
+        uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "8000")),
+                    access_log=False)
     else:
         print("Install fastapi and uvicorn to run the web server.")
         print("Usage: python main.py import | status [--deck NAME]")

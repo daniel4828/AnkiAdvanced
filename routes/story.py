@@ -1014,7 +1014,12 @@ def story_count(deck_id: int, category: str, lang: str | None = None):
 @router.get("/api/tts-file")
 async def tts_file(text: str, lang: str = "zh"):
     """Return the cached mp3 for text (generating it if needed). Used by the browser Audio API."""
-    path = await tts.get_cached_path(text, lang=lang)
+    try:
+        path = await tts.get_cached_path(text, lang=lang)
+    except tts.NotCachedOffline:
+        # Offline with no cached audio — a plain 404 lets the frontend skip
+        # this sentence silently instead of showing an error (issue #612).
+        raise HTTPException(404, "No cached audio for this text (offline mode)")
     # Content-addressed by (text, lang) — the file at this path never changes,
     # so it's safe to cache aggressively (issue #513).
     return FileResponse(path, media_type="audio/mpeg",

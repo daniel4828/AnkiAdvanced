@@ -1,10 +1,12 @@
 import os
 
 import database
+from offline import OFFLINE_MODE
 from .queue_manager import QueueManager
 
-# Set DISABLE_AI=1 in run.dev.sh to skip story generation during development
-DISABLE_AI = os.getenv("DISABLE_AI", "").lower() in ("1", "true", "yes")
+# Set DISABLE_AI=1 in run.dev.sh to skip story generation during development.
+# Offline mode (issue #612) implies it — no network, so no AI either.
+DISABLE_AI = OFFLINE_MODE or os.getenv("DISABLE_AI", "").lower() in ("1", "true", "yes")
 
 # Shared singleton — imported by review.py and browse.py
 queue_mgr = QueueManager()
