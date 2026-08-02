@@ -68,6 +68,7 @@ let _retentionData = null;  // cached result from GET /api/retention
 let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
 let _deckLangById = {};        // deckId → 'zh'|'fr', rebuilt whenever decks load (flatten(decks))
 let _availableLangs = ['zh'];  // distinct langs in use, from GET /api/langs — tab bar shows only when > 1
+let _offlineMode = false;      // GET /api/mode — true for the run.offline.sh instance (#612)
 
 // The main-page language tab bar (issue #436) is the single source of truth for
 // "what language am I studying right now" on the home page: deck list, All-deck
@@ -839,10 +840,12 @@ function showView(name) {
     name === 'podcast'      ? 'Podcasts' : 'AnkiAdvanced';
   if (name === 'decks') quickMode = false;
   const headerRegenBtn = document.getElementById('header-regen-btn');
-  if (headerRegenBtn) headerRegenBtn.style.display = (name === 'review' && !unfinishedMode && !quickMode) ? '' : 'none';
+  // Offline mode hides both regenerate affordances — they can only fail (#612).
+  if (headerRegenBtn) headerRegenBtn.style.display =
+    (name === 'review' && !unfinishedMode && !quickMode && !_offlineMode) ? '' : 'none';
   if (name === 'review') {
     const regenBtn = document.querySelector('.regen-btn');
-    if (regenBtn) regenBtn.style.display = (unfinishedMode || quickMode) ? 'none' : '';
+    if (regenBtn) regenBtn.style.display = (unfinishedMode || quickMode || _offlineMode) ? 'none' : '';
   }
 }
 
@@ -1024,14 +1027,30 @@ function showNotice(msg) {
   setTimeout(() => { el.style.display = 'none'; el.classList.remove('notice'); }, 6000);
 }
 
+// Persistent reminder that this instance can't reach the network, so an empty
+// story or a silent sentence is expected rather than a bug (issue #612).
+function _renderOfflineBanner() {
+  const existing = document.getElementById('offline-banner');
+  if (!_offlineMode) { if (existing) existing.remove(); return; }
+  if (existing) return;
+  const el = document.createElement('div');
+  el.id = 'offline-banner';
+  el.textContent = '✈️ Offline mode — stories and audio are read-only from the last sync';
+  document.body.prepend(el);
+}
+
+
 // ── Deck list ───────────────────────────────────────────────────────────────
 async function loadDecks() {
   setLoading('Loading decks…');
   try {
-    const [langs] = await Promise.all([
+    const [langs, mode] = await Promise.all([
       api('GET', '/api/langs').catch(() => ['zh']),
+      api('GET', '/api/mode').catch(() => ({ offline: false })),
     ]);
     _availableLangs = langs && langs.length ? langs : ['zh'];
+    _offlineMode = !!(mode && mode.offline);
+    _renderOfflineBanner();
     // Only scope requests to the active tab once there's more than one language
     // in use — keeps a pure-Chinese install byte-identical to pre-#436 behavior.
     const langParam = _availableLangs.length > 1 ? `&lang=${activeLang()}` : '';

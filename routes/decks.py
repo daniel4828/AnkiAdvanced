@@ -4,6 +4,7 @@ import database
 import languages
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from offline import OFFLINE_MODE
 from .utils import queue_mgr
 
 logger = logging.getLogger(__name__)
@@ -90,6 +91,16 @@ def _attach_counts(flat_decks: list) -> None:
 # ---------------------------------------------------------------------------
 # Deck routes
 # ---------------------------------------------------------------------------
+
+@router.get("/api/mode")
+def get_mode():
+    """Runtime flags the frontend needs to know about (issue #612).
+
+    offline=True means this instance has no network: the UI hides everything
+    that would trigger an AI call and shows the offline banner instead.
+    """
+    return {"offline": OFFLINE_MODE}
+
 
 @router.get("/api/langs")
 def get_langs():

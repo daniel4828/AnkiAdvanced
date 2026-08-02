@@ -25,6 +25,7 @@ import threading
 import edge_tts
 
 import languages
+from offline import OFFLINE_MODE
 
 # Bypass system proxy (e.g. Shadowrocket in China) for edge-tts WebSocket connections.
 # The VPN tunnel routes traffic at the network level, so direct connections work fine.
@@ -53,12 +54,25 @@ def _cache_path(text: str, voice: str = VOICE) -> str:
     return os.path.join(TTS_CACHE_DIR, f"{key}.mp3")
 
 
+class NotCachedOffline(Exception):
+    """Offline mode + cache miss — the audio simply doesn't exist here (#612)."""
+
+
 async def _ensure_cached(text: str, voice: str = VOICE) -> str:
-    """Return path to mp3 for text, generating via edge-tts if not on disk."""
+    """Return path to mp3 for text, generating via edge-tts if not on disk.
+
+    In offline mode a cache miss raises NotCachedOffline instead: opening an
+    edge-tts WebSocket with no network would hang until its timeout and stall
+    the request, so a miss has to fail immediately.
+    """
     path = _cache_path(text, voice)
     if path in _hot or os.path.exists(path):
         _hot.add(path)
         return path
+
+    if OFFLINE_MODE:
+        logger.info("tts  offline cache MISS %r — no audio available", text[:30])
+        raise NotCachedOffline(text)
 
     os.makedirs(TTS_CACHE_DIR, exist_ok=True)
     tmp = path + ".tmp"
@@ -106,6 +120,16 @@ async def preload_all_async(texts: list[str], progress_key: str | None = None,
             _preload_progress[progress_key]["done"] = total
         return
 
+    if OFFLINE_MODE:
+        # Nothing to generate without a network. Report the batch as finished
+        # so the frontend's progress poll doesn't spin — the uncached
+        # sentences just play silently (issue #612).
+        logger.info("tts  offline — %d/%d sentences have no cached audio, skipping",
+                    len(missing), total)
+        if progress_key is not None:
+            _preload_progress[progress_key]["done"] = total
+        return
+
     logger.info("tts  generating %d/%d sentences (rest cached), concurrency=%d",
                 len(missing), total, _TTS_CONCURRENCY)
     done_count = already_cached
@@ -144,6 +168,8 @@ async def preload_all_async(texts: list[str], progress_key: str | None = None,
 
 def preload(text: str, lang: str = "zh") -> None:
     """Fire-and-forget single-item preload (background thread)."""
+    if OFFLINE_MODE:
+        return
     voice = languages.get_lang_config(lang)["tts_voice"]
     threading.Thread(target=lambda: asyncio.run(_ensure_cached(text, voice)),
                      daemon=True).start()
