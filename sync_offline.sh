@@ -33,7 +33,7 @@ pull)
     echo "== 步骤 1/5：检查 SSH 连接 =="
     echo "   连接 $SERVER …"
     ssh -o ConnectTimeout=10 "$SERVER" "test -f '$REMOTE_DB'" \
-        || { echo "❌ 连不上服务器，或找不到 $REMOTE_DB。你现在有网／VPN 吗？"; exit 1; }
+        || { echo "❌ 连不上服务器，或找不到 ${REMOTE_DB}。你现在有网／VPN 吗？"; exit 1; }
     echo "   ✅ 连接正常，生产数据库存在"
 
     echo
@@ -44,7 +44,7 @@ pull)
     echo "   ✅ 快照完成"
 
     echo
-    echo "== 步骤 3/5：下载数据库到 $LOCAL_DB（压缩后约 7 MB，几秒钟）=="
+    echo "== 步骤 3/5：下载数据库到 ${LOCAL_DB}（压缩后约 7 MB，几秒钟）=="
     mkdir -p data
     if [ -f "$LOCAL_DB" ]; then
         mv "$LOCAL_DB" "$LOCAL_DB.replaced-$(date +%Y%m%d-%H%M%S)"
@@ -91,8 +91,8 @@ pull)
 
 push)
     echo "== 步骤 1/4：检查本地离线数据库 =="
-    [ -f "$LOCAL_DB" ] || { echo "❌ 找不到 $LOCAL_DB——是不是还没 pull，或者已经 push 过了？"; exit 1; }
-    echo "   ✅ 找到 $LOCAL_DB（$(du -h "$LOCAL_DB" | cut -f1)）"
+    [ -f "$LOCAL_DB" ] || { echo "❌ 找不到 ${LOCAL_DB}——是不是还没 pull，或者已经 push 过了？"; exit 1; }
+    echo "   ✅ 找到 ${LOCAL_DB}（$(du -h "$LOCAL_DB" | cut -f1)）"
     echo "   提示：如果离线服务还开着，先按 Ctrl+C 停掉，确保数据全部写盘"
 
     echo
