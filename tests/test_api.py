@@ -42,13 +42,17 @@ ENTRY_谢谢 = {"type": "vocabulary", "simplified": "谢谢", "pinyin": "xiè xi
                "english": "thank you", "pos": "v",    "hsk": "1"}
 
 
-def fake_generate_story(cards):
+def fake_generate_story(cards, **kwargs):
     """
     Drop-in replacement for ai.generate_story used in tests.
     Returns one sentence per card with the correct word_id so the
     endpoint can save them to the DB and return them to the client.
+
+    **kwargs swallows topic/max_hsk/model/mode/lang/… — the real signature has
+    grown repeatedly, and a stub that has to be edited every time is a stub that
+    silently rots (issue #615). Returns (sentences, prompt) like the real one.
     """
-    return [
+    sentences = [
         {
             "word_id": c["word_id"],
             "sentence_zh": f"他说{c['word_zh']}。",
@@ -56,6 +60,7 @@ def fake_generate_story(cards):
         }
         for c in cards
     ]
+    return sentences, "fake prompt"
 
 
 # ---------------------------------------------------------------------------
@@ -66,10 +71,13 @@ def fake_generate_story(cards):
 def tmp_db(tmp_path, monkeypatch):
     """
     Redirect all DB access to a fresh temp file for this test.
-    Same pattern as test_importer.py — keeps tests fully isolated.
+
+    Patch database.core.DB_PATH, not database.DB_PATH: the latter is a copy of
+    the name made by `from .core import *`, and get_db() reads core's module
+    global at call time (issue #615).
     """
     db_file = tmp_path / "test.db"
-    monkeypatch.setattr(database, "DB_PATH", str(db_file))
+    monkeypatch.setattr(database.core, "DB_PATH", str(db_file))
     database.init_db()
     return db_file
 
@@ -79,7 +87,10 @@ def populated_db(tmp_db, tmp_path):
     """tmp_db with 2 words already imported. Returns the Kouyu deck_id."""
     write_yaml(tmp_path, "words.yaml", [ENTRY_你好, ENTRY_谢谢])
     importer.import_all(str(tmp_path))
-    return database.get_or_create_deck("Kouyu")
+    # Look the deck up rather than get_or_create_deck("Kouyu"): the importer
+    # nests it under "All", so the default parent_id=None would create a
+    # second, empty top-level deck (issue #615).
+    return next(d["id"] for d in database.get_all_decks() if d["name"] == "Kouyu")
 
 
 # ---------------------------------------------------------------------------
@@ -219,14 +230,15 @@ class TestSpeak:
 
     def test_speak_calls_tts_with_correct_text(self, tmp_db):
         """
-        POST /api/speak?text=你好 must pass exactly "你好" to tts.speak.
+        POST /api/speak?text=你好 must pass exactly "你好" to tts.speak_sync.
         The endpoint is a thin wrapper — we just verify the routing.
+        (lang is passed too since the multi-language work, issue #436.)
         """
-        with patch("tts.speak") as mock_tts:
+        with patch("tts.speak_sync") as mock_tts:
             r = client.post("/api/speak", params={"text": "你好"})
 
         assert r.status_code == 200
-        mock_tts.assert_called_once_with("你好")
+        mock_tts.assert_called_once_with("你好", lang="zh")
 
     def test_speak_returns_ok(self, tmp_db):
         """Response must be {"ok": true} so the frontend can detect success."""

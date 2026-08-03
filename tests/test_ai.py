@@ -30,24 +30,37 @@ SAMPLE_CARDS = [
     {"word_id": 3, "word_zh": "进步", "pinyin": "jìn bù",  "definition": "progress",       "pos": "n"},
 ]
 
-VALID_AI_RESPONSE = [
-    {"word_id": 1, "sentence_zh": "她很担心考试。",     "sentence_en": "She is worried about the exam."},
-    {"word_id": 2, "sentence_zh": "他每天努力学习。",   "sentence_en": "He studies hard every day."},
-    {"word_id": 3, "sentence_zh": "她看到了他的进步。", "sentence_en": "She saw his progress."},
+# What the model is asked to return: a numbered list of Chinese sentences,
+# each containing exactly one target word verbatim. No JSON, no translations.
+VALID_AI_RESPONSE = """1. 她很担心考试。
+2. 他每天努力学习。
+3. 她看到了他的进步。"""
+
+# 21 words so that one missing word is under the 5%-patch threshold.
+_MANY_WORDS = [
+    "担心", "努力", "进步", "学习", "老师", "学生", "朋友", "工作", "问题", "办法",
+    "时间", "机会", "结果", "经验", "习惯", "态度", "计划", "目标", "方向", "选择",
+    "决定",
 ]
 
 
-def _mock_anthropic(response_text: str):
+def _mock_api(response_text: str):
     """
-    Patches anthropic.Anthropic so that messages.create() returns a fake
-    response containing response_text as its first content block.
-    Returns a context manager — use with `with _mock_anthropic(...):`.
+    Patch ai._call_api so the provider layer returns response_text verbatim.
+    Returns a context manager — use with `with _mock_api(...):`.
+
+    This used to patch anthropic.Anthropic. That stopped working the day the
+    default model moved to DeepSeek: generate_story went through the
+    OpenAI-compatible client instead, the mock never applied, and the tests
+    died on a missing DEEPSEEK_API_KEY (issue #615). _call_api is the one
+    choke point every provider goes through, so patching it here survives
+    future changes of default model.
     """
-    mock_client = MagicMock()
-    mock_msg = MagicMock()
-    mock_msg.content = [MagicMock(text=response_text)]
-    mock_client.messages.create.return_value = mock_msg
-    return patch("anthropic.Anthropic", return_value=mock_client)
+    return patch("ai._call_api", return_value=response_text)
+
+
+# Kept under the old name so the live-API tests below read unchanged.
+_mock_anthropic = _mock_api
 
 
 # ---------------------------------------------------------------------------
@@ -55,88 +68,99 @@ def _mock_anthropic(response_text: str):
 # ---------------------------------------------------------------------------
 
 class TestGenerateStory:
+    """The AI contract changed twice since these tests were written (issue #615).
+
+    It no longer returns JSON: the prompt asks for a numbered list of Chinese
+    sentences, and generate_story matches each target word into a sentence by
+    string search. English/German translations are added afterwards by
+    _fill_translations (a translator call, stubbed here), not by the model.
+    Each result item is {word_ids: [...], sentence_zh, tokens}, and the return
+    value is a (sentences, prompt) tuple.
+
+    There is also no "placeholder fallback" anymore: an unusable response is
+    retried three times and then raises, because silently reviewing invented
+    sentences was worse than failing loudly.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _no_translation_calls(self, monkeypatch):
+        """_fill_translations hits the translation service — stub it out."""
+        def _fake(parsed, progress_key=None, lang="zh"):
+            for s in parsed:
+                s["sentence_en"] = f"[en] {s['sentence_zh']}"
+        monkeypatch.setattr(ai, "_fill_translations", _fake)
 
     def test_returns_one_sentence_per_card(self):
-        """
-        generate_story must return exactly N sentences for N input cards.
-        If this breaks, the frontend can't match sentences to cards.
-        """
-        with _mock_anthropic(json.dumps(VALID_AI_RESPONSE)):
-            result = ai.generate_story(SAMPLE_CARDS)
-        assert len(result) == len(SAMPLE_CARDS)
+        """N input cards → N sentences, so the frontend can map 1:1."""
+        with _mock_api(VALID_AI_RESPONSE):
+            sentences, _prompt = ai.generate_story(SAMPLE_CARDS)
+        assert len(sentences) == len(SAMPLE_CARDS)
 
     def test_word_ids_match_input_cards(self):
-        """
-        Each returned sentence must carry the word_id of its corresponding
-        input card (in order). The frontend uses word_id to find the right
-        sentence for each card.
-        """
-        with _mock_anthropic(json.dumps(VALID_AI_RESPONSE)):
-            result = ai.generate_story(SAMPLE_CARDS)
-        for sentence, card in zip(result, SAMPLE_CARDS):
-            assert sentence["word_id"] == card["word_id"], (
-                f"Expected word_id={card['word_id']}, got {sentence['word_id']}"
-            )
+        """Each card's word_id must land in exactly one sentence."""
+        with _mock_api(VALID_AI_RESPONSE):
+            sentences, _prompt = ai.generate_story(SAMPLE_CARDS)
+
+        found = [wid for s in sentences for wid in s["word_ids"]]
+        assert sorted(found) == sorted(c["word_id"] for c in SAMPLE_CARDS)
+        assert len(found) == len(set(found)), "a word_id was assigned twice"
+
+    def test_returns_the_prompt_it_sent(self):
+        """The caller stores the prompt with the story for later inspection."""
+        with _mock_api(VALID_AI_RESPONSE):
+            _sentences, prompt = ai.generate_story(SAMPLE_CARDS)
+        assert "担心" in prompt, "the target words must appear in the prompt"
 
     def test_each_sentence_has_zh_and_en(self):
-        """
-        Every sentence must have both a Chinese text and an English
-        translation — the frontend displays both.
-        """
-        with _mock_anthropic(json.dumps(VALID_AI_RESPONSE)):
-            result = ai.generate_story(SAMPLE_CARDS)
-        for s in result:
-            assert s.get("sentence_zh"), f"Missing sentence_zh in {s}"
-            assert s.get("sentence_en"), f"Missing sentence_en in {s}"
+        """zh comes from the model, en from _fill_translations afterwards."""
+        with _mock_api(VALID_AI_RESPONSE):
+            sentences, _prompt = ai.generate_story(SAMPLE_CARDS)
+        for s in sentences:
+            assert s.get("sentence_zh")
+            assert s.get("sentence_en")
 
-    def test_empty_cards_returns_empty_list_without_api_call(self):
-        """
-        generate_story([]) must return [] immediately without ever calling
-        the Anthropic API (no point generating a story for zero words, and
-        it would waste tokens).
-        """
-        with patch("anthropic.Anthropic") as mock_cls:
-            result = ai.generate_story([])
-        assert result == []
-        mock_cls.assert_not_called()
+    def test_empty_cards_returns_empty_without_api_call(self):
+        """No cards → no tokens spent."""
+        with patch("ai._call_api") as mock_api:
+            sentences, prompt = ai.generate_story([])
+        assert sentences == []
+        assert prompt == ""
+        mock_api.assert_not_called()
 
-    def test_malformed_json_falls_back_to_placeholder_sentences(self):
-        """
-        The AI sometimes returns prose, markdown, or broken JSON instead of
-        valid JSON. generate_story must catch this and return one fallback
-        sentence per card so the session can still continue.
-        """
-        with _mock_anthropic("Here is your story: she worried a lot. Very nice."):
-            result = ai.generate_story(SAMPLE_CARDS)
-        # Must still return one sentence per card
-        assert len(result) == len(SAMPLE_CARDS)
-        for sentence, card in zip(result, SAMPLE_CARDS):
-            assert sentence["word_id"] == card["word_id"]
-            assert sentence["sentence_zh"]
-            assert sentence["sentence_en"]
+    def test_response_without_numbered_lines_is_retried_then_raises(self):
+        """Prose instead of a numbered list is unusable — fail loudly.
 
-    def test_wrong_sentence_count_falls_back(self):
+        Returning invented placeholder sentences (the old behaviour) meant
+        reviewing sentences that never contained the target word.
         """
-        If the AI returns fewer sentences than cards (e.g. it skipped a word),
-        generate_story must detect the mismatch and fall back rather than
-        silently misaligning sentences with cards.
-        """
-        too_few = json.dumps(VALID_AI_RESPONSE[:1])  # 1 sentence for 3 cards
-        with _mock_anthropic(too_few):
-            result = ai.generate_story(SAMPLE_CARDS)
-        assert len(result) == len(SAMPLE_CARDS)
+        with _mock_api("Here is your story: she worried a lot. Very nice.") as mock_api:
+            with pytest.raises(RuntimeError, match="failed after 3 attempts"):
+                ai.generate_story(SAMPLE_CARDS)
+        assert mock_api.call_count == 3, "should retry twice before giving up"
 
-    def test_markdown_code_fence_stripped(self):
-        """
-        The AI frequently wraps JSON in ```json ... ``` code fences.
-        generate_story must strip them before parsing.
-        """
-        fenced = f"```json\n{json.dumps(VALID_AI_RESPONSE)}\n```"
-        with _mock_anthropic(fenced):
-            result = ai.generate_story(SAMPLE_CARDS)
-        assert len(result) == len(SAMPLE_CARDS)
-        for sentence, card in zip(result, SAMPLE_CARDS):
-            assert sentence["word_id"] == card["word_id"]
+    def test_missing_words_are_retried(self):
+        """A response covering only some target words triggers a retry."""
+        too_few = "1. 她很担心考试。"
+        with _mock_api(too_few) as mock_api:
+            with pytest.raises(RuntimeError, match="2 word"):
+                ai.generate_story(SAMPLE_CARDS)
+        assert mock_api.call_count == 3
+
+    def test_a_single_missing_word_is_patched_instead_of_failing(self):
+        """Below the 5% threshold the missing word gets a patched sentence,
+        so one stubborn word can't sink a whole 40-word story."""
+        cards = [
+            {"word_id": i, "word_zh": w, "pinyin": "", "definition": "x", "pos": "n"}
+            for i, w in enumerate(_MANY_WORDS, start=1)
+        ]
+        # Every word but the last one appears in the response.
+        response = "\n".join(f"{i}. 这里有{w}。" for i, w in enumerate(_MANY_WORDS[:-1], start=1))
+
+        with _mock_api(response):
+            sentences, _prompt = ai.generate_story(cards)
+
+        covered = {wid for s in sentences for wid in s["word_ids"]}
+        assert covered == {c["word_id"] for c in cards}, "every word must be covered"
 
 
 # ---------------------------------------------------------------------------
