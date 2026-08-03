@@ -140,9 +140,10 @@ bash sync_offline.sh push    # 落地后（要有网）：把复习结果合并�
 - `PORT` 环境变量（默认 8000）让离线实例跑 8001，不占用 Daniel 浏览器连的端口
 - **同步只合并 `cards` + `review_log` 两张表**（`scripts/offline_sync_server.py`，纯标准库，通过 ssh stdin 管道执行，不依赖服务器已部署该版本）。离线期间服务器 cron 仍在写入（播客单集、预生成故事、成本日志），整库对拷会毁掉这些数据——**绝不整库覆盖**
 - **同步令牌**（`app_settings.offline_sync_token`）：`pull` 时写入服务器并随快照带走，`push` 时两边必须一致，合并后轮换 → 同一份离线库无法重复 push；手工拷贝的库没有令牌，直接拒绝
-- **传输量优化（链路很慢，实测到服务器只有 ~8 KB/s）**：
-  - 快照**瘦身**：`prepare` 在快照上（不动生产库）清空 `api_call_log`、`podcast_episodes.transcript_*`、`stories.prompt_text` 再 VACUUM → 29.6 MB 降到 18.5 MB，`scp -C` 压缩后实际传 ~7 MB。`prepare … --full` 可保留全部
-  - 音频**按需**：`scripts/offline_tts_manifest.py` 从拉下来的库算出真正会用到的语音（故事句子 `sentence_zh` + 到期词 `word_zh`，前端只请求这两种），再与服务器实际存在的文件取交集 → ~250 个文件 / 6.3 MB，而不是整个 118 MB 的 `data/tts/`。**必须取交集**，否则 rsync 会为缺失文件返回非零码，`set -e` 会中断整个脚本
+- **传输量优化**（实测链路 ~2.7 MB/s，整个 pull 十几秒；这两项优化仍然保留，只是并非为了救命）：
+  - 快照**瘦身**：`prepare` 在快照上（不动生产库）清空 `api_call_log`、`podcast_episodes.transcript_*`、`stories.prompt_text` 再 VACUUM → 29.6 MB 降到 18.5 MB。`prepare … --full` 可保留全部
+  - 音频**按需**：`scripts/offline_tts_manifest.py` 从拉下来的库算出真正会用到的语音（故事句子 `sentence_zh` + 到期词 `word_zh`，前端只请求这两种），再与服务器实际存在的文件取交集 → 一百多个文件 / 几 MB，而不是整个 118 MB 的 `data/tts/`。**必须取交集**，否则 rsync 会为缺失文件返回非零码，`set -e` 会中断整个脚本
+- **rsync 只能用两边都支持的选项**：脚本跑在 Daniel 的 macOS 上，系统自带的是 **openrsync**，不认 GNU 的 `--info=progress2`（#617 因此挂掉）。用 `--progress`。凡是只在服务器上验证过的命令，都要想一想 Mac 上是不是同一个实现
 - 测试见 `tests/test_offline_sync.py`
 
 ---

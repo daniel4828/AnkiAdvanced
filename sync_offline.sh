@@ -44,8 +44,7 @@ pull)
     echo "   ✅ 快照完成"
 
     echo
-    echo "== 步骤 3/5：下载数据库到 $LOCAL_DB =="
-    echo "   压缩后约 7 MB。链路慢的话（实测过 ~8 KB/s）这一步可能要十几分钟。"
+    echo "== 步骤 3/5：下载数据库到 $LOCAL_DB（压缩后约 7 MB，几秒钟）=="
     mkdir -p data
     if [ -f "$LOCAL_DB" ]; then
         mv "$LOCAL_DB" "$LOCAL_DB.replaced-$(date +%Y%m%d-%H%M%S)"
@@ -71,7 +70,9 @@ pull)
     comm -12 "$MANIFEST.want" "$MANIFEST.have" > "$MANIFEST"
     echo "   服务器上实际存在 $(wc -l < "$MANIFEST" | tr -d ' ') 个（其余的词服务器也还没生成过音频）"
     if [ -s "$MANIFEST" ]; then
-        rsync -a --info=progress2 --files-from="$MANIFEST" \
+        # --progress（不是 GNU 专有的 --info=progress2）：macOS 自带的
+        # openrsync 不认后者，会直接报错退出（议题 #617）
+        rsync -a --progress --files-from="$MANIFEST" \
             "$SERVER:$REMOTE_DIR/data/tts/" data/tts/
     fi
     rm -f "$MANIFEST" "$MANIFEST.want" "$MANIFEST.have"
