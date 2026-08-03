@@ -1,8 +1,8 @@
 """
 Integration tests for the Kouyu importer and card queue logic.
 
-Each test gets its own isolated in-memory-backed temp DB by monkeypatching
-database.DB_PATH before calling any database functions.
+Each test gets its own isolated temp DB by monkeypatching database.core.DB_PATH
+before calling any database functions.
 """
 import os
 import sys
@@ -25,9 +25,14 @@ import importer
 
 @pytest.fixture
 def tmp_db(tmp_path, monkeypatch):
-    """Point database.DB_PATH at a temp file and initialise the schema."""
+    """Point database.core.DB_PATH at a temp file and initialise the schema.
+
+    It has to be core's global: database.DB_PATH is only a copy of the name
+    made by `from .core import *`, so patching it leaves get_db() connecting
+    to the real data/srs.db (issue #615).
+    """
     db_file = str(tmp_path / "test_srs.db")
-    monkeypatch.setattr(database, "DB_PATH", db_file)
+    monkeypatch.setattr(database.core, "DB_PATH", db_file)
     # init_db also creates the data/ dir and default preset+deck
     database.init_db()
     return db_file
@@ -152,7 +157,7 @@ class TestCardQueue:
 
     def test_new_card_appears_in_due_list(self, tmp_db, tmp_path):
         self._import_word(tmp_path, ENTRY_你好)
-        deck_id = database.get_or_create_deck("Kouyu · Listening")
+        deck_id = deck_id_by_name("Kouyu · Listening")
         cards = database.get_due_cards(deck_id, "listening")
         assert len(cards) == 1
         assert cards[0]["word_zh"] == "你好"
@@ -160,7 +165,7 @@ class TestCardQueue:
 
     def test_count_due_shows_new_card(self, tmp_db, tmp_path):
         self._import_word(tmp_path, ENTRY_你好)
-        deck_id = database.get_or_create_deck("Kouyu · Listening")
+        deck_id = deck_id_by_name("Kouyu · Listening")
         counts = database.count_due(deck_id, "listening")
         assert counts["new"] == 1
         assert counts["learning"] == 0
@@ -168,7 +173,7 @@ class TestCardQueue:
 
     def test_get_next_card_returns_top_priority(self, tmp_db, tmp_path):
         self._import_word(tmp_path, ENTRY_你好)
-        deck_id = database.get_or_create_deck("Kouyu · Listening")
+        deck_id = deck_id_by_name("Kouyu · Listening")
         card = database.get_next_card(deck_id, "listening")
         assert card is not None
         assert card["word_zh"] == "你好"
@@ -209,6 +214,19 @@ def _force_card_state(card_id, state, due, step_index=0, interval=1,
     )
 
 
+def deck_id_by_name(name):
+    """Find an existing deck by name.
+
+    Not get_or_create_deck(name): the importer nests its decks under "All"
+    (All → Kouyu → Kouyu · Listening), and get_or_create_deck defaults to
+    parent_id=None, so it would silently create a second, empty top-level deck
+    and every query against it would come back empty (issue #615).
+    """
+    match = next((d for d in database.get_all_decks() if d["name"] == name), None)
+    assert match is not None, f"deck {name!r} not found — did the import run?"
+    return match["id"]
+
+
 def _get_listening_card_id(word_zh):
     cards = database.get_all_cards_for_browse({"category": "listening"})
     return next(c["id"] for c in cards if c["word_zh"] == word_zh)
@@ -225,7 +243,7 @@ class TestQueuePriority:
         """Import 你好, 再见, 老师 and return the Kouyu · Listening deck_id."""
         write_yaml(tmp_path, "p.yaml", [ENTRY_你好, ENTRY_再见, ENTRY_老师])
         importer.import_all(str(tmp_path))
-        return database.get_or_create_deck("Kouyu · Listening")
+        return deck_id_by_name("Kouyu · Listening")
 
     def test_learning_card_beats_new_card(self, tmp_db, tmp_path):
         """A learning card that is now overdue should come before a new card."""
@@ -255,42 +273,59 @@ class TestQueuePriority:
             "Review card due today should come before new cards"
         assert next_card["state"] == "review"
 
-    def test_learning_card_beats_review_card(self, tmp_db, tmp_path):
-        """An overdue learning card should come before a review card due today."""
+    def test_learning_first_preset_puts_learning_before_review(self, tmp_db, tmp_path):
+        """With interday_learning_review_order='learning_first', an overdue
+        learning card comes before a mature review card due today.
+
+        This used to assert an unconditional "learning beats review" rule. That
+        rule is now a preset knob (issue #615): the default is 'mixed', which
+        merges both groups by due time — and a review card's date-only due
+        ("2026-08-03") sorts before a learning card's datetime due on the same
+        day, so under 'mixed' the review card legitimately comes first.
+        """
         deck_id = self._setup_three_words(tmp_path)
+        preset_id = database.get_preset_for_deck(deck_id, "listening")["id"]
+        database.update_preset(preset_id, {"interday_learning_review_order": "learning_first"})
 
         # 你好 → overdue learning
         learning_id = _get_listening_card_id("你好")
         past = (datetime.now() - timedelta(seconds=1)).isoformat(timespec="seconds")
         _force_card_state(learning_id, state="learning", due=past)
 
-        # 再见 → review due today
+        # 再见 → review due today. The interval must clear learned_interval (4),
+        # otherwise the card counts as still-learning and never reaches the
+        # review group at all.
         review_id = _get_listening_card_id("再见")
         today = date.today().isoformat()
-        _force_card_state(review_id, state="review", due=today, interval=1)
+        _force_card_state(review_id, state="review", due=today, interval=10)
 
         # 老师 stays new
         next_card = database.get_next_card(deck_id, "listening")
         assert next_card["id"] == learning_id, \
-            "Overdue learning card should beat review card"
+            "learning_first preset should put the learning card first"
 
-    def test_future_learning_card_does_not_appear(self, tmp_db, tmp_path):
-        """
-        A card rated Again gets due=now+1min (future).
-        It must NOT appear in the queue yet — the user should see other cards first.
+    def test_learning_card_due_later_today_is_still_gathered(self, tmp_db, tmp_path):
+        """A learning card whose minute-timer hasn't expired is still gathered.
+
+        This test used to assert the opposite. get_due_cards' WHERE clause is
+        `state IN ('learning','relearn') AND due < tomorrow` on purpose: the
+        deck list's "learning_future" badge counts exactly this set. Withholding
+        the card until its timer expires is the session queue's job, and that
+        guarantee is tested where it lives, in test_queue_manager.py
+        (test_learning_card_due_later_today_is_not_served_yet, issue #615).
         """
         deck_id = self._setup_three_words(tmp_path)
 
-        # Put 你好 in learning but due 2 minutes in the FUTURE
         card_id = _get_listening_card_id("你好")
         future = (datetime.now() + timedelta(minutes=2)).isoformat(timespec="seconds")
         _force_card_state(card_id, state="learning", due=future)
 
-        # Queue should only contain 再见 and 老师 (new), not 你好
-        due_cards = database.get_due_cards(deck_id, "listening")
-        due_ids = [c["id"] for c in due_cards]
-        assert card_id not in due_ids, \
-            "Future-due learning card must not appear in queue yet"
+        due_ids = [c["id"] for c in database.get_due_cards(deck_id, "listening")]
+        assert card_id in due_ids
+
+        counts = database.count_due(deck_id, "listening")
+        assert counts["learning_future"] == 1
+        assert counts["learning"] == 0, "not due yet, so not in the actionable count"
 
     def test_again_card_reappears_at_top_after_delay(self, tmp_db, tmp_path):
         """
@@ -303,14 +338,12 @@ class TestQueuePriority:
 
         card_a_id = _get_listening_card_id("你好")
 
-        # Step 1: simulate rating Again — card goes to learning, due is in the future
+        # Step 1: simulate rating Again — card goes to learning, due is in the future.
+        # It is gathered but not yet serveable; the session queue is what holds it
+        # back (see test_queue_manager.py, issue #615).
         future = (datetime.now() + timedelta(minutes=1)).isoformat(timespec="seconds")
         _force_card_state(card_a_id, state="learning", due=future, step_index=0)
-
-        # At this point card A should NOT be in the queue
-        due_now = database.get_due_cards(deck_id, "listening")
-        assert card_a_id not in [c["id"] for c in due_now], \
-            "Card should not appear while its due time is still in the future"
+        assert database.count_due(deck_id, "listening")["learning"] == 0
 
         # Step 2: simulate 1 minute passing — set due to 1 second ago
         past = (datetime.now() - timedelta(seconds=1)).isoformat(timespec="seconds")
@@ -369,7 +402,7 @@ class TestMultipleAgainCards:
     def _setup_three_words(self, tmp_path):
         write_yaml(tmp_path, "m.yaml", [ENTRY_你好, ENTRY_再见, ENTRY_老师])
         importer.import_all(str(tmp_path))
-        return database.get_or_create_deck("Kouyu · Listening")
+        return deck_id_by_name("Kouyu · Listening")
 
     def test_two_again_cards_returned_in_due_order(self, tmp_db, tmp_path):
         """
@@ -457,9 +490,9 @@ class TestMultipleAgainCards:
 
     def test_only_expired_again_cards_are_visible(self, tmp_db, tmp_path):
         """
-        You click Again on two cards at different times.
-        Only the card whose timer has already expired is visible;
-        the other is still hidden (due in the future).
+        You click Again on two cards at different times. Both belong to today,
+        so both are gathered; only the one whose timer already expired counts
+        as actionable ("learning"), the other sits in "learning_future".
         """
         deck_id = self._setup_three_words(tmp_path)
 
@@ -471,8 +504,13 @@ class TestMultipleAgainCards:
         _force_card_state(id_expired, state="learning", due=past)
         _force_card_state(id_waiting,  state="learning", due=future)
 
-        due_cards = database.get_due_cards(deck_id, "listening")
-        due_ids = [c["id"] for c in due_cards]
+        # Both are gathered — get_due_cards returns everything due *today*.
+        # The counts are what tell them apart, and the session queue only serves
+        # the expired one (test_queue_manager.py, issue #615).
+        due_ids = [c["id"] for c in database.get_due_cards(deck_id, "listening")]
+        assert id_expired in due_ids
+        assert id_waiting in due_ids
 
-        assert id_expired in due_ids,  "Expired Again card should be visible"
-        assert id_waiting  not in due_ids, "Not-yet-due Again card should be hidden"
+        counts = database.count_due(deck_id, "listening")
+        assert counts["learning"] == 1, "only the expired timer is actionable now"
+        assert counts["learning_future"] == 1, "the other one is still waiting"

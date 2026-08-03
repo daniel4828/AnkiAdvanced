@@ -198,3 +198,59 @@ def test_undo_brings_unburied_sibling_back(e2e):
     assert r.status_code == 200
     restored = _card_from(client.get(f"/api/today/{deck_id}/listening"))
     assert restored is not None and restored["id"] == listening["id"]
+
+
+# ---------------------------------------------------------------------------
+# Intraday learning gating (issue #615)
+# ---------------------------------------------------------------------------
+# get_due_cards() deliberately gathers EVERY learning card due today, including
+# ones whose minute-timer hasn't expired yet — that set is what the deck list's
+# "learning_future" badge counts. Not serving them early is the queue's job: it
+# keeps same-day learning cards (an ISO datetime, i.e. a "T" in due) in a
+# separate intraday deque and only hands one over once due <= now.
+#
+# test_importer.py used to assert this against get_due_cards(), which stopped
+# being the right layer once learning_future existed. It belongs here.
+
+def test_learning_card_due_later_today_is_not_served_yet(e2e):
+    import database
+
+    client, deck_id = e2e
+    from datetime import datetime, timedelta
+
+    card = _card_from(client.get(f"/api/today/{deck_id}/listening"))
+    assert card is not None
+
+    # Push it into learning with its timer expiring two minutes from now.
+    future = (datetime.now() + timedelta(minutes=2)).isoformat(timespec="seconds")
+    database.update_card(card["id"], state="learning", due=future, step_index=0,
+                     interval=0, ease=2.5, repetitions=0, lapses=0)
+
+    from routes.utils import queue_mgr
+    queue_mgr.invalidate()
+
+    # It is due *today*, so the leaf deck still gathers it …
+    # (deck_id here is the aggregate "All" deck; get_due_cards works on leaves)
+    due_ids = [c["id"] for c in database.get_due_cards(card["deck_id"], "listening")]
+    assert card["id"] in due_ids, "today's learning card should still be gathered"
+
+    # … but the session must not serve it before its timer expires.
+    assert _card_from(client.get(f"/api/today/{deck_id}/listening")) is None
+
+
+def test_learning_card_is_served_once_its_timer_expired(e2e):
+    import database
+
+    client, deck_id = e2e
+    from datetime import datetime, timedelta
+
+    card = _card_from(client.get(f"/api/today/{deck_id}/listening"))
+    past = (datetime.now() - timedelta(seconds=30)).isoformat(timespec="seconds")
+    database.update_card(card["id"], state="learning", due=past, step_index=0,
+                     interval=0, ease=2.5, repetitions=0, lapses=0)
+
+    from routes.utils import queue_mgr
+    queue_mgr.invalidate()
+
+    served = _card_from(client.get(f"/api/today/{deck_id}/listening"))
+    assert served is not None and served["id"] == card["id"]

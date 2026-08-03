@@ -908,7 +908,15 @@ def _hsk_to_int(hsk_str: str) -> int | None:
     try:
         return int(s)
     except ValueError:
-        return None
+        pass
+    # Some older Kouyu entries grade a word across two levels ("4/5"). The
+    # documented format is a single digit, but falling through to None would
+    # silently import the word with no HSK level at all, so take the higher one.
+    if "/" in s:
+        levels = [int(part) for part in s.split("/") if part.strip().isdigit()]
+        if levels:
+            return max(levels)
+    return None
 
 
 # Keep old name as alias

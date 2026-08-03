@@ -400,6 +400,16 @@ python main.py status [--deck X]     # 显示每个牌组/类别的到期数量
 
 ---
 
+## 测试（`tests/`，`pytest tests/` 全套约 11 秒）
+
+- **隔离数据库只能打 `database.core.DB_PATH` 这个补丁**：`database/__init__.py` 是 `from .core import *`，`database.DB_PATH` 只是一份名字副本，`get_db()` 读的是 core 的模块全局。打错位置不会报错，测试会**静默写进真实的 `data/srs.db`**（#615，`test_importer`/`test_api` 曾这样跑了很久）。`tests/conftest.py` 还额外把 `DB_PATH` 指向临时目录兜底
+- `conftest.py` 有个 autouse 夹具把 `tts._ensure_cached` 打桩——否则故事相关的测试会真的去连 edge-tts（曾让 `test_api` 从 2 秒变成 85 秒，且断网必挂）
+- **AI 要打桩在 `ai._call_api` 上**，不要打在某个提供商的客户端上：默认模型换过（Claude → DeepSeek），打在 `anthropic.Anthropic` 上的补丁会静默失效（#615）
+- 导入器建的牌组嵌套在 `All` 下面。用 `get_or_create_deck("Kouyu")` 查找会因为默认 `parent_id=None` **新建一个空牌组**，查什么都是空——按名字查已存在的牌组（见 `test_importer.deck_id_by_name`）
+- 测试替身的签名/返回格式会随生产代码漂移而悄悄作废。桩函数尽量吃 `**kwargs`，断言写在稳定的契约上
+
+---
+
 ## 规范与约束
 
 - 所有数据库访问通过 `database/` 包——其他文件不写原始 SQL（`import database` 仍然有效）
