@@ -143,6 +143,8 @@ bash sync_offline.sh push    # 落地后（要有网）：把复习结果合并�
 - **传输量优化**（实测链路 ~2.7 MB/s，整个 pull 十几秒；这两项优化仍然保留，只是并非为了救命）：
   - 快照**瘦身**：`prepare` 在快照上（不动生产库）清空 `api_call_log`、`podcast_episodes.transcript_*`、`stories.prompt_text` 再 VACUUM → 29.6 MB 降到 18.5 MB。`prepare … --full` 可保留全部
   - 音频**按需**：`scripts/offline_tts_manifest.py` 从拉下来的库算出真正会用到的语音（故事句子 `sentence_zh` + 到期词 `word_zh`，前端只请求这两种），再与服务器实际存在的文件取交集 → 一百多个文件 / 几 MB，而不是整个 118 MB 的 `data/tts/`。**必须取交集**，否则 rsync 会为缺失文件返回非零码，`set -e` 会中断整个脚本
+- **中文提示里紧跟变量必须写 `${VAR}`**：`"…下载到 $LOCAL_DB（约 7 MB）"` 会让 bash 把全角括号的字节也算进变量名，配合 `set -u` 直接退出（#619）。这个仓库的脚本提示全是中文，极易踩
+- **脚本改动必须实机跑一遍，`bash -n` 不够**：它只查语法，`set -u` 的 unbound variable、选项不被支持（#617）都要到运行时才暴露。离线同步脚本可以用 `ANKI_REMOTE_DIR=/tmp/xxx` 指向服务器上的一份副本来安全演练 push
 - **rsync 只能用两边都支持的选项**：脚本跑在 Daniel 的 macOS 上，系统自带的是 **openrsync**，不认 GNU 的 `--info=progress2`（#617 因此挂掉）。用 `--progress`。凡是只在服务器上验证过的命令，都要想一想 Mac 上是不是同一个实现
 - 测试见 `tests/test_offline_sync.py`
 
