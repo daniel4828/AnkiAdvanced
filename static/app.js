@@ -1896,6 +1896,10 @@ function _wordRow(w) {
     rightHtml =
       `<button class="bw-saved-btn" onclick="event.stopPropagation();savedGenerate(${w.id},this)" title="Generate content with AI">✨ Generate</button>` +
       `<button class="bw-saved-btn bw-saved-promote" onclick="event.stopPropagation();savedPromote(${w.id},this)" title="Add to tomorrow's Daily deck">→ Add to Daily</button>`;
+  } else if (_browseCardStatus === 'leech' && w.cards.some(c => c.is_leech)) {
+    rightHtml =
+      `<button class="bw-unleech-btn" onclick="event.stopPropagation();browseUnleechWord(${w.id},this)"` +
+      ` title="Clear the leech flag and unsuspend">✓ Unleech</button>`;
   } else if (w.cards.length === 0) {
     rightHtml = `<button class="bw-add-btn" onclick="openAddToDeckModal(event,${w.id})" title="添加到牌组">＋ 添加</button>`;
   } else {
@@ -1921,6 +1925,22 @@ function _wordRow(w) {
       </div>
       <div class="bw-right">${rightHtml}</div>
     </div>`;
+}
+
+// Clear the leech flag on every leeched card of a word (Leeched list, single row).
+async function browseUnleechWord(wordId, btn) {
+  btn.disabled = true;
+  const orig = btn.textContent;
+  btn.textContent = '…';
+  try {
+    await api('POST', '/api/cards/bulk-unleech', { word_ids: [wordId] });
+    await _browseReload();
+    showQuickAddBanner('✓ Leech cleared', false);
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = orig;
+    showError('Unleech failed: ' + e.message);
+  }
 }
 
 // Generate AI content for a saved word (stays in the Saved list, now filled in).
@@ -2012,6 +2032,15 @@ async function browseActionSuspend() {
     await api('POST', '/api/cards/bulk-suspend', { word_ids });
     await _browseReload();
   } catch (e) { showError('Suspend failed: ' + e.message); }
+}
+
+async function browseActionUnleech() {
+  const word_ids = [..._browseSelected];
+  try {
+    const r = await api('POST', '/api/cards/bulk-unleech', { word_ids });
+    await _browseReload();
+    showQuickAddBanner(`✓ Leech cleared on ${r.count} card${r.count === 1 ? '' : 's'}`, false);
+  } catch (e) { showError('Unleech failed: ' + e.message); }
 }
 
 async function browseActionDelete() {

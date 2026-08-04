@@ -123,6 +123,40 @@ def mark_leech_suspend(card_id: int) -> None:
     conn.close()
 
 
+_CLEAR_LEECH_SQL = """
+    UPDATE cards
+       SET is_leech = 0, lapses = 0, learning_again_count = 0, probation = 0,
+           state = CASE WHEN state = 'suspended' THEN COALESCE(pre_suspend_state, 'new') ELSE state END,
+           pre_suspend_state = NULL
+     WHERE is_leech = 1 AND deleted_at IS NULL
+"""
+
+
+def clear_leech(card_id: int) -> dict:
+    """Clear a card's leech flag, restoring it from the leech suspension.
+
+    Mirrors what unsuspending a leech does in toggle_card_suspension: the Again
+    counters are reset so the card does not immediately trip the threshold again.
+    """
+    conn = get_db()
+    conn.execute(_CLEAR_LEECH_SQL + " AND id = ?", (card_id,))
+    conn.commit()
+    conn.close()
+    return get_card(card_id)
+
+
+def bulk_clear_leech_by_words(word_ids: list[int]) -> int:
+    """Clear the leech flag on every leeched card of the given words."""
+    if not word_ids:
+        return 0
+    conn = get_db()
+    ph = ','.join('?' * len(word_ids))
+    cur = conn.execute(_CLEAR_LEECH_SQL + f" AND word_id IN ({ph})", word_ids)
+    conn.commit()
+    conn.close()
+    return cur.rowcount
+
+
 def toggle_card_suspension(card_id: int) -> dict:
     """Toggle a card between suspended and new.
 

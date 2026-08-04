@@ -2570,6 +2570,20 @@ a.news-source-line:hover {
 }
 .bw-add-btn:hover { background: #dbeafe; }
 
+/* Leeched-list per-row action: clear the leech flag */
+.bw-unleech-btn {
+  font-size: 11px;
+  background: none;
+  border: 1px solid #16a34a;
+  color: #16a34a;
+  border-radius: 4px;
+  padding: 2px 7px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.bw-unleech-btn:hover:not(:disabled) { background: #dcfce7; }
+.bw-unleech-btn:disabled { opacity: 0.5; cursor: default; }
+
 /* Saved-list per-row actions: Generate content / Add to Daily */
 .bw-saved-btn {
   font-size: 11px;
