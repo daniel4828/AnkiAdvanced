@@ -19,7 +19,8 @@ REMOTE_SNAPSHOT="/tmp/anki_offline_snapshot.db"
 REMOTE_INCOMING="/tmp/anki_offline_incoming.db"
 
 cd "$(dirname "$0")"
-LOCAL_DB="data/offline.db"
+# 覆盖它就能拿一份临时库对着服务器上的副本安全演练，不动真的 data/offline.db
+LOCAL_DB="${ANKI_LOCAL_DB:-data/offline.db}"
 SERVER_SCRIPT="scripts/offline_sync_server.py"
 MANIFEST="data/.offline_tts_manifest"
 # 提前多少天的到期词也一起同步音频——离线期间可以往前学

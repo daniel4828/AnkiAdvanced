@@ -193,6 +193,7 @@ try:
     from starlette.middleware.gzip import GZipMiddleware
     import uvicorn
 
+    from offline import LOCAL_MODE, OFFLINE_MODE
     from routes import decks, review, story, browse, imports, podcast as podcast_routes
 
     @asynccontextmanager
@@ -376,6 +377,11 @@ try:
     app.include_router(browse.router)
     app.include_router(imports.router)
     app.include_router(podcast_routes.router)
+    # Sync only makes sense on a laptop copy — on the server these routes must
+    # not exist at all, or a stray call would overwrite production (#625).
+    if LOCAL_MODE or OFFLINE_MODE:
+        from routes import sync as sync_routes
+        app.include_router(sync_routes.router)
 
     import threading
     import time

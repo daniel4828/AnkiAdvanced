@@ -5044,3 +5044,56 @@ table.fsrs-table td.ivl { font-weight: 700; }
   opacity: 1;
   background: rgba(255, 255, 255, 0.15);
 }
+
+/* ── Sync modal (#625) ────────────────────────────────────────────────────── */
+#sync-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 900;
+}
+#sync-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(720px, 92vw);
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  z-index: 901;
+  overflow: hidden;
+}
+#sync-modal-intro {
+  padding: 12px 16px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+#sync-log {
+  flex: 1;
+  min-height: 120px;
+  margin: 0 16px;
+  padding: 10px;
+  overflow: auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.sync-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+#sync-status {
+  font-size: 13px;
+  color: var(--muted);
+}
