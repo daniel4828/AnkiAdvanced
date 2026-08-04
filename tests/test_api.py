@@ -257,3 +257,72 @@ class TestSpeak:
             r = client.post("/api/speak", params={"text": "你好"})
 
         assert r.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# POST /api/cards/{card_id}/unleech  +  POST /api/cards/bulk-unleech  (#623)
+# ---------------------------------------------------------------------------
+
+class TestUnleech:
+    """Clearing the leech flag straight from the Browse window."""
+
+    def _leeched_card(self, deck_id, word_zh="你好"):
+        """Return a card of that word, suspended and flagged as a leech."""
+        word_id = next(w["id"] for w in database.get_words_for_browse()
+                       if w["word_zh"] == word_zh)
+        card = next(c for c in database.get_cards_for_word(word_id))
+        conn = database.core.get_db()
+        conn.execute(
+            "UPDATE cards SET state='review', lapses=5, learning_again_count=7 WHERE id=?",
+            (card["id"],),
+        )
+        conn.commit()
+        conn.close()
+        database.mark_leech_suspend(card["id"])
+        return word_id, card["id"]
+
+    def test_unleech_restores_pre_suspend_state_and_resets_counters(self, populated_db):
+        word_id, card_id = self._leeched_card(populated_db)
+        assert database.get_card(card_id)["state"] == "suspended"
+
+        r = client.post(f"/api/cards/{card_id}/unleech")
+
+        assert r.status_code == 200
+        card = database.get_card(card_id)
+        assert card["is_leech"] == 0
+        # Restored to what it was before the leech suspend, not blindly to 'new'.
+        assert card["state"] == "review"
+        assert card["lapses"] == 0
+        assert card["learning_again_count"] == 0
+
+    def test_unleech_leaves_non_leech_cards_alone(self, populated_db):
+        """A suspended card that is not a leech must keep its suspension."""
+        word_id = next(w["id"] for w in database.get_words_for_browse()
+                       if w["word_zh"] == "谢谢")
+        card_id = database.get_cards_for_word(word_id)[0]["id"]
+        database.suspend_card(card_id)
+
+        client.post(f"/api/cards/{card_id}/unleech")
+
+        assert database.get_card(card_id)["state"] == "suspended"
+
+    def test_unleech_unknown_card_returns_404(self, populated_db):
+        assert client.post("/api/cards/999999/unleech").status_code == 404
+
+    def test_bulk_unleech_clears_every_leeched_card_of_the_words(self, populated_db):
+        word_id, card_id = self._leeched_card(populated_db)
+        other_id = [c["id"] for c in database.get_cards_for_word(word_id)
+                    if c["id"] != card_id][0]
+        database.mark_leech_suspend(other_id)
+
+        r = client.post("/api/cards/bulk-unleech", json={"word_ids": [word_id]})
+
+        assert r.status_code == 200
+        assert r.json()["count"] == 2
+        for cid in (card_id, other_id):
+            assert database.get_card(cid)["is_leech"] == 0
+            assert database.get_card(cid)["state"] != "suspended"
+
+    def test_bulk_unleech_with_no_words_is_a_noop(self, populated_db):
+        r = client.post("/api/cards/bulk-unleech", json={"word_ids": []})
+        assert r.json() == {"ok": True, "count": 0}

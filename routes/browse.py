@@ -396,6 +396,23 @@ def leech_card_endpoint(card_id: int):
     return database.get_card(card_id)
 
 
+@router.post("/api/cards/{card_id}/unleech")
+def unleech_card_endpoint(card_id: int):
+    """Clear a card's leech flag and restore it from the leech suspension."""
+    card = database.clear_leech(card_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    _queue_mgr.invalidate()
+    return card
+
+
+@router.post("/api/cards/bulk-unleech")
+def bulk_unleech(body: dict):
+    count = database.bulk_clear_leech_by_words(body.get("word_ids", []))
+    _queue_mgr.invalidate()
+    return {"ok": True, "count": count}
+
+
 @router.post("/api/cards/{card_id}/reset")
 def reset_card_endpoint(card_id: int):
     return database.reset_card(card_id)
