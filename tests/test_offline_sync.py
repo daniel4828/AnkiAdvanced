@@ -185,3 +185,61 @@ def test_untouched_cards_are_not_rewritten(server_db, tmp_path):
     after = sqlite3.connect(server_db).execute(
         "SELECT state, due FROM cards WHERE id = 1").fetchone()
     assert before == after
+
+
+# ── Conflict resolution: last review wins (#625) ─────────────────────────────
+# Once the laptop is an everyday instance and not just a plane companion, the
+# same card can be reviewed on both sides between two syncs.
+
+def _review_with_timestamp(db, when, due, card_id=1):
+    conn = sqlite3.connect(db)
+    conn.execute("INSERT INTO review_log (card_id, reviewed_at, rating) VALUES (?, ?, 3)",
+                 (card_id, when))
+    conn.execute("UPDATE cards SET state = 'review', due = ?, last_review = ? WHERE id = ?",
+                 (due, when, card_id))
+    conn.commit()
+    conn.close()
+
+
+def test_merge_prefers_the_laptop_when_it_reviewed_later(server_db, tmp_path):
+    snapshot = _prepare(server_db, tmp_path)
+    _review_with_timestamp(server_db, '2026-08-03T09:00:00', '2026-08-09')
+    _review_with_timestamp(snapshot, '2026-08-03T21:00:00', '2026-08-20')
+
+    sync_server.cmd_merge(server_db, snapshot)
+
+    due, last = sqlite3.connect(server_db).execute(
+        "SELECT due, last_review FROM cards WHERE id = 1").fetchone()
+    assert (due, last) == ('2026-08-20', '2026-08-03T21:00:00')
+
+
+def test_merge_keeps_the_server_when_it_reviewed_later(server_db, tmp_path):
+    """Reviewing on the phone after the pull must not be undone by the laptop."""
+    snapshot = _prepare(server_db, tmp_path)
+    _review_with_timestamp(snapshot, '2026-08-03T09:00:00', '2026-08-20')
+    _review_with_timestamp(server_db, '2026-08-03T21:00:00', '2026-08-09')
+
+    sync_server.cmd_merge(server_db, snapshot)
+
+    due, last = sqlite3.connect(server_db).execute(
+        "SELECT due, last_review FROM cards WHERE id = 1").fetchone()
+    assert (due, last) == ('2026-08-09', '2026-08-03T21:00:00')
+    # The laptop's review is still recorded even though its scheduling lost.
+    times = [r[0] for r in sqlite3.connect(server_db).execute(
+        "SELECT reviewed_at FROM review_log ORDER BY reviewed_at").fetchall()]
+    assert times == ['2026-08-03T09:00:00', '2026-08-03T21:00:00']
+
+
+def test_merge_applies_laptop_changes_that_carry_no_review(server_db, tmp_path):
+    """Bury/suspend don't touch last_review; with the server untouched they apply."""
+    snapshot = _prepare(server_db, tmp_path)
+    conn = sqlite3.connect(snapshot)
+    conn.execute("UPDATE cards SET state = 'suspended' WHERE id = 1")
+    conn.commit()
+    conn.close()
+
+    sync_server.cmd_merge(server_db, snapshot)
+
+    state = sqlite3.connect(server_db).execute(
+        "SELECT state FROM cards WHERE id = 1").fetchone()[0]
+    assert state == 'suspended'

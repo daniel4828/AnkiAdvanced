@@ -23,7 +23,8 @@ whole database back would destroy that work. Offline reviewing can only touch
 two tables, and only those two are merged:
 
     review_log  — rows newer than the watermark are appended (fresh ids)
-    cards       — rows whose scheduling state differs are updated in place
+    cards       — rows whose scheduling state differs are updated in place,
+                  unless the server's own last_review is newer (#625)
 
 Cards that exist offline but not on the server are ignored: the offline
 instance cannot create entries or cards.
@@ -158,16 +159,30 @@ def cmd_merge(prod_db: str, incoming_db: str) -> None:
     skipped_reviews = len(new_reviews) - len(kept)
 
     # ── cards: update rows whose scheduling state changed ─────────────────────
+    # Last review wins. The laptop used to overwrite the server unconditionally,
+    # which is fine for a flight but silently loses progress once the laptop is
+    # an everyday instance and Daniel also reviews on his phone (#625).
+    # last_review is an ISO string, so plain string comparison is chronological.
     field_list = ", ".join(CARD_FIELDS)
+    lr = CARD_FIELDS.index("last_review")
     server_cards = {
         r["id"]: tuple(r)[1:]
         for r in conn.execute(f"SELECT id, {field_list} FROM main.cards")
     }
     changed = []
+    kept_server = 0
     for row in conn.execute(f"SELECT id, {field_list} FROM off.cards"):
         before = server_cards.get(row["id"])
-        if before is not None and before != tuple(row)[1:]:
-            changed.append(tuple(row)[1:] + (row["id"],))
+        after = tuple(row)[1:]
+        if before is None or before == after:
+            continue
+        # A card reviewed on the server after the pull is newer than whatever
+        # the laptop has. Its own review rows were already appended above, so
+        # skipping the card row is all that's needed to preserve it.
+        if before[lr] is not None and (after[lr] is None or before[lr] > after[lr]):
+            kept_server += 1
+            continue
+        changed.append(after + (row["id"],))
     assignments = ", ".join(f"{f} = ?" for f in CARD_FIELDS)
     conn.executemany(f"UPDATE main.cards SET {assignments} WHERE id = ?", changed)
 
@@ -180,6 +195,7 @@ def cmd_merge(prod_db: str, incoming_db: str) -> None:
     print(f"reviews_merged={len(kept)}")
     print(f"reviews_skipped_deleted_card={skipped_reviews}")
     print(f"cards_updated={len(changed)}")
+    print(f"cards_kept_server_newer={kept_server}")
 
 
 if __name__ == "__main__":
