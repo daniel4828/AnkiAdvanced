@@ -1029,13 +1029,30 @@ function showNotice(msg) {
 
 // Persistent reminder that this instance can't reach the network, so an empty
 // story or a silent sentence is expected rather than a bug (issue #612).
+// Dismissal is per browser session only — a permanently hidden banner would
+// leave Daniel wondering why regenerate is missing days later (#621).
 function _renderOfflineBanner() {
   const existing = document.getElementById('offline-banner');
-  if (!_offlineMode) { if (existing) existing.remove(); return; }
+  if (!_offlineMode || sessionStorage.getItem('offlineBannerDismissed')) {
+    if (existing) existing.remove();
+    return;
+  }
   if (existing) return;
   const el = document.createElement('div');
   el.id = 'offline-banner';
-  el.textContent = '✈️ Offline mode — stories and audio are read-only from the last sync';
+  const text = document.createElement('span');
+  text.textContent = '✈️ Offline mode — stories and audio are read-only from the last sync';
+  const close = document.createElement('button');
+  close.id = 'offline-banner-close';
+  close.type = 'button';
+  close.title = 'Hide until next browser session';
+  close.setAttribute('aria-label', 'Dismiss offline notice');
+  close.textContent = '×';
+  close.onclick = () => {
+    sessionStorage.setItem('offlineBannerDismissed', '1');
+    el.remove();
+  };
+  el.append(text, close);
   document.body.prepend(el);
 }
 
