@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 import database
 import srs
 import tts
-from .utils import leaf_ids, queue_mgr as _queue_mgr, DISABLE_AI
+from .utils import leaf_ids, queue_mgr as _queue_mgr, ai_disabled
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -40,7 +40,7 @@ def _attach_again_sentence(card: dict | None) -> dict | None:
 def _spawn_again_regen(card: dict) -> None:
     """Fire-and-forget: regenerate one fresh sentence for this word in the
     background so the card shows something new when it reappears (~1-10 min)."""
-    if DISABLE_AI or card.get("note_type") == "sentence" or not card.get("word_id"):
+    if ai_disabled() or card.get("note_type") == "sentence" or not card.get("word_id"):
         return
     # All three vocab categories use story sentences (listening audio, reading text,
     # creating cloze/word-bank), so regenerate a fresh sentence for any of them.

@@ -25,7 +25,7 @@ import threading
 import edge_tts
 
 import languages
-from offline import OFFLINE_MODE
+from offline import is_offline
 
 # Bypass system proxy (e.g. Shadowrocket in China) for edge-tts WebSocket connections.
 # The VPN tunnel routes traffic at the network level, so direct connections work fine.
@@ -70,7 +70,7 @@ async def _ensure_cached(text: str, voice: str = VOICE) -> str:
         _hot.add(path)
         return path
 
-    if OFFLINE_MODE:
+    if is_offline():
         logger.info("tts  offline cache MISS %r — no audio available", text[:30])
         raise NotCachedOffline(text)
 
@@ -120,7 +120,7 @@ async def preload_all_async(texts: list[str], progress_key: str | None = None,
             _preload_progress[progress_key]["done"] = total
         return
 
-    if OFFLINE_MODE:
+    if is_offline():
         # Nothing to generate without a network. Report the batch as finished
         # so the frontend's progress poll doesn't spin — the uncached
         # sentences just play silently (issue #612).
@@ -168,7 +168,7 @@ async def preload_all_async(texts: list[str], progress_key: str | None = None,
 
 def preload(text: str, lang: str = "zh") -> None:
     """Fire-and-forget single-item preload (background thread)."""
-    if OFFLINE_MODE:
+    if is_offline():
         return
     voice = languages.get_lang_config(lang)["tts_voice"]
     threading.Thread(target=lambda: asyncio.run(_ensure_cached(text, voice)),

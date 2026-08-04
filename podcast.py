@@ -892,8 +892,8 @@ def fetch_transcript(video: dict) -> tuple[str | None, dict]:
         logger.info("podcast: transcriber=off, skipping transcription for %s", video_id)
         return None, meta
 
-    from routes.utils import DISABLE_AI
-    if DISABLE_AI:
+    from routes.utils import ai_disabled
+    if ai_disabled():
         # Dev mode must never trigger transcription (Tingwu/Whisper cost
         # money; NotebookLM is free but still an external side effect).
         logger.info("podcast: DISABLE_AI set, skipping transcription for %s", video_id)
@@ -1326,7 +1326,7 @@ def _process_episode(episode_id: int, video: dict, detail_level: str, summary: d
     summary['failed'] (a missing transcript is 'no_transcript', not a
     failure); success bumps summary['summarized'] / summary['emailed'].
     """
-    from routes.utils import DISABLE_AI
+    from routes.utils import ai_disabled
 
     label = f"Transcribe & Summarize: {video['title'][:30]}"
     with database.action_context(label):
@@ -1364,7 +1364,7 @@ def _process_episode(episode_id: int, video: dict, detail_level: str, summary: d
                     transcript_source=meta.get("transcript_source"),
                 )
 
-            if DISABLE_AI:
+            if ai_disabled():
                 # Dev mode: stop at pending with the transcript stored, no AI
                 # call, no email — matches DISABLE_AI's behavior for stories.
                 return

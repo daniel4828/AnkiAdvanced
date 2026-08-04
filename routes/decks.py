@@ -4,7 +4,7 @@ import database
 import languages
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from offline import OFFLINE_MODE
+from offline import LOCAL_MODE, OFFLINE_MODE, is_offline
 from .utils import queue_mgr
 
 logger = logging.getLogger(__name__)
@@ -94,12 +94,19 @@ def _attach_counts(flat_decks: list) -> None:
 
 @router.get("/api/mode")
 def get_mode():
-    """Runtime flags the frontend needs to know about (issue #612).
+    """Runtime flags the frontend needs to know about (issues #612, #625).
 
-    offline=True means this instance has no network: the UI hides everything
-    that would trigger an AI call and shows the offline banner instead.
+    offline=True means no outbound call can be made right now: the UI hides
+    everything that would trigger an AI call and shows the offline banner.
+    In LOCAL_MODE this flips by itself as the network comes and goes, so the
+    frontend re-polls this endpoint periodically.
+
+    local=True marks a laptop instance, which is what makes the sync button
+    appear; hard_offline=True additionally means the flag was forced for a
+    flight, so no probing happens at all.
     """
-    return {"offline": OFFLINE_MODE}
+    return {"offline": is_offline(), "local": LOCAL_MODE or OFFLINE_MODE,
+            "hard_offline": OFFLINE_MODE}
 
 
 @router.get("/api/langs")
