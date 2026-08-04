@@ -16,7 +16,7 @@ import tts
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-from .utils import DISABLE_AI, leaf_ids, queue_mgr
+from .utils import ai_disabled, leaf_ids, queue_mgr
 
 KAHNEMAN_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "kahneman_chapters.json")
 
@@ -578,7 +578,7 @@ def get_story(deck_id: int, category: str,
         logger.info("story  NO-GEN (no_generate=1) deck=%d cat=%s — no cached story", deck_id, category)
         return None
 
-    if DISABLE_AI:
+    if ai_disabled():
         logger.info("story  DISABLED (DISABLE_AI=1) deck=%d cat=%s", deck_id, category)
         return None
 
@@ -651,7 +651,7 @@ def regenerate_story(deck_id: int, category: str,
     episode_id's German summary directly, no articles involved (reworked #561).
     mode="news" (the old auto-fetch-only mode) has been removed (issue #512) and
     is rejected."""
-    if DISABLE_AI:
+    if ai_disabled():
         return None
     chosen_model = _validated_model(model)
     today = database.anki_today().isoformat()
@@ -1146,7 +1146,7 @@ async def pregen_today():
     skipped_no_due: list[str] = []
     failed: list[dict] = []
 
-    if DISABLE_AI:
+    if ai_disabled():
         logger.info("pregen-today  DISABLED (DISABLE_AI=1), %d candidate keys skipped", len(keys))
         skipped_no_due = [f"{k['deck_id']}/{k['category']}/{k['lang']}" for k in keys]
         return {"date": today, "keys": len(keys), "generated": generated,

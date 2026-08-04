@@ -50,6 +50,8 @@
     <button class="undo-btn" id="session-graph-btn" onclick="openSessionSummary()" title="Graph of cards reviewed this session">📈 Session</button>
   </div>
   <div class="header-right">
+    <!-- Local instance only — injected visible by _renderOfflineBanner() (#625) -->
+    <button id="sync-btn" onclick="openSyncPopup()" title="Sync with the server" style="display:none">⟳</button>
     <button id="random-words-btn" onclick="openRandomWords()" title="10 random words for today">🎲</button>
     <button id="header-regen-btn" onclick="regenerateStory()" title="Regenerate story" style="display:none">↺</button>
   </div>
@@ -878,6 +880,29 @@
     </label>
   </div>
   <pre id="logs-body"></pre>
+</div>
+
+<!-- Sync modal (local instance only, #625) -->
+<div id="sync-modal-overlay" onclick="closeSyncPopup()" style="display:none"></div>
+<div id="sync-modal" style="display:none">
+  <div class="edit-modal-header">
+    <span class="edit-modal-title">Sync with server</span>
+    <button class="edit-modal-close" onclick="closeSyncPopup()">✕</button>
+  </div>
+  <div id="sync-modal-intro">
+    Pushes the reviews done here back to the server, then pulls the latest
+    database and audio. Cards reviewed on both sides keep whichever review
+    came last.
+  </div>
+  <pre id="sync-log" style="display:none"></pre>
+  <div class="sync-actions">
+    <button id="sync-run-btn" class="keymap-reset-all" onclick="startSync()">⟳ Sync now</button>
+    <!-- Only offered once a merge has been refused — see _pollSyncProgress() -->
+    <button id="sync-force-btn" class="keymap-reset-all" onclick="forcePull()"
+            title="Throw away this local database and download the server's"
+            style="display:none">⤓ Discard local &amp; re-download</button>
+    <span id="sync-status"></span>
+  </div>
 </div>
 
 <!-- Import modal -->

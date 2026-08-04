@@ -68,7 +68,11 @@ let _retentionData = null;  // cached result from GET /api/retention
 let _cachedDecks = null;       // last fetched deck tree (for toggle re-renders)
 let _deckLangById = {};        // deckId → 'zh'|'fr', rebuilt whenever decks load (flatten(decks))
 let _availableLangs = ['zh'];  // distinct langs in use, from GET /api/langs — tab bar shows only when > 1
-let _offlineMode = false;      // GET /api/mode — true for the run.offline.sh instance (#612)
+let _offlineMode = false;      // GET /api/mode — no outbound calls possible right now (#612)
+let _localMode = false;        // GET /api/mode — laptop instance; shows the sync button (#625)
+let _currentView = 'loading';  // last name passed to showView(), so the mode poll can re-apply it
+let _modePollTimer = null;     // LOCAL_MODE only: re-checks connectivity every 60s (#625)
+let _syncPollTimer = null;     // active /api/sync/progress poll (#625)
 
 // The main-page language tab bar (issue #436) is the single source of truth for
 // "what language am I studying right now" on the home page: deck list, All-deck
@@ -816,6 +820,7 @@ function _triggerClapAnimation() {
 }
 
 function showView(name) {
+  _currentView = name;
   if (name === 'done' && _sessionReviewedCount > 0) _triggerClapAnimation();
   // Leaving the podcast view (#502): stop the episode-list "processing"
   // poll loop — it has no reason to keep firing once the view isn't visible.
@@ -1031,6 +1036,8 @@ function showNotice(msg) {
 // story or a silent sentence is expected rather than a bug (issue #612).
 // Dismissal is per browser session only — a permanently hidden banner would
 // leave Daniel wondering why regenerate is missing days later (#621).
+// In LOCAL_MODE the banner comes and goes with the Wi-Fi, so it is re-rendered
+// on every mode poll rather than built once (#625).
 function _renderOfflineBanner() {
   const existing = document.getElementById('offline-banner');
   if (!_offlineMode || sessionStorage.getItem('offlineBannerDismissed')) {
@@ -1041,7 +1048,9 @@ function _renderOfflineBanner() {
   const el = document.createElement('div');
   el.id = 'offline-banner';
   const text = document.createElement('span');
-  text.textContent = '✈️ Offline mode — stories and audio are read-only from the last sync';
+  text.textContent = _localMode
+    ? '✈️ No network — stories and audio are read-only until the connection is back'
+    : '✈️ Offline mode — stories and audio are read-only from the last sync';
   const close = document.createElement('button');
   close.id = 'offline-banner-close';
   close.type = 'button';
@@ -1057,6 +1066,103 @@ function _renderOfflineBanner() {
 }
 
 
+// ── Local mode + sync (#625) ────────────────────────────────────────────────
+// The laptop instance is a full copy of the app that happens to lose its AI
+// and TTS when the network goes away, so `offline` is a live value: poll it and
+// re-apply the UI bits that depend on it.
+
+async function _refreshMode() {
+  const mode = await api('GET', '/api/mode').catch(() => null);
+  if (!mode) return;
+  const wasOffline = _offlineMode;
+  _offlineMode = !!mode.offline;
+  _localMode = !!mode.local;
+  const syncBtn = document.getElementById('sync-btn');
+  if (syncBtn) syncBtn.style.display = _localMode ? '' : 'none';
+  _renderOfflineBanner();
+  // The regenerate affordances are hidden while offline; re-run the logic that
+  // owns them if the network state actually flipped.
+  if (wasOffline !== _offlineMode) showView(_currentView);
+}
+
+function _startModePolling() {
+  if (!_localMode || _modePollTimer) return;
+  _modePollTimer = setInterval(_refreshMode, 60000);
+}
+
+function openSyncPopup() {
+  document.getElementById('sync-modal-overlay').style.display = 'block';
+  document.getElementById('sync-modal').style.display = 'block';
+  if (!_syncPollTimer) _pollSyncProgress();   // pick up a run started earlier
+}
+
+function closeSyncPopup() {
+  document.getElementById('sync-modal-overlay').style.display = 'none';
+  document.getElementById('sync-modal').style.display = 'none';
+}
+
+async function startSync(mode = 'sync') {
+  document.getElementById('sync-run-btn').disabled = true;
+  document.getElementById('sync-force-btn').style.display = 'none';
+  document.getElementById('sync-status').textContent = 'Starting…';
+  try {
+    await api('POST', `/api/sync/start?mode=${mode}`);
+  } catch (e) {
+    // 409 means a run is already going — just attach to it.
+    document.getElementById('sync-status').textContent = String(e.message || e);
+  }
+  _pollSyncProgress();
+}
+
+// Escape hatch for a local database the server refuses to merge: no sync token
+// (it never came from a pull) or a rotated one (already pushed). Downloading
+// over it is the only way forward, so make the data loss explicit (#625).
+async function forcePull() {
+  const ok = await showConfirm(
+    'Throw away this local database and download the server\'s copy?\n\n' +
+    'Any reviews done here that were never synced will be lost.');
+  if (ok) startSync('pull');
+}
+
+// Polls until the run finishes. The database was swapped underneath us, so a
+// successful sync ends in a full reload rather than a partial refresh.
+async function _pollSyncProgress() {
+  clearTimeout(_syncPollTimer);
+  const p = await api('GET', '/api/sync/progress').catch(() => null);
+  if (!p) { _syncPollTimer = setTimeout(_pollSyncProgress, 2000); return; }
+
+  const log = document.getElementById('sync-log');
+  if (p.lines.length) {
+    const atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 20;
+    log.style.display = 'block';
+    log.textContent = p.lines.join('\n');
+    if (atBottom) log.scrollTop = log.scrollHeight;
+  }
+  const status = document.getElementById('sync-status');
+  const btn = document.getElementById('sync-run-btn');
+
+  if (p.running) {
+    status.textContent = 'Syncing…';
+    btn.disabled = true;
+    _syncPollTimer = setTimeout(_pollSyncProgress, 1000);
+    return;
+  }
+  _syncPollTimer = null;
+  btn.disabled = false;
+  if (p.ok === true) {
+    status.textContent = '✅ Done — reloading…';
+    setTimeout(() => location.reload(), 1200);
+  } else if (p.ok === false) {
+    status.textContent = `❌ ${p.error || 'Sync failed'}`;
+    // A refused merge is the one failure the user can resolve from here.
+    const refused = p.lines.some(l => l.includes('sync token'));
+    document.getElementById('sync-force-btn').style.display = refused ? '' : 'none';
+  } else {
+    status.textContent = '';
+  }
+}
+
+
 // ── Deck list ───────────────────────────────────────────────────────────────
 async function loadDecks() {
   setLoading('Loading decks…');
@@ -1067,7 +1173,11 @@ async function loadDecks() {
     ]);
     _availableLangs = langs && langs.length ? langs : ['zh'];
     _offlineMode = !!(mode && mode.offline);
+    _localMode = !!(mode && mode.local);
+    const syncBtn = document.getElementById('sync-btn');
+    if (syncBtn) syncBtn.style.display = _localMode ? '' : 'none';
     _renderOfflineBanner();
+    _startModePolling();
     // Only scope requests to the active tab once there's more than one language
     // in use — keeps a pure-Chinese install byte-identical to pre-#436 behavior.
     const langParam = _availableLangs.length > 1 ? `&lang=${activeLang()}` : '';

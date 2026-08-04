@@ -124,27 +124,38 @@ Daniel 在中国需要 VPN 访问 GitHub。`gh` 命令报 `EOF` 错误时（`cur
 
 ---
 
-## 离线模式（2026-08-02，议题 #612）
+## 笔记本模式：本地 + 离线（议题 #612、#625）
 
-飞机上／没网时在笔记本上复习。**服务器永远是主库**，笔记本只是临时副本。
+笔记本上跑一份完整的应用，像 Anki 桌面版。**服务器永远是主库**，笔记本是副本。
 
 ```bash
-bash sync_offline.sh pull    # 起飞前（要有网）：拉数据库 + TTS 音频
-bash run.offline.sh          # 飞机上：http://localhost:8001
-bash sync_offline.sh push    # 落地后（要有网）：把复习结果合并回服务器
+bash run.local.sh            # 日常（2026-08-04 起，#625）：有网全功能，断网自动降级
+bash run.offline.sh          # 飞机上：硬离线，连探测都不做
+# 同步：界面顶栏 ⟳ 按钮，或者命令行
+bash sync_offline.sh sync    # 日常：先推后拉，一步到位
+bash sync_offline.sh pull    # 只拉不推（放弃本地改动）
+bash sync_offline.sh push    # 只推不拉，推完归档本地库
 ```
 
-- **`OFFLINE_MODE=1`（`offline.py`）**：隐含 `DISABLE_AI`；TTS 只读 `data/tts/` 缓存，未命中抛 `tts.NotCachedOffline` → `/api/tts-file` 返回 404。**关键**：无网时 edge-tts 的 WebSocket 会挂到超时，拖死整个请求，所以缓存未命中必须立刻失败
+两种模式共用 `data/offline.db`，在家同步好直接带上飞机。
+
+- **`LOCAL_MODE=1`（`run.local.sh`，#625）**：日常实例。有网时 AI 故事、edge-tts 生成、翻译全部可用；断网后自动降级成下面 `OFFLINE_MODE` 的行为，**不用重启**。判断靠 `offline.network_available()`：带缓存的 TCP 探测（在线缓存 60 秒、离线 10 秒，超时 1.5 秒，探测目标 `LOCAL_MODE_PROBE_HOSTS`，默认 DeepSeek + Bing 语音端点——在中国不用 VPN 就能连）
+- **`ai_disabled()` 必须是函数不能是常量**：原来 `routes/utils.DISABLE_AI` 是模块级常量，进程启动时就冻死了，本地模式下 Wi-Fi 回来也解不开。改函数时 story/review/podcast 的调用点都要跟着改
+- **`OFFLINE_MODE=1`（`run.offline.sh`）**：飞机专用的硬开关，保留不变——需要"绝不发出站连接"的保证，连探测都不做。隐含 `DISABLE_AI`；TTS 只读 `data/tts/` 缓存，未命中抛 `tts.NotCachedOffline` → `/api/tts-file` 返回 404。**关键**：无网时 edge-tts 的 WebSocket 会挂到超时，拖死整个请求，所以缓存未命中必须立刻失败
 - 故事沿用同步下来的那一份（`DISABLE_AI` 分支本来就是"有缓存就返回、没有就返回 None"）；Again 单句重生成自动跳过
-- `GET /api/mode` → `{offline}`，前端据此显示顶部横幅并隐藏两个 Regenerate 按钮
+- `GET /api/mode` → `{offline, local, hard_offline}`；`offline` 是**实时值**，本地模式下前端每 60 秒轮询一次，翻转时重放 `showView(_currentView)` 让 Regenerate 按钮跟着出现/消失
+- **界面一键同步（#625）**：顶栏 ⟳ 按钮 →`POST /api/sync/start[?mode=sync|pull]` 起后台线程跑 `sync_offline.sh`，`GET /api/sync/progress` 逐行回传脚本的中文分步日志，成功后失效队列缓存 + 重读日界点 + 清空探测缓存，前端整页刷新（库文件已经被换掉了）。**这两个路由只在 `LOCAL_MODE`/`OFFLINE_MODE` 下注册**（`main.py`）——服务器上必须根本不存在，误调一次就会用某份笔记本快照覆盖生产
+- **合并被拒时要有出路**：无令牌（手工拷贝的库）或令牌已轮换（推过一次了）时 merge 会拒绝，这是对的，但用户会永远卡住。`mode=pull` 是逃生口：只下载、覆盖本地。前端只在日志里出现 `sync token` 时才显示 ⤓ 按钮，并用 `showConfirm` 明说未同步的复习会丢失
 - `PORT` 环境变量（默认 8000）让离线实例跑 8001，不占用 Daniel 浏览器连的端口
 - **同步只合并 `cards` + `review_log` 两张表**（`scripts/offline_sync_server.py`，纯标准库，通过 ssh stdin 管道执行，不依赖服务器已部署该版本）。离线期间服务器 cron 仍在写入（播客单集、预生成故事、成本日志），整库对拷会毁掉这些数据——**绝不整库覆盖**
 - **同步令牌**（`app_settings.offline_sync_token`）：`pull` 时写入服务器并随快照带走，`push` 时两边必须一致，合并后轮换 → 同一份离线库无法重复 push；手工拷贝的库没有令牌，直接拒绝
+- **冲突按 `cards.last_review` 谁晚谁赢**（#625）：原来笔记本无条件覆盖服务器，飞机上没问题，但本地模式变日常后，手机上复习完再一同步就静默丢进度。`review_log` 两边的记录始终都保留，所以调度输了的那次复习仍然进统计
+- **下载先落 `.incoming` 再 `mv` 就位**（#625）：应用可能正开着这个库，`scp` 直接覆盖会让它好几秒读到写了一半的文件；rename 是原子的。换库后还要删掉可能残留的 `-wal`/`-shm`/`-journal`，旧日志套新库会直接损坏数据
 - **传输量优化**（实测链路 ~2.7 MB/s，整个 pull 十几秒；这两项优化仍然保留，只是并非为了救命）：
   - 快照**瘦身**：`prepare` 在快照上（不动生产库）清空 `api_call_log`、`podcast_episodes.transcript_*`、`stories.prompt_text` 再 VACUUM → 29.6 MB 降到 18.5 MB。`prepare … --full` 可保留全部
   - 音频**按需**：`scripts/offline_tts_manifest.py` 从拉下来的库算出真正会用到的语音（故事句子 `sentence_zh` + 到期词 `word_zh`，前端只请求这两种），再与服务器实际存在的文件取交集 → 一百多个文件 / 几 MB，而不是整个 118 MB 的 `data/tts/`。**必须取交集**，否则 rsync 会为缺失文件返回非零码，`set -e` 会中断整个脚本
 - **中文提示里紧跟变量必须写 `${VAR}`**：`"…下载到 $LOCAL_DB（约 7 MB）"` 会让 bash 把全角括号的字节也算进变量名，配合 `set -u` 直接退出（#619）。这个仓库的脚本提示全是中文，极易踩
-- **脚本改动必须实机跑一遍，`bash -n` 不够**：它只查语法，`set -u` 的 unbound variable、选项不被支持（#617）都要到运行时才暴露。离线同步脚本可以用 `ANKI_REMOTE_DIR=/tmp/xxx` 指向服务器上的一份副本来安全演练 push
+- **脚本改动必须实机跑一遍，`bash -n` 不够**：它只查语法，`set -u` 的 unbound variable、选项不被支持（#617）都要到运行时才暴露。离线同步脚本用 `ANKI_REMOTE_DIR=/tmp/xxx`（服务器上的副本靶子）+ `ANKI_LOCAL_DB=/tmp/yyy.db`（临时本地库）就能安全演练，**两个都要设**——只设前者会给真的 `data/offline.db` 盖上演练令牌，之后它再也推不回生产库了
 - **rsync 只能用两边都支持的选项**：脚本跑在 Daniel 的 macOS 上，系统自带的是 **openrsync**，不认 GNU 的 `--info=progress2`（#617 因此挂掉）。用 `--progress`。凡是只在服务器上验证过的命令，都要想一想 Mac 上是不是同一个实现
 - 测试见 `tests/test_offline_sync.py`
 
@@ -166,15 +177,17 @@ bash sync_offline.sh push    # 落地后（要有网）：把复习结果合并�
 ├── news_fetcher.py        # 新闻抓取（Tagesschau API + RSS；按天缓存 data/news_cache/）
 ├── podcast.py              # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、每源 auto_process 开关+非自动源只入库元数据（#502，podcast_feeds 表）、转录链 NotebookLM 免费主力+听悟+Whisper 保底、单步异常不中止整链（#510 重排，链式降级，原 #498/#485/#486）、摘要 NotebookLM chat.ask 免费优先+DeepSeek/gpt API 链回退（api 路径内部 DeepSeek 优先省钱，#532）、HSK生词、邮件通知+Signal 通知（signal-cli 关联设备，发 Note to Self，#521，二者独立可选、互不影响；消息抬头播客名·星期·日期、链接在末尾，单集日期按 Europe/Berlin 显示，#532）、摘要 table.media 风格（`<p>` 段落+每段首句 `<b>` 加粗总结，#567）+详情页 Regenerate summary 按钮
 ├── tts.py                 # edge-tts 封装（离线模式下只读缓存，#612）
-├── offline.py             # OFFLINE_MODE 全局开关（#612）
-├── sync_offline.sh        # 离线同步 pull/push（#612）
-├── run.offline.sh         # 离线启动（#612）
+├── offline.py             # OFFLINE_MODE / LOCAL_MODE + 联网探测（#612、#625）
+├── sync_offline.sh        # 同步 sync/pull/push（#612、#625）
+├── run.offline.sh         # 硬离线启动，飞机用（#612）
+├── run.local.sh           # 本地模式启动，日常用（#625）
 ├── translator.py          # 翻译（Google Translate，deep-translator，可选）
 ├── yaml_fixer.py          # 修复 AI 生成的格式错误 YAML
 ├── schema.sql             # 数据库模式
 ├── static/                # 前端（index.html + app.js + style.css）
 ├── routes/                # FastAPI 路由模块
 │   ├── browse.py / decks.py / imports.py / review.py / story.py / podcast.py
+│   ├── sync.py            # 一键同步（#625，只在笔记本实例注册）
 │   ├── queue_manager.py   # Anki v3 风格持久会话队列
 │   └── utils.py           # 共用工具（DISABLE_AI, leaf_ids, queue_manager 单例）
 ├── requirements.txt       # Python 依赖清单
@@ -310,7 +323,11 @@ POST   /api/decks ；PUT/DELETE /api/decks/{id}       → 创建 / 重命名 / �
 GET/PUT /api/decks/{id}/preset                       → 预设（yùshè - preset）设置
 GET/POST /api/presets ；DELETE /api/presets/{id}
 GET    /api/langs                                    → 当前使用的语言列表
-GET    /api/mode                                     → {offline}（#612，前端据此显示离线横幅）
+GET    /api/mode                                     → {offline, local, hard_offline}（#612/#625；offline 是实时值，本地模式下每 60 秒轮询）
+
+# 一键同步（#625，只在 LOCAL_MODE/OFFLINE_MODE 下注册；服务器上返回 404）
+POST   /api/sync/start[?mode=sync|pull]              → 后台跑 sync_offline.sh，立即返回；重复提交 409
+GET    /api/sync/progress                            → {running, lines[], ok, error, started_at, finished_at}
 
 # 垃圾桶
 GET  /api/trash ；POST /api/trash/{deck_id}/restore
@@ -387,7 +404,10 @@ python main.py status [--deck X]     # 显示每个牌组/类别的到期数量
 | `OPENAI_API_KEY` | 可选 | 新闻模式默认模型 `gpt-5-mini`（DeepSeek 会审查新闻，故用 OpenAI） |
 | `DB_PATH` | `data/srs.db` | 数据库路径（开发用 `data/dev.db`） |
 | `DISABLE_AI` | `0` | 设为 `1` 跳过 AI 故事生成 |
-| `OFFLINE_MODE` | `0` | 设为 `1` 进入离线模式（#612）：隐含 `DISABLE_AI`，TTS 只读缓存，零网络请求 |
+| `OFFLINE_MODE` | `0` | 设为 `1` 进入硬离线模式（#612）：隐含 `DISABLE_AI`，TTS 只读缓存，零网络请求，连探测都不做 |
+| `LOCAL_MODE` | `0` | 设为 `1` 进入本地模式（#625）：有网全功能，断网自动降级为离线行为 |
+| `LOCAL_MODE_PROBE_HOSTS` | `api.deepseek.com,speech.platform.bing.com` | 本地模式判断有没有网时探测的主机（443 端口，任一连通即算在线） |
+| `ANKI_LOCAL_DB` | `data/offline.db` | 同步脚本的本地库路径；配合 `ANKI_REMOTE_DIR` 做演练时必须一起设 |
 | `PORT` | `8000` | 服务监听端口（`run.offline.sh` 用 8001） |
 | `LOG_LEVEL` | `INFO` | 日志级别（`DEBUG` 输出详细日志） |
 | `DEV_CLEAR_DB` | `` | 设为任意值启动时清空数据库——生产环境绝不要设置 |

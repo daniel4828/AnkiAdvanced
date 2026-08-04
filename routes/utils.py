@@ -1,12 +1,21 @@
 import os
 
 import database
-from offline import OFFLINE_MODE
+from offline import is_offline
 from .queue_manager import QueueManager
 
 # Set DISABLE_AI=1 in run.dev.sh to skip story generation during development.
-# Offline mode (issue #612) implies it — no network, so no AI either.
-DISABLE_AI = OFFLINE_MODE or os.getenv("DISABLE_AI", "").lower() in ("1", "true", "yes")
+_DISABLE_AI_ENV = os.getenv("DISABLE_AI", "").lower() in ("1", "true", "yes")
+
+
+def ai_disabled() -> bool:
+    """True when no AI call may be made.
+
+    A function rather than a constant because LOCAL_MODE decides this at
+    request time: the laptop has AI while the Wi-Fi is up and loses it when
+    the network goes away, with no restart in between (#625).
+    """
+    return _DISABLE_AI_ENV or is_offline()
 
 # Shared singleton — imported by review.py and browse.py
 queue_mgr = QueueManager()
