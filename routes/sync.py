@@ -51,12 +51,12 @@ def _append(line: str) -> None:
             _state["lines"].append("…（输出过长，后续行已省略）")
 
 
-def _run_sync() -> None:
+def _run_sync(action: str) -> None:
     ok = False
     error = None
     try:
         proc = subprocess.Popen(
-            ["bash", "sync_offline.sh", "sync"],
+            ["bash", "sync_offline.sh", action],
             cwd=REPO_ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, bufsize=1,
         )
@@ -82,16 +82,26 @@ def _run_sync() -> None:
 
 
 @router.post("/api/sync/start")
-def start_sync():
-    """Kick off a push-then-pull sync. Returns immediately; poll /api/sync/progress."""
+def start_sync(mode: str = "sync"):
+    """Kick off a sync. Returns immediately; poll /api/sync/progress.
+
+    mode='sync'  push local reviews, then pull the fresh database (the normal path)
+    mode='pull'  download only, discarding whatever is in the local database.
+                 The escape hatch for a local copy the server refuses to merge —
+                 no sync token (it never came from a pull) or a rotated one (it
+                 was already pushed). Merging those is correctly refused, but
+                 without this the button would be stuck failing forever.
+    """
+    if mode not in ("sync", "pull"):
+        raise HTTPException(400, f"unknown sync mode {mode!r}")
     with _lock:
         if _state["running"]:
             raise HTTPException(409, "A sync is already running")
         _state.update(running=True, lines=[], ok=None, error=None,
                       started_at=datetime.now().isoformat(timespec="seconds"),
                       finished_at=None)
-    threading.Thread(target=_run_sync, daemon=True).start()
-    return {"started": True}
+    threading.Thread(target=_run_sync, args=(mode,), daemon=True).start()
+    return {"started": True, "mode": mode}
 
 
 @router.get("/api/sync/progress")

@@ -138,10 +138,15 @@ def cmd_merge(prod_db: str, incoming_db: str) -> None:
     server_token = _get_setting(conn, TOKEN_KEY)
     offline_token = _get_setting(conn, TOKEN_KEY, schema="off")
     if not server_token or not offline_token:
-        sys.exit("ERROR: no sync token — this database was never prepared by `pull`.")
+        sys.exit("ERROR: no sync token — this database never came from a `pull`, so "
+                 "there is no way to tell what is already merged. Refusing to merge. "
+                 "If its reviews are expendable, re-download instead: "
+                 "`sync_offline.sh pull` (or the 'discard local' button).")
     if server_token != offline_token:
         sys.exit("ERROR: sync token mismatch. This offline database was already "
-                 "pushed, or it came from a different pull. Refusing to merge.")
+                 "pushed, or it came from a different pull. Refusing to merge. "
+                 "If its reviews are expendable, re-download instead: "
+                 "`sync_offline.sh pull` (or the 'discard local' button).")
 
     watermark = int(_get_setting(conn, WATERMARK_KEY, schema="off") or 0)
 

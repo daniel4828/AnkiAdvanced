@@ -897,6 +897,10 @@
   <pre id="sync-log" style="display:none"></pre>
   <div class="sync-actions">
     <button id="sync-run-btn" class="keymap-reset-all" onclick="startSync()">⟳ Sync now</button>
+    <!-- Only offered once a merge has been refused — see _pollSyncProgress() -->
+    <button id="sync-force-btn" class="keymap-reset-all" onclick="forcePull()"
+            title="Throw away this local database and download the server's"
+            style="display:none">⤓ Discard local &amp; re-download</button>
     <span id="sync-status"></span>
   </div>
 </div>

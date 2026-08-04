@@ -1101,17 +1101,27 @@ function closeSyncPopup() {
   document.getElementById('sync-modal').style.display = 'none';
 }
 
-async function startSync() {
-  const btn = document.getElementById('sync-run-btn');
-  btn.disabled = true;
+async function startSync(mode = 'sync') {
+  document.getElementById('sync-run-btn').disabled = true;
+  document.getElementById('sync-force-btn').style.display = 'none';
   document.getElementById('sync-status').textContent = 'Starting…';
   try {
-    await api('POST', '/api/sync/start');
+    await api('POST', `/api/sync/start?mode=${mode}`);
   } catch (e) {
     // 409 means a run is already going — just attach to it.
     document.getElementById('sync-status').textContent = String(e.message || e);
   }
   _pollSyncProgress();
+}
+
+// Escape hatch for a local database the server refuses to merge: no sync token
+// (it never came from a pull) or a rotated one (already pushed). Downloading
+// over it is the only way forward, so make the data loss explicit (#625).
+async function forcePull() {
+  const ok = await showConfirm(
+    'Throw away this local database and download the server\'s copy?\n\n' +
+    'Any reviews done here that were never synced will be lost.');
+  if (ok) startSync('pull');
 }
 
 // Polls until the run finishes. The database was swapped underneath us, so a
@@ -1144,6 +1154,9 @@ async function _pollSyncProgress() {
     setTimeout(() => location.reload(), 1200);
   } else if (p.ok === false) {
     status.textContent = `❌ ${p.error || 'Sync failed'}`;
+    // A refused merge is the one failure the user can resolve from here.
+    const refused = p.lines.some(l => l.includes('sync token'));
+    document.getElementById('sync-force-btn').style.display = refused ? '' : 'none';
   } else {
     status.textContent = '';
   }

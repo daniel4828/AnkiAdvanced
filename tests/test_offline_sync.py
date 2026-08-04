@@ -136,7 +136,8 @@ def test_merge_without_prepare_is_refused(server_db, tmp_path):
     _make_db(tmp_path / "stray.db", pytest.MonkeyPatch())
     with pytest.raises(SystemExit) as exc:
         sync_server.cmd_merge(server_db, stray)
-    assert "never prepared" in str(exc.value)
+    # Assert the reason, not the wording — the message also carries recovery advice.
+    assert "no sync token" in str(exc.value)
 
 
 def test_slim_strips_bulk_from_the_snapshot_only(server_db, tmp_path):
