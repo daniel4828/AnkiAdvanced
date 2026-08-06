@@ -6102,13 +6102,19 @@ async function submitAddWord() {
 
   // Known words come back finished — no AI call, no job to poll.
   if (!result.job_id) {
+    if (result.status === 'already_exists') {
+      // A word owns one card per category for life (UNIQUE(word_id, category)),
+      // so there is nothing to add — say where it lives instead of pretending.
+      input.disabled = false;
+      status.textContent =
+        `"${wordZh}" is already in your collection (${result.decks.join(', ')})`;
+      return;
+    }
     closeAddWordModal();
     const msgs = {
-      added_to_deck:   `✓ "${wordZh}" added to ${result.deck_path}`,
-      already_in_deck: `"${wordZh}" is already in ${result.deck_path}`,
+      promoted: `✓ "${wordZh}" moved from Saved into ${result.deck_path}`,
     };
-    showQuickAddBanner(msgs[result.status] || `✓ Done`,
-                       result.status === 'already_in_deck');
+    showQuickAddBanner(msgs[result.status] || `✓ Done`, false);
     loadDecks();
     return;
   }

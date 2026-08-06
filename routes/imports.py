@@ -244,17 +244,15 @@ async def import_from_directory(
 # ---------------------------------------------------------------------------
 
 
-def _cards_in_decks(entry_id: int, deck_ids: tuple[int, ...]) -> bool:
-    """True if the entry already has a live card in any of these decks."""
+def _card_deck_ids(entry_id: int) -> set[int]:
+    """Deck ids holding this entry's live cards."""
     conn = database.get_db()
-    placeholders = ",".join("?" * len(deck_ids))
-    row = conn.execute(
-        f"SELECT id FROM cards WHERE word_id = ? AND deck_id IN ({placeholders}) "
-        "AND deleted_at IS NULL LIMIT 1",
-        (entry_id, *deck_ids),
-    ).fetchone()
+    rows = conn.execute(
+        "SELECT DISTINCT deck_id FROM cards WHERE word_id = ? AND deleted_at IS NULL",
+        (entry_id,),
+    ).fetchall()
     conn.close()
-    return row is not None
+    return {r["deck_id"] for r in rows}
 
 
 @router.post("/api/add-word-ai")
@@ -277,20 +275,27 @@ def add_word_ai(body: dict):
     deck_path = f"Daily::{today}"
     deck_id = database.get_or_create_deck_path(deck_path)
 
-    # Known word → the entry already has all its content; just schedule it for
-    # today. Generating it again would cost money and be discarded anyway
-    # (importer skips duplicates without creating cards).
+    # Known word → don't pay for a second generation; the importer would skip
+    # it as a duplicate anyway. What we can do depends on where its cards are:
+    # `cards` has UNIQUE(word_id, category), so a word owns exactly one card per
+    # category for its whole lifetime — there is no "also add it to today".
     existing = database.get_word_by_zh(word_zh)
     if existing:
-        leaf_decks = database.get_or_create_category_decks(deck_id, today)
-        if _cards_in_decks(existing["id"], tuple(leaf_decks.values())):
-            return {"status": "already_in_deck", "word_zh": word_zh,
-                    "entry_id": existing["id"], "deck_path": deck_path, "deck_id": deck_id}
-        for category in ("listening", "reading", "creating"):
-            database.insert_card(existing["id"], category, leaf_decks[category],
-                                 state="new", due=today)
-        return {"status": "added_to_deck", "word_zh": word_zh,
-                "entry_id": existing["id"], "deck_path": deck_path, "deck_id": deck_id}
+        card_decks = _card_deck_ids(existing["id"])
+        saved_deck_id = database.get_or_create_saved_deck()
+        if card_decks and card_decks <= {saved_deck_id}:
+            # Only staged in Saved — promoting is exactly what the user wants.
+            leaf_decks = database.get_or_create_category_decks(deck_id, today)
+            database.promote_saved_word(existing["id"], leaf_decks, saved_deck_id, today)
+            return {"status": "promoted", "word_zh": word_zh, "entry_id": existing["id"],
+                    "deck_path": deck_path, "deck_id": deck_id}
+        # Already being studied somewhere. Moving it here would reset its FSRS
+        # state and lose real scheduling progress, so report instead of acting.
+        deck_names = sorted(
+            (database.get_deck(d) or {}).get("name") or f"deck {d}" for d in card_decks
+        )
+        return {"status": "already_exists", "word_zh": word_zh, "entry_id": existing["id"],
+                "decks": deck_names}
 
     if ai_disabled():
         raise HTTPException(status_code=503,
