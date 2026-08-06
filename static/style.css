@@ -5046,6 +5046,52 @@ table.fsrs-table td.ivl { font-weight: 700; }
 }
 
 /* ── Sync modal (#625) ────────────────────────────────────────────────────── */
+/* Add-word modal (#627) */
+#add-word-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 900;
+}
+#add-word-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(460px, 92vw);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  z-index: 901;
+  overflow: hidden;
+}
+#add-word-body {
+  padding: 14px 16px 16px;
+}
+#add-word-input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 22px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+#add-word-input:disabled {
+  opacity: 0.6;
+}
+#add-word-hint {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+#add-word-status:not(:empty) {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
 #sync-modal-overlay {
   position: fixed;
   inset: 0;

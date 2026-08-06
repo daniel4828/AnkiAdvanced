@@ -52,6 +52,7 @@
   <div class="header-right">
     <!-- Local instance only — injected visible by _renderOfflineBanner() (#625) -->
     <button id="sync-btn" onclick="openSyncPopup()" title="Sync with the server" style="display:none">⟳</button>
+    <button id="add-word-btn" onclick="openAddWordModal()" title="Add a new word to today's deck">＋</button>
     <button id="random-words-btn" onclick="openRandomWords()" title="10 random words for today">🎲</button>
     <button id="header-regen-btn" onclick="regenerateStory()" title="Regenerate story" style="display:none">↺</button>
   </div>
@@ -902,6 +903,24 @@
             title="Throw away this local database and download the server's"
             style="display:none">⤓ Discard local &amp; re-download</button>
     <span id="sync-status"></span>
+  </div>
+</div>
+
+<!-- Add-word modal (#627) — type a Chinese word, DeepSeek writes the full entry -->
+<div id="add-word-overlay" onclick="closeAddWordModal()" style="display:none"></div>
+<div id="add-word-modal" style="display:none">
+  <div class="edit-modal-header">
+    <span class="edit-modal-title">Add a word</span>
+    <button class="edit-modal-close" onclick="closeAddWordModal()">✕</button>
+  </div>
+  <div id="add-word-body">
+    <input id="add-word-input" type="text" placeholder="新词…" autocomplete="off"
+           onkeydown="if (event.key === 'Enter') submitAddWord()">
+    <div id="add-word-hint">
+      Enter a Chinese word — DeepSeek writes the full entry (definitions,
+      examples, character breakdown) into <b id="add-word-deck">today's deck</b>.
+    </div>
+    <div id="add-word-status"></div>
   </div>
 </div>
 

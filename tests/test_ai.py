@@ -168,15 +168,19 @@ class TestGenerateStory:
 # Run with: pytest -m live_api
 # ---------------------------------------------------------------------------
 
+# Opt-in via RUN_LIVE_AI_TESTS=1, not via the mere presence of an API key:
+# main.py loads .env at import time, so any test module that imports the app
+# would silently arm these — and whether that happened depended on collection
+# order (issue #627 tripped exactly that). Skipping must not be an accident.
 @pytest.mark.skipif(
-    not os.environ.get("ANTHROPIC_API_KEY"),
-    reason="requires ANTHROPIC_API_KEY — run manually to verify real story quality",
+    not os.environ.get("RUN_LIVE_AI_TESTS"),
+    reason="set RUN_LIVE_AI_TESTS=1 to verify real story quality against the live API",
 )
 class TestGenerateStoryLive:
     """
-    These tests call the real Haiku API and check structural quality of the
-    output. They are slow (~3-5s) and cost API tokens, so they are skipped
-    by default and only run when ANTHROPIC_API_KEY is set.
+    These tests call the real API and check structural quality of the
+    output. They are slow (~3-5s) and cost API tokens, so they only run when
+    RUN_LIVE_AI_TESTS is set.
 
     What we check (without needing another AI to evaluate):
       - Target word appears in its sentence

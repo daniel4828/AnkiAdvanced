@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import threading
 import time
 import uuid
@@ -10,6 +11,8 @@ import ai
 import database
 import importer
 from fastapi import APIRouter, Form, HTTPException, UploadFile
+
+from .utils import ai_disabled
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -226,6 +229,125 @@ async def import_from_directory(
         "errors": errors,
         "files_processed": len(yaml_files),
     }
+
+
+# ---------------------------------------------------------------------------
+# In-app "add a word" (issue #627) — one button, one Chinese word, a full
+# de-zh-bot style entry in today's Daily deck.
+#
+# Everything downstream is the ordinary import path: importer._create_cards
+# dues cards at database.anki_today() and importer._make_leaf_decks builds the
+# very same '<date> · Listening/Reading/Creating' children that
+# database.get_or_create_category_decks does. So handing the generated YAML to
+# import_yaml_content() with today's Daily deck yields cards indistinguishable
+# from a hand-imported entry — no special-case card creation here.
+# ---------------------------------------------------------------------------
+
+
+def _card_deck_ids(entry_id: int) -> set[int]:
+    """Deck ids holding this entry's live cards."""
+    conn = database.get_db()
+    rows = conn.execute(
+        "SELECT DISTINCT deck_id FROM cards WHERE word_id = ? AND deleted_at IS NULL",
+        (entry_id,),
+    ).fetchall()
+    conn.close()
+    return {r["deck_id"] for r in rows}
+
+
+@router.post("/api/add-word-ai")
+def add_word_ai(body: dict):
+    """Add one Chinese word to today's Daily deck with an AI-generated entry.
+
+    Body: { word_zh }
+    Returns either {job_id, deck_path} — generation runs in the background,
+    poll /api/add-word-ai/progress/{job_id} — or, when the word is already in
+    the database, a finished {status, ...} with no AI call at all.
+    """
+    word_zh = (body.get("word_zh") or "").strip()
+    if not word_zh:
+        raise HTTPException(status_code=400, detail="word_zh is required")
+    if not re.search(r"[一-鿿]", word_zh):
+        raise HTTPException(status_code=400,
+                            detail="Please enter the word in Chinese characters")
+
+    today = date.today().isoformat()
+    deck_path = f"Daily::{today}"
+    deck_id = database.get_or_create_deck_path(deck_path)
+
+    # Known word → don't pay for a second generation; the importer would skip
+    # it as a duplicate anyway. What we can do depends on where its cards are:
+    # `cards` has UNIQUE(word_id, category), so a word owns exactly one card per
+    # category for its whole lifetime — there is no "also add it to today".
+    existing = database.get_word_by_zh(word_zh)
+    if existing:
+        card_decks = _card_deck_ids(existing["id"])
+        saved_deck_id = database.get_or_create_saved_deck()
+        if card_decks and card_decks <= {saved_deck_id}:
+            # Only staged in Saved — promoting is exactly what the user wants.
+            leaf_decks = database.get_or_create_category_decks(deck_id, today)
+            database.promote_saved_word(existing["id"], leaf_decks, saved_deck_id, today)
+            return {"status": "promoted", "word_zh": word_zh, "entry_id": existing["id"],
+                    "deck_path": deck_path, "deck_id": deck_id}
+        # Already being studied somewhere. Moving it here would reset its FSRS
+        # state and lose real scheduling progress, so report instead of acting.
+        deck_names = sorted(
+            (database.get_deck(d) or {}).get("name") or f"deck {d}" for d in card_decks
+        )
+        return {"status": "already_exists", "word_zh": word_zh, "entry_id": existing["id"],
+                "decks": deck_names}
+
+    if ai_disabled():
+        raise HTTPException(status_code=503,
+                            detail="AI is disabled (offline mode) — cannot generate a new entry")
+
+    job_id = uuid.uuid4().hex[:8]
+    with _import_jobs_lock:
+        _import_jobs[job_id] = {
+            "status": "running",
+            "message": f"Generating entry for {word_zh}…",
+            "started_at": time.time(),
+        }
+    _prune_import_jobs()
+
+    def _run():
+        try:
+            yaml_text = ai.generate_word_entry_yaml(word_zh)
+            result = importer.import_yaml_content(yaml_text, deck_id)
+            if result.get("yaml_error"):
+                raise ValueError(
+                    f"AI returned invalid YAML: {result['yaml_error'].get('problem', 'parse error')}")
+            with _import_jobs_lock:
+                started_at = _import_jobs[job_id]["started_at"]
+                _import_jobs[job_id] = {
+                    "status": "done",
+                    "message": "Entry added",
+                    "summary": {"word_zh": word_zh, "deck_id": deck_id,
+                                "deck_path": deck_path, **result},
+                    "started_at": started_at,
+                }
+        except Exception as e:
+            logger.exception("add_word_ai failed for %r: %s", word_zh, e)
+            with _import_jobs_lock:
+                started_at = _import_jobs.get(job_id, {}).get("started_at", time.time())
+                _import_jobs[job_id] = {
+                    "status": "error",
+                    "message": "Failed to add word",
+                    "error": str(e),
+                    "started_at": started_at,
+                }
+
+    threading.Thread(target=_run, daemon=True).start()
+    return {"job_id": job_id, "deck_path": deck_path}
+
+
+@router.get("/api/add-word-ai/progress/{job_id}")
+def add_word_ai_progress(job_id: str):
+    """Poll status for a background add-word job started by /api/add-word-ai."""
+    job = _import_jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Unknown job id")
+    return job
 
 
 @router.post("/api/quick-add-word")

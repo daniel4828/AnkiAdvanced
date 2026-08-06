@@ -223,7 +223,17 @@ bash sync_offline.sh push    # 只推不拉，推完归档本地库
 
 **数据库是唯一事实来源。** 原来的 `imports/` YAML 目录已于 2026-07-07 删除——所有历史词条都已在数据库里，生产数据库在服务器上。
 
-导入机制本身仍然存在（`importer.py`、`POST /api/import`、`python main.py import`，读取 `imports/<Source>/*.yaml`）：需要批量导入新词汇时，重新创建该目录放入 YAML 即可。日常添加单个词条用 `de-zh-bot` 技能生成 YAML。
+导入机制本身仍然存在（`importer.py`、`POST /api/import`、`python main.py import`，读取 `imports/<Source>/*.yaml`）：需要批量导入新词汇时，重新创建该目录放入 YAML 即可。日常添加单个词条：界面顶栏 `＋` 按钮（见下），或 `de-zh-bot` 技能生成 YAML 后导入。
+
+### 界面内添加生词（#627）
+
+顶栏 `＋` → 输入中文词 → 回车 → 后台 DeepSeek 生成完整词条 → 进 `Daily::<今天>`，当天到期。
+
+- `ai.generate_word_entry_yaml()` 把 `de-zh-bot` 技能的中文词条规则移植成服务端提示词，输出 **YAML** 而不是 JSON —— 这样能直接交给 `importer.import_yaml_content()`，例句/量词/同义反义词/汉字分解/词源全部复用既有下游逻辑，**没有一行特例建卡代码**。这也意味着卡片与手工导入的词条完全一致（`importer._create_cards` 的 due 就是 `anki_today()`，`_make_leaf_decks` 建的子牌组名与 `get_or_create_category_decks` 相同）
+- 模型没返回 YAML 列表项时抛 `ValueError`；导入数为 0 的"完成"任务前端也报错 —— **绝不把垃圾内容悄悄写进库，也不假装成功**
+- **已有的词不能"再加到今天"**：`cards` 有 `UNIQUE(word_id, category)`，一个词终身只有三张卡，`insert_card` 对它是静默无效果的。所以只有卡片仅存在于 `Saved` 牌组（没有调度进度可丢）时才 `promote_saved_word` 到今天；否则如实返回 `already_exists` 和所在牌组名，不去重置人家的 FSRS 状态。同理已有词**不调 AI**（重新生成的内容会被 importer 当重复丢掉，纯烧钱）
+- 生成约 30 秒，所以走后台线程 + `job_id` 轮询（复用 `_import_jobs` 机制）
+- 只接受中文输入：德/英输入需要 AI 反问是哪个意思（`de-zh-bot` 就是这么做的），一个无交互的输入框做不到，猜错会静默存进一个错词
 
 - **YAML 格式完整文档：** `docs/yaml-format.md`（中文格式：词性/例句/词源/汉字分解；法语格式：`lang: fr` + `type: word|sentence`，经 `importer._normalize_fr_entry` 适配后复用全部下游逻辑）
 - 文件顶部可选 `lang:` 字段（默认 `zh`）决定导入到哪个语言的牌组
@@ -381,6 +391,8 @@ GET  /api/costs/call/{id}                            → {prompt, response}（�
 
 # 其他
 POST /api/import                                     → 触发 YAML 导入
+POST /api/add-word-ai                                → 界面内添加生词（#627）；新词返回 {job_id}，已有词直接返回 {status}
+GET  /api/add-word-ai/progress/{job_id}              → 轮询后台生成+导入的结果
 GET  /api/browse                                     → {deck_id?, category?, state?, q?, lang?}
 GET  /api/stats ；/api/retention ；/api/card-evolution（均支持 ?lang=）
 ```

@@ -790,6 +790,167 @@ def regenerate_entry_fields(
         return {}
 
 
+# ---------------------------------------------------------------------------
+# Full dictionary entry as YAML (issue #627) — the in-app twin of the de-zh-bot
+# skill. The output goes straight into importer.import_yaml_content(), so it
+# must follow docs/yaml-format.md exactly; every field below has a consumer in
+# importer._entry_to_word / _process_characters / _process_word_relations.
+# ---------------------------------------------------------------------------
+
+_ENTRY_YAML_EXAMPLE = """- type: word
+  date: "03/27"
+  simplified: 生态
+  traditional: 生態
+  pinyin: shēngtài
+  english: ecology / ecosystem / (figurative) environment
+  german: Ökologie / Ökosystem / (übertragen) Umfeld
+  definition_zh: 生物与环境相互作用形成的系统；引申指互相关联的整体
+  pos: noun
+  hsk: "5"
+  register: formal_written
+  measure_word:
+    - simplified: 种
+      pinyin: zhǒng
+      meaning: Art oder Typ (für Ökosysteme)
+  note: |
+    Ein Substantiv, das im wissenschaftlichen Sinne "Ökologie" und im weiteren
+    Sinne "Ökosystem" bedeutet. Ursprünglich aus der Biologie, hat es sich auf
+    vernetzte Systeme in Wirtschaft und Gesellschaft ausgeweitet.
+
+    **Häufige Ausdrücke:**
+    - 生态环境 (shēngtài huánjìng) — ökologische Umwelt
+    - 生态系统 (shēngtài xìtǒng) — Ökosystem
+  examples:
+    - zh: 保护生态环境是我们每个人的责任。
+      pinyin: Bǎohù shēngtài huánjìng shì wǒmen měi gè rén de zérèn.
+      english: Protecting the ecological environment is everyone's responsibility.
+      de: Die ökologische Umwelt zu schützen ist die Verantwortung eines jeden.
+    - zh: 阿里巴巴构建了一个庞大的商业生态系统。
+      pinyin: Ālǐbābā gòujiànle yī gè pángdà de shāngyè shēngtài xìtǒng.
+      english: Alibaba has built a vast business ecosystem.
+      de: Alibaba hat ein riesiges Geschäftsökosystem aufgebaut.
+  synonyms:
+    - simplified: 环境
+      pinyin: huánjìng
+      meaning: Umwelt, Umgebung
+  word_analyses:
+    - char_only: 生
+      pinyin: shēng
+      hsk: "1"
+    - type: word
+      simplified: 态
+      traditional: 態
+      pinyin: tài
+      english: state, condition, form
+      hsk: "4"
+      characters:
+        - char: 态
+          simplified: 态
+          traditional: 態
+          pinyin: tài
+          hsk: "4"
+          detailed_analysis: true
+          meaning_in_context: Zustand, Beschaffenheit
+          compounds:
+            - simplified: 状态
+              pinyin: zhuàngtài
+              meaning: Zustand, Verfassung
+            - simplified: 态度
+              pinyin: tàidù
+              meaning: Haltung, Einstellung
+          etymology: |
+            Phonosemantische Verbindung. Die traditionelle Form 態 besteht aus
+            dem Radikal 心 (Herz) und der phonetischen Komponente 能 (néng,
+            "Fähigkeit"). Das Herzradikal weist auf einen geistigen Zustand hin.
+"""
+
+_ENTRY_YAML_PROMPT = """You are a Chinese dictionary expert producing an SRS flashcard entry for a
+German-speaking learner (HSK 4-5). Generate a complete YAML entry for: {word}
+
+Return ONLY the YAML — a single list item starting with "- type:". No markdown
+fences, no commentary before or after.
+
+TYPE — pick exactly one:
+  word        a single word or compound (most common)
+  chengyu     a four-character idiom
+  expression  a fixed multi-word phrase or colloquial expression
+  sentence    a full sentence (ends with 。？！)
+
+REQUIRED FIELDS (all types): type, simplified, pinyin, english, german,
+definition_zh, pos, hsk, date: "{today}".
+  - traditional: only when it differs from simplified
+  - register: one of spoken_colloquial, spoken_neutral, neutral, formal_written,
+    literary, slang
+  - hsk: a quoted single digit "1"-"6" (use the closest level for non-HSK words)
+  - definition_zh: the meaning in simple Chinese (HSK 1-4 vocabulary)
+  - pos: noun, verb, adjective, adverb, conjunction, measure word, …
+
+LANGUAGE RULES — these fields MUST be German:
+  note, explanations, etymology, meaning_in_context, compounds[].meaning,
+  measure_word[].meaning, synonyms[].meaning, antonyms[].meaning, examples[].de
+  examples[].english is English; simplified/pinyin are Chinese/pinyin.
+
+CONTENT:
+  - note (word/chengyu/expression) or explanations (sentence): German prose
+    block scalar (|) explaining usage, common collocations, nuance
+  - examples: 2-4 sentences, EACH with all four keys zh, pinyin, english, de
+  - measure_word: only for nouns
+  - synonyms / antonyms: include when they add real value (always for chengyu)
+  - word_analyses: for word/chengyu/expression cover every component character:
+      * HSK 1-2 characters → `char_only:` + pinyin + hsk
+      * HSK 3+ characters → `type: word` block with a nested `characters:` list
+        whose entry has detailed_analysis: true, meaning_in_context, 2-4
+        compounds and a prose `etymology:` block scalar (no bullet points)
+    For `sentence`, cover the 2-4 most important vocabulary items instead.
+
+YAML SAFETY — the output is parsed by a strict loader:
+  - Never use double quotes for meaning/english/german fields. If a colon is
+    unavoidable inside an inline string, wrap it in single quotes; better yet,
+    rephrase to avoid the colon.
+  - note / explanations / etymology use block scalars (|) — colons are safe there.
+  - Indent consistently with two spaces; no tab characters.
+
+EXAMPLE of the expected shape (for 生态):
+
+{example}
+"""
+
+
+def generate_word_entry_yaml(word_zh: str, model: str = DEFAULT_MODEL) -> str:
+    """Generate a complete de-zh-bot style YAML entry for a Chinese word.
+
+    Returns the raw YAML text (a one-item list), ready for
+    importer.import_yaml_content(). Raises ValueError if the model returns
+    something that isn't a YAML list item — callers surface that to the user
+    rather than importing garbage.
+    """
+    from datetime import date as _date
+
+    prompt = _ENTRY_YAML_PROMPT.format(
+        word=word_zh,
+        today=_date.today().strftime("%m/%d"),
+        example=_ENTRY_YAML_EXAMPLE,
+    )
+
+    logger.info("[%s] generate_word_entry_yaml: %s", model, word_zh)
+    raw = _call_api(model, [{"role": "user", "content": prompt}], max_tokens=4000,
+                    purpose=f"add_word:{word_zh}")
+
+    # Strip markdown fences if the model wrapped the YAML despite being told not to
+    fenced = re.search(r"```(?:yaml|yml)?\s*\n(.*?)```", raw, re.DOTALL)
+    if fenced:
+        raw = fenced.group(1)
+
+    # Drop any prose before the list item (some models add a lead-in line)
+    start = raw.find("- type:")
+    if start == -1:
+        logger.error("generate_word_entry_yaml: no list item in response for %r: %s",
+                     word_zh, raw[:300])
+        raise ValueError("AI did not return a YAML entry")
+
+    return raw[start:].rstrip() + "\n"
+
+
 def generate_character_info(char: str, pinyin: str, model: str = DEFAULT_MODEL) -> dict:
     """
     Generate etymology and translation for a single Chinese character.
