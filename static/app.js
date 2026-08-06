@@ -6054,6 +6054,95 @@ function showQuickAddBanner(msg, isInfo) {
   el._hideTimer = setTimeout(() => { el.style.display = 'none'; }, 3500);
 }
 
+// ── Add a word from the header (#627) ───────────────────────────────────────
+// Type a Chinese word → DeepSeek writes a full de-zh-bot style entry → it lands
+// in today's Daily deck, due today. Generation takes ~30s, so the request only
+// returns a job id and we poll for the outcome.
+
+let _addWordPollTimer = null;
+
+function openAddWordModal() {
+  document.getElementById('add-word-overlay').style.display = 'block';
+  document.getElementById('add-word-modal').style.display = 'block';
+  const today = new Date();
+  document.getElementById('add-word-deck').textContent =
+    'Daily::' + today.toISOString().slice(0, 10);
+  const input = document.getElementById('add-word-input');
+  input.value = '';
+  input.disabled = false;
+  document.getElementById('add-word-status').textContent = '';
+  input.focus();
+}
+
+function closeAddWordModal() {
+  document.getElementById('add-word-overlay').style.display = 'none';
+  document.getElementById('add-word-modal').style.display = 'none';
+  // A running job keeps going server-side; closing just stops us watching it.
+  clearTimeout(_addWordPollTimer);
+  _addWordPollTimer = null;
+}
+
+async function submitAddWord() {
+  const input = document.getElementById('add-word-input');
+  const status = document.getElementById('add-word-status');
+  const wordZh = input.value.trim();
+  if (!wordZh) return;
+
+  input.disabled = true;
+  status.textContent = `Generating entry for ${wordZh}…`;
+
+  let result;
+  try {
+    result = await api('POST', '/api/add-word-ai', { word_zh: wordZh });
+  } catch (e) {
+    input.disabled = false;
+    status.textContent = `❌ ${e.message || 'Failed to add word'}`;
+    return;
+  }
+
+  // Known words come back finished — no AI call, no job to poll.
+  if (!result.job_id) {
+    closeAddWordModal();
+    const msgs = {
+      added_to_deck:   `✓ "${wordZh}" added to ${result.deck_path}`,
+      already_in_deck: `"${wordZh}" is already in ${result.deck_path}`,
+    };
+    showQuickAddBanner(msgs[result.status] || `✓ Done`,
+                       result.status === 'already_in_deck');
+    loadDecks();
+    return;
+  }
+
+  _pollAddWord(result.job_id, wordZh, result.deck_path);
+}
+
+async function _pollAddWord(jobId, wordZh, deckPath) {
+  clearTimeout(_addWordPollTimer);
+  const status = document.getElementById('add-word-status');
+  const job = await api('GET', `/api/add-word-ai/progress/${jobId}`).catch(() => null);
+
+  if (!job || job.status === 'running') {
+    _addWordPollTimer = setTimeout(() => _pollAddWord(jobId, wordZh, deckPath), 1500);
+    return;
+  }
+  _addWordPollTimer = null;
+  document.getElementById('add-word-input').disabled = false;
+
+  if (job.status === 'error') {
+    status.textContent = `❌ ${job.error || 'Failed to add word'}`;
+    return;
+  }
+  // A "done" job that imported nothing means the AI produced an entry the
+  // importer rejected — say so instead of claiming success.
+  if (!job.summary || !job.summary.imported) {
+    status.textContent = `❌ "${wordZh}" could not be imported — check the logs`;
+    return;
+  }
+  closeAddWordModal();
+  showQuickAddBanner(`✓ "${wordZh}" added to ${deckPath}`, false);
+  loadDecks();
+}
+
 // ── Listening hint slider (HSK-aware) ───────────────────────────────────────
 let _hskLevels = null; // {word: hsk_level_number} — loaded once from static file
 
