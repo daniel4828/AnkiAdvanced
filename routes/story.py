@@ -318,8 +318,12 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
             model = _validated_model(model, default="gpt-5-mini")
             logger.info("story  podcast model in use: %s batch_size=%s", model, batch_size)
             # batch_size (issue #563): user-controlled words-per-call from the
-            # setup modal; empty/0 = everything in one call (the default).
-            chunk_size = batch_size if batch_size and batch_size > 0 else len(cards)
+            # setup modal; empty/0 = one single call, capped at MAX_PODCAST_BATCH
+            # (#634). Spreading the words over the summary's topics only works if
+            # one call sees them all, so one call stays the default — but past
+            # ~20 words the model starts dropping rules, hence the ceiling.
+            chunk_size = (batch_size if batch_size and batch_size > 0
+                          else min(len(cards), ai.MAX_PODCAST_BATCH))
             chunks = [cards[i:i + chunk_size] for i in range(0, len(cards), chunk_size)]
             sentences = []
             for idx, chunk in enumerate(chunks):
