@@ -175,7 +175,7 @@ bash sync_offline.sh push    # 只推不拉，推完归档本地库
 ├── importer.py            # YAML 词汇导入器（中文 + 法语格式）
 ├── ai.py                  # AI 提供商调用（每种提示词类型一个函数）
 ├── news_fetcher.py        # 新闻抓取（Tagesschau API + RSS；按天缓存 data/news_cache/）
-├── podcast.py              # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、每源 auto_process 开关+非自动源只入库元数据（#502，podcast_feeds 表）、转录链 NotebookLM 免费主力+听悟+Whisper 保底、单步异常不中止整链（#510 重排，链式降级，原 #498/#485/#486）、摘要 NotebookLM chat.ask 免费优先+DeepSeek/gpt API 链回退（api 路径内部 DeepSeek 优先省钱，#532）、HSK生词、邮件通知+Signal 通知（signal-cli 关联设备，发 Note to Self，#521，二者独立可选、互不影响；消息抬头播客名·星期·日期、链接在末尾，单集日期按 Europe/Berlin 显示，#532）、摘要 table.media 风格（`<p>` 段落+每段首句 `<b>` 加粗总结，#567）+详情页 Regenerate summary 按钮
+├── podcast.py              # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、每源 auto_process 开关+非自动源只入库元数据（#502，podcast_feeds 表）、转录链 NotebookLM 免费主力+听悟+Whisper 保底、单步异常不中止整链（#510 重排，链式降级，原 #498/#485/#486）、摘要 NotebookLM chat.ask 免费优先+DeepSeek/gpt API 链回退（api 路径内部 DeepSeek 优先省钱，#532）、HSK生词、邮件通知+Signal 通知（signal-cli 关联设备，发 Note to Self，#521，二者独立可选、互不影响；消息抬头播客名·星期·日期、链接在末尾，单集日期按 Europe/Berlin 显示，#532）、摘要 table.media 风格（`<p>` 段落+每段首句 `<b>` 加粗总结，#567）+详情页 Regenerate summary 按钮、邮件主题=`播客名 - 单集标题`（查不到播客名只用标题，不要退回死前缀）+ `summary_zh` 开头中文总结（3-5 句 HSK4-5，邮件/Signal/详情页三处；**是增量不是必需**——成功判定只看 `summary_de`，模型漏掉中文总结不能让整集失败）+ 摘要里任何 HSK5+ 中文概念都标 `pinyin/汉字`（不限于提取的词表，宁多勿少，#631）
 ├── tts.py                 # edge-tts 封装（离线模式下只读缓存，#612）
 ├── offline.py             # OFFLINE_MODE / LOCAL_MODE + 联网探测（#612、#625）
 ├── sync_offline.sh        # 同步 sync/pull/push（#612、#625）
@@ -193,7 +193,7 @@ bash sync_offline.sh push    # 只推不拉，推完归档本地库
 ├── requirements.txt       # Python 依赖清单
 ├── DEPLOY.md              # 服务器从零到上线的部署教程
 ├── deploy/                # systemd 单元、Caddyfile 示例、deploy.sh（自动部署）
-├── scripts/               # morning_pregen.py（早晨预生成故事+TTS）、podcast_check.py（播客爬虫定时脚本）、offline_sync_server.py + offline_tts_manifest.py（离线同步，#612）+ README
+├── scripts/               # morning_pregen.py（早晨预生成故事+TTS）、podcast_check.py（播客爬虫定时脚本）、offline_sync_server.py + offline_tts_manifest.py（离线同步，#612）、fsrs_optimize.py（用 review_log 训练个人 FSRS 权重，#629）+ README
 ├── docs/yaml-format.md    # YAML 词条格式完整文档
 └── data/
     ├── srs.db             # SQLite 数据库（生产版在服务器上！）
@@ -270,6 +270,10 @@ decks → stories → story_sentences → entries（外键）
 ## 调度算法 —— FSRS-5（默认）+ SM-2 回退
 
 复习阶段的调度自 2026-06（PR #343）起使用 **FSRS-5**（`fsrs.py`，DSR 记忆模型：Difficulty/Stability/Retrievability）。`enable_fsrs=0` 时回退到旧 SM-2（`srs.py` 的 `calc_review`）。FSRS 的难度向均值回归，消除了 SM-2 的"ease 地狱"。
+
+> 🔴 **改任何调度参数前先跑 `SELECT preset_id, COUNT(*) FROM decks GROUP BY 1`。** Daniel 全部牌组都绑在 `deck_presets` 的 **id=2（"Anki Default"）**，preset 1（"Default"）上一张卡都没有。2026-07-15 那次调优改的是 preset 1，等于什么都没做，白白浪费三周才发现（#629）。
+
+**生产实测参数（2026-08-08，#629）：** 内置默认权重对 Daniel 系统性乐观——实测遗忘率 `creating` 31%、`listening` 21%，且遗忘率随间隔的曲线是**平的**（1-3 天就忘 20.7%）。平坦曲线 = 整体校准偏差，不是长期衰退；连 1-3 天都记不住说明卡片毕业时根本没学扎实。已把 preset 2 改为 `desired_retention=0.95`、`learning_steps='1m 10m 1d 3d'`、`relearning_steps='10m 1d'`，并写入用 `scripts/fsrs_optimize.py` 训练出的个人权重（验证集 log loss +3.0%）。想重训直接跑该脚本（默认只读，`--write` 才写库）。
 
 ### 状态机
 `new` → `learning`（学习步骤）→ `review`（毕业）；`review` 评 Again → `relearn` → 完成步骤后回 `review`。
