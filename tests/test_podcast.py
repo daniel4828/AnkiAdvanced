@@ -49,3 +49,170 @@ def test_fmt_timestamp_boundaries():
     assert podcast._fmt_timestamp(59999) == "[00:59]"
     assert podcast._fmt_timestamp(60000) == "[01:00]"
     assert podcast._fmt_timestamp(3600000) == "[1:00:00]"
+
+
+# ---------------------------------------------------------------------------
+# Notification improvements (#631): subject line, Chinese summary
+# ---------------------------------------------------------------------------
+
+import ai
+import database
+
+
+EPISODE = {
+    "id": 7,
+    "video_id": "ep7",
+    "channel_id": "https://feeds.example/show.xml",
+    "title": "第 12 集：人工智能与就业",
+    "youtube_url": "https://example/ep7",
+    "spotify_url": "",
+    "summary_zh": "这集讨论人工智能对就业的影响。嘉宾认为短期内影响有限。",
+    "summary_de": "<p><b>Es geht um KI.</b> Details folgen.</p>",
+    "hsk_words": [{"word": "就业", "pinyin": "jiù yè", "definition_de": "Beschäftigung", "hsk": 5}],
+    "transcript_de": [],
+    "published_at": "2026-08-05T06:00:00+00:00",
+}
+
+
+def _send_email_capture(monkeypatch, episode, feed_title):
+    """Run send_email against stubbed SMTP/database and return the sent MIME text."""
+    for k, v in [("SMTP_HOST", "smtp.example"), ("SMTP_USERNAME", "u"),
+                 ("SMTP_PASSWORD", "p"), ("SMTP_FROM", "from@example")]:
+        monkeypatch.setenv(k, v)
+    monkeypatch.setattr(database, "get_podcast_config", lambda: {"email_to": "to@example"})
+    monkeypatch.setattr(database, "get_feed_by_url",
+                        lambda url: {"title": feed_title} if feed_title else None)
+
+    sent = {}
+
+    class FakeSMTP:
+        def __init__(self, *a, **kw): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def starttls(self): pass
+        def login(self, *a): pass
+        def sendmail(self, frm, to, msg): sent["msg"] = msg
+
+    monkeypatch.setattr(podcast.smtplib, "SMTP", FakeSMTP)
+    assert podcast.send_email(episode) is True
+    return sent["msg"]
+
+
+def _email_subject(raw: str) -> str:
+    import email as email_mod
+    from email.header import decode_header, make_header
+    return str(make_header(decode_header(str(email_mod.message_from_string(raw)["Subject"]))))
+
+
+def _email_body(raw: str) -> str:
+    import email as email_mod
+    msg = email_mod.message_from_string(raw)
+    part = next(p for p in msg.walk() if p.get_content_type() == "text/html")
+    return part.get_payload(decode=True).decode("utf-8", "replace")
+
+
+def test_email_subject_is_podcast_name_dash_title(monkeypatch):
+    raw = _send_email_capture(monkeypatch, EPISODE, "中文播客秀")
+    assert _email_subject(raw) == "中文播客秀 - 第 12 集：人工智能与就业"
+
+
+def test_email_subject_falls_back_to_title_without_dead_prefix(monkeypatch):
+    """No feed name on record: the episode title stands alone. The old
+    'Neue Podcast-Folge' prefix must not come back as a fallback."""
+    raw = _send_email_capture(monkeypatch, EPISODE, None)
+    subject = _email_subject(raw)
+    assert subject == "第 12 集：人工智能与就业"
+    assert "Neue Podcast" not in subject
+
+
+def test_email_body_leads_with_chinese_summary(monkeypatch):
+    """The Chinese summary must appear, and appear before the German one."""
+    raw = _send_email_capture(monkeypatch, EPISODE, "中文播客秀")
+    body = _email_body(raw)
+    assert "这集讨论人工智能对就业的影响" in body
+    assert body.index("这集讨论") < body.index("Es geht um KI")
+
+
+def test_email_without_chinese_summary_renders_nothing_extra(monkeypatch):
+    ep = dict(EPISODE, summary_zh="")
+    body = _email_body(_send_email_capture(monkeypatch, ep, "中文播客秀"))
+    assert "Es geht um KI" in body
+    assert podcast._summary_zh_html("") == ""
+
+
+def test_summary_zh_html_escapes_markup():
+    """The prompt asks for plain text; a model that ignores it must not get
+    to inject markup into the mail."""
+    out = podcast._summary_zh_html("<script>alert(1)</script>")
+    assert "<script>" not in out
+    assert "&lt;script&gt;" in out
+
+
+def test_feed_title_lookup(monkeypatch):
+    monkeypatch.setattr(database, "get_feed_by_url", lambda url: {"title": "某播客"})
+    assert podcast._feed_title(EPISODE) == "某播客"
+
+    monkeypatch.setattr(database, "get_feed_by_url", lambda url: None)
+    assert podcast._feed_title(EPISODE) is None
+
+    monkeypatch.setattr(database, "get_feed_by_url", lambda url: {"title": ""})
+    assert podcast._feed_title(EPISODE) is None
+
+    assert podcast._feed_title({"channel_id": None}) is None
+
+
+def test_signal_message_leads_with_chinese_summary(monkeypatch):
+    monkeypatch.setenv("SIGNAL_ACCOUNT", "+490000")
+    monkeypatch.setattr(database, "get_feed_by_url", lambda url: {"title": "中文播客秀"})
+
+    captured = {}
+
+    class Result:
+        returncode = 0
+        stderr = b""
+
+    def fake_run(cmd, **kw):
+        captured["text"] = cmd[cmd.index("-m") + 1]
+        return Result()
+
+    monkeypatch.setattr(podcast.subprocess, "run", fake_run)
+    assert podcast.send_signal(EPISODE) is True
+
+    text = captured["text"]
+    assert "这集讨论人工智能对就业的影响" in text
+    # Chinese intro comes before the German summary, and after the title line.
+    assert text.index("第 12 集") < text.index("这集讨论") < text.index("Es geht um KI")
+
+
+# --- prompt & parser --------------------------------------------------------
+
+def test_prompt_asks_for_chinese_summary_and_generous_annotation():
+    prompt = ai.build_podcast_summary_prompt("转录文本", "标题", "detailed")
+    assert "summary_zh" in prompt
+    assert "HSK 4-5 level" in prompt
+    # Annotation must no longer be restricted to the extracted word list.
+    assert "NOT limited to" in prompt
+
+
+def test_parse_summary_json_reads_chinese_summary():
+    raw = '{"summary_zh": "简短总结。", "summary_de": "<p>Text</p>", "words": []}'
+    out = ai.parse_podcast_summary_json(raw)
+    assert out["summary_zh"] == "简短总结。"
+    assert out["summary_de"] == "<p>Text</p>"
+
+
+def test_parse_summary_json_tolerates_missing_chinese_summary():
+    """summary_zh is a bonus — a reply without it still yields a usable
+    German summary rather than failing the whole episode."""
+    out = ai.parse_podcast_summary_json('{"summary_de": "<p>Text</p>", "words": []}')
+    assert out["summary_zh"] == ""
+    assert out["summary_de"] == "<p>Text</p>"
+
+
+def test_parse_summary_json_failure_still_has_chinese_key():
+    """Callers read result['summary_zh'] unconditionally; the key must exist
+    even on a totally unparseable reply."""
+    out = ai.parse_podcast_summary_json("not json at all")
+    assert out["summary_zh"] == ""
+    assert out["summary_de"] == ""
+    assert out["words"] == []

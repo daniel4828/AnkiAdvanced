@@ -2339,7 +2339,12 @@ Transcript (Chinese, auto/manual captions, may contain minor recognition errors)
 {excerpt}
 
 Task:
-1. Write a detailed German-language summary of what is discussed in the episode, so the
+1. Write a SHORT Chinese-language summary of the episode: 3-5 sentences, placed before the
+   German summary so Daniel can grasp what the episode is about in Chinese first.
+   Write it at HSK 4-5 level — his actual reading level. Use plain, common vocabulary and
+   short sentences. This is a comprehension aid, not another study exercise, so do NOT
+   reach for literary or specialist words where an everyday one works. Plain text, no HTML.
+2. Write a detailed German-language summary of what is discussed in the episode, so the
    listener understands the content before listening. Target length: {words_target} words.
    Structure it into multiple paragraphs, in the style of the table.media briefings:
    - Wrap every paragraph in <p>...</p> tags.
@@ -2354,23 +2359,28 @@ Task:
    - Whenever you name a company, organization, brand or institution, add its common Chinese
      name in parentheses right after it, e.g. "Airbnb (爱彼迎)", "Lawn Tennis Association
      (英国草地网球协会)". If no established Chinese name exists, give a natural Chinese rendering.
-   - Whenever you use one of the HSK5+ vocabulary words you extract in Task 2 inside the
-     German summary, add its pinyin AND Chinese form in parentheses right after the German
-     rendering, in the format "pinyin/汉字",
+   - Annotate Chinese vocabulary generously. Whenever the German text expresses a concept,
+     term or set phrase that is HSK 5 or above in Chinese, add its pinyin AND Chinese form
+     in parentheses right after the German rendering, in the format "pinyin/汉字",
      e.g. "Rezession (jīngjì shuāituì/经济衰退)", "Lieferkette (gōngyìng liàn/供应链)", so
-     Daniel links the German meaning to the Chinese word — and its pronunciation — he is
-     pre-learning. Use the same pinyin (with tone marks) you give for that word in Task 2.
+     Daniel links the German meaning to the Chinese word — and its pronunciation.
+     This is NOT limited to the words you extract in Task 3 — annotate any non-basic Chinese
+     term the episode uses, including ones that did not make that list. When in doubt,
+     annotate: a redundant annotation costs Daniel nothing, a missing one costs him the link
+     between the German meaning and the Chinese word he is about to hear. For words that ARE
+     in the Task 3 list, use the same pinyin (with tone marks) you give there.
    - If (and ONLY if) the transcript contains timestamps, add an approximate timestamp in
      parentheses when you introduce each major topic, e.g. "(ca. 12:30)", so the listener can
      jump to it. If the transcript contains no timestamps, do NOT invent any.
    Wrap the most important vocabulary/terms/names in <strong>...</strong> HTML tags (these
    become the highlighted words in the email).
-2. Extract the 20-35 most important Chinese words/phrases from the transcript that are HSK
+3. Extract the 20-35 most important Chinese words/phrases from the transcript that are HSK
    level 5 or above (i.e. non-basic vocabulary Daniel would benefit from pre-learning). For
    each, give pinyin and a German definition.
 
 Return ONLY a JSON object, no other text, no markdown fences:
 {{
+  "summary_zh": "中文总结，3-5 句，HSK 4-5 水平的简单中文，纯文本",
   "summary_de": "<German HTML summary: <p> paragraphs, each starting with a <b> lead sentence, <strong> highlights>",
   "words": [
     {{"word": "词语", "pinyin": "cí yǔ", "definition_de": "kurze deutsche Definition", "hsk": 5}}
@@ -2384,9 +2394,14 @@ def parse_podcast_summary_json(raw: str) -> dict:
     markers like "[1]" before parsing — harmless no-op for plain API
     responses, which never contain them.
 
-    Returns {"summary_de": str, "words": [...]}; summary_de is "" and
-    words is [] on any parse failure (mirrors the previous inline
+    Returns {"summary_zh": str, "summary_de": str, "words": [...]}; summary_de
+    is "" and words is [] on any parse failure (mirrors the previous inline
     behavior in summarize_podcast_transcript).
+
+    summary_zh (#631) is a bonus, not a requirement: an older model reply — or
+    one that simply omitted the field — still yields a perfectly usable German
+    summary, so callers gate success on summary_de alone and treat an empty
+    summary_zh as "no Chinese intro this time".
     """
     raw = re.sub(r"\[\d+\]", "", raw)
     start, end = raw.find("{"), raw.rfind("}") + 1
@@ -2395,6 +2410,7 @@ def parse_podcast_summary_json(raw: str) -> dict:
     except (TypeError, ValueError, json.JSONDecodeError):
         data = {}
     summary_de = (data.get("summary_de") or "").strip()
+    summary_zh = (data.get("summary_zh") or "").strip()
     words = []
     for w in data.get("words") or []:
         word = (w.get("word") or "").strip()
@@ -2406,7 +2422,7 @@ def parse_podcast_summary_json(raw: str) -> dict:
             "definition_de": (w.get("definition_de") or "").strip(),
             "hsk": w.get("hsk") if isinstance(w.get("hsk"), int) else 5,
         })
-    return {"summary_de": summary_de, "words": words}
+    return {"summary_zh": summary_zh, "summary_de": summary_de, "words": words}
 
 
 def summarize_podcast_transcript(transcript: str, title: str,
@@ -2451,7 +2467,7 @@ def summarize_podcast_transcript(transcript: str, title: str,
             logger.warning("summarize_podcast_transcript: empty summary_de in AI reply (%s)", model)
         except Exception as e:
             logger.warning("summarize_podcast_transcript failed on %s (%s)", model, e)
-    return {"summary_de": "", "words": []}
+    return {"summary_zh": "", "summary_de": "", "words": []}
 
 
 def estimate_story_tokens(num_cards: int) -> int:

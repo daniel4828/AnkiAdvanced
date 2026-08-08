@@ -3267,6 +3267,7 @@ function _renderPodcastDetail(ep) {
       <h2 class="keymap-heading">${_escHtml(ep.title || '(untitled)')}</h2>
       <p class="keymap-hint">${date}</p>
       <div style="margin:4px 0 10px">${links}</div>
+      ${ep.summary_zh ? `<div id="podcast-summary-zh">${_escHtml(ep.summary_zh)}</div>` : ''}
       <div id="podcast-summary-de">${ep.summary_de || ''}</div>
     </div>
     <div class="keymap-panel">
