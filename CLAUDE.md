@@ -175,13 +175,14 @@ bash sync_offline.sh push    # 只推不拉，推完归档本地库
 ├── importer.py            # YAML 词汇导入器（中文 + 法语格式）
 ├── ai.py                  # AI 提供商调用（每种提示词类型一个函数）
 ├── news_fetcher.py        # 新闻抓取（Tagesschau API + RSS；按天缓存 data/news_cache/）
-├── podcast.py              # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、每源 auto_process 开关+非自动源只入库元数据（#502，podcast_feeds 表）、转录链 NotebookLM 免费主力+听悟+Whisper 保底、单步异常不中止整链（#510 重排，链式降级，原 #498/#485/#486）、摘要 NotebookLM chat.ask 免费优先+DeepSeek/gpt API 链回退（api 路径内部 DeepSeek 优先省钱，#532）、HSK生词、邮件通知+Signal 通知（signal-cli 关联设备，发 Note to Self，#521，二者独立可选、互不影响；消息抬头播客名·星期·日期、链接在末尾，单集日期按 Europe/Berlin 显示，#532）、摘要 table.media 风格（`<p>` 段落+每段首句 `<b>` 加粗总结，#567）+详情页 Regenerate summary 按钮、邮件主题=`播客名 - 单集标题`（查不到播客名只用标题，不要退回死前缀）+ `summary_zh` 开头中文总结（3-5 句 HSK4-5，邮件/Signal/详情页三处；**是增量不是必需**——成功判定只看 `summary_de`，模型漏掉中文总结不能让整集失败）+ 摘要里任何 HSK5+ 中文概念都标 `pinyin/汉字`（不限于提取的词表，宁多勿少，#631）
+├── podcast.py              # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、每源 auto_process 开关+非自动源只入库元数据（#502，podcast_feeds 表）、转录链 NotebookLM 免费主力+听悟+Whisper 保底、单步异常不中止整链（#510 重排，链式降级，原 #498/#485/#486）、摘要 NotebookLM chat.ask 免费优先+DeepSeek/gpt API 链回退（api 路径内部 DeepSeek 优先省钱，#532）、HSK生词、邮件通知+Signal 通知（signal-cli 关联设备，发 Note to Self，#521，二者独立可选、互不影响；消息抬头播客名·星期·日期、链接在末尾，单集日期按 Europe/Berlin 显示，#532）、摘要 table.media 风格（`<p>` 段落+每段首句 `<b>` 加粗总结，#567）+详情页 Regenerate summary 按钮、邮件主题=`播客名 - 单集标题`（查不到播客名只用标题，不要退回死前缀）+ `summary_zh` 开头中文总结（600-1000 字分段，HSK4-5，邮件/Signal/详情页三处；**是增量不是必需**——成功判定只看 `summary_de`，模型漏掉中文总结不能让整集失败）+ 摘要里任何 HSK5+ 中文概念都标 `pinyin/汉字`（不限于提取的词表，宁多勿少，#631）+ 生词标注由代码兜底（`zh_annotate.py`，#638）
 ├── tts.py                 # edge-tts 封装（离线模式下只读缓存，#612）
 ├── offline.py             # OFFLINE_MODE / LOCAL_MODE + 联网探测（#612、#625）
 ├── sync_offline.sh        # 同步 sync/pull/push（#612、#625）
 ├── run.offline.sh         # 硬离线启动，飞机用（#612）
 ├── run.local.sh           # 本地模式启动，日常用（#625）
 ├── translator.py          # 翻译（Google Translate，deep-translator，可选）
+├── zh_annotate.py         # 生词标注（#638，零 AI）：HSK 表+词库+jieba+pypinyin+谷歌翻译
 ├── yaml_fixer.py          # 修复 AI 生成的格式错误 YAML
 ├── schema.sql             # 数据库模式
 ├── static/                # 前端（index.html + app.js + style.css）
@@ -327,6 +328,17 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 - `podcast`（#482）——从已摘要的播客单集（`database.get_episode(episode_id)`）生成句子：单篇文章 = 该集 `transcript_zh`（截断到 15000 字），同样走 briefing 管线（`generate_briefing_sentences(generic=True, include_context=False)`），但**不允许上下文句**——每句都必须含一个目标词。`episode_id` 沿用 kahneman 的 `chapter_ids` 传参模式（GET 查询参数/regenerate POST body/gen_params），设置弹窗提供单选单集选择器（仅列 `status=summarized` 的单集）；不在早晨预生成 `_PREGEN_MODES` 里，因为选集是一次性的
 
 ---
+
+## 生词标注：代码做，不用 AI（`zh_annotate.py`，#638）
+
+#631 靠提示词让模型标 `pinyin/汉字`，模型经常漏（德语总结里出现光秃秃的 `(浙江)`），中文总结更是一个都没标。所有材料仓库里都有，所以改成确定性代码，**零 AI 调用**：`static/hsk_levels.json`（4991 词的 HSK 1-6 表）+ `entries.word_zh`（Daniel 的词库）+ `jieba` + `pypinyin` + `translator.py`。
+
+- **生词判定**：不在词库 **且**（HSK ≥ 5 **或** 根本不在 HSK 表里）
+- **中文总结**（`annotate_zh_summary`）→ 行内 `词（pīnyīn - 德语释义）`，每词只标首次；跳过人名地名（jieba 词性 `nr`/`ns`）和单字词
+- **德语总结**（`annotate_de_summary`）→ 只在中文片段前补拼音（`(浙江)` → `(Zhèjiāng/浙江)`），**不加释义**（德语原文就在旁边），也**不过滤人名地名**——德语文里的中文恰恰最需要读音；前面已经是 `/` 的说明模型自己标过了，不重复标
+- **透明组合过滤只用于中文总结**：HSK 表只有 4991 个词条，`十年`/`巨大变化`/`死掉` 这类普通组合全都"不在表里"，直接标会淹没真生词。规则是"表外词若每个字都是 HSK≤4 就跳过"，字的等级由**词表反推**（`_char_levels`：字出现在任何 HSK≤4 的词里就算基础字）——表里单字词只有 696 个，直接查单字覆盖太薄
+- **接入点在 `podcast.summarize()` 的返回处**（`_annotate_summary`）：NotebookLM 和 API 两条摘要路径、`_process_episode` 和 `regenerate_summary` 两个调用方全都经过这里，标注后的文本才写库，邮件/Signal/详情页三处自然一致，也不会各自重跑谷歌翻译
+- **全程吞异常**：HSK 表读不到、jieba 挂了、翻译超时，一律返回原文（翻译失败降级为只有拼音）。少个拼音是小事，为它丢掉整集摘要是荒唐的
 
 ## API 接口
 
