@@ -41,6 +41,7 @@ from zoneinfo import ZoneInfo
 import ai
 import database
 import translator
+import zh_annotate
 
 logger = logging.getLogger(__name__)
 
@@ -996,8 +997,24 @@ def summarize(transcript: str, title: str, detail_level: str) -> dict:
     if summarizer == "auto" and _notebooklm_credentials_available():
         result = _summarize_via_notebooklm(transcript, title, detail_level)
         if result:
-            return result
-    return ai.summarize_podcast_transcript(transcript, title, detail_level)
+            return _annotate_summary(result)
+    return _annotate_summary(ai.summarize_podcast_transcript(transcript, title, detail_level))
+
+
+def _annotate_summary(result: dict) -> dict:
+    """Add the AI-free vocabulary annotations (#638) to a fresh summary. Done
+    here, at the single choke point both summarizer paths and both callers
+    (_process_episode, regenerate_summary) pass through, so the annotated text
+    is what gets stored — email, Signal and the detail page then all show it
+    without each re-running Google Translate.
+
+    zh_annotate never raises: on any failure the untouched text comes back, so
+    a missing pinyin table can't cost Daniel the episode."""
+    if result.get("summary_zh"):
+        result["summary_zh"] = zh_annotate.annotate_zh_summary(result["summary_zh"])
+    if result.get("summary_de"):
+        result["summary_de"] = zh_annotate.annotate_de_summary(result["summary_de"])
+    return result
 
 
 def filter_new_words(words: list[dict]) -> list[dict]:
@@ -1153,15 +1170,23 @@ def _feed_title(episode: dict) -> str | None:
 
 
 def _summary_zh_html(summary_zh: str) -> str:
-    """Render the short Chinese summary block that opens the email (#631).
+    """Render the Chinese summary block that opens the email (#631).
     Escaped — the prompt asks for plain text, and a model that ignores that
-    must not get to inject markup into the mail."""
+    must not get to inject markup into the mail.
+
+    Since #638 the summary runs up to 1000 characters across several
+    paragraphs, so blank-line-separated blocks become real <p> tags; relying on
+    white-space:pre-wrap would be a gamble across mail clients."""
     if not summary_zh:
         return ""
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", summary_zh) if p.strip()]
+    body = "".join(
+        f"<p style='margin:0 0 10px'>{html.escape(p)}</p>" for p in paragraphs
+    )
     return (
         "<div style='background:#f5f5f5;border-left:3px solid #999;"
         "padding:10px 14px;margin:0 0 16px;font-size:15px;line-height:1.7'>"
-        f"{html.escape(summary_zh)}</div>"
+        f"{body}</div>"
     )
 
 

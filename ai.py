@@ -2386,8 +2386,11 @@ Transcript (Chinese, auto/manual captions, may contain minor recognition errors)
 {excerpt}
 
 Task:
-1. Write a SHORT Chinese-language summary of the episode: 3-5 sentences, placed before the
-   German summary so Daniel can grasp what the episode is about in Chinese first.
+1. Write a Chinese-language summary of the episode, placed before the German summary so
+   Daniel can grasp what the episode is about in Chinese first. Length: 600-1000 Chinese
+   characters — a full summary of the episode's content, not a teaser. Cover the actual
+   topics, arguments, examples and conclusions in the order the episode presents them,
+   and split it into several paragraphs (blank line between paragraphs).
    Write it at HSK 4-5 level — his actual reading level. Use plain, common vocabulary and
    short sentences. This is a comprehension aid, not another study exercise, so do NOT
    reach for literary or specialist words where an everyday one works. Plain text, no HTML.
@@ -2427,7 +2430,7 @@ Task:
 
 Return ONLY a JSON object, no other text, no markdown fences:
 {{
-  "summary_zh": "中文总结，3-5 句，HSK 4-5 水平的简单中文，纯文本",
+  "summary_zh": "中文总结，600-1000 字，分段（段落之间空一行），HSK 4-5 水平的简单中文，纯文本",
   "summary_de": "<German HTML summary: <p> paragraphs, each starting with a <b> lead sentence, <strong> highlights>",
   "words": [
     {{"word": "词语", "pinyin": "cí yǔ", "definition_de": "kurze deutsche Definition", "hsk": 5}}
