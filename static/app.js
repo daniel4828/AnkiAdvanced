@@ -6060,44 +6060,91 @@ function showQuickAddBanner(msg, isInfo) {
 // in today's Daily deck, due today. Generation takes ~30s, so the request only
 // returns a job id and we poll for the outcome.
 
-let _addWordPollTimer = null;
+// Generation takes ~30s but the request returns a job id immediately, so the
+// input never blocks: each submitted word becomes a queue entry that polls its
+// own job while the user types the next one (#636).
+let _addWordDay = 'today';          // 'today' | 'tomorrow'
+let _addWordQueue = [];             // [{key, wordZh, state, text}]
+let _addWordSeq = 0;
 
 function openAddWordModal() {
   document.getElementById('add-word-overlay').style.display = 'block';
   document.getElementById('add-word-modal').style.display = 'block';
-  const today = new Date();
-  document.getElementById('add-word-deck').textContent =
-    'Daily::' + today.toISOString().slice(0, 10);
+  setAddWordDay(_addWordDay);
   const input = document.getElementById('add-word-input');
   input.value = '';
   input.disabled = false;
   document.getElementById('add-word-status').textContent = '';
+  // Jobs that finished while the modal was closed already reported via banner.
+  _addWordQueue = _addWordQueue.filter(item => item.state === 'running');
+  _renderAddWordQueue();
   input.focus();
 }
 
 function closeAddWordModal() {
   document.getElementById('add-word-overlay').style.display = 'none';
   document.getElementById('add-word-modal').style.display = 'none';
-  // A running job keeps going server-side; closing just stops us watching it.
-  clearTimeout(_addWordPollTimer);
-  _addWordPollTimer = null;
+  // Running jobs keep going server-side and their polls keep the queue up to
+  // date; closing only hides the list. Drop finished rows so reopening the
+  // modal shows a clean slate.
+  _addWordQueue = _addWordQueue.filter(item => item.state === 'running');
+}
+
+function setAddWordDay(day) {
+  _addWordDay = day === 'tomorrow' ? 'tomorrow' : 'today';
+  for (const btn of document.querySelectorAll('.add-word-day-btn')) {
+    btn.classList.toggle('active', btn.dataset.day === _addWordDay);
+  }
+  const d = new Date();
+  if (_addWordDay === 'tomorrow') d.setDate(d.getDate() + 1);
+  document.getElementById('add-word-deck').textContent =
+    'Daily::' + `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  document.getElementById('add-word-input').focus();
+}
+
+function _renderAddWordQueue() {
+  const el = document.getElementById('add-word-queue');
+  if (!el) return;
+  // Built with textContent, not innerHTML — the word is free user input.
+  el.textContent = '';
+  for (const item of _addWordQueue) {
+    const row = document.createElement('div');
+    row.className = 'add-word-queue-item awq-' + item.state;
+    const word = document.createElement('b');
+    word.textContent = item.wordZh;
+    const state = document.createElement('span');
+    state.textContent = item.text;
+    row.append(word, state);
+    el.appendChild(row);
+  }
+}
+
+function _setAddWordItem(item, state, text) {
+  item.state = state;
+  item.text = text;
+  _renderAddWordQueue();
 }
 
 async function submitAddWord() {
   const input = document.getElementById('add-word-input');
-  const status = document.getElementById('add-word-status');
   const wordZh = input.value.trim();
   if (!wordZh) return;
 
-  input.disabled = true;
-  status.textContent = `Generating entry for ${wordZh}…`;
+  // Clear right away — the whole point is being able to type the next word
+  // while this one generates in the background.
+  input.value = '';
+  input.focus();
+  document.getElementById('add-word-status').textContent = '';
+
+  const item = { key: ++_addWordSeq, wordZh, state: 'running', text: 'Generating…' };
+  _addWordQueue.unshift(item);
+  _renderAddWordQueue();
 
   let result;
   try {
-    result = await api('POST', '/api/add-word-ai', { word_zh: wordZh });
+    result = await api('POST', '/api/add-word-ai', { word_zh: wordZh, day: _addWordDay });
   } catch (e) {
-    input.disabled = false;
-    status.textContent = `❌ ${e.message || 'Failed to add word'}`;
+    _setAddWordItem(item, 'error', e.message || 'Failed to add word');
     return;
   }
 
@@ -6106,47 +6153,40 @@ async function submitAddWord() {
     if (result.status === 'already_exists') {
       // A word owns one card per category for life (UNIQUE(word_id, category)),
       // so there is nothing to add — say where it lives instead of pretending.
-      input.disabled = false;
-      status.textContent =
-        `"${wordZh}" is already in your collection (${result.decks.join(', ')})`;
+      _setAddWordItem(item, 'error', `already in ${result.decks.join(', ')}`);
       return;
     }
-    closeAddWordModal();
-    const msgs = {
-      promoted: `✓ "${wordZh}" moved from Saved into ${result.deck_path}`,
-    };
-    showQuickAddBanner(msgs[result.status] || `✓ Done`, false);
+    _setAddWordItem(item, 'done', `✓ moved from Saved → ${result.deck_path}`);
     loadDecks();
     return;
   }
 
-  _pollAddWord(result.job_id, wordZh, result.deck_path);
+  _pollAddWord(result.job_id, item, result.deck_path);
 }
 
-async function _pollAddWord(jobId, wordZh, deckPath) {
-  clearTimeout(_addWordPollTimer);
-  const status = document.getElementById('add-word-status');
+async function _pollAddWord(jobId, item, deckPath) {
   const job = await api('GET', `/api/add-word-ai/progress/${jobId}`).catch(() => null);
 
   if (!job || job.status === 'running') {
-    _addWordPollTimer = setTimeout(() => _pollAddWord(jobId, wordZh, deckPath), 1500);
+    setTimeout(() => _pollAddWord(jobId, item, deckPath), 1500);
     return;
   }
-  _addWordPollTimer = null;
-  document.getElementById('add-word-input').disabled = false;
 
   if (job.status === 'error') {
-    status.textContent = `❌ ${job.error || 'Failed to add word'}`;
+    _setAddWordItem(item, 'error', job.error || 'Failed to add word');
     return;
   }
   // A "done" job that imported nothing means the AI produced an entry the
   // importer rejected — say so instead of claiming success.
   if (!job.summary || !job.summary.imported) {
-    status.textContent = `❌ "${wordZh}" could not be imported — check the logs`;
+    _setAddWordItem(item, 'error', 'could not be imported — check the logs');
     return;
   }
-  closeAddWordModal();
-  showQuickAddBanner(`✓ "${wordZh}" added to ${deckPath}`, false);
+  _setAddWordItem(item, 'done', `✓ ${deckPath}`);
+  // The modal may already be closed; the banner is how the user finds out.
+  if (document.getElementById('add-word-modal').style.display === 'none') {
+    showQuickAddBanner(`✓ "${item.wordZh}" added to ${deckPath}`, false);
+  }
   loadDecks();
 }
 

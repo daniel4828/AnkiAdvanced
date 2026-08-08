@@ -257,9 +257,9 @@ def _card_deck_ids(entry_id: int) -> set[int]:
 
 @router.post("/api/add-word-ai")
 def add_word_ai(body: dict):
-    """Add one Chinese word to today's Daily deck with an AI-generated entry.
+    """Add one Chinese word to a Daily deck with an AI-generated entry.
 
-    Body: { word_zh }
+    Body: { word_zh, day?: "today"|"tomorrow" }
     Returns either {job_id, deck_path} — generation runs in the background,
     poll /api/add-word-ai/progress/{job_id} — or, when the word is already in
     the database, a finished {status, ...} with no AI call at all.
@@ -271,8 +271,15 @@ def add_word_ai(body: dict):
         raise HTTPException(status_code=400,
                             detail="Please enter the word in Chinese characters")
 
-    today = date.today().isoformat()
-    deck_path = f"Daily::{today}"
+    day = (body.get("day") or "today").strip()
+    if day not in ("today", "tomorrow"):
+        raise HTTPException(status_code=400, detail="day must be 'today' or 'tomorrow'")
+    # A daily deck dated in the future is locked until its date arrives
+    # (database.parse_daily_deck_date), which is exactly the "stage it for
+    # tomorrow" semantics — the cards just have to be due then too (#636).
+    due_offset_days = 1 if day == "tomorrow" else 0
+    target_day = (date.today() + timedelta(days=due_offset_days)).isoformat()
+    deck_path = f"Daily::{target_day}"
     deck_id = database.get_or_create_deck_path(deck_path)
 
     # Known word → don't pay for a second generation; the importer would skip
@@ -285,8 +292,8 @@ def add_word_ai(body: dict):
         saved_deck_id = database.get_or_create_saved_deck()
         if card_decks and card_decks <= {saved_deck_id}:
             # Only staged in Saved — promoting is exactly what the user wants.
-            leaf_decks = database.get_or_create_category_decks(deck_id, today)
-            database.promote_saved_word(existing["id"], leaf_decks, saved_deck_id, today)
+            leaf_decks = database.get_or_create_category_decks(deck_id, target_day)
+            database.promote_saved_word(existing["id"], leaf_decks, saved_deck_id, target_day)
             return {"status": "promoted", "word_zh": word_zh, "entry_id": existing["id"],
                     "deck_path": deck_path, "deck_id": deck_id}
         # Already being studied somewhere. Moving it here would reset its FSRS
@@ -313,7 +320,8 @@ def add_word_ai(body: dict):
     def _run():
         try:
             yaml_text = ai.generate_word_entry_yaml(word_zh)
-            result = importer.import_yaml_content(yaml_text, deck_id)
+            result = importer.import_yaml_content(yaml_text, deck_id,
+                                                  due_offset_days=due_offset_days)
             if result.get("yaml_error"):
                 raise ValueError(
                     f"AI returned invalid YAML: {result['yaml_error'].get('problem', 'parse error')}")
