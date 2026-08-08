@@ -76,7 +76,8 @@ def test_podcast_template_keeps_json_example_braces():
         "max_hsk": "3", "extra_hint": "",
     })
     # JSON 示例的花括号必须原样保留（替换只针对已知记号）
-    assert '{"sentence_zh": "含目标词的句子", "target_word": "词汇"}' in rendered
+    assert ('{"reasoning_zh": "解释内容", "sentence_zh": "含目标词的句子", '
+            '"target_word": "词汇"}') in rendered
     assert "T" in rendered and "S" in rendered and "HSK 1-3" in rendered
     # 所有记号都已被替换
     for var in ai.PROMPT_TEMPLATE_VARIABLES["podcast"]:

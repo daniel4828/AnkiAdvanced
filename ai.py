@@ -313,34 +313,62 @@ Rules:
 Return ONLY a numbered list of Chinese sentences, no explanation:
 1. ...
 2. ...""",
-    "podcast": """任务：下面是一期播客单集的内容摘要（德语）。请用简体中文写一篇该单集内容的连贯总结，
-帮助 HSK 4-5 学习者复习词汇。
+    "podcast": """任务：下面是一期播客单集的内容摘要（德语）。请写若干简体中文句子，帮助 HSK 4-5
+学习者复习词汇。这些句子不需要合起来构成一篇摘要——每一句只要"发生在这一集的世界里"就可以。
 
 单集标题：{title}
 
 内容摘要（德语）：
 {summary}
 
-目标词汇（每个词必须在总结中恰好出现一次，以原文形式出现）：
+目标词汇（每个词恰好用在一个句子里，以原文形式出现）：
 {words}
 
-规则：
-- 总结按句子输出为 JSON 数组，数组顺序就是阅读顺序
-- 【重要】每一句话都必须恰好包含一个目标词汇——不允许出现任何不含目标词的句子，
-  因此句子总数必须恰好等于目标词数量
-- 【词序自由】任意安排目标词出现的先后顺序，选择能写出最自然、最连贯总结的顺序
-- 【难度控制，严格遵守】每句 8 到 20 个字，其中除目标词外只允许 HSK 1-{max_hsk} 的词汇；
-  如果某个事实需要更难的词才能表达，就换一种更简单的说法，或省略这个细节
-- 【重要】每句都必须传达摘要中的一个具体事实（是什么、涉及谁、有多少），
-  严禁没有信息量的空洞句子，例如"内容很有趣。""他说了很多。"这类句子绝对不可以出现
-- 【重要】只允许使用摘要中明确陈述的事实——禁止编造摘要没有的细节或主观评论
-- 所有输出只用简体中文，绝对不要出现繁体字；不要使用markdown格式
+【硬性锚点规则，最重要】
+每一句话都必须至少包含一个来自上面摘要的专有名词——人名、公司名、品牌名、产品名或地名
+（例如摘要里出现的公司、创始人、店名、城市）。没有专有名词的句子一律不合格，必须重写。
+
+【就近三档原则】
+对每个目标词，从上往下选第一个能写得自然的档位；写着别扭就往下降一档，
+绝对不要为了写成事实句而生硬拼凑：
+  A档 事实句：这个词正好能表达摘要中的一个事实。
+     例：张一鸣承认，公司的AI能力可能会暂时落后。
+  B档 评论句：某人对本集内容的反应、评价或愿望。
+     例：我真羡慕那些能天天吃和牛的人。
+  C档 场景句：一个发生在本集人物或公司周围的日常小场景。
+     例：他在抖音上刷视频，顺便就下了单。
+
+【话题覆盖规则】
+摘要里通常有好几个互不相关的话题（例如公司人事、电商、饮食文化）。
+- 把目标词大致平均地分配到这些话题上；摘要里的每一个话题都至少要有一句话
+- 严禁所有句子都围绕同一个话题，也不要只用摘要开头的内容
+- 属于同一话题的句子尽量排在一起，让整篇按话题一块一块地读下来，不要来回跳
+
+【写作步骤】（每个词按顺序思考，把结论写进 reasoning_zh）
+1. 先决定这句话属于摘要里的哪个话题
+2. 再从该话题里挑一个专有名词做锚点
+3. 然后定档位（A/B/C）和具体情境：谁、在哪、在做什么
+4. 最后写 sentence_zh：把情境浓缩成一句自然的中文，把目标词自然地嵌进去
+
+【其他规则】
+- 每句恰好包含一个目标词汇，一个词都不能漏，也不要在一句里塞进两个目标词
+- 除专有名词和目标词外，只用 HSK 1-{max_hsk} 的词汇
+- 每句 10 到 28 个字，用自然的中文口语，标点用中文标点
+- C档允许虚构日常细节（谁在排队、谁在点菜），但绝不可以编造摘要里没有的数字、
+  结论或事实性主张，也不可以与摘要矛盾
+- 严禁空洞句子，例如"这一集很有趣。""他说了很多。"
+- 只用简体中文，绝对不要出现繁体字；不要使用markdown格式
+- 不要给目标词加引号、括号或任何标记，直接写进句子里
 - target_word 是该句包含的目标词汇原文
+
+reasoning_zh 的规则：
+- 用中文写1-2句，说明这句属于哪个话题、锚点是哪个专有名词、选了哪一档、在讲什么
+- 面向 HSK 4-5 学习者，用词不要太难
 {extra_hint}
 
-仅返回如下JSON数组，不加任何其他文字：
+仅返回如下JSON数组，不加任何其他文字（reasoning_zh 在前，sentence_zh 在后）：
 [
-  {"sentence_zh": "含目标词的句子", "target_word": "词汇"}
+  {"reasoning_zh": "解释内容", "sentence_zh": "含目标词的句子", "target_word": "词汇"}
 ]""",
 }
 
@@ -1335,6 +1363,13 @@ reasoning_zh 的规则：
 # large batches make the model skip words and dilute sentence quality.
 MAX_NEWS_BATCH = 10
 
+# Max words per AI call for podcast mode (issue #634). Deliberately much larger
+# than MAX_NEWS_BATCH: the topic-coverage rule ("every topic in the summary gets
+# at least one sentence") only works when one call sees ALL the words, so the
+# default stays one single call. This is just the ceiling above which rule
+# adherence starts slipping — and gpt-5 shares the 8192 budget with reasoning.
+MAX_PODCAST_BATCH = 20
+
 
 def generate_news_sentences(
     cards: list[dict],
@@ -2151,6 +2186,15 @@ def generate_podcast_sentences(
     """Podcast mode rework (issue #561) — a lean single-purpose pipeline that
     replaces reuse of the briefing machinery (originally #482).
 
+    Prompt rewritten in #634: the sentences no longer have to add up to a
+    summary of the episode, and no longer have to each state a fact from it —
+    review-queue words like 咳嗽 have nothing to do with the episode, so that
+    demand only produced contortions and invented facts. Instead each sentence
+    just has to happen "in the world of the episode" (kahneman's approach),
+    anchored by a hard rule that every sentence names a proper noun from the
+    summary, plus a topic-coverage rule so the sentences don't all pile onto
+    the summary's first topic.
+
     One main call + up to 2 missing-word retry rounds + fallback sentences.
     Deliberately has NO fact-check and NO whole-summary validation retry —
     those are what make briefing slow and expensive, and podcast summaries
@@ -2223,7 +2267,10 @@ def generate_podcast_sentences(
                 "sentence_en": "",
                 "concept_en": "",
                 "concept_zh": "",
-                "reasoning_zh": "",
+                # #634: the prompt now makes the model plan topic/anchor/tier in
+                # reasoning_zh before writing — keep it, it shows in the card's
+                # background popup like kahneman's does.
+                "reasoning_zh": (item.get("reasoning_zh") or "").strip(),
                 "source_url": source_url,
                 "source_title": source_title,
                 "tokens": [],
