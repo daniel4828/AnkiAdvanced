@@ -87,6 +87,26 @@ header h1 { font-size: 18px; font-weight: 700; }
   margin-left: 4px;
 }
 #random-words-btn:hover { background: var(--border); }
+/* The one action button in the header that creates something — give it the
+   primary colour and a real touch target instead of the browser default (#636) */
+#add-word-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin-left: 4px;
+  font-size: 20px;
+  line-height: 1;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+#add-word-btn:hover { filter: brightness(1.1); }
+#add-word-btn:active { transform: scale(0.92); }
 
 /* ── Layout ──────────────────────────────────────────── */
 main {
@@ -5059,7 +5079,7 @@ table.fsrs-table td.ivl { font-weight: 700; }
 }
 
 /* ── Sync modal (#625) ────────────────────────────────────────────────────── */
-/* Add-word modal (#627) */
+/* Add-word modal (#627, restyled for touch in #636) */
 #add-word-overlay {
   position: fixed;
   inset: 0;
@@ -5074,25 +5094,86 @@ table.fsrs-table td.ivl { font-weight: 700; }
   width: min(460px, 92vw);
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 16px;
+  box-shadow: var(--shadow);
   z-index: 901;
   overflow: hidden;
 }
 #add-word-body {
-  padding: 14px 16px 16px;
+  padding: 16px;
+}
+
+/* Today / Tomorrow segmented control */
+#add-word-day {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 12px;
+  background: var(--bg);
+  border-radius: 12px;
+}
+.add-word-day-btn {
+  flex: 1;
+  padding: 10px 12px;
+  min-height: 44px;
+  font-size: 15px;
+  font-weight: 600;
+  background: none;
+  color: var(--muted);
+  border: none;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.add-word-day-btn.active {
+  background: var(--card);
+  color: var(--primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+#add-word-row {
+  display: flex;
+  gap: 8px;
 }
 #add-word-input {
-  width: 100%;
-  padding: 10px 12px;
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  min-height: 52px;
   font-size: 22px;
   background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 12px;
+}
+#add-word-input:focus {
+  outline: none;
+  border-color: var(--primary);
 }
 #add-word-input:disabled {
   opacity: 0.6;
 }
+#add-word-submit {
+  flex: 0 0 auto;
+  padding: 0 24px;
+  min-height: 52px;
+  font-size: 20px;
+  font-weight: 700;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+}
+#add-word-submit:active {
+  transform: scale(0.97);
+}
+#add-word-submit:disabled {
+  opacity: 0.45;
+  cursor: default;
+  transform: none;
+}
+
 #add-word-hint {
   margin-top: 10px;
   color: var(--muted);
@@ -5103,6 +5184,51 @@ table.fsrs-table td.ivl { font-weight: 700; }
   margin-top: 12px;
   font-size: 13px;
   color: var(--muted);
+}
+
+/* Queue of words being generated in the background (#636) */
+#add-word-queue:not(:empty) {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  max-height: 220px;
+  overflow-y: auto;
+}
+.add-word-queue-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+.add-word-queue-item b {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+}
+.add-word-queue-item span {
+  text-align: right;
+}
+.add-word-queue-item.awq-error span { color: var(--again); }
+.add-word-queue-item.awq-done  span { color: var(--good); }
+
+/* Phones: dock the modal to the bottom so it sits above the keyboard */
+@media (max-width: 560px) {
+  #add-word-modal {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    transform: none;
+    width: 100%;
+    border-radius: 16px 16px 0 0;
+    border-bottom: none;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  #add-word-body { padding: 14px 14px 18px; }
+  /* iOS zooms the page in when a focused input is under 16px */
+  #add-word-input { font-size: 24px; }
 }
 
 #sync-modal-overlay {

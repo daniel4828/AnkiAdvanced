@@ -5,7 +5,7 @@ through. Patching a provider client instead would silently stop working the
 next time DEFAULT_MODEL changes (issue #615).
 """
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
@@ -63,10 +63,13 @@ def tmp_db(tmp_path, monkeypatch):
     return tmp_path
 
 
-def _run_add_word(word_zh, yaml_text=ENTRY_YAML):
+def _run_add_word(word_zh, yaml_text=ENTRY_YAML, day=None):
     """POST the word and, if a background job started, wait for it to finish."""
+    payload = {"word_zh": word_zh}
+    if day:
+        payload["day"] = day
     with patch.object(ai, "_call_api", return_value=yaml_text):
-        r = client.post("/api/add-word-ai", json={"word_zh": word_zh})
+        r = client.post("/api/add-word-ai", json=payload)
         assert r.status_code == 200, r.text
         body = r.json()
         if "job_id" not in body:
@@ -80,10 +83,14 @@ def _run_add_word(word_zh, yaml_text=ENTRY_YAML):
         pytest.fail("add-word job never finished")
 
 
+def _daily_leaf_decks(day=None):
+    day = day or date.today().isoformat()
+    deck_id = database.get_or_create_deck_path(f"Daily::{day}")
+    return database.get_or_create_category_decks(deck_id, day)
+
+
 def _today_leaf_decks():
-    today = date.today().isoformat()
-    deck_id = database.get_or_create_deck_path(f"Daily::{today}")
-    return database.get_or_create_category_decks(deck_id, today)
+    return _daily_leaf_decks()
 
 
 def test_new_word_lands_in_todays_deck_due_today(tmp_db):
@@ -160,6 +167,53 @@ def test_saved_word_is_promoted_into_todays_deck(tmp_db):
     conn.close()
     assert {r["deck_id"] for r in rows} == leaf_ids
     assert all(r["state"] == "new" and r["due"] == today for r in rows)
+
+
+def test_tomorrow_lands_in_tomorrows_deck_due_tomorrow(tmp_db):
+    """day='tomorrow' (#636): both the deck and the cards' due date move a day
+    forward — a future-dated daily deck stays locked until its date arrives, so
+    a card left due today would be unreachable."""
+    result = _run_add_word("生态", day="tomorrow")
+    assert result["job"]["status"] == "done", result["job"]
+
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    assert result["deck_path"] == f"Daily::{tomorrow}"
+
+    entry = database.get_word_by_zh("生态")
+    leaf_ids = set(_daily_leaf_decks(tomorrow).values())
+    conn = database.get_db()
+    cards = conn.execute(
+        "SELECT deck_id, due, state FROM cards WHERE word_id=? AND deleted_at IS NULL",
+        (entry["id"],),
+    ).fetchall()
+    conn.close()
+
+    assert {c["deck_id"] for c in cards} <= leaf_ids
+    assert all(c["due"] == tomorrow for c in cards if c["state"] != "suspended")
+
+
+def test_saved_word_promoted_to_tomorrow(tmp_db):
+    r = client.post("/api/save-word", json={"word_zh": "生态", "pinyin": "shēngtài"})
+    entry_id = r.json()["entry_id"]
+
+    with patch.object(ai, "_call_api", side_effect=AssertionError("AI was called")):
+        r = client.post("/api/add-word-ai", json={"word_zh": "生态", "day": "tomorrow"})
+    assert r.json()["status"] == "promoted"
+
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    conn = database.get_db()
+    rows = conn.execute(
+        "SELECT deck_id, due FROM cards WHERE word_id=? AND deleted_at IS NULL",
+        (entry_id,),
+    ).fetchall()
+    conn.close()
+    assert {r["deck_id"] for r in rows} == set(_daily_leaf_decks(tomorrow).values())
+    assert all(r["due"] == tomorrow for r in rows)
+
+
+def test_invalid_day_is_rejected(tmp_db):
+    r = client.post("/api/add-word-ai", json={"word_zh": "生态", "day": "next week"})
+    assert r.status_code == 400
 
 
 def test_non_chinese_input_is_rejected(tmp_db):
