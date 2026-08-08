@@ -5119,14 +5119,29 @@ table.fsrs-table td.ivl { font-weight: 700; }
   padding: 16px;
 }
 
-/* Today / Tomorrow segmented control */
-#add-word-day {
+/* Today / Tomorrow segmented control — shared with the podcast vocabulary
+   table's Add buttons (#643) */
+#add-word-day,
+.add-word-day-row {
   display: flex;
   gap: 4px;
   padding: 4px;
   margin-bottom: 12px;
   background: var(--bg);
   border-radius: 12px;
+}
+/* In the podcast panel it sits above a wide table — keep it compact */
+.add-word-day-row {
+  width: fit-content;
+}
+.add-word-day-row .add-word-day-btn {
+  flex: 0 0 auto;
+  min-width: 96px;
+}
+/* A failed add stays clickable to retry, so it must not look like success */
+.podcast-add-error {
+  color: var(--again);
+  border-color: var(--again);
 }
 .add-word-day-btn {
   flex: 1;
