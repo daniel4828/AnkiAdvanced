@@ -7268,9 +7268,11 @@ function updateSetupMode() {
 // below) instead of sharing BRIEFING_MODEL.
 let _modelBeforeNewsMode = null;
 
-// Per-mode remembered model (issue #561): podcast defaults to gpt-5-mini the
-// first time it's opened, then remembers whatever the user picked last.
-const MODE_MODEL_DEFAULTS = { podcast: 'gpt-5-mini' };
+// Per-mode remembered model (issue #561): podcast has its own first-time
+// default, then remembers whatever the user picked last. Since #640 that
+// default is DeepSeek (like kahneman) rather than gpt-5-mini — must stay in
+// sync with ai.DEFAULT_MODEL, which is the backend-side default.
+const MODE_MODEL_DEFAULTS = { podcast: 'deepseek-v4-flash' };
 let _modelSelMode = 'story';   // mode the model dropdown's current value belongs to
 
 function _autoSwitchModelForMode(mode) {

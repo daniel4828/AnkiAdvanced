@@ -2176,7 +2176,7 @@ def generate_podcast_sentences(
     cards: list[dict],
     summary: str,            # the episode's German summary_de (caller ensures non-empty)
     episode_title: str,
-    model: str = "gpt-5-mini",
+    model: str = DEFAULT_MODEL,     # #640: DeepSeek, same as kahneman
     max_hsk: int = 3,
     progress_key: str | None = None,
     attempt_label: str = "",

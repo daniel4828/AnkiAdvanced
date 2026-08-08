@@ -305,8 +305,13 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
             # #541, never the full transcript), one lean call per batch of
             # MAX_NEWS_BATCH words plus missing-word top-ups, no fact-check.
             # The model is the user's dropdown pick, no longer locked to
-            # BRIEFING_MODEL; default gpt-5-mini (glm-4.7 once Daniel's Zhipu
-            # registration clears — a dropdown click, no code change).
+            # BRIEFING_MODEL. Default is ai.DEFAULT_MODEL (DeepSeek) since #640
+            # — the gpt-5-mini default was inherited from the news path, whose
+            # reason (DeepSeek censors news content) doesn't apply here: the
+            # input is a German episode summary, and kahneman has always run on
+            # DeepSeek. If an episode's topic does trip DeepSeek's filter, the
+            # per-word fallback sentences make it obvious and the dropdown
+            # switches back to GPT without a code change.
             if not episode_id:
                 raise ValueError("Podcast mode requires selecting an episode.")
             episode = database.get_episode(episode_id)
@@ -315,7 +320,7 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
             summary = (episode.get("summary_de") or "").strip()
             if not summary:
                 raise ValueError("Selected podcast episode has no summary yet.")
-            model = _validated_model(model, default="gpt-5-mini")
+            model = _validated_model(model, default=ai.DEFAULT_MODEL)
             logger.info("story  podcast model in use: %s batch_size=%s", model, batch_size)
             # batch_size (issue #563): user-controlled words-per-call from the
             # setup modal; empty/0 = one single call, capped at MAX_PODCAST_BATCH
@@ -497,7 +502,7 @@ def generate_sentence_for_word(card: dict, gen_params: dict | None) -> dict | No
                 if summary:
                     sentences = ai.generate_podcast_sentences(
                         [card], summary, ep.get("title") or "",
-                        model=_validated_model(gp.get("model"), default="gpt-5-mini"),
+                        model=_validated_model(gp.get("model"), default=ai.DEFAULT_MODEL),
                         max_hsk=gp.get("max_hsk", 3),
                         source_url=ep.get("youtube_url") or f"/#podcast-{ep['id']}",
                         source_title=ep.get("title"))
