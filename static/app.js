@@ -3301,6 +3301,7 @@ function _renderPodcastDetail(ep) {
       <h2 class="keymap-heading">Transcript</h2>
       ${transcript || '<p class="keymap-hint">No transcript available.</p>'}
     </div>`;
+  setPodcastAddDay(_podcastAddDay);  // highlights the active day button
 }
 
 function _togglePodcastTranscript() {
@@ -6007,7 +6008,7 @@ function openQuickAddMenu(event, wordZh, pinyin, meaning) {
     (meaning ? `<div class="qa-meaning">${meaning}</div>` : '') +
     `<button class="qa-add-btn qa-save-btn" onclick="doSaveWord('${wEsc}','${pEsc}','${mEsc}',this)">★ Save for later</button>` +
     `<div class="qa-deck-label">or add now to daily::${tomorrowStr}</div>` +
-    `<button class="qa-add-btn" onclick="doQuickAdd('${wEsc}','${pEsc}','${mEsc}',this)">+ Add to Daily deck</button>`;
+    `<button class="qa-add-btn" onclick="doQuickAdd('${wEsc}',this)">+ Add to Daily deck</button>`;
 
   document.body.appendChild(menu);
   _quickAddMenu = menu;
@@ -6048,23 +6049,20 @@ async function doSaveWord(wordZh, pinyin, meaning, btn) {
   }
 }
 
-async function doQuickAdd(wordZh, pinyin, meaning, btn) {
+// pinyin/meaning are no longer passed: DeepSeek writes every field itself (#643).
+function doQuickAdd(wordZh, btn) {
   btn.disabled = true;
   btn.textContent = '…';
-  try {
-    const result = await api('POST', '/api/quick-add-word', { word_zh: wordZh, pinyin, meaning });
-    closeQuickAddMenu();
-    const msgs = {
-      created:        `✓ "${wordZh}" added to ${result.deck_path}`,
-      added_to_deck:  `✓ "${wordZh}" added to ${result.deck_path}`,
-      already_in_deck:`"${wordZh}" is already in ${result.deck_path}`,
-    };
-    showQuickAddBanner(msgs[result.status] || `✓ Done`, result.status === 'already_in_deck');
-  } catch (e) {
-    btn.disabled = false;
-    btn.textContent = '+ Add to Daily deck';
-    showError(e.message || 'Failed to add word');
-  }
+  // The menu closes immediately — generation takes ~30s in the background and
+  // reports through the banner, so reviewing is never blocked (#643).
+  closeQuickAddMenu();
+  showQuickAddBanner(`⏳ Generating entry for "${wordZh}"…`, true);
+  addWordViaAi(wordZh, 'tomorrow', (state, text, deckPath) => {
+    if (state === 'running') return;
+    showQuickAddBanner(
+      state === 'done' ? `✓ "${wordZh}" added to ${deckPath}` : `❌ "${wordZh}": ${text}`,
+      state !== 'done');
+  });
 }
 
 function showQuickAddBanner(msg, isInfo) {

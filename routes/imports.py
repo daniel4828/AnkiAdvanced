@@ -358,75 +358,18 @@ def add_word_ai_progress(job_id: str):
     return job
 
 
-@router.post("/api/quick-add-word")
-def quick_add_word(body: dict):
-    """Add a compound word to tomorrow's Daily deck with AI-generated fields.
-
-    Body: { word_zh, pinyin?, meaning? }
-    Returns: { status: "created"|"added_to_deck"|"already_in_deck", entry_id, deck_path, deck_id }
-    """
-    word_zh = (body.get("word_zh") or "").strip()
-    if not word_zh:
-        raise HTTPException(status_code=400, detail="word_zh is required")
-
-    pinyin = (body.get("pinyin") or "").strip()
-    meaning = (body.get("meaning") or "").strip()
-
-    tomorrow = (date.today() + timedelta(days=1)).isoformat()
-    deck_path = f"Daily::{tomorrow}"
-    deck_id = database.get_or_create_deck_path(deck_path)
-    # Cards must live in the per-category leaf decks ('<date> · Listening/Reading/Creating'),
-    # not the category-less parent — otherwise due counts and review queues never see them.
-    leaf_decks = database.get_or_create_category_decks(deck_id, tomorrow)
-
-    existing = database.get_word_by_zh(word_zh)
-    if existing:
-        entry_id = existing["id"]
-        conn = database.get_db()
-        leaf_ids = tuple(leaf_decks.values())
-        placeholders = ",".join("?" * len(leaf_ids))
-        already = conn.execute(
-            f"SELECT id FROM cards WHERE word_id = ? AND deck_id IN ({placeholders}) "
-            "AND deleted_at IS NULL LIMIT 1",
-            (entry_id, *leaf_ids),
-        ).fetchone()
-        conn.close()
-        if already:
-            return {"status": "already_in_deck", "entry_id": entry_id,
-                    "deck_path": deck_path, "deck_id": deck_id}
-        status = "added_to_deck"
-    else:
-        word_data = {
-            "word_zh": word_zh,
-            "pinyin": pinyin,
-            "definition": meaning,
-            "note_type": "vocabulary",
-        }
-        if not os.environ.get("DISABLE_AI"):
-            try:
-                result = ai.regenerate_entry_fields(
-                    word_data, [], ["definition", "definition_zh", "definition_de", "pos"]
-                )
-                for field in ("definition", "definition_zh", "definition_de", "pos"):
-                    if result.get(field):
-                        word_data[field] = result[field]
-            except Exception as exc:
-                logger.warning("quick_add_word: AI generation failed for %r: %s", word_zh, exc)
-
-        entry_id = database.insert_word(word_data)
-        status = "created"
-
-    for category in ("listening", "reading", "creating"):
-        database.insert_card(entry_id, category, leaf_decks[category], state="new", due=tomorrow)
-
-    return {"status": status, "entry_id": entry_id, "deck_path": deck_path, "deck_id": deck_id}
+# /api/quick-add-word was removed in #643. It only had the AI fill four fields
+# (definition/definition_zh/definition_de/pos) — no examples, character
+# breakdown, measure words or synonyms — and its "added_to_deck" branch claimed
+# success while cards' UNIQUE(word_id, category) silently dropped every insert
+# for a word already studied elsewhere. Both callers now use /api/add-word-ai.
 
 
 @router.post("/api/save-word")
 def save_word(body: dict):
     """Stage a compound word in the fixed 'Saved' deck as suspended cards.
 
-    Unlike /api/quick-add-word this does NOT call the AI and does NOT activate
+    Unlike /api/add-word-ai this does NOT call the AI and does NOT activate
     the cards — content is generated later on demand, and the word only enters
     the study algorithm when promoted to a Daily deck (see /api/saved/{id}/promote).
 

@@ -145,6 +145,20 @@ def test_known_word_is_reported_without_calling_the_ai(tmp_db):
     assert body["status"] == "already_exists"
     assert any("Test" in name for name in body["decks"])
 
+    # The bug behind #643: the old /api/quick-add-word answered "✓ added" here
+    # while INSERT OR IGNORE silently dropped every card, so nothing reached the
+    # daily deck. Prove the word really is absent — the honest report above is
+    # only worth something if it matches reality.
+    conn = database.get_db()
+    leaf_ids = tuple(_today_leaf_decks().values())
+    placeholders = ",".join("?" * len(leaf_ids))
+    in_daily = conn.execute(
+        f"SELECT COUNT(*) c FROM cards WHERE word_id=? AND deck_id IN ({placeholders})",
+        (body["entry_id"], *leaf_ids),
+    ).fetchone()["c"]
+    conn.close()
+    assert in_daily == 0
+
 
 def test_saved_word_is_promoted_into_todays_deck(tmp_db):
     """A word only staged in the Saved deck has no scheduling progress to lose,
