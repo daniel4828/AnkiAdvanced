@@ -3045,6 +3045,19 @@ a.news-source-line:hover {
 .podcast-transcribe-btn { font-size: 12px; padding: 3px 10px; }
 #podcast-summary-de { line-height: 1.6; color: var(--text); }
 
+/* Short Chinese summary (#631) — sits above the German one as a quick
+   "what is this episode about" pass. Set apart so it reads as a lead-in
+   rather than as the first paragraph of the German text. */
+#podcast-summary-zh {
+  line-height: 1.8;
+  color: var(--text);
+  background: var(--bg-alt, rgba(128, 128, 128, 0.08));
+  border-left: 3px solid var(--border);
+  padding: 10px 14px;
+  margin: 0 0 14px;
+  white-space: pre-wrap;
+}
+
 /* — Podcast feed manager (#502) — */
 .podcast-feed-list { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
 .podcast-feed-card {

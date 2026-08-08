@@ -1140,6 +1140,31 @@ def _bilingual_transcript_html(pairs: list[dict]) -> str:
     return f"<h3>Transkript (中德对照)</h3><div style='font-size:14px'>{rows}</div>"
 
 
+def _feed_title(episode: dict) -> str | None:
+    """The podcast's own name, looked up from podcast_feeds via the episode's
+    channel_id (which holds the feed URL). Shared by the email subject line
+    and the Signal header (#631). Returns None when the feed row is gone or
+    unnamed — callers fall back to showing just the episode title."""
+    channel_id = episode.get("channel_id")
+    if not channel_id:
+        return None
+    feed = database.get_feed_by_url(channel_id)
+    return (feed.get("title") or None) if feed else None
+
+
+def _summary_zh_html(summary_zh: str) -> str:
+    """Render the short Chinese summary block that opens the email (#631).
+    Escaped — the prompt asks for plain text, and a model that ignores that
+    must not get to inject markup into the mail."""
+    if not summary_zh:
+        return ""
+    return (
+        "<div style='background:#f5f5f5;border-left:3px solid #999;"
+        "padding:10px 14px;margin:0 0 16px;font-size:15px;line-height:1.7'>"
+        f"{html.escape(summary_zh)}</div>"
+    )
+
+
 def send_email(episode: dict) -> bool:
     """Send the HTML notification email for a freshly-summarized episode.
     Returns True if sent, False if skipped (SMTP not configured) — skipping
@@ -1164,6 +1189,7 @@ def send_email(episode: dict) -> bool:
     body_html = f"""
     <html><body style="font-family:sans-serif;max-width:640px">
       <h2>{episode['title']}</h2>
+      {_summary_zh_html(episode.get('summary_zh') or '')}
       <div>{episode.get('summary_de') or ''}</div>
       <h3>Neue HSK5+ Vokabeln</h3>
       {words_html}
@@ -1177,7 +1203,14 @@ def send_email(episode: dict) -> bool:
     """
 
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"Neue Podcast-Folge: {episode['title']}"
+    # Subject = "<podcast name> - <episode title>" (#631). The old
+    # "Neue Podcast-Folge:" prefix was identical on every mail and ate the
+    # first 20 characters of the inbox list — the podcast name is what
+    # actually lets Daniel tell one mail from another at a glance. With no
+    # feed name on record the episode title stands alone; the dead prefix
+    # does not come back.
+    feed_title = _feed_title(episode)
+    msg["Subject"] = f"{feed_title} - {episode['title']}" if feed_title else episode["title"]
     msg["From"] = from_addr
     msg["To"] = to_addr
     msg.attach(MIMEText(body_html, "html", "utf-8"))
@@ -1239,12 +1272,7 @@ def send_signal(episode: dict) -> bool:
 
     # 抬头行：播客名 · 星期几（德语） · 日期（#532）。播客名从 channel_id
     # （feed 的 url）反查 podcast_feeds；查不到就省略播客名部分，只留星期+日期。
-    feed_title = None
-    channel_id = episode.get("channel_id")
-    if channel_id:
-        feed = database.get_feed_by_url(channel_id)
-        if feed:
-            feed_title = feed.get("title")
+    feed_title = _feed_title(episode)
 
     weekday_de = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
     date_part = None
@@ -1259,6 +1287,11 @@ def send_signal(episode: dict) -> bool:
     header_parts = [p for p in (feed_title, date_part) if p]
     lines = [" · ".join(header_parts)] if header_parts else []
     lines.append(f"🎙 {episode['title']}")
+    # 中文总结先行（#631）：Daniel 想先用中文快速抓住这集讲什么，再读德语细节。
+    summary_zh = (episode.get("summary_zh") or "").strip()
+    if summary_zh:
+        lines.append("")
+        lines.append(summary_zh)
     if summary_de:
         lines.append("")
         lines.append(summary_de)
@@ -1392,6 +1425,7 @@ def _process_episode(episode_id: int, video: dict, detail_level: str, summary: d
             spotify_url = find_spotify_url(video["title"])
             database.update_episode(
                 episode_id,
+                summary_zh=result.get("summary_zh") or "",
                 summary_de=result["summary_de"],
                 hsk_words=words,
                 detail_level=detail_level,
@@ -1466,6 +1500,7 @@ def regenerate_summary(episode_id: int) -> dict:
     words = filter_new_words(result.get("words") or [])
     database.update_episode(
         episode_id,
+        summary_zh=result.get("summary_zh") or "",
         summary_de=result["summary_de"],
         hsk_words=words,
         detail_level=detail_level,

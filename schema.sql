@@ -628,6 +628,7 @@ CREATE TABLE IF NOT EXISTS podcast_episodes (
     transcript_zh    TEXT,
     transcript_de    TEXT,   -- JSON array of {"zh","de"} bilingual segment pairs (#553)
     summary_de       TEXT,
+    summary_zh       TEXT,   -- short Chinese summary shown before the German one (#631)
     hsk_words        TEXT,   -- JSON array of {word, pinyin, definition_de, hsk}
     detail_level     TEXT,   -- detail_level used for the summary (short|medium|detailed)
     status           TEXT NOT NULL DEFAULT 'pending'
