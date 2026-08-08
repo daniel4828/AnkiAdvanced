@@ -171,6 +171,22 @@ main.browse-open {
   line-height: 1.7;
   opacity: 0.85;
 }
+/* Generation log (issue #642) — scrolls internally so a long run can't push
+   the "Continue in background" button off the screen. */
+#loading-log {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 10px auto 0;
+  max-width: 520px;
+  max-height: 180px;
+  overflow-y: auto;
+  text-align: left;
+  line-height: 1.7;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+#loading-log div:last-child { color: var(--text); opacity: 1; }
+
 .spinner.hidden { display: none; }
 
 /* "Continue in background" button on the story-generation loading screen */
