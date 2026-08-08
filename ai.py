@@ -46,6 +46,30 @@ def _set_progress(key: str | None, **kwargs) -> None:
         _story_progress[key] = kwargs
 
 
+# Cumulative log lines per progress key (issue #642). _set_progress overwrites
+# the whole dict on every update, so its single `msg` can only ever show the
+# current step — never what already happened or where a run got stuck. The
+# loading screen renders these lines under the progress bar.
+_story_log: dict[str, list[str]] = {}
+_STORY_LOG_MAX = 200
+
+
+def reset_story_log(key: str | None) -> None:
+    if key:
+        _story_log.pop(key, None)
+
+
+def log_progress(key: str | None, line: str) -> None:
+    """Append one Chinese log line for the loading screen, and mirror it to the
+    server log so the same trace is available in journalctl after the fact."""
+    logger.info("story-log  %s", line)
+    if not key:
+        return
+    lines = _story_log.setdefault(key, [])
+    lines.append(line)
+    del lines[:-_STORY_LOG_MAX]
+
+
 # ---------------------------------------------------------------------------
 # Provider routing
 # ---------------------------------------------------------------------------
@@ -1370,6 +1394,14 @@ MAX_NEWS_BATCH = 10
 # adherence starts slipping — and gpt-5 shares the 8192 budget with reasoning.
 MAX_PODCAST_BATCH = 20
 
+# Podcast top-up rounds (issue #642): keep re-requesting the words the model
+# skipped instead of dumping them on the 我学了X这个词。fallback after 3 rounds.
+# From PODCAST_SOLO_ROUND onwards each remaining word gets its own call — by
+# then only a few are left, and one word per call is the shape the model is
+# least able to wriggle out of.
+MAX_PODCAST_ROUNDS = 6
+PODCAST_SOLO_ROUND = 4
+
 
 def generate_news_sentences(
     cards: list[dict],
@@ -2228,31 +2260,28 @@ def generate_podcast_sentences(
     sentences: list[dict] = []
     remaining = list(cards)
 
-    for attempt in range(3):
-        if not remaining:
-            break
-        msg = (f"生成播客总结…{attempt_label}" if attempt == 0
-               else f"补漏 {len(remaining)} 个词（第{attempt + 1}轮）…{attempt_label}")
-        _set_progress(progress_key, phase="request", msg=msg, percent=20 + attempt * 25)
+    def _run_round(batch: list[dict], extra_hint: str, label: str) -> None:
+        """One AI call for `batch`; moves every word it covered out of `remaining`."""
         # 8192: all-at-once batching (issue #563) can mean 30+ sentences in one
         # response, and the gpt-5 series shares this budget with internal
         # reasoning tokens (same rationale as the briefing call).
-        raw = _call_api(model, [{"role": "user", "content": _build_prompt(remaining)}],
+        raw = _call_api(model, [{"role": "user", "content": _build_prompt(batch, extra_hint)}],
                          8192, purpose="podcast")
 
         json_start = raw.find("[")
         json_end = raw.rfind("]") + 1
         if json_start == -1 or json_end == 0:
-            logger.warning("podcast attempt %d: no JSON array found", attempt + 1)
-            continue
+            log_progress(progress_key, f"{label}：AI 回复里找不到 JSON 数组，本轮作废")
+            return
         try:
             items = json.loads(raw[json_start:json_end])
         except json.JSONDecodeError as e:
-            logger.warning("podcast attempt %d: JSON parse error: %s", attempt + 1, e)
-            continue
+            log_progress(progress_key, f"{label}：JSON 解析失败（{e}），本轮作废")
+            return
 
         # Scan in order: not trusting the AI's target_word tag, only the actual
         # sentence content counts (same approach as briefing).
+        got = 0
         for item in items:
             s_zh = (item.get("sentence_zh") or "").strip()
             if not s_zh:
@@ -2261,6 +2290,7 @@ def generate_podcast_sentences(
             if matched is None:
                 continue          # no target word → drop (this mode allows no context sentences)
             remaining.remove(matched)
+            got += 1
             sentences.append({
                 "word_ids": [matched["word_id"]],
                 "sentence_zh": s_zh,
@@ -2275,14 +2305,53 @@ def generate_podcast_sentences(
                 "source_title": source_title,
                 "tokens": [],
             })
+        log_progress(progress_key, f"{label}：拿到 {got} 句，还差 {len(remaining)} 个词")
 
-        if remaining:
-            logger.warning("podcast attempt %d: missing words (will re-request): %s",
-                           attempt + 1, [c["word_zh"] for c in remaining])
+    log_progress(progress_key, f"开始生成播客句子：{len(cards)} 个词，模型 {model}")
 
-    # Per-word fallback so every card ends up with a sentence.
+    # Keep re-requesting the words the model skipped until none are left
+    # (issue #642). The old 3-round cap left plenty of words on the fallback
+    # sentence 我学了X这个词。
+    for round_no in range(1, MAX_PODCAST_ROUNDS + 1):
+        if not remaining:
+            break
+        missing = "、".join(c["word_zh"] for c in remaining)
+        if round_no == 1:
+            hint = ""
+            msg = f"生成播客句子…{attempt_label}"
+            batches = [remaining]
+        else:
+            # #642: the retry used to resend the *identical* prompt, so the model
+            # simply reproduced the same omissions. Name the skipped words and
+            # relax topic coverage — with a handful of words left, "cover every
+            # topic" is an instruction that cannot be satisfied.
+            hint = (f"\n\n【补漏轮】上一轮你漏掉了这些词：{missing}。"
+                    f"这一轮只需要为上面列出的每一个词各写一句话，一个都不能少。"
+                    f"词少的时候不必覆盖摘要里的所有话题，但每句仍然必须包含"
+                    f"一个来自摘要的专有名词。")
+            msg = f"补漏 {len(remaining)} 个词（第{round_no}轮）…{attempt_label}"
+            # Late rounds go one word per call: with only a few words left this
+            # is the most reliable shape — the model has no room to "pick the
+            # easy ones" and drop the rest.
+            batches = ([[c] for c in remaining] if round_no >= PODCAST_SOLO_ROUND
+                       else [list(remaining)])
+        _set_progress(progress_key, phase="request", msg=msg,
+                      percent=min(20 + round_no * 12, 90))
+        if round_no > 1:
+            log_progress(progress_key,
+                         f"第{round_no}轮补漏"
+                         f"{'（每词单独一次调用）' if round_no >= PODCAST_SOLO_ROUND else ''}"
+                         f"：{missing}")
+        for batch in batches:
+            if not any(c in remaining for c in batch):
+                continue          # already covered by an earlier batch this round
+            _run_round(batch, hint, f"第{round_no}轮")
+
+    # Per-word fallback so every card ends up with a sentence. After #642 this
+    # only triggers when every round failed outright (API errors, censored
+    # replies) — not merely because the model skipped a word.
     for card in remaining:
-        logger.warning("podcast: using fallback sentence for %s", card["word_zh"])
+        log_progress(progress_key, f"⚠️ {card['word_zh']}：{MAX_PODCAST_ROUNDS} 轮都没写出句子，用兜底句")
         sentences.append({
             "word_ids": [card["word_id"]],
             "sentence_zh": card.get("source_sentence") or f"我学了{card['word_zh']}这个词。",

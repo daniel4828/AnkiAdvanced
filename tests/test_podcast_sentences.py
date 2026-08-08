@@ -43,3 +43,48 @@ def test_missing_reasoning_is_not_fatal(monkeypatch):
 
     assert [s["reasoning_zh"] for s in sentences] == ["", ""]
     assert len(sentences) == 2
+
+
+def test_skipped_word_is_re_requested(monkeypatch):
+    """#642：模型漏词时继续补漏，而不是 3 轮后丢给兜底句。
+    补漏轮的提示词必须点名漏掉的词——原来重发的是一模一样的提示词。"""
+    prompts = []
+
+    def fake_call(model, messages, *a, **kw):
+        prompts.append(messages[0]["content"])
+        if len(prompts) == 1:                      # 第一轮只写了一个词
+            return _reply([{"sentence_zh": "张一鸣承认公司暂时落后。"}])
+        return _reply([{"sentence_zh": "他在抖音上刷视频，顺便就下了单。"}])
+
+    monkeypatch.setattr(ai, "_call_api", fake_call)
+    sentences = ai.generate_podcast_sentences(CARDS, "Zusammenfassung", "标题")
+
+    assert len(prompts) == 2
+    assert "顺便" in prompts[1] and "补漏轮" in prompts[1]
+    assert sorted(s["word_ids"][0] for s in sentences) == [1, 2]
+    assert not any("我学了" in s["sentence_zh"] for s in sentences)
+
+
+def test_fallback_only_after_all_rounds(monkeypatch):
+    """AI 始终不写句子时仍然收敛：每张卡都有句子，且轮数有上限。"""
+    monkeypatch.setattr(ai, "_call_api", lambda *a, **kw: _reply([]))
+    sentences = ai.generate_podcast_sentences(CARDS, "Zusammenfassung", "标题")
+
+    assert len(sentences) == 2
+    assert all("我学了" in s["sentence_zh"] for s in sentences)
+
+
+def test_progress_log_is_recorded(monkeypatch):
+    """#642：加载界面的日志按 progress_key 累积，供 /api/story-progress 返回。"""
+    monkeypatch.setattr(ai, "_call_api", lambda *a, **kw: _reply([
+        {"sentence_zh": "张一鸣承认公司暂时落后。"},
+        {"sentence_zh": "他在抖音上刷视频，顺便就下了单。"},
+    ]))
+    key = "test/reading/zh"
+    ai.reset_story_log(key)
+    ai.generate_podcast_sentences(CARDS, "Zusammenfassung", "标题", progress_key=key)
+
+    log = ai._story_log[key]
+    assert any("开始生成播客句子" in line for line in log)
+    assert any("还差 0 个词" in line for line in log)
+    ai.reset_story_log(key)
