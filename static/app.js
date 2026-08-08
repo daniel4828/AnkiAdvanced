@@ -953,6 +953,23 @@ function _startStoryProgressPoll(deckId, cat) {
         }
         artEl.style.display = titles.length ? 'block' : 'none';
       }
+      // Generation log (issue #642): cumulative backend lines, appended only
+      // (re-rendering the whole list every 400ms would fight the scrollbar).
+      // Auto-scrolls to the newest line unless the user scrolled up to read.
+      const logEl = document.getElementById('loading-log');
+      if (logEl) {
+        const lines = Array.isArray(p.log) ? p.log : [];
+        const shown = logEl.childElementCount;
+        if (lines.length < shown) logEl.innerHTML = '';   // new run reset the log
+        const atBottom = logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight < 20;
+        for (const line of lines.slice(logEl.childElementCount)) {
+          const div = document.createElement('div');
+          div.textContent = line;      // backend text, never HTML
+          logEl.appendChild(div);
+        }
+        logEl.style.display = lines.length ? 'block' : 'none';
+        if (atBottom) logEl.scrollTop = logEl.scrollHeight;
+      }
     } catch (_) {}
   }, 400);
 }
@@ -3237,7 +3254,13 @@ function _renderPodcastDetail(ep) {
       <td><button id="podcast-add-word-${idx}" class="btn-secondary" onclick="doPodcastAddWord(${idx})">+ Add</button></td>
     </tr>`).join('');
   const hskTable = hskRows
-    ? `<table class="cost-table"><thead><tr><th>Word</th><th>Pinyin</th><th>German</th><th>Add</th></tr></thead><tbody>${hskRows}</tbody></table>`
+    ? `<div id="podcast-add-day" class="add-word-day-row">
+         <button type="button" class="add-word-day-btn" data-day="today"
+                 onclick="setPodcastAddDay('today')">Today</button>
+         <button type="button" class="add-word-day-btn" data-day="tomorrow"
+                 onclick="setPodcastAddDay('tomorrow')">Tomorrow</button>
+       </div>
+       <table class="cost-table"><thead><tr><th>Word</th><th>Pinyin</th><th>German</th><th>Add</th></tr></thead><tbody>${hskRows}</tbody></table>`
     : '<p class="keymap-hint">No HSK vocabulary extracted.</p>';
   const links = [
     ep.youtube_url ? `<a href="${_escHtml(ep.youtube_url)}" target="_blank" rel="noopener" class="btn-secondary">YouTube ↗</a>` : '',
@@ -3355,30 +3378,34 @@ async function doPodcastNotify(channel) {
   }
 }
 
-async function doPodcastAddWord(idx) {
+// Which day the podcast vocabulary table adds to. Podcasts are usually
+// listened to in the evening, so tomorrow stays the default (#643).
+let _podcastAddDay = 'tomorrow';
+
+function setPodcastAddDay(day) {
+  _podcastAddDay = day === 'today' ? 'today' : 'tomorrow';
+  for (const btn of document.querySelectorAll('#podcast-add-day .add-word-day-btn')) {
+    btn.classList.toggle('active', btn.dataset.day === _podcastAddDay);
+  }
+}
+
+function doPodcastAddWord(idx) {
   const w = _podcastDetailWords[idx];
   const btn = document.getElementById(`podcast-add-word-${idx}`);
   if (!w || !btn) return;
+  const wordZh = w.word || w.word_zh || '';
+  if (!wordZh) return;
+
   btn.disabled = true;
   btn.textContent = '…';
-  try {
-    const result = await api('POST', '/api/quick-add-word', {
-      word_zh: w.word || w.word_zh || '',
-      pinyin: w.pinyin,
-      meaning: w.definition_de || w.definition,
-    });
-    const labels = {
-      created: '✓ added',
-      added_to_deck: '✓ added',
-      already_in_deck: '✓ in deck',
-    };
-    btn.textContent = labels[result.status] || '✓ added';
-    // Stays disabled — button reflects a completed, non-repeatable action.
-  } catch (e) {
-    btn.disabled = false;
-    btn.textContent = '+ Add';
-    showError(e.message || 'Failed to add word');
-  }
+  // Generation takes ~30s in the background — the other rows stay clickable,
+  // so several words can be queued up at once.
+  addWordViaAi(wordZh, _podcastAddDay, (state, text) => {
+    btn.textContent = text;
+    btn.classList.toggle('podcast-add-error', state === 'error');
+    // Only a failure is worth retrying; a finished add is not repeatable.
+    if (state === 'error') btn.disabled = false;
+  });
 }
 
 // Hash direct-link support: emails link to /#podcast-<id> (episode detail).
@@ -6125,7 +6152,60 @@ function _setAddWordItem(item, state, text) {
   _renderAddWordQueue();
 }
 
-async function submitAddWord() {
+// The one way to add a word anywhere in the app (#643): the full DeepSeek
+// pipeline behind /api/add-word-ai, which writes a complete de-zh-bot entry
+// (examples, character breakdown, measure words, synonyms, etymology) through
+// the ordinary importer. The old /api/quick-add-word only filled four fields
+// and — worse — reported success even when cards has UNIQUE(word_id, category)
+// silently dropped the insert for a word already studied elsewhere.
+//
+// onUpdate(state, text) is called with 'running' | 'done' | 'error'.
+async function addWordViaAi(wordZh, day, onUpdate) {
+  let result;
+  try {
+    result = await api('POST', '/api/add-word-ai', { word_zh: wordZh, day });
+  } catch (e) {
+    onUpdate('error', e.message || 'Failed to add word');
+    return;
+  }
+
+  // Known words come back finished — no AI call, no job to poll.
+  if (!result.job_id) {
+    if (result.status === 'already_exists') {
+      // A word owns one card per category for life, so there is nothing to
+      // add — say where it lives instead of pretending it worked.
+      onUpdate('error', `already in ${result.decks.join(', ')}`);
+      return;
+    }
+    onUpdate('done', `✓ moved from Saved → ${result.deck_path}`, result.deck_path);
+    loadDecks();
+    return;
+  }
+
+  onUpdate('running', 'Generating…');
+  const poll = async () => {
+    const job = await api('GET', `/api/add-word-ai/progress/${result.job_id}`).catch(() => null);
+    if (!job || job.status === 'running') {
+      setTimeout(poll, 1500);
+      return;
+    }
+    if (job.status === 'error') {
+      onUpdate('error', job.error || 'Failed to add word');
+      return;
+    }
+    // A "done" job that imported nothing means the AI produced an entry the
+    // importer rejected — say so instead of claiming success.
+    if (!job.summary || !job.summary.imported) {
+      onUpdate('error', 'could not be imported — check the logs');
+      return;
+    }
+    onUpdate('done', `✓ ${result.deck_path}`, result.deck_path);
+    loadDecks();
+  };
+  setTimeout(poll, 1500);
+}
+
+function submitAddWord() {
   const input = document.getElementById('add-word-input');
   const wordZh = input.value.trim();
   if (!wordZh) return;
@@ -6140,54 +6220,14 @@ async function submitAddWord() {
   _addWordQueue.unshift(item);
   _renderAddWordQueue();
 
-  let result;
-  try {
-    result = await api('POST', '/api/add-word-ai', { word_zh: wordZh, day: _addWordDay });
-  } catch (e) {
-    _setAddWordItem(item, 'error', e.message || 'Failed to add word');
-    return;
-  }
-
-  // Known words come back finished — no AI call, no job to poll.
-  if (!result.job_id) {
-    if (result.status === 'already_exists') {
-      // A word owns one card per category for life (UNIQUE(word_id, category)),
-      // so there is nothing to add — say where it lives instead of pretending.
-      _setAddWordItem(item, 'error', `already in ${result.decks.join(', ')}`);
-      return;
+  addWordViaAi(wordZh, _addWordDay, (state, text, deckPath) => {
+    _setAddWordItem(item, state, text);
+    // The modal may already be closed; the banner is how the user finds out.
+    if (state === 'done' &&
+        document.getElementById('add-word-modal').style.display === 'none') {
+      showQuickAddBanner(`✓ "${wordZh}" added to ${deckPath}`, false);
     }
-    _setAddWordItem(item, 'done', `✓ moved from Saved → ${result.deck_path}`);
-    loadDecks();
-    return;
-  }
-
-  _pollAddWord(result.job_id, item, result.deck_path);
-}
-
-async function _pollAddWord(jobId, item, deckPath) {
-  const job = await api('GET', `/api/add-word-ai/progress/${jobId}`).catch(() => null);
-
-  if (!job || job.status === 'running') {
-    setTimeout(() => _pollAddWord(jobId, item, deckPath), 1500);
-    return;
-  }
-
-  if (job.status === 'error') {
-    _setAddWordItem(item, 'error', job.error || 'Failed to add word');
-    return;
-  }
-  // A "done" job that imported nothing means the AI produced an entry the
-  // importer rejected — say so instead of claiming success.
-  if (!job.summary || !job.summary.imported) {
-    _setAddWordItem(item, 'error', 'could not be imported — check the logs');
-    return;
-  }
-  _setAddWordItem(item, 'done', `✓ ${deckPath}`);
-  // The modal may already be closed; the banner is how the user finds out.
-  if (document.getElementById('add-word-modal').style.display === 'none') {
-    showQuickAddBanner(`✓ "${item.wordZh}" added to ${deckPath}`, false);
-  }
-  loadDecks();
+  });
 }
 
 // ── Listening hint slider (HSK-aware) ───────────────────────────────────────

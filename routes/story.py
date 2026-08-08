@@ -217,6 +217,9 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
         return None
     lang = lang or database.get_deck_lang(deck_id)
     ai._story_progress[progress_key] = {"phase": "starting", "msg": "Starting…", "percent": 5}
+    # #642: a fresh run starts with a fresh log — the previous run's lines would
+    # otherwise stay on the loading screen and read as if they belonged to this one.
+    ai.reset_story_log(progress_key)
     with database.action_context(_action_label_for_story(mode, deck_id)):
         # Inside the action context (issue #578): fix_commas calls previously ran
         # before it and showed up as orphan "fix_commas · legacy" cost rows.
@@ -1289,4 +1292,8 @@ def put_pregen_config(body: dict):
 def story_progress_endpoint(deck_id: int, category: str, lang: str | None = None):
     lang = lang or database.get_deck_lang(deck_id)
     key = f"{deck_id}/{category}/{lang}"
-    return ai._story_progress.get(key, {"phase": "idle", "msg": "", "percent": 0})
+    prog = dict(ai._story_progress.get(key, {"phase": "idle", "msg": "", "percent": 0}))
+    # #642: the cumulative log lives outside _story_progress (which gets fully
+    # overwritten on each update), so merge it in here for the loading screen.
+    prog["log"] = ai._story_log.get(key, [])
+    return prog
