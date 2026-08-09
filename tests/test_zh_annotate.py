@@ -133,3 +133,57 @@ def test_empty_input_is_passed_through():
     assert zh_annotate.annotate_zh_summary("") == ""
     assert zh_annotate.annotate_de_summary("") == ""
     assert zh_annotate.annotate_zh_summary(None) is None
+
+
+# --- extract_new_words (#650) -----------------------------------------------
+
+def test_extract_new_words_picks_up_new_word():
+    out = zh_annotate.extract_new_words("这集讨论对就业的影响。")
+    words = [w["word"] for w in out]
+    assert "就业" in words
+    entry = next(w for w in out if w["word"] == "就业")
+    assert entry["pinyin"] == "jiùyè"
+    assert entry["definition_de"] == "DE:就业"
+    assert entry["hsk"] == 6
+
+
+def test_extract_new_words_excludes_words_in_collection(collection):
+    collection.add("就业")
+    out = zh_annotate.extract_new_words("这集讨论对就业的影响。")
+    assert "就业" not in [w["word"] for w in out]
+
+
+def test_extract_new_words_excludes_hsk4_and_below():
+    out = zh_annotate.extract_new_words("这对公司的影响很大。")
+    assert out == []
+
+
+def test_extract_new_words_excludes_transparent_compounds():
+    """"十年" is built entirely from basic (HSK<=4) characters — same
+    transparent-compound filter as annotate_zh_summary."""
+    out = zh_annotate.extract_new_words("过去十年的变化。")
+    assert out == []
+
+
+def test_extract_new_words_empty_input_returns_empty_list():
+    assert zh_annotate.extract_new_words("") == []
+    assert zh_annotate.extract_new_words(None) == []
+
+
+def test_extract_new_words_deduplicates_in_first_appearance_order():
+    out = zh_annotate.extract_new_words("硅谷很大。硅谷也很贵。他去了就业市场。")
+    words = [w["word"] for w in out]
+    assert words.count("硅谷") == 1
+    assert words.index("硅谷") < words.index("就业")
+
+
+def test_extract_new_words_reads_chinese_embedded_in_html():
+    """extract_new_words must not need pre-stripped HTML — the German summary
+    ships raw HTML with embedded Chinese runs (#650)."""
+    out = zh_annotate.extract_new_words("<p>Beschäftigung (就业) ist wichtig.</p>")
+    assert "就业" in [w["word"] for w in out]
+
+
+def test_extract_new_words_segmentation_failure_returns_empty_list(monkeypatch):
+    monkeypatch.setattr(zh_annotate, "_segment", lambda text: [])
+    assert zh_annotate.extract_new_words("对就业的影响。") == []
