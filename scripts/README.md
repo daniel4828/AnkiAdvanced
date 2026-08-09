@@ -316,3 +316,63 @@ python scripts/podcast_check.py
 ```cron
 0 * * * * cd /opt/ankiadvanced && /usr/bin/python3 scripts/podcast_check.py >> data/podcast-check.log 2>&1
 ```
+
+---
+
+## knowledge_mail_check.py（issue #655）
+
+知识库邮件收件：手机「分享 → 邮件」把链接发到一个专用邮箱，这个脚本用
+标准库 `imaplib`/`email` 轮询该邮箱的 UNSEEN 邮件，从**主题和正文**
+（`text/plain` + `text/html` 两种 MIME 都扫）里正则提取 URL，每个 URL
+都走 `knowledge.ingest.ingest_url()`——和知识页顶部粘贴 URL（
+`POST /api/knowledge/add`）用的是**同一条入库管线**（YouTube 视频 or
+文章，判定逻辑见 `knowledge/ingest.py`）。
+
+和 `podcast_check.py`/`morning_pregen.py` 不同：这个脚本**不是**对运行
+中的服务器发 HTTP 请求（没有对应的 `/api/knowledge/mail-check` 接口），
+而是直接 `import database` + `database.init_db()` 后在本进程内完成——
+IMAP 轮询和入库都不需要经过网络往返到自己的服务器。SQLite 默认允许多
+进程并发读写，和同时运行的 FastAPI 服务进程不冲突。脚本自带一个 PID
+锁文件（`data/.knowledge_mail_check.lock`）防止 cron 叠跑（处理邮件里的
+URL 可能触发文章抓取/YouTube 字幕下载/AI 翻译标题，慢的话要几十秒）。
+
+一封邮件里的多个 URL 全部处理；**处理成功的邮件才标记已读**——只要有一
+个 URL 失败，整封邮件保持 UNSEEN，下一轮自动重试（`ingest_url()` 对已
+入库的 URL 会走 `already_exists` 分支，重试部分成功的邮件是安全的，不
+会重复造行）。
+
+**安全（#655 的重点）：** `KNOWLEDGE_MAIL_ALLOWED_SENDERS` 是必须项——
+这是唯一挡住"任何知道这个邮箱地址的人都能让服务器抓取任意 URL 并触发
+付费 AI 调用"的防线。**未配置时脚本直接跳过整个邮箱检查，不建立 IMAP
+连接、不读取任何邮件**；已配置时，发件人比对兼容 `Name <addr@x.de>`
+这种带显示名的 `From` 头格式，只比较邮箱地址部分，且不区分大小写。不在
+白名单里的发件人邮件会被单独跳过（保持 UNSEEN，之后每轮都会再看到、
+再跳过，没有副作用）。
+
+凭据（IMAP 主机/端口/账号/密码）只从环境变量读取，绝不写入代码或数据库。
+
+### 环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `KNOWLEDGE_IMAP_HOST` | 无 | IMAP 服务器地址 |
+| `KNOWLEDGE_IMAP_PORT` | `993` | IMAP 端口（SSL） |
+| `KNOWLEDGE_IMAP_USER` | 无 | 专用邮箱账号 |
+| `KNOWLEDGE_IMAP_PASSWORD` | 无 | 专用邮箱密码（Gmail/Outlook 等一般需要"应用专用密码"，不是登录密码） |
+| `KNOWLEDGE_MAIL_ALLOWED_SENDERS` | 无（**必须配置**） | 逗号分隔的白名单发件人邮箱地址；留空则整个邮箱检查被跳过 |
+| `DB_PATH` | `data/srs.db` | 数据库路径 |
+
+### 用法
+
+```bash
+python scripts/knowledge_mail_check.py
+```
+
+### 服务器 cron：每 5 分钟检查一次
+
+```cron
+*/5 * * * * cd /opt/ankiadvanced && /usr/bin/python3 scripts/knowledge_mail_check.py >> data/knowledge-mail-check.log 2>&1
+```
+
+退出码：跳过（未配置白名单/凭据）或全部成功为 `0`；有失败邮件时为 `1`
+（方便 cron 邮件通知/监控接入）。

@@ -194,7 +194,7 @@ bash sync_offline.sh push    # 只推不拉，推完归档本地库
 ├── requirements.txt       # Python 依赖清单
 ├── DEPLOY.md              # 服务器从零到上线的部署教程
 ├── deploy/                # systemd 单元、Caddyfile 示例、deploy.sh（自动部署）
-├── scripts/               # morning_pregen.py（早晨预生成故事+TTS）、podcast_check.py（播客爬虫定时脚本）、offline_sync_server.py + offline_tts_manifest.py（离线同步，#612）、fsrs_optimize.py（用 review_log 训练个人 FSRS 权重，#629）+ README
+├── scripts/               # morning_pregen.py（早晨预生成故事+TTS）、podcast_check.py（播客爬虫定时脚本）、knowledge_mail_check.py（知识库邮件收件定时脚本，#655）、offline_sync_server.py + offline_tts_manifest.py（离线同步，#612）、fsrs_optimize.py（用 review_log 训练个人 FSRS 权重，#629）+ README
 ├── docs/yaml-format.md    # YAML 词条格式完整文档
 └── data/
     ├── srs.db             # SQLite 数据库（生产版在服务器上！）
@@ -449,6 +449,9 @@ python main.py status [--deck X]     # 显示每个牌组/类别的到期数量
 | `SIGNAL_ACCOUNT` / `SIGNAL_CLI_PATH` | 可选 | 播客爬虫（#521）Signal 通知用；`SIGNAL_ACCOUNT` 是 Daniel 关联设备所属号码（如 `+49…`），`SIGNAL_CLI_PATH` 默认 `signal-cli`；`SIGNAL_ACCOUNT` 未配置时跳过发送，记日志，不算失败。一次性 signal-cli 安装/扫码关联步骤见 `scripts/README.md` |
 | `ALIBABA_CLOUD_ACCESS_KEY_ID` / `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | 可选 | 播客爬虫（#498）通义听悟（转录主力）用的阿里云 AccessKey；未配置时自动跳过，落到 Whisper/NotebookLM |
 | `TINGWU_APP_KEY` | 可选 | 播客爬虫（#498）通义听悟控制台创建的应用 AppKey；与上面两个 AccessKey 变量任一缺失都会跳过听悟。一次性开通步骤见 `scripts/README.md` |
+| `KNOWLEDGE_IMAP_HOST` / `KNOWLEDGE_IMAP_PORT` | 可选 | 知识库邮件收件（#655）的 IMAP 服务器；端口默认 `993`（SSL） |
+| `KNOWLEDGE_IMAP_USER` / `KNOWLEDGE_IMAP_PASSWORD` | 可选 | 知识库邮件收件（#655）专用邮箱的登录凭据；三者（含上面两个变量）任一未配置时 `scripts/knowledge_mail_check.py` 直接跳过，不连接 |
+| `KNOWLEDGE_MAIL_ALLOWED_SENDERS` | 可选 | 知识库邮件收件（#655）发件人白名单，逗号分隔的邮箱地址（不区分大小写，兼容 `Name <addr@x.de>` 格式）；**留空则整个邮箱检查被跳过，不处理任何邮件**——这是防止任何知道邮箱地址的人往服务器塞 URL 触发 AI 调用的唯一防线 |
 
 注意：uvicorn 直接启动不建表——测试前先手动 `database.init_db()`（`run.sh`/`main.py` 会自动处理）。
 
