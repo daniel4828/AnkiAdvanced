@@ -44,14 +44,14 @@ def _overlay_processing_status(episode: dict) -> dict:
 
 
 @router.get("/api/podcast/episodes")
-def list_episodes(limit: int = 100, feed_id: int | None = None):
+def list_episodes(limit: int = 100, feed_id: int | None = None, kind: str | None = None):
     feed_url = None
     if feed_id is not None:
         feed = database.get_feed(feed_id)
         if not feed:
             raise HTTPException(404, "Feed not found")
         feed_url = feed["url"]
-    episodes = database.list_episodes(limit=limit, feed_url=feed_url)
+    episodes = database.list_episodes(limit=limit, feed_url=feed_url, kind=kind)
     return [_overlay_processing_status(e) for e in episodes]
 
 

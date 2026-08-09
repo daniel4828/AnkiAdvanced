@@ -2446,12 +2446,19 @@ def build_podcast_summary_prompt(transcript: str, title: str, detail_level: str)
     # (#541) so a "detailed" summary can actually cover the whole episode.
     excerpt = transcript[:30000]
 
-    return f"""You are summarizing a Chinese-language podcast episode for a German-speaking
-learner of Chinese (HSK 4-5 level, learning towards HSK 6).
+    return f"""You are summarizing a podcast/video episode for a German-speaking learner of
+Chinese (HSK 4-5 level, learning towards HSK 6).
 
 Episode title: {title}
 
-Transcript (Chinese, auto/manual captions, may contain minor recognition errors):
+Transcript (auto/manual captions, may contain minor recognition errors). The transcript
+language is WHATEVER the source material actually is — it may be Chinese, German, English,
+or a mix (#651: this pipeline now also ingests YouTube videos, which are frequently German
+or English). Do NOT assume it is Chinese. Regardless of the transcript's language, your two
+summaries below have a FIXED output language each: summary_zh is always Chinese, summary_de
+is always German — translate/summarize into those languages no matter what language the
+source is in. For a German or English source, the Chinese summary IS the learning material
+(that's the point — it lets Daniel read the content in Chinese even though the source wasn't).
 {excerpt}
 
 Task:
@@ -2587,6 +2594,32 @@ def summarize_podcast_transcript(transcript: str, title: str,
         except Exception as e:
             logger.warning("summarize_podcast_transcript failed on %s (%s)", model, e)
     return {"summary_zh": "", "summary_de": "", "words": []}
+
+
+def translate_title(title: str) -> str | None:
+    """One cheap DeepSeek call (issue #651) to translate a non-English episode
+    title into English, stored in podcast_episodes.title_en — YouTube videos
+    frequently have Chinese/German titles and the podcast manager UI wants a
+    consistent English column to scan. Returns None on any failure (empty
+    title, API error, empty reply) rather than raising — a missing title_en
+    must never fail episode processing, it's a cosmetic nicety."""
+    title = (title or "").strip()
+    if not title:
+        return None
+    prompt = (
+        "Translate this podcast/video episode title into natural English. "
+        "Reply with ONLY the translated title, no quotes, no explanation, "
+        "no markdown. If it is already English, reply with it unchanged.\n\n"
+        f"Title: {title}"
+    )
+    try:
+        raw = _call_api(DEFAULT_MODEL, [{"role": "user", "content": prompt}], 200,
+                         purpose="podcast-title-translate")
+    except Exception as e:
+        logger.warning("translate_title failed for %r: %s", title, e)
+        return None
+    raw = raw.strip().strip('"').strip("'")
+    return raw or None
 
 
 def estimate_story_tokens(num_cards: int) -> int:

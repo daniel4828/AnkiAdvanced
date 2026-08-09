@@ -262,7 +262,7 @@ def list_episodes(limit: int = 100, feed_url: str | None = None, kind: str | Non
     'article'; None leaves behavior unchanged (all kinds, i.e. all existing
     rows since they default to 'podcast')."""
     conn = get_db()
-    query = """SELECT id, video_id, channel_id, title, published_at, youtube_url, spotify_url,
+    query = """SELECT id, video_id, channel_id, title, title_en, kind, published_at, youtube_url, spotify_url,
                       audio_url, duration_seconds,
                       summary_de, hsk_words, detail_level, status, error, email_sent_at, created_at,
                       transcript_source,
@@ -293,7 +293,7 @@ def list_recent_error_episodes(max_age_days: int = 7) -> list[dict]:
     the same clock."""
     conn = get_db()
     rows = conn.execute(
-        """SELECT id, video_id, title, audio_url, duration_seconds FROM podcast_episodes
+        """SELECT id, video_id, title, audio_url, duration_seconds, kind FROM podcast_episodes
            WHERE status = 'error' AND created_at >= datetime('now', ?)
            ORDER BY id""",
         (f"-{int(max_age_days)} days",),
