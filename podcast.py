@@ -1009,11 +1009,27 @@ def _annotate_summary(result: dict) -> dict:
     without each re-running Google Translate.
 
     zh_annotate never raises: on any failure the untouched text comes back, so
-    a missing pinyin table can't cost Daniel the episode."""
+    a missing pinyin table can't cost Daniel the episode.
+
+    Also replaces result["words"] (#650) — the AI's own pick from the summary
+    prompt, which regularly misses words and includes ones Daniel already
+    knows — with a deterministic scan of the just-annotated summaries using
+    zh_annotate.extract_new_words(). That's the exact same "new word" rule
+    used for the inline annotations above, so the bottom word table and the
+    parenthetical annotations in the text are guaranteed to agree. An empty
+    scan (extraction failed, or genuinely no new words) keeps the AI's list
+    as a fallback rather than wiping the table."""
     if result.get("summary_zh"):
         result["summary_zh"] = zh_annotate.annotate_zh_summary(result["summary_zh"])
     if result.get("summary_de"):
         result["summary_de"] = zh_annotate.annotate_de_summary(result["summary_de"])
+    try:
+        combined = f"{result.get('summary_zh') or ''} {result.get('summary_de') or ''}"
+        scanned = zh_annotate.extract_new_words(combined)
+        if scanned:
+            result["words"] = scanned
+    except Exception as e:
+        logger.warning("podcast: word-list extraction failed, keeping AI list — %s", e)
     return result
 
 
