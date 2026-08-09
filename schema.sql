@@ -617,15 +617,24 @@ CREATE TABLE IF NOT EXISTS app_settings (
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS podcast_episodes (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    -- kind = 'podcast' | 'video' | 'article' (#650, knowledge base stage A).
+    -- The generic columns below are reused across all three kinds with
+    -- different meanings — see docs/knowledge-base.md for the full mapping:
+    --   video_id:    RSS item guid (podcast) | YouTube video id (video) | normalized URL, utm params stripped (article)
+    --   channel_id:  source RSS feed URL (podcast) | YouTube channel id if available (video) | site domain (article)
+    --   youtube_url: episode webpage link (podcast) | video link (video) | article link (article)
+    --   transcript_zh: transcript (podcast) | caption/subtitle text (video) | article body (article) — i.e. "source material, any language", not podcast-specific
+    kind             TEXT NOT NULL DEFAULT 'podcast',
     video_id         TEXT NOT NULL UNIQUE,  -- RSS item guid (or enclosure URL if no guid), #497; legacy rows used the YouTube video id
     channel_id       TEXT,   -- source RSS feed URL, #497; legacy rows used the YouTube channel id
     title            TEXT NOT NULL,
+    title_en         TEXT,   -- English title, AI-translated starting stage B (#650); NULL for stage-A rows
     published_at     TEXT,
     youtube_url      TEXT NOT NULL,  -- episode webpage link (RSS item <link>), #497; column name kept for backward compat
     audio_url        TEXT,   -- RSS enclosure MP3 direct link, #497
     duration_seconds INTEGER, -- parsed itunes:duration, #497 — used as a pre-download guardrail/gate
     spotify_url      TEXT,
-    transcript_zh    TEXT,
+    transcript_zh    TEXT,   -- source material full text, any language (podcast transcript | video captions | article body); name kept for backward compat (#650)
     transcript_de    TEXT,   -- JSON array of {"zh","de"} bilingual segment pairs (#553)
     summary_de       TEXT,
     summary_zh       TEXT,   -- short Chinese summary shown before the German one (#631)
