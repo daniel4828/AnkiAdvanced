@@ -16,3 +16,4 @@ notebooklm-py>=0.7.3,<0.8.0
 alibabacloud_tingwu20230930>=2.0.25,<3.0.0
 zhconv>=1.4,<2.0
 youtube-transcript-api>=1.2,<2.0
+trafilatura>=2.2,<3.0
