@@ -140,3 +140,89 @@ def test_historical_podcast_story_again_regen_still_works(populated_db):
     assert result is not None
     assert result["sentence_zh"]
     mock_gen.assert_called_once()
+
+
+# ── issue #661: knowledge mode material is transcript_zh, summary_de is only
+# a fallback for rows without a transcript (#561 had switched to summary-only
+# purely to cut cost/latency; that stopped mattering once cost was confirmed
+# to be ~$0.003/generation — see routes/story.py's _knowledge_material()). ──
+
+def test_knowledge_material_prefers_transcript():
+    """有 transcript_zh 时用它（截断到 15000 字），不是 summary_de。"""
+    ep = {"transcript_zh": "这是完整的转录正文。" * 5, "summary_de": "Eine Zusammenfassung."}
+    material = story_routes._knowledge_material(ep)
+    assert material == ep["transcript_zh"]
+    assert "Zusammenfassung" not in material
+
+
+def test_knowledge_material_truncates_long_transcript():
+    """转录截断到 _KNOWLEDGE_MATERIAL_MAX_CHARS（issue #661，与 knowledge/article.py
+    的 _MAX_ARTICLE_CHARS 一致），是上下文窗口护栏，不是省钱考量。"""
+    long_transcript = "字" * (story_routes._KNOWLEDGE_MATERIAL_MAX_CHARS + 500)
+    ep = {"transcript_zh": long_transcript, "summary_de": ""}
+    material = story_routes._knowledge_material(ep)
+    assert len(material) == story_routes._KNOWLEDGE_MATERIAL_MAX_CHARS
+
+
+def test_knowledge_material_falls_back_to_summary_without_error():
+    """没有 transcript_zh 的旧行（例如只同步下来摘要）自动退回 summary_de，不报错。"""
+    ep = {"transcript_zh": "", "summary_de": "Nur eine Zusammenfassung."}
+    assert story_routes._knowledge_material(ep) == "Nur eine Zusammenfassung."
+
+    ep_missing_key = {"summary_de": "Nur eine Zusammenfassung."}
+    assert story_routes._knowledge_material(ep_missing_key) == "Nur eine Zusammenfassung."
+
+    assert story_routes._knowledge_material({}) == ""
+
+
+def test_knowledge_mode_story_generation_uses_transcript(populated_db):
+    """新故事生成走 transcript_zh，而不是 summary_de（issue #661）。"""
+    deck_id = populated_db
+    episode_id = database.create_pending_episode(
+        "yt661", "https://youtube.com/@x", "转录素材视频", None,
+        "https://youtube.com/watch?v=yt661", kind="video")
+    database.update_episode(
+        episode_id, status="summarized",
+        transcript_zh="转录正文提到了你好这个词的使用场景。",
+        summary_de="Eine kurze deutsche Zusammenfassung.")
+
+    seen_material = {}
+
+    def _capturing(cards, material, title, **kwargs):
+        seen_material["value"] = material
+        return _fake_podcast_sentences(cards, material, title, **kwargs)
+
+    with patch("ai.generate_podcast_sentences", side_effect=_capturing) as mock_gen:
+        r = client.get(f"/api/story/{deck_id}/listening",
+                       params={"mode": "knowledge", "episode_id": episode_id})
+
+    assert r.status_code == 200
+    assert not r.json().get("error")
+    mock_gen.assert_called_once()
+    assert seen_material["value"] == "转录正文提到了你好这个词的使用场景。"
+    assert "Zusammenfassung" not in seen_material["value"]
+
+
+def test_knowledge_mode_story_generation_falls_back_without_transcript(populated_db):
+    """旧行只有 summary_de 时，新故事生成仍然成功（自动降级，不报错）。"""
+    deck_id = populated_db
+    episode_id = database.create_pending_episode(
+        "yt661b", "https://youtube.com/@x", "只有摘要的旧视频", None,
+        "https://youtube.com/watch?v=yt661b", kind="video")
+    database.update_episode(episode_id, status="summarized",
+                            summary_de="Nur eine deutsche Zusammenfassung.")
+
+    seen_material = {}
+
+    def _capturing(cards, material, title, **kwargs):
+        seen_material["value"] = material
+        return _fake_podcast_sentences(cards, material, title, **kwargs)
+
+    with patch("ai.generate_podcast_sentences", side_effect=_capturing) as mock_gen:
+        r = client.get(f"/api/story/{deck_id}/listening",
+                       params={"mode": "knowledge", "episode_id": episode_id})
+
+    assert r.status_code == 200
+    assert not r.json().get("error")
+    mock_gen.assert_called_once()
+    assert seen_material["value"] == "Nur eine deutsche Zusammenfassung."
