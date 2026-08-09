@@ -342,25 +342,29 @@ Return ONLY a numbered list of Chinese sentences, no explanation:
     # stories still call generate_podcast_sentences below, which now looks up
     # this same "knowledge" template — see database/core.py's one-time
     # prompt_presets rename so Daniel's saved custom template keeps applying.
-    "knowledge": """任务：下面是一期播客单集的内容摘要（德语）。请写若干简体中文句子，帮助 HSK 4-5
-学习者复习词汇。这些句子不需要合起来构成一篇摘要——每一句只要"发生在这一集的世界里"就可以。
+    # {summary} 现在多数情况下是中文转录全文而非德语摘要（issue #661），
+    # 措辞已改成不预设语言，占位符名字本身保留不变（见 generate_podcast_sentences
+    # 注释——改名会让已保存的自定义模板失效）。
+    "knowledge": """任务：下面是一期播客/视频/文章素材的内容（可能是原始转录，也可能是内容摘要）。
+请写若干简体中文句子，帮助 HSK 4-5 学习者复习词汇。这些句子不需要合起来构成一篇摘要——
+每一句只要"发生在这份素材的世界里"就可以。
 
 单集标题：{title}
 
-内容摘要（德语）：
+素材内容：
 {summary}
 
 目标词汇（每个词恰好用在一个句子里，以原文形式出现）：
 {words}
 
 【硬性锚点规则，最重要】
-每一句话都必须至少包含一个来自上面摘要的专有名词——人名、公司名、品牌名、产品名或地名
-（例如摘要里出现的公司、创始人、店名、城市）。没有专有名词的句子一律不合格，必须重写。
+每一句话都必须至少包含一个来自上面素材的专有名词——人名、公司名、品牌名、产品名或地名
+（例如素材里出现的公司、创始人、店名、城市）。没有专有名词的句子一律不合格，必须重写。
 
 【就近三档原则】
 对每个目标词，从上往下选第一个能写得自然的档位；写着别扭就往下降一档，
 绝对不要为了写成事实句而生硬拼凑：
-  A档 事实句：这个词正好能表达摘要中的一个事实。
+  A档 事实句：这个词正好能表达素材中的一个事实。
      例：张一鸣承认，公司的AI能力可能会暂时落后。
   B档 评论句：某人对本集内容的反应、评价或愿望。
      例：我真羡慕那些能天天吃和牛的人。
@@ -368,13 +372,13 @@ Return ONLY a numbered list of Chinese sentences, no explanation:
      例：他在抖音上刷视频，顺便就下了单。
 
 【话题覆盖规则】
-摘要里通常有好几个互不相关的话题（例如公司人事、电商、饮食文化）。
-- 把目标词大致平均地分配到这些话题上；摘要里的每一个话题都至少要有一句话
-- 严禁所有句子都围绕同一个话题，也不要只用摘要开头的内容
+素材里通常有好几个互不相关的话题（例如公司人事、电商、饮食文化）。
+- 把目标词大致平均地分配到这些话题上；素材里的每一个话题都至少要有一句话
+- 严禁所有句子都围绕同一个话题，也不要只用素材开头的内容
 - 属于同一话题的句子尽量排在一起，让整篇按话题一块一块地读下来，不要来回跳
 
 【写作步骤】（每个词按顺序思考，把结论写进 reasoning_zh）
-1. 先决定这句话属于摘要里的哪个话题
+1. 先决定这句话属于素材里的哪个话题
 2. 再从该话题里挑一个专有名词做锚点
 3. 然后定档位（A/B/C）和具体情境：谁、在哪、在做什么
 4. 最后写 sentence_zh：把情境浓缩成一句自然的中文，把目标词自然地嵌进去
@@ -383,8 +387,8 @@ Return ONLY a numbered list of Chinese sentences, no explanation:
 - 每句恰好包含一个目标词汇，一个词都不能漏，也不要在一句里塞进两个目标词
 - 除专有名词和目标词外，只用 HSK 1-{max_hsk} 的词汇
 - 每句 10 到 28 个字，用自然的中文口语，标点用中文标点
-- C档允许虚构日常细节（谁在排队、谁在点菜），但绝不可以编造摘要里没有的数字、
-  结论或事实性主张，也不可以与摘要矛盾
+- C档允许虚构日常细节（谁在排队、谁在点菜），但绝不可以编造素材里没有的数字、
+  结论或事实性主张，也不可以与素材矛盾
 - 严禁空洞句子，例如"这一集很有趣。""他说了很多。"
 - 只用简体中文，绝对不要出现繁体字；不要使用markdown格式
 - 不要给目标词加引号、括号或任何标记，直接写进句子里
@@ -2211,7 +2215,7 @@ def generate_briefing_sentences(
 
 def generate_podcast_sentences(
     cards: list[dict],
-    summary: str,            # the episode's German summary_de (caller ensures non-empty)
+    material: str,            # transcript_zh (preferred) or summary_de fallback; caller ensures non-empty — see routes/story.py's _knowledge_material()
     episode_title: str,
     model: str = DEFAULT_MODEL,     # #640: DeepSeek, same as kahneman
     max_hsk: int = 3,
@@ -2220,8 +2224,8 @@ def generate_podcast_sentences(
     source_url: str | None = None,
     source_title: str | None = None,
 ) -> list[dict]:
-    """Podcast mode rework (issue #561) — a lean single-purpose pipeline that
-    replaces reuse of the briefing machinery (originally #482).
+    """Podcast/knowledge mode rework (issue #561) — a lean single-purpose
+    pipeline that replaces reuse of the briefing machinery (originally #482).
 
     Prompt rewritten in #634: the sentences no longer have to add up to a
     summary of the episode, and no longer have to each state a fact from it —
@@ -2229,26 +2233,34 @@ def generate_podcast_sentences(
     demand only produced contortions and invented facts. Instead each sentence
     just has to happen "in the world of the episode" (kahneman's approach),
     anchored by a hard rule that every sentence names a proper noun from the
-    summary, plus a topic-coverage rule so the sentences don't all pile onto
-    the summary's first topic.
+    material, plus a topic-coverage rule so the sentences don't all pile onto
+    the material's first topic.
 
     One main call + up to 2 missing-word retry rounds + fallback sentences.
-    Deliberately has NO fact-check and NO whole-summary validation retry —
-    those are what make briefing slow and expensive, and podcast summaries
-    (unlike news) are AI-authored to begin with, so there's no external source
-    to fact-check against. The only input is the German episode summary
-    (detailed enough since #541) — the full transcript is never sent.
+    Deliberately has NO fact-check and NO whole-material validation retry —
+    those are what make briefing slow and expensive, and podcast/knowledge
+    content (unlike news) is not something to fact-check against an external
+    source in the same way. `material` is normally the item's full transcript
+    (transcript_zh, truncated to 15000 chars by the caller — issue #661;
+    Daniel explicitly asked for transcript-based cards, #561 had switched to
+    summary_de purely to cut cost/latency, which stopped mattering once cost
+    was confirmed to be ~$0.003/generation) with summary_de as a fallback for
+    rows that only have a summary (old synced-down data, etc.). The prompt
+    template's {summary} placeholder is reused for whichever text is passed
+    in, so custom prompt_presets Daniel already saved keep working unchanged.
 
     attempt_label: chunk marker like " (2/3)" appended to every progress
     message — the route batches cards by MAX_NEWS_BATCH and calls this once
     per chunk (same convention as generate_briefing_sentences).
     """
-    if not cards or not summary.strip():
+    if not cards or not material.strip():
         return []
 
     # 模板可被用户自定义覆盖（issue #581）；默认渲染结果与旧内联 f-string 逐字一致。
     # #654: 查的是 "knowledge" 模板——mode='podcast' 的历史故事也走这个函数，
     # 迁移后它们的自定义模板同样存在 mode='knowledge' 下（见 database/core.py）。
+    # {summary} 占位符名字保留不变（issue #661 起实际传入的多为转录全文而非
+    # 摘要）——改名会让 Daniel 已保存的自定义模板失效。
     tpl = _story_prompt_template("knowledge")
 
     def _build_prompt(batch: list[dict], extra_hint: str = "") -> str:
@@ -2258,7 +2270,7 @@ def generate_podcast_sentences(
         )
         return _render_prompt(tpl, {
             "title": episode_title,
-            "summary": summary,
+            "summary": material,
             "words": word_list,
             "max_hsk": str(max_hsk),
             "extra_hint": extra_hint,
@@ -2334,8 +2346,8 @@ def generate_podcast_sentences(
             # topic" is an instruction that cannot be satisfied.
             hint = (f"\n\n【补漏轮】上一轮你漏掉了这些词：{missing}。"
                     f"这一轮只需要为上面列出的每一个词各写一句话，一个都不能少。"
-                    f"词少的时候不必覆盖摘要里的所有话题，但每句仍然必须包含"
-                    f"一个来自摘要的专有名词。")
+                    f"词少的时候不必覆盖素材里的所有话题，但每句仍然必须包含"
+                    f"一个来自素材的专有名词。")
             msg = f"补漏 {len(remaining)} 个词（第{round_no}轮）…{attempt_label}"
             # Late rounds go one word per call: with only a few words left this
             # is the most reliable shape — the model has no room to "pick the
