@@ -876,6 +876,13 @@ def fetch_transcript(video: dict) -> tuple[str | None, dict]:
     duration = video.get("duration_seconds") or 0
     meta = {"title": title, "transcript_source": None}
 
+    if video.get("kind") == "video":
+        # YouTube ingestion (#651): captions only, no audio download/Whisper.
+        # Dispatches out of the podcast RSS/Tingwu/NotebookLM/Whisper chain
+        # entirely — that chain (below) is for kind='podcast' only.
+        import knowledge.youtube
+        return knowledge.youtube.fetch_captions(video_id)
+
     if not audio_url:
         logger.warning("podcast: no audio_url for %s, cannot transcribe", video_id)
         return None, meta
@@ -1573,6 +1580,7 @@ def retry_episode(episode_id: int) -> dict:
     video = {
         "video_id": episode["video_id"], "title": episode["title"],
         "audio_url": episode.get("audio_url"), "duration_seconds": episode.get("duration_seconds"),
+        "kind": episode.get("kind") or "podcast",
     }
     _process_episode(episode_id, video, detail_level, summary)
 
@@ -1690,6 +1698,7 @@ def _run_check_locked(cfg: dict) -> dict:
         _process_episode(ep["id"], {
             "video_id": ep["video_id"], "title": ep["title"],
             "audio_url": ep.get("audio_url"), "duration_seconds": ep.get("duration_seconds"),
+            "kind": ep.get("kind") or "podcast",
         }, detail_level, summary)
 
     return summary
