@@ -822,10 +822,11 @@ function _triggerClapAnimation() {
 function showView(name) {
   _currentView = name;
   if (name === 'done' && _sessionReviewedCount > 0) _triggerClapAnimation();
-  // Leaving the podcast view (#502): stop the episode-list "processing"
-  // poll loop — it has no reason to keep firing once the view isn't visible.
-  if (name !== 'podcast' && typeof _clearPodcastPoll === 'function') _clearPodcastPoll();
-  ['loading', 'decks', 'review', 'done', 'browse', 'word-detail', 'hanzi-detail', 'stats', 'settings', 'podcast'].forEach(v => {
+  // Leaving the knowledge view (#502, generalized #653): stop the episode-list
+  // "processing" poll loop — it has no reason to keep firing once the view
+  // isn't visible.
+  if (name !== 'knowledge' && typeof _clearPodcastPoll === 'function') _clearPodcastPoll();
+  ['loading', 'decks', 'review', 'done', 'browse', 'word-detail', 'hanzi-detail', 'stats', 'settings', 'knowledge'].forEach(v => {
     document.getElementById(`view-${v}`).style.display = 'none';
   });
   document.getElementById(`view-${name}`).style.display =
@@ -842,7 +843,7 @@ function showView(name) {
     name === 'hanzi-detail' ? 'Hanzi Detail' :
     name === 'stats'        ? 'Stats' :
     name === 'settings'     ? 'Settings' :
-    name === 'podcast'      ? 'Podcasts' : 'AnkiAdvanced';
+    name === 'knowledge'    ? 'Knowledge' : 'AnkiAdvanced';
   if (name === 'decks') quickMode = false;
   const headerRegenBtn = document.getElementById('header-regen-btn');
   // Offline mode hides both regenerate affordances — they can only fail (#612).
@@ -1448,7 +1449,7 @@ function renderDecks(decks) {
     <div class="nav-row">
       <button class="nav-btn" onclick="openBrowse()" title="Shortcut: B">Browse Cards</button>
       <button class="nav-btn" onclick="openStats()">Stats</button>
-      <button class="nav-btn" onclick="openPodcasts()">🎙 Podcasts</button>
+      <button class="nav-btn" onclick="openKnowledge()">🧠 Knowledge</button>
       <button class="nav-btn" onclick="openSettings()" title="Customize shortcuts">⚙ Settings</button>
       <button class="nav-btn" onclick="openCostModal()">API Costs</button>
       <button class="nav-btn" onclick="openImportModal()" title="Shortcut: Command+I">Import</button>
@@ -2953,11 +2954,20 @@ async function savePregenConfig() {
   }
 }
 
-// ── Podcasts (#480, per-feed manager #502) ──────────────────────────────────
-// Three layers, hash-routed:
-//   #podcast              -> layer 1: feed list (GET /api/podcast/feeds)
-//   #podcast-feed-<id>    -> layer 2: one feed's episodes (GET /api/podcast/episodes?feed_id=)
-//   #podcast-<id>         -> layer 3: episode detail (GET /api/podcast/episodes/{id})
+// ── Knowledge base: podcasts / videos / articles ────────────────────────────
+// Generalizes the old podcast-only view (#480, per-feed manager #502) into
+// three kind-filtered sub-tabs (#653; design doc: docs/knowledge-base.md).
+// All three kinds share the same podcast_episodes table and episode detail —
+// only "how do I get a list of items" differs:
+//   podcast tab  -> feed list (layer 1) -> per-feed episode list (layer 2, unchanged from #502)
+//   video/article tabs -> flat list filtered by ?kind=, plus a paste-a-link box
+// Both funnel into the same layer-3 detail view.
+//
+// Hash routes (the bare "podcast" prefix is kept working forever — episode
+// links already went out in podcast notification emails/Signal messages):
+//   #knowledge                          -> top level (sub-tab remembered in localStorage)
+//   #podcast-feed-<id> / #knowledge-feed-<id> -> layer 2: one feed's episodes
+//   #podcast-<id>      / #knowledge-<id>       -> layer 3: item detail
 // Settings: GET/PUT /api/podcast/config (detail_level only — feeds/auto now
 // live in the podcast_feeds table via /api/podcast/feeds).
 const PODCAST_STATUS_LABEL = {
@@ -2978,37 +2988,74 @@ const PODCAST_STATUS_CLASS = {
 let _podcastFeeds = [];
 let _podcastEpisodes = [];
 let _podcastConfig = null;
-let _podcastCurrentFeedId = null;   // layer 2/3: which feed's episode list we're in
-let _podcastPollTimer = null;       // layer 2: re-poll while any episode is "processing"
+let _podcastCurrentFeedId = null;   // layer 2/3 (podcast tab): which feed's episode list we're in
+let _podcastPollTimer = null;       // re-poll while any listed item is "processing"
+let _knowledgeTab = localStorage.getItem('knowledgeTab') || 'podcast';  // 'podcast' | 'video' | 'article'
+let _knowledgeListKind = null;      // set while a flat video/article list is showing (layer 1 for those tabs)
 
 function _clearPodcastPoll() {
   if (_podcastPollTimer) { clearTimeout(_podcastPollTimer); _podcastPollTimer = null; }
 }
 
-// Layer 1: feed list ----------------------------------------------------------
+// Top level: sub-tab bar + per-tab list -----------------------------------------
 
-async function openPodcasts() {
-  location.hash = 'podcast';
+async function openKnowledge(tab) {
+  if (tab) { _knowledgeTab = tab; localStorage.setItem('knowledgeTab', tab); }
+  location.hash = 'knowledge';
   _clearPodcastPoll();
   _podcastCurrentFeedId = null;
-  setLoading('Loading podcasts…');
+  setLoading('Loading…');
+  await _loadKnowledgeTab();
+}
+
+// Switching tabs without a full-screen loading flash — the tab bar and page
+// stay put, only the content below it swaps.
+async function switchKnowledgeTab(tab) {
+  _knowledgeTab = tab;
+  localStorage.setItem('knowledgeTab', tab);
+  location.hash = 'knowledge';
+  await _loadKnowledgeTab();
+}
+
+function _knowledgeTabBarHtml() {
+  const tabs = [['podcast', '🎙️ Podcasts'], ['video', '📺 Videos'], ['article', '📄 Articles']];
+  const btns = tabs.map(([id, label]) =>
+    `<button class="hcal-seg-btn ${_knowledgeTab === id ? 'active' : ''}" onclick="switchKnowledgeTab('${id}')">${label}</button>`
+  ).join('');
+  return `<div class="hcal-seg" style="margin-bottom:12px">${btns}</div>`;
+}
+
+async function _loadKnowledgeTab() {
+  _clearPodcastPoll();
+  _podcastCurrentFeedId = null;
   try {
-    const [feeds, config] = await Promise.all([
-      api('GET', '/api/podcast/feeds'),
-      api('GET', '/api/podcast/config'),
-    ]);
-    _podcastFeeds = feeds || [];
-    _podcastConfig = config || {};
-    showView('podcast');
-    _renderPodcastFeedList();
+    if (_knowledgeTab === 'podcast') {
+      _knowledgeListKind = null;
+      const [feeds, config] = await Promise.all([
+        api('GET', '/api/podcast/feeds'),
+        api('GET', '/api/podcast/config'),
+      ]);
+      _podcastFeeds = feeds || [];
+      _podcastConfig = config || {};
+      _renderPodcastFeedList();
+    } else {
+      _knowledgeListKind = _knowledgeTab;
+      const episodes = await api('GET', `/api/podcast/episodes?kind=${_knowledgeTab}&limit=1000`);
+      _podcastEpisodes = episodes || [];
+      _renderKnowledgeMaterialList();
+      _schedulePodcastPollIfNeeded();
+    }
+    showView('knowledge');
   } catch (e) {
-    showError('Podcasts failed: ' + e.message);
+    showError('Knowledge failed: ' + e.message);
     showView('decks');
   }
 }
 
+// Layer 1a: podcast feed list ---------------------------------------------------
+
 function _renderPodcastFeedList() {
-  const el = document.getElementById('view-podcast-content');
+  const el = document.getElementById('view-knowledge-content');
   if (!el) return;
   const detailLevel = _podcastConfig?.detail_level || 'medium';
   const cards = _podcastFeeds.map(f => `
@@ -3027,6 +3074,7 @@ function _renderPodcastFeedList() {
     </div>`).join('') || '<div class="keymap-hint">No feeds yet — add one below.</div>';
 
   el.innerHTML = `
+    ${_knowledgeTabBarHtml()}
     <div class="keymap-panel">
       <h2 class="keymap-heading">Podcasts</h2>
       <p class="keymap-hint">RSS feeds crawled hourly for new episodes — German summary, HSK vocabulary and Chinese transcript for each. Auto-process feeds are transcribed+summarized automatically; other feeds only store new episodes' metadata until you pick one to transcribe.</p>
@@ -3099,22 +3147,23 @@ async function _savePodcastDetailLevel(value) {
   }
 }
 
-// Layer 2: one feed's episode list ---------------------------------------------
+// Layer 2 (podcast tab only): one feed's episode list ---------------------------
 
 async function openPodcastFeed(feedId) {
-  location.hash = `podcast-feed-${feedId}`;
+  location.hash = `knowledge-feed-${feedId}`;
   _clearPodcastPoll();
   _podcastCurrentFeedId = feedId;
+  _knowledgeListKind = null;
   setLoading('Loading episodes…');
   try {
     const episodes = await api('GET', `/api/podcast/episodes?feed_id=${feedId}&limit=1000`);
     _podcastEpisodes = episodes || [];
-    showView('podcast');
+    showView('knowledge');
     _renderPodcastEpisodeList();
     _schedulePodcastPollIfNeeded();
   } catch (e) {
     showError('Episodes failed: ' + e.message);
-    openPodcasts();
+    openKnowledge('podcast');
   }
 }
 
@@ -3131,7 +3180,7 @@ function _localDate(iso) {
 }
 
 function _renderPodcastEpisodeList() {
-  const el = document.getElementById('view-podcast-content');
+  const el = document.getElementById('view-knowledge-content');
   if (!el) return;
   const feed = _podcastFeeds.find(f => f.id === _podcastCurrentFeedId);
   const rows = _podcastEpisodes.map(ep => {
@@ -3146,7 +3195,7 @@ function _renderPodcastEpisodeList() {
       ? `<button class="btn-secondary podcast-transcribe-btn" onclick="event.stopPropagation(); _transcribePodcastEpisode(${ep.id})">Transcribe</button>`
       : '';
     return `<div class="podcast-row${clickable ? ' podcast-row-clickable' : ''}"
-                 ${clickable ? `onclick="openPodcastEpisode(${ep.id})"` : ''}>
+                 ${clickable ? `onclick="openKnowledgeItem(${ep.id})"` : ''}>
       <span class="podcast-row-title">${_escHtml(ep.title || '(untitled)')}</span>
       <span class="podcast-row-date">${date}</span>
       ${duration ? `<span class="podcast-row-date">${duration}</span>` : ''}
@@ -3156,7 +3205,7 @@ function _renderPodcastEpisodeList() {
   }).join('') || '<div class="keymap-hint">No episodes yet.</div>';
 
   el.innerHTML = `
-    <button class="keymap-reset-all" onclick="openPodcasts()">← Podcasts</button>
+    <button class="keymap-reset-all" onclick="openKnowledge('podcast')">← Podcasts</button>
     <div class="keymap-panel">
       <h2 class="keymap-heading">${_escHtml(feed?.title || feed?.url || 'Feed')}</h2>
     </div>
@@ -3165,6 +3214,79 @@ function _renderPodcastEpisodeList() {
       <button class="btn-secondary" id="podcast-load-more-btn" onclick="_loadMorePodcastEpisodes()">Load more</button>
       <span id="podcast-load-more-msg" style="font-size:12px;color:var(--muted)"></span>
     </div>`;
+}
+
+// Layer 1b (video/article tabs): flat list filtered by kind, plus paste box -----
+
+function _renderKnowledgeMaterialList() {
+  const el = document.getElementById('view-knowledge-content');
+  if (!el) return;
+  const kindLabel = _knowledgeTab === 'video' ? 'video' : 'article';
+  const rows = _podcastEpisodes.map(ep => _knowledgeMaterialRowHtml(ep)).join('') ||
+    `<div class="keymap-hint">No ${kindLabel}s yet — paste a link above.</div>`;
+  el.innerHTML = `
+    ${_knowledgeTabBarHtml()}
+    <div class="keymap-panel">
+      <div class="keymap-row">
+        <input type="text" class="opt-input" id="knowledge-add-url"
+               placeholder="Paste a ${kindLabel} link…" style="flex:1"
+               onkeydown="if(event.key==='Enter') submitKnowledgeUrl()">
+        <button class="btn-secondary" onclick="submitKnowledgeUrl()">Add</button>
+      </div>
+      <span id="knowledge-add-msg" style="font-size:12px;color:var(--muted)"></span>
+    </div>
+    <div class="podcast-list">${rows}</div>`;
+}
+
+function _knowledgeMaterialRowHtml(ep) {
+  const date = _localDate(ep.published_at || ep.created_at || '');
+  const status = ep.status || 'pending';
+  const label = PODCAST_STATUS_LABEL[status] || status;
+  const cls = PODCAST_STATUS_CLASS[status] || 'podcast-badge-muted';
+  const clickable = status === 'summarized';
+  let source = ep.channel_title || ep.channel_name || ep.channel_id || '';
+  if (!source && ep.youtube_url) {
+    try { source = new URL(ep.youtube_url).hostname.replace(/^www\./, ''); } catch (e) { /* leave blank */ }
+  }
+  return `<div class="podcast-row${clickable ? ' podcast-row-clickable' : ''}"
+               ${clickable ? `onclick="openKnowledgeItem(${ep.id})"` : ''}>
+    <span class="podcast-row-title" style="display:flex;flex-direction:column;gap:2px;overflow:hidden">
+      <span>${_escHtml(ep.title || '(untitled)')}</span>
+      ${ep.title_en ? `<span style="font-size:12px;color:var(--muted)">${_escHtml(ep.title_en)}</span>` : ''}
+    </span>
+    ${source ? `<span class="podcast-row-date">${_escHtml(source)}</span>` : ''}
+    <span class="podcast-row-date">${date}</span>
+    <span class="podcast-badge ${cls}">${label}</span>
+  </div>`;
+}
+
+// Paste-a-link box (video/article tabs). Submits, clears immediately so the
+// next link can be pasted right away (same pattern as the #636 add-word box),
+// then kicks off processing and starts polling for the status update.
+async function submitKnowledgeUrl() {
+  const input = document.getElementById('knowledge-add-url');
+  const msg = document.getElementById('knowledge-add-msg');
+  const url = (input?.value || '').trim();
+  if (!url) return;
+  if (input) { input.value = ''; input.focus(); }
+  if (msg) msg.textContent = 'Adding…';
+  try {
+    const res = await api('POST', '/api/knowledge/add', { url });
+    const id = res?.episode_id;
+    if (res?.status === 'already_exists') {
+      if (msg) msg.textContent = 'Already in your library.';
+    } else if (id != null) {
+      api('POST', `/api/podcast/episodes/${id}/process`).catch(() => {});
+    }
+    if (_knowledgeListKind === _knowledgeTab) {
+      const episodes = await api('GET', `/api/podcast/episodes?kind=${_knowledgeTab}&limit=1000`);
+      _podcastEpisodes = episodes || [];
+      _renderKnowledgeMaterialList();
+      _schedulePodcastPollIfNeeded();
+    }
+  } catch (e) {
+    if (msg) msg.textContent = 'Error: ' + e.message;
+  }
 }
 
 async function _loadMorePodcastEpisodes() {
@@ -3199,48 +3321,63 @@ async function _transcribePodcastEpisode(episodeId) {
   }
 }
 
+// Re-poll while any item in the currently shown list is "processing" — works
+// for both layer 2 (a podcast feed's episodes) and layer 1b (the flat
+// video/article list); which one is active is told apart by which of
+// _podcastCurrentFeedId / _knowledgeListKind is set.
 function _schedulePodcastPollIfNeeded() {
   _clearPodcastPoll();
   const hasProcessing = _podcastEpisodes.some(ep => ep.status === 'processing');
-  if (!hasProcessing || _podcastCurrentFeedId == null) return;
+  if (!hasProcessing || (_podcastCurrentFeedId == null && _knowledgeListKind == null)) return;
   _podcastPollTimer = setTimeout(async () => {
-    if (_podcastCurrentFeedId == null) return;  // left this view meanwhile
+    const feedId = _podcastCurrentFeedId;
+    const kind = _knowledgeListKind;
+    if (feedId == null && kind == null) return;  // left this view meanwhile
     try {
-      const episodes = await api('GET', `/api/podcast/episodes?feed_id=${_podcastCurrentFeedId}&limit=1000`);
+      const url = feedId != null
+        ? `/api/podcast/episodes?feed_id=${feedId}&limit=1000`
+        : `/api/podcast/episodes?kind=${kind}&limit=1000`;
+      const episodes = await api('GET', url);
       _podcastEpisodes = episodes || [];
-      _renderPodcastEpisodeList();
+      if (feedId != null) _renderPodcastEpisodeList(); else _renderKnowledgeMaterialList();
       _schedulePodcastPollIfNeeded();
     } catch (e) { /* transient error — next poll cycle will retry */ }
   }, 10000);
 }
 
-// Layer 3: episode detail -------------------------------------------------------
+// Layer 3: item detail — shared by all three kinds -------------------------------
 
-async function openPodcastEpisode(id) {
-  setLoading('Loading episode…');
+async function openKnowledgeItem(id) {
+  setLoading('Loading…');
   try {
     const ep = await api('GET', `/api/podcast/episodes/${id}`);
-    location.hash = `podcast-${id}`;
+    // Old podcast notification emails/Signal messages link to #podcast-<id> —
+    // keep that hash for podcast items; video/article items (which never went
+    // out in a pre-#653 notification) get the new #knowledge-<id> form.
+    location.hash = (ep.kind && ep.kind !== 'podcast') ? `knowledge-${id}` : `podcast-${id}`;
     _clearPodcastPoll();
-    showView('podcast');
-    _renderPodcastDetail(ep);
+    showView('knowledge');
+    _renderKnowledgeDetail(ep);
   } catch (e) {
-    showError('Episode failed: ' + e.message);
-    openPodcasts();
+    showError('Failed to load: ' + e.message);
+    openKnowledge();
   }
 }
 
-function closePodcastDetail() {
+function closeKnowledgeDetail() {
   if (_podcastCurrentFeedId != null) {
     openPodcastFeed(_podcastCurrentFeedId);
   } else {
-    openPodcasts();
+    openKnowledge(_knowledgeListKind || _knowledgeTab || 'podcast');
   }
 }
 
-function _renderPodcastDetail(ep) {
-  const el = document.getElementById('view-podcast-content');
+function _renderKnowledgeDetail(ep) {
+  const el = document.getElementById('view-knowledge-content');
   if (!el) return;
+  const kind = ep.kind || 'podcast';
+  const isPodcast = kind === 'podcast';
+  const contentLabel = kind === 'video' ? 'Subtitles' : kind === 'article' ? 'Article text' : 'Transcript';
   const date = _localDate(ep.published_at || ep.created_at || '');
   // Keep the raw word objects around so click handlers can look them up by
   // index instead of serializing them into onclick attributes (avoids
@@ -3263,8 +3400,8 @@ function _renderPodcastDetail(ep) {
        <table class="cost-table"><thead><tr><th>Word</th><th>Pinyin</th><th>German</th><th>Add</th></tr></thead><tbody>${hskRows}</tbody></table>`
     : '<p class="keymap-hint">No HSK vocabulary extracted.</p>';
   const links = [
-    ep.youtube_url ? `<a href="${_escHtml(ep.youtube_url)}" target="_blank" rel="noopener" class="btn-secondary">YouTube ↗</a>` : '',
-    ep.spotify_url ? `<a href="${_escHtml(ep.spotify_url)}" target="_blank" rel="noopener" class="btn-secondary">Spotify ↗</a>` : '',
+    ep.youtube_url ? `<a href="${_escHtml(ep.youtube_url)}" target="_blank" rel="noopener" class="btn-secondary">${isPodcast ? 'YouTube' : 'Open'} ↗</a>` : '',
+    isPodcast && ep.spotify_url ? `<a href="${_escHtml(ep.spotify_url)}" target="_blank" rel="noopener" class="btn-secondary">Spotify ↗</a>` : '',
     ep.status === 'summarized' ? `<button id="podcast-notify-signal" class="btn-secondary" onclick="doPodcastNotify('signal')">Send to Signal</button>` : '',
     ep.status === 'summarized' ? `<button id="podcast-notify-email" class="btn-secondary" onclick="doPodcastNotify('email')">Send Email</button>` : '',
     ep.status === 'summarized' ? `<button id="podcast-regen-summary" class="btn-secondary" onclick="doPodcastRegenerateSummary()">Regenerate summary</button>` : '',
@@ -3279,13 +3416,13 @@ function _renderPodcastDetail(ep) {
     : (ep.transcript_zh ? _escHtml(ep.transcript_zh).replace(/\n/g, '<br>') : '');
   const transcript = (trPairs.length || ep.transcript_zh)
     ? `<div class="podcast-transcript-wrap">
-         <button class="keymap-reset-all" onclick="_togglePodcastTranscript()">Show/hide transcript</button>
+         <button class="keymap-reset-all" onclick="_togglePodcastTranscript()">Show/hide ${contentLabel.toLowerCase()}</button>
          <div id="podcast-transcript-body" class="podcast-transcript" style="display:none">${trBody}</div>
        </div>`
     : '';
 
   el.innerHTML = `
-    <button class="keymap-reset-all" onclick="closePodcastDetail()">← Back to Podcasts</button>
+    <button class="keymap-reset-all" onclick="closeKnowledgeDetail()">← Back</button>
     <div class="keymap-panel">
       <h2 class="keymap-heading">${_escHtml(ep.title || '(untitled)')}</h2>
       <p class="keymap-hint">${date}</p>
@@ -3298,8 +3435,8 @@ function _renderPodcastDetail(ep) {
       ${hskTable}
     </div>
     <div class="keymap-panel">
-      <h2 class="keymap-heading">Transcript</h2>
-      ${transcript || '<p class="keymap-hint">No transcript available.</p>'}
+      <h2 class="keymap-heading">${contentLabel}</h2>
+      ${transcript || `<p class="keymap-hint">No ${contentLabel.toLowerCase()} available.</p>`}
     </div>`;
   setPodcastAddDay(_podcastAddDay);  // highlights the active day button
 }
@@ -3313,7 +3450,7 @@ function _togglePodcastTranscript() {
 // HSK words for the currently rendered podcast episode detail — kept as a
 // module-level array so the "Add" buttons can look words up by index
 // instead of embedding word data (with possible quotes/apostrophes) in
-// onclick attributes. Set in _renderPodcastDetail.
+// onclick attributes. Set in _renderKnowledgeDetail.
 let _podcastDetailWords = [];
 
 // Episode id for the currently rendered podcast detail — used by
@@ -3346,7 +3483,7 @@ async function doPodcastRegenerateSummary() {
     try {
       const ep = await api('GET', `/api/podcast/episodes/${id}`);
       if (ep.status !== 'processing') {
-        _renderPodcastDetail(ep);
+        _renderKnowledgeDetail(ep);
         return;
       }
     } catch (e) { /* transient error — keep polling */ }
@@ -3409,16 +3546,19 @@ function doPodcastAddWord(idx) {
   });
 }
 
-// Hash direct-link support: emails link to /#podcast-<id> (episode detail).
-// Called once at boot, after the deck list has loaded, so the podcast view
-// replaces it. #podcast-feed-<id> must be checked *before* #podcast-<id> —
-// otherwise the plain episode-detail regex below never gets a chance to
-// reject it, since both start with "#podcast-".
-function _openPodcastFromHash() {
-  const feedMatch = /^#podcast-feed-(\d+)$/.exec(location.hash);
+// Hash direct-link support: pre-#653 podcast emails/Signal messages link to
+// /#podcast-<id> (episode detail) — that form must keep working forever.
+// New links (video/article, or anything generated after #653) use
+// /#knowledge-<id> and /#knowledge-feed-<id>. Called once at boot, after the
+// deck list has loaded, so the knowledge view replaces it. The feed-id form
+// must be checked *before* the plain item-detail form — otherwise the
+// item-detail regex below never gets a chance to reject it, since both start
+// with the same prefix ("#podcast-"/"#knowledge-").
+function _openKnowledgeFromHash() {
+  const feedMatch = /^#(?:podcast|knowledge)-feed-(\d+)$/.exec(location.hash);
   if (feedMatch) { openPodcastFeed(parseInt(feedMatch[1])); return; }
-  const m = /^#podcast-(\d+)$/.exec(location.hash);
-  if (m) openPodcastEpisode(parseInt(m[1]));
+  const m = /^#(?:podcast|knowledge)-(\d+)$/.exec(location.hash);
+  if (m) openKnowledgeItem(parseInt(m[1]));
 }
 
 function startKeyCapture(id) {
@@ -10378,12 +10518,14 @@ async function _loadVersionBadge() {
 }
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
-// Hash direct-link (#480, feed layer #502): if the URL already points at a
-// podcast episode (link from an email) or feed, open it straight away
-// instead of the deck list. #podcast-feed- must be checked first — it also
-// matches the plain #podcast-\d+ shape's prefix.
-if (/^#podcast-feed-\d+$/.test(location.hash) || /^#podcast-\d+$/.test(location.hash)) {
-  _openPodcastFromHash();
+// Hash direct-link (#480, feed layer #502, generalized to video/article #653):
+// if the URL already points at a knowledge item (link from an email/Signal
+// message) or feed, open it straight away instead of the deck list. The
+// feed-id form must be checked first — it also matches the plain item-detail
+// form's prefix. Both the legacy #podcast-* and new #knowledge-* hash shapes
+// are recognized (see _openKnowledgeFromHash).
+if (/^#(?:podcast|knowledge)-feed-\d+$/.test(location.hash) || /^#(?:podcast|knowledge)-\d+$/.test(location.hash)) {
+  _openKnowledgeFromHash();
 } else {
   loadDecks();
 }
