@@ -642,7 +642,7 @@ CREATE TABLE IF NOT EXISTS podcast_episodes (
     detail_level     TEXT,   -- detail_level used for the summary (short|medium|detailed)
     status           TEXT NOT NULL DEFAULT 'pending'
                      CHECK(status IN ('pending', 'no_transcript', 'summarized', 'error')),
-    transcript_source TEXT,  -- 'tingwu' | 'whisper' | 'notebooklm' | NULL (#498/#486); legacy rows may say 'captions'
+    transcript_source TEXT,  -- 'tingwu' | 'whisper' | 'notebooklm' | 'youtube_captions' (#651) | 'article' (#652) | NULL; legacy rows may say 'captions'
     error            TEXT,
     email_sent_at    TEXT,
     processing_started_at TEXT,  -- set while _process_episode runs, cleared on exit; a leftover value = killed mid-transcription, recovered at startup (#598)

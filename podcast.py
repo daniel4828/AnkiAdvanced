@@ -883,6 +883,18 @@ def fetch_transcript(video: dict) -> tuple[str | None, dict]:
         import knowledge.youtube
         return knowledge.youtube.fetch_captions(video_id)
 
+    if video.get("kind") == "article":
+        # Article ingestion (#652): body extraction only, no transcription
+        # chain at all. routes.knowledge.add_knowledge already fetches +
+        # stores transcript_zh eagerly at add time (no cheap article-only
+        # metadata endpoint the way YouTube has oEmbed, see
+        # knowledge/article.py's module docstring), so this branch is
+        # normally never reached — _process_episode's "reuse existing
+        # transcript" fast path (above) wins first. It exists as the
+        # retry/reprocess fallback for a row without a stored transcript.
+        import knowledge.article
+        return knowledge.article.fetch_transcript(video)
+
     if not audio_url:
         logger.warning("podcast: no audio_url for %s, cannot transcribe", video_id)
         return None, meta
