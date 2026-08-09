@@ -185,6 +185,41 @@ def _new_words_from_pairs(pairs: list[tuple[str, str]]) -> list[str]:
             if _is_new_word(w, hsk, known, skip_transparent=True)]
 
 
+def extract_new_words(text: str) -> list[dict]:
+    """Scan `text` for every new word (same criteria as annotate_zh_summary,
+    reusing _segment/_new_words_from_pairs) and return
+    [{word, pinyin, definition_de, hsk}] in order of first appearance.
+    `hsk` is None for words absent from the HSK 1-6 table.
+
+    `text` may be plain Chinese or HTML with embedded Chinese runs (e.g. a
+    German summary) — jieba tokenizes non-CJK characters (tags, punctuation,
+    German words) into their own tokens, and only whole-token, multi-char,
+    all-CJK candidates are considered (see _new_words_from_pairs), so no
+    pre-stripping of HTML is needed.
+
+    Best-effort like the rest of this module: any failure returns []."""
+    if not text or not text.strip():
+        return []
+    try:
+        pairs = _segment(text)
+        if not pairs:
+            return []
+        words = _new_words_from_pairs(pairs)
+        hsk = _hsk_levels()
+        return [
+            {
+                "word": w,
+                "pinyin": pinyin_of(w),
+                "definition_de": _gloss_de(w),
+                "hsk": hsk.get(w),
+            }
+            for w in words
+        ]
+    except Exception as e:
+        logger.warning("zh_annotate: extract_new_words failed — %s", e)
+        return []
+
+
 def annotate_zh_summary(text: str) -> str:
     """Annotate the first occurrence of every new word inline:
     "对就业的影响" -> "对就业（jiùyè - Beschäftigung）的影响".

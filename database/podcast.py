@@ -163,21 +163,23 @@ def has_any_episode_for_feed(feed_url: str) -> bool:
 def create_pending_episode(video_id: str, channel_id: str | None, title: str,
                            published_at: str | None, youtube_url: str,
                            audio_url: str | None = None,
-                           duration_seconds: int | None = None) -> int:
+                           duration_seconds: int | None = None,
+                           kind: str = 'podcast') -> int:
     """Insert a new episode row with status=pending. Returns the new id.
 
     `channel_id` stores the source RSS feed URL (#497, was a YouTube channel
     id pre-#497). `youtube_url` stores the episode's webpage link (item
     <link>; name kept for backward compat with existing rows/column).
     `audio_url`/`duration_seconds` (#497) come from the RSS enclosure and
-    itunes:duration.
+    itunes:duration. `kind` (#650) is 'podcast' | 'video' | 'article' — see
+    docs/knowledge-base.md for what the generic columns mean per kind.
     """
     conn = get_db()
     cur = conn.execute(
         """INSERT INTO podcast_episodes
-           (video_id, channel_id, title, published_at, youtube_url, audio_url, duration_seconds, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')""",
-        (video_id, channel_id, title, published_at, youtube_url, audio_url, duration_seconds),
+           (video_id, channel_id, title, published_at, youtube_url, audio_url, duration_seconds, status, kind)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)""",
+        (video_id, channel_id, title, published_at, youtube_url, audio_url, duration_seconds, kind),
     )
     conn.commit()
     episode_id = cur.lastrowid
@@ -252,11 +254,13 @@ def get_episode(episode_id: int) -> dict | None:
     return _hydrate(row) if row else None
 
 
-def list_episodes(limit: int = 100, feed_url: str | None = None) -> list[dict]:
+def list_episodes(limit: int = 100, feed_url: str | None = None, kind: str | None = None) -> list[dict]:
     """Episode list without the transcript full text (kept out for payload
     size). `feed_url` (#502, the podcast_feeds.url / episode's channel_id)
     optionally restricts the list to one source, for the per-feed episode
-    list view."""
+    list view. `kind` (#650) optionally restricts to 'podcast' | 'video' |
+    'article'; None leaves behavior unchanged (all kinds, i.e. all existing
+    rows since they default to 'podcast')."""
     conn = get_db()
     query = """SELECT id, video_id, channel_id, title, published_at, youtube_url, spotify_url,
                       audio_url, duration_seconds,
@@ -264,10 +268,16 @@ def list_episodes(limit: int = 100, feed_url: str | None = None) -> list[dict]:
                       transcript_source,
                       (transcript_zh IS NOT NULL AND transcript_zh != '') AS has_transcript
                FROM podcast_episodes"""
+    clauses: list = []
     params: list = []
     if feed_url:
-        query += " WHERE channel_id = ?"
+        clauses.append("channel_id = ?")
         params.append(feed_url)
+    if kind:
+        clauses.append("kind = ?")
+        params.append(kind)
+    if clauses:
+        query += " WHERE " + " AND ".join(clauses)
     query += " ORDER BY COALESCE(published_at, created_at) DESC, id DESC LIMIT ?"
     params.append(limit)
     rows = conn.execute(query, params).fetchall()
