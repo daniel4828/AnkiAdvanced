@@ -90,10 +90,6 @@ def test_fetch_article_download_failure_raises(monkeypatch):
         ka.fetch_article("https://example.com/paywalled")
 
 
-def test_fetch_article_too_short_body_raises():
-    pass  # placeholder replaced below to use monkeypatch fixture properly
-
-
 def test_fetch_article_body_too_short_raises(monkeypatch):
     """A paywall/login-wall page typically yields only a short nav-bar
     fragment — anything under 200 chars must be treated as a failure, never
