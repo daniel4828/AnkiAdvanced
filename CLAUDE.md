@@ -175,7 +175,8 @@ bash sync_offline.sh push    # 只推不拉，推完归档本地库
 ├── importer.py            # YAML 词汇导入器（中文 + 法语格式）
 ├── ai.py                  # AI 提供商调用（每种提示词类型一个函数）
 ├── news_fetcher.py        # 新闻抓取（Tagesschau API + RSS；按天缓存 data/news_cache/）
-├── podcast.py              # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、每源 auto_process 开关+非自动源只入库元数据（#502，podcast_feeds 表）、转录链 NotebookLM 免费主力+听悟+Whisper 保底、单步异常不中止整链（#510 重排，链式降级，原 #498/#485/#486）、摘要 NotebookLM chat.ask 免费优先+DeepSeek/gpt API 链回退（api 路径内部 DeepSeek 优先省钱，#532）、HSK生词、邮件通知+Signal 通知（signal-cli 关联设备，发 Note to Self，#521，二者独立可选、互不影响；消息抬头播客名·星期·日期、链接在末尾，单集日期按 Europe/Berlin 显示，#532）、摘要 table.media 风格（`<p>` 段落+每段首句 `<b>` 加粗总结，#567）+详情页 Regenerate summary 按钮、邮件主题=`播客名 - 单集标题`（查不到播客名只用标题，不要退回死前缀）+ `summary_zh` 开头中文总结（600-1000 字分段，HSK4-5，邮件/Signal/详情页三处；**是增量不是必需**——成功判定只看 `summary_de`，模型漏掉中文总结不能让整集失败）+ 摘要里任何 HSK5+ 中文概念都标 `pinyin/汉字`（不限于提取的词表，宁多勿少，#631）+ 生词标注由代码兜底（`zh_annotate.py`，#638）
+├── podcast.py              # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、每源 auto_process 开关+非自动源只入库元数据（#502，podcast_feeds 表）、转录链 NotebookLM 免费主力+听悟+Whisper 保底、单步异常不中止整链（#510 重排，链式降级，原 #498/#485/#486）、摘要 NotebookLM chat.ask 免费优先+DeepSeek/gpt API 链回退（api 路径内部 DeepSeek 优先省钱，#532）、邮件通知+Signal 通知（signal-cli 关联设备，发 Note to Self，#521，二者独立可选、互不影响；消息抬头播客名·星期·日期、链接在末尾，单集日期按 Europe/Berlin 显示，#532）、摘要 table.media 风格（`<p>` 段落+每段首句 `<b>` 加粗总结，#567）+详情页 Regenerate summary 按钮、邮件主题=`播客名 - 单集标题`（查不到播客名只用标题，不要退回死前缀）+ `summary_zh` 开头中文总结（600-1000 字分段，HSK4-5，邮件/Signal/详情页三处；**是增量不是必需**——成功判定只看 `summary_de`，模型漏掉中文总结不能让整集失败）+ 摘要里任何 HSK5+ 中文概念都标 `pinyin/汉字`（不限于提取的词表，宁多勿少，#631）；已泛化为知识库存储层，见 `knowledge/` 包
+├── knowledge/              # 知识库摄取（#650–#655，播客功能泛化，见「知识库」节）：youtube.py（字幕摄取）、article.py（正文抽取）、ingest.py（唯一入库管线）、mailbox.py（IMAP 邮件收件）
 ├── tts.py                 # edge-tts 封装（离线模式下只读缓存，#612）
 ├── offline.py             # OFFLINE_MODE / LOCAL_MODE + 联网探测（#612、#625）
 ├── sync_offline.sh        # 同步 sync/pull/push（#612、#625）
@@ -187,7 +188,7 @@ bash sync_offline.sh push    # 只推不拉，推完归档本地库
 ├── schema.sql             # 数据库模式
 ├── static/                # 前端（index.html + app.js + style.css）
 ├── routes/                # FastAPI 路由模块
-│   ├── browse.py / decks.py / imports.py / review.py / story.py / podcast.py
+│   ├── browse.py / decks.py / imports.py / review.py / story.py / podcast.py / knowledge.py（`POST /api/knowledge/add`，#651/#652）
 │   ├── sync.py            # 一键同步（#625，只在笔记本实例注册）
 │   ├── queue_manager.py   # Anki v3 风格持久会话队列
 │   └── utils.py           # 共用工具（DISABLE_AI, leaf_ids, queue_manager 单例）
@@ -196,6 +197,7 @@ bash sync_offline.sh push    # 只推不拉，推完归档本地库
 ├── deploy/                # systemd 单元、Caddyfile 示例、deploy.sh（自动部署）
 ├── scripts/               # morning_pregen.py（早晨预生成故事+TTS）、podcast_check.py（播客爬虫定时脚本）、knowledge_mail_check.py（知识库邮件收件定时脚本，#655）、offline_sync_server.py + offline_tts_manifest.py（离线同步，#612）、fsrs_optimize.py（用 review_log 训练个人 FSRS 权重，#629）+ README
 ├── docs/yaml-format.md    # YAML 词条格式完整文档
+├── docs/knowledge-base.md # 知识库功能总体设计（#650–#655 各 Issue 引用的唯一设计说明）
 └── data/
     ├── srs.db             # SQLite 数据库（生产版在服务器上！）
     ├── news_sources.json  # 新闻来源配置（不在 git 里，服务器上已有）
@@ -328,7 +330,7 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 - `briefing`（News flow，#399）——AI 写一篇**连贯的新闻总结**，目标词各恰好出现一次，但**不是每句都含目标词**——目标词句之间允许纯上下文句（承载数字/事实，不受 15 字限制）。含目标词的句子成为卡片；前面的上下文句用 Google Translate（非 AI）译成德语存 `story_sentences.context_de`（显示在卡片正面），中文原文存 `reasoning_zh`（背景弹窗）。briefing 卡片没有标题（concept_zh 为空）。自动抓取当日新闻（`news_fetcher.fetch_all()`：Tagesschau API + RSS，按天缓存）：两步 AI，`summarize_news_items` 挑最重要的 8 条（平衡德国/国际/中国相关）→ `generate_briefing_sentences` 生成连贯中文简报（模型固定服务器端 BRIEFING_MODEL，因 DeepSeek 会审查新闻内容）。抓取全部失败时报明确错误，不静默降级为普通故事
 - **旧 `news` 模式已移除**（#512，界面曾叫 "News briefing"）：新故事生成拒绝 `mode='news'`（`_generate_and_store` 直接抛 `ValueError`）；但历史 `news` 故事仍能正常展示，且 Again 单句重生成仍复用 `ai.generate_news_sentences`（`generate_sentence_for_word` 保留该分支）——不影响旧数据
 - briefing/paste 共同点：每句带 `source_url`（背景弹窗"打开原文"链接），复用 kahneman 的概念框/背景弹窗 UI；文章内容存 `stories.gen_params.articles` 供 Again 重生成复现同一批内容（paste 的文章通过 regenerate 的 POST body 传输）
-- `podcast`（#482）——从已摘要的播客单集（`database.get_episode(episode_id)`）生成句子：单篇文章 = 该集 `transcript_zh`（截断到 15000 字），同样走 briefing 管线（`generate_briefing_sentences(generic=True, include_context=False)`），但**不允许上下文句**——每句都必须含一个目标词。`episode_id` 沿用 kahneman 的 `chapter_ids` 传参模式（GET 查询参数/regenerate POST body/gen_params），设置弹窗提供单选单集选择器（仅列 `status=summarized` 的单集）；不在早晨预生成 `_PREGEN_MODES` 里，因为选集是一次性的
+- `knowledge`（#482，原 `podcast` 模式，#654 改名以配合下方「知识库」泛化）——从已摘要的知识库素材（播客/视频/文章均可，`database.get_episode(episode_id)`）生成句子：素材文本优先取该条目的 `transcript_zh`（截断到 15000 字），无转录时才降级用 `summary_de`（#661；#561 曾改用摘要纯为省成本/延迟，实测一次约 $0.003 后确认没必要，副作用是输入变回中文全文更容易触发 DeepSeek 内容过滤，敏感话题走设置弹窗下拉框换 GPT 重新生成）。同样走 briefing 管线（`generate_briefing_sentences(generic=True, include_context=False)`），但**不允许上下文句**——每句都必须含一个目标词。`episode_id` 沿用 kahneman 的 `chapter_ids` 传参模式（GET 查询参数/regenerate POST body/gen_params），设置弹窗提供单选条目选择器（仅列 `status=summarized` 的条目）；不在早晨预生成 `_PREGEN_MODES` 里，因为选素材是一次性的。**历史 `mode='podcast'` 故事仍能展示和做 Again 单句重生成**——只在生成*新*故事时拒绝旧标识符（`ValueError`）
 
 ---
 
@@ -342,6 +344,20 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 - **透明组合过滤只用于中文总结**：HSK 表只有 4991 个词条，`十年`/`巨大变化`/`死掉` 这类普通组合全都"不在表里"，直接标会淹没真生词。规则是"表外词若每个字都是 HSK≤4 就跳过"，字的等级由**词表反推**（`_char_levels`：字出现在任何 HSK≤4 的词里就算基础字）——表里单字词只有 696 个，直接查单字覆盖太薄
 - **接入点在 `podcast.summarize()` 的返回处**（`_annotate_summary`）：NotebookLM 和 API 两条摘要路径、`_process_episode` 和 `regenerate_summary` 两个调用方全都经过这里，标注后的文本才写库，邮件/Signal/详情页三处自然一致，也不会各自重跑谷歌翻译
 - **全程吞异常**：HSK 表读不到、jieba 挂了、翻译超时，一律返回原文（翻译失败降级为只有拼音）。少个拼音是小事，为它丢掉整集摘要是荒唐的
+- **`extract_new_words()`（#650）统一了详情页底部生词表格**：原来表格由 AI 在摘要提示词里自己挑词，会漏词、也会挑 Daniel 已学过的词。改成代码从 `summary_zh` + `summary_de` 扫描，和正文括号标注**同源同规则**，两者现在保证一一对应，不再各说各话
+
+---
+
+## 知识库（Knowledge Base，#650–#655）
+
+播客爬虫（#479）泛化成一个统一的知识库：播客单集、YouTube 视频、报刊文章三类素材走**同一条流水线**（获取 → 转录/正文 → 中文+德语摘要 → 生词标注 → 通知 → 造卡）。总体设计见 `docs/knowledge-base.md`（各阶段 Issue 都引用它）。
+
+- **不新建表，泛化 `podcast_episodes`**：加两列 `kind`（`podcast`|`video`|`article`）、`title_en`。**表名和历史列名故意不改**——改名要重建表+迁移生产库，风险远大于收益，本仓库已有同类先例（`youtube_url` 现在也存文章/播客链接，`word_zh` 对法语存法语词形）。`video_id` 对文章存 `normalize_url()` 去掉跟踪参数后的规范化 URL（`podcast_episodes` 的去重键），`transcript_source` 存 `youtube_captions`/`article`/`tingwu`/`whisper`/`notebooklm`
+- **`knowledge/` 包，`ingest.py` 是唯一入库管线**：`ingest_url()` 判断 YouTube 链接走 `youtube.py`（oEmbed 拿标题 + `youtube-transcript-api` 拿字幕，语言优先级 zh-Hans→zh-CN→zh→zh-TW→de→en，找不到任何字幕轨直接 `no_transcript`，**不跑 Whisper**），否则当文章走 `article.py`（`trafilatura` 抽正文，不足 200 字视为失败并抛 `ArticleExtractionError`——付费墙/登录墙/JS 页面绝不能存进库冒充正文，见其 docstring）。界面「粘贴 URL」框（`POST /api/knowledge/add`）和邮件收件（`mailbox.py`）**共用这一个函数**——理由同 #643 加词单一入口：两条平行管线迟早会让修好的坑在另一条上复活
+- **邮件收件（`knowledge/mailbox.py`，#655）**：IMAP 轮询 UNSEEN 邮件，标题+正文都扫 URL（手机分享到邮件，链接位置因 App 而异）。`KNOWLEDGE_MAIL_ALLOWED_SENDERS` 未配置时**整个邮箱检查被跳过，不读取也不标已读**——这是防止任何知道邮箱地址的人远程触发付费 AI 调用的唯一防线；处理失败的邮件同样不标已读，留给下一轮重试（`ingest_url()` 对已入库 URL 幂等返回 `already_exists`，重试安全）
+- **前端：播客页 → 知识页**（#653，`static/app.js`）：🎙️/📺/📄 三个子标签，播客管理页原有的 RSS 源/详情/生词表格逻辑全部保留，只是按 `?kind=` 过滤。**旧的 `#podcast-<id>` hash 链接永久保留**——已发出去的邮件/Signal 消息里全是这种链接；播客条目仍生成旧格式 hash，只有视频/文章条目用新的 `#knowledge-<id>`
+- **`GET /api/podcast/episodes` 加 `?kind=` 过滤**，`POST /api/knowledge/add` 只负责入库，**不在请求里做转录/摘要**——前端拿到 `episode_id` 后照常调用既有的 `POST /api/podcast/episodes/{id}/process`，造卡侧（`routes/story.py` 的 `knowledge` 模式，见上）几乎零改动就能吃到播客以外的素材
+- 新依赖 `youtube-transcript-api`、`trafilatura`（已在 `requirements.txt`）
 
 ## API 接口
 
@@ -383,9 +399,10 @@ GET  /api/tts-file ；POST /api/preload ；POST /api/preload-session/{deck_id}/{
 GET  /api/tts-progress/{deck_id}/{category} ；GET /api/story-progress/{deck_id}/{category}
 GET  /api/news/status                                → 当日新闻缓存状态 {cached, count}（briefing 模式设置弹窗仍在用；旧 news 模式已移除，#512）
 
-# 播客爬虫（#479）+ 播客管理页（#502）
+# 知识库（播客爬虫 #479 泛化，#650–#655；详见「知识库」节）
+POST /api/knowledge/add                               → body {url} → 新素材 {episode_id}；已存在 {status:"already_exists", episode_id}；不转录不摘要，前端拿 id 后另调 .../process
 POST /api/podcast/check                              → 跑一轮抓取，返回汇总 {new, summarized, emailed, failed}
-GET  /api/podcast/episodes                            → 列表（不含转录全文；?feed_id= 按源过滤；手动处理中的单集 status 显示为 processing）
+GET  /api/podcast/episodes                            → 列表（不含转录全文；?feed_id= 按源过滤；?kind= 按 podcast/video/article 过滤，#650；手动处理中的单集 status 显示为 processing）
 GET  /api/podcast/episodes/{id}                       → 详情（摘要 + 转录 + HSK 生词）
 POST /api/podcast/episodes/{id}/retry                 → 同步重跑单集（error/no_transcript/pending；#491/#500）
 POST /api/podcast/episodes/{id}/process               → 手动触发单集转录+摘要（后台线程，立即返回；重复提交 409；#502）
@@ -471,7 +488,7 @@ python main.py status [--deck X]     # 显示每个牌组/类别的到期数量
 
 - 所有数据库访问通过 `database/` 包——其他文件不写原始 SQL（`import database` 仍然有效）
 - 保持 `ai.py` 简洁——每种提示词类型对应一个函数；AI 返回的格式错误 JSON 始终用 try/except + 回退处理
-- 允许的外部依赖：`fastapi`、`uvicorn`、`anthropic`、`openai`、`edge-tts`、`pyyaml`、`python-multipart`、`deep-translator`（可选）、`jieba`、`pypinyin`、`alibabacloud_tingwu20230930`、`zhconv`（NotebookLM 转录繁转简，#500）（播客通义听悟转录主力，#498，官方 SDK）、`notebooklm-py`（播客 NotebookLM 可选转录，#486，非官方库，凭据文件一次性从本地拷到服务器，见 `scripts/README.md`）。新增依赖必须同步更新 `requirements.txt`。播客转录链的 Whisper/NotebookLM 两条路径（听悟提交直链不需要）需要系统级 `ffmpeg`（`apt install ffmpeg`，不是 Python 依赖，缺失时该功能自动跳过）
+- 允许的外部依赖：`fastapi`、`uvicorn`、`anthropic`、`openai`、`edge-tts`、`pyyaml`、`python-multipart`、`deep-translator`（可选）、`jieba`、`pypinyin`、`alibabacloud_tingwu20230930`、`zhconv`（NotebookLM 转录繁转简，#500）（播客通义听悟转录主力，#498，官方 SDK）、`notebooklm-py`（播客 NotebookLM 可选转录，#486，非官方库，凭据文件一次性从本地拷到服务器，见 `scripts/README.md`）、`youtube-transcript-api`（知识库 YouTube 字幕摄取，#651）、`trafilatura`（知识库文章正文抽取，#652）。新增依赖必须同步更新 `requirements.txt`。播客转录链的 Whisper/NotebookLM 两条路径（听悟提交直链不需要）需要系统级 `ffmpeg`（`apt install ffmpeg`，不是 Python 依赖，缺失时该功能自动跳过）
 - 前端无构建步骤——直接编辑 `static/` 下的文件
 - API 密钥只从环境变量读取，绝不写入代码或仓库
 - **不要在 8000 端口跑测试服务器**——Daniel 的浏览器连着它
