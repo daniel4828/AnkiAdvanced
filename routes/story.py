@@ -689,10 +689,13 @@ def regenerate_story(deck_id: int, category: str,
     """Regenerate today's story. body (optional JSON): {"articles": [{"url", "title", "text"}]}
     — pasted texts for mode="paste" (too long to fit in a query string).
     mode="briefing" ignores pasted articles and auto-fetches today's news (issue #387);
-    mode="paste" with no articles is an error (issue #396); mode="podcast" uses the
-    episode_id's German summary directly, no articles involved (reworked #561).
-    mode="news" (the old auto-fetch-only mode) has been removed (issue #512) and
-    is rejected."""
+    mode="paste" with no articles is an error (issue #396); mode="knowledge" (renamed
+    from "podcast" in #654) uses the episode_id's German summary directly, no
+    articles involved (reworked #561).
+    mode="news" (the old auto-fetch-only mode) has been removed (issue #512), and
+    mode="podcast" (renamed to "knowledge" in #654) has likewise been removed —
+    both are rejected for *new* generation, but stories already stored with either
+    identifier still display and still support per-word Again regeneration."""
     if ai_disabled():
         return None
     chosen_model = _validated_model(model)

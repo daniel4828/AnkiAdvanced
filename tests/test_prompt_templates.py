@@ -70,8 +70,9 @@ def test_story_template_matches_old_prompt_with_topic_and_grammar():
     assert _render_story(wl, 5, grammar, "咖啡店") == _old_story_prompt(wl, 5, grammar, "咖啡店")
 
 
-def test_podcast_template_keeps_json_example_braces():
-    rendered = ai._render_prompt(ai.DEFAULT_PROMPT_TEMPLATES["podcast"], {
+def test_knowledge_template_keeps_json_example_braces():
+    """issue #654: 模板键从 "podcast" 改名为 "knowledge"（故事模式标识符同步改名）。"""
+    rendered = ai._render_prompt(ai.DEFAULT_PROMPT_TEMPLATES["knowledge"], {
         "title": "T", "summary": "S", "words": "1. 蘑菇（mógū）— mushroom",
         "max_hsk": "3", "extra_hint": "",
     })
@@ -80,8 +81,30 @@ def test_podcast_template_keeps_json_example_braces():
             '"target_word": "词汇"}') in rendered
     assert "T" in rendered and "S" in rendered and "HSK 1-3" in rendered
     # 所有记号都已被替换
-    for var in ai.PROMPT_TEMPLATE_VARIABLES["podcast"]:
+    for var in ai.PROMPT_TEMPLATE_VARIABLES["knowledge"]:
         assert "{" + var + "}" not in rendered
+
+
+def test_podcast_prompt_presets_migrate_to_knowledge(db):
+    """issue #654: prompt_presets 里 mode='podcast' 的自定义版本要迁移到
+    'knowledge'，且迁移必须幂等（生产库每 2 分钟自动跑一次 init_db）。"""
+    conn = database.get_db()
+    conn.execute(
+        """INSERT INTO prompt_presets (mode, name, template, is_active, updated_at)
+           VALUES ('podcast', 'Saved', 'MY PODCAST TEMPLATE {words}', 1, datetime('now'))"""
+    )
+    conn.commit()
+    conn.close()
+
+    database.init_db()  # re-run the migration (simulates deploy.sh's 2-minute cron)
+
+    assert database.get_prompt_template("podcast") is None
+    assert database.get_prompt_template("knowledge") == "MY PODCAST TEMPLATE {words}"
+
+    # Idempotent: running init_db() again must not error or duplicate rows.
+    database.init_db()
+    presets = database.list_prompt_presets("knowledge")
+    assert len(presets) == 1
 
 
 def test_custom_template_roundtrip(db):
