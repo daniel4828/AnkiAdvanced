@@ -717,11 +717,11 @@
         <option value="kahneman" class="setup-mode-zh-only">🧠 Kahneman — cognitive bias style</option>
         <option value="briefing" class="setup-mode-zh-only">🗞️ News flow — summary with German context</option>
         <option value="paste" class="setup-mode-zh-only">📋 Paste content — summarize anything</option>
-        <option value="podcast" class="setup-mode-zh-only">🎙️ Podcast — summarize an episode</option>
+        <option value="knowledge" class="setup-mode-zh-only">🧠 Knowledge — build cards from a saved source</option>
         <option value="vocab">🔤 Words only — no story, single vocab</option>
       </select>
     </label>
-    <!-- Prompt template editor entry (issue #581) — story/qa/expository/podcast, zh only -->
+    <!-- Prompt template editor entry (issue #581) — story/qa/expository/knowledge, zh only -->
     <button type="button" class="edit-cancel-btn" id="setup-edit-prompt-btn"
             style="display:none;padding:3px 10px;font-size:12px;align-self:flex-start"
             onclick="openPromptEditor()">✎ Edit prompt</button>
@@ -750,15 +750,21 @@
       <div id="setup-paste-blocks"></div>
       <button class="edit-cancel-btn" style="padding:4px 10px;font-size:12px;margin-top:6px" onclick="addPasteBlock()">+ Add text</button>
     </div>
-    <!-- Podcast episode selector (shown only in podcast mode, issue #482) -->
+    <!-- Knowledge source selector (shown only in knowledge mode, issue #482/#654) -->
     <div id="setup-podcast-section" style="display:none">
-      <label class="edit-label" style="margin:0">Episode</label>
+      <label class="edit-label" style="margin:0">Source type</label>
+      <select class="edit-input" id="setup-knowledge-kind" style="margin-bottom:6px">
+        <option value="podcast">🎙️ Podcast</option>
+        <option value="video">📺 Video</option>
+        <option value="article">📄 Article</option>
+      </select>
+      <label class="edit-label" style="margin:0">Item</label>
       <div style="font-size:12px;color:var(--muted,#888);margin:2px 0 6px">
-        Pick one summarized episode — the sentences will summarize its content (no context sentences).
+        Pick one summarized item — the sentences will be built from its content (no context sentences).
       </div>
       <select class="edit-input" id="setup-podcast-feed" style="margin-bottom:6px"></select>
       <div id="setup-podcast-episodes" style="max-height:220px;overflow-y:auto;border:1px solid var(--border,#ddd);border-radius:6px;padding:4px 0"></div>
-      <div id="setup-podcast-loading" style="display:none;padding:12px;text-align:center;color:var(--muted,#888);font-size:13px">Loading episodes…</div>
+      <div id="setup-podcast-loading" style="display:none;padding:12px;text-align:center;color:var(--muted,#888);font-size:13px">Loading items…</div>
     </div>
     <label class="edit-label" id="setup-topic-label">Topic <span style="font-weight:400;text-transform:none">(optional)</span>
       <input class="edit-input" id="setup-topic" type="text" placeholder="e.g. a day at a coffee shop" onkeydown="if(event.key==='Enter')confirmStorySetup()">

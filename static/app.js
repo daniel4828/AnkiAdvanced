@@ -719,7 +719,9 @@ function _updateStoryInfoRow() {
     const pos = `Sentence ${sentence.position + 1} / ${story.sentences.length}`;
     // News flow / news / paste / kahneman: show the mode name + story date to the
     // right of the counter (issue #452). Plain stories keep the topic.
-    const modeName = { kahneman: 'Kahneman', news: 'News', briefing: 'News flow', paste: 'Paste', podcast: 'Podcast' }[_activeStoryMode()];
+    // podcast kept alongside knowledge (issue #654 renamed the mode identifier
+    // going forward, but historical mode='podcast' stories still display fine).
+    const modeName = { kahneman: 'Kahneman', news: 'News', briefing: 'News flow', paste: 'Paste', podcast: 'Podcast', knowledge: 'Knowledge' }[_activeStoryMode()];
     const parts = [pos];
     if (modeName) {
       const date = String(story.date || story.generated_at || '').slice(0, 10);
@@ -7376,7 +7378,7 @@ function updateSetupMode() {
   // zh decks only (fr uses the built-in language-neutral prompt path).
   const editPromptBtn = document.getElementById('setup-edit-prompt-btn');
   if (editPromptBtn) {
-    const editable = ['story', 'qa', 'expository', 'podcast'].includes(mode)
+    const editable = ['story', 'qa', 'expository', 'knowledge'].includes(mode)
       && (_deckLangById[deckId] || 'zh') === 'zh';
     editPromptBtn.style.display = editable ? '' : 'none';
   }
@@ -7416,11 +7418,11 @@ function updateSetupMode() {
     pasteSection.style.display = 'block';
     btn.textContent = 'Generate summary';
     if (!document.getElementById('setup-paste-blocks').children.length) addPasteBlock();
-  } else if (mode === 'podcast') {
+  } else if (mode === 'knowledge') {
     topicLabel.style.display = 'none';
     kahnemanSection.style.display = 'none';
     if (podcastSection) podcastSection.style.display = 'block';
-    btn.textContent = 'Generate podcast summary';
+    btn.textContent = 'Generate from source';
     _loadPodcastEpisodesForSetup();
   } else if (mode === 'vocab') {
     topicLabel.style.display = 'none';
@@ -7441,16 +7443,16 @@ function updateSetupMode() {
 // BRIEFING_MODEL (DeepSeek censors news content, so it's OpenAI-only).
 // Switching to one of them locks the dropdown to a "Server: BRIEFING_MODEL"
 // placeholder and remembers the previous model; switching back restores it.
-// podcast (issue #561 rework) is no longer part of this lock — it picks its
-// own model, remembered per-mode via localStorage (see MODE_MODEL_DEFAULTS
-// below) instead of sharing BRIEFING_MODEL.
+// knowledge mode (issue #561 rework, renamed from podcast in #654) is no
+// longer part of this lock — it picks its own model, remembered per-mode via
+// localStorage (see MODE_MODEL_DEFAULTS below) instead of sharing BRIEFING_MODEL.
 let _modelBeforeNewsMode = null;
 
-// Per-mode remembered model (issue #561): podcast has its own first-time
-// default, then remembers whatever the user picked last. Since #640 that
-// default is DeepSeek (like kahneman) rather than gpt-5-mini — must stay in
-// sync with ai.DEFAULT_MODEL, which is the backend-side default.
-const MODE_MODEL_DEFAULTS = { podcast: 'deepseek-v4-flash' };
+// Per-mode remembered model (issue #561): knowledge mode has its own
+// first-time default, then remembers whatever the user picked last. Since
+// #640 that default is DeepSeek (like kahneman) rather than gpt-5-mini — must
+// stay in sync with ai.DEFAULT_MODEL, which is the backend-side default.
+const MODE_MODEL_DEFAULTS = { knowledge: 'deepseek-v4-flash' };
 let _modelSelMode = 'story';   // mode the model dropdown's current value belongs to
 
 function _autoSwitchModelForMode(mode) {
@@ -7829,23 +7831,36 @@ function randomKahnemanChapters() {
   _updateKahnemanCount();
 }
 
-// ── Podcast episode picker (issue #482, feed filter added in #561) —
+// ── Knowledge item picker (issue #482, feed filter #561, kind filter #654) —
 // single-select, template copied from the kahneman chapter selector above
-// but radio-style (one episode per story).
+// but radio-style (one item per story). Renamed from podcast-only to
+// knowledge (podcast/video/article) in #654 — element ids kept as
+// setup-podcast-* to minimize churn (they're internal, not user-facing).
 let _setupPodcastFeeds = null;              // null = not loaded yet
-let _setupPodcastEpisodesByFeed = {};       // key '' (all) or feed_id → episodes array
+// key `${kind}|${feedId}` ('' feedId = all podcasts, only meaningful for kind=podcast) → episodes array
+let _setupPodcastEpisodesByFeed = {};
+let _setupKnowledgeKind = localStorage.getItem('setupKnowledgeKind') || 'podcast';
 // Words per AI call (issue #563 podcast-only, #574 all modes): persisted per
 // mode like setupModel. null = the mode's default chunking. Read by
 // _storyParams for every generation URL.
 function _savedBatchSize(mode) {
   return parseInt(localStorage.getItem('setupBatch:' + mode), 10) || null;
 }
-// One-time migration from the podcast-only #563 key.
+// One-time migrations: the podcast-only #563 key, then the #654 mode rename
+// (podcast -> knowledge) so an existing per-mode batch size still applies.
 (() => {
   const old = localStorage.getItem('podcastBatchSize');
   if (old) {
     localStorage.setItem('setupBatch:podcast', old);
     localStorage.removeItem('podcastBatchSize');
+  }
+  const oldPodcastBatch = localStorage.getItem('setupBatch:podcast');
+  if (oldPodcastBatch && !localStorage.getItem('setupBatch:knowledge')) {
+    localStorage.setItem('setupBatch:knowledge', oldPodcastBatch);
+  }
+  const oldPodcastModel = localStorage.getItem('setupModel:podcast');
+  if (oldPodcastModel && !localStorage.getItem('setupModel:knowledge')) {
+    localStorage.setItem('setupModel:knowledge', oldPodcastModel);
   }
 })();
 
@@ -7853,7 +7868,15 @@ async function _loadPodcastEpisodesForSetup() {
   const container = document.getElementById('setup-podcast-episodes');
   const loading = document.getElementById('setup-podcast-loading');
   const feedSel = document.getElementById('setup-podcast-feed');
+  const kindSel = document.getElementById('setup-knowledge-kind');
   if (!container) return;
+  if (kindSel) {
+    kindSel.value = _setupKnowledgeKind;
+    kindSel.onchange = _onKnowledgeKindChange;
+  }
+  // The feed filter dropdown only makes sense for the podcast kind — videos
+  // and articles aren't grouped by RSS feed (issue #654).
+  if (feedSel) feedSel.style.display = _setupKnowledgeKind === 'podcast' ? '' : 'none';
   if (_setupPodcastFeeds === null) {
     try {
       const feeds = await api('GET', '/api/podcast/feeds');
@@ -7871,6 +7894,19 @@ async function _loadPodcastEpisodesForSetup() {
   await _loadPodcastEpisodesForCurrentFeed();
 }
 
+// Source-type switch (🎙️ podcast | 📺 video | 📄 article, issue #654) —
+// re-renders the episode list for the newly selected kind.
+function _onKnowledgeKindChange() {
+  const kindSel = document.getElementById('setup-knowledge-kind');
+  _setupKnowledgeKind = (kindSel && kindSel.value) || 'podcast';
+  localStorage.setItem('setupKnowledgeKind', _setupKnowledgeKind);
+  const feedSel = document.getElementById('setup-podcast-feed');
+  if (feedSel) feedSel.style.display = _setupKnowledgeKind === 'podcast' ? '' : 'none';
+  // Selecting a new item clears any previous radio pick — the episode ids
+  // aren't comparable across kinds.
+  _loadPodcastEpisodesForCurrentFeed();
+}
+
 function _onPodcastFeedFilterChange() {
   _loadPodcastEpisodesForCurrentFeed();
 }
@@ -7880,29 +7916,35 @@ async function _loadPodcastEpisodesForCurrentFeed() {
   const loading = document.getElementById('setup-podcast-loading');
   const feedSel = document.getElementById('setup-podcast-feed');
   if (!container) return;
-  const feedId = feedSel ? feedSel.value : '';
-  if (_setupPodcastEpisodesByFeed[feedId]) { _renderPodcastEpisodes(feedId); return; }
+  const kind = _setupKnowledgeKind || 'podcast';
+  const feedId = (kind === 'podcast' && feedSel) ? feedSel.value : '';
+  const cacheKey = `${kind}|${feedId}`;
+  if (_setupPodcastEpisodesByFeed[cacheKey]) { _renderPodcastEpisodes(cacheKey); return; }
   container.style.display = 'none';
   if (loading) loading.style.display = 'block';
   try {
-    const url = '/api/podcast/episodes?limit=1000' + (feedId ? `&feed_id=${feedId}` : '');
+    // kind=podcast keeps the existing feed_id filter; video/article ignore it
+    // and just list every item of that kind (issue #654 — /api/podcast/episodes
+    // already supports ?kind= since #651).
+    const url = '/api/podcast/episodes?limit=1000&kind=' + encodeURIComponent(kind) +
+      (feedId ? `&feed_id=${feedId}` : '');
     const data = await api('GET', url);
-    // Only episodes with a finished summary can seed a story (issue #482).
-    _setupPodcastEpisodesByFeed[feedId] = (data || []).filter(ep => ep.status === 'summarized');
+    // Only items with a finished summary can seed a story (issue #482).
+    _setupPodcastEpisodesByFeed[cacheKey] = (data || []).filter(ep => ep.status === 'summarized');
     if (loading) loading.style.display = 'none';
     container.style.display = 'block';
-    _renderPodcastEpisodes(feedId);
+    _renderPodcastEpisodes(cacheKey);
   } catch (e) {
-    if (loading) loading.textContent = 'Failed to load episodes.';
+    if (loading) loading.textContent = 'Failed to load items.';
   }
 }
 
-function _renderPodcastEpisodes(feedId) {
+function _renderPodcastEpisodes(cacheKey) {
   const container = document.getElementById('setup-podcast-episodes');
-  const episodes = _setupPodcastEpisodesByFeed[feedId];
+  const episodes = _setupPodcastEpisodesByFeed[cacheKey];
   if (!container || !episodes) return;
   if (!episodes.length) {
-    container.innerHTML = '<div style="padding:12px;text-align:center;color:var(--muted,#888);font-size:13px">No summarized episodes yet.</div>';
+    container.innerHTML = '<div style="padding:12px;text-align:center;color:var(--muted,#888);font-size:13px">No summarized items yet.</div>';
     return;
   }
   const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -7942,16 +7984,16 @@ function confirmStorySetup() {
   if (model && model !== 'briefing-server') localStorage.setItem('setupModel:' + mode, model);
   const chapterIds  = mode === 'kahneman' ? _getSelectedChapterIds() : null;
   const articles    = mode === 'paste' ? _collectPastedContents() : null;
-  const episodeId   = mode === 'podcast' ? _getSelectedEpisodeId() : null;
+  const episodeId   = mode === 'knowledge' ? _getSelectedEpisodeId() : null;
   // News mode never sends articles: today's news is auto-fetched server-side
   // (issue #387). Paste mode requires at least one non-empty text (issue #396).
   if (mode === 'paste' && !articles.length) {
     showError('Paste mode needs at least one text — paste some content first.');
     return;
   }
-  // Podcast mode requires picking exactly one episode (issue #482).
-  if (mode === 'podcast' && !episodeId) {
-    showError('Podcast mode needs an episode — select one first.');
+  // Knowledge mode requires picking exactly one source item (issue #482/#654).
+  if (mode === 'knowledge' && !episodeId) {
+    showError('Knowledge mode needs a source — select one first.');
     return;
   }
   // Words per AI call (issue #563 podcast-only, #574 all modes): empty input

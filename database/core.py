@@ -717,6 +717,16 @@ def init_db() -> None:
         )
     conn.commit()
 
+    # One-time migration (issue #654): the story mode identifier "podcast" was
+    # renamed to "knowledge" (episodes now cover podcast/video/article sources).
+    # Rename any saved prompt_presets rows so Daniel's custom podcast-mode
+    # templates keep applying under the new mode name. Idempotent: after the
+    # first run there are no more mode='podcast' rows left to rename, so this
+    # is a no-op on every subsequent init_db() call (deploy.sh runs it every
+    # ~2 minutes on the server).
+    conn.execute("UPDATE prompt_presets SET mode = 'knowledge' WHERE mode = 'podcast'")
+    conn.commit()
+
     conn.close()
 
     # Seed the day-cutoff cache now that app_settings is guaranteed present
