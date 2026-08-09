@@ -26,7 +26,11 @@ MAX_KAHNEMAN_BATCH = 10
 # Again 单句重生成的成本动作标签（issue #578）——按故事模式区分；
 # get_api_costs 会把相邻的同标签 "… Again Sentences" 动作合并成一行。
 _AGAIN_ACTION_LABELS = {
+    # mode="podcast" kept alongside "knowledge" (issue #654 renamed the
+    # identifier for *new* stories; historical mode='podcast' stories still
+    # regenerate single sentences through generate_sentence_for_word below).
     "podcast": "Podcast Again Sentences",
+    "knowledge": "Knowledge Again Sentences",
     "kahneman": "Kahneman Again Sentences",
     "news": "News Again Sentences",
     "briefing": "News Again Sentences",
@@ -243,8 +247,8 @@ def _action_label_for_story(mode: str, deck_id: int) -> str:
         return "Generate Kahneman Story"
     if mode == "paste":
         return "Generate Paste Story"
-    if mode == "podcast":
-        return "Generate Podcast Review"
+    if mode == "knowledge":
+        return "Generate Knowledge Review"
     deck = database.get_deck(deck_id)
     deck_name = deck["name"] if deck else str(deck_id)
     return f"Generate Story: {deck_name}"
@@ -255,6 +259,7 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
                              chapter_ids, articles, progress_key, lang: str,
                              origin: str | None, episode_id: int | None,
                              batch_size: int | None = None) -> dict | None:
+    kind = None  # knowledge mode's source kind (podcast/video/article, issue #654)
     try:
         if mode == "news":
             # Issue #512: the old auto-fetch-only "news" mode has been removed
@@ -264,7 +269,15 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
             # generate_sentence_for_word below), only *new* full-story
             # generation with this mode is rejected.
             raise ValueError("mode 'news' has been removed — use 'briefing' instead")
-        if lang != "zh" and mode in ("kahneman", "paste", "briefing", "podcast"):
+        if mode == "podcast":
+            # Issue #654: the podcast-only story mode was renamed "knowledge"
+            # (episodes now cover podcast/video/article sources uniformly).
+            # Old mode='podcast' stories still display fine and their per-word
+            # Again regeneration still works (see generate_sentence_for_word
+            # below), only *new* full-story generation with this identifier
+            # is rejected — same pattern as the #512 removal of mode='news'.
+            raise ValueError("mode 'podcast' has been renamed — use 'knowledge' instead")
+        if lang != "zh" and mode in ("kahneman", "paste", "briefing", "knowledge"):
             raise ValueError(f"mode '{mode}' is only available for Chinese decks")
         if mode == "kahneman":
             parsed_chapter_ids = [int(x) for x in chapter_ids.split(",") if x.strip()] if chapter_ids else []
@@ -302,29 +315,34 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
                 cards, articles, model=model, progress_key=progress_key,
                 max_hsk=max_hsk, generic=(mode == "paste"),
                 include_context=True, batch_size=batch_size)
-        elif mode == "podcast":
-            # Podcast mode rework (issue #561): drops the briefing pipeline —
-            # only the episode's German summary is sent (detailed enough since
-            # #541, never the full transcript), one lean call per batch of
-            # MAX_NEWS_BATCH words plus missing-word top-ups, no fact-check.
-            # The model is the user's dropdown pick, no longer locked to
-            # BRIEFING_MODEL. Default is ai.DEFAULT_MODEL (DeepSeek) since #640
-            # — the gpt-5-mini default was inherited from the news path, whose
-            # reason (DeepSeek censors news content) doesn't apply here: the
-            # input is a German episode summary, and kahneman has always run on
-            # DeepSeek. If an episode's topic does trip DeepSeek's filter, the
-            # per-word fallback sentences make it obvious and the dropdown
-            # switches back to GPT without a code change.
+        elif mode == "knowledge":
+            # Knowledge mode (issue #654, renamed from "podcast" #482/#561):
+            # after the knowledge-base generalization (#650) podcast_episodes
+            # covers podcast/video/article sources uniformly, so this path
+            # needs zero changes beyond the identifier — database.get_episode()
+            # already returns any kind. Drops the briefing pipeline — only the
+            # item's German summary is sent (detailed enough since #541, never
+            # the full transcript), one lean call per batch of MAX_NEWS_BATCH
+            # words plus missing-word top-ups, no fact-check. The model is the
+            # user's dropdown pick, no longer locked to BRIEFING_MODEL. Default
+            # is ai.DEFAULT_MODEL (DeepSeek) since #640 — the gpt-5-mini default
+            # was inherited from the news path, whose reason (DeepSeek censors
+            # news content) doesn't apply here: the input is a German summary,
+            # and kahneman has always run on DeepSeek. If an item's topic does
+            # trip DeepSeek's filter, the per-word fallback sentences make it
+            # obvious and the dropdown switches back to GPT without a code change.
             if not episode_id:
-                raise ValueError("Podcast mode requires selecting an episode.")
+                raise ValueError("Knowledge mode requires selecting a source item.")
             episode = database.get_episode(episode_id)
             if not episode:
-                raise ValueError(f"Podcast episode {episode_id} not found.")
+                raise ValueError(f"Knowledge item {episode_id} not found.")
             summary = (episode.get("summary_de") or "").strip()
             if not summary:
-                raise ValueError("Selected podcast episode has no summary yet.")
+                raise ValueError("Selected item has no summary yet.")
+            kind = episode.get("kind") or "podcast"
             model = _validated_model(model, default=ai.DEFAULT_MODEL)
-            logger.info("story  podcast model in use: %s batch_size=%s", model, batch_size)
+            logger.info("story  knowledge model in use: %s kind=%s batch_size=%s",
+                        model, kind, batch_size)
             # batch_size (issue #563): user-controlled words-per-call from the
             # setup modal; empty/0 = one single call, capped at MAX_PODCAST_BATCH
             # (#634). Spreading the words over the summary's topics only works if
@@ -340,9 +358,9 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
                     chunk, summary, episode.get("title") or "",
                     model=model, max_hsk=max_hsk, progress_key=progress_key,
                     attempt_label=label,
-                    source_url=episode.get("youtube_url") or f"/#podcast-{episode_id}",
+                    source_url=episode.get("youtube_url") or f"/#{kind}-{episode_id}",
                     source_title=episode.get("title")))
-            prompt_text = f"podcast mode — episode {episode_id}"
+            prompt_text = f"knowledge mode — item {episode_id} (kind={kind})"
         else:
             sentences, prompt_text = _generate_story_sentences(
                 cards, topic=topic, max_hsk=max_hsk, model=model,
@@ -355,7 +373,7 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
             topic=topic, max_hsk=max_hsk, model=model,
             grammar_focus=grammar_focus, grammar_pct=grammar_pct,
             mode=mode, chapter_ids=chapter_ids, articles=articles, lang=lang,
-            origin=origin, episode_id=episode_id, batch_size=batch_size)
+            origin=origin, episode_id=episode_id, batch_size=batch_size, kind=kind)
         database.create_story(today, category, deck_id, sentences, prompt_text, topic, gen_params, lang=lang)
         story = database.get_active_story(today, category, deck_id, lang=lang)
     except Exception as e:
@@ -411,7 +429,8 @@ def _start_background_generation(deck_id: int, category: str, today: str, cards:
 
 def _gen_params_dict(*, topic, max_hsk, model, grammar_focus, grammar_pct,
                      mode, chapter_ids, articles=None, lang="zh",
-                     origin=None, episode_id=None, batch_size=None) -> dict:
+                     origin=None, episode_id=None, batch_size=None,
+                     kind=None) -> dict:
     """Bundle the story generation settings persisted on each story row, so the
     Again regeneration can reproduce the same style (see generate_sentence_for_word).
 
@@ -420,11 +439,16 @@ def _gen_params_dict(*, topic, max_hsk, model, grammar_focus, grammar_pct,
     origin: "pregen" when the story was created by the morning pregen —
     get_recent_story_keys skips those rows so pregen only ever reproduces
     user-initiated generations instead of feeding on its own output (issue #468).
-    episode_id: podcast mode's selected episode (issue #482, summary-only
-    pipeline since #561) — Again-regen re-fetches the episode's summary_de by
-    this id rather than reusing `articles` (podcast stories don't store any).
+    episode_id: knowledge mode's selected source item (issue #482, renamed
+    from "podcast" mode in #654; summary-only pipeline since #561) —
+    Again-regen re-fetches the item's summary_de by this id rather than
+    reusing `articles` (knowledge stories don't store any).
+    kind: the selected item's source kind (podcast/video/article, issue #654)
+    at generation time — purely informational (regen re-derives it from the
+    episode row via episode_id), kept here so the frontend can show what kind
+    of source a knowledge story came from without an extra lookup.
     batch_size: user-chosen words-per-AI-call (issue #563 podcast-only, #574 all
-    modes); None/0 = each mode's default chunking (podcast: all at once; story
+    modes); None/0 = each mode's default chunking (knowledge: all at once; story
     family: CHUNK_SIZE; kahneman: per-chapter split capped at MAX_KAHNEMAN_BATCH;
     briefing/paste: MAX_NEWS_BATCH). Stored for handoff/reproducibility only —
     Again-regen is single-card.
@@ -442,6 +466,7 @@ def _gen_params_dict(*, topic, max_hsk, model, grammar_focus, grammar_pct,
         "origin": origin,
         "episode_id": episode_id,
         "batch_size": batch_size,
+        "kind": kind,
     }
 
 
@@ -495,19 +520,24 @@ def generate_sentence_for_word(card: dict, gen_params: dict | None) -> dict | No
                     sentences = ai.generate_kahneman_sentences([card], chapter, model=model)
                 else:  # book data missing → fall back to a plain sentence
                     sentences, _ = ai.generate_story([card], model=model, lang=lang)
-            elif mode == "podcast":
-                # Podcast Again-regen (issue #561): same lean pipeline, one card +
-                # the episode summary, honoring the story's stored user-picked
-                # model (old stories stored gpt-5.1, which is not whitelisted, so
-                # _validated_model falls back). No summary → plain sentence.
+            elif mode in ("knowledge", "podcast"):
+                # Knowledge Again-regen (issue #561, renamed from "podcast" in
+                # #654): same lean pipeline, one card + the item's summary,
+                # honoring the story's stored user-picked model (old stories
+                # stored gpt-5.1, which is not whitelisted, so _validated_model
+                # falls back). mode="podcast" here means a *historical* story
+                # (new stories are generated with mode="knowledge" — #654
+                # rejects "podcast" at generation time, but old stories must
+                # keep regenerating). No summary → plain sentence.
                 ep = database.get_episode(gp["episode_id"]) if gp.get("episode_id") else None
                 summary = ((ep or {}).get("summary_de") or "").strip()
                 if summary:
+                    ep_kind = ep.get("kind") or "podcast"
                     sentences = ai.generate_podcast_sentences(
                         [card], summary, ep.get("title") or "",
                         model=_validated_model(gp.get("model"), default=ai.DEFAULT_MODEL),
                         max_hsk=gp.get("max_hsk", 3),
-                        source_url=ep.get("youtube_url") or f"/#podcast-{ep['id']}",
+                        source_url=ep.get("youtube_url") or f"/#{ep_kind}-{ep['id']}",
                         source_title=ep.get("title"))
                 else:
                     sentences, _ = ai.generate_story([card], model=model, lang=lang)
@@ -659,10 +689,13 @@ def regenerate_story(deck_id: int, category: str,
     """Regenerate today's story. body (optional JSON): {"articles": [{"url", "title", "text"}]}
     — pasted texts for mode="paste" (too long to fit in a query string).
     mode="briefing" ignores pasted articles and auto-fetches today's news (issue #387);
-    mode="paste" with no articles is an error (issue #396); mode="podcast" uses the
-    episode_id's German summary directly, no articles involved (reworked #561).
-    mode="news" (the old auto-fetch-only mode) has been removed (issue #512) and
-    is rejected."""
+    mode="paste" with no articles is an error (issue #396); mode="knowledge" (renamed
+    from "podcast" in #654) uses the episode_id's German summary directly, no
+    articles involved (reworked #561).
+    mode="news" (the old auto-fetch-only mode) has been removed (issue #512), and
+    mode="podcast" (renamed to "knowledge" in #654) has likewise been removed —
+    both are rejected for *new* generation, but stories already stored with either
+    identifier still display and still support per-word Again regeneration."""
     if ai_disabled():
         return None
     chosen_model = _validated_model(model)

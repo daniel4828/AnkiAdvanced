@@ -337,7 +337,12 @@ Rules:
 Return ONLY a numbered list of Chinese sentences, no explanation:
 1. ...
 2. ...""",
-    "podcast": """任务：下面是一期播客单集的内容摘要（德语）。请写若干简体中文句子，帮助 HSK 4-5
+    # Renamed from "podcast" to "knowledge" (issue #654) — episodes now cover
+    # podcast/video/article sources, not just podcasts. Old mode='podcast'
+    # stories still call generate_podcast_sentences below, which now looks up
+    # this same "knowledge" template — see database/core.py's one-time
+    # prompt_presets rename so Daniel's saved custom template keeps applying.
+    "knowledge": """任务：下面是一期播客单集的内容摘要（德语）。请写若干简体中文句子，帮助 HSK 4-5
 学习者复习词汇。这些句子不需要合起来构成一篇摘要——每一句只要"发生在这一集的世界里"就可以。
 
 单集标题：{title}
@@ -401,7 +406,7 @@ PROMPT_TEMPLATE_VARIABLES: dict[str, list[str]] = {
     "story": ["words", "max_hsk", "grammar_block", "topic_block"],
     "qa": ["words", "max_hsk", "grammar_block", "topic"],
     "expository": ["words", "max_hsk", "grammar_block", "topic"],
-    "podcast": ["words", "summary", "title", "max_hsk", "extra_hint"],
+    "knowledge": ["words", "summary", "title", "max_hsk", "extra_hint"],
 }
 
 
@@ -2242,7 +2247,9 @@ def generate_podcast_sentences(
         return []
 
     # 模板可被用户自定义覆盖（issue #581）；默认渲染结果与旧内联 f-string 逐字一致。
-    tpl = _story_prompt_template("podcast")
+    # #654: 查的是 "knowledge" 模板——mode='podcast' 的历史故事也走这个函数，
+    # 迁移后它们的自定义模板同样存在 mode='knowledge' 下（见 database/core.py）。
+    tpl = _story_prompt_template("knowledge")
 
     def _build_prompt(batch: list[dict], extra_hint: str = "") -> str:
         word_list = "\n".join(
