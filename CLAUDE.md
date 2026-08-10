@@ -252,7 +252,7 @@ bash sync_offline.sh push    # 只推不拉，推完归档本地库
   - Browse 的 saved 行只在词条**没有释义**时才显示 "✨ Generate"，★ List 进来的词内容已齐全，再生成纯烧钱
 - **今天/明天可选**（#636）：`day` 参数同时决定 Daily 牌组、`promote_saved_word` 的 due 和 `importer.import_yaml_content(due_offset_days=)`。**牌组和 due 必须一起后移** —— 未来日期的 Daily 牌组被 `parse_daily_deck_date` 锁住不可复习，卡片若还 due 今天就永远够不到
 - **不阻塞连续输入**（#636）：提交后立刻清空输入框，每个词进弹窗里的队列各自轮询自己的 job
-- **独立加词页 `/add`（#668）**：可收藏的网址，打开就是输入框（存 iPhone 主屏当图标用）。`static/add.html` 是自包含页面，**故意不加载 `app.js`** —— 5.5 KB vs 完整应用的 77 KB + 491 KB JS，秒开就是这个功能的全部意义。为此把 `addWordViaAi()` 和 `api()` 从 `app.js` 抽到 `static/shared.js` 两页共用，**不复制第二份**（理由同下条；`tests/test_add_word.py` 有一条测试专门守着 `app.js` 里不能再出现这两个定义）
+- **独立加词页 `/add`（#668）+ URL 参数（#686）**：可收藏的网址，打开就是输入框（存 iPhone 主屏当图标用）。`?word=生态`（或 `?w=`）+ 可选 `&day=today|tomorrow|list` → 打开即自动提交，供 iOS 快捷指令在任意 App 里一键加词；`day` 非法值回落 today（词才是重点，不该为此失败）。**提交后必须 `history.replaceState` 抹掉参数** —— 否则刷新或 iOS 恢复标签页会静默再花一次 AI 钱。`static/add.html` 是自包含页面，**故意不加载 `app.js`** —— 5.5 KB vs 完整应用的 77 KB + 491 KB JS，秒开就是这个功能的全部意义。为此把 `addWordViaAi()` 和 `api()` 从 `app.js` 抽到 `static/shared.js` 两页共用，**不复制第二份**（理由同下条；`tests/test_add_word.py` 有一条测试专门守着 `app.js` 里不能再出现这两个定义）
 - **`/api/add-word-ai` 是全应用唯一的加词入口**（#643）：顶栏 ＋、播客单集的 HSK 生词表格、复习界面长按词的菜单、以及 `/add` 页面，全部共用 `shared.js` 的 `addWordViaAi()`。原来播客/长按走的 `/api/quick-add-word` 已删除 —— 它只让 AI 填四个字段（无例句/汉字分解/量词/同义反义词），而且 `added_to_deck` 分支在词已学过时被 `INSERT OR IGNORE` + `UNIQUE(word_id, category)` 全部静默丢弃，却照样返回成功。**加词只能有一条管线**，否则修好的坑会在第二条路上重新出现
 
 - **YAML 格式完整文档：** `docs/yaml-format.md`（中文格式：词性/例句/词源/汉字分解；法语格式：`lang: fr` + `type: word|sentence`，经 `importer._normalize_fr_entry` 适配后复用全部下游逻辑）
@@ -444,7 +444,7 @@ GET  /api/costs/call/{id}                            → {prompt, response}（�
 
 # 其他
 POST /api/import                                     → 触发 YAML 导入
-GET  /add                                            → 独立加词页（#668，可收藏/存主屏；不加载 app.js）
+GET  /add[?word=生态&day=today|tomorrow|list]         → 独立加词页（#668，可收藏/存主屏；不加载 app.js）；带 word 参数时打开即自动提交（#686，供 iOS 快捷指令用），提交后从地址栏抹掉该参数以免刷新重复扣费
 GET  /save                                           → 独立素材收藏页（#681，Link/Text 两个标签；同样不加载 app.js）
 POST /api/add-word-ai                                → 界面内添加生词（#627）；body {word_zh, day?:today|tomorrow|list}（#636、#677）；新词返回 {job_id}，已有词直接返回 {status}。**全应用唯一的加词入口**（#643）：顶栏 ＋、播客生词表格、复习界面长按菜单都走它
 GET  /api/add-word-ai/progress/{job_id}              → 轮询后台生成+导入的结果
