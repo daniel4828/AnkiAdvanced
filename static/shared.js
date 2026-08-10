@@ -45,7 +45,13 @@ async function addWordViaAi(wordZh, day, onUpdate) {
 
   // Known words come back finished — no AI call, no job to poll.
   if (!result.job_id) {
-    if (result.status === 'reset') {
+    if (result.status === 'already_listed') {
+      onUpdate('done', '★ already on your list', result.deck_path);
+    } else if (result.status === 'listed') {
+      // Parked from a real deck: suspended, so it stops coming up for review.
+      onUpdate('done', `★ moved to list from ${result.previous_decks.join(', ')}`,
+               result.deck_path);
+    } else if (result.status === 'reset') {
       // The cards were moved here from somewhere they had real progress
       // (#675). That progress is gone for good, so name what was thrown away
       // instead of reporting a bland success.
@@ -78,7 +84,8 @@ async function addWordViaAi(wordZh, day, onUpdate) {
       onUpdate('error', 'could not be imported — check the logs');
       return;
     }
-    onUpdate('done', `✓ ${result.deck_path}`, result.deck_path);
+    onUpdate('done', day === 'list' ? '★ added to your list' : `✓ ${result.deck_path}`,
+             result.deck_path);
     refreshDecks();
   };
   setTimeout(poll, 1500);

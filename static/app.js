@@ -2015,8 +2015,11 @@ function _wordRow(w) {
   const sel = _browseSelected.has(w.id) ? ' bw-row-selected' : '';
   let rightHtml;
   if (_browseCardStatus === 'saved') {
+    // Words parked via ★ List (#677) already carry a full entry — offering
+    // "Generate" there would just burn an API call to re-produce it.
     rightHtml =
-      `<button class="bw-saved-btn" onclick="event.stopPropagation();savedGenerate(${w.id},this)" title="Generate content with AI">✨ Generate</button>` +
+      (w.definition ? '' :
+        `<button class="bw-saved-btn" onclick="event.stopPropagation();savedGenerate(${w.id},this)" title="Generate content with AI">✨ Generate</button>`) +
       `<button class="bw-saved-btn bw-saved-promote" onclick="event.stopPropagation();savedPromote(${w.id},this)" title="Add to tomorrow's Daily deck">→ Add to Daily</button>`;
   } else if (_browseCardStatus === 'leech' && w.cards.some(c => c.is_leech)) {
     rightHtml =
@@ -6311,14 +6314,21 @@ function closeAddWordModal() {
 }
 
 function setAddWordDay(day) {
-  _addWordDay = day === 'tomorrow' ? 'tomorrow' : 'today';
+  _addWordDay = ['tomorrow', 'list'].includes(day) ? day : 'today';
   for (const btn of document.querySelectorAll('.add-word-day-btn')) {
     btn.classList.toggle('active', btn.dataset.day === _addWordDay);
   }
-  const d = new Date();
-  if (_addWordDay === 'tomorrow') d.setDate(d.getDate() + 1);
-  document.getElementById('add-word-deck').textContent =
-    'Daily::' + `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const label = document.getElementById('add-word-deck');
+  if (_addWordDay === 'list') {
+    // ★ List parks the word in the Saved deck, suspended (#677) — say so,
+    // because "Saved" alone reads like a deck it will be reviewed from.
+    label.textContent = 'Saved (not reviewed until promoted)';
+  } else {
+    const d = new Date();
+    if (_addWordDay === 'tomorrow') d.setDate(d.getDate() + 1);
+    label.textContent =
+      'Daily::' + `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
   document.getElementById('add-word-input').focus();
 }
 

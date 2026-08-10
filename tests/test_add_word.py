@@ -343,3 +343,113 @@ def test_add_page_uses_the_shared_endpoint():
     add_html = pathlib.Path("static/add.html").read_text(encoding="utf-8")
     assert "addWordViaAi(" in add_html
     assert "/api/add-word-ai" not in add_html
+
+
+# ---------------------------------------------------------------------------
+# ★ List: park a word in the Saved deck instead of a Daily deck (#677)
+# ---------------------------------------------------------------------------
+
+def _saved_deck_id():
+    return database.get_or_create_saved_deck()
+
+
+def test_list_generates_the_full_entry_but_parks_it_suspended(tmp_db):
+    """day='list' still pays for a complete de-zh-bot entry — the word is just
+    kept out of every review queue until promoted."""
+    result = _run_add_word("生态", day="list")
+    assert result["job"]["status"] == "done", result["job"]
+    assert result["deck_path"] == "Saved"
+
+    entry = database.get_word_by_zh("生态")
+    conn = database.get_db()
+    cards = conn.execute(
+        "SELECT deck_id, state, due FROM cards WHERE word_id=? AND deleted_at IS NULL",
+        (entry["id"],),
+    ).fetchall()
+    examples = conn.execute(
+        "SELECT COUNT(*) c FROM entry_examples WHERE word_id=?", (entry["id"],)
+    ).fetchone()["c"]
+    conn.close()
+
+    assert cards, "no cards were created"
+    assert {c["deck_id"] for c in cards} == {_saved_deck_id()}
+    # `due` is NOT NULL in the schema — state='suspended' is what keeps a card
+    # out of the queues, not its due date.
+    assert all(c["state"] == "suspended" for c in cards)
+    assert examples > 0, "list mode must still produce the full entry"
+
+
+def test_listed_word_is_invisible_to_the_review_queue(tmp_db):
+    """The whole point: a listed word must not turn up for review anywhere."""
+    _run_add_word("生态", day="list")
+    today_deck = database.get_or_create_deck_path(f"Daily::{date.today().isoformat()}")
+    for category in ("reading", "listening", "creating"):
+        r = client.get(f"/api/today/{today_deck}/{category}")
+        assert r.status_code == 200
+        assert r.json().get("card") is None
+
+
+def test_listing_a_studied_word_suspends_it_without_discarding_progress(tmp_db):
+    """Parking is not a reset: suspending already keeps the card out of every
+    queue, and promoting later resets it anyway (#677)."""
+    import importer
+
+    other_deck = database.get_or_create_deck_path("Kouyu::Test")
+    importer.import_yaml_content(ENTRY_YAML, other_deck)
+    entry_id = database.get_word_by_zh("生态")["id"]
+    conn = database.get_db()
+    conn.execute(
+        "UPDATE cards SET state='review', repetitions=3, stability=20.0 WHERE word_id=?",
+        (entry_id,),
+    )
+    conn.commit()
+    conn.close()
+
+    with patch.object(ai, "_call_api", side_effect=AssertionError("AI was called")):
+        body = client.post("/api/add-word-ai", json={"word_zh": "生态", "day": "list"}).json()
+
+    assert body["status"] == "listed"
+    assert body["reviews_discarded"] == 0
+    conn = database.get_db()
+    rows = conn.execute(
+        "SELECT deck_id, state, stability FROM cards WHERE word_id=? AND deleted_at IS NULL",
+        (entry_id,),
+    ).fetchall()
+    conn.close()
+    assert {r["deck_id"] for r in rows} == {_saved_deck_id()}
+    assert all(r["state"] == "suspended" for r in rows)
+    assert all(r["stability"] == 20.0 for r in rows), "parking must not wipe FSRS state"
+
+
+def test_listing_an_already_listed_word_is_reported_as_such(tmp_db):
+    r = client.post("/api/save-word", json={"word_zh": "生态", "pinyin": "shēngtài"})
+    assert r.json()["status"] == "saved"
+    with patch.object(ai, "_call_api", side_effect=AssertionError("AI was called")):
+        body = client.post("/api/add-word-ai", json={"word_zh": "生态", "day": "list"}).json()
+    assert body["status"] == "already_listed"
+
+
+def test_listed_word_can_be_promoted_into_a_daily_deck(tmp_db):
+    """Browse's '→ Add to Daily' button must work on words added via ★ List —
+    that round trip is the reason the feature exists."""
+    _run_add_word("生态", day="list")
+    entry_id = database.get_word_by_zh("生态")["id"]
+
+    r = client.post(f"/api/saved/{entry_id}/promote")
+    assert r.status_code == 200, r.text
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    assert r.json()["deck_path"] == f"Daily::{tomorrow}"
+
+    conn = database.get_db()
+    rows = conn.execute(
+        "SELECT deck_id, state, due FROM cards WHERE word_id=? AND deleted_at IS NULL",
+        (entry_id,),
+    ).fetchall()
+    conn.close()
+    assert {r["deck_id"] for r in rows} == set(_daily_leaf_decks(tomorrow).values())
+    assert all(r["state"] == "new" and r["due"] == tomorrow for r in rows)
+
+
+def test_invalid_day_still_rejected_and_list_accepted(tmp_db):
+    assert client.post("/api/add-word-ai",
+                       json={"word_zh": "生态", "day": "nextweek"}).status_code == 400

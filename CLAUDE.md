@@ -245,6 +245,11 @@ bash sync_offline.sh push    # 只推不拉，推完归档本地库
   - `review_log` 的历史记录不删，所以统计不受影响
 - 生成约 30 秒，所以走后台线程 + `job_id` 轮询（复用 `_import_jobs` 机制）
 - 只接受中文输入：德/英输入需要 AI 反问是哪个意思（`de-zh-bot` 就是这么做的），一个无交互的输入框做不到，猜错会静默存进一个错词
+- **第三个去处 ★ List**（#677）：`day="list"` —— 照常花钱生成完整词条，但卡片直接进 `Saved` 牌组并挂起，**不进任何复习队列**，直到在 Browse 的 saved 视图点 "→ Add to Daily" 提升。`database.stage_word_in_saved()` 是 `promote_saved_word` 的逆操作
+  - **导入仍走今天的 Daily 牌组，之后再搬**：直接以 `Saved` 为父牌组导入会建出 `Saved::listening` 等叶子牌组，而 Browse 的 saved 过滤器认的是 `deck_name === 'Saved'`
+  - **挂起靠 `state`，不靠 `due`**：`cards.due` 是 `NOT NULL DEFAULT date('now')`，写 NULL 直接违反约束。停留在 `Saved` 的卡照样有 due 值，是 `state='suspended'` 把它挡在队列外
+  - 停放**不清空** FSRS 字段（挂起已经够了；真要激活时 `promote_saved_word` 会重置），所以 `reviews_discarded` 返回 0 —— 与上面的 `reset` 不同，这不是破坏性操作
+  - Browse 的 saved 行只在词条**没有释义**时才显示 "✨ Generate"，★ List 进来的词内容已齐全，再生成纯烧钱
 - **今天/明天可选**（#636）：`day` 参数同时决定 Daily 牌组、`promote_saved_word` 的 due 和 `importer.import_yaml_content(due_offset_days=)`。**牌组和 due 必须一起后移** —— 未来日期的 Daily 牌组被 `parse_daily_deck_date` 锁住不可复习，卡片若还 due 今天就永远够不到
 - **不阻塞连续输入**（#636）：提交后立刻清空输入框，每个词进弹窗里的队列各自轮询自己的 job
 - **独立加词页 `/add`（#668）**：可收藏的网址，打开就是输入框（存 iPhone 主屏当图标用）。`static/add.html` 是自包含页面，**故意不加载 `app.js`** —— 5.5 KB vs 完整应用的 77 KB + 491 KB JS，秒开就是这个功能的全部意义。为此把 `addWordViaAi()` 和 `api()` 从 `app.js` 抽到 `static/shared.js` 两页共用，**不复制第二份**（理由同下条；`tests/test_add_word.py` 有一条测试专门守着 `app.js` 里不能再出现这两个定义）
@@ -437,7 +442,7 @@ GET  /api/costs/call/{id}                            → {prompt, response}（�
 # 其他
 POST /api/import                                     → 触发 YAML 导入
 GET  /add                                            → 独立加词页（#668，可收藏/存主屏；不加载 app.js）
-POST /api/add-word-ai                                → 界面内添加生词（#627）；body {word_zh, day?:today|tomorrow}（#636）；新词返回 {job_id}，已有词直接返回 {status}。**全应用唯一的加词入口**（#643）：顶栏 ＋、播客生词表格、复习界面长按菜单都走它
+POST /api/add-word-ai                                → 界面内添加生词（#627）；body {word_zh, day?:today|tomorrow|list}（#636、#677）；新词返回 {job_id}，已有词直接返回 {status}。**全应用唯一的加词入口**（#643）：顶栏 ＋、播客生词表格、复习界面长按菜单都走它
 GET  /api/add-word-ai/progress/{job_id}              → 轮询后台生成+导入的结果
 GET  /api/browse                                     → {deck_id?, category?, state?, q?, lang?}
 GET  /api/stats ；/api/retention ；/api/card-evolution（均支持 ?lang=）
