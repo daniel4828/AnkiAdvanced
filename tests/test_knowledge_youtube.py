@@ -4,8 +4,14 @@ parse_video_id is pure (no I/O). fetch_metadata and fetch_captions both make
 real network/API calls in production, so every test here stubs them out —
 CLAUDE.md is explicit that this suite must never actually reach YouTube.
 """
+import pytest
+
 import knowledge.youtube as ky
-from youtube_transcript_api._errors import CouldNotRetrieveTranscript
+from youtube_transcript_api._errors import (
+    CouldNotRetrieveTranscript,
+    RequestBlocked,
+    TranscriptsDisabled,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -193,6 +199,91 @@ def test_fetch_captions_fetch_failure_returns_none(monkeypatch):
 
     text, meta = ky.fetch_captions("vid4")
     assert text is None
+
+
+# ---------------------------------------------------------------------------
+# fetch_captions — YouTube refusing the request (#681)
+# ---------------------------------------------------------------------------
+
+def _patch_notebooklm(monkeypatch, result):
+    """Stub podcast.transcribe_url_via_notebooklm; returns the list of
+    (url, video_id) calls it received so tests can assert it actually ran."""
+    import podcast
+    calls = []
+
+    def fake(url, video_id):
+        calls.append((url, video_id))
+        return result
+
+    monkeypatch.setattr(podcast, "transcribe_url_via_notebooklm", fake)
+    return calls
+
+
+def test_blocked_request_falls_back_to_notebooklm(monkeypatch):
+    """RequestBlocked (the production server's cloud IP being banned) must NOT
+    be reported as 'no captions' — it goes to NotebookLM instead."""
+    _patch_api(monkeypatch, _FakeApi(list_raises=RequestBlocked("vid6")))
+    calls = _patch_notebooklm(monkeypatch, "大家好 欢迎收听")
+
+    text, meta = ky.fetch_captions("vid6")
+    assert text == "大家好欢迎收听"  # normalized like every other transcript
+    assert meta["transcript_source"] == "notebooklm"
+    assert calls == [("https://www.youtube.com/watch?v=vid6", "vid6")]
+
+
+def test_blocked_during_fetch_also_falls_back(monkeypatch):
+    """The block can hit on the track fetch rather than the listing."""
+    transcripts = _FakeTranscriptList([
+        _FakeTranscript("zh-Hans", [], fetch_raises=RequestBlocked("vid7")),
+    ])
+    _patch_api(monkeypatch, _FakeApi(transcript_list=transcripts))
+    calls = _patch_notebooklm(monkeypatch, "内容")
+
+    text, meta = ky.fetch_captions("vid7")
+    assert text == "内容"
+    assert meta["transcript_source"] == "notebooklm"
+    assert len(calls) == 1
+
+
+def test_blocked_with_failing_fallback_raises(monkeypatch):
+    """Both sources failed: this is an error the episode must surface
+    (status='error'), never a silent 'no_transcript'."""
+    _patch_api(monkeypatch, _FakeApi(list_raises=RequestBlocked("vid8")))
+    _patch_notebooklm(monkeypatch, None)
+
+    with pytest.raises(ky.CaptionsUnavailable) as excinfo:
+        ky.fetch_captions("vid8")
+    assert "RequestBlocked" in str(excinfo.value)
+
+
+def test_blocked_with_blank_fallback_raises(monkeypatch):
+    """A whitespace-only NotebookLM result is no transcript at all."""
+    _patch_api(monkeypatch, _FakeApi(list_raises=RequestBlocked("vid9")))
+    _patch_notebooklm(monkeypatch, "   \n ")
+
+    with pytest.raises(ky.CaptionsUnavailable):
+        ky.fetch_captions("vid9")
+
+
+def test_missing_captions_never_calls_notebooklm(monkeypatch):
+    """A video that truly has no caption track stays a cheap 'no_transcript' —
+    it must not spend a ~minutes-long NotebookLM round on the way there."""
+    _patch_api(monkeypatch, _FakeApi(list_raises=TranscriptsDisabled("vid10")))
+    calls = _patch_notebooklm(monkeypatch, "should not be used")
+
+    text, _ = ky.fetch_captions("vid10")
+    assert text is None
+    assert calls == []
+
+
+def test_blocked_error_types_are_transcript_error_subclasses():
+    """Guards the exact bug: these all subclass CouldNotRetrieveTranscript, so
+    catching the base class first swallows them as 'no captions'. If a future
+    library version renames one, _blocked_error_types() drops it silently —
+    this asserts the ones we rely on are still resolvable."""
+    types = ky._blocked_error_types()
+    assert RequestBlocked in types
+    assert all(issubclass(t, CouldNotRetrieveTranscript) for t in types)
 
 
 def test_fetch_captions_joins_and_normalizes_chinese_text(monkeypatch):
