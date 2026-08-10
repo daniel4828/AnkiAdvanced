@@ -119,7 +119,9 @@ def _store_article(*, video_id: str, title: str, site: str | None, published_at,
         channel_id=site,
         title=title,
         published_at=published_at,
-        youtube_url=source_url,
+        # youtube_url is NOT NULL in schema.sql — pasted text (#668) may
+        # have no source_url at all, so fall back to "" rather than None.
+        youtube_url=source_url or "",
         audio_url=None,
         duration_seconds=None,
         kind="article",

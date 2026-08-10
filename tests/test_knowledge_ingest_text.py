@@ -10,6 +10,8 @@ its contract in a stub. ai.translate_title is monkeypatched to avoid any
 real AI call (CLAUDE.md: AI must be stubbed at ai._call_api / the public
 function, tests never call out to a real provider).
 """
+import re
+
 import pytest
 
 import ai
@@ -61,7 +63,8 @@ def test_ingest_text_stores_source_url_when_given():
 def test_ingest_text_source_url_optional():
     result = ingest.ingest_text("标题", LONG_ARTICLE)
     episode = database.get_episode(result["episode_id"])
-    assert episode["youtube_url"] is None
+    # youtube_url is NOT NULL in schema.sql; no source_url given -> "".
+    assert not episode["youtube_url"]
 
 
 def test_ingest_text_duplicate_body_deduped():
@@ -70,7 +73,7 @@ def test_ingest_text_duplicate_body_deduped():
     assert second == {"status": "already_exists", "episode_id": first["episode_id"]}
 
     # Only one row was actually created.
-    episodes = database.core.get_db().execute(
+    episodes = database.get_db().execute(
         "SELECT COUNT(*) AS c FROM podcast_episodes WHERE kind='article'"
     ).fetchone()
     assert episodes["c"] == 1
@@ -79,12 +82,18 @@ def test_ingest_text_duplicate_body_deduped():
 def test_ingest_text_whitespace_differences_still_dedupe():
     """#668 completion criterion: the same article pasted with different
     line-wrapping/blank lines must not create a second row — the hash is
-    computed over whitespace-normalized text."""
-    variant_a = LONG_ARTICLE
-    variant_b = "\n\n".join(LONG_ARTICLE[i:i + 20] for i in range(0, len(LONG_ARTICLE), 20))
+    computed over whitespace-normalized text. Uses paragraphs that already
+    have a single-space/newline boundary between them, so collapsing
+    whitespace-runs-to-one-space leaves the actual words untouched (an
+    earlier version of this test inserted newlines *inside* words, which
+    changes the normalized content and was a bug in the test, not the code)."""
+    paragraphs = [LONG_ARTICLE[i:i + 40] for i in range(0, len(LONG_ARTICLE), 40)]
+    variant_a = " ".join(paragraphs)          # single spaces
+    variant_b = "\n\n  \n".join(paragraphs)   # blank lines + stray indentation
     # Sanity: the two variants are literally different strings, but carry
-    # the same content once whitespace is collapsed.
+    # the same content once whitespace runs are collapsed to one space.
     assert variant_a != variant_b
+    assert re.sub(r"\s+", " ", variant_a) == re.sub(r"\s+", " ", variant_b)
 
     first = ingest.ingest_text("标题", variant_a)
     second = ingest.ingest_text("标题（换行方式不同）", variant_b)
