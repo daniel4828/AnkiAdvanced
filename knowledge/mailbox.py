@@ -45,12 +45,16 @@ logger = logging.getLogger(__name__)
 _URL_RE = re.compile(r'https?://[^\s<>"\']+')
 _TRAILING_PUNCT = '.,;:!?)]}\'"'
 
-# Same "too short to be a real article" threshold ingest_text() enforces
-# (knowledge.article._MIN_ARTICLE_CHARS) — checked here too so a mail with
-# only a two-line body doesn't even get to the ingest call (and doesn't
-# get logged as a "failed" retry candidate for something that will never
-# succeed).
-_MIN_BODY_CHARS = 200
+# Same "too short to be a real article" threshold ingest_text() enforces —
+# checked here too so a mail with only a two-line body doesn't even get to
+# the ingest call (and doesn't get logged as a "failed" retry candidate for
+# something that will never succeed).
+#
+# Derived, never re-typed: if this were a literal 200 and the shared
+# threshold later moved up, this gate would wave a mail through that
+# ingest_text() then rejects — and a rejected mail is deliberately NOT
+# marked read, so it would be retried forever, every single poll.
+_MIN_BODY_CHARS = knowledge.ingest._MIN_TEXT_CHARS
 
 
 def _env_allowed_senders() -> set:
