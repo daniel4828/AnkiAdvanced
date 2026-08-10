@@ -5328,3 +5328,54 @@ table.fsrs-table td.ivl { font-weight: 700; }
   font-size: 13px;
   color: var(--muted);
 }
+
+/* ── Phone header (#679) ─────────────────────────────────
+   The header is a 1fr/auto/1fr grid. During review the middle column carries
+   the counts, the retention/time badges and the Undo + Session buttons, which
+   on a ~390px screen is far wider than the viewport — so the whole header
+   overflowed and the action buttons (＋ above all) sat off-screen to the
+   right, reachable only by scrolling sideways. On phones the counts move to
+   their own second row instead, so title and buttons always stay visible. */
+@media (max-width: 560px) {
+  header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "left  right"
+      "counts counts";
+    padding: 8px 12px;
+    row-gap: 6px;
+  }
+  .header-left  { grid-area: left; min-width: 0; }
+  .header-right { grid-area: right; }
+  .counts-row {
+    grid-area: counts;
+    /* Even one row of its own can overflow (per-category counts + badges +
+       two buttons) — let it scroll inside itself rather than widening the
+       page. justify-content:center would strand the left end when it does. */
+    justify-content: flex-start;
+    gap: 12px;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .counts-row::-webkit-scrollbar { display: none; }
+  .counts-row > * { flex: none; }
+  header h1 {
+    font-size: 16px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* Apple's minimum comfortable touch target is 44px; these were 32px-ish
+     circles/emoji sized for a mouse. */
+  #add-word-btn { width: 40px; height: 40px; font-size: 24px; margin-left: 2px; }
+  #random-words-btn,
+  #header-regen-btn,
+  #sync-btn {
+    min-width: 40px;
+    min-height: 40px;
+    font-size: 20px;
+    padding: 0;
+  }
+  #back-btn { min-width: 40px; min-height: 40px; font-size: 24px; }
+}
