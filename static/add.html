@@ -101,15 +101,16 @@
     // stay suspended until promoted from Browse (#677).
     list: 'Parked in your Saved list — not reviewed until you add it to a deck from Browse.',
   };
+  function selectDay(d) {
+    if (!DAYS.includes(d)) return;
+    day = d;
+    for (const other of DAYS) {
+      document.getElementById(`day-${other}`).setAttribute('aria-pressed', String(other === d));
+    }
+    document.getElementById('hint').textContent = HINTS[d];
+  }
   for (const d of DAYS) {
-    document.getElementById(`day-${d}`).onclick = () => {
-      day = d;
-      for (const other of DAYS) {
-        document.getElementById(`day-${other}`).setAttribute('aria-pressed', String(other === d));
-      }
-      document.getElementById('hint').textContent = HINTS[d];
-      input.focus();
-    };
+    document.getElementById(`day-${d}`).onclick = () => { selectDay(d); input.focus(); };
   }
 
   function render() {
@@ -148,6 +149,24 @@
 
   document.getElementById('go').onclick = submit;
   input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+
+  // URL parameters (#686) — /add?word=生态&day=list — so an iOS Shortcut can
+  // add a word straight from any app. `day` is optional and defaults to today;
+  // an unknown value falls back to today rather than failing, since the word
+  // is the part that matters.
+  //
+  // Opening such a link submits immediately and therefore spends an AI call.
+  // That is the whole point of the parameter, but it also means the word is
+  // stripped from the address bar afterwards (history.replaceState): a reload
+  // or a "restore tabs" on the phone would otherwise silently add it again.
+  const params = new URLSearchParams(location.search);
+  const preset = (params.get('word') || params.get('w') || '').trim();
+  selectDay((params.get('day') || 'today').trim());
+  if (preset) {
+    input.value = preset;
+    history.replaceState(null, '', location.pathname);
+    submit();
+  }
 </script>
 </body>
 </html>

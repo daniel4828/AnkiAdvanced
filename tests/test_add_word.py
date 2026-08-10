@@ -453,3 +453,17 @@ def test_listed_word_can_be_promoted_into_a_daily_deck(tmp_db):
 def test_invalid_day_still_rejected_and_list_accepted(tmp_db):
     assert client.post("/api/add-word-ai",
                        json={"word_zh": "生态", "day": "nextweek"}).status_code == 400
+
+
+def test_add_page_reads_word_and_day_from_the_url(tmp_db):
+    """/add?word=生态&day=list (#686) — an iOS Shortcut can add a word from any
+    app. Asserted on the page source because the behaviour lives in the page's
+    own script; the browser round trip is covered manually."""
+    import pathlib
+    src = pathlib.Path("static/add.html").read_text(encoding="utf-8")
+    assert "URLSearchParams" in src
+    assert "params.get('word')" in src and "params.get('w')" in src
+    assert "params.get('day')" in src
+    # The word must be stripped from the URL after submitting, or a reload
+    # (or iOS restoring tabs) silently spends another AI call on it.
+    assert "history.replaceState" in src
