@@ -72,6 +72,29 @@ def reset_word_to_new(word_id: int, target_deck_ids: dict, due: str,
     return count
 
 
+def stage_word_in_saved(word_id: int, saved_deck_id: int) -> int:
+    """Park all of a word's cards in the Saved deck as suspended — the "add it
+    to my list, I'm not studying it yet" case (#677).
+
+    The inverse of promote_saved_word. Scheduling fields are deliberately left
+    alone: state='suspended' is what keeps a card out of every queue (`due` is
+    NOT NULL and stays whatever it was), and promote_saved_word resets them
+    anyway if the word is ever activated — so parking a word costs nothing that
+    promoting wouldn't cost later.
+
+    Returns the number of cards staged.
+    """
+    conn = get_db()
+    cur = conn.execute(
+        """UPDATE cards SET deck_id=?, state='suspended', buried_until=NULL
+           WHERE word_id=? AND deleted_at IS NULL""",
+        (saved_deck_id, word_id),
+    )
+    conn.commit()
+    conn.close()
+    return cur.rowcount
+
+
 def promote_saved_word(word_id: int, target_deck_ids: dict,
                        saved_deck_id: int, due: str) -> int:
     """Promote a word staged in the Saved deck — reset_word_to_new limited to

@@ -270,9 +270,13 @@ def _total_repetitions(entry_id: int) -> int:
 
 @router.post("/api/add-word-ai")
 def add_word_ai(body: dict):
-    """Add one Chinese word to a Daily deck with an AI-generated entry.
+    """Add one Chinese word with an AI-generated entry.
 
-    Body: { word_zh, day?: "today"|"tomorrow" }
+    Body: { word_zh, day?: "today"|"tomorrow"|"list" }
+      today/tomorrow → cards go into that day's Daily deck, due then.
+      list (#677)    → the entry is generated in full but its cards are parked
+                       suspended in the Saved deck, so the word enters no review
+                       queue until it is promoted from Browse.
     Returns either {job_id, deck_path} — generation runs in the background,
     poll /api/add-word-ai/progress/{job_id} — or, when the word is already in
     the database, a finished {status, ...} with no AI call at all.
@@ -285,15 +289,23 @@ def add_word_ai(body: dict):
                             detail="Please enter the word in Chinese characters")
 
     day = (body.get("day") or "today").strip()
-    if day not in ("today", "tomorrow"):
-        raise HTTPException(status_code=400, detail="day must be 'today' or 'tomorrow'")
+    if day not in ("today", "tomorrow", "list"):
+        raise HTTPException(status_code=400,
+                            detail="day must be 'today', 'tomorrow' or 'list'")
+    # 'list' (#677) = generate the full entry now but park it in the Saved deck
+    # as suspended cards, so the word enters no queue until it is promoted from
+    # Browse. The import itself still runs against today's Daily deck — that is
+    # the one code path that builds a complete entry — and the cards are moved
+    # afterwards. Importing straight into Saved would create Saved::listening
+    # etc. leaf decks, and Browse's saved filter matches on deck_name == 'Saved'.
+    to_list = day == "list"
     # A daily deck dated in the future is locked until its date arrives
     # (database.parse_daily_deck_date), which is exactly the "stage it for
     # tomorrow" semantics — the cards just have to be due then too (#636).
     due_offset_days = 1 if day == "tomorrow" else 0
     target_day = (date.today() + timedelta(days=due_offset_days)).isoformat()
-    deck_path = f"Daily::{target_day}"
-    deck_id = database.get_or_create_deck_path(deck_path)
+    deck_path = "Saved" if to_list else f"Daily::{target_day}"
+    deck_id = database.get_or_create_deck_path(f"Daily::{target_day}")
 
     # Known word → don't pay for a second generation; the importer would skip
     # it as a duplicate anyway. `cards` has UNIQUE(word_id, category), so a word
@@ -315,12 +327,20 @@ def add_word_ai(body: dict):
         deck_names = sorted(
             (database.get_deck(d) or {}).get("name") or f"deck {d}" for d in card_decks
         )
-        leaf_decks = database.get_or_create_category_decks(deck_id, target_day)
-        moved = database.reset_word_to_new(existing["id"], leaf_decks, target_day)
-        return {
+        if to_list:
+            # Parking suspends the cards but leaves their scheduling alone, so
+            # nothing is discarded here — promoting later is what resets them.
+            moved = database.stage_word_in_saved(existing["id"], saved_deck_id)
+            status = "already_listed" if was_only_saved else "listed"
+            reps = 0
+        else:
+            leaf_decks = database.get_or_create_category_decks(deck_id, target_day)
+            moved = database.reset_word_to_new(existing["id"], leaf_decks, target_day)
             # Saved cards carry no progress, so that move is a promotion, not a
             # reset — the frontend words them differently.
-            "status": "promoted" if was_only_saved else "reset",
+            status = "promoted" if was_only_saved else "reset"
+        return {
+            "status": status,
             "word_zh": word_zh, "entry_id": existing["id"],
             "deck_path": deck_path, "deck_id": deck_id,
             "cards_moved": moved, "previous_decks": deck_names,
@@ -348,6 +368,12 @@ def add_word_ai(body: dict):
             if result.get("yaml_error"):
                 raise ValueError(
                     f"AI returned invalid YAML: {result['yaml_error'].get('problem', 'parse error')}")
+            if to_list and result.get("imported"):
+                # Only now do the freshly created cards exist to move (#677).
+                entry = database.get_word_by_zh(word_zh)
+                if entry:
+                    database.stage_word_in_saved(
+                        entry["id"], database.get_or_create_saved_deck())
             with _import_jobs_lock:
                 started_at = _import_jobs[job_id]["started_at"]
                 _import_jobs[job_id] = {

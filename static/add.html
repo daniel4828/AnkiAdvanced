@@ -75,8 +75,9 @@
     <div class="days">
       <button id="day-today" aria-pressed="true">Today</button>
       <button id="day-tomorrow" aria-pressed="false">Tomorrow</button>
+      <button id="day-list" aria-pressed="false">★ List</button>
     </div>
-    <p class="hint">Chinese input only. Generation takes ~30s — you can keep typing the next word meanwhile.</p>
+    <p class="hint" id="hint">Chinese input only. Generation takes ~30s — you can keep typing the next word meanwhile.</p>
   </div>
 
   <ul id="queue"></ul>
@@ -92,11 +93,21 @@
   const input = document.getElementById('word');
   const queue = document.getElementById('queue');
 
-  for (const d of ['today', 'tomorrow']) {
+  const DAYS = ['today', 'tomorrow', 'list'];
+  const HINTS = {
+    today: 'Chinese input only. Generation takes ~30s — you can keep typing the next word meanwhile.',
+    tomorrow: 'Chinese input only. Generation takes ~30s — you can keep typing the next word meanwhile.',
+    // ★ List = the Saved deck: the entry is generated in full, but the cards
+    // stay suspended until promoted from Browse (#677).
+    list: 'Parked in your Saved list — not reviewed until you add it to a deck from Browse.',
+  };
+  for (const d of DAYS) {
     document.getElementById(`day-${d}`).onclick = () => {
       day = d;
-      document.getElementById('day-today').setAttribute('aria-pressed', String(d === 'today'));
-      document.getElementById('day-tomorrow').setAttribute('aria-pressed', String(d === 'tomorrow'));
+      for (const other of DAYS) {
+        document.getElementById(`day-${other}`).setAttribute('aria-pressed', String(other === d));
+      }
+      document.getElementById('hint').textContent = HINTS[d];
       input.focus();
     };
   }
