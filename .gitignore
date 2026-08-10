@@ -24,3 +24,11 @@ venv/
 .claude/worktrees/
 .claude/settings.local.json
 create_issues.sh
+
+# Personal / non-code material that lives in the working directory but must
+# never reach this PUBLIC repo (a `git add -A` swept these in once — #670):
+# copyrighted books, drafts, scratch notes.
+thinking fast and slow/
+speech/
+plans/
+*.pdf
