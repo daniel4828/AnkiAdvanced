@@ -116,7 +116,12 @@
       "Bash(launchctl start *)",
       "Bash(cat /Users/daniel/Documents/AnkiAdvanced/ldn174.md)",
       "Read(//tmp/**)",
-      "WebFetch(domain:api-docs.deepseek.com)"
+      "WebFetch(domain:api-docs.deepseek.com)",
+      "Bash(node --check static/app.js)",
+      "Bash(cp data/srs.db /private/tmp/claude-501/-Users-daniel-Documents-AnkiAdvanced/79f9e9bc-1075-447c-8b0b-9673dc26a1af/scratchpad/mig2.db)",
+      "Bash(DB_PATH=/private/tmp/claude-501/-Users-daniel-Documents-AnkiAdvanced/79f9e9bc-1075-447c-8b0b-9673dc26a1af/scratchpad/mig2.db python -c ' *)",
+      "Bash(ssh *)",
+      "Bash(awk -F'|' '{urls[$2]==0 ? label=++n : label=urls[$2]; if \\(urls[$2]==0\\) urls[$2]=n; printf \"%2d  文章%s  %s\\\\n\", $1, urls[$2], $3}')"
     ]
   },
   "hooks": {

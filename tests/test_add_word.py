@@ -265,3 +265,37 @@ def test_generate_word_entry_yaml_raises_without_entry():
     with patch.object(ai, "_call_api", return_value="I don't know this word."):
         with pytest.raises(ValueError):
             ai.generate_word_entry_yaml("生态")
+
+
+# ---------------------------------------------------------------------------
+# Standalone /add page (#668)
+# ---------------------------------------------------------------------------
+
+def test_add_page_is_served_without_the_app_bundle():
+    """The whole point of /add is opening instantly on the phone — pulling in
+    the ~9000-line app.js would defeat it."""
+    body = client.get("/add").text
+    assert 'id="word"' in body
+    assert "/static/shared.js" in body
+    assert "/static/app.js" not in body  # a comment may mention it; a <script> must not
+
+
+def test_add_word_pipeline_is_not_duplicated_in_app_js():
+    """#643: adding a word must have exactly one client-side implementation.
+    A second copy in app.js would drift from shared.js and every fix would
+    silently have to be made twice."""
+    import pathlib
+    app_js = pathlib.Path("static/app.js").read_text(encoding="utf-8")
+    shared_js = pathlib.Path("static/shared.js").read_text(encoding="utf-8")
+    assert "async function addWordViaAi(" in shared_js
+    assert "async function addWordViaAi(" not in app_js
+    assert "async function api(" in shared_js
+    assert "async function api(" not in app_js
+
+
+def test_add_page_uses_the_shared_endpoint():
+    """Guards against the page growing its own add-word call."""
+    import pathlib
+    add_html = pathlib.Path("static/add.html").read_text(encoding="utf-8")
+    assert "addWordViaAi(" in add_html
+    assert "/api/add-word-ai" not in add_html
