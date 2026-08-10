@@ -1,10 +1,18 @@
-"""Knowledge base mailbox intake (issue #655): poll a dedicated mailbox via
-IMAP, pull URLs out of UNSEEN mail (phone "share -> mail" is the easiest
-way to get a link onto the server), and feed each one through
-knowledge.ingest.ingest_url() — the exact same pipeline the paste-a-URL
-box in the UI uses (POST /api/knowledge/add). No second/parallel
-"URL -> episode row" implementation here, see knowledge/ingest.py's
-docstring for why that matters in this repo.
+"""Knowledge base mailbox intake (issue #655, extended #668): poll a
+dedicated mailbox via IMAP, and for each UNSEEN mail either:
+
+  1. it contains a URL (phone "share -> mail" is the easiest way to get a
+     link onto the server) -> ingest every URL via
+     knowledge.ingest.ingest_url() — the exact same pipeline the
+     paste-a-URL box in the UI uses (POST /api/knowledge/add);
+  2. no URL, but the body is >= 200 chars -> treat the body itself as a
+     pasted article (#668, for paywalled articles Daniel can read in his
+     browser but the server can't fetch) via knowledge.ingest.ingest_text(),
+     subject as title;
+  3. neither -> skip, leave UNSEEN (unchanged from #655).
+
+No second/parallel "URL/text -> episode row" implementation here, see
+knowledge/ingest.py's docstring for why that matters in this repo.
 
 Security: this is the one intake channel that lets *anyone who knows the
 mailbox address* trigger a server-side fetch + paid AI call on Daniel's
@@ -14,7 +22,8 @@ never "process everything because the allowlist check couldn't run".
 Non-whitelisted senders are skipped individually (their mail is left
 UNSEEN, harmless, and simply ignored every run).
 
-Only stdlib (imaplib/email) is used — no new dependency for this.
+Only stdlib (imaplib/email/html.parser) is used — no new dependency for
+this.
 """
 import email
 import imaplib
@@ -23,6 +32,7 @@ import os
 import re
 from email.header import decode_header
 from email.utils import parseaddr
+from html.parser import HTMLParser
 
 import knowledge.ingest
 
@@ -34,6 +44,17 @@ logger = logging.getLogger(__name__)
 # that legitimately end mid-path still match in full.
 _URL_RE = re.compile(r'https?://[^\s<>"\']+')
 _TRAILING_PUNCT = '.,;:!?)]}\'"'
+
+# Same "too short to be a real article" threshold ingest_text() enforces —
+# checked here too so a mail with only a two-line body doesn't even get to
+# the ingest call (and doesn't get logged as a "failed" retry candidate for
+# something that will never succeed).
+#
+# Derived, never re-typed: if this were a literal 200 and the shared
+# threshold later moved up, this gate would wave a mail through that
+# ingest_text() then rejects — and a rejected mail is deliberately NOT
+# marked read, so it would be retried forever, every single poll.
+_MIN_BODY_CHARS = knowledge.ingest._MIN_TEXT_CHARS
 
 
 def _env_allowed_senders() -> set:
@@ -83,6 +104,73 @@ def _body_text(msg: email.message.Message) -> str:
     elif msg.get_content_type() in ("text/plain", "text/html"):
         parts.append(_decode_payload(msg))
     return "\n".join(parts)
+
+
+class _HTMLTextExtractor(HTMLParser):
+    """Bare-bones tag stripper for turning an HTML mail body into plain
+    text before it's used as a pasted article body (#668). `_body_text()`
+    above leaves tags in on purpose — it only feeds the URL regex, where
+    stray markup is harmless — but text handed to the AI summarizer must
+    not contain `<div>`/`<a>` soup, so this path strips it. <script>/<style>
+    contents are dropped entirely rather than emitted as text."""
+
+    _SKIP_TAGS = ("script", "style")
+
+    def __init__(self):
+        super().__init__()
+        self._chunks = []
+        self._skip_depth = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in self._SKIP_TAGS:
+            self._skip_depth += 1
+
+    def handle_endtag(self, tag):
+        if tag in self._SKIP_TAGS and self._skip_depth > 0:
+            self._skip_depth -= 1
+
+    def handle_data(self, data):
+        if self._skip_depth == 0:
+            self._chunks.append(data)
+
+    def text(self) -> str:
+        return "".join(self._chunks)
+
+
+def _strip_html(html: str) -> str:
+    parser = _HTMLTextExtractor()
+    try:
+        parser.feed(html)
+        parser.close()
+    except Exception:
+        logger.warning("knowledge.mailbox: HTML 解析失败，退回原始文本（可能残留标签）")
+        return html
+    return parser.text()
+
+
+def plain_text_body(msg: email.message.Message) -> str:
+    """Body text suitable for use as a pasted article (#668, no-URL
+    fallback): text/plain parts used as-is, text/html parts have tags
+    stripped via `_strip_html()`. Unlike `_body_text()` (URL scanning
+    only), this is what gets handed to `knowledge.ingest.ingest_text()`,
+    so markup must actually be gone, not just tolerated."""
+    parts = []
+    if msg.is_multipart():
+        for part in msg.walk():
+            if "attachment" in str(part.get("Content-Disposition") or ""):
+                continue
+            ctype = part.get_content_type()
+            if ctype == "text/plain":
+                parts.append(_decode_payload(part))
+            elif ctype == "text/html":
+                parts.append(_strip_html(_decode_payload(part)))
+    else:
+        ctype = msg.get_content_type()
+        if ctype == "text/plain":
+            parts.append(_decode_payload(msg))
+        elif ctype == "text/html":
+            parts.append(_strip_html(_decode_payload(msg)))
+    return "\n".join(p.strip() for p in parts if p.strip()).strip()
 
 
 def extract_urls(text: str) -> list:
@@ -199,30 +287,51 @@ def check_mailbox(imap_factory=None) -> dict:
                 summary["skipped"] += 1
                 continue
 
+            # 主路径不变（#655）：有 URL 就走 ingest_url()，一个字节都不能变。
             urls = extract_urls_from_message(msg)
-            if not urls:
-                logger.info("knowledge.mailbox: 邮件 %s（来自 %s）未提取到 URL，跳过（不标已读）", msg_id, sender)
+            if urls:
+                all_ok = True
+                for url in urls:
+                    try:
+                        result = knowledge.ingest.ingest_url(url)
+                        summary["ingested"] += 1
+                        logger.info("knowledge.mailbox: 已处理 %s -> %s", url, result)
+                    except Exception as e:
+                        all_ok = False
+                        logger.warning("knowledge.mailbox: 处理 URL 失败 %s: %s", url, e)
+                        summary["errors"].append(f"{url}: {e}")
+
+                if all_ok:
+                    conn.store(msg_id, "+FLAGS", "\\Seen")
+                    summary["processed"] += 1
+                else:
+                    # 邮件里至少一个 URL 处理失败——整封不标已读，下轮重试。
+                    # ingest_url() 对已入库的 URL 返回 already_exists，重试
+                    # 部分成功的邮件是安全的，不会重复造行。
+                    summary["failed"] += 1
+                continue
+
+            # 无 URL 时的正文投递路径（#668）：正文（HTML 已去标签）够长就
+            # 当作粘贴文章处理，标题取邮件主题。
+            body_text = plain_text_body(msg)
+            if len(body_text) < _MIN_BODY_CHARS:
+                logger.info(
+                    "knowledge.mailbox: 邮件 %s（来自 %s）未提取到 URL 且正文过短（%d 字），跳过（不标已读）",
+                    msg_id, sender, len(body_text),
+                )
                 summary["skipped"] += 1
                 continue
 
-            all_ok = True
-            for url in urls:
-                try:
-                    result = knowledge.ingest.ingest_url(url)
-                    summary["ingested"] += 1
-                    logger.info("knowledge.mailbox: 已处理 %s -> %s", url, result)
-                except Exception as e:
-                    all_ok = False
-                    logger.warning("knowledge.mailbox: 处理 URL 失败 %s: %s", url, e)
-                    summary["errors"].append(f"{url}: {e}")
-
-            if all_ok:
-                conn.store(msg_id, "+FLAGS", "\\Seen")
+            subject = _decode_header_value(msg.get("Subject")) or "(无主题)"
+            try:
+                result = knowledge.ingest.ingest_text(subject, body_text)
+                summary["ingested"] += 1
                 summary["processed"] += 1
-            else:
-                # 邮件里至少一个 URL 处理失败——整封不标已读，下轮重试。
-                # ingest_url() 对已入库的 URL 返回 already_exists，重试
-                # 部分成功的邮件是安全的，不会重复造行。
+                conn.store(msg_id, "+FLAGS", "\\Seen")
+                logger.info("knowledge.mailbox: 已按正文投递处理邮件 %s -> %s", msg_id, result)
+            except Exception as e:
+                logger.warning("knowledge.mailbox: 正文投递处理失败 %s: %s", msg_id, e)
+                summary["errors"].append(f"(mail {msg_id}): {e}")
                 summary["failed"] += 1
     finally:
         try:

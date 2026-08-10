@@ -337,6 +337,8 @@ def test_partial_failure_in_multi_url_mail_does_not_mark_seen(monkeypatch):
 
 
 def test_mail_without_url_is_skipped_not_marked_seen(monkeypatch):
+    """Body under the 200-char threshold: still skipped, not marked seen
+    (unchanged from #655; #668 only adds a path for LONGER bodies)."""
     _configure_env(monkeypatch)
     msg = _make_plain_message("Kein Link", "nur Text, kein Link hier")
     fake = FakeImap({b"1": msg})
@@ -349,3 +351,143 @@ def test_mail_without_url_is_skipped_not_marked_seen(monkeypatch):
     assert called["n"] == 0
     assert summary["skipped"] == 1
     assert fake.seen_flagged == []
+
+
+# ---------------------------------------------------------------------------
+# HTML tag stripping (#668) — plain_text_body() / _strip_html()
+# ---------------------------------------------------------------------------
+
+def test_strip_html_removes_tags_keeps_text():
+    html = "<html><body><p>Hallo <b>Welt</b></p><div>zweiter Absatz</div></body></html>"
+    text = mailbox._strip_html(html)
+    assert "<" not in text
+    assert ">" not in text
+    assert "Hallo" in text and "Welt" in text and "zweiter Absatz" in text
+
+
+def test_strip_html_drops_script_and_style_contents():
+    html = "<style>.x{color:red}</style><p>echter Text</p><script>alert('x')</script>"
+    text = mailbox._strip_html(html)
+    assert "color:red" not in text
+    assert "alert" not in text
+    assert "echter Text" in text
+
+
+def test_plain_text_body_strips_html_part():
+    msg = _make_html_message(
+        "Artikel",
+        '<html><body><p>Erster Absatz</p><p>Zweiter <a href="https://example.com/x">Absatz</a></p></body></html>',
+    )
+    body = mailbox.plain_text_body(msg)
+    assert "<" not in body and ">" not in body
+    assert "Erster Absatz" in body
+    assert "Zweiter" in body and "Absatz" in body
+
+
+def test_plain_text_body_uses_plain_part_as_is():
+    msg = _make_plain_message("Artikel", "Erster Absatz.\nZweiter Absatz.")
+    body = mailbox.plain_text_body(msg)
+    assert body == "Erster Absatz.\nZweiter Absatz."
+
+
+# ---------------------------------------------------------------------------
+# No-URL, body-length-based fallback to ingest_text() (#668)
+# ---------------------------------------------------------------------------
+
+_LONG_BODY = "这是一封没有链接、只有正文的分享邮件，用来测试知识库正文投递功能。" * 7
+assert len(_LONG_BODY) >= 200
+
+
+def test_mail_without_url_but_long_body_ingested_as_text(monkeypatch):
+    _configure_env(monkeypatch)
+    msg = _make_plain_message("付费墙文章标题", _LONG_BODY)
+    fake = FakeImap({b"1": msg})
+
+    calls = []
+    monkeypatch.setattr(knowledge.ingest, "ingest_url", lambda url: (_ for _ in ()).throw(
+        AssertionError("ingest_url must not be called when there is no URL")
+    ))
+    monkeypatch.setattr(
+        knowledge.ingest, "ingest_text",
+        lambda title, text, source_url=None: calls.append((title, text)) or {"episode_id": 1},
+    )
+
+    summary = mailbox.check_mailbox(imap_factory=lambda: fake)
+
+    assert calls == [("付费墙文章标题", _LONG_BODY)]
+    assert summary["ingested"] == 1
+    assert summary["processed"] == 1
+    assert fake.seen_flagged == [b"1"]
+
+
+def test_url_present_takes_priority_over_text_fallback(monkeypatch):
+    """#668 completion criterion: a mail with BOTH a URL and a long body
+    must still go through ingest_url() only — the URL path is untouched."""
+    _configure_env(monkeypatch)
+    msg = _make_plain_message(
+        "Geteilter Artikel",
+        f"https://example.com/article\n\n{_LONG_BODY}",
+    )
+    fake = FakeImap({b"1": msg})
+
+    url_calls = []
+    text_calls = []
+    monkeypatch.setattr(knowledge.ingest, "ingest_url", lambda url: url_calls.append(url) or {"episode_id": 1})
+    monkeypatch.setattr(
+        knowledge.ingest, "ingest_text",
+        lambda title, text, source_url=None: text_calls.append(title) or {"episode_id": 2},
+    )
+
+    summary = mailbox.check_mailbox(imap_factory=lambda: fake)
+
+    assert url_calls == ["https://example.com/article"]
+    assert text_calls == []
+    assert summary["processed"] == 1
+    assert fake.seen_flagged == [b"1"]
+
+
+def test_text_fallback_ingest_failure_does_not_mark_seen(monkeypatch):
+    _configure_env(monkeypatch)
+    msg = _make_plain_message("Titel", _LONG_BODY)
+    fake = FakeImap({b"1": msg})
+
+    monkeypatch.setattr(knowledge.ingest, "ingest_url", lambda url: (_ for _ in ()).throw(
+        AssertionError("should not be reached")
+    ))
+
+    def failing_ingest_text(title, text, source_url=None):
+        raise knowledge.ingest.IngestError("boom")
+
+    monkeypatch.setattr(knowledge.ingest, "ingest_text", failing_ingest_text)
+
+    summary = mailbox.check_mailbox(imap_factory=lambda: fake)
+
+    assert summary["failed"] == 1
+    assert summary["processed"] == 0
+    assert fake.seen_flagged == []
+    assert len(summary["errors"]) == 1
+
+
+def test_html_only_body_used_for_text_fallback_after_stripping(monkeypatch):
+    """A share-to-mail app that sends HTML-only, no URL, long enough body
+    after tags are stripped -> still goes through the text fallback, and
+    the ingested text has no markup in it."""
+    _configure_env(monkeypatch)
+    paragraphs = "".join(f"<p>{_LONG_BODY[i:i + 40]}</p>" for i in range(0, len(_LONG_BODY), 40))
+    msg = _make_html_message("HTML Artikel", f"<html><body>{paragraphs}</body></html>")
+    fake = FakeImap({b"1": msg})
+
+    calls = []
+    monkeypatch.setattr(knowledge.ingest, "ingest_url", lambda url: (_ for _ in ()).throw(
+        AssertionError("should not be reached")
+    ))
+    monkeypatch.setattr(
+        knowledge.ingest, "ingest_text",
+        lambda title, text, source_url=None: calls.append(text) or {"episode_id": 1},
+    )
+
+    summary = mailbox.check_mailbox(imap_factory=lambda: fake)
+
+    assert summary["processed"] == 1
+    assert len(calls) == 1
+    assert "<" not in calls[0] and ">" not in calls[0]
