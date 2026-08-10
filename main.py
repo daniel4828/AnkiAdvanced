@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import pathlib
 import sys
 
 
@@ -184,12 +185,16 @@ def main():
 try:
     import base64
     import binascii
+    import hashlib
+    import hmac
     import secrets
     import time
     from contextlib import asynccontextmanager
-    from fastapi import FastAPI, Request
+    from fastapi import FastAPI, Form, Request
     from fastapi.staticfiles import StaticFiles
-    from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+    from fastapi.responses import (
+        FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse,
+    )
     from starlette.middleware.gzip import GZipMiddleware
     import uvicorn
 
@@ -231,41 +236,118 @@ try:
 
     ui_logger = logging.getLogger("ui")
 
-    # Optional single-user HTTP Basic Auth — enabled only when both
-    # AUTH_USERNAME and AUTH_PASSWORD are set (issue #419). If either is
-    # missing, this middleware is a no-op — local dev behavior unchanged.
+    # Optional single-user auth — enabled only when both AUTH_USERNAME and
+    # AUTH_PASSWORD are set (issue #419). If either is missing, this middleware
+    # is a no-op — local dev behavior unchanged.
+    #
+    # Primary flow is a plain HTML login form + a long-lived signed cookie
+    # (#666): iOS Keychain only ever saves *form* logins, so the original
+    # HTTP-Basic-only version meant retyping the password on every visit from
+    # Daniel's iPhone. Basic Auth stays supported as a fallback for curl and
+    # scripts.
     _AUTH_USERNAME = os.environ.get("AUTH_USERNAME", "")
     _AUTH_PASSWORD = os.environ.get("AUTH_PASSWORD", "")
     _AUTH_ENABLED = bool(_AUTH_USERNAME and _AUTH_PASSWORD)
+    _SESSION_COOKIE = "anki_session"
+    _SESSION_MAX_AGE = 365 * 24 * 3600  # a year — this is a single-user app
+    # Signing key derived from the credentials, so changing the password
+    # invalidates every outstanding session for free (no key to store).
+    _SESSION_KEY = hashlib.sha256(
+        f"{_AUTH_USERNAME}:{_AUTH_PASSWORD}".encode("utf-8")
+    ).digest()
 
-    def _unauthorized() -> JSONResponse:
-        return JSONResponse(
-            status_code=401,
-            content={"detail": "Unauthorized"},
-            headers={"WWW-Authenticate": 'Basic realm="AnkiAdvanced"'},
-        )
+    def _make_session_cookie() -> str:
+        expires = str(int(time.time()) + _SESSION_MAX_AGE)
+        sig = hmac.new(_SESSION_KEY, expires.encode("utf-8"), hashlib.sha256).hexdigest()
+        return f"{expires}.{sig}"
 
-    @app.middleware("http")
-    async def basic_auth(request: Request, call_next):
-        if not _AUTH_ENABLED:
-            return await call_next(request)
-
-        header = request.headers.get("authorization", "")
-        if not header.startswith("Basic "):
-            return _unauthorized()
-
+    def _session_cookie_valid(value: str) -> bool:
+        expires, _, sig = value.partition(".")
+        if not sig:
+            return False
+        expected = hmac.new(_SESSION_KEY, expires.encode("utf-8"), hashlib.sha256).hexdigest()
+        if not secrets.compare_digest(sig, expected):
+            return False
         try:
-            decoded = base64.b64decode(header[6:]).decode("utf-8")
-            username, _, password = decoded.partition(":")
-        except (ValueError, UnicodeDecodeError, binascii.Error):
-            return _unauthorized()
+            return int(expires) > time.time()
+        except ValueError:
+            return False
 
+    def _credentials_ok(username: str, password: str) -> bool:
+        # Both comparisons always run — no short-circuit that would leak which
+        # half was wrong through timing.
         user_ok = secrets.compare_digest(username.encode("utf-8"), _AUTH_USERNAME.encode("utf-8"))
         pass_ok = secrets.compare_digest(password.encode("utf-8"), _AUTH_PASSWORD.encode("utf-8"))
-        if not (user_ok and pass_ok):
-            return _unauthorized()
+        return user_ok and pass_ok
 
-        return await call_next(request)
+    def _basic_auth_ok(request: Request) -> bool:
+        header = request.headers.get("authorization", "")
+        if not header.startswith("Basic "):
+            return False
+        try:
+            decoded = base64.b64decode(header[6:]).decode("utf-8")
+        except (ValueError, UnicodeDecodeError, binascii.Error):
+            return False
+        username, _, password = decoded.partition(":")
+        return _credentials_ok(username, password)
+
+    def _unauthorized(request: Request):
+        # API callers must get a real 401 — handing fetch() an HTML login page
+        # with status 200 would make every frontend request "succeed" with
+        # garbage. Browsers navigating to a page get sent to the form instead.
+        if request.url.path.startswith("/api/"):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Unauthorized"},
+                headers={"WWW-Authenticate": 'Basic realm="AnkiAdvanced"'},
+            )
+        return RedirectResponse("/login", status_code=303)
+
+    def _login_page(error: bool) -> HTMLResponse:
+        html = pathlib.Path("static/login.html").read_text(encoding="utf-8")
+        banner = '<p class="error">Wrong username or password.</p>' if error else ""
+        return HTMLResponse(
+            html.replace("<!--ERROR-->", banner),
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.get("/login")
+    def login_form(request: Request, error: int = 0):
+        if not _AUTH_ENABLED:
+            return RedirectResponse("/", status_code=303)
+        return _login_page(bool(error))
+
+    @app.post("/login")
+    def login_submit(request: Request, username: str = Form(""), password: str = Form("")):
+        if not _AUTH_ENABLED:
+            return RedirectResponse("/", status_code=303)
+        if not _credentials_ok(username, password):
+            logger.warning("login failed for user %r", username[:40])
+            return RedirectResponse("/login?error=1", status_code=303)
+        response = RedirectResponse("/", status_code=303)
+        response.set_cookie(
+            _SESSION_COOKIE,
+            _make_session_cookie(),
+            max_age=_SESSION_MAX_AGE,
+            httponly=True,
+            samesite="lax",
+            # Behind Caddy the app itself speaks plain HTTP, so trust the
+            # proxy's header; without it a local http:// run could never
+            # keep a session.
+            secure=request.headers.get("x-forwarded-proto", request.url.scheme) == "https",
+        )
+        return response
+
+    @app.middleware("http")
+    async def require_auth(request: Request, call_next):
+        if not _AUTH_ENABLED or request.url.path == "/login":
+            return await call_next(request)
+        cookie = request.cookies.get(_SESSION_COOKIE, "")
+        if cookie and _session_cookie_valid(cookie):
+            return await call_next(request)
+        if _basic_auth_ok(request):
+            return await call_next(request)
+        return _unauthorized(request)
 
     @app.middleware("http")
     async def log_requests(request: Request, call_next):

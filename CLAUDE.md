@@ -114,7 +114,12 @@ Daniel 在中国需要 VPN 访问 GitHub。`gh` 命令报 `EOF` 错误时（`cur
 
 ## 生产环境（2026-07-07 上线）
 
-系统运行在一台 Linux VPS 上，Daniel 通过手机/电脑浏览器访问 `https://powerdaniel3000.duckdns.org`（HTTP Basic Auth 保护；凭据不入库——仓库是公开的）。
+系统运行在一台 Linux VPS 上，Daniel 通过手机/电脑浏览器访问 `https://powerdaniel3000.duckdns.org`（登录保护；凭据不入库——仓库是公开的）。
+
+- **登录是 HTML 表单 + 长期签名 Cookie（#666）**，不是 HTTP Basic Auth：iOS 钥匙串只保存**表单**登录，原生 Basic 弹窗它一律不存也不自动填，Daniel 每次进都要手打密码。`GET/POST /login`（`static/login.html`，两个输入框必须带 `autocomplete="username"` / `current-password`，这正是钥匙串识别的前提）→ 校验通过下发 `anki_session` Cookie（HMAC 签名，含过期时间戳，有效期一年，HttpOnly/SameSite=Lax，HTTPS 下 Secure）。签名密钥由 `AUTH_USERNAME`+`AUTH_PASSWORD` 派生 —— 改密码即自动作废全部旧会话，无需存密钥
+- **Basic Auth 保留作回退**（curl/脚本），中间件顺序是 Cookie → Basic → 拒绝
+- **未认证时 `/api/*` 必须返回 401 JSON，不能重定向**：给 `fetch()` 一个 200 的 HTML 登录页会让所有前端请求"成功"拿到垃圾。页面路径才 303 跳 `/login`；`app.js` 的 `api()` 收到 401 自动跳登录页
+- Caddy 反代后应用自己收到的是明文 HTTP，Cookie 的 `secure` 标志按 `X-Forwarded-Proto` 判断
 
 - **唯一生产数据库在服务器上**（`/home/anki/AnkiAdvanced/data/srs.db`）。本地开发只用 `run.dev.sh` + `data/dev.db`。**本地的 `data/srs.db` 已过时，绝不要把它当作现状或复制回服务器。**
 - **自动部署：** 服务器 cron 每 2 分钟运行 `deploy/deploy.sh`——**PR 合并到 main ≈ 2 分钟后自动上线**（拉取、装依赖、重启 systemd 服务 `ankiadvanced`）
@@ -459,7 +464,7 @@ python main.py status [--deck X]     # 显示每个牌组/类别的到期数量
 | `PORT` | `8000` | 服务监听端口（`run.offline.sh` 用 8001） |
 | `LOG_LEVEL` | `INFO` | 日志级别（`DEBUG` 输出详细日志） |
 | `DEV_CLEAR_DB` | `` | 设为任意值启动时清空数据库——生产环境绝不要设置 |
-| `AUTH_USERNAME` / `AUTH_PASSWORD` | 可选 | 两者都设置时启用 HTTP Basic Auth（保护所有路径） |
+| `AUTH_USERNAME` / `AUTH_PASSWORD` | 可选 | 两者都设置时启用登录保护（保护所有路径，`/login` 除外）。主流程是 HTML 表单登录 + 一年期签名 Cookie（#666），Basic Auth 保留作 curl/脚本的回退 |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `SMTP_FROM` | 可选 | 播客爬虫（#479）邮件通知用；`SMTP_PORT` 默认 587（STARTTLS）；未配置时跳过发信，记日志，不算失败 |
 | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | 可选 | 播客爬虫用 Spotify Web API 搜索单集链接；未配置时退化为 Spotify 搜索链接 |
 | `PUBLIC_BASE_URL` | `https://powerdaniel3000.duckdns.org` | 播客邮件/Signal 通知里转录页链接的域名前缀 |

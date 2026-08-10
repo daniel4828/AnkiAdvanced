@@ -797,6 +797,12 @@ async function api(method, path, body) {
     opts.body = JSON.stringify(body);
   }
   const r = await fetch(path, opts);
+  // Session cookie expired or was cleared (#666): send the user to the login
+  // form instead of letting every view fail with an unexplained error.
+  if (r.status === 401) {
+    location.href = '/login';
+    throw new Error(`${method} ${path} → 401 (redirecting to login)`);
+  }
   if (!r.ok) throw new Error(`${method} ${path} → ${r.status}`);
   return r.json();
 }
