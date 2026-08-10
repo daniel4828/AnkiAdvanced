@@ -463,6 +463,67 @@ async def _run_notebooklm_transcription(audio_path: str, video_id: str) -> str |
                 logger.warning("podcast: failed to delete NotebookLM source for %s: %s", video_id, e)
 
 
+async def _run_notebooklm_url_source(url: str, video_id: str) -> str | None:
+    """Same round-trip as _run_notebooklm_transcription, but the source is a
+    URL NotebookLM fetches itself instead of a file we upload. add_url()
+    detects YouTube links and adds them as video sources (notebooklm-py
+    _sources.py), so the captions come back through Google's own access to
+    YouTube — which is the entire point for #681."""
+    import notebooklm
+
+    async with notebooklm.NotebookLMClient.from_storage() as client:
+        notebook_id = await _get_or_create_notebooklm_notebook(client)
+        source = await client.sources.add_url(
+            notebook_id, url, wait=True, wait_timeout=_NOTEBOOKLM_INDEX_TIMEOUT,
+        )
+        try:
+            fulltext = await client.sources.get_fulltext(notebook_id, source.id)
+            return fulltext.content or None
+        finally:
+            # Same cleanup contract as the file-upload path: the notebook must
+            # not grow unbounded, and a delete failure must not mask a
+            # successful fetch.
+            try:
+                await client.sources.delete(notebook_id, source.id)
+            except Exception as e:
+                logger.warning("podcast: failed to delete NotebookLM source for %s: %s", video_id, e)
+
+
+def transcribe_url_via_notebooklm(url: str, video_id: str) -> str | None:
+    """Free transcript path for a URL NotebookLM can open itself (#681):
+    used as the YouTube-captions fallback when YouTube blocks our server's
+    (cloud provider) IP — see knowledge/youtube.py.
+
+    Failure contract is deliberately identical to _transcribe_via_notebooklm:
+    an unofficial, undocumented API that can break at any time logs and
+    returns None rather than raising. The *caller* decides what a None means
+    here — knowledge.youtube turns it into a hard error rather than a silent
+    'no captions', which is the whole bug #681 fixes.
+    """
+    try:
+        import notebooklm  # noqa: F401 (import-only availability check)
+    except ImportError:
+        logger.info("podcast: notebooklm-py not installed, skipping NotebookLM URL source for %s", video_id)
+        return None
+
+    try:
+        text = asyncio.run(asyncio.wait_for(
+            _run_notebooklm_url_source(url, video_id),
+            timeout=_NOTEBOOKLM_RUN_TIMEOUT,
+        ))
+    except FileNotFoundError:
+        # No credentials file — `notebooklm login` was never run here.
+        logger.info("podcast: NotebookLM not authenticated, skipping URL source for %s", video_id)
+        return None
+    except Exception as e:
+        logger.warning("podcast: NotebookLM URL source failed for %s: %s", video_id, e)
+        return None
+
+    if text:
+        logger.info("podcast: NotebookLM returned %d chars for %s", len(text), video_id)
+    return text
+
+
 def _normalize_transcript(text: str) -> str:
     """Clean up ASR output before storing/summarizing (#500). NotebookLM's
     speech recognition emits Traditional Chinese with a space between every
