@@ -370,6 +370,7 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 - **`knowledge/` 包，`ingest.py` 是唯一入库管线**：`ingest_url()` 判断 YouTube 链接走 `youtube.py`（oEmbed 拿标题 + `youtube-transcript-api` 拿字幕，语言优先级 zh-Hans→zh-CN→zh→zh-TW→de→en，找不到任何字幕轨直接 `no_transcript`，**不跑 Whisper**；**YouTube 封锁云服务商 IP，所以服务器上字幕 API 恒返回 `RequestBlocked`，实际走的是 NotebookLM 兜底**，见下条），否则当文章走 `article.py`（`trafilatura` 抽正文，不足 200 字视为失败并抛 `ArticleExtractionError`——付费墙/登录墙/JS 页面绝不能存进库冒充正文，见其 docstring）。界面「粘贴 URL」框（`POST /api/knowledge/add`）和邮件收件（`mailbox.py`）**共用这一个函数**——理由同 #643 加词单一入口：两条平行管线迟早会让修好的坑在另一条上复活
 - **邮件收件（`knowledge/mailbox.py`，#655）**：IMAP 轮询 UNSEEN 邮件，标题+正文都扫 URL（手机分享到邮件，链接位置因 App 而异）。`KNOWLEDGE_MAIL_ALLOWED_SENDERS` 未配置时**整个邮箱检查被跳过，不读取也不标已读**——这是防止任何知道邮箱地址的人远程触发付费 AI 调用的唯一防线；处理失败的邮件同样不标已读，留给下一轮重试（`ingest_url()` 对已入库 URL 幂等返回 `already_exists`，重试安全）
 - **前端：播客页 → 知识页**（#653，`static/app.js`）：🎙️/📺/📄 三个子标签，播客管理页原有的 RSS 源/详情/生词表格逻辑全部保留，只是按 `?kind=` 过滤。**旧的 `#podcast-<id>` hash 链接永久保留**——已发出去的邮件/Signal 消息里全是这种链接；播客条目仍生成旧格式 hash，只有视频/文章条目用新的 `#knowledge-<id>`
+- **独立收藏页 `/save`（#681）**：`/add` 的素材版 —— 可收藏的网址，🔗 Link / 📋 Text 两个标签，粘链接或粘正文，同样**不加载 `app.js`**（手机上从别的 App 分享文章时秒开）。入库逻辑抽到 `shared.js` 的 `ingestKnowledge()`，应用的知识页和本页共用一份；`knowledgeTitleFor()` 统一"标题留空则取首行"的规则。**两处都不许直接调 `/api/knowledge/add*`**，有测试守着
 - **`GET /api/podcast/episodes` 加 `?kind=` 过滤**，`POST /api/knowledge/add` 只负责入库，**不在请求里做转录/摘要**——前端拿到 `episode_id` 后照常调用既有的 `POST /api/podcast/episodes/{id}/process`，造卡侧（`routes/story.py` 的 `knowledge` 模式，见上）几乎零改动就能吃到播客以外的素材
 - **YouTube 字幕在服务器上必须走 NotebookLM（#681）**：YouTube 整片封锁云服务商 IP，Contabo 的服务器调字幕 API 永远得到 `RequestBlocked`。而 `RequestBlocked`/`IpBlocked`/`PoTokenRequired`/`AgeRestricted` **全是 `CouldNotRetrieveTranscript` 的子类** —— 原来只 `except` 基类，于是"被 YouTube 拒绝"被静默写成 `no_transcript`，一个有 9833 字中文字幕的视频在界面上显示"没有字幕"。现在拒绝类异常必须在基类**之前**捕获（`_blocked_error_types()`），先转 `podcast.transcribe_url_via_notebooklm()`（`sources.add_url()` 自动识别 YouTube 链接，由 Google 自己去取，绕开我们的出口 IP，免费、不下音频），兜底也空则抛 `CaptionsUnavailable` → `status='error'` + 可读原因。**真没字幕的视频不进兜底**，仍走廉价的 `no_transcript`，不浪费几分钟的 NotebookLM 轮次
   - **代价**：NotebookLM 不能指定字幕语言，返回的是视频原声轨（那条视频拿回来的是英文 32633 字，不是本地能拿到的中文翻译轨 9833 字）。摘要提示词本来就容忍任意输入语言，所以功能通；要中文轨只能给字幕 API 配付费代理（`WebshareProxyConfig`），暂不做
@@ -444,6 +445,7 @@ GET  /api/costs/call/{id}                            → {prompt, response}（�
 # 其他
 POST /api/import                                     → 触发 YAML 导入
 GET  /add                                            → 独立加词页（#668，可收藏/存主屏；不加载 app.js）
+GET  /save                                           → 独立素材收藏页（#681，Link/Text 两个标签；同样不加载 app.js）
 POST /api/add-word-ai                                → 界面内添加生词（#627）；body {word_zh, day?:today|tomorrow|list}（#636、#677）；新词返回 {job_id}，已有词直接返回 {status}。**全应用唯一的加词入口**（#643）：顶栏 ＋、播客生词表格、复习界面长按菜单都走它
 GET  /api/add-word-ai/progress/{job_id}              → 轮询后台生成+导入的结果
 GET  /api/browse                                     → {deck_id?, category?, state?, q?, lang?}

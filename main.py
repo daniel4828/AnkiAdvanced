@@ -436,6 +436,16 @@ try:
             "Expires": "0",
         })
 
+    # Standalone knowledge-base page (#681): the /add counterpart for material —
+    # paste a link or an article body from the phone without loading the app.
+    @app.get("/save")
+    def save_material_page():
+        return FileResponse("static/save.html", headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        })
+
     # Running-version info (issue #450): read the current commit once at
     # startup — deploy.sh restarts the process on every deploy, so process
     # start time ≈ deploy time. Never fails: without git (or outside a

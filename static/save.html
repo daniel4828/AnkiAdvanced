@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Save material</title>
+<!-- Saved to the iPhone home screen this opens without Safari's chrome (#681). -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Save">
+<meta name="theme-color" content="#6366f1">
+<style>
+  :root { color-scheme: light dark; --bg:#f4f5f7; --card:#fff; --fg:#1c1e21; --muted:#6b7075;
+          --line:#d7d9dd; --accent:#6366f1; --ok:#1f7a44; --err:#a3232b;
+          --ok-bg:#e6f4ec; --err-bg:#fdecee; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#16181c; --card:#232629; --fg:#e6e6e6; --muted:#9aa0a6;
+            --line:#3a3d42; --ok:#6ed49b; --err:#ff9ba1;
+            --ok-bg:#1d3328; --err-bg:#3a2326; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; padding: 1.5rem 1rem calc(1.5rem + env(safe-area-inset-bottom));
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--fg);
+  }
+  main { max-width: 480px; margin: 0 auto; }
+  header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 1.25rem; }
+  h1 { margin: 0; font-size: 1.15rem; }
+  header a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  .card { padding: 1rem; border-radius: 14px; background: var(--card); }
+  .tabs { display: flex; gap: .4rem; margin-bottom: .9rem; }
+  .tabs button {
+    flex: 1; padding: .55rem; font-size: .95rem; color: var(--muted);
+    background: transparent; border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
+  }
+  .tabs button[aria-pressed=true] { color: #fff; background: var(--accent); border-color: var(--accent); }
+  input[type=text], textarea {
+    display: block; width: 100%; padding: .75rem;
+    /* iOS zooms the page in when a focused field is under 16px */
+    font: inherit; font-size: 1rem; color: inherit;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
+  }
+  input[type=text]:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+  textarea { min-height: 9rem; resize: vertical; margin-top: .5rem; }
+  button.go {
+    width: 100%; padding: .8rem; margin-top: .6rem;
+    font-size: 1.05rem; font-weight: 600;
+    color: #fff; background: var(--accent); border: 0; border-radius: 10px; cursor: pointer;
+  }
+  button.go:active { filter: brightness(.92); }
+  ul { list-style: none; margin: 1rem 0 0; padding: 0; }
+  li {
+    padding: .6rem .8rem; margin-bottom: .4rem; border-radius: 10px;
+    background: var(--card); font-size: .9rem;
+  }
+  li .what { display: block; font-weight: 600; overflow-wrap: anywhere; }
+  li .msg { color: var(--muted); overflow-wrap: anywhere; }
+  li.done { background: var(--ok-bg); } li.done .msg { color: var(--ok); }
+  li.error { background: var(--err-bg); } li.error .msg { color: var(--err); }
+  .hint { margin: .8rem 0 0; font-size: .8rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Save material</h1>
+    <a href="/">← app</a>
+  </header>
+
+  <div class="card">
+    <div class="tabs">
+      <button id="tab-link" aria-pressed="true">🔗 Link</button>
+      <button id="tab-text" aria-pressed="false">📋 Text</button>
+    </div>
+
+    <div id="pane-link">
+      <input type="text" id="url" placeholder="Paste an article or YouTube link…"
+             inputmode="url" autocomplete="off" autocapitalize="none"
+             autocorrect="off" spellcheck="false" enterkeyhint="done" autofocus>
+      <button class="go" id="go-link">Add</button>
+    </div>
+
+    <div id="pane-text" style="display:none">
+      <input type="text" id="title" placeholder="Title (optional — first line is used)" autocomplete="off">
+      <textarea id="text" placeholder="Paste the article body…"></textarea>
+      <button class="go" id="go-text">Add</button>
+    </div>
+
+    <p class="hint" id="hint">Transcription and the Chinese + German summary run on the
+      server — you can close this page, it keeps going.</p>
+  </div>
+
+  <ul id="queue"></ul>
+</main>
+
+<script src="/static/shared.js?v=2"></script>
+<script>
+  // Standalone knowledge-base page (#681), the /add counterpart for material.
+  // Deliberately does NOT load app.js — the point is a link that opens
+  // instantly on the phone when sharing an article from another app. All the
+  // real work goes through ingestKnowledge() in shared.js, so this page and
+  // the app's Knowledge tab can never drift apart.
+  const items = [];   // newest first
+  const queue = document.getElementById('queue');
+  const url = document.getElementById('url');
+  const title = document.getElementById('title');
+  const text = document.getElementById('text');
+
+  for (const t of ['link', 'text']) {
+    document.getElementById(`tab-${t}`).onclick = () => {
+      for (const other of ['link', 'text']) {
+        document.getElementById(`tab-${other}`).setAttribute('aria-pressed', String(other === t));
+        document.getElementById(`pane-${other}`).style.display = other === t ? '' : 'none';
+      }
+      (t === 'link' ? url : text).focus();
+    };
+  }
+
+  function render() {
+    queue.replaceChildren(...items.map(it => {
+      const li = document.createElement('li');
+      li.className = it.state;
+      const w = document.createElement('span');
+      w.className = 'what';
+      w.textContent = it.what;
+      const m = document.createElement('span');
+      m.className = 'msg';
+      m.textContent = it.text;
+      li.append(w, m);
+      return li;
+    }));
+  }
+
+  async function submit(payload, what) {
+    // Clear immediately — the next link can be pasted while this one runs.
+    const item = { what, state: 'running', text: 'Adding…' };
+    items.unshift(item);
+    render();
+    try {
+      const res = await ingestKnowledge(payload);
+      item.state = 'done';
+      item.text = res?.status === 'already_exists'
+        ? 'Already in your library.'
+        : '✓ added — processing on the server';
+    } catch (e) {
+      // Paywalled/JS-only pages fail extraction on purpose rather than storing
+      // a stub; the Text tab is the way out, so point at it.
+      item.state = 'error';
+      item.text = (e.message || 'Failed') + ' — try the 📋 Text tab.';
+    }
+    render();
+  }
+
+  document.getElementById('go-link').onclick = () => {
+    const v = url.value.trim();
+    if (!v) return;
+    url.value = '';
+    url.focus();
+    submit({ url: v }, v);
+  };
+  url.addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('go-link').click();
+  });
+
+  document.getElementById('go-text').onclick = () => {
+    const body = text.value.trim();
+    if (!body) return;
+    const t = knowledgeTitleFor(title.value, body);
+    if (!t) return;
+    title.value = '';
+    text.value = '';
+    text.focus();
+    submit({ title: t, text: body }, t);
+  };
+</script>
+</body>
+</html>

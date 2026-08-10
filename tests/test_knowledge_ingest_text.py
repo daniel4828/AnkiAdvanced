@@ -179,3 +179,34 @@ def test_add_text_endpoint_accepts_optional_source_url(client):
     assert resp.status_code == 200
     episode = database.get_episode(resp.json()["episode_id"])
     assert episode["youtube_url"] == "https://example.com/x"
+
+
+# ---------------------------------------------------------------------------
+# Standalone /save page (#681)
+# ---------------------------------------------------------------------------
+
+def test_save_page_is_served_without_the_app_bundle():
+    """Like /add (#668): the point is opening instantly on the phone when
+    sharing an article, so it must not pull in the ~9000-line app.js."""
+    from fastapi.testclient import TestClient
+    import main
+    body = TestClient(main.app).get("/save").text
+    assert 'id="url"' in body and 'id="text"' in body
+    assert "/static/shared.js" in body
+    assert "/static/app.js" not in body
+
+
+def test_knowledge_ingest_is_not_duplicated_in_app_js():
+    """One client-side ingestion path shared by the app and /save — a second
+    copy would drift and every fix would have to be made twice."""
+    import pathlib
+    app_js = pathlib.Path("static/app.js").read_text(encoding="utf-8")
+    shared_js = pathlib.Path("static/shared.js").read_text(encoding="utf-8")
+    save_html = pathlib.Path("static/save.html").read_text(encoding="utf-8")
+
+    assert "async function ingestKnowledge(" in shared_js
+    assert "async function ingestKnowledge(" not in app_js
+    # Neither caller may talk to the endpoints directly.
+    for source in (app_js, save_html):
+        assert "/api/knowledge/add" not in source
+        assert "ingestKnowledge(" in source

@@ -3301,7 +3301,7 @@ async function submitKnowledgeUrl() {
   const url = (input?.value || '').trim();
   if (!url) return;
   if (input) { input.value = ''; input.focus(); }
-  await _submitKnowledgeAdd(() => api('POST', '/api/knowledge/add', { url }), msg);
+  await _submitKnowledgeAdd({ url }, msg);
 }
 
 // Paste-text box (article tab only, #668) — for paywalled pieces the server
@@ -3313,28 +3313,24 @@ async function submitKnowledgeText() {
   const msg = document.getElementById('knowledge-add-msg');
   const text = (textInput?.value || '').trim();
   if (!text) return;
-  let title = (titleInput?.value || '').trim();
-  if (!title) title = text.split('\n').map(l => l.trim()).find(l => l) || '';
+  const title = knowledgeTitleFor(titleInput?.value, text);
   if (!title) {
     if (msg) msg.textContent = 'Need a title (or a non-blank first line).';
     return;
   }
   if (titleInput) titleInput.value = '';
   if (textInput) { textInput.value = ''; textInput.focus(); }
-  await _submitKnowledgeAdd(() => api('POST', '/api/knowledge/add-text', { title, text }), msg);
+  await _submitKnowledgeAdd({ title, text }, msg);
 }
 
-// Shared tail end of both paste boxes: kick off processing for a freshly
-// ingested item, then refresh the currently-shown list if we're still on it.
-async function _submitKnowledgeAdd(doAdd, msg) {
+// Shared tail end of both paste boxes: ingest (shared.js kicks off processing),
+// then refresh the currently-shown list if we're still on it.
+async function _submitKnowledgeAdd(payload, msg) {
   if (msg) msg.textContent = 'Adding…';
   try {
-    const res = await doAdd();
-    const id = res?.episode_id;
+    const res = await ingestKnowledge(payload);
     if (res?.status === 'already_exists') {
       if (msg) msg.textContent = 'Already in your library.';
-    } else if (id != null) {
-      api('POST', `/api/podcast/episodes/${id}/process`).catch(() => {});
     }
     if (_knowledgeListKind === _knowledgeTab) {
       const episodes = await api('GET', `/api/podcast/episodes?kind=${_knowledgeTab}&limit=1000`);
