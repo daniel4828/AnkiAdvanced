@@ -36,33 +36,47 @@ def insert_card(word_id: int, category: str, deck_id: int,
     return row["id"]
 
 
-def promote_saved_word(word_id: int, target_deck_ids: dict,
-                       saved_deck_id: int, due: str) -> int:
-    """Move a saved word's suspended cards out of the Saved deck into the per-category
-    leaf decks as fresh 'new' cards due on `due`, clearing any scheduling state.
+def reset_word_to_new(word_id: int, target_deck_ids: dict, due: str,
+                      from_deck_id: int | None = None) -> int:
+    """Move a word's cards into the per-category leaf decks as fresh 'new' cards
+    due on `due`, clearing all scheduling state.
 
     target_deck_ids: {"listening": id, "reading": id, "creating": id} — each card is
     routed to the leaf deck matching its category, so due counts and review queues
     (keyed by deck_id, category) pick it up.
 
-    Returns the number of cards promoted.
+    from_deck_id restricts the move to cards currently in that one deck; None
+    takes the word's cards wherever they are. Note what "clearing" costs when
+    the card was actually being studied: stability/difficulty/interval/lapses
+    are the word's entire FSRS memory model and there is no undo. Callers must
+    only pass from_deck_id=None when the user asked for exactly that (#675).
+
+    Returns the number of cards reset.
     """
     conn = get_db()
     count = 0
     for category, target_deck_id in target_deck_ids.items():
-        cur = conn.execute(
-            """UPDATE cards
-               SET deck_id=?, state='new', due=?, step_index=0, interval=0,
-                   ease=2.5, repetitions=0, lapses=0, stability=NULL, difficulty=NULL,
-                   last_review=NULL, learning_again_count=0, is_leech=0,
-                   probation=0, buried_until=NULL, pre_suspend_state=NULL
-               WHERE word_id=? AND deck_id=? AND category=? AND deleted_at IS NULL""",
-            (target_deck_id, due, word_id, saved_deck_id, category),
-        )
-        count += cur.rowcount
+        sql = """UPDATE cards
+                 SET deck_id=?, state='new', due=?, step_index=0, interval=0,
+                     ease=2.5, repetitions=0, lapses=0, stability=NULL, difficulty=NULL,
+                     last_review=NULL, learning_again_count=0, is_leech=0,
+                     probation=0, buried_until=NULL, pre_suspend_state=NULL
+                 WHERE word_id=? AND category=? AND deleted_at IS NULL"""
+        params = [target_deck_id, due, word_id, category]
+        if from_deck_id is not None:
+            sql += " AND deck_id=?"
+            params.append(from_deck_id)
+        count += conn.execute(sql, params).rowcount
     conn.commit()
     conn.close()
     return count
+
+
+def promote_saved_word(word_id: int, target_deck_ids: dict,
+                       saved_deck_id: int, due: str) -> int:
+    """Promote a word staged in the Saved deck — reset_word_to_new limited to
+    cards sitting in Saved (which are suspended and carry no progress)."""
+    return reset_word_to_new(word_id, target_deck_ids, due, from_deck_id=saved_deck_id)
 
 
 def set_card_note(card_id: int, note: str | None) -> None:

@@ -239,7 +239,10 @@ bash sync_offline.sh push    # 只推不拉，推完归档本地库
 
 - `ai.generate_word_entry_yaml()` 把 `de-zh-bot` 技能的中文词条规则移植成服务端提示词，输出 **YAML** 而不是 JSON —— 这样能直接交给 `importer.import_yaml_content()`，例句/量词/同义反义词/汉字分解/词源全部复用既有下游逻辑，**没有一行特例建卡代码**。这也意味着卡片与手工导入的词条完全一致（`importer._create_cards` 的 due 就是 `anki_today()`，`_make_leaf_decks` 建的子牌组名与 `get_or_create_category_decks` 相同）
 - 模型没返回 YAML 列表项时抛 `ValueError`；导入数为 0 的"完成"任务前端也报错 —— **绝不把垃圾内容悄悄写进库，也不假装成功**
-- **已有的词不能"再加到今天"**：`cards` 有 `UNIQUE(word_id, category)`，一个词终身只有三张卡，`insert_card` 对它是静默无效果的。所以只有卡片仅存在于 `Saved` 牌组（没有调度进度可丢）时才 `promote_saved_word` 到今天；否则如实返回 `already_exists` 和所在牌组名，不去重置人家的 FSRS 状态。同理已有词**不调 AI**（重新生成的内容会被 importer 当重复丢掉，纯烧钱）
+- **已有的词是"移动"不是"新增"**：`cards` 有 `UNIQUE(word_id, category)`，一个词终身只有三张卡，`insert_card` 对它是静默无效果的 —— 不存在"再加一张到今天"。已有词**不调 AI**（重新生成的内容会被 importer 当重复丢掉，纯烧钱）
+- **再次添加已学过的词 = 重置为新卡**（#675，Daniel 2026-08-10 明确要求，此前是拒绝并返回 `already_exists`）：`database.reset_word_to_new(word_id, leaf_decks, due, from_deck_id=None)` 把该词的三张卡搬进今天/明天的 Daily 叶子牌组并清空全部调度状态。`promote_saved_word` 现在只是它 `from_deck_id=Saved` 的一层薄封装
+  - **这是不可撤销的破坏性操作**：stability/difficulty/interval/lapses 是这个词的全部 FSRS 记忆模型。所以接口返回 `status="reset"` + `previous_decks` + `reviews_discarded`，前端如实显示"↺ reset from X → Y, N reviews discarded"，**不报一句平淡的成功**。卡片原本只在 `Saved`（没有进度可丢）时返回 `status="promoted"`，措辞不同
+  - `review_log` 的历史记录不删，所以统计不受影响
 - 生成约 30 秒，所以走后台线程 + `job_id` 轮询（复用 `_import_jobs` 机制）
 - 只接受中文输入：德/英输入需要 AI 反问是哪个意思（`de-zh-bot` 就是这么做的），一个无交互的输入框做不到，猜错会静默存进一个错词
 - **今天/明天可选**（#636）：`day` 参数同时决定 Daily 牌组、`promote_saved_word` 的 due 和 `importer.import_yaml_content(due_offset_days=)`。**牌组和 due 必须一起后移** —— 未来日期的 Daily 牌组被 `parse_daily_deck_date` 锁住不可复习，卡片若还 due 今天就永远够不到

@@ -130,9 +130,11 @@ def test_full_entry_content_is_stored(tmp_db):
     assert detail["notes"] and "Substantiv" in detail["notes"]
 
 
-def test_known_word_is_reported_without_calling_the_ai(tmp_db):
-    """cards has UNIQUE(word_id, category) — a studied word cannot also be
-    added to today, and re-generating it would just burn an API call."""
+def test_known_word_is_reset_into_todays_deck_without_calling_the_ai(tmp_db):
+    """Re-adding a studied word resets its cards to new and pulls them into
+    today's deck (#675). cards has UNIQUE(word_id, category), so this moves the
+    three cards it already owns — it never creates a fourth — and re-generating
+    the entry would just burn an API call."""
     import importer
 
     other_deck = database.get_or_create_deck_path("Kouyu::Test")
@@ -142,22 +144,64 @@ def test_known_word_is_reported_without_calling_the_ai(tmp_db):
         r = client.post("/api/add-word-ai", json={"word_zh": "生态"})
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["status"] == "already_exists"
-    assert any("Test" in name for name in body["decks"])
+    assert body["status"] == "reset"
+    assert any("Test" in name for name in body["previous_decks"])
 
-    # The bug behind #643: the old /api/quick-add-word answered "✓ added" here
-    # while INSERT OR IGNORE silently dropped every card, so nothing reached the
-    # daily deck. Prove the word really is absent — the honest report above is
-    # only worth something if it matches reality.
+    # The bug behind #643: the old /api/quick-add-word answered "✓ added" while
+    # INSERT OR IGNORE silently dropped every card, so nothing reached the daily
+    # deck. Prove the cards really moved — a success report is only worth
+    # something if it matches reality.
+    today = date.today().isoformat()
+    leaf_ids = set(_today_leaf_decks().values())
     conn = database.get_db()
-    leaf_ids = tuple(_today_leaf_decks().values())
-    placeholders = ",".join("?" * len(leaf_ids))
-    in_daily = conn.execute(
-        f"SELECT COUNT(*) c FROM cards WHERE word_id=? AND deck_id IN ({placeholders})",
-        (body["entry_id"], *leaf_ids),
+    rows = conn.execute(
+        "SELECT deck_id, state, due FROM cards WHERE word_id=? AND deleted_at IS NULL",
+        (body["entry_id"],),
+    ).fetchall()
+    conn.close()
+    assert rows and {r["deck_id"] for r in rows} == leaf_ids
+    assert all(r["state"] == "new" and r["due"] == today for r in rows)
+    assert body["cards_moved"] == len(rows)
+
+
+def test_reset_clears_fsrs_progress_and_reports_what_it_discarded(tmp_db):
+    """The reset is irreversible — stability/difficulty/interval/lapses are the
+    word's whole memory model. The response must name the cost (#675)."""
+    import importer
+
+    other_deck = database.get_or_create_deck_path("Kouyu::Test")
+    importer.import_yaml_content(ENTRY_YAML, other_deck)
+    entry_id = database.get_word_by_zh("生态")["id"]
+
+    conn = database.get_db()
+    conn.execute(
+        """UPDATE cards SET state='review', repetitions=4, lapses=2, interval=30,
+           stability=42.0, difficulty=6.5, last_review='2026-08-01', is_leech=1
+           WHERE word_id=?""",
+        (entry_id,),
+    )
+    conn.commit()
+    n_cards = conn.execute(
+        "SELECT COUNT(*) c FROM cards WHERE word_id=?", (entry_id,)
     ).fetchone()["c"]
     conn.close()
-    assert in_daily == 0
+
+    with patch.object(ai, "_call_api", side_effect=AssertionError("AI was called")):
+        body = client.post("/api/add-word-ai", json={"word_zh": "生态"}).json()
+
+    assert body["status"] == "reset"
+    assert body["reviews_discarded"] == 4 * n_cards
+
+    conn = database.get_db()
+    rows = conn.execute(
+        "SELECT * FROM cards WHERE word_id=? AND deleted_at IS NULL", (entry_id,)
+    ).fetchall()
+    conn.close()
+    for row in rows:
+        assert row["state"] == "new"
+        assert row["stability"] is None and row["difficulty"] is None
+        assert row["repetitions"] == 0 and row["lapses"] == 0 and row["interval"] == 0
+        assert row["last_review"] is None and row["is_leech"] == 0
 
 
 def test_saved_word_is_promoted_into_todays_deck(tmp_db):

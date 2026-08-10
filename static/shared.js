@@ -45,13 +45,18 @@ async function addWordViaAi(wordZh, day, onUpdate) {
 
   // Known words come back finished — no AI call, no job to poll.
   if (!result.job_id) {
-    if (result.status === 'already_exists') {
-      // A word owns one card per category for life, so there is nothing to
-      // add — say where it lives instead of pretending it worked.
-      onUpdate('error', `already in ${result.decks.join(', ')}`);
-      return;
+    if (result.status === 'reset') {
+      // The cards were moved here from somewhere they had real progress
+      // (#675). That progress is gone for good, so name what was thrown away
+      // instead of reporting a bland success.
+      const from = result.previous_decks.join(', ');
+      const lost = result.reviews_discarded
+        ? `, ${result.reviews_discarded} review${result.reviews_discarded === 1 ? '' : 's'} discarded`
+        : '';
+      onUpdate('done', `↺ reset from ${from} → ${result.deck_path}${lost}`, result.deck_path);
+    } else {
+      onUpdate('done', `✓ moved from Saved → ${result.deck_path}`, result.deck_path);
     }
-    onUpdate('done', `✓ moved from Saved → ${result.deck_path}`, result.deck_path);
     refreshDecks();
     return;
   }
