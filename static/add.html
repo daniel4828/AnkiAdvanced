@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Add word</title>
+<!-- Saved to the iPhone home screen this opens without Safari's chrome (#668). -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Add word">
+<meta name="theme-color" content="#4a90d9">
+<style>
+  :root { color-scheme: light dark; --bg:#f4f5f7; --card:#fff; --fg:#1c1e21; --muted:#6b7075;
+          --line:#d7d9dd; --accent:#4a90d9; --ok:#1f7a44; --err:#a3232b;
+          --ok-bg:#e6f4ec; --err-bg:#fdecee; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#16181c; --card:#232629; --fg:#e6e6e6; --muted:#9aa0a6;
+            --line:#3a3d42; --ok:#6ed49b; --err:#ff9ba1;
+            --ok-bg:#1d3328; --err-bg:#3a2326; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; padding: 1.5rem 1rem calc(1.5rem + env(safe-area-inset-bottom));
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--fg);
+  }
+  main { max-width: 480px; margin: 0 auto; }
+  header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 1.25rem; }
+  h1 { margin: 0; font-size: 1.15rem; }
+  header a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  .card { padding: 1rem; border-radius: 14px; background: var(--card); }
+  .row { display: flex; gap: .5rem; }
+  input[type=text] {
+    flex: 1; min-width: 0; padding: .8rem;
+    font-size: 1.25rem; color: inherit;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
+  }
+  input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+  button.go {
+    padding: .8rem 1.2rem; font-size: 1.05rem; font-weight: 600;
+    color: #fff; background: var(--accent); border: 0; border-radius: 10px; cursor: pointer;
+  }
+  button.go:disabled { opacity: .5; }
+  .days { display: flex; gap: .4rem; margin-top: .75rem; }
+  .days button {
+    flex: 1; padding: .5rem; font-size: .9rem; color: var(--muted);
+    background: transparent; border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
+  }
+  .days button[aria-pressed=true] { color: #fff; background: var(--accent); border-color: var(--accent); }
+  ul { list-style: none; margin: 1rem 0 0; padding: 0; }
+  li {
+    display: flex; align-items: baseline; gap: .6rem;
+    padding: .6rem .8rem; margin-bottom: .4rem; border-radius: 10px;
+    background: var(--card); font-size: .9rem;
+  }
+  li .word { font-size: 1.1rem; font-weight: 600; }
+  li .msg { color: var(--muted); overflow-wrap: anywhere; }
+  li.done { background: var(--ok-bg); } li.done .msg { color: var(--ok); }
+  li.error { background: var(--err-bg); } li.error .msg { color: var(--err); }
+  .hint { margin: .8rem 0 0; font-size: .8rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Add word</h1>
+    <a href="/">← app</a>
+  </header>
+
+  <div class="card">
+    <div class="row">
+      <input type="text" id="word" placeholder="中文生词" autocomplete="off"
+             autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done" autofocus>
+      <button class="go" id="go">加</button>
+    </div>
+    <div class="days">
+      <button id="day-today" aria-pressed="true">Today</button>
+      <button id="day-tomorrow" aria-pressed="false">Tomorrow</button>
+    </div>
+    <p class="hint">Chinese input only. Generation takes ~30s — you can keep typing the next word meanwhile.</p>
+  </div>
+
+  <ul id="queue"></ul>
+</main>
+
+<script src="/static/shared.js?v=1"></script>
+<script>
+  // Standalone quick-add page (#668). Deliberately does NOT load app.js: the
+  // point is a link that opens instantly on the phone. All the real work goes
+  // through addWordViaAi() in shared.js — the single add-word pipeline (#643).
+  let day = 'today';
+  const items = [];   // newest first
+  const input = document.getElementById('word');
+  const queue = document.getElementById('queue');
+
+  for (const d of ['today', 'tomorrow']) {
+    document.getElementById(`day-${d}`).onclick = () => {
+      day = d;
+      document.getElementById('day-today').setAttribute('aria-pressed', String(d === 'today'));
+      document.getElementById('day-tomorrow').setAttribute('aria-pressed', String(d === 'tomorrow'));
+      input.focus();
+    };
+  }
+
+  function render() {
+    queue.replaceChildren(...items.map(it => {
+      const li = document.createElement('li');
+      li.className = it.state;
+      const w = document.createElement('span');
+      w.className = 'word';
+      w.textContent = it.wordZh;
+      const m = document.createElement('span');
+      m.className = 'msg';
+      m.textContent = it.text;
+      li.append(w, m);
+      return li;
+    }));
+  }
+
+  function submit() {
+    const wordZh = input.value.trim();
+    if (!wordZh) return;
+    // Clear immediately — the whole point is being able to queue the next word
+    // while this one generates in the background.
+    input.value = '';
+    input.focus();
+
+    const item = { wordZh, state: 'running', text: 'Generating…' };
+    items.unshift(item);
+    render();
+
+    addWordViaAi(wordZh, day, (state, text) => {
+      item.state = state;
+      item.text = text;
+      render();
+    });
+  }
+
+  document.getElementById('go').onclick = submit;
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+</script>
+</body>
+</html>

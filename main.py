@@ -424,6 +424,18 @@ try:
             "Expires": "0",
         })
 
+    # Standalone quick-add page (#668): a bookmarkable URL that opens straight
+    # into "type a word, AI generates the full entry" without loading the whole
+    # app — meant for the iPhone home screen. Same pipeline as the toolbar ＋
+    # button (POST /api/add-word-ai), just a much smaller page around it.
+    @app.get("/add")
+    def add_word_page():
+        return FileResponse("static/add.html", headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        })
+
     # Running-version info (issue #450): read the current commit once at
     # startup — deploy.sh restarts the process on every deploy, so process
     # start time ≈ deploy time. Never fails: without git (or outside a
