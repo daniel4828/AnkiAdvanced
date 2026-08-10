@@ -90,3 +90,29 @@ async function addWordViaAi(wordZh, day, onUpdate) {
   };
   setTimeout(poll, 1500);
 }
+
+// Knowledge-base ingestion, shared by the app's Knowledge tab and the
+// standalone /save page (#681). Same reasoning as addWordViaAi above: one
+// client-side path, so a fix lands in both places at once.
+//
+// payload is either {url} or {title, text}. Returns the server's response
+// ({episode_id} or {status:'already_exists', episode_id}) and, for anything
+// newly ingested, kicks off transcription/summarising in the background —
+// POST /api/knowledge/add deliberately only stores the row.
+async function ingestKnowledge(payload) {
+  const path = payload.url ? '/api/knowledge/add' : '/api/knowledge/add-text';
+  const res = await api('POST', path, payload);
+  if (res?.status !== 'already_exists' && res?.episode_id != null) {
+    api('POST', `/api/podcast/episodes/${res.episode_id}/process`).catch(() => {});
+  }
+  return res;
+}
+
+// Title for a pasted body: the caller's own title, else the first non-blank
+// line. Returns '' when neither exists — the server requires a title, and
+// submitting an empty one just produces an untitled row.
+function knowledgeTitleFor(title, text) {
+  title = (title || '').trim();
+  if (title) return title;
+  return (text || '').split('\n').map(l => l.trim()).find(l => l) || '';
+}
