@@ -255,6 +255,19 @@ def _card_deck_ids(entry_id: int) -> set[int]:
     return {r["deck_id"] for r in rows}
 
 
+def _total_repetitions(entry_id: int) -> int:
+    """How many reviews this word's cards have accumulated — reported back when
+    a reset throws that progress away (#675)."""
+    conn = database.get_db()
+    row = conn.execute(
+        "SELECT COALESCE(SUM(repetitions), 0) AS n FROM cards "
+        "WHERE word_id = ? AND deleted_at IS NULL",
+        (entry_id,),
+    ).fetchone()
+    conn.close()
+    return row["n"]
+
+
 @router.post("/api/add-word-ai")
 def add_word_ai(body: dict):
     """Add one Chinese word to a Daily deck with an AI-generated entry.
@@ -283,26 +296,36 @@ def add_word_ai(body: dict):
     deck_id = database.get_or_create_deck_path(deck_path)
 
     # Known word → don't pay for a second generation; the importer would skip
-    # it as a duplicate anyway. What we can do depends on where its cards are:
-    # `cards` has UNIQUE(word_id, category), so a word owns exactly one card per
-    # category for its whole lifetime — there is no "also add it to today".
+    # it as a duplicate anyway. `cards` has UNIQUE(word_id, category), so a word
+    # owns exactly one card per category for its whole lifetime — there is no
+    # "also add it to today", only moving the cards it already has.
+    #
+    # Daniel asked (2026-08-10, #675) for re-adding a known word to reset it to
+    # new and pull it into today's/tomorrow's deck, whatever its progress. That
+    # discards the word's FSRS memory (stability/difficulty/interval/lapses)
+    # irreversibly, so the response says exactly what was thrown away rather
+    # than reporting a bland success.
     existing = database.get_word_by_zh(word_zh)
     if existing:
         card_decks = _card_deck_ids(existing["id"])
         saved_deck_id = database.get_or_create_saved_deck()
-        if card_decks and card_decks <= {saved_deck_id}:
-            # Only staged in Saved — promoting is exactly what the user wants.
-            leaf_decks = database.get_or_create_category_decks(deck_id, target_day)
-            database.promote_saved_word(existing["id"], leaf_decks, saved_deck_id, target_day)
-            return {"status": "promoted", "word_zh": word_zh, "entry_id": existing["id"],
-                    "deck_path": deck_path, "deck_id": deck_id}
-        # Already being studied somewhere. Moving it here would reset its FSRS
-        # state and lose real scheduling progress, so report instead of acting.
+        was_only_saved = bool(card_decks) and card_decks <= {saved_deck_id}
+        # Count the progress about to be dropped *before* the reset clears it.
+        reps = _total_repetitions(existing["id"])
         deck_names = sorted(
             (database.get_deck(d) or {}).get("name") or f"deck {d}" for d in card_decks
         )
-        return {"status": "already_exists", "word_zh": word_zh, "entry_id": existing["id"],
-                "decks": deck_names}
+        leaf_decks = database.get_or_create_category_decks(deck_id, target_day)
+        moved = database.reset_word_to_new(existing["id"], leaf_decks, target_day)
+        return {
+            # Saved cards carry no progress, so that move is a promotion, not a
+            # reset — the frontend words them differently.
+            "status": "promoted" if was_only_saved else "reset",
+            "word_zh": word_zh, "entry_id": existing["id"],
+            "deck_path": deck_path, "deck_id": deck_id,
+            "cards_moved": moved, "previous_decks": deck_names,
+            "reviews_discarded": reps,
+        }
 
     if ai_disabled():
         raise HTTPException(status_code=503,
