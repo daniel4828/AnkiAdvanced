@@ -3000,6 +3000,7 @@ let _podcastCurrentFeedId = null;   // layer 2/3 (podcast tab): which feed's epi
 let _podcastPollTimer = null;       // re-poll while any listed item is "processing"
 let _knowledgeTab = localStorage.getItem('knowledgeTab') || 'podcast';  // 'podcast' | 'video' | 'article'
 let _knowledgeListKind = null;      // set while a flat video/article list is showing (layer 1 for those tabs)
+let _knowledgeAddMode = 'link';     // 'link' | 'text' — article tab only (#668); paywalled articles can't be fetched, so pasting the body is the escape hatch
 
 function _clearPodcastPoll() {
   if (_podcastPollTimer) { clearTimeout(_podcastPollTimer); _podcastPollTimer = null; }
@@ -3232,18 +3233,52 @@ function _renderKnowledgeMaterialList() {
   const kindLabel = _knowledgeTab === 'video' ? 'video' : 'article';
   const rows = _podcastEpisodes.map(ep => _knowledgeMaterialRowHtml(ep)).join('') ||
     `<div class="keymap-hint">No ${kindLabel}s yet — paste a link above.</div>`;
+  // Paste-text is an article-only escape hatch for paywalled pieces the server
+  // can't fetch (#668) — video/podcast tabs only ever get a link box.
+  const isArticleTab = _knowledgeTab === 'article';
+  const addBoxHtml = (isArticleTab && _knowledgeAddMode === 'text')
+    ? `<div class="keymap-panel">
+        <div class="keymap-row" style="align-items:flex-start">
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+            <input type="text" class="edit-input" id="knowledge-add-title"
+                   placeholder="Title (leave blank to use the first line)">
+            <textarea class="edit-input" id="knowledge-add-text" rows="10"
+                      placeholder="Paste the full article text here…"
+                      style="width:100%;box-sizing:border-box;resize:vertical"></textarea>
+          </div>
+          <button class="btn-secondary" onclick="submitKnowledgeText()" style="flex-shrink:0">Add</button>
+        </div>
+        <span id="knowledge-add-msg" style="font-size:12px;color:var(--muted)"></span>
+      </div>`
+    : `<div class="keymap-panel">
+        <div class="keymap-row">
+          <input type="text" class="opt-input" id="knowledge-add-url"
+                 placeholder="Paste a ${kindLabel} link…" style="flex:1"
+                 onkeydown="if(event.key==='Enter') submitKnowledgeUrl()">
+          <button class="btn-secondary" onclick="submitKnowledgeUrl()">Add</button>
+        </div>
+        <span id="knowledge-add-msg" style="font-size:12px;color:var(--muted)"></span>
+      </div>`;
   el.innerHTML = `
     ${_knowledgeTabBarHtml()}
-    <div class="keymap-panel">
-      <div class="keymap-row">
-        <input type="text" class="opt-input" id="knowledge-add-url"
-               placeholder="Paste a ${kindLabel} link…" style="flex:1"
-               onkeydown="if(event.key==='Enter') submitKnowledgeUrl()">
-        <button class="btn-secondary" onclick="submitKnowledgeUrl()">Add</button>
-      </div>
-      <span id="knowledge-add-msg" style="font-size:12px;color:var(--muted)"></span>
-    </div>
+    ${isArticleTab ? _knowledgeAddModeBarHtml() : ''}
+    ${addBoxHtml}
     <div class="podcast-list">${rows}</div>`;
+}
+
+// Link/text toggle for the article tab's paste box (#668) — reuses the same
+// hcal-seg segmented-control styling as the kind tab bar just above it.
+function _knowledgeAddModeBarHtml() {
+  const modes = [['link', '🔗 Link'], ['text', '📋 Text']];
+  const btns = modes.map(([id, label]) =>
+    `<button class="hcal-seg-btn ${_knowledgeAddMode === id ? 'active' : ''}" onclick="switchKnowledgeAddMode('${id}')">${label}</button>`
+  ).join('');
+  return `<div class="hcal-seg" style="margin-bottom:12px">${btns}</div>`;
+}
+
+function switchKnowledgeAddMode(mode) {
+  _knowledgeAddMode = mode;
+  _renderKnowledgeMaterialList();
 }
 
 function _knowledgeMaterialRowHtml(ep) {
@@ -3277,9 +3312,35 @@ async function submitKnowledgeUrl() {
   const url = (input?.value || '').trim();
   if (!url) return;
   if (input) { input.value = ''; input.focus(); }
+  await _submitKnowledgeAdd(() => api('POST', '/api/knowledge/add', { url }), msg);
+}
+
+// Paste-text box (article tab only, #668) — for paywalled pieces the server
+// can't fetch. Title falls back to the pasted text's first line rather than
+// silently submitting an empty title (server also requires non-empty text).
+async function submitKnowledgeText() {
+  const titleInput = document.getElementById('knowledge-add-title');
+  const textInput = document.getElementById('knowledge-add-text');
+  const msg = document.getElementById('knowledge-add-msg');
+  const text = (textInput?.value || '').trim();
+  if (!text) return;
+  let title = (titleInput?.value || '').trim();
+  if (!title) title = text.split('\n').map(l => l.trim()).find(l => l) || '';
+  if (!title) {
+    if (msg) msg.textContent = 'Need a title (or a non-blank first line).';
+    return;
+  }
+  if (titleInput) titleInput.value = '';
+  if (textInput) { textInput.value = ''; textInput.focus(); }
+  await _submitKnowledgeAdd(() => api('POST', '/api/knowledge/add-text', { title, text }), msg);
+}
+
+// Shared tail end of both paste boxes: kick off processing for a freshly
+// ingested item, then refresh the currently-shown list if we're still on it.
+async function _submitKnowledgeAdd(doAdd, msg) {
   if (msg) msg.textContent = 'Adding…';
   try {
-    const res = await api('POST', '/api/knowledge/add', { url });
+    const res = await doAdd();
     const id = res?.episode_id;
     if (res?.status === 'already_exists') {
       if (msg) msg.textContent = 'Already in your library.';
