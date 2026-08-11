@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException
 
 import database
+import review_notify
 import srs
 import tts
 from .utils import leaf_ids, queue_mgr as _queue_mgr, ai_disabled
@@ -566,6 +567,15 @@ def get_card_calendar(card_id: int):
 @router.get("/api/cards/{card_id}/timeline")
 def get_card_timeline(card_id: int):
     return database.get_card_timeline_data(card_id)
+
+
+@router.post("/api/review/due-notify-check")
+def due_notify_check(force: bool = False):
+    """Run one review-reminder check (issue #701). Called by cron every few
+    minutes; sends the mail only when today's leftovers are all due at once and
+    nothing was sent yet today. Returns the verdict either way — a check that
+    decides not to send is a normal outcome, not an error."""
+    return review_notify.check_and_notify(force=force)
 
 
 @router.post("/api/session-timelines")
