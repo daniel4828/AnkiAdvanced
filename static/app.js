@@ -3058,9 +3058,13 @@ async function savePregenConfig() {
 //
 // Hash routes (the bare "podcast" prefix is kept working forever — episode
 // links already went out in podcast notification emails/Signal messages):
-//   #knowledge                          -> top level (sub-tab remembered in localStorage)
+//   #knowledge-podcast|video|article    -> top level, one sub-tab (#704; the
+//                                          target of the /knowledge/<kind>
+//                                          redirect, and bookmarkable)
 //   #podcast-feed-<id> / #knowledge-feed-<id> -> layer 2: one feed's episodes
 //   #podcast-<id>      / #knowledge-<id>       -> layer 3: item detail
+// The tab form is letters-only and the other two are digits-only, so they can
+// never collide.
 // Settings: GET/PUT /api/podcast/config (detail_level only — feeds/auto now
 // live in the podcast_feeds table via /api/podcast/feeds).
 const PODCAST_STATUS_LABEL = {
@@ -3095,7 +3099,7 @@ function _clearPodcastPoll() {
 
 async function openKnowledge(tab) {
   if (tab) { _knowledgeTab = tab; localStorage.setItem('knowledgeTab', tab); }
-  location.hash = 'knowledge';
+  location.hash = `knowledge-${_knowledgeTab}`;
   _clearPodcastPoll();
   _podcastCurrentFeedId = null;
   setLoading('Loading…');
@@ -3107,7 +3111,7 @@ async function openKnowledge(tab) {
 async function switchKnowledgeTab(tab) {
   _knowledgeTab = tab;
   localStorage.setItem('knowledgeTab', tab);
-  location.hash = 'knowledge';
+  location.hash = `knowledge-${tab}`;
   await _loadKnowledgeTab();
 }
 
@@ -3708,7 +3712,13 @@ function _openKnowledgeFromHash() {
   const feedMatch = /^#(?:podcast|knowledge)-feed-(\d+)$/.exec(location.hash);
   if (feedMatch) { openPodcastFeed(parseInt(feedMatch[1])); return; }
   const m = /^#(?:podcast|knowledge)-(\d+)$/.exec(location.hash);
-  if (m) openKnowledgeItem(parseInt(m[1]));
+  if (m) { openKnowledgeItem(parseInt(m[1])); return; }
+  // Tab link (#704): #knowledge-video etc. — the letters-only form, which the
+  // digits-only patterns above can never match. This is what /knowledge/videos
+  // redirects to, and also what the tab bar writes into the address bar, so
+  // reloading a bookmarked tab stays on that tab.
+  const tabMatch = /^#knowledge-(podcast|video|article)$/.exec(location.hash);
+  if (tabMatch) openKnowledge(tabMatch[1]);
 }
 
 function startKeyCapture(id) {
@@ -10739,7 +10749,9 @@ async function _loadVersionBadge() {
 // feed-id form must be checked first — it also matches the plain item-detail
 // form's prefix. Both the legacy #podcast-* and new #knowledge-* hash shapes
 // are recognized (see _openKnowledgeFromHash).
-if (/^#(?:podcast|knowledge)-feed-\d+$/.test(location.hash) || /^#(?:podcast|knowledge)-\d+$/.test(location.hash)) {
+if (/^#(?:podcast|knowledge)-feed-\d+$/.test(location.hash)
+    || /^#(?:podcast|knowledge)-\d+$/.test(location.hash)
+    || /^#knowledge-(?:podcast|video|article)$/.test(location.hash)) {
   _openKnowledgeFromHash();
 } else {
   loadDecks();
