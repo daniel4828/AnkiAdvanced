@@ -1176,8 +1176,11 @@ async function _pollSyncProgress() {
 
 
 // ── Deck list ───────────────────────────────────────────────────────────────
-async function loadDecks() {
-  setLoading('Loading decks…');
+// keepView: refresh the deck data in place without switching to the home view.
+// Background work (adding a word during a review, #695) needs the due counts
+// updated, but must never yank the user out of whatever they are doing.
+async function loadDecks({ keepView = false } = {}) {
+  if (!keepView) setLoading('Loading decks…');
   try {
     const [langs, mode] = await Promise.all([
       api('GET', '/api/langs').catch(() => ['zh']),
@@ -1204,8 +1207,11 @@ async function loadDecks() {
       if (d.id != null) _deckLangById[d.id] = d.lang || 'zh';
     }
     renderDecks(decks);
-    showView('decks');
+    if (!keepView) showView('decks');
   } catch (e) {
+    // A background refresh failing is not worth an error screen — the user
+    // never asked for it, and the banner already reports the word's outcome.
+    if (keepView) { console.warn('background deck refresh failed', e); return; }
     showError('Could not load decks: ' + e.message);
     showView('decks');
   }

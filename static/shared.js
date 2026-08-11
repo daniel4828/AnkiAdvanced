@@ -41,7 +41,11 @@ async function addWordViaAi(wordZh, day, onUpdate) {
   }
 
   // The deck list only exists in the full app; /add has nothing to refresh.
-  const refreshDecks = () => { if (typeof loadDecks === 'function') loadDecks(); };
+  // keepView (#695): generation finishes ~30s later, quite possibly mid-review
+  // — refresh the due counts, never switch the view out from under the user.
+  const refreshDecks = () => {
+    if (typeof loadDecks === 'function') loadDecks({ keepView: true });
+  };
 
   // Known words come back finished — no AI call, no job to poll.
   if (!result.job_id) {

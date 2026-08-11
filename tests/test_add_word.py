@@ -337,6 +337,17 @@ def test_add_word_pipeline_is_not_duplicated_in_app_js():
     assert "async function api(" not in app_js
 
 
+def test_background_deck_refresh_keeps_the_current_view():
+    """#695: generation finishes ~30s later, often mid-review. loadDecks() ends
+    in showView('decks'), so refreshing the due counts must pass keepView —
+    otherwise finishing a word throws the user back to the home screen."""
+    import pathlib
+    shared_js = pathlib.Path("static/shared.js").read_text(encoding="utf-8")
+    app_js = pathlib.Path("static/app.js").read_text(encoding="utf-8")
+    assert "loadDecks({ keepView: true })" in shared_js
+    assert "if (!keepView) showView('decks');" in app_js
+
+
 def test_add_page_uses_the_shared_endpoint():
     """Guards against the page growing its own add-word call."""
     import pathlib
