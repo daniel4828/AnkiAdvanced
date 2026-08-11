@@ -1815,6 +1815,7 @@ function _sortWords(words) {
 
 function onBrowseSort(val) {
   _browseSort = val;
+  _leaveStarredView();  // the sort options are word fields (pinyin/hanzi), #692
   const q = document.getElementById('browse-search').value.trim();
   if (_browseMode === 'hanzi') renderHanziList(_allHanzi, q);
   else if (q) onBrowseSearch(q); else renderBrowseWords(_filteredBrowseWords());
@@ -1853,6 +1854,7 @@ function setBrowseFilter(mode, filter) {
   _browseMode   = mode;
   _browseFilter = filter;
   _browseDeckId = null;
+  _leaveStarredView();
   // Update sidebar active state
   document.querySelectorAll('.bs-item').forEach(el => el.classList.remove('bs-active'));
   const btnId = mode === 'hanzi' ? 'bsf-hanzi' : `bsf-${filter}`;
@@ -1873,10 +1875,23 @@ function setBrowseStatusFilter(status) {
   document.getElementById('browse-search').value = '';
   _browseSelected.clear();
   _updateBrowseActionBar();
+  // 'starred' lists sentences, not words, so it can't go through the word filter
+  // chain in _filteredBrowseWords() — it's its own rendering branch (#692).
+  if (status === 'starred') { renderStarredSentences(); return; }
   if (_browseMode === 'notes') renderBrowseWords(_filteredBrowseWords());
 }
 
+// Any word-level filter action leaves the sentence view: it lists a different
+// kind of thing, so silently keeping its tab highlighted would be a lie (#692).
+function _leaveStarredView() {
+  if (_browseCardStatus !== 'starred') return;
+  _browseCardStatus = 'all';
+  document.querySelectorAll('.bs-status-item').forEach(el => el.classList.remove('bs-active'));
+  document.getElementById('bss-all')?.classList.add('bs-active');
+}
+
 function setBrowseDeckFilter(deckId) {
+  _leaveStarredView();
   if (_browseDeckId === deckId) {
     _browseDeckId = null;
     document.querySelectorAll('.bs-deck-item').forEach(el => el.classList.remove('bs-active'));
@@ -1994,6 +2009,7 @@ function toggleBrowseDeckExpand(deckId) {
 
 function onBrowseSearch(val) {
   clearTimeout(_browseSearchTimer);
+  _leaveStarredView();  // searching is word-level (#692)
   const q = val.trim();
   if (_browseMode === 'hanzi') { renderHanziList(_allHanzi, q); return; }
   if (!q) { renderBrowseWords(_filteredBrowseWords()); return; }
@@ -2237,6 +2253,69 @@ function renderBrowseWords(words) {
     return;
   }
   list.innerHTML = `<div class="bw-list">${_sortWords(words).map(_wordRow).join('')}</div>`;
+}
+
+// ── Starred sentences view (#692) ────────────────────────────────────────────
+// Sentences starred during review, newest first, each with the generation
+// context that makes it useful: which mode/model produced it and from which
+// source material. That's what you read when deciding how to change a prompt.
+
+async function renderStarredSentences() {
+  const list = document.getElementById('browse-list');
+  list.innerHTML = '<div class="browse-empty">Loading…</div>';
+  let sentences;
+  try {
+    const r = await api('GET', `/api/starred-sentences${_langQP('?')}`);
+    sentences = r.sentences;
+  } catch (e) {
+    list.innerHTML = `<div class="browse-empty">Could not load starred sentences: ${_escHtml(e.message)}</div>`;
+    return;
+  }
+  if (_browseCardStatus !== 'starred') return;  // user switched tabs while loading
+  if (!sentences.length) {
+    list.innerHTML = '<div class="browse-empty">No starred sentences yet — press Shift+F ' +
+                     'or tap ☆ while reviewing to keep a good one.</div>';
+    return;
+  }
+  list.innerHTML = `<div class="bw-list">${sentences.map(_starredSentenceRow).join('')}</div>`;
+}
+
+function _starredSentenceRow(s) {
+  const trans = s.sentence_de || s.sentence_fr || s.sentence_en || '';
+  const words = (s.words || []).map(w => _escHtml(w.word_zh)).join('、');
+  const source = s.source_url
+    ? `<a class="ss-source" href="${_escHtml(s.source_url)}" target="_blank" rel="noopener"
+          onclick="event.stopPropagation()">${_escHtml(s.source_title || s.source_name || 'source')}</a>`
+    : (s.source_title ? `<span class="ss-source">${_escHtml(s.source_title)}</span>` : '');
+  const meta = [
+    `<span class="ss-mode">${_escHtml(s.mode || 'story')}</span>`,
+    s.story_date ? `<span>${_escHtml(s.story_date)}</span>` : '',
+    s.deck_name ? `<span>${_escHtml(s.deck_name)}</span>` : '',
+    words ? `<span class="ss-words">${words}</span>` : '',
+    source,
+  ].filter(Boolean).join('<span class="ss-dot">·</span>');
+
+  return `<div class="bw-row ss-row">
+    <div class="ss-main">
+      <div class="ss-zh">${_escHtml(s.sentence_zh)}</div>
+      ${trans ? `<div class="ss-trans">${_escHtml(trans)}</div>` : ''}
+      <div class="ss-meta">${meta}</div>
+    </div>
+    <button class="ss-unstar" title="Remove the star"
+            onclick="unstarSentence(${s.id}, this)">★</button>
+  </div>`;
+}
+
+async function unstarSentence(sentenceId, btn) {
+  btn.disabled = true;
+  try {
+    await api('POST', `/api/story-sentence/${sentenceId}/star`, { starred: false });
+    btn.closest('.ss-row')?.remove();
+    if (!document.querySelector('.ss-row')) renderStarredSentences();  // back to empty state
+  } catch (e) {
+    btn.disabled = false;
+    showError('Unstar failed: ' + e.message);
+  }
 }
 
 function renderBrowseSearchResults(primary, secondary, q) {
@@ -7037,7 +7116,50 @@ function _syncCardToggleBar() {
                        (de?.textContent && de.style.display !== 'none');
   transBtn.classList.toggle('active', !!transVisible);
 
-  bar.style.display = (pinAvail || transAvail) ? '' : 'none';
+  // Star: only when this card actually shows a stored story sentence. A card
+  // with no sentence (no story yet — renderSentence() falls back to the bare
+  // word) has nothing to star, so the button stays hidden rather than failing.
+  const starBtn = document.getElementById('toggle-star-btn');
+  const starAvail = !!sentence?.id;
+  if (starBtn) {
+    starBtn.style.display = starAvail ? '' : 'none';
+    _syncStarBtn();
+  }
+
+  bar.style.display = (pinAvail || transAvail || starAvail) ? '' : 'none';
+}
+
+// ── Starred sentences (#692) ─────────────────────────────────────────────────
+// While reviewing, a sentence is either good or it isn't — and that judgement is
+// only available in the second you read it. Starring collects those good ones as
+// positive examples for tuning the generation prompts later (Browse → ★).
+
+function _syncStarBtn() {
+  const btn = document.getElementById('toggle-star-btn');
+  if (!btn) return;
+  const on = !!sentence?.starred;
+  btn.textContent = on ? '★' : '☆';
+  btn.classList.toggle('active', on);
+  btn.title = on ? 'Starred — click to unstar (Shift+F)'
+                 : 'Star this sentence as a good example (Shift+F)';
+}
+
+async function toggleSentenceStar() {
+  if (!sentence?.id) return;
+  const next = !sentence.starred;
+  // Optimistic: the star is a note to self, and a stalled button mid-review is
+  // more disruptive than a star that turns out not to have saved.
+  sentence.starred = next ? 1 : 0;
+  _syncStarBtn();
+  try {
+    const r = await api('POST', `/api/story-sentence/${sentence.id}/star`, { starred: next });
+    sentence.starred = r.starred;
+    sentence.starred_at = r.starred_at;
+  } catch (e) {
+    sentence.starred = next ? 0 : 1;
+    showError('Star failed: ' + e.message);
+  }
+  _syncStarBtn();
 }
 
 // ── Translation toggle (German/French sentence translation) ───────────────────
@@ -9935,6 +10057,12 @@ document.addEventListener('keydown', async e => {
 
   if (e.key === 'R' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
     if (!inInput) { e.preventDefault(); _restartServer(); }
+    return;
+  }
+
+  // Shift+F stars/unstars the sentence on the current card (#692)
+  if (e.key === 'F' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    if (!inInput) { e.preventDefault(); toggleSentenceStar(); }
     return;
   }
 

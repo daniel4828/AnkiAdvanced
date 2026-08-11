@@ -348,6 +348,17 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 
 ---
 
+### 加星句子：改进提示词的正例样本（#692）
+
+复习时读到写得好的句子，就地按 **Shift+F** 或点卡背工具条的 ☆ 加星；之后在 Browse 的 **⭐ Sentences** 视图集中回看。判断一句话好不好只有读到它的那一秒才可能，事后翻故事历史回忆不起来 —— 这是这个功能存在的全部理由。
+
+- `story_sentences.starred` / `starred_at` 两列，**不新建表**：加星是句子的属性，多一张表只是多一次 JOIN
+- **Again 重生成的句子自动通吃**：它们本来就是 `story_sentences` 行（存在 sentinel category `again` 下，见 `store_again_sentence`），无需特例 —— 而新生成的句子恰恰最需要被评判
+- **列表必须带出生成上下文**：`get_starred_sentences()` 从 `stories.gen_params` 解出 `mode`/`model`/`episode_id`，再带上牌组名与 `source_title`/`source_url`。一句脱离了"是哪个提示词生成的"的好句子，对改提示词毫无用处
+- **前端是独立渲染分支**：Browse 其余所有过滤（`_filteredBrowseWords()`）都是**按词**过滤的，加星是**句子**级实体，塞不进那条链。切到任何按词的过滤/搜索/排序时用 `_leaveStarredView()` 自动退出，免得标签高亮和列表内容说两套话
+- 复习时的加星是**乐观更新**：复习途中按钮卡住比星标没存上更打断节奏；失败回滚并报错
+- 没有句子的卡（还没生成故事，正面只显示单词）不显示该按钮
+
 ## 生词标注：代码做，不用 AI（`zh_annotate.py`，#638）
 
 #631 靠提示词让模型标 `pinyin/汉字`，模型经常漏（德语总结里出现光秃秃的 `(浙江)`），中文总结更是一个都没标。所有材料仓库里都有，所以改成确定性代码，**零 AI 调用**：`static/hsk_levels.json`（4991 词的 HSK 1-6 表）+ `entries.word_zh`（Daniel 的词库）+ `jieba` + `pypinyin` + `translator.py`。
@@ -416,6 +427,8 @@ POST /api/speak ；POST /api/speak-multi ；GET /api/speak-status ；POST /api/s
 GET  /api/tts-file ；POST /api/preload ；POST /api/preload-session/{deck_id}/{category}
 GET  /api/tts-progress/{deck_id}/{category} ；GET /api/story-progress/{deck_id}/{category}
 GET  /api/news/status                                → 当日新闻缓存状态 {cached, count}（briefing 模式设置弹窗仍在用；旧 news 模式已移除，#512）
+POST /api/story-sentence/{id}/star                   → 给句子加星/取消，body {starred: bool}（#692）；句子不存在 404
+GET  /api/starred-sentences[?lang=&limit=]           → 全部加星句子，附生成模式/模型/episode_id/牌组/来源（#692）
 
 # 知识库（播客爬虫 #479 泛化，#650–#655；详见「知识库」节）
 POST /api/knowledge/add                               → body {url} → 新素材 {episode_id}；已存在 {status:"already_exists", episode_id}；不转录不摘要，前端拿 id 后另调 .../process

@@ -1490,6 +1490,10 @@ main.browse-open {
   color: var(--primary);
   border-color: var(--primary);
 }
+/* Star (#692): gold rather than the primary colour — it marks a judgement about
+   the sentence, not a visibility toggle like its neighbours. */
+.card-star-btn { font-size: 14px; padding: 3px 10px; }
+.card-star-btn.active { color: #e0a300; border-color: #e0a300; }
 
 .char-row:last-child { border-bottom: none; }
 .char-row-link  { cursor: pointer; }
@@ -2564,6 +2568,25 @@ a.news-source-line:hover {
   user-select: none;
 }
 .bw-row:last-child { border-bottom: none; }
+
+/* Starred sentences view (#692) — one starred sentence per row, with the
+   generation context (mode / date / deck / target words / source) beneath it. */
+.ss-row    { cursor: default; align-items: flex-start; }
+.ss-main   { flex: 1 1 auto; min-width: 0; }
+.ss-zh     { font-size: 17px; line-height: 1.5; }
+.ss-trans  { font-size: 13px; color: var(--muted); margin-top: 3px; }
+.ss-meta   { font-size: 11px; color: var(--muted); margin-top: 6px;
+             display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.ss-mode   { font-weight: 600; color: var(--primary); }
+.ss-words  { font-weight: 600; }
+.ss-dot    { opacity: 0.45; }
+.ss-source { color: var(--muted); text-decoration: underline; }
+.ss-source:hover { color: var(--primary); }
+.ss-unstar { flex: 0 0 auto; cursor: pointer; background: transparent;
+             border: none; color: #e0a300; font-size: 17px; line-height: 1;
+             padding: 2px 4px; }
+.ss-unstar:hover:not(:disabled) { opacity: 0.6; }
+.ss-unstar:disabled { opacity: 0.4; cursor: default; }
 .bw-row:hover { background: #f8fafc; }
 .bw-left {
   display: flex;

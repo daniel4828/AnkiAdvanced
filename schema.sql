@@ -406,6 +406,9 @@ CREATE TABLE IF NOT EXISTS story_sentences (
     context_de  TEXT,
     source_title TEXT,
     source_name TEXT,
+    -- starred during review as a good example to learn from when tuning prompts (#692)
+    starred     INTEGER NOT NULL DEFAULT 0,
+    starred_at  TEXT,
     UNIQUE(story_id, position)
 );
 

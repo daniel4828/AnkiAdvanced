@@ -229,6 +229,9 @@
             <div class="card-toggle-bar" id="card-toggle-bar" style="display:none">
               <button class="card-toggle-btn" id="toggle-pinyin-btn" onclick="togglePinyin()" style="display:none">拼音</button>
               <button class="card-toggle-btn" id="toggle-trans-btn" onclick="toggleTranslation()" style="display:none">译文</button>
+              <!-- Star a well-written sentence as a positive example for prompt tuning (#692) -->
+              <button class="card-toggle-btn card-star-btn" id="toggle-star-btn" onclick="toggleSentenceStar()"
+                      style="display:none" title="Star this sentence as a good example (Shift+F)">☆</button>
             </div>
 
             <!-- 2. Pinyin row (hidden by default; press p to toggle) -->
@@ -356,6 +359,9 @@
         <button class="bs-status-item" id="bss-leech"     onclick="setBrowseStatusFilter('leech')">Leeched</button>
         <button class="bs-status-item" id="bss-reference" onclick="setBrowseStatusFilter('reference')">Reference</button>
         <button class="bs-status-item" id="bss-saved"     onclick="setBrowseStatusFilter('saved')">★ Saved</button>
+        <!-- Sentence-level view, not a word filter (#692) -->
+        <button class="bs-status-item" id="bss-starred"   onclick="setBrowseStatusFilter('starred')"
+                title="Sentences you starred while reviewing — good examples for prompt tuning">⭐ Sentences</button>
       </div>
       <div class="bs-section">
         <div class="bs-section-head">Hanzi</div>
