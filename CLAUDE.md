@@ -200,7 +200,8 @@ bash sync_offline.sh push    # 只推不拉，推完归档本地库
 ├── requirements.txt       # Python 依赖清单
 ├── DEPLOY.md              # 服务器从零到上线的部署教程
 ├── deploy/                # systemd 单元、Caddyfile 示例、deploy.sh（自动部署）
-├── scripts/               # morning_pregen.py（早晨预生成故事+TTS）、podcast_check.py（播客爬虫定时脚本）、knowledge_mail_check.py（知识库邮件收件定时脚本，#655）、offline_sync_server.py + offline_tts_manifest.py（离线同步，#612）、fsrs_optimize.py（用 review_log 训练个人 FSRS 权重，#629）+ README
+├── review_notify.py       # 复习收尾提醒（#701）：去重 + 发信，判定在 database.due_notification_status()
+├── scripts/               # morning_pregen.py（早晨预生成故事+TTS）、podcast_check.py（播客爬虫定时脚本）、due_check.py（复习收尾提醒定时脚本，#701）、knowledge_mail_check.py（知识库邮件收件定时脚本，#655）、offline_sync_server.py + offline_tts_manifest.py（离线同步，#612）、fsrs_optimize.py（用 review_log 训练个人 FSRS 权重，#629）+ README
 ├── docs/yaml-format.md    # YAML 词条格式完整文档
 ├── docs/knowledge-base.md # 知识库功能总体设计（#650–#655 各 Issue 引用的唯一设计说明）
 └── data/
@@ -331,6 +332,19 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 
 ---
 
+## 复习收尾提醒（#701）
+
+清空队列（0 open cards）后，被评为 Again 的卡片还留在学习步骤里（`1m 10m 1d 3d`）分批回来，Daniel 离开界面就无从知道它们什么时候到期。服务器 cron 每 5 分钟跑 `scripts/due_check.py` → `POST /api/review/due-notify-check`，条件成立时发一封邮件。
+
+- **三条同时成立才发**（`database.due_notification_status()`）：`due_now > 0`（有已到期的 learning/relearn 卡）、`later_today == 0`（现在→明天日界点之间没有还在等的学习卡）、`other_due == 0`（new + review 到期卡已清零，即队列确实空过）
+- **`later_today == 0` 是这个功能的全部意义**：第一张卡回来就通知，等于把 Daniel 叫回去做两张卡再干等十分钟，那还不如不提醒
+- **1d/3d 步骤的卡刻意不参与判断**：它们到期在明天日界之后，属于别的一天；等它们就永远发不出去
+- **计数复用 `count_due_all_decks()`**，不手写 COUNT(*)：新卡每日上限、锁定的未来 Daily 牌组、禁用的 reading 类别它都处理过了，自己写一份迟早和界面角标说两套话
+- **"明天日界点"必须算成完整 ISO datetime**（`get_day_cutoff_hour()`）：`cards.due` 对 learning 卡存的是 datetime，拿日期字符串比会把凌晨 0–5 点的卡算成明天
+- **每个 Anki 日最多一封**，标记存 `app_settings.due_notify_last_day`；`?force=true` 只跳过去重，条件不成立照样不发
+- **SMTP 未配置 = 跳过不是失败，且此时不写标记** —— 否则等配置好了当天再也收不到
+- 发信走 `podcast.send_mail()`（从 `send_email()` 抽出的通用函数，播客/知识库通知与本提醒共用一份 SMTP 逻辑）
+
 ## 故事生成
 
 - 每个类别（阅读/听力/写作——界面顺序也是这个）独立生成自己的故事
@@ -417,6 +431,7 @@ GET  /api/today-unfinished ；/api/today-unfinished-decks
 POST /api/review                                     → {card_id, rating, user_response?} → {next_card, counts}
 POST /api/review/undo ；POST /api/review/requeue
 POST /api/cards/{card_id}/bury | unbury | leech
+POST /api/review/due-notify-check[?force=true]       → 复习收尾提醒检查（#701）；条件不满足时不发信也不算失败，返回判定明细
 
 # 暂停
 POST /api/decks/{id}/creating/toggle-suspension
