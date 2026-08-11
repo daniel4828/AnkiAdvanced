@@ -355,6 +355,9 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 - `story_sentences.starred` / `starred_at` 两列，**不新建表**：加星是句子的属性，多一张表只是多一次 JOIN
 - **Again 重生成的句子自动通吃**：它们本来就是 `story_sentences` 行（存在 sentinel category `again` 下，见 `store_again_sentence`），无需特例 —— 而新生成的句子恰恰最需要被评判
 - **列表必须带出生成上下文**：`get_starred_sentences()` 从 `stories.gen_params` 解出 `mode`/`model`/`episode_id`，再带上牌组名与 `source_title`/`source_url`。一句脱离了"是哪个提示词生成的"的好句子，对改提示词毫无用处
+- **提示词只链接不复制**（#697）：提示词已经在 `stories.prompt_text` 里，列表只带 `story_id` + `has_prompt`，全文由 `GET /api/story-prompt/{id}` 按需取。**绝不内联全文** —— 一份 knowledge 提示词含上万字转录，500 行列表会变成几十 MB
+  - `knowledge` 模式原来存的是占位符 `"knowledge mode — item N (kind=video)"`，正在调的那个模式恰恰读不回提示词。现在 `ai.generate_podcast_sentences()` 返回 `(sentences, prompt)`（与本模块其它生成函数一致），存的是**实际发出去的**提示词并跨轮拼接 —— 补漏轮带 `extra_hint`，事后重建的版本并不是写出这些句子的那一份
+  - **提示词为空是正常状态**，不是错误：旧故事早于该列，且离线快照会主动清空它（`scripts/offline_sync_server.py`）。界面必须说明原因，不能显示空白框
 - **前端是独立渲染分支**：Browse 其余所有过滤（`_filteredBrowseWords()`）都是**按词**过滤的，加星是**句子**级实体，塞不进那条链。切到任何按词的过滤/搜索/排序时用 `_leaveStarredView()` 自动退出，免得标签高亮和列表内容说两套话
 - 复习时的加星是**乐观更新**：复习途中按钮卡住比星标没存上更打断节奏；失败回滚并报错
 - 没有句子的卡（还没生成故事，正面只显示单词）不显示该按钮
@@ -428,7 +431,9 @@ GET  /api/tts-file ；POST /api/preload ；POST /api/preload-session/{deck_id}/{
 GET  /api/tts-progress/{deck_id}/{category} ；GET /api/story-progress/{deck_id}/{category}
 GET  /api/news/status                                → 当日新闻缓存状态 {cached, count}（briefing 模式设置弹窗仍在用；旧 news 模式已移除，#512）
 POST /api/story-sentence/{id}/star                   → 给句子加星/取消，body {starred: bool}（#692）；句子不存在 404
-GET  /api/starred-sentences[?lang=&limit=]           → 全部加星句子，附生成模式/模型/episode_id/牌组/来源（#692）
+GET  /api/starred-sentences[?lang=&limit=]           → 全部加星句子，附生成模式/模型/episode_id/牌组/来源 + story_id/has_prompt（#692、#697）
+GET  /api/story-prompt/{story_id}                    → 生成该故事的完整提示词（#697）；故事不存在 404
+                                                       **不能**写成 /api/story/{id}/prompt——GET /api/story/{deck_id}/{category} 注册在前会把它当 category='prompt' 吃掉
 
 # 知识库（播客爬虫 #479 泛化，#650–#655；详见「知识库」节）
 POST /api/knowledge/add                               → body {url} → 新素材 {episode_id}；已存在 {status:"already_exists", episode_id}；不转录不摘要，前端拿 id 后另调 .../process
