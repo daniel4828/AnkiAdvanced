@@ -47,11 +47,12 @@ def populated_db(tmp_db, tmp_path):
 
 
 def _fake_podcast_sentences(cards, summary, title, **kwargs):
+    # (sentences, prompt) since #697 — the route stores the prompt on the story.
     return [
         {"word_id": c["word_id"], "sentence_zh": f"{c['word_zh']}出现在这一集里。",
          "sentence_en": "", "target_word": c["word_zh"]}
         for c in cards
-    ]
+    ], f"假提示词：{title}"
 
 
 def test_knowledge_mode_generates_story_from_video_episode(populated_db):
@@ -226,3 +227,26 @@ def test_knowledge_mode_story_generation_falls_back_without_transcript(populated
     assert not r.json().get("error")
     mock_gen.assert_called_once()
     assert seen_material["value"] == "Nur eine deutsche Zusammenfassung."
+
+
+# ── #697: knowledge 故事必须存下真实提示词 ────────────────────────────────────
+
+def test_knowledge_story_stores_the_real_prompt(populated_db):
+    """原来这里存的是占位符 "knowledge mode — item 7 (kind=video)"，于是
+    knowledge——正在调的那个模式——恰恰是唯一读不回提示词的模式。"""
+    deck_id = populated_db
+    episode_id = database.create_pending_episode(
+        "yt697", "https://youtube.com/@x", "一个视频标题", None,
+        "https://youtube.com/watch?v=yt697", kind="video")
+    database.update_episode(episode_id, status="summarized",
+                            transcript_zh="转录正文。", summary_de="Resümee.")
+
+    with patch("ai.generate_podcast_sentences", side_effect=_fake_podcast_sentences):
+        r = client.get(f"/api/story/{deck_id}/listening",
+                       params={"mode": "knowledge", "episode_id": episode_id})
+    assert r.status_code == 200 and not r.json().get("error")
+
+    story = database.get_active_story(database.anki_today().isoformat(), "listening", deck_id)
+    prompt = database.get_story_prompt(story["id"])["prompt"]
+    assert prompt == "假提示词：一个视频标题"
+    assert "knowledge mode — item" not in prompt

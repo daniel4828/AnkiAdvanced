@@ -2301,14 +2301,25 @@ function _starredSentenceRow(s) {
     source,
   ].filter(Boolean).join('<span class="ss-dot">·</span>');
 
+  // The prompt link is the point of the whole feature (#697) — a good sentence
+  // is only actionable next to the prompt that produced it.
+  const promptBtn = s.has_prompt
+    ? `<button class="ss-prompt-btn" title="Show the prompt that generated this sentence"
+               onclick="showStoryPrompt(${s.story_id})">📝 Prompt</button>`
+    : `<button class="ss-prompt-btn" disabled
+               title="No prompt stored for this story (legacy story, or an offline snapshot — it strips prompt_text)">📝 Prompt</button>`;
+
   return `<div class="bw-row ss-row">
     <div class="ss-main">
       <div class="ss-zh">${_escHtml(s.sentence_zh)}</div>
       ${trans ? `<div class="ss-trans">${_escHtml(trans)}</div>` : ''}
       <div class="ss-meta">${meta}</div>
     </div>
-    <button class="ss-unstar" title="Remove the star"
-            onclick="unstarSentence(${s.id}, this)">★</button>
+    <div class="ss-actions">
+      ${promptBtn}
+      <button class="ss-unstar" title="Remove the star"
+              onclick="unstarSentence(${s.id}, this)">★</button>
+    </div>
   </div>`;
 }
 
@@ -3921,7 +3932,10 @@ function toggleCostAction(idx) {
   arrow.innerHTML = open ? '&#9656;' : '&#9662;';
 }
 
-async function showCostPrompt(callId, kind = 'prompt') {
+// Shared monospace text overlay: the cost page's prompt/response viewer and the
+// starred-sentence prompt link (#697) show the same kind of thing, so they use
+// the same box rather than each growing their own.
+function _openPromptOverlay(title) {
   let overlay = document.getElementById('cost-prompt-overlay');
   if (!overlay) {
     overlay = document.createElement('div');
@@ -3939,15 +3953,37 @@ async function showCostPrompt(callId, kind = 'prompt') {
     document.body.appendChild(overlay);
   }
   overlay.style.display = 'flex';
-  const title = kind === 'response' ? 'Response' : 'Prompt';
   document.getElementById('cost-prompt-title').textContent = title;
   const body = document.getElementById('cost-prompt-body');
   body.textContent = 'Loading…';
+  return body;
+}
+
+async function showCostPrompt(callId, kind = 'prompt') {
+  const body = _openPromptOverlay(kind === 'response' ? 'Response' : 'Prompt');
   try {
     const data = await api('GET', `/api/costs/call/${callId}`);
     body.textContent = data[kind] || `(no ${kind} stored)`;
   } catch (e) {
     body.textContent = `Failed to load ${kind}: ` + e.message;
+  }
+}
+
+// The prompt that generated a starred sentence (#697) — the reason for starring
+// it in the first place is being able to come back and read this.
+async function showStoryPrompt(storyId) {
+  const body = _openPromptOverlay('Prompt');
+  try {
+    const d = await api('GET', `/api/story-prompt/${storyId}`);
+    document.getElementById('cost-prompt-title').textContent =
+      `Prompt — ${d.mode}${d.model ? ` · ${d.model}` : ''} · ${d.date}`;
+    // An empty prompt is a normal state (legacy story, or the offline snapshot
+    // strips prompt_text) — say which, don't show an empty box.
+    body.textContent = d.prompt ||
+      '(no prompt stored for this story — either it predates prompt logging, ' +
+      'or this database is an offline snapshot, which clears prompt_text to save space)';
+  } catch (e) {
+    body.textContent = 'Failed to load prompt: ' + e.message;
   }
 }
 

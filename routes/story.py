@@ -382,15 +382,23 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
                           else min(len(cards), ai.MAX_PODCAST_BATCH))
             chunks = [cards[i:i + chunk_size] for i in range(0, len(cards), chunk_size)]
             sentences = []
+            chunk_prompts = []
             for idx, chunk in enumerate(chunks):
                 label = f" ({idx + 1}/{len(chunks)})" if len(chunks) > 1 else ""
-                sentences.extend(ai.generate_podcast_sentences(
+                chunk_sentences, chunk_prompt = ai.generate_podcast_sentences(
                     chunk, material, episode.get("title") or "",
                     model=model, max_hsk=max_hsk, progress_key=progress_key,
                     attempt_label=label,
                     source_url=episode.get("youtube_url") or f"/#{kind}-{episode_id}",
-                    source_title=episode.get("title")))
-            prompt_text = f"knowledge mode — item {episode_id} (kind={kind})"
+                    source_title=episode.get("title"))
+                sentences.extend(chunk_sentences)
+                if chunk_prompt:
+                    chunk_prompts.append(
+                        f"══ chunk{label} ══\n{chunk_prompt}" if len(chunks) > 1 else chunk_prompt)
+            # #697: this used to store a placeholder string, so knowledge stories —
+            # the mode being actively tuned — were the one mode whose prompt you
+            # couldn't go back and read.
+            prompt_text = "\n\n".join(chunk_prompts)
         else:
             sentences, prompt_text = _generate_story_sentences(
                 cards, topic=topic, max_hsk=max_hsk, model=model,
@@ -566,7 +574,7 @@ def generate_sentence_for_word(card: dict, gen_params: dict | None) -> dict | No
                 material = _knowledge_material(ep) if ep else ""
                 if material:
                     ep_kind = ep.get("kind") or "podcast"
-                    sentences = ai.generate_podcast_sentences(
+                    sentences, _ = ai.generate_podcast_sentences(
                         [card], material, ep.get("title") or "",
                         model=_validated_model(gp.get("model"), default=ai.DEFAULT_MODEL),
                         max_hsk=gp.get("max_hsk", 3),
@@ -773,6 +781,18 @@ def star_sentence(sentence_id: int, body: dict | None = None):
 @router.get("/api/starred-sentences")
 def list_starred_sentences(lang: str | None = None, limit: int = 500):
     return {"sentences": database.get_starred_sentences(lang=lang, limit=limit)}
+
+
+# NOT /api/story/{story_id}/prompt: GET /api/story/{deck_id}/{category} is
+# registered earlier and would swallow it with category="prompt".
+@router.get("/api/story-prompt/{story_id}")
+def get_story_prompt(story_id: int):
+    """The prompt that generated this story — the point of starring a sentence is
+    being able to go back and read it (#697)."""
+    result = database.get_story_prompt(story_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"No story with id {story_id}")
+    return result
 
 
 # ── 提示词版本库（issue #610；原单份自定义模板见 #581）──────────────────────────
