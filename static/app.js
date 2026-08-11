@@ -6715,71 +6715,68 @@ function pickExtraBlankWord(zh, excludeWord) {
   return zh.slice(idx, idx + 2);
 }
 
+// ── Word bank: locate the target word inside the sentence ──────────────────
+// Pure function (no DOM/global access) so tests can run it directly — see
+// tests/test_word_bank.py, which extracts this source and runs it in node.
+//
+// Returns the ordered token stream [{type:'char'|'target', char|word}, ...].
+// The target is located by CHARACTER OFFSET in the raw sentence, not by token
+// identity: the tokenizer regularly cuts straight through it (#699 — target
+// 活下 in "TÜV在严格监管中活下来。" is tokenized as …中活/下来…, i.e. the
+// suffix of one token plus the prefix of the next). Matching whole tokens
+// left the target unblanked, printed in plain sight above its own answer box.
+function buildWordBankOrder(zh, tokens, target) {
+  // Separable words like "由...组成" — each part is located independently
+  const targetParts = target.includes('...') ? target.split('...').filter(p => p.length > 0) : [target];
+
+  // Token texts must rejoin into the exact sentence for offsets to line up;
+  // anything else (malformed AI tokens) falls back to per-character tokens.
+  let tokenTexts = (tokens && tokens.length) ? tokens.map(t => t[0]) : null;
+  if (!tokenTexts || tokenTexts.join('') !== zh) tokenTexts = [...zh];
+
+  // Character ranges of the target parts, searched left to right
+  const ranges = [];
+  let searchFrom = 0;
+  for (const part of targetParts) {
+    const idx = zh.indexOf(part, searchFrom);
+    if (idx < 0) break;
+    ranges.push([idx, idx + part.length]);
+    searchFrom = idx + part.length;
+  }
+
+  // Slice the token stream at those ranges
+  const order = [];
+  let pos = 0;
+  for (const text of tokenTexts) {
+    const start = pos;
+    const end = pos + text.length;
+    pos = end;
+    let cur = start;
+    for (const [rs, re] of ranges) {
+      if (re <= cur || rs >= end) continue;
+      if (rs > cur) order.push({ type: 'char', char: zh.slice(cur, rs) });
+      // A target spanning several tokens is emitted once, where it starts
+      if (rs >= start) order.push({ type: 'target', word: zh.slice(rs, re) });
+      cur = Math.min(re, end);
+    }
+    if (cur < end) order.push({ type: 'char', char: zh.slice(cur, end) });
+  }
+
+  // Target (or some of its parts) missing from the sentence — append a blank
+  // for each one so the user is still asked for the word.
+  for (let i = ranges.length; i < targetParts.length; i++) {
+    order.push({ type: 'target', word: targetParts[i] });
+  }
+  return order;
+}
+
 // ── Word bank (creating mode, non-sentence notes) ─────────────────────────
 async function _buildWordBank() {
   const zh = sentence?.sentence_zh;
   // No sentence for this card yet — clear stale state so the previous card's
   // word bank doesn't linger on screen (renderWordBankUI clears the DOM too).
   if (!zh || !card?.word_zh) { wordBankOrder = []; wordBankTokens = []; return; }
-  const target = card.word_zh;
-
-  // Separable words like "由...组成" — split into parts to match independently
-  const targetParts = target.includes('...') ? target.split('...').filter(p => p.length > 0) : null;
-  const isTargetPart = text => targetParts ? targetParts.includes(text) : (text === target);
-  const isTargetEmbedded = text => !targetParts && target.length > 0 && text.includes(target);
-
-  // Build ordered sequence from tokens [[text, word_id_or_null], ...]
-  let order;
-  if (sentence.tokens && sentence.tokens.length) {
-    order = sentence.tokens.flatMap(([text, wid]) => {
-      if (isTargetPart(text)) return [{ type: 'target', word: text }];
-      if (isTargetEmbedded(text)) {
-        // Target is embedded in a larger token — split it out
-        const idx = text.indexOf(target);
-        const parts = [];
-        if (idx > 0) parts.push({ type: 'char', char: text.slice(0, idx) });
-        parts.push({ type: 'target', word: target });
-        if (idx + target.length < text.length) parts.push({ type: 'char', char: text.slice(idx + target.length) });
-        return parts;
-      }
-      return [{ type: 'char', char: text }];
-    });
-  } else {
-    // Fallback: split by target word boundary, then individual chars
-    const rawTokens = [];
-    let i = 0;
-    const tIdx = targetParts ? -1 : zh.indexOf(target);
-    while (i < zh.length) {
-      if (tIdx >= 0 && i === tIdx) { rawTokens.push(target); i += target.length; }
-      else { rawTokens.push(zh[i]); i++; }
-    }
-    order = rawTokens.map(tok =>
-      isTargetPart(tok)
-        ? { type: 'target', word: tok }
-        : { type: 'char', char: tok }
-    );
-  }
-  // Handle case where NLP tokenizer splits the target across consecutive tokens
-  // e.g., "怎么可能" tokenized as ["怎么", "可能"] — merge them into one target token
-  if (!targetParts) {
-    for (let i = 0; i < order.length; i++) {
-      if (order[i].type !== 'char') continue;
-      let acc = '';
-      let j = i;
-      while (j < order.length && order[j].type === 'char') {
-        acc += order[j].char;
-        if (acc === target) { order.splice(i, j - i + 1, { type: 'target', word: target }); break; }
-        if (!target.startsWith(acc)) break;
-        j++;
-      }
-      if (order[i]?.type === 'target') break;
-    }
-  }
-
-  // For separable words, count how many parts were found; for normal words, check if any target found
-  const targetCount = order.filter(it => it.type === 'target').length;
-  const expectedCount = targetParts ? targetParts.length : 1;
-  if (targetCount < expectedCount) order.push({ type: 'target', word: targetParts ? targetParts[targetCount] : target });
+  const order = buildWordBankOrder(zh, sentence.tokens, card.word_zh);
 
   const MAX_TILES = parseInt(document.getElementById('word-bank-slider')?.value ?? _wordBankTileDefault(), 10);
   // Chinese: a "word" tile is any CJK character. French (space-separated tokens):
