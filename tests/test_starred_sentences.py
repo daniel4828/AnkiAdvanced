@@ -211,3 +211,83 @@ def test_api_starred_sentences_lang_filter(tmp_db):
 
     body = client.get("/api/starred-sentences?lang=fr").json()["sentences"]
     assert [s["id"] for s in body] == [fr]
+
+
+# ---------------------------------------------------------------------------
+# Linking a starred sentence back to the prompt that made it (#697)
+# ---------------------------------------------------------------------------
+
+def test_starred_list_links_to_its_story_without_inlining_the_prompt(tmp_db):
+    """A knowledge prompt embeds up to 15000 chars of transcript. Inlining it in a
+    500-row list would make the response tens of MB — so the list carries the link
+    (story_id) and a has_prompt flag, and the text is fetched on demand."""
+    story_id, sentence_id = _make_story()
+    conn = database.get_db()
+    conn.execute("UPDATE stories SET prompt_text = ? WHERE id = ?",
+                 ("完整的提示词正文……", story_id))
+    conn.commit()
+    conn.close()
+    database.set_sentence_starred(sentence_id, True)
+
+    s = database.get_starred_sentences()[0]
+    assert s["story_id"] == story_id
+    assert s["has_prompt"] == 1
+    assert "prompt_text" not in s
+    assert "完整的提示词正文" not in str(s)
+
+
+def test_has_prompt_false_when_prompt_was_stripped(tmp_db):
+    """The offline snapshot clears stories.prompt_text (offline_sync_server.py), and
+    legacy stories predate the column — the UI has to be able to say so."""
+    _, sentence_id = _make_story()
+    database.set_sentence_starred(sentence_id, True)
+    assert database.get_starred_sentences()[0]["has_prompt"] == 0
+
+
+def test_get_story_prompt(tmp_db):
+    story_id, _ = _make_story(mode="knowledge")
+    conn = database.get_db()
+    conn.execute("UPDATE stories SET prompt_text = ? WHERE id = ?", ("提示词正文", story_id))
+    conn.commit()
+    conn.close()
+
+    p = database.get_story_prompt(story_id)
+    assert p["prompt"] == "提示词正文"
+    assert p["mode"] == "knowledge"
+    assert p["model"] == "deepseek-chat"
+    assert p["date"] == "2026-08-11"
+
+
+def test_get_story_prompt_missing_story_is_none(tmp_db):
+    assert database.get_story_prompt(99999) is None
+
+
+def test_get_story_prompt_empty_when_stripped(tmp_db):
+    """No prompt is a normal state, not an error — distinct from "no such story"."""
+    story_id, _ = _make_story()
+    assert database.get_story_prompt(story_id)["prompt"] == ""
+
+
+def test_api_story_prompt_round_trip(tmp_db):
+    story_id, _ = _make_story()
+    conn = database.get_db()
+    conn.execute("UPDATE stories SET prompt_text = ? WHERE id = ?", ("提示词正文", story_id))
+    conn.commit()
+    conn.close()
+
+    r = client.get(f"/api/story-prompt/{story_id}")
+    assert r.status_code == 200
+    assert r.json()["prompt"] == "提示词正文"
+
+
+def test_api_story_prompt_404(tmp_db):
+    assert client.get("/api/story-prompt/99999").status_code == 404
+
+
+def test_api_story_prompt_path_does_not_collide_with_story_endpoint(tmp_db):
+    """GET /api/story/{deck_id}/{category} is registered first and would swallow
+    /api/story/{id}/prompt as category='prompt' — hence the separate path."""
+    story_id, _ = _make_story()
+    r = client.get(f"/api/story-prompt/{story_id}")
+    assert r.status_code == 200
+    assert "story_id" in r.json()

@@ -2223,7 +2223,7 @@ def generate_podcast_sentences(
     attempt_label: str = "",
     source_url: str | None = None,
     source_title: str | None = None,
-) -> list[dict]:
+) -> tuple[list[dict], str]:
     """Podcast/knowledge mode rework (issue #561) — a lean single-purpose
     pipeline that replaces reuse of the briefing machinery (originally #482).
 
@@ -2252,9 +2252,14 @@ def generate_podcast_sentences(
     attempt_label: chunk marker like " (2/3)" appended to every progress
     message — the route batches cards by MAX_NEWS_BATCH and calls this once
     per chunk (same convention as generate_briefing_sentences).
+
+    Returns (sentences, prompt) like the other generators in this module. The
+    prompt is what was *actually sent*, joined across rounds — retry rounds add
+    an extra_hint, so a prompt rebuilt afterwards would not be the one that
+    produced these sentences, which is the whole point of keeping it (#697).
     """
     if not cards or not material.strip():
-        return []
+        return [], ""
 
     # 模板可被用户自定义覆盖（issue #581）；默认渲染结果与旧内联 f-string 逐字一致。
     # #654: 查的是 "knowledge" 模板——mode='podcast' 的历史故事也走这个函数，
@@ -2278,13 +2283,16 @@ def generate_podcast_sentences(
 
     sentences: list[dict] = []
     remaining = list(cards)
+    prompts_sent: list[str] = []
 
     def _run_round(batch: list[dict], extra_hint: str, label: str) -> None:
         """One AI call for `batch`; moves every word it covered out of `remaining`."""
         # 8192: all-at-once batching (issue #563) can mean 30+ sentences in one
         # response, and the gpt-5 series shares this budget with internal
         # reasoning tokens (same rationale as the briefing call).
-        raw = _call_api(model, [{"role": "user", "content": _build_prompt(batch, extra_hint)}],
+        prompt = _build_prompt(batch, extra_hint)
+        prompts_sent.append(f"── {label} ──\n{prompt}" if prompts_sent else prompt)
+        raw = _call_api(model, [{"role": "user", "content": prompt}],
                          8192, purpose="podcast")
 
         json_start = raw.find("[")
@@ -2384,7 +2392,7 @@ def generate_podcast_sentences(
         })
 
     _fill_translations(sentences, progress_key=progress_key)
-    return sentences
+    return sentences, "\n\n".join(prompts_sent)
 
 
 def summarize_news_items(items: list[dict], model: str = "gpt-5-mini",

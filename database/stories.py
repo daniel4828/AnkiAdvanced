@@ -186,8 +186,13 @@ def get_starred_sentences(lang: str | None = None, limit: int = 500) -> list[dic
         lang_clause = " AND (s.lang = ? OR (s.lang IS NULL AND ? = 'zh'))"
         params = [lang, lang]
     rows = conn.execute(
+        # has_prompt, not the prompt itself (#697): a knowledge prompt embeds up to
+        # 15000 chars of transcript, so inlining it would make this list response
+        # tens of MB. The full text is fetched per sentence via get_story_prompt().
         f"""SELECT ss.*, s.date AS story_date, s.category AS story_category,
-                   s.gen_params, s.topic, d.name AS deck_name
+                   s.gen_params, s.topic, d.name AS deck_name,
+                   s.id AS story_id,
+                   (s.prompt_text IS NOT NULL AND s.prompt_text != '') AS has_prompt
             FROM story_sentences ss
             JOIN stories s ON s.id = ss.story_id
             LEFT JOIN decks d ON d.id = s.deck_id
@@ -211,6 +216,35 @@ def get_starred_sentences(lang: str | None = None, limit: int = 500) -> list[dic
         result.append(d)
     conn.close()
     return result
+
+
+def get_story_prompt(story_id: int) -> dict | None:
+    """The full prompt that generated one story, for reading back when tuning it (#697).
+
+    `prompt` can legitimately be empty: legacy stories predate the column, and the
+    offline snapshot deliberately clears it (scripts/offline_sync_server.py). Callers
+    must say so rather than showing a blank box — None here means no such story.
+    """
+    conn = get_db()
+    row = conn.execute(
+        "SELECT id, prompt_text, date, category, gen_params FROM stories WHERE id = ?",
+        (story_id,),
+    ).fetchone()
+    conn.close()
+    if row is None:
+        return None
+    try:
+        gp = json.loads(row["gen_params"]) if row["gen_params"] else {}
+    except (ValueError, TypeError):
+        gp = {}
+    return {
+        "story_id": row["id"],
+        "prompt": row["prompt_text"] or "",
+        "date": row["date"],
+        "category": row["category"],
+        "mode": gp.get("mode") or "story",
+        "model": gp.get("model"),
+    }
 
 
 def get_latest_sentence_for_word(word_id: int) -> dict | None:
