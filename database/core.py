@@ -654,23 +654,44 @@ def init_db() -> None:
             conn.execute("ALTER TABLE podcast_episodes ADD COLUMN title_en TEXT")
         conn.commit()
 
-        # Purge stale legacy YouTube rows (#497): yt-dlp is retired, so any
-        # row that never got a transcript is now permanently stuck (it can
-        # never be retried successfully) and would just keep eating the
-        # auto-retry pass's budget forever. YouTube video ids are always
-        # exactly 11 chars of [A-Za-z0-9_-]; RSS guids never match that
-        # (ximalaya uses "xmly_track_<digits>", fireside uses UUIDs) so this
-        # is a safe, precise filter. Summarized rows are always kept — they
-        # have a real transcript worth preserving even though the source is
-        # dead. These episodes will re-enter cleanly via the new RSS feeds.
+
+    # Purge stale legacy YouTube rows (#497): yt-dlp is retired, so any row
+    # that never got a transcript is now permanently stuck (it can never be
+    # retried successfully) and would just keep eating the auto-retry pass's
+    # budget forever. YouTube video ids are always exactly 11 chars of
+    # [A-Za-z0-9_-]; RSS guids never match that (ximalaya uses
+    # "xmly_track_<digits>", fireside uses UUIDs) so this is a safe, precise
+    # filter. Summarized rows are always kept — they have a real transcript
+    # worth preserving even though the source is dead. These episodes will
+    # re-enter cleanly via the new RSS feeds.
+    #
+    # TWO guards, both added in #688 after this deleted Daniel's freshly added
+    # videos: the knowledge base (#651) writes the very same 11-char YouTube
+    # video_id, so every newly ingested video sat in this filter's crosshairs
+    # until it reached 'summarized' — and since NotebookLM transcription takes
+    # minutes while production redeploys (and thus restarts, and thus re-runs
+    # init_db) every 2 minutes, they were reliably deleted mid-processing.
+    #   1. kind = 'podcast' — the legacy rows all predate the kind column and
+    #      carry its 'podcast' default; video/article rows are never touched.
+    #   2. a one-shot marker — a data-destroying cleanup has no business
+    #      running on every single startup forever.
+    # Deliberately outside the "podcast_episodes existed before" migration
+    # block above: a brand-new database must set the marker too, so the
+    # cleanup can never fire on rows created later in its life.
+    already_purged = conn.execute(
+        "SELECT value FROM app_settings WHERE key = 'purged_legacy_youtube_rows'"
+    ).fetchone()
+    if not already_purged:
         stale = conn.execute(
-            "SELECT id, video_id FROM podcast_episodes WHERE status != 'summarized'"
+            "SELECT id, video_id FROM podcast_episodes WHERE status != 'summarized' AND kind = 'podcast'"
         ).fetchall()
         stale_ids = [r["id"] for r in stale if re.fullmatch(r"[A-Za-z0-9_-]{11}", r["video_id"] or "")]
         if stale_ids:
             conn.executemany(
                 "DELETE FROM podcast_episodes WHERE id = ?", [(i,) for i in stale_ids])
-            conn.commit()
+        conn.execute(
+            "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('purged_legacy_youtube_rows', '1')")
+        conn.commit()
 
     # One-time transcript normalization (#500): NotebookLM ASR output stored
     # before the fix is Traditional Chinese with per-character spacing —
