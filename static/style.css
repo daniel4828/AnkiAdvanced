@@ -1490,6 +1490,10 @@ main.browse-open {
   color: var(--primary);
   border-color: var(--primary);
 }
+/* Star (#692): gold rather than the primary colour — it marks a judgement about
+   the sentence, not a visibility toggle like its neighbours. */
+.card-star-btn { font-size: 14px; padding: 3px 10px; }
+.card-star-btn.active { color: #e0a300; border-color: #e0a300; }
 
 .char-row:last-child { border-bottom: none; }
 .char-row-link  { cursor: pointer; }

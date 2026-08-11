@@ -7037,7 +7037,50 @@ function _syncCardToggleBar() {
                        (de?.textContent && de.style.display !== 'none');
   transBtn.classList.toggle('active', !!transVisible);
 
-  bar.style.display = (pinAvail || transAvail) ? '' : 'none';
+  // Star: only when this card actually shows a stored story sentence. A card
+  // with no sentence (no story yet — renderSentence() falls back to the bare
+  // word) has nothing to star, so the button stays hidden rather than failing.
+  const starBtn = document.getElementById('toggle-star-btn');
+  const starAvail = !!sentence?.id;
+  if (starBtn) {
+    starBtn.style.display = starAvail ? '' : 'none';
+    _syncStarBtn();
+  }
+
+  bar.style.display = (pinAvail || transAvail || starAvail) ? '' : 'none';
+}
+
+// ── Starred sentences (#692) ─────────────────────────────────────────────────
+// While reviewing, a sentence is either good or it isn't — and that judgement is
+// only available in the second you read it. Starring collects those good ones as
+// positive examples for tuning the generation prompts later (Browse → ★).
+
+function _syncStarBtn() {
+  const btn = document.getElementById('toggle-star-btn');
+  if (!btn) return;
+  const on = !!sentence?.starred;
+  btn.textContent = on ? '★' : '☆';
+  btn.classList.toggle('active', on);
+  btn.title = on ? 'Starred — click to unstar (Shift+F)'
+                 : 'Star this sentence as a good example (Shift+F)';
+}
+
+async function toggleSentenceStar() {
+  if (!sentence?.id) return;
+  const next = !sentence.starred;
+  // Optimistic: the star is a note to self, and a stalled button mid-review is
+  // more disruptive than a star that turns out not to have saved.
+  sentence.starred = next ? 1 : 0;
+  _syncStarBtn();
+  try {
+    const r = await api('POST', `/api/story-sentence/${sentence.id}/star`, { starred: next });
+    sentence.starred = r.starred;
+    sentence.starred_at = r.starred_at;
+  } catch (e) {
+    sentence.starred = next ? 0 : 1;
+    showError('Star failed: ' + e.message);
+  }
+  _syncStarBtn();
 }
 
 // ── Translation toggle (German/French sentence translation) ───────────────────
@@ -9935,6 +9978,12 @@ document.addEventListener('keydown', async e => {
 
   if (e.key === 'R' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
     if (!inInput) { e.preventDefault(); _restartServer(); }
+    return;
+  }
+
+  // Shift+F stars/unstars the sentence on the current card (#692)
+  if (e.key === 'F' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    if (!inInput) { e.preventDefault(); toggleSentenceStar(); }
     return;
   }
 
