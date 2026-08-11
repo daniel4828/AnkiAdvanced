@@ -5336,7 +5336,11 @@ table.fsrs-table td.ivl { font-weight: 700; }
    overflowed and the action buttons (＋ above all) sat off-screen to the
    right, reachable only by scrolling sideways. On phones the counts move to
    their own second row instead, so title and buttons always stay visible. */
-@media (max-width: 560px) {
+/* The breakpoint is 1099px, not 560px: the desktop three-column review grid
+   only kicks in at 1100px, so 561–1099px (iPad portrait, a narrowed desktop
+   window) was a no-man's-land where the single-row header still blew the
+   page open by 134–341px. #679 only covered phones. */
+@media (max-width: 1099px) {
   header {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
@@ -5349,17 +5353,23 @@ table.fsrs-table td.ivl { font-weight: 700; }
   .header-right { grid-area: right; }
   .counts-row {
     grid-area: counts;
-    /* Even one row of its own can overflow (per-category counts + badges +
-       two buttons) — let it scroll inside itself rather than widening the
-       page. justify-content:center would strand the left end when it does. */
+    /* Its content is ~680px wide (per-category counts + badges + two buttons)
+       on a 390px screen. #679 made it scroll inside itself so it stopped
+       widening the page — but that left Undo and Session sitting off-screen
+       at x=561/665, reachable only by swiping the row sideways. Undo is a
+       hot path during review, so wrap onto a second line instead: nothing
+       needs a swipe, and the row still can't widen the page because every
+       individual item is far narrower than the viewport. */
+    flex-wrap: wrap;
     justify-content: flex-start;
-    gap: 12px;
+    gap: 8px 12px;
     min-width: 0;
-    overflow-x: auto;
-    scrollbar-width: none;
   }
-  .counts-row::-webkit-scrollbar { display: none; }
   .counts-row > * { flex: none; }
+}
+
+/* Phone-only: touch targets and a title that can't push the row wide. */
+@media (max-width: 560px) {
   header h1 {
     font-size: 16px;
     overflow: hidden;
