@@ -758,6 +758,23 @@ def regenerate_story(deck_id: int, category: str,
     return result
 
 
+# ── 加星句子（issue #692）────────────────────────────────────────────────────
+# 复习时看到写得好的句子就地加星，之后集中回看，作为改进生成提示词的正例样本。
+
+@router.post("/api/story-sentence/{sentence_id}/star")
+def star_sentence(sentence_id: int, body: dict | None = None):
+    starred = bool((body or {}).get("starred", True))
+    result = database.set_sentence_starred(sentence_id, starred)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"No sentence with id {sentence_id}")
+    return result
+
+
+@router.get("/api/starred-sentences")
+def list_starred_sentences(lang: str | None = None, limit: int = 500):
+    return {"sentences": database.get_starred_sentences(lang=lang, limit=limit)}
+
+
 # ── 提示词版本库（issue #610；原单份自定义模板见 #581）──────────────────────────
 
 def _require_editable_mode(mode: str) -> None:

@@ -1,6 +1,6 @@
 import json
 import sqlite3
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from .core import get_db
 
 
@@ -144,6 +144,73 @@ def _hydrate_sentence(conn, sent_row) -> dict:
     raw_tokens = d.get("tokens")
     d["tokens"] = json.loads(raw_tokens) if raw_tokens else []
     return d
+
+
+# ---------------------------------------------------------------------------
+# Starred sentences (#692) — sentences Daniel marked as good during review, kept
+# as positive examples to learn from when tuning the generation prompts.
+# ---------------------------------------------------------------------------
+
+def set_sentence_starred(sentence_id: int, starred: bool) -> dict | None:
+    """Star or unstar one story sentence. Returns the new state, or None if no such sentence.
+
+    Works for regenerated "Again" sentences too — those are ordinary
+    story_sentences rows under the AGAIN_CATEGORY sentinel (see store_again_sentence).
+    """
+    conn = get_db()
+    starred_at = datetime.now().isoformat(timespec="seconds") if starred else None
+    cur = conn.execute(
+        "UPDATE story_sentences SET starred = ?, starred_at = ? WHERE id = ?",
+        (1 if starred else 0, starred_at, sentence_id),
+    )
+    conn.commit()
+    if cur.rowcount == 0:
+        conn.close()
+        return None
+    conn.close()
+    return {"id": sentence_id, "starred": 1 if starred else 0, "starred_at": starred_at}
+
+
+def get_starred_sentences(lang: str | None = None, limit: int = 500) -> list[dict]:
+    """All starred sentences, newest star first, with the context needed to judge them.
+
+    Each row carries its story's generation settings (mode / model / episode_id via
+    gen_params) and deck name on top of the usual sentence shape — that context is the
+    whole point: a good sentence is only informative if you know which prompt made it.
+    """
+    conn = get_db()
+    lang_clause = ""
+    params: list = []
+    if lang:
+        # NULL lang = legacy row from before #436, treated as 'zh'.
+        lang_clause = " AND (s.lang = ? OR (s.lang IS NULL AND ? = 'zh'))"
+        params = [lang, lang]
+    rows = conn.execute(
+        f"""SELECT ss.*, s.date AS story_date, s.category AS story_category,
+                   s.gen_params, s.topic, d.name AS deck_name
+            FROM story_sentences ss
+            JOIN stories s ON s.id = ss.story_id
+            LEFT JOIN decks d ON d.id = s.deck_id
+            WHERE ss.starred = 1{lang_clause}
+            ORDER BY ss.starred_at DESC, ss.id DESC
+            LIMIT ?""",
+        (*params, limit),
+    ).fetchall()
+
+    result = []
+    for row in rows:
+        d = _hydrate_sentence(conn, row)
+        gp = d.pop("gen_params", None)
+        try:
+            params_dict = json.loads(gp) if gp else {}
+        except (ValueError, TypeError):
+            params_dict = {}
+        d["mode"] = params_dict.get("mode") or "story"
+        d["model"] = params_dict.get("model")
+        d["episode_id"] = params_dict.get("episode_id")
+        result.append(d)
+    conn.close()
+    return result
 
 
 def get_latest_sentence_for_word(word_id: int) -> dict | None:
