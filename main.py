@@ -446,6 +446,25 @@ try:
             "Expires": "0",
         })
 
+    # Bookmarkable knowledge-base tab links (#704): /knowledge/videos is the
+    # browsing counterpart to /add and /save — a clean URL for the iPhone home
+    # screen that lands on one sub-tab. Unlike those two this is *not* a
+    # standalone page: browsing needs the full app (detail view, new-word
+    # table, process buttons), so it just redirects into the app's hash route.
+    # Plural and singular both work, and an unrecognized kind falls back to
+    # podcasts rather than 404ing — same reasoning as the `day` parameter in
+    # #686: getting to the knowledge base is the point, don't fail over a typo.
+    _KNOWLEDGE_TAB_KINDS = {
+        "podcast": "podcast", "podcasts": "podcast",
+        "video": "video", "videos": "video",
+        "article": "article", "articles": "article",
+    }
+
+    @app.get("/knowledge/{kind}")
+    def knowledge_tab_page(kind: str):
+        tab = _KNOWLEDGE_TAB_KINDS.get(kind.lower(), "podcast")
+        return RedirectResponse(f"/#knowledge-{tab}", status_code=303)
+
     # Running-version info (issue #450): read the current commit once at
     # startup — deploy.sh restarts the process on every deploy, so process
     # start time ≈ deploy time. Never fails: without git (or outside a

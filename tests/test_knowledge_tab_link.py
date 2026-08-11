@@ -1,0 +1,84 @@
+"""Tests for the bookmarkable knowledge-tab links (issue #704).
+
+/knowledge/videos is the browsing counterpart to /add (#668) and /save (#681):
+a clean URL for the phone's home screen that lands on one sub-tab. Unlike those
+two it is not a standalone page — it redirects into the app's hash route, so
+these tests cover both halves: the server redirect and the client-side hash
+patterns in app.js that have to recognize the target.
+"""
+import pathlib
+import re
+
+import pytest
+from fastapi.testclient import TestClient
+
+import main
+
+
+@pytest.fixture(scope="module")
+def client():
+    return TestClient(main.app)
+
+
+@pytest.mark.parametrize("path,tab", [
+    ("/knowledge/videos", "video"),
+    ("/knowledge/video", "video"),
+    ("/knowledge/articles", "article"),
+    ("/knowledge/article", "article"),
+    ("/knowledge/podcasts", "podcast"),
+    ("/knowledge/podcast", "podcast"),
+    ("/knowledge/VIDEOS", "video"),
+])
+def test_tab_link_redirects_to_the_matching_hash(client, path, tab):
+    resp = client.get(path, follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == f"/#knowledge-{tab}"
+
+
+def test_unknown_kind_falls_back_instead_of_404ing(client):
+    """Same reasoning as the `day` parameter in #686: reaching the knowledge
+    base is the point — a typo in the URL must not turn into a dead end."""
+    resp = client.get("/knowledge/videoss", follow_redirects=False)
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/#knowledge-podcast"
+
+
+# ---------------------------------------------------------------------------
+# Client side: app.js must recognize what the redirect points at
+# ---------------------------------------------------------------------------
+
+APP_JS = pathlib.Path("static/app.js").read_text(encoding="utf-8")
+
+# Every hash pattern app.js tests at boot / in _openKnowledgeFromHash.
+HASH_PATTERNS = [
+    re.compile(r"^#(?:podcast|knowledge)-feed-\d+$"),
+    re.compile(r"^#(?:podcast|knowledge)-\d+$"),
+    re.compile(r"^#knowledge-(?:podcast|video|article)$"),
+]
+
+
+def test_app_js_declares_the_tab_hash_pattern():
+    """The boot branch decides between "open the knowledge view" and "load the
+    deck list"; if it doesn't know the tab form, a bookmarked tab link opens
+    the deck list instead."""
+    assert APP_JS.count("#knowledge-(?:podcast|video|article)$") == 1
+    assert "/^#knowledge-(podcast|video|article)$/" in APP_JS
+
+
+def test_tab_hash_is_matched_by_exactly_one_pattern():
+    """The tab form is letters-only and the item/feed forms are digits-only,
+    so an item link can never be mistaken for a tab link or vice versa."""
+    for tab in ("podcast", "video", "article"):
+        matched = [p for p in HASH_PATTERNS if p.match(f"#knowledge-{tab}")]
+        assert len(matched) == 1, tab
+    # The legacy links that already went out in podcast emails/Signal messages.
+    for legacy in ("#podcast-12", "#knowledge-12", "#podcast-feed-3", "#knowledge-feed-3"):
+        assert len([p for p in HASH_PATTERNS if p.match(legacy)]) == 1, legacy
+
+
+def test_tab_switch_writes_the_tab_into_the_hash():
+    """A bare "#knowledge" is recognized by nothing, so reloading such a URL
+    used to drop back to the deck list. The tab bar must write the full form."""
+    assert "location.hash = 'knowledge';" not in APP_JS
+    assert APP_JS.count("location.hash = `knowledge-${tab}`;") == 1
+    assert APP_JS.count("location.hash = `knowledge-${_knowledgeTab}`;") == 1
