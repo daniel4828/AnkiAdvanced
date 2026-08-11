@@ -1286,22 +1286,45 @@ def _summary_zh_html(summary_zh: str) -> str:
     )
 
 
-def send_email(episode: dict) -> bool:
-    """Send the HTML notification email for a freshly-summarized episode.
-    Returns True if sent, False if skipped (SMTP not configured) — skipping
-    is not an error, callers just don't set email_sent_at."""
+def send_mail(subject: str, body_html: str, *, context: str = "mail") -> bool:
+    """Send one HTML mail to the configured recipient. Returns True if sent,
+    False if skipped because SMTP isn't configured — skipping is not an error,
+    callers just don't record a send. `context` only labels the log line.
+
+    Shared by the podcast/knowledge notifications and the review reminder
+    (#701) so there is one place that knows how this mailbox is reached."""
     host = os.environ.get("SMTP_HOST")
     username = os.environ.get("SMTP_USERNAME")
     password = os.environ.get("SMTP_PASSWORD")
     from_addr = os.environ.get("SMTP_FROM") or username
     if not host or not username or not password or not from_addr:
-        logger.info("podcast: SMTP not configured, skipping email for %s", episode["video_id"])
+        logger.info("podcast: SMTP not configured, skipping email for %s", context)
         return False
 
     port = int(os.environ.get("SMTP_PORT", "587"))
-    public_base = os.environ.get("PUBLIC_BASE_URL", "https://powerdaniel3000.duckdns.org")
     cfg = database.get_podcast_config()
     to_addr = cfg.get("email_to") or "u82g@outlook.com"
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = from_addr
+    msg["To"] = to_addr
+    msg.attach(MIMEText(body_html, "html", "utf-8"))
+
+    with smtplib.SMTP(host, port, timeout=30) as server:
+        server.starttls()
+        server.login(username, password)
+        server.sendmail(from_addr, [to_addr], msg.as_string())
+
+    logger.info("podcast: email sent for %s to %s", context, to_addr)
+    return True
+
+
+def send_email(episode: dict) -> bool:
+    """Send the HTML notification email for a freshly-summarized episode.
+    Returns True if sent, False if skipped (SMTP not configured) — skipping
+    is not an error, callers just don't set email_sent_at."""
+    public_base = os.environ.get("PUBLIC_BASE_URL", "https://powerdaniel3000.duckdns.org")
 
     transcript_link = f"{public_base}/#podcast-{episode['id']}"
     words_html = _words_table_html(episode.get("hsk_words") or [])
@@ -1323,7 +1346,6 @@ def send_email(episode: dict) -> bool:
     </body></html>
     """
 
-    msg = MIMEMultipart("alternative")
     # Subject = "<podcast name> - <episode title>" (#631). The old
     # "Neue Podcast-Folge:" prefix was identical on every mail and ate the
     # first 20 characters of the inbox list — the podcast name is what
@@ -1331,18 +1353,8 @@ def send_email(episode: dict) -> bool:
     # feed name on record the episode title stands alone; the dead prefix
     # does not come back.
     feed_title = _feed_title(episode)
-    msg["Subject"] = f"{feed_title} - {episode['title']}" if feed_title else episode["title"]
-    msg["From"] = from_addr
-    msg["To"] = to_addr
-    msg.attach(MIMEText(body_html, "html", "utf-8"))
-
-    with smtplib.SMTP(host, port, timeout=30) as server:
-        server.starttls()
-        server.login(username, password)
-        server.sendmail(from_addr, [to_addr], msg.as_string())
-
-    logger.info("podcast: email sent for %s to %s", episode["video_id"], to_addr)
-    return True
+    subject = f"{feed_title} - {episode['title']}" if feed_title else episode["title"]
+    return send_mail(subject, body_html, context=episode["video_id"])
 
 
 def send_signal(episode: dict) -> bool:

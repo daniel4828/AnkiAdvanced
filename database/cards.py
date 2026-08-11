@@ -1,7 +1,7 @@
 import logging
 import sqlite3
-from datetime import date, datetime, timedelta
-from .core import get_db, anki_today
+from datetime import date, datetime, time, timedelta
+from .core import get_db, anki_today, get_day_cutoff_hour
 from .presets import get_preset_for_deck
 from .decks import get_deck, get_locked_deck_ids
 
@@ -1762,6 +1762,62 @@ def count_due_all_decks() -> dict:
         susp_flags[key] = total > 0 and total == suspended
 
     return counts, susp_flags
+
+
+def due_notification_status() -> dict:
+    """Decide whether today's leftover reviews can be finished in one sitting
+    right now — the trigger for the reminder email (issue #701).
+
+    After Daniel clears the queue, the cards he rated Again are still sitting in
+    the learning steps (1m 10m 1d 3d) and come back in batches. Notifying on the
+    first one to return would just send him back for two cards and another wait,
+    so the reminder waits until nothing is pending anymore:
+
+      due_now      learning/relearn cards due right now — the leftovers.
+      later_today  learning/relearn cards coming back before tomorrow's day
+                   cutoff. Any of these pending means "not yet". Cards on the
+                   1d/3d steps are due after the cutoff and are deliberately
+                   excluded — they belong to a later day, and waiting for them
+                   would mean the reminder never fires.
+      other_due    new + review cards still due today. If any are left the queue
+                   never actually hit zero, so there is no session to finish.
+
+    Counts reuse count_due_all_decks(), which already applies the new-card daily
+    limit and zeroes out locked daily decks and disabled reading categories — a
+    hand-rolled COUNT(*) here would disagree with the badges in the UI.
+    """
+    counts, _ = count_due_all_decks()
+    due_now = sum(c["learning"] for c in counts.values())
+    other_due = sum(c["new"] + c["review"] for c in counts.values())
+
+    now = datetime.now().isoformat(timespec="seconds")
+    # Tomorrow's cutoff as a full ISO datetime: cards.due holds datetimes for
+    # learning cards, so comparing against a bare date string would place
+    # everything due between midnight and the cutoff on the wrong day.
+    tomorrow_cutoff = datetime.combine(
+        anki_today() + timedelta(days=1), time(hour=get_day_cutoff_hour())
+    ).isoformat(timespec="seconds")
+
+    lock_clause, lock_params = _locked_exclusion()
+    conn = get_db()
+    row = conn.execute(
+        "SELECT COUNT(*) AS cnt FROM cards WHERE "
+        "state IN ('learning', 'relearn') AND due > ? AND due < ? "
+        "AND deleted_at IS NULL "
+        "AND (buried_until IS NULL OR buried_until < date('now'))"
+        + lock_clause
+        + f" AND NOT {_READING_DISABLED_SQL}",
+        [now, tomorrow_cutoff, *lock_params],
+    ).fetchone()
+    conn.close()
+    later_today = row["cnt"] or 0
+
+    return {
+        "due_now": due_now,
+        "later_today": later_today,
+        "other_due": other_due,
+        "ready": due_now > 0 and later_today == 0 and other_due == 0,
+    }
 
 
 def get_deck_all_suspended(deck_id: int) -> bool:
