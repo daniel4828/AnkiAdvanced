@@ -375,6 +375,7 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 - **YouTube 字幕在服务器上必须走 NotebookLM（#681）**：YouTube 整片封锁云服务商 IP，Contabo 的服务器调字幕 API 永远得到 `RequestBlocked`。而 `RequestBlocked`/`IpBlocked`/`PoTokenRequired`/`AgeRestricted` **全是 `CouldNotRetrieveTranscript` 的子类** —— 原来只 `except` 基类，于是"被 YouTube 拒绝"被静默写成 `no_transcript`，一个有 9833 字中文字幕的视频在界面上显示"没有字幕"。现在拒绝类异常必须在基类**之前**捕获（`_blocked_error_types()`），先转 `podcast.transcribe_url_via_notebooklm()`（`sources.add_url()` 自动识别 YouTube 链接，由 Google 自己去取，绕开我们的出口 IP，免费、不下音频），兜底也空则抛 `CaptionsUnavailable` → `status='error'` + 可读原因。**真没字幕的视频不进兜底**，仍走廉价的 `no_transcript`，不浪费几分钟的 NotebookLM 轮次
   - **代价**：NotebookLM 不能指定字幕语言，返回的是视频原声轨（那条视频拿回来的是英文 32633 字，不是本地能拿到的中文翻译轨 9833 字）。摘要提示词本来就容忍任意输入语言，所以功能通；要中文轨只能给字幕 API 配付费代理（`WebshareProxyConfig`），暂不做
 - 新依赖 `youtube-transcript-api`、`trafilatura`（已在 `requirements.txt`）
+- **一次性数据清理必须真的只跑一次（#688）**：`init_db()` 里 #497 那段"删除卡住的遗留 YouTube 行"按 `video_id` 是 11 位 + `status != 'summarized'` 判断，既没有一次性标记（每次启动都跑），又正好命中知识库摄取的视频 —— 生产 cron 每 2 分钟重启一次服务，于是每个新视频在 NotebookLM 转录完成前必被删除，界面上表现为"加完就消失"。现在两道保护：限定 `kind='podcast'` + `app_settings.purged_legacy_youtube_rows` 标记（标记写在"表已存在"迁移块之外，全新库首次启动也写）。**往 `init_db()` 里加任何 DELETE 之前，先想清楚它在第 100 次启动时会删掉什么**
 
 ## API 接口
 
