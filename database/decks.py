@@ -3,6 +3,8 @@ import sqlite3
 import time
 from datetime import date
 
+from languages import DEFAULT_LANG, deck_root
+
 from .core import anki_today, get_db, _ensure_default_preset
 
 
@@ -292,10 +294,30 @@ def get_or_create_category_decks(parent_deck_id: int, parent_name: str) -> dict:
     }
 
 
-def get_or_create_saved_deck() -> int:
+def get_or_create_saved_deck(lang: str | None = None) -> int:
     """The fixed 'Saved' staging deck: holds suspended compound words the user
-    set aside for later (see /api/save-word). Promoting moves them to a Daily deck."""
-    return get_or_create_deck_path("Saved")
+    set aside for later (see /api/save-word). Promoting moves them to a Daily deck.
+
+    Non-Chinese languages get their own staging deck inside their own tree
+    (issue #726) — 'Français::Saved' — because every language filter in the app
+    keys off decks.lang. Its deck *name* is still 'Saved' (paths name the leaf),
+    so Browse's saved view, which matches on deck_name == 'Saved', needs no change.
+    """
+    if not lang or lang == DEFAULT_LANG:
+        return get_or_create_deck_path("Saved")
+    return get_or_create_deck_path(f"{deck_root(lang)}::Saved", lang=lang)
+
+
+def get_or_create_daily_deck(day: str, lang: str | None = None) -> tuple[int, str]:
+    """Ensure the per-language daily deck for `day` (ISO date) exists.
+
+    Returns (deck_id, deck_path). zh keeps the historical 'Daily::<date>' path;
+    other languages live in a parallel tree ('Français::<date>') whose decks
+    carry their own lang — see get_or_create_saved_deck for why.
+    """
+    path = f"{deck_root(lang)}::{day}"
+    lang_arg = None if not lang or lang == DEFAULT_LANG else lang
+    return get_or_create_deck_path(path, lang=lang_arg), path
 
 
 # ---------------------------------------------------------------------------
