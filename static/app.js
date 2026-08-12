@@ -6415,7 +6415,10 @@ async function doSaveWord(wordZh, pinyin, meaning, btn) {
   btn.disabled = true;
   btn.textContent = '…';
   try {
-    const result = await api('POST', '/api/save-word', { word_zh: wordZh, pinyin, meaning });
+    // Same reasoning as doQuickAdd: the word came out of a card, so it is
+    // staged in that card's language's Saved deck (#726).
+    const result = await api('POST', '/api/save-word',
+                             { word_zh: wordZh, pinyin, meaning, lang: currentCardLang() });
     closeQuickAddMenu();
     const msgs = {
       saved:            `★ "${wordZh}" saved for later`,
@@ -6438,12 +6441,14 @@ function doQuickAdd(wordZh, btn) {
   // reports through the banner, so reviewing is never blocked (#643).
   closeQuickAddMenu();
   showQuickAddBanner(`⏳ Generating entry for "${wordZh}"…`, true);
+  // The word was long-pressed inside a card, so it belongs to that card's
+  // language — never to whatever tab the home page happens to be on (#726).
   addWordViaAi(wordZh, 'tomorrow', (state, text, deckPath) => {
     if (state === 'running') return;
     showQuickAddBanner(
       state === 'done' ? `✓ "${wordZh}" added to ${deckPath}` : `❌ "${wordZh}": ${text}`,
       state !== 'done');
-  });
+  }, currentCardLang());
 }
 
 function showQuickAddBanner(msg, isInfo) {
@@ -6471,6 +6476,39 @@ function showQuickAddBanner(msg, isInfo) {
 // own job while the user types the next one (#636).
 let _addWordQueue = [];             // [{key, wordZh, state, text}]
 let _addWordSeq = 0;
+// Which language the next word is added in (#726). Set from the home page's
+// active tab each time the modal opens, then switchable per word: adding one
+// French word should not mean leaving the Chinese tab and coming back.
+let _addWordLang = 'zh';
+
+// Placeholder + hint lead per language — the backend rejects the wrong script
+// outright, so the box has to say which one it wants.
+const _ADD_WORD_PROMPTS = {
+  zh: { placeholder: '新词…',     lead: 'Enter a Chinese word' },
+  fr: { placeholder: 'nouveau mot…', lead: 'Enter a French word' },
+};
+
+function setAddWordLang(lang) {
+  _addWordLang = lang;
+  const p = _ADD_WORD_PROMPTS[lang] || _ADD_WORD_PROMPTS.zh;
+  const input = document.getElementById('add-word-input');
+  input.placeholder = p.placeholder;
+  document.getElementById('add-word-hint-lead').textContent = p.lead;
+  _renderAddWordLangs();
+  input.focus();
+}
+
+function _renderAddWordLangs() {
+  const el = document.getElementById('add-word-langs');
+  if (!el) return;
+  // One language in use → no picker at all, exactly as before #726.
+  if (_availableLangs.length <= 1) { el.innerHTML = ''; return; }
+  el.innerHTML = _availableLangs.map(l => {
+    const label = _LANG_TAB_LABELS[l] || l;
+    const active = l === _addWordLang ? ' lang-tab-active' : '';
+    return `<button class="lang-tab${active}" onclick="setAddWordLang('${l}')">${label}</button>`;
+  }).join('');
+}
 
 function openAddWordModal() {
   document.getElementById('add-word-overlay').style.display = 'block';
@@ -6479,6 +6517,9 @@ function openAddWordModal() {
   input.value = '';
   input.disabled = false;
   document.getElementById('add-word-status').textContent = '';
+  // Follow the home page's language tab, but only for languages that exist —
+  // a stale localStorage value must not send words into an unknown tree.
+  setAddWordLang(_availableLangs.includes(activeLang()) ? activeLang() : 'zh');
   // Jobs that finished while the modal was closed already reported via banner.
   _addWordQueue = _addWordQueue.filter(item => item.state === 'running');
   _renderAddWordQueue();
@@ -6541,7 +6582,7 @@ function submitAddWord() {
         document.getElementById('add-word-modal').style.display === 'none') {
       showQuickAddBanner(`✓ "${wordZh}" added to ${deckPath}`, false);
     }
-  });
+  }, _addWordLang);
 }
 
 // ── Listening hint slider (HSK-aware) ───────────────────────────────────────

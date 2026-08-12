@@ -31,10 +31,14 @@ async function api(method, path, body) {
 // logic would drift, and every fix would have to be made twice.
 //
 // onUpdate(state, text) is called with 'running' | 'done' | 'error'.
-async function addWordViaAi(wordZh, day, onUpdate) {
+// lang (#726) picks the language's prompt and deck tree; omitted means Chinese,
+// so every pre-#726 call site keeps behaving exactly as before. A word already
+// in the database ignores it and moves inside its own language's tree.
+async function addWordViaAi(wordZh, day, onUpdate, lang) {
   let result;
   try {
-    result = await api('POST', '/api/add-word-ai', { word_zh: wordZh, day });
+    result = await api('POST', '/api/add-word-ai',
+                       lang ? { word_zh: wordZh, day, lang } : { word_zh: wordZh, day });
   } catch (e) {
     onUpdate('error', e.message || 'Failed to add word');
     return;

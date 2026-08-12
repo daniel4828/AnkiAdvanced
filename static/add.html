@@ -51,6 +51,15 @@
   li.done { background: var(--ok-bg); } li.done .msg { color: var(--ok); }
   li.error { background: var(--err-bg); } li.error .msg { color: var(--err); }
   .hint { margin: .8rem 0 0; font-size: .8rem; color: var(--muted); }
+  /* Language picker (#726) — hidden until /api/langs says more than one
+     language is in use, so a Chinese-only install looks exactly as before. */
+  .langs { display: none; gap: .4rem; margin-bottom: .7rem; }
+  .langs button {
+    padding: .35rem .9rem; font: inherit; font-size: .85rem; font-weight: 600;
+    color: var(--muted); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
+  }
+  .langs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 </style>
 </head>
 <body>
@@ -61,6 +70,7 @@
   </header>
 
   <div class="card">
+    <div class="langs" id="langs"></div>
     <div class="row">
       <input type="text" id="word" placeholder="中文生词" autocomplete="off"
              autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done" autofocus>
@@ -72,7 +82,7 @@
   <ul id="queue"></ul>
 </main>
 
-<script src="/static/shared.js?v=2"></script>
+<script src="/static/shared.js?v=3"></script>
 <script>
   // Standalone quick-add page (#668). Deliberately does NOT load app.js: the
   // point is a link that opens instantly on the phone. All the real work goes
@@ -90,6 +100,49 @@
   const queue = document.getElementById('queue');
 
   const DAYS = ['today', 'tomorrow', 'list'];
+
+  // Language of the next word (#726). Chinese unless ?lang= or the picker says
+  // otherwise; the backend rejects the wrong script, so the placeholder has to
+  // say which language the box currently expects.
+  let lang = 'zh';
+  const LANG_LABELS = { zh: '中文', fr: 'Français' };
+  const PLACEHOLDERS = { zh: '中文生词', fr: 'nouveau mot' };
+
+  function setLang(l) {
+    lang = l;
+    input.placeholder = PLACEHOLDERS[l] || l;
+    for (const b of document.getElementById('langs').children) {
+      b.classList.toggle('active', b.dataset.lang === l);
+    }
+    input.focus();
+  }
+
+  // The picker needs to know which languages exist, which only the server
+  // knows. One tiny request, fired after first paint — this page's whole point
+  // is opening instantly, so nothing waits on it. A ?lang= URL still works
+  // even if the request fails.
+  async function loadLangs() {
+    let langs;
+    try {
+      langs = await api('GET', '/api/langs');
+    } catch { return; }
+    if (!langs || !langs.length) return;
+    // A ?lang= naming a language this install doesn't use falls back to zh
+    // rather than sending the server something it will reject.
+    if (!langs.includes(lang)) setLang('zh');
+    if (langs.length <= 1) return;
+    const el = document.getElementById('langs');
+    el.replaceChildren(...langs.map(l => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.lang = l;
+      b.textContent = LANG_LABELS[l] || l;
+      b.onclick = () => setLang(l);
+      return b;
+    }));
+    el.style.display = 'flex';
+    setLang(langs.includes(lang) ? lang : 'zh');
+  }
 
   function render() {
     queue.replaceChildren(...items.map(it => {
@@ -122,7 +175,7 @@
       item.state = state;
       item.text = text;
       render();
-    });
+    }, lang);
   }
 
   document.getElementById('go').onclick = submit;
@@ -137,10 +190,17 @@
   // That is the whole point of the parameter, but it also means the word is
   // stripped from the address bar afterwards (history.replaceState): a reload
   // or a "restore tabs" on the phone would otherwise silently add it again.
+  //
+  // ?lang=fr (#726) picks the language, so Daniel can keep one Shortcut per
+  // language. An unknown value is ignored the same way an unknown day is —
+  // the server would reject it, and the word is what matters.
   const params = new URLSearchParams(location.search);
   const preset = (params.get('word') || params.get('w') || '').trim();
   const dayParam = (params.get('day') || '').trim();
+  const langParam = (params.get('lang') || '').trim();
   if (DAYS.includes(dayParam)) day = dayParam;
+  if (langParam) setLang(langParam);
+  loadLangs();
   if (preset) {
     input.value = preset;
     history.replaceState(null, '', location.pathname);

@@ -465,7 +465,7 @@ def save_word(body: dict):
     the cards — content is generated later on demand, and the word only enters
     the study algorithm when promoted to a Daily deck (see /api/saved/{id}/promote).
 
-    Body: { word_zh, pinyin?, meaning? }
+    Body: { word_zh, pinyin?, meaning?, lang? }
     Returns: { status: "saved"|"already_saved"|"exists_elsewhere", entry_id, saved_deck_id }
     """
     word_zh = (body.get("word_zh") or "").strip()
@@ -474,8 +474,14 @@ def save_word(body: dict):
 
     pinyin = (body.get("pinyin") or "").strip()
     meaning = (body.get("meaning") or "").strip()
+    # The word was picked out of a card, so it carries that card's language
+    # (#726) — staging a French word in the Chinese Saved deck would hide it
+    # under the fr tab and promote it into the Chinese daily deck later.
+    lang = (body.get("lang") or DEFAULT_LANG).strip()
+    if not is_valid_lang(lang):
+        raise HTTPException(status_code=400, detail=f"Unknown language: {lang!r}")
 
-    saved_deck_id = database.get_or_create_saved_deck()
+    saved_deck_id = database.get_or_create_saved_deck(lang)
 
     existing = database.get_word_by_zh(word_zh)
     if existing:
@@ -499,6 +505,7 @@ def save_word(body: dict):
             "pinyin": pinyin,
             "definition": meaning,
             "note_type": "vocabulary",
+            "lang": lang,
         })
 
     for category in ("listening", "reading", "creating"):

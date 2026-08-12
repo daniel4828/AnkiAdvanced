@@ -668,8 +668,8 @@
 </div>
 
 <div id="word-tip" style="display:none"></div>
-<script src="/static/shared.js?v=2"></script>
-<script src="/static/app.js?v=20"></script>
+<script src="/static/shared.js?v=3"></script>
+<script src="/static/app.js?v=21"></script>
 
 <!-- Edit card modal -->
 <div id="edit-modal-overlay" onclick="closeEditCard()" style="display:none"></div>
@@ -936,14 +936,19 @@
     <button class="edit-modal-close" onclick="closeAddWordModal()">✕</button>
   </div>
   <div id="add-word-body">
+    <!-- Language picker (#726): only rendered when more than one language is
+         in use. Defaults to the home page's active tab, but can be switched
+         per word so a French word can be added without leaving the zh tab. -->
+    <div id="add-word-langs" class="lang-tabs"></div>
     <div id="add-word-row">
       <input id="add-word-input" type="text" placeholder="新词…" autocomplete="off"
              onkeydown="if (event.key === 'Enter') submitAddWord()">
       <button id="add-word-submit" type="button" onclick="submitAddWord()">加</button>
     </div>
     <div id="add-word-hint">
-      Enter a Chinese word — DeepSeek writes the full entry (definitions,
-      examples, character breakdown) into your <b id="add-word-deck">★ List</b>
+      <span id="add-word-hint-lead">Enter a Chinese word</span> — DeepSeek writes
+      the full entry (definitions, examples, character breakdown) into your
+      <b id="add-word-deck">★ List</b>
       (Saved, not reviewed until promoted from Browse).
       Generation runs in the background, so you can keep typing the next word.
     </div>
