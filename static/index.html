@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AnkiAdvanced</title>
-  <link rel="stylesheet" href="/static/style.css?v=15">
+  <link rel="stylesheet" href="/static/style.css?v=16">
 </head>
 <body>
 
@@ -229,9 +229,23 @@
             <div class="card-toggle-bar" id="card-toggle-bar" style="display:none">
               <button class="card-toggle-btn" id="toggle-pinyin-btn" onclick="togglePinyin()" style="display:none">拼音</button>
               <button class="card-toggle-btn" id="toggle-trans-btn" onclick="toggleTranslation()" style="display:none">译文</button>
-              <!-- Star a well-written sentence as a positive example for prompt tuning (#692) -->
-              <button class="card-toggle-btn card-star-btn" id="toggle-star-btn" onclick="toggleSentenceStar()"
-                      style="display:none" title="Star this sentence as a good example (Shift+F)">☆</button>
+              <!-- Rate the sentence as a good (#692) or bad (#712) example for prompt tuning -->
+              <button class="card-toggle-btn card-star-btn" id="toggle-star-btn" onclick="rateSentence(1)"
+                      style="display:none" title="Good example (j)">☆</button>
+              <button class="card-toggle-btn card-bad-btn" id="toggle-bad-btn" onclick="rateSentence(-1)"
+                      style="display:none" title="Bad example (h)">👎</button>
+            </div>
+
+            <!-- Why the sentence is bad (#712). Appears after a thumbs-down; one tap
+                 saves the tag, ignoring it still leaves the sentence rated bad. -->
+            <div class="bad-reason-bar" id="bad-reason-bar" style="display:none">
+              <span class="bad-reason-label">What's wrong?</span>
+              <button class="bad-reason-btn" onclick="setBadReason('unnatural')">unnatural</button>
+              <button class="bad-reason-btn" onclick="setBadReason('too_hard')">too hard</button>
+              <button class="bad-reason-btn" onclick="setBadReason('factual_error')">factual error</button>
+              <button class="bad-reason-btn" onclick="setBadReason('wrong_word')">wrong word</button>
+              <button class="bad-reason-btn" onclick="setBadReason('grammar')">grammar</button>
+              <button class="bad-reason-btn" onclick="setBadReason('other')">other</button>
             </div>
 
             <!-- 2. Pinyin row (hidden by default; press p to toggle) -->
@@ -359,9 +373,9 @@
         <button class="bs-status-item" id="bss-leech"     onclick="setBrowseStatusFilter('leech')">Leeched</button>
         <button class="bs-status-item" id="bss-reference" onclick="setBrowseStatusFilter('reference')">Reference</button>
         <button class="bs-status-item" id="bss-saved"     onclick="setBrowseStatusFilter('saved')">★ Saved</button>
-        <!-- Sentence-level view, not a word filter (#692) -->
+        <!-- Sentence-level view, not a word filter (#692, #712) -->
         <button class="bs-status-item" id="bss-starred"   onclick="setBrowseStatusFilter('starred')"
-                title="Sentences you starred while reviewing — good examples for prompt tuning">⭐ Sentences</button>
+                title="Sentences you rated while reviewing — good and bad examples for prompt tuning">⭐ Sentences</button>
       </div>
       <div class="bs-section">
         <div class="bs-section-head">Hanzi</div>
@@ -669,7 +683,7 @@
 
 <div id="word-tip" style="display:none"></div>
 <script src="/static/shared.js?v=2"></script>
-<script src="/static/app.js?v=17"></script>
+<script src="/static/app.js?v=18"></script>
 
 <!-- Edit card modal -->
 <div id="edit-modal-overlay" onclick="closeEditCard()" style="display:none"></div>

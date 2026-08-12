@@ -147,38 +147,73 @@ def _hydrate_sentence(conn, sent_row) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Starred sentences (#692) — sentences Daniel marked as good during review, kept
-# as positive examples to learn from when tuning the generation prompts.
+# Rated sentences (#692 good, #712 bad) — sentences Daniel judged during review,
+# kept as examples to learn from when tuning the generation prompts. Both
+# directions live in `starred`: 1 = good, -1 = bad, 0 = unrated.
 # ---------------------------------------------------------------------------
 
-def set_sentence_starred(sentence_id: int, starred: bool) -> dict | None:
-    """Star or unstar one story sentence. Returns the new state, or None if no such sentence.
+#: One-tap tags for *why* a sentence is bad (#712). A closed set, not free text:
+#: typing mid-review breaks the rhythm, and fixed values make systematic prompt
+#: problems visible by counting (e.g. half the bad sentences tagged "too_hard").
+BAD_REASONS = ("unnatural", "too_hard", "factual_error", "wrong_word", "grammar", "other")
+
+
+def set_sentence_rating(sentence_id: int, rating: int,
+                        bad_reason: str | None = None) -> dict | None:
+    """Rate one story sentence 1 (good) / -1 (bad) / 0 (unrated).
+
+    Returns the new state, or None if no such sentence.
 
     Works for regenerated "Again" sentences too — those are ordinary
     story_sentences rows under the AGAIN_CATEGORY sentinel (see store_again_sentence).
     """
+    rating = int(rating)
+    if rating not in (1, 0, -1):
+        raise ValueError(f"rating must be 1, 0 or -1, got {rating!r}")
+    # A reason only means anything on a thumbs-down; carrying one over to a good
+    # or cleared rating would leave a stale "too_hard" tag on a sentence Daniel
+    # later decided he liked.
+    if rating != -1:
+        bad_reason = None
+    elif bad_reason is not None and bad_reason not in BAD_REASONS:
+        raise ValueError(f"unknown bad_reason {bad_reason!r}")
+
     conn = get_db()
-    starred_at = datetime.now().isoformat(timespec="seconds") if starred else None
+    rated_at = datetime.now().isoformat(timespec="seconds") if rating else None
     cur = conn.execute(
-        "UPDATE story_sentences SET starred = ?, starred_at = ? WHERE id = ?",
-        (1 if starred else 0, starred_at, sentence_id),
+        "UPDATE story_sentences SET starred = ?, starred_at = ?, bad_reason = ? WHERE id = ?",
+        (rating, rated_at, bad_reason, sentence_id),
     )
     conn.commit()
     if cur.rowcount == 0:
         conn.close()
         return None
     conn.close()
-    return {"id": sentence_id, "starred": 1 if starred else 0, "starred_at": starred_at}
+    # `starred` stays in the response next to `rating`: the front end reads it as
+    # the truthy "has a rating" flag it always was, and it keeps older clients working.
+    return {"id": sentence_id, "rating": rating, "starred": rating,
+            "starred_at": rated_at, "bad_reason": bad_reason}
 
 
-def get_starred_sentences(lang: str | None = None, limit: int = 500) -> list[dict]:
-    """All starred sentences, newest star first, with the context needed to judge them.
+def set_sentence_starred(sentence_id: int, starred: bool) -> dict | None:
+    """Backwards-compatible wrapper for the boolean-only API of #692."""
+    return set_sentence_rating(sentence_id, 1 if starred else 0)
+
+
+def get_starred_sentences(lang: str | None = None, limit: int = 500,
+                          rating: str | None = None) -> list[dict]:
+    """All rated sentences, newest rating first, with the context needed to judge them.
+
+    `rating` filters to "good" or "bad"; anything else (including None) returns both,
+    which is the default because tuning a prompt means reading the positive and
+    negative examples against each other.
 
     Each row carries its story's generation settings (mode / model / episode_id via
     gen_params) and deck name on top of the usual sentence shape — that context is the
-    whole point: a good sentence is only informative if you know which prompt made it.
+    whole point: a sentence is only informative if you know which prompt made it.
     """
     conn = get_db()
+    rating_clause = {"good": " = 1", "bad": " = -1"}.get(rating, " != 0")
     lang_clause = ""
     params: list = []
     if lang:
@@ -196,7 +231,7 @@ def get_starred_sentences(lang: str | None = None, limit: int = 500) -> list[dic
             FROM story_sentences ss
             JOIN stories s ON s.id = ss.story_id
             LEFT JOIN decks d ON d.id = s.deck_id
-            WHERE ss.starred = 1{lang_clause}
+            WHERE ss.starred{rating_clause}{lang_clause}
             ORDER BY ss.starred_at DESC, ss.id DESC
             LIMIT ?""",
         (*params, limit),
@@ -213,6 +248,7 @@ def get_starred_sentences(lang: str | None = None, limit: int = 500) -> list[dic
         d["mode"] = params_dict.get("mode") or "story"
         d["model"] = params_dict.get("model")
         d["episode_id"] = params_dict.get("episode_id")
+        d["rating"] = d.get("starred") or 0
         result.append(d)
     conn.close()
     return result

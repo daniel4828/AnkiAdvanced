@@ -1494,6 +1494,23 @@ main.browse-open {
    the sentence, not a visibility toggle like its neighbours. */
 .card-star-btn { font-size: 14px; padding: 3px 10px; }
 .card-star-btn.active { color: #e0a300; border-color: #e0a300; }
+/* Thumbs-down counterpart (#712) — muted until active so it never competes with
+   the rating buttons for attention while reading the card. */
+.card-bad-btn { font-size: 14px; padding: 3px 10px; filter: grayscale(1); opacity: .55; }
+.card-bad-btn.active { filter: none; opacity: 1; border-color: #d05050; }
+
+/* "What's wrong?" tag row, shown under the toggle bar after a thumbs-down (#712) */
+.bad-reason-bar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: 5px; margin: 6px 0 2px;
+}
+.bad-reason-label { font-size: 12px; color: var(--muted); margin-right: 2px; }
+.bad-reason-btn {
+  font-size: 12px; padding: 2px 8px; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--card); color: var(--muted);
+}
+.bad-reason-btn:hover { color: var(--text); border-color: #d05050; }
+.bad-reason-btn.active { color: #fff; background: #d05050; border-color: #d05050; }
 
 .char-row:last-child { border-bottom: none; }
 .char-row-link  { cursor: pointer; }
@@ -2593,6 +2610,18 @@ a.news-source-line:hover {
              padding: 2px 4px; }
 .ss-unstar:hover:not(:disabled) { opacity: 0.6; }
 .ss-unstar:disabled { opacity: 0.4; cursor: default; }
+
+/* Good / bad filter and thumbs-down rows (#712) */
+.ss-filter-bar { display: flex; gap: 6px; padding: 8px 4px 10px; }
+.ss-filter { cursor: pointer; font-size: 12px; padding: 4px 12px;
+             border: 1px solid var(--border); border-radius: 999px;
+             background: transparent; color: var(--muted); }
+.ss-filter:hover { color: var(--text); }
+.ss-filter-active { color: #fff; background: var(--primary); border-color: var(--primary); }
+/* A red edge makes bad examples scannable in the mixed list without having to
+   read each row's meta line. */
+.ss-row-bad { border-left: 3px solid #d05050; }
+.ss-reason { font-weight: 600; color: #d05050; }
 .bw-row:hover { background: #f8fafc; }
 .bw-left {
   display: flex;

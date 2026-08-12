@@ -766,21 +766,34 @@ def regenerate_story(deck_id: int, category: str,
     return result
 
 
-# ── 加星句子（issue #692）────────────────────────────────────────────────────
-# 复习时看到写得好的句子就地加星，之后集中回看，作为改进生成提示词的正例样本。
+# ── 句子评价（好 issue #692 / 差 issue #712）──────────────────────────────────
+# 复习时就地评价句子，之后集中回看，作为改进生成提示词的正例与反例样本。
 
 @router.post("/api/story-sentence/{sentence_id}/star")
 def star_sentence(sentence_id: int, body: dict | None = None):
-    starred = bool((body or {}).get("starred", True))
-    result = database.set_sentence_starred(sentence_id, starred)
+    body = body or {}
+    if "rating" in body:
+        try:
+            rating = int(body["rating"])
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail=f"Invalid rating {body['rating']!r}")
+    else:
+        # Legacy boolean body from #692 — still accepted so an open tab running
+        # the old app.js keeps working across a deploy.
+        rating = 1 if bool(body.get("starred", True)) else 0
+    try:
+        result = database.set_sentence_rating(sentence_id, rating, body.get("bad_reason"))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     if result is None:
         raise HTTPException(status_code=404, detail=f"No sentence with id {sentence_id}")
     return result
 
 
 @router.get("/api/starred-sentences")
-def list_starred_sentences(lang: str | None = None, limit: int = 500):
-    return {"sentences": database.get_starred_sentences(lang=lang, limit=limit)}
+def list_starred_sentences(lang: str | None = None, limit: int = 500,
+                           rating: str | None = None):
+    return {"sentences": database.get_starred_sentences(lang=lang, limit=limit, rating=rating)}
 
 
 # NOT /api/story/{story_id}/prompt: GET /api/story/{deck_id}/{category} is

@@ -142,7 +142,7 @@ const KEYMAP_ACTIONS = [
   { id: 'story-modal',  label: 'Open summary (full story)' },
 ];
 // Keys hardcoded elsewhere in the review view — cannot be reassigned to.
-const KEYMAP_RESERVED = ['R','1','2','3','4','e','n','w','f','v','c','C','D','7','L','o','g','Enter','Tab'];
+const KEYMAP_RESERVED = ['R','1','2','3','4','e','n','w','f','v','c','C','D','7','L','o','g','j','h','Enter','Tab'];
 function _loadKeymap() {
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem('reviewKeymap') || '{}'); } catch (e) {}
@@ -2266,24 +2266,52 @@ function renderBrowseWords(words) {
 // context that makes it useful: which mode/model produced it and from which
 // source material. That's what you read when deciding how to change a prompt.
 
+// Good and bad live in one list with a filter rather than two separate views:
+// tuning a prompt means reading the positive and negative examples against
+// each other, not looking at one half at a time.
+let _starredRatingFilter = 'all';   // 'all' | 'good' | 'bad'
+
+function setStarredRatingFilter(f) {
+  _starredRatingFilter = f;
+  renderStarredSentences();
+}
+
+const _BAD_REASON_LABELS = {
+  unnatural: 'unnatural', too_hard: 'too hard', factual_error: 'factual error',
+  wrong_word: 'wrong word', grammar: 'grammar', other: 'other',
+};
+
 async function renderStarredSentences() {
   const list = document.getElementById('browse-list');
   list.innerHTML = '<div class="browse-empty">Loading…</div>';
   let sentences;
   try {
-    const r = await api('GET', `/api/starred-sentences${_langQP('?')}`);
+    const qp = _langQP('?');
+    const sep = qp ? '&' : '?';
+    const filter = _starredRatingFilter === 'all' ? '' : `${sep}rating=${_starredRatingFilter}`;
+    const r = await api('GET', `/api/starred-sentences${qp}${filter}`);
     sentences = r.sentences;
   } catch (e) {
-    list.innerHTML = `<div class="browse-empty">Could not load starred sentences: ${_escHtml(e.message)}</div>`;
+    list.innerHTML = `<div class="browse-empty">Could not load rated sentences: ${_escHtml(e.message)}</div>`;
     return;
   }
   if (_browseCardStatus !== 'starred') return;  // user switched tabs while loading
+
+  const tabs = ['all', 'good', 'bad'].map(f => {
+    const label = { all: 'All', good: '👍 Good', bad: '👎 Bad' }[f];
+    const active = _starredRatingFilter === f ? ' ss-filter-active' : '';
+    return `<button class="ss-filter${active}" onclick="setStarredRatingFilter('${f}')">${label}</button>`;
+  }).join('');
+  const bar = `<div class="ss-filter-bar">${tabs}</div>`;
+
   if (!sentences.length) {
-    list.innerHTML = '<div class="browse-empty">No starred sentences yet — press Shift+F ' +
-                     'or tap ☆ while reviewing to keep a good one.</div>';
+    const empty = _starredRatingFilter === 'bad'
+      ? 'No sentences marked bad yet — press h or tap 👎 while reviewing.'
+      : 'No rated sentences yet — press j (good) or h (bad) while reviewing.';
+    list.innerHTML = `${bar}<div class="browse-empty">${empty}</div>`;
     return;
   }
-  list.innerHTML = `<div class="bw-list">${sentences.map(_starredSentenceRow).join('')}</div>`;
+  list.innerHTML = `${bar}<div class="bw-list">${sentences.map(_starredSentenceRow).join('')}</div>`;
 }
 
 function _starredSentenceRow(s) {
@@ -2293,8 +2321,15 @@ function _starredSentenceRow(s) {
     ? `<a class="ss-source" href="${_escHtml(s.source_url)}" target="_blank" rel="noopener"
           onclick="event.stopPropagation()">${_escHtml(s.source_title || s.source_name || 'source')}</a>`
     : (s.source_title ? `<span class="ss-source">${_escHtml(s.source_title)}</span>` : '');
+  const bad = s.rating === -1;
+  // The reason is the actionable half of a thumbs-down, so it sits in the meta
+  // line rather than behind a hover title.
+  const reason = bad && s.bad_reason
+    ? `<span class="ss-reason">${_escHtml(_BAD_REASON_LABELS[s.bad_reason] || s.bad_reason)}</span>`
+    : '';
   const meta = [
     `<span class="ss-mode">${_escHtml(s.mode || 'story')}</span>`,
+    reason,
     s.story_date ? `<span>${_escHtml(s.story_date)}</span>` : '',
     s.deck_name ? `<span>${_escHtml(s.deck_name)}</span>` : '',
     words ? `<span class="ss-words">${words}</span>` : '',
@@ -2309,7 +2344,7 @@ function _starredSentenceRow(s) {
     : `<button class="ss-prompt-btn" disabled
                title="No prompt stored for this story (legacy story, or an offline snapshot — it strips prompt_text)">📝 Prompt</button>`;
 
-  return `<div class="bw-row ss-row">
+  return `<div class="bw-row ss-row${bad ? ' ss-row-bad' : ''}">
     <div class="ss-main">
       <div class="ss-zh">${_escHtml(s.sentence_zh)}</div>
       ${trans ? `<div class="ss-trans">${_escHtml(trans)}</div>` : ''}
@@ -2317,8 +2352,8 @@ function _starredSentenceRow(s) {
     </div>
     <div class="ss-actions">
       ${promptBtn}
-      <button class="ss-unstar" title="Remove the star"
-              onclick="unstarSentence(${s.id}, this)">★</button>
+      <button class="ss-unstar" title="Remove this rating"
+              onclick="unstarSentence(${s.id}, this)">${bad ? '👎' : '★'}</button>
     </div>
   </div>`;
 }
@@ -2326,12 +2361,12 @@ function _starredSentenceRow(s) {
 async function unstarSentence(sentenceId, btn) {
   btn.disabled = true;
   try {
-    await api('POST', `/api/story-sentence/${sentenceId}/star`, { starred: false });
+    await api('POST', `/api/story-sentence/${sentenceId}/star`, { rating: 0 });
     btn.closest('.ss-row')?.remove();
     if (!document.querySelector('.ss-row')) renderStarredSentences();  // back to empty state
   } catch (e) {
     btn.disabled = false;
-    showError('Unstar failed: ' + e.message);
+    showError('Clearing the rating failed: ' + e.message);
   }
 }
 
@@ -7232,48 +7267,90 @@ function _syncCardToggleBar() {
                        (de?.textContent && de.style.display !== 'none');
   transBtn.classList.toggle('active', !!transVisible);
 
-  // Star: only when this card actually shows a stored story sentence. A card
+  // Rating: only when this card actually shows a stored story sentence. A card
   // with no sentence (no story yet — renderSentence() falls back to the bare
-  // word) has nothing to star, so the button stays hidden rather than failing.
+  // word) has nothing to rate, so the buttons stay hidden rather than failing.
   const starBtn = document.getElementById('toggle-star-btn');
+  const badBtn = document.getElementById('toggle-bad-btn');
   const starAvail = !!sentence?.id;
-  if (starBtn) {
-    starBtn.style.display = starAvail ? '' : 'none';
-    _syncStarBtn();
-  }
+  if (starBtn) starBtn.style.display = starAvail ? '' : 'none';
+  if (badBtn) badBtn.style.display = starAvail ? '' : 'none';
+  _syncStarBtn();
 
   bar.style.display = (pinAvail || transAvail || starAvail) ? '' : 'none';
 }
 
-// ── Starred sentences (#692) ─────────────────────────────────────────────────
+// ── Rated sentences (good #692, bad #712) ────────────────────────────────────
 // While reviewing, a sentence is either good or it isn't — and that judgement is
-// only available in the second you read it. Starring collects those good ones as
-// positive examples for tuning the generation prompts later (Browse → ★).
+// only available in the second you read it. Rating collects both directions as
+// examples for tuning the generation prompts later (Browse → ⭐ Sentences).
+// `sentence.starred` holds the rating: 1 good, -1 bad, 0 none.
 
 function _syncStarBtn() {
-  const btn = document.getElementById('toggle-star-btn');
-  if (!btn) return;
-  const on = !!sentence?.starred;
-  btn.textContent = on ? '★' : '☆';
-  btn.classList.toggle('active', on);
-  btn.title = on ? 'Starred — click to unstar (Shift+F)'
-                 : 'Star this sentence as a good example (Shift+F)';
+  const good = sentence?.starred === 1;
+  const bad = sentence?.starred === -1;
+  const starBtn = document.getElementById('toggle-star-btn');
+  if (starBtn) {
+    starBtn.textContent = good ? '★' : '☆';
+    starBtn.classList.toggle('active', good);
+    starBtn.title = good ? 'Good example — click to clear (j)' : 'Good example (j)';
+  }
+  const badBtn = document.getElementById('toggle-bad-btn');
+  if (badBtn) {
+    badBtn.classList.toggle('active', bad);
+    badBtn.title = bad ? 'Bad example — click to clear (h)' : 'Bad example (h)';
+  }
+  // The reason row belongs to a thumbs-down and nothing else.
+  const bar = document.getElementById('bad-reason-bar');
+  if (bar) {
+    bar.style.display = bad ? '' : 'none';
+    const reason = sentence?.bad_reason || null;
+    bar.querySelectorAll('.bad-reason-btn').forEach(b => {
+      const val = b.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+      b.classList.toggle('active', !!reason && val === reason);
+    });
+  }
 }
 
-async function toggleSentenceStar() {
+// Rating the sentence the way it already is clears it, so the same key toggles.
+async function rateSentence(rating) {
   if (!sentence?.id) return;
-  const next = !sentence.starred;
-  // Optimistic: the star is a note to self, and a stalled button mid-review is
-  // more disruptive than a star that turns out not to have saved.
-  sentence.starred = next ? 1 : 0;
+  const next = sentence.starred === rating ? 0 : rating;
+  const prev = { starred: sentence.starred, bad_reason: sentence.bad_reason };
+  // Optimistic: the rating is a note to self, and a stalled button mid-review is
+  // more disruptive than a rating that turns out not to have saved.
+  sentence.starred = next;
+  if (next !== -1) sentence.bad_reason = null;
   _syncStarBtn();
   try {
-    const r = await api('POST', `/api/story-sentence/${sentence.id}/star`, { starred: next });
-    sentence.starred = r.starred;
+    const r = await api('POST', `/api/story-sentence/${sentence.id}/star`, { rating: next });
+    sentence.starred = r.rating;
     sentence.starred_at = r.starred_at;
+    sentence.bad_reason = r.bad_reason;
   } catch (e) {
-    sentence.starred = next ? 0 : 1;
-    showError('Star failed: ' + e.message);
+    sentence.starred = prev.starred;
+    sentence.bad_reason = prev.bad_reason;
+    showError('Rating failed: ' + e.message);
+  }
+  _syncStarBtn();
+}
+
+// Tag *why* the sentence is bad. Optional by design: the thumbs-down is already
+// saved by the time this row appears, so skipping it costs nothing. Tapping the
+// tag that's already set clears it.
+async function setBadReason(reason) {
+  if (!sentence?.id || sentence.starred !== -1) return;
+  const next = sentence.bad_reason === reason ? null : reason;
+  const prev = sentence.bad_reason;
+  sentence.bad_reason = next;
+  _syncStarBtn();
+  try {
+    const r = await api('POST', `/api/story-sentence/${sentence.id}/star`,
+                        { rating: -1, bad_reason: next });
+    sentence.bad_reason = r.bad_reason;
+  } catch (e) {
+    sentence.bad_reason = prev;
+    showError('Reason failed: ' + e.message);
   }
   _syncStarBtn();
 }
@@ -10189,9 +10266,9 @@ document.addEventListener('keydown', async e => {
     return;
   }
 
-  // Shift+F stars/unstars the sentence on the current card (#692)
+  // Shift+F rates the sentence good — the original #692 binding, kept working.
   if (e.key === 'F' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
-    if (!inInput) { e.preventDefault(); toggleSentenceStar(); }
+    if (!inInput) { e.preventDefault(); rateSentence(1); }
     return;
   }
 
@@ -10361,6 +10438,12 @@ document.addEventListener('keydown', async e => {
       } else {
         toggleNewsflowLang();
       }
+    } else if (e.key === 'j' || e.key === 'h') {
+      // Rate the sentence as a good / bad example for prompt tuning (#712).
+      // g was already taken by the reasoning popup and news-flow language flip
+      // (#452) — on exactly the briefing/knowledge cards worth rating.
+      e.preventDefault();
+      rateSentence(e.key === 'j' ? 1 : -1);
     }
     return;
   }
