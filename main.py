@@ -487,8 +487,13 @@ try:
             return {"commit": "unknown", "message": "", "commit_date": "", "branch": "unknown"}
 
     from datetime import datetime as _dt
+    # astimezone() attaches the server's real UTC offset (#706). A naive
+    # isoformat() loses it, and the browser then parses the string as *its own*
+    # local time — the production server runs on Asia/Shanghai, so the badge
+    # showed Shanghai's digits no matter where it was read. Without the offset
+    # no amount of client-side formatting can recover the actual instant.
     _version_info = {**_read_version(),
-                     "deployed_at": _dt.now().isoformat(timespec="seconds")}
+                     "deployed_at": _dt.now().astimezone().isoformat(timespec="seconds")}
 
     @app.get("/api/version")
     def get_version():
