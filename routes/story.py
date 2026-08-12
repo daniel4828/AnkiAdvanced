@@ -209,6 +209,9 @@ ALLOWED_MODELS = {
     "gpt-5-mini",
     "gpt-5",
     "gpt-5.1",
+    "gpt-5.6-luna",
+    "gpt-5.6-terra",
+    "gpt-5.6-sol",
     "glm-5",
     "glm-4.7",
     "glm-4.7-flashx",
@@ -220,7 +223,12 @@ DEFAULT_MODEL = ai.DEFAULT_MODEL
 def _validated_model(model: str | None, default: str | None = None) -> str:
     if model and model in ALLOWED_MODELS:
         return model
-    return default or DEFAULT_MODEL
+    fallback = default or DEFAULT_MODEL
+    if model:
+        # 静默丢弃用户选的模型正是 #721 三个月没被发现的原因：下拉框加了
+        # gpt-5.6-*，白名单忘了同步，界面照常显示成功但用的是别的模型。
+        logger.warning("model %r not in ALLOWED_MODELS — falling back to %s", model, fallback)
+    return fallback
 
 
 def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
