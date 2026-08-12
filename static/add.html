@@ -40,12 +40,6 @@
     color: #fff; background: var(--accent); border: 0; border-radius: 10px; cursor: pointer;
   }
   button.go:disabled { opacity: .5; }
-  .days { display: flex; gap: .4rem; margin-top: .75rem; }
-  .days button {
-    flex: 1; padding: .5rem; font-size: .9rem; color: var(--muted);
-    background: transparent; border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
-  }
-  .days button[aria-pressed=true] { color: #fff; background: var(--accent); border-color: var(--accent); }
   ul { list-style: none; margin: 1rem 0 0; padding: 0; }
   li {
     display: flex; align-items: baseline; gap: .6rem;
@@ -72,12 +66,7 @@
              autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done" autofocus>
       <button class="go" id="go">加</button>
     </div>
-    <div class="days">
-      <button id="day-today" aria-pressed="true">Today</button>
-      <button id="day-tomorrow" aria-pressed="false">Tomorrow</button>
-      <button id="day-list" aria-pressed="false">★ List</button>
-    </div>
-    <p class="hint" id="hint">Chinese input only. Generation takes ~30s — you can keep typing the next word meanwhile.</p>
+    <p class="hint" id="hint">Parked in your ★ List — generated in full, but not reviewed until you add it to a deck from Browse.</p>
   </div>
 
   <ul id="queue"></ul>
@@ -88,30 +77,19 @@
   // Standalone quick-add page (#668). Deliberately does NOT load app.js: the
   // point is a link that opens instantly on the phone. All the real work goes
   // through addWordViaAi() in shared.js — the single add-word pipeline (#643).
-  let day = 'today';
+  // Where an added word goes (#715): the ★ List, always. Adding a word no
+  // longer drops it straight into a review queue — it is staged in Saved
+  // (suspended) and activated later from Browse, deliberately.
+  //
+  // The day is still a parameter of the API and of this page's URL, so the
+  // iOS Shortcuts Daniel already built (/add?word=X&day=today) keep behaving
+  // the way they did. There is simply no button for it any more.
+  let day = 'list';
   const items = [];   // newest first
   const input = document.getElementById('word');
   const queue = document.getElementById('queue');
 
   const DAYS = ['today', 'tomorrow', 'list'];
-  const HINTS = {
-    today: 'Chinese input only. Generation takes ~30s — you can keep typing the next word meanwhile.',
-    tomorrow: 'Chinese input only. Generation takes ~30s — you can keep typing the next word meanwhile.',
-    // ★ List = the Saved deck: the entry is generated in full, but the cards
-    // stay suspended until promoted from Browse (#677).
-    list: 'Parked in your Saved list — not reviewed until you add it to a deck from Browse.',
-  };
-  function selectDay(d) {
-    if (!DAYS.includes(d)) return;
-    day = d;
-    for (const other of DAYS) {
-      document.getElementById(`day-${other}`).setAttribute('aria-pressed', String(other === d));
-    }
-    document.getElementById('hint').textContent = HINTS[d];
-  }
-  for (const d of DAYS) {
-    document.getElementById(`day-${d}`).onclick = () => { selectDay(d); input.focus(); };
-  }
 
   function render() {
     queue.replaceChildren(...items.map(it => {
@@ -150,10 +128,10 @@
   document.getElementById('go').onclick = submit;
   input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
 
-  // URL parameters (#686) — /add?word=生态&day=list — so an iOS Shortcut can
-  // add a word straight from any app. `day` is optional and defaults to today;
-  // an unknown value falls back to today rather than failing, since the word
-  // is the part that matters.
+  // URL parameters (#686) — /add?word=生态&day=today — so an iOS Shortcut can
+  // add a word straight from any app. `day` is optional and defaults to the
+  // ★ List (#715); an unknown value falls back to it rather than failing,
+  // since the word is the part that matters.
   //
   // Opening such a link submits immediately and therefore spends an AI call.
   // That is the whole point of the parameter, but it also means the word is
@@ -161,7 +139,8 @@
   // or a "restore tabs" on the phone would otherwise silently add it again.
   const params = new URLSearchParams(location.search);
   const preset = (params.get('word') || params.get('w') || '').trim();
-  selectDay((params.get('day') || 'today').trim());
+  const dayParam = (params.get('day') || '').trim();
+  if (DAYS.includes(dayParam)) day = dayParam;
   if (preset) {
     input.value = preset;
     history.replaceState(null, '', location.pathname);
