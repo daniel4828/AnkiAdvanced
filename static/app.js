@@ -3542,17 +3542,11 @@ function _renderKnowledgeDetail(ep) {
       <td>${_escHtml(w.word || w.word_zh || '')}</td>
       <td>${_escHtml(w.pinyin || '')}</td>
       <td>${_escHtml(w.definition_de || w.definition || '')}</td>
-      <td><button id="podcast-add-word-${idx}" class="btn-secondary" onclick="doPodcastAddWord(${idx})">+ Add</button></td>
+      <td><button id="podcast-add-word-${idx}" class="btn-secondary" onclick="doPodcastAddWord(${idx})">★ List</button></td>
       <td><button id="podcast-known-word-${idx}" class="btn-secondary" onclick="doPodcastKnownWord(${idx})" title="I already know this word — stop flagging it">✓ Known</button></td>
     </tr>`).join('');
   const hskTable = hskRows
-    ? `<div id="podcast-add-day" class="add-word-day-row">
-         <button type="button" class="add-word-day-btn" data-day="today"
-                 onclick="setPodcastAddDay('today')">Today</button>
-         <button type="button" class="add-word-day-btn" data-day="tomorrow"
-                 onclick="setPodcastAddDay('tomorrow')">Tomorrow</button>
-       </div>
-       <table class="cost-table"><thead><tr><th>Word</th><th>Pinyin</th><th>German</th><th>Add</th><th>Known</th></tr></thead><tbody>${hskRows}</tbody></table>`
+    ? `<table class="cost-table"><thead><tr><th>Word</th><th>Pinyin</th><th>German</th><th>Save</th><th>Known</th></tr></thead><tbody>${hskRows}</tbody></table>`
     : '<p class="keymap-hint">No HSK vocabulary extracted.</p>';
   const links = [
     ep.youtube_url ? `<a href="${_escHtml(ep.youtube_url)}" target="_blank" rel="noopener" class="btn-secondary">${isPodcast ? 'YouTube' : 'Open'} ↗</a>` : '',
@@ -3593,7 +3587,6 @@ function _renderKnowledgeDetail(ep) {
       <h2 class="keymap-heading">${contentLabel}</h2>
       ${transcript || `<p class="keymap-hint">No ${contentLabel.toLowerCase()} available.</p>`}
     </div>`;
-  setPodcastAddDay(_podcastAddDay);  // highlights the active day button
 }
 
 function _togglePodcastTranscript() {
@@ -3671,17 +3664,6 @@ async function doPodcastNotify(channel) {
   }
 }
 
-// Which day the podcast vocabulary table adds to. Podcasts are usually
-// listened to in the evening, so tomorrow stays the default (#643).
-let _podcastAddDay = 'tomorrow';
-
-function setPodcastAddDay(day) {
-  _podcastAddDay = day === 'today' ? 'today' : 'tomorrow';
-  for (const btn of document.querySelectorAll('#podcast-add-day .add-word-day-btn')) {
-    btn.classList.toggle('active', btn.dataset.day === _podcastAddDay);
-  }
-}
-
 function doPodcastAddWord(idx) {
   const w = _podcastDetailWords[idx];
   const btn = document.getElementById(`podcast-add-word-${idx}`);
@@ -3693,7 +3675,11 @@ function doPodcastAddWord(idx) {
   btn.textContent = '…';
   // Generation takes ~30s in the background — the other rows stay clickable,
   // so several words can be queued up at once.
-  addWordViaAi(wordZh, _podcastAddDay, (state, text) => {
+  //
+  // Always the ★ List (#715): a word met while reading goes to the staging
+  // area, never straight into today's or tomorrow's review queue. Activating
+  // it is a separate, deliberate step in Browse's saved view.
+  addWordViaAi(wordZh, 'list', (state, text) => {
     btn.textContent = text;
     btn.classList.toggle('podcast-add-error', state === 'error');
     // Only a failure is worth retrying; a finished add is not repeatable.
@@ -6441,14 +6427,12 @@ function showQuickAddBanner(msg, isInfo) {
 // Generation takes ~30s but the request returns a job id immediately, so the
 // input never blocks: each submitted word becomes a queue entry that polls its
 // own job while the user types the next one (#636).
-let _addWordDay = 'today';          // 'today' | 'tomorrow'
 let _addWordQueue = [];             // [{key, wordZh, state, text}]
 let _addWordSeq = 0;
 
 function openAddWordModal() {
   document.getElementById('add-word-overlay').style.display = 'block';
   document.getElementById('add-word-modal').style.display = 'block';
-  setAddWordDay(_addWordDay);
   const input = document.getElementById('add-word-input');
   input.value = '';
   input.disabled = false;
@@ -6466,25 +6450,6 @@ function closeAddWordModal() {
   // date; closing only hides the list. Drop finished rows so reopening the
   // modal shows a clean slate.
   _addWordQueue = _addWordQueue.filter(item => item.state === 'running');
-}
-
-function setAddWordDay(day) {
-  _addWordDay = ['tomorrow', 'list'].includes(day) ? day : 'today';
-  for (const btn of document.querySelectorAll('.add-word-day-btn')) {
-    btn.classList.toggle('active', btn.dataset.day === _addWordDay);
-  }
-  const label = document.getElementById('add-word-deck');
-  if (_addWordDay === 'list') {
-    // ★ List parks the word in the Saved deck, suspended (#677) — say so,
-    // because "Saved" alone reads like a deck it will be reviewed from.
-    label.textContent = 'Saved (not reviewed until promoted)';
-  } else {
-    const d = new Date();
-    if (_addWordDay === 'tomorrow') d.setDate(d.getDate() + 1);
-    label.textContent =
-      'Daily::' + `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }
-  document.getElementById('add-word-input').focus();
 }
 
 function _renderAddWordQueue() {
@@ -6525,7 +6490,9 @@ function submitAddWord() {
   _addWordQueue.unshift(item);
   _renderAddWordQueue();
 
-  addWordViaAi(wordZh, _addWordDay, (state, text, deckPath) => {
+  // Always the ★ List (#715): every add-word entry point parks the word in
+  // Saved, suspended, and activating it is a separate step in Browse.
+  addWordViaAi(wordZh, 'list', (state, text, deckPath) => {
     _setAddWordItem(item, state, text);
     // The modal may already be closed; the banner is how the user finds out.
     if (state === 'done' &&

@@ -936,14 +936,6 @@
     <button class="edit-modal-close" onclick="closeAddWordModal()">✕</button>
   </div>
   <div id="add-word-body">
-    <div id="add-word-day">
-      <button type="button" class="add-word-day-btn active" data-day="today"
-              onclick="setAddWordDay('today')">Today</button>
-      <button type="button" class="add-word-day-btn" data-day="tomorrow"
-              onclick="setAddWordDay('tomorrow')">Tomorrow</button>
-      <button type="button" class="add-word-day-btn" data-day="list"
-              onclick="setAddWordDay('list')" title="Park in the Saved list — not reviewed until promoted from Browse">★ List</button>
-    </div>
     <div id="add-word-row">
       <input id="add-word-input" type="text" placeholder="新词…" autocomplete="off"
              onkeydown="if (event.key === 'Enter') submitAddWord()">
@@ -951,7 +943,8 @@
     </div>
     <div id="add-word-hint">
       Enter a Chinese word — DeepSeek writes the full entry (definitions,
-      examples, character breakdown) into <b id="add-word-deck">today's deck</b>.
+      examples, character breakdown) into your <b id="add-word-deck">★ List</b>
+      (Saved, not reviewed until promoted from Browse).
       Generation runs in the background, so you can keep typing the next word.
     </div>
     <div id="add-word-status"></div>

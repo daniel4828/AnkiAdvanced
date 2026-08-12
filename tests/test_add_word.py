@@ -478,3 +478,36 @@ def test_add_page_reads_word_and_day_from_the_url(tmp_db):
     # The word must be stripped from the URL after submitting, or a reload
     # (or iOS restoring tabs) silently spends another AI call on it.
     assert "history.replaceState" in src
+
+
+# --- ★ List is the only destination the UI offers (#715) --------------------
+# The API still accepts day=today|tomorrow (old iOS Shortcut links must keep
+# working), so what these tests guard is the *interface*: no entry point may
+# put a freshly added word straight into a review queue again.
+
+def _static(name):
+    import pathlib
+    return pathlib.Path(f"static/{name}").read_text(encoding="utf-8")
+
+
+def test_no_ui_entry_point_offers_today_or_tomorrow():
+    """All three add-word entry points (top-bar ＋, the knowledge item's HSK
+    table, and /add) stage the word instead of scheduling it."""
+    for name in ("index.html", "add.html", "app.js"):
+        assert "add-word-day-btn" not in _static(name), f"day selector left in {name}"
+
+
+def test_add_word_calls_pass_the_list_destination():
+    app_js = _static("app.js")
+    assert "addWordViaAi(wordZh, 'list'" in app_js
+    # The mutable day state behind the old selector must be gone, not merely
+    # unused — a stale 'today' default is exactly how this would come back.
+    assert "_addWordDay" not in app_js
+    assert "_podcastAddDay" not in app_js
+
+
+def test_add_page_defaults_to_the_list():
+    src = _static("add.html")
+    assert "let day = 'list'" in src
+    # …but an explicit ?day= from an existing Shortcut is still honoured.
+    assert "params.get('day')" in src

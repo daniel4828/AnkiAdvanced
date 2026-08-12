@@ -234,9 +234,11 @@ bash sync_offline.sh push    # 只推不拉，推完归档本地库
 
 导入机制本身仍然存在（`importer.py`、`POST /api/import`、`python main.py import`，读取 `imports/<Source>/*.yaml`）：需要批量导入新词汇时，重新创建该目录放入 YAML 即可。日常添加单个词条：界面顶栏 `＋` 按钮（见下），或 `de-zh-bot` 技能生成 YAML 后导入。
 
-### 界面内添加生词（#627、#636、#643）
+### 界面内添加生词（#627、#636、#643、#715）
 
-顶栏 `＋` → 输入中文词 → 回车或点"加" → 后台 DeepSeek 生成完整词条 → 进 `Daily::<今天|明天>`，当天到期。
+顶栏 `＋` → 输入中文词 → 回车或点"加" → 后台 DeepSeek 生成完整词条 → 进 **★ List**（`Saved` 牌组，挂起，不进任何复习队列）。
+
+> **界面上只有 ★ List 这一个去处（#715，Daniel 2026-08-12 决定）**：顶栏 ＋、知识库详情页的生词表格、`/add` 页面三处的 Today/Tomorrow 按钮全部撤掉，一律 `day='list'`。新词先攒着，之后在 Browse 的 saved 视图主动提升（那个「→ Add to Daily」按钮**保留**——★ List 是暂存区，总得有出口）。**后端 `day` 参数照旧支持 `today|tomorrow|list`**：Daniel 已有的 iOS 快捷指令 `/add?word=X&day=today` 不该突然改行为，而且以后想恢复某个按钮只是加回一个按钮。`/add` 因此仍尊重 URL 里的 `day`，只是无参数时默认 `list`。
 
 - `ai.generate_word_entry_yaml()` 把 `de-zh-bot` 技能的中文词条规则移植成服务端提示词，输出 **YAML** 而不是 JSON —— 这样能直接交给 `importer.import_yaml_content()`，例句/量词/同义反义词/汉字分解/词源全部复用既有下游逻辑，**没有一行特例建卡代码**。这也意味着卡片与手工导入的词条完全一致（`importer._create_cards` 的 due 就是 `anki_today()`，`_make_leaf_decks` 建的子牌组名与 `get_or_create_category_decks` 相同）
 - 模型没返回 YAML 列表项时抛 `ValueError`；导入数为 0 的"完成"任务前端也报错 —— **绝不把垃圾内容悄悄写进库，也不假装成功**
@@ -251,7 +253,7 @@ bash sync_offline.sh push    # 只推不拉，推完归档本地库
   - **挂起靠 `state`，不靠 `due`**：`cards.due` 是 `NOT NULL DEFAULT date('now')`，写 NULL 直接违反约束。停留在 `Saved` 的卡照样有 due 值，是 `state='suspended'` 把它挡在队列外
   - 停放**不清空** FSRS 字段（挂起已经够了；真要激活时 `promote_saved_word` 会重置），所以 `reviews_discarded` 返回 0 —— 与上面的 `reset` 不同，这不是破坏性操作
   - Browse 的 saved 行只在词条**没有释义**时才显示 "✨ Generate"，★ List 进来的词内容已齐全，再生成纯烧钱
-- **今天/明天可选**（#636）：`day` 参数同时决定 Daily 牌组、`promote_saved_word` 的 due 和 `importer.import_yaml_content(due_offset_days=)`。**牌组和 due 必须一起后移** —— 未来日期的 Daily 牌组被 `parse_daily_deck_date` 锁住不可复习，卡片若还 due 今天就永远够不到
+- **今天/明天（#636，#715 起界面不再提供，接口保留）**：`day` 参数同时决定 Daily 牌组、`promote_saved_word` 的 due 和 `importer.import_yaml_content(due_offset_days=)`。**牌组和 due 必须一起后移** —— 未来日期的 Daily 牌组被 `parse_daily_deck_date` 锁住不可复习，卡片若还 due 今天就永远够不到
 - **不阻塞连续输入**（#636）：提交后立刻清空输入框，每个词进弹窗里的队列各自轮询自己的 job
 - **独立加词页 `/add`（#668）+ URL 参数（#686）**：可收藏的网址，打开就是输入框（存 iPhone 主屏当图标用）。`?word=生态`（或 `?w=`）+ 可选 `&day=today|tomorrow|list` → 打开即自动提交，供 iOS 快捷指令在任意 App 里一键加词；`day` 非法值回落 today（词才是重点，不该为此失败）。**提交后必须 `history.replaceState` 抹掉参数** —— 否则刷新或 iOS 恢复标签页会静默再花一次 AI 钱。`static/add.html` 是自包含页面，**故意不加载 `app.js`** —— 5.5 KB vs 完整应用的 77 KB + 491 KB JS，秒开就是这个功能的全部意义。为此把 `addWordViaAi()` 和 `api()` 从 `app.js` 抽到 `static/shared.js` 两页共用，**不复制第二份**（理由同下条；`tests/test_add_word.py` 有一条测试专门守着 `app.js` 里不能再出现这两个定义）
 - **`/api/add-word-ai` 是全应用唯一的加词入口**（#643）：顶栏 ＋、播客单集的 HSK 生词表格、复习界面长按词的菜单、以及 `/add` 页面，全部共用 `shared.js` 的 `addWordViaAi()`。原来播客/长按走的 `/api/quick-add-word` 已删除 —— 它只让 AI 填四个字段（无例句/汉字分解/量词/同义反义词），而且 `added_to_deck` 分支在词已学过时被 `INSERT OR IGNORE` + `UNIQUE(word_id, category)` 全部静默丢弃，却照样返回成功。**加词只能有一条管线**，否则修好的坑会在第二条路上重新出现
@@ -482,7 +484,7 @@ GET  /api/costs/call/{id}                            → {prompt, response}（�
 POST /api/import                                     → 触发 YAML 导入
 GET  /add[?word=生态&day=today|tomorrow|list]         → 独立加词页（#668，可收藏/存主屏；不加载 app.js）；带 word 参数时打开即自动提交（#686，供 iOS 快捷指令用），提交后从地址栏抹掉该参数以免刷新重复扣费
 GET  /save                                           → 独立素材收藏页（#681，Link/Text 两个标签；同样不加载 app.js）
-POST /api/add-word-ai                                → 界面内添加生词（#627）；body {word_zh, day?:today|tomorrow|list}（#636、#677）；新词返回 {job_id}，已有词直接返回 {status}。**全应用唯一的加词入口**（#643）：顶栏 ＋、播客生词表格、复习界面长按菜单都走它
+POST /api/add-word-ai                                → 界面内添加生词（#627）；body {word_zh, day?:today|tomorrow|list}（#636、#677；#715 起界面一律传 list，接口三值仍有效）；新词返回 {job_id}，已有词直接返回 {status}。**全应用唯一的加词入口**（#643）：顶栏 ＋、播客生词表格、复习界面长按菜单都走它
 GET  /api/add-word-ai/progress/{job_id}              → 轮询后台生成+导入的结果
 GET  /api/browse                                     → {deck_id?, category?, state?, q?, lang?}
 GET  /api/stats ；/api/retention ；/api/card-evolution（均支持 ?lang=）
