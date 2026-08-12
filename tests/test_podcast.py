@@ -66,7 +66,9 @@ EPISODE = {
     "title": "第 12 集：人工智能与就业",
     "youtube_url": "https://example/ep7",
     "spotify_url": "",
-    "summary_zh": "这集讨论人工智能对就业的影响。嘉宾认为短期内影响有限。",
+    # Since #708 the Chinese summary is a full translation of the German one
+    # and carries the same <p>/<b> markup.
+    "summary_zh": "<p><b>这集讨论人工智能对就业的影响。</b>嘉宾认为短期内影响有限。</p>",
     "summary_de": "<p><b>Es geht um KI.</b> Details folgen.</p>",
     "hsk_words": [{"word": "就业", "pinyin": "jiù yè", "definition_de": "Beschäftigung", "hsk": 5}],
     "transcript_de": [],
@@ -141,11 +143,28 @@ def test_email_without_chinese_summary_renders_nothing_extra(monkeypatch):
 
 
 def test_summary_zh_html_escapes_markup():
-    """The prompt asks for plain text; a model that ignores it must not get
-    to inject markup into the mail."""
+    """Only the structural tags of the summary contract are allowed through;
+    a model that returns anything else must not get to inject it into the mail."""
     out = podcast._summary_zh_html("<script>alert(1)</script>")
     assert "<script>" not in out
     assert "&lt;script&gt;" in out
+
+
+def test_summary_zh_html_keeps_paragraph_and_bold_tags():
+    """#708: the Chinese summary mirrors the German one's <p>/<b> structure,
+    so those tags must survive into the mail."""
+    out = podcast._summary_zh_html("<p><b>首句。</b>细节。</p><p><b>第二段。</b>更多。</p>")
+    assert out.count("<p>") == 2
+    assert "<b>首句。</b>" in out
+    assert "&lt;p&gt;" not in out
+
+
+def test_summary_zh_html_wraps_legacy_plain_text():
+    """Episodes summarized before #708 hold plain text with blank lines
+    between paragraphs — those must still become real <p> tags."""
+    out = podcast._summary_zh_html("第一段。\n\n第二段。")
+    assert out.count("<p ") == 2
+    assert "第一段。" in out and "第二段。" in out
 
 
 def test_feed_title_lookup(monkeypatch):
@@ -182,6 +201,8 @@ def test_signal_message_leads_with_chinese_summary(monkeypatch):
     assert "这集讨论人工智能对就业的影响" in text
     # Chinese intro comes before the German summary, and after the title line.
     assert text.index("第 12 集") < text.index("这集讨论") < text.index("Es geht um KI")
+    # Signal is plain text: the summary's HTML tags must be stripped (#708).
+    assert "<p>" not in text and "<b>" not in text
 
 
 # --- prompt & parser --------------------------------------------------------
@@ -192,6 +213,15 @@ def test_prompt_asks_for_chinese_summary_and_generous_annotation():
     assert "HSK 4-5 level" in prompt
     # Annotation must no longer be restricted to the extracted word list.
     assert "NOT limited to" in prompt
+
+
+def test_prompt_asks_for_chinese_summary_as_full_translation():
+    """#708: the Chinese summary is the German one translated — same
+    paragraphs, same <b> lead sentences — not a shorter teaser."""
+    prompt = ai.build_podcast_summary_prompt("转录文本", "标题", "detailed")
+    assert "Translate that German summary into Chinese" in prompt
+    assert "Same number of" in prompt
+    assert "<b>" in prompt
 
 
 def test_parse_summary_json_reads_chinese_summary():

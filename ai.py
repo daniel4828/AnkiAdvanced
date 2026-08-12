@@ -2489,15 +2489,7 @@ source is in. For a German or English source, the Chinese summary IS the learnin
 {excerpt}
 
 Task:
-1. Write a Chinese-language summary of the episode, placed before the German summary so
-   Daniel can grasp what the episode is about in Chinese first. Length: 600-1000 Chinese
-   characters — a full summary of the episode's content, not a teaser. Cover the actual
-   topics, arguments, examples and conclusions in the order the episode presents them,
-   and split it into several paragraphs (blank line between paragraphs).
-   Write it at HSK 4-5 level — his actual reading level. Use plain, common vocabulary and
-   short sentences. This is a comprehension aid, not another study exercise, so do NOT
-   reach for literary or specialist words where an everyday one works. Plain text, no HTML.
-2. Write a detailed German-language summary of what is discussed in the episode, so the
+1. Write a detailed German-language summary of what is discussed in the episode, so the
    listener understands the content before listening. Target length: {words_target} words.
    Structure it into multiple paragraphs, in the style of the table.media briefings:
    - Wrap every paragraph in <p>...</p> tags.
@@ -2527,14 +2519,31 @@ Task:
      jump to it. If the transcript contains no timestamps, do NOT invent any.
    Wrap the most important vocabulary/terms/names in <strong>...</strong> HTML tags (these
    become the highlighted words in the email).
+2. Translate that German summary into Chinese — in full. This is NOT a shorter teaser and
+   NOT an independently written summary: it is the SAME text in Chinese. Same number of
+   paragraphs, same order, same facts, numbers, names and arguments, nothing dropped and
+   nothing added. It is shown above the German version so Daniel can read the whole episode
+   summary in Chinese first.
+   - Same markup: every paragraph wrapped in <p>...</p>, and each paragraph MUST begin with
+     the translated lead sentence wrapped in <b>...</b>. Paragraph N of the Chinese text
+     must correspond to paragraph N of the German text. Example paragraph:
+     <p><b>这些丑闻背后是一套有问题的激励机制。</b>其中之一是过度看重论文数量。……</p>
+   - Write it at HSK 4-5 level — his actual reading level. Use plain, common vocabulary and
+     short sentences. This is a comprehension aid, not another study exercise, so do NOT
+     reach for literary or specialist words where an everyday one works. Splitting one long
+     German sentence into two short Chinese ones is fine — dropping its content is not.
+   - Do NOT carry over the "pinyin/汉字" annotations from the German version — the text is
+     already Chinese. Likewise, write company/organization names directly in their Chinese
+     form ("爱彼迎"), without repeating the foreign name.
+   - <strong> highlights are not needed here; keep only <p> and <b>.
 3. Extract the 20-35 most important Chinese words/phrases from the transcript that are HSK
    level 5 or above (i.e. non-basic vocabulary Daniel would benefit from pre-learning). For
    each, give pinyin and a German definition.
 
 Return ONLY a JSON object, no other text, no markdown fences:
 {{
-  "summary_zh": "中文总结，600-1000 字，分段（段落之间空一行），HSK 4-5 水平的简单中文，纯文本",
   "summary_de": "<German HTML summary: <p> paragraphs, each starting with a <b> lead sentence, <strong> highlights>",
+  "summary_zh": "<德语总结的完整中文翻译：同样的 <p> 段落，每段首句用 <b> 包住，HSK 4-5 水平的简单中文>",
   "words": [
     {{"word": "词语", "pinyin": "cí yǔ", "definition_de": "kurze deutsche Definition", "hsk": 5}}
   ]
