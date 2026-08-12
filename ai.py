@@ -95,6 +95,40 @@ def _openai_client(model: str) -> openai.OpenAI:
     raise ValueError(f"Unknown provider for model: {model}")
 
 
+# gpt-5 系列关闭推理时用的最低档 —— 两代的名字互不兼容（2026-08-12 实测，#724）：
+#   gpt-5 / gpt-5-mini   支持 minimal, low, medium, high   —— 发 'none' 报 400
+#   gpt-5.1 / gpt-5.6-*  支持 none, low, medium, high, xhigh —— 5.6 发 'minimal' 报 400
+# 实测生成故事句子时 low 要烧 403 个推理 token（比 none 贵 6.2 倍、慢一倍），
+# 而输出质量看不出差别 —— 这类任务不需要思维链。
+_GPT_MIN_EFFORT = {
+    "gpt-5": "minimal",
+    "gpt-5-mini": "minimal",
+    "gpt-5.1": "none",
+    "gpt-5.6-luna": "none",
+    "gpt-5.6-terra": "none",
+    "gpt-5.6-sol": "none",
+}
+# 表里没有的 gpt 模型走这个值：任何一代都接受，绝不会 400。新模型上线时
+# 宁可多花钱，也不能因为猜错档位名而让整条流程静默挂掉。
+_GPT_SAFE_EFFORT = "low"
+
+# OpenAI 的 id 可能带日期快照后缀（gpt-5.1-2026-04-14）—— 查表前先剥掉，
+# 否则每出一个快照都要往表里加一行。同 database.stats._SNAPSHOT_SUFFIX_RE。
+_SNAPSHOT_SUFFIX_RE = re.compile(r"(-\d{4}-\d{2}-\d{2}|-\d{8})$")
+
+
+def _gpt_reasoning_effort(model: str, thinking: bool) -> str:
+    """gpt-5 系列该发哪个 reasoning_effort。
+
+    thinking=True 时用 "low"（够用且各代通用）；默认的 thinking=False 查
+    _GPT_MIN_EFFORT，未知模型回落到 _GPT_SAFE_EFFORT。
+    """
+    if thinking:
+        return _GPT_SAFE_EFFORT
+    base = _SNAPSHOT_SUFFIX_RE.sub("", model)
+    return _GPT_MIN_EFFORT.get(model) or _GPT_MIN_EFFORT.get(base) or _GPT_SAFE_EFFORT
+
+
 def _extract_prompt(messages: list) -> str:
     """Join the content of ALL messages (for cost-modal display).
 
@@ -116,9 +150,11 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str,
               thinking: bool = False) -> str:
     """Call the appropriate provider, log usage, and return the raw text response.
 
-    thinking: enable DeepSeek thinking/reasoning mode (default False — disabled).
+    thinking: enable the provider's thinking/reasoning mode (default False — disabled).
               deepseek-v4-flash defaults to thinking=on server-side, so we must
               explicitly disable it for tasks that don't need chain-of-thought.
+              GLM-4.5+ 同理。gpt-5 系列自 #724 起也尊重这个参数：False 时发该
+              模型支持的最低 reasoning_effort（见 _gpt_reasoning_effort）。
     """
     t0 = time.time()
     prompt_text = _extract_prompt(messages)
@@ -158,11 +194,13 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str,
             if model.startswith("gpt-"):
                 # gpt-5 series (Chat Completions): max_completion_tokens replaces max_tokens
                 # and is shared with internal reasoning tokens; custom temperature is not
-                # supported. reasoning_effort="low" — sentence generation needs no deep
-                # reasoning, and higher efforts can eat the whole token budget.
+                # supported. reasoning_effort 由 _gpt_reasoning_effort 按模型决定 ——
+                # 与 DeepSeek/GLM 分支一样尊重 thinking 参数（#724）。
+                effort = _gpt_reasoning_effort(model, thinking)
+                logger.debug("[%s] reasoning_effort=%s (thinking=%s)", model, effort, thinking)
                 resp = client.chat.completions.create(
                     model=model, max_completion_tokens=max_tokens, messages=messages,
-                    reasoning_effort="low",
+                    reasoning_effort=effort,
                 )
             else:
                 resp = client.chat.completions.create(
