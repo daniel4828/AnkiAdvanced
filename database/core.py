@@ -249,6 +249,9 @@ def init_db() -> None:
         conn.execute("ALTER TABLE story_sentences ADD COLUMN starred INTEGER NOT NULL DEFAULT 0")
     if "starred_at" not in ss_cols:
         conn.execute("ALTER TABLE story_sentences ADD COLUMN starred_at TEXT")
+    # Thumbs-down ratings reuse `starred` as -1 and record why here (#712).
+    if "bad_reason" not in ss_cols:
+        conn.execute("ALTER TABLE story_sentences ADD COLUMN bad_reason TEXT")
     if "word_id" in ss_cols:
         _migrate_story_sentences_multi_word(conn)
     existing_tables = {r["name"] for r in conn.execute(

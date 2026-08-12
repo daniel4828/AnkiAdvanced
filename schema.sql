@@ -406,9 +406,14 @@ CREATE TABLE IF NOT EXISTS story_sentences (
     context_de  TEXT,
     source_title TEXT,
     source_name TEXT,
-    -- starred during review as a good example to learn from when tuning prompts (#692)
+    -- Rated during review as an example to learn from when tuning prompts:
+    -- 1 = good (#692), -1 = bad, 0 = unrated (#712). The column keeps its old
+    -- name because renaming it would mean rebuilding the table and migrating
+    -- production for no functional gain.
     starred     INTEGER NOT NULL DEFAULT 0,
     starred_at  TEXT,
+    -- Optional one-tap tag saying what was wrong, only set alongside starred = -1 (#712)
+    bad_reason  TEXT,
     UNIQUE(story_id, position)
 );
 
