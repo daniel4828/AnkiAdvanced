@@ -3125,9 +3125,11 @@ a.news-source-line:hover {
 .podcast-transcribe-btn { font-size: 12px; padding: 3px 10px; }
 #podcast-summary-de { line-height: 1.6; color: var(--text); }
 
-/* Short Chinese summary (#631) — sits above the German one as a quick
-   "what is this episode about" pass. Set apart so it reads as a lead-in
-   rather than as the first paragraph of the German text. */
+/* Chinese summary (#631; since #708 a full translation of the German one,
+   same paragraphs, same bold lead sentences). Set apart with a background so
+   it reads as its own version of the text rather than as the opening
+   paragraphs of the German one. Paragraphs are real <p> tags now — no
+   white-space:pre-wrap. */
 #podcast-summary-zh {
   line-height: 1.8;
   color: var(--text);
@@ -3135,8 +3137,9 @@ a.news-source-line:hover {
   border-left: 3px solid var(--border);
   padding: 10px 14px;
   margin: 0 0 14px;
-  white-space: pre-wrap;
 }
+#podcast-summary-zh p { margin: 0 0 10px; }
+#podcast-summary-zh p:last-child { margin-bottom: 0; }
 
 /* — Podcast feed manager (#502) — */
 .podcast-feed-list { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }

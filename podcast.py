@@ -1265,20 +1265,32 @@ def _feed_title(episode: dict) -> str | None:
     return (feed.get("title") or None) if feed else None
 
 
-def _summary_zh_html(summary_zh: str) -> str:
-    """Render the Chinese summary block that opens the email (#631).
-    Escaped — the prompt asks for plain text, and a model that ignores that
-    must not get to inject markup into the mail.
+# Structural tags the Chinese summary is allowed to carry (#708). Everything
+# else stays escaped: the model writes this text, and a stray <script> or
+# <style> must never reach the mail client or the detail page.
+_SUMMARY_ZH_ALLOWED_TAGS = re.compile(r"&lt;(/?(?:p|b|strong|em|i)|br\s*/?)&gt;")
 
-    Since #638 the summary runs up to 1000 characters across several
-    paragraphs, so blank-line-separated blocks become real <p> tags; relying on
+
+def _summary_zh_html(summary_zh: str) -> str:
+    """Render the Chinese summary as HTML (#631, #708).
+
+    Since #708 the Chinese summary is a full translation of the German one and
+    carries the same markup: <p> paragraphs, each opening with a <b> lead
+    sentence. So instead of escaping everything, escape first and then let just
+    that handful of structural tags back through — a model that ignores the
+    contract still cannot inject markup.
+
+    Episodes summarized before #708 hold plain text with blank lines between
+    paragraphs; those get wrapped into real <p> tags here, because relying on
     white-space:pre-wrap would be a gamble across mail clients."""
     if not summary_zh:
         return ""
-    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", summary_zh) if p.strip()]
-    body = "".join(
-        f"<p style='margin:0 0 10px'>{html.escape(p)}</p>" for p in paragraphs
-    )
+    escaped = _SUMMARY_ZH_ALLOWED_TAGS.sub(r"<\1>", html.escape(summary_zh))
+    if "<p>" in escaped:
+        body = escaped
+    else:
+        paragraphs = [p.strip() for p in re.split(r"\n\s*\n", escaped) if p.strip()]
+        body = "".join(f"<p style='margin:0 0 10px'>{p}</p>" for p in paragraphs)
     return (
         "<div style='background:#f5f5f5;border-left:3px solid #999;"
         "padding:10px 14px;margin:0 0 16px;font-size:15px;line-height:1.7'>"
@@ -1357,6 +1369,30 @@ def send_email(episode: dict) -> bool:
     return send_mail(subject, body_html, context=episode["video_id"])
 
 
+def _summary_to_plain_text(summary: str | None) -> str:
+    """Flatten an HTML summary into plain text for the Signal message.
+
+    Paragraph boundaries must survive as blank lines (#567: summaries are
+    <p>-structured, and a plain tag-strip would glue paragraphs together), so
+    </p> and <br> become newlines before the remaining tags are dropped.
+    Plain-text summaries (Chinese ones written before #708) pass through
+    unchanged.
+
+    Sends the FULL summary (#541) — Daniel reads it directly in Signal and the
+    old 1500-char cap cut it off mid-sentence. The cap kept here only stops a
+    pathologically long summary from producing a runaway message; a normal
+    "detailed" summary (~900-1300 words ≈ up to ~9000 chars) fits well under it.
+    """
+    text = summary or ""
+    text = re.sub(r"(?i)</p\s*>", "\n\n", text)
+    text = re.sub(r"(?i)<br\s*/?>", "\n", text)
+    text = re.sub(r"<[^>]+>", "", text).strip()
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    if len(text) > 12000:
+        text = text[:12000].rstrip() + "…"
+    return text
+
+
 def send_signal(episode: dict) -> bool:
     """Send a plain-text Signal "Note to Self" notification for a freshly-
     summarized episode via a linked-device signal-cli install (#521).
@@ -1372,21 +1408,10 @@ def send_signal(episode: dict) -> bool:
     public_base = os.environ.get("PUBLIC_BASE_URL", "https://powerdaniel3000.duckdns.org")
     transcript_link = f"{public_base}/#podcast-{episode['id']}"
 
-    # summary_de may be None; strip HTML tags (the email version is HTML).
-    # Paragraph boundaries must survive as blank lines (#567: summaries are
-    # <p>-structured now, and a plain tag-strip would glue paragraphs
-    # together), so turn </p> and <br> into newlines first.
-    # Send the FULL summary (#541) — Daniel reads it directly in Signal and the
-    # old 1500-char cap cut it off mid-sentence. Keep only a high safety cap so
-    # a pathologically long summary can't produce a runaway message; a normal
-    # "detailed" summary (~900-1300 words ≈ up to ~9000 chars) fits well under it.
-    summary_de = episode.get("summary_de") or ""
-    summary_de = re.sub(r"(?i)</p\s*>", "\n\n", summary_de)
-    summary_de = re.sub(r"(?i)<br\s*/?>", "\n", summary_de)
-    summary_de = re.sub(r"<[^>]+>", "", summary_de).strip()
-    summary_de = re.sub(r"\n{3,}", "\n\n", summary_de)
-    if len(summary_de) > 12000:
-        summary_de = summary_de[:12000].rstrip() + "…"
+    # Both summaries are HTML (the Chinese one since #708) and may be None;
+    # strip the tags for the plain-text Signal message.
+    summary_de = _summary_to_plain_text(episode.get("summary_de"))
+    summary_zh = _summary_to_plain_text(episode.get("summary_zh"))
 
     # hsk_words comes back as a list from database.get_episode (_hydrate
     # parses the stored JSON), but be defensive in case a raw row or a
@@ -1420,8 +1445,7 @@ def send_signal(episode: dict) -> bool:
     header_parts = [p for p in (feed_title, date_part) if p]
     lines = [" · ".join(header_parts)] if header_parts else []
     lines.append(f"🎙 {episode['title']}")
-    # 中文总结先行（#631）：Daniel 想先用中文快速抓住这集讲什么，再读德语细节。
-    summary_zh = (episode.get("summary_zh") or "").strip()
+    # 中文总结先行（#631）：Daniel 想先用中文读完整集内容，再读德语细节。
     if summary_zh:
         lines.append("")
         lines.append(summary_zh)

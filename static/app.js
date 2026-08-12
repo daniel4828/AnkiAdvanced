@@ -3581,7 +3581,7 @@ function _renderKnowledgeDetail(ep) {
       <h2 class="keymap-heading">${_escHtml(ep.title || '(untitled)')}</h2>
       <p class="keymap-hint">${date}</p>
       <div style="margin:4px 0 10px">${links}</div>
-      ${ep.summary_zh ? `<div id="podcast-summary-zh">${_escHtml(ep.summary_zh)}</div>` : ''}
+      ${ep.summary_zh ? `<div id="podcast-summary-zh">${_summaryZhHtml(ep.summary_zh)}</div>` : ''}
       <div id="podcast-summary-de">${ep.summary_de || ''}</div>
     </div>
     <div class="keymap-panel">
@@ -7811,6 +7811,19 @@ let _newsflowLang = (localStorage.getItem('newsflowLang') === 'zh') ? 'zh' : 'de
 
 function _escHtml(t) {
   return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Chinese summary of a knowledge item (#708): a full translation of the German
+// one, carrying the same <p>/<b> markup. Mirrors podcast._summary_zh_html —
+// escape everything, then let only those structural tags back through, so a
+// model that ignores the contract can't inject markup into the page.
+// Summaries written before #708 are plain text: their blank-line paragraphs
+// become <p> here, since the CSS no longer preserves newlines.
+function _summaryZhHtml(t) {
+  const esc = _escHtml(t).replace(/&lt;(\/?(?:p|b|strong|em|i)|br\s*\/?)&gt;/g, '<$1>');
+  if (esc.includes('<p>')) return esc;
+  return esc.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean)
+            .map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
 }
 
 // Context text for the current news card in the selected language.
