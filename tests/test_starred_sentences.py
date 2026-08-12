@@ -75,7 +75,7 @@ def test_migration_adds_columns_to_legacy_db(tmp_path, monkeypatch):
     conn = sqlite3.connect(db_file)
     cols = {r[1] for r in conn.execute("PRAGMA table_info(story_sentences)")}
     conn.close()
-    assert {"starred", "starred_at"} <= cols
+    assert {"starred", "starred_at", "bad_reason"} <= cols
 
 
 def test_existing_sentences_default_to_unstarred(tmp_db):
@@ -291,3 +291,108 @@ def test_api_story_prompt_path_does_not_collide_with_story_endpoint(tmp_db):
     r = client.get(f"/api/story-prompt/{story_id}")
     assert r.status_code == 200
     assert "story_id" in r.json()
+
+
+# ---------------------------------------------------------------------------
+# Thumbs-down ratings (#712)
+#
+# `starred` carries all three states (1 good / 0 none / -1 bad) rather than
+# gaining a sibling column. These tests pin the parts that are easy to get
+# wrong: that a reason never outlives the thumbs-down it belongs to, and that
+# the pre-#712 boolean API still works for clients that haven't reloaded.
+# ---------------------------------------------------------------------------
+
+def test_rating_bad_round_trips_with_reason(tmp_db):
+    _, sentence_id = _make_story()
+
+    result = database.set_sentence_rating(sentence_id, -1, "too_hard")
+    assert result["rating"] == -1
+    assert result["bad_reason"] == "too_hard"
+    assert result["starred_at"]
+
+    [s] = database.get_starred_sentences()
+    assert s["id"] == sentence_id
+    assert s["rating"] == -1
+    assert s["bad_reason"] == "too_hard"
+
+
+def test_rating_filter_separates_good_from_bad(tmp_db):
+    deck_id = database.get_or_create_deck("StarDeck")
+    _, good = _make_story(deck_id)
+    _, bad = _make_story(deck_id, category="listening")
+    database.set_sentence_rating(good, 1)
+    database.set_sentence_rating(bad, -1, "unnatural")
+
+    assert [s["id"] for s in database.get_starred_sentences(rating="good")] == [good]
+    assert [s["id"] for s in database.get_starred_sentences(rating="bad")] == [bad]
+    # Unfiltered returns both — tuning a prompt means reading them against each other.
+    assert {s["id"] for s in database.get_starred_sentences()} == {good, bad}
+
+
+def test_reason_is_cleared_when_rating_leaves_bad(tmp_db):
+    """A stale 'too_hard' tag on a sentence Daniel later liked would be a lie
+    to whoever reads the list while tuning a prompt."""
+    _, sentence_id = _make_story()
+    database.set_sentence_rating(sentence_id, -1, "too_hard")
+
+    assert database.set_sentence_rating(sentence_id, 1)["bad_reason"] is None
+    [s] = database.get_starred_sentences()
+    assert s["rating"] == 1 and s["bad_reason"] is None
+
+    # And clearing the rating entirely drops it too.
+    database.set_sentence_rating(sentence_id, -1, "grammar")
+    assert database.set_sentence_rating(sentence_id, 0)["bad_reason"] is None
+
+
+def test_reason_is_optional_on_a_thumbs_down(tmp_db):
+    """The rating saves on its own — the tag row is a follow-up that may be skipped."""
+    _, sentence_id = _make_story()
+    assert database.set_sentence_rating(sentence_id, -1)["rating"] == -1
+    assert database.get_starred_sentences(rating="bad")[0]["bad_reason"] is None
+
+
+def test_invalid_rating_and_reason_are_rejected(tmp_db):
+    _, sentence_id = _make_story()
+    with pytest.raises(ValueError):
+        database.set_sentence_rating(sentence_id, 5)
+    with pytest.raises(ValueError):
+        database.set_sentence_rating(sentence_id, -1, "not-a-real-reason")
+
+
+def test_legacy_boolean_helper_still_works(tmp_db):
+    _, sentence_id = _make_story()
+    assert database.set_sentence_starred(sentence_id, True)["starred"] == 1
+    assert database.set_sentence_starred(sentence_id, False)["starred"] == 0
+
+
+def test_api_rating_bad_with_reason(tmp_db):
+    _, sentence_id = _make_story()
+
+    r = client.post(f"/api/story-sentence/{sentence_id}/star",
+                    json={"rating": -1, "bad_reason": "factual_error"})
+    assert r.status_code == 200
+    assert r.json()["rating"] == -1
+    assert r.json()["bad_reason"] == "factual_error"
+
+    body = client.get("/api/starred-sentences?rating=bad").json()["sentences"]
+    assert [s["id"] for s in body] == [sentence_id]
+    assert client.get("/api/starred-sentences?rating=good").json()["sentences"] == []
+
+
+def test_api_still_accepts_the_pre_712_boolean_body(tmp_db):
+    """An open tab running the old app.js must keep working across a deploy."""
+    _, sentence_id = _make_story()
+    assert client.post(f"/api/story-sentence/{sentence_id}/star",
+                       json={"starred": True}).json()["starred"] == 1
+    assert client.post(f"/api/story-sentence/{sentence_id}/star",
+                       json={"starred": False}).json()["starred"] == 0
+
+
+def test_api_rejects_invalid_rating_with_400(tmp_db):
+    _, sentence_id = _make_story()
+    assert client.post(f"/api/story-sentence/{sentence_id}/star",
+                       json={"rating": 7}).status_code == 400
+    assert client.post(f"/api/story-sentence/{sentence_id}/star",
+                       json={"rating": -1, "bad_reason": "bogus"}).status_code == 400
+    assert client.post(f"/api/story-sentence/{sentence_id}/star",
+                       json={"rating": "abc"}).status_code == 400
