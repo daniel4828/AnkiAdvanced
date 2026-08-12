@@ -387,6 +387,7 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 - **接入点在 `podcast.summarize()` 的返回处**（`_annotate_summary`）：NotebookLM 和 API 两条摘要路径、`_process_episode` 和 `regenerate_summary` 两个调用方全都经过这里，标注后的文本才写库，邮件/Signal/详情页三处自然一致，也不会各自重跑谷歌翻译
 - **全程吞异常**：HSK 表读不到、jieba 挂了、翻译超时，一律返回原文（翻译失败降级为只有拼音）。少个拼音是小事，为它丢掉整集摘要是荒唐的
 - **`extract_new_words()`（#650）统一了详情页底部生词表格**：原来表格由 AI 在摘要提示词里自己挑词，会漏词、也会挑 Daniel 已学过的词。改成代码从 `summary_zh` + `summary_de` 扫描，和正文括号标注**同源同规则**，两者现在保证一一对应，不再各说各话
+- **已认识词库 `known_words`（#710）**：Daniel 认识但从没进过词库的词。详情页生词表格的 **✓ Known** 按钮 → `POST /api/known-words`（`shared.js` 的 `markWordKnown()`），纯后台请求，行标灰不刷新页面。**判定入口只有 `zh_annotate._known_words()` 一处**：`word_zh_exists(words) | known_words_exists(words)` —— 行内标注、生词表格、德语总结的拼音标注三处因此自动一致，别处不许再写第二份"已知"判定。**不建卡、不进队列**：这是"我认识了，别再给我看"，与加词恰好相反。已存库的摘要文本里的旧标注**不会**消失（生成时就写死了），变的是下一篇
 
 ---
 
@@ -452,6 +453,7 @@ GET  /api/story-prompt/{story_id}                    → 生成该故事的完�
 
 # 知识库（播客爬虫 #479 泛化，#650–#655；详见「知识库」节）
 POST /api/knowledge/add                               → body {url} → 新素材 {episode_id}；已存在 {status:"already_exists", episode_id}；不转录不摘要，前端拿 id 后另调 .../process
+GET/POST /api/known-words ；DELETE /api/known-words/{word} → 已认识词库（#710）：标记后 zh_annotate 不再当生词；不建卡不排程；DELETE 词不在表里返回 404（不假装成功）
 POST /api/podcast/check                              → 跑一轮抓取，返回汇总 {new, summarized, emailed, failed}
 GET  /api/podcast/episodes                            → 列表（不含转录全文；?feed_id= 按源过滤；?kind= 按 podcast/video/article 过滤，#650；手动处理中的单集 status 显示为 processing）
 GET  /api/podcast/episodes/{id}                       → 详情（摘要 + 转录 + HSK 生词）

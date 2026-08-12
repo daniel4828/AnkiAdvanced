@@ -88,13 +88,20 @@ def _char_levels() -> dict[str, int]:
 
 
 def _known_words(words: list[str]) -> set[str]:
-    """Which of these words are already in Daniel's collection. Queried per
-    call (the collection grows daily, and it is one indexed IN query)."""
+    """Which of these words Daniel already knows: either studied here
+    (entries.word_zh) or marked as known without ever studying it (#710,
+    known_words). Queried per call (both lists grow daily, and it is two
+    indexed IN queries).
+
+    This union is the ONE place that answers "does Daniel know this word".
+    Inline annotations in both summaries and the HSK word table under an
+    episode all come through here, which is why marking a word known makes it
+    disappear from all of them at once."""
     if not words:
         return set()
     try:
         import database
-        return database.word_zh_exists(words)
+        return database.word_zh_exists(words) | database.known_words_exists(words)
     except Exception as e:
         logger.warning("zh_annotate: collection lookup failed — %s", e)
         return set()

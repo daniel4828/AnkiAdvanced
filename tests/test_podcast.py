@@ -135,6 +135,15 @@ def test_email_body_leads_with_chinese_summary(monkeypatch):
     assert body.index("这集讨论") < body.index("Es geht um KI")
 
 
+def test_email_links_to_the_website_above_the_summary(monkeypatch):
+    """#710: the website link has to be reachable before reading, not only in
+    the footer — it's how Daniel gets to the page where he can add the words."""
+    body = _email_body(_send_email_capture(monkeypatch, EPISODE, "中文播客秀"))
+    link = "/#podcast-7"
+    assert link in body
+    assert body.index(link) < body.index("这集讨论")
+
+
 def test_email_without_chinese_summary_renders_nothing_extra(monkeypatch):
     ep = dict(EPISODE, summary_zh="")
     body = _email_body(_send_email_capture(monkeypatch, ep, "中文播客秀"))

@@ -120,3 +120,15 @@ function knowledgeTitleFor(title, text) {
   if (title) return title;
   return (text || '').split('\n').map(l => l.trim()).find(l => l) || '';
 }
+
+// Mark a word as already known (#710) so zh_annotate stops flagging it in
+// future summaries. Shared by the HSK word table and the in-text word menu
+// (#711) for the same reason as addWordViaAi above: one client-side path.
+//
+// Deliberately NOT a card: this is the "I know this, stop showing it to me"
+// action, the opposite of adding it to a deck. Fire-and-await — the caller
+// updates its own UI optimistically and reports a rejected promise as an
+// error rather than silently leaving a wrong ✓ on screen.
+async function markWordKnown(word) {
+  return api('POST', '/api/known-words', { word });
+}

@@ -3538,11 +3538,12 @@ function _renderKnowledgeDetail(ep) {
   // quote/apostrophe escaping issues in word_zh/definition_de text).
   _podcastDetailWords = ep.hsk_words || [];
   _podcastDetailEpisodeId = ep.id;
-  const hskRows = _podcastDetailWords.map((w, idx) => `<tr>
+  const hskRows = _podcastDetailWords.map((w, idx) => `<tr id="podcast-word-row-${idx}">
       <td>${_escHtml(w.word || w.word_zh || '')}</td>
       <td>${_escHtml(w.pinyin || '')}</td>
       <td>${_escHtml(w.definition_de || w.definition || '')}</td>
       <td><button id="podcast-add-word-${idx}" class="btn-secondary" onclick="doPodcastAddWord(${idx})">+ Add</button></td>
+      <td><button id="podcast-known-word-${idx}" class="btn-secondary" onclick="doPodcastKnownWord(${idx})" title="I already know this word — stop flagging it">✓ Known</button></td>
     </tr>`).join('');
   const hskTable = hskRows
     ? `<div id="podcast-add-day" class="add-word-day-row">
@@ -3551,7 +3552,7 @@ function _renderKnowledgeDetail(ep) {
          <button type="button" class="add-word-day-btn" data-day="tomorrow"
                  onclick="setPodcastAddDay('tomorrow')">Tomorrow</button>
        </div>
-       <table class="cost-table"><thead><tr><th>Word</th><th>Pinyin</th><th>German</th><th>Add</th></tr></thead><tbody>${hskRows}</tbody></table>`
+       <table class="cost-table"><thead><tr><th>Word</th><th>Pinyin</th><th>German</th><th>Add</th><th>Known</th></tr></thead><tbody>${hskRows}</tbody></table>`
     : '<p class="keymap-hint">No HSK vocabulary extracted.</p>';
   const links = [
     ep.youtube_url ? `<a href="${_escHtml(ep.youtube_url)}" target="_blank" rel="noopener" class="btn-secondary">${isPodcast ? 'YouTube' : 'Open'} ↗</a>` : '',
@@ -3697,6 +3698,33 @@ function doPodcastAddWord(idx) {
     btn.classList.toggle('podcast-add-error', state === 'error');
     // Only a failure is worth retrying; a finished add is not repeatable.
     if (state === 'error') btn.disabled = false;
+  });
+}
+
+// "✓ Known" in the HSK word table (#710): Daniel already knows this word, it
+// just never made it into the collection. One background POST — no reload, no
+// re-render of the episode, the other rows stay clickable.
+//
+// The row is greyed out immediately rather than removed: the annotations in
+// the summary text above were baked in when it was generated and don't change,
+// so making the row vanish would suggest the word is gone from the page when
+// it plainly isn't. What actually changes is the NEXT summary.
+function doPodcastKnownWord(idx) {
+  const w = _podcastDetailWords[idx];
+  const btn = document.getElementById(`podcast-known-word-${idx}`);
+  if (!w || !btn) return;
+  const wordZh = w.word || w.word_zh || '';
+  if (!wordZh) return;
+
+  btn.disabled = true;
+  btn.textContent = '…';
+  markWordKnown(wordZh).then(() => {
+    btn.textContent = '✓ known';
+    document.getElementById(`podcast-word-row-${idx}`)?.classList.add('podcast-word-known');
+  }).catch(e => {
+    btn.textContent = e.message || 'failed';
+    btn.classList.add('podcast-add-error');
+    btn.disabled = false;  // only a failure is worth retrying
   });
 }
 
