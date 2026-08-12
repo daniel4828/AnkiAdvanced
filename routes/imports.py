@@ -11,6 +11,7 @@ import ai
 import database
 import importer
 from fastapi import APIRouter, Form, HTTPException, UploadFile
+from languages import DEFAULT_LANG, is_valid_lang
 
 from .utils import ai_disabled
 
@@ -268,15 +269,45 @@ def _total_repetitions(entry_id: int) -> int:
     return row["n"]
 
 
+_HAN_RE = re.compile(r"[一-鿿]")
+_LATIN_RE = re.compile(r"[A-Za-zÀ-ÿ]")
+
+
+def _validate_word_for_lang(word: str, lang: str) -> None:
+    """Reject input that plainly isn't the language the caller asked for.
+
+    The add-word box takes no follow-up questions (unlike the de-zh-bot /
+    de-fr-bot skills, which ask which meaning is wanted), so a German word
+    typed under the French tab would silently become a wrong entry. Checking
+    the script is the one cheap guard available: it can't tell French from
+    German, but it does stop 生态 from being sent to the French prompt and
+    séjour from being sent to the Chinese one.
+    """
+    if lang == "zh":
+        if not _HAN_RE.search(word):
+            raise HTTPException(status_code=400,
+                                detail="Please enter the word in Chinese characters")
+        return
+    if _HAN_RE.search(word):
+        raise HTTPException(status_code=400,
+                            detail="That looks like Chinese — switch the language first")
+    if not _LATIN_RE.search(word):
+        raise HTTPException(status_code=400, detail="Please enter the word in French")
+
+
 @router.post("/api/add-word-ai")
 def add_word_ai(body: dict):
-    """Add one Chinese word with an AI-generated entry.
+    """Add one word with an AI-generated entry.
 
-    Body: { word_zh, day?: "today"|"tomorrow"|"list" }
-      today/tomorrow → cards go into that day's Daily deck, due then.
+    Body: { word_zh, day?: "today"|"tomorrow"|"list", lang?: "zh"|"fr" }
+      today/tomorrow → cards go into that day's daily deck, due then.
       list (#677)    → the entry is generated in full but its cards are parked
                        suspended in the Saved deck, so the word enters no review
                        queue until it is promoted from Browse.
+      lang (#726)    → which language's prompt and deck tree to use; every
+                       language owns a parallel tree ('Daily::…' for zh,
+                       'Français::…' for fr) because the app's language filters
+                       key off decks.lang.
     Returns either {job_id, deck_path} — generation runs in the background,
     poll /api/add-word-ai/progress/{job_id} — or, when the word is already in
     the database, a finished {status, ...} with no AI call at all.
@@ -284,9 +315,10 @@ def add_word_ai(body: dict):
     word_zh = (body.get("word_zh") or "").strip()
     if not word_zh:
         raise HTTPException(status_code=400, detail="word_zh is required")
-    if not re.search(r"[一-鿿]", word_zh):
-        raise HTTPException(status_code=400,
-                            detail="Please enter the word in Chinese characters")
+
+    lang = (body.get("lang") or DEFAULT_LANG).strip()
+    if not is_valid_lang(lang):
+        raise HTTPException(status_code=400, detail=f"Unknown language: {lang!r}")
 
     day = (body.get("day") or "today").strip()
     if day not in ("today", "tomorrow", "list"):
@@ -304,8 +336,6 @@ def add_word_ai(body: dict):
     # tomorrow" semantics — the cards just have to be due then too (#636).
     due_offset_days = 1 if day == "tomorrow" else 0
     target_day = (date.today() + timedelta(days=due_offset_days)).isoformat()
-    deck_path = "Saved" if to_list else f"Daily::{target_day}"
-    deck_id = database.get_or_create_deck_path(f"Daily::{target_day}")
 
     # Known word → don't pay for a second generation; the importer would skip
     # it as a duplicate anyway. `cards` has UNIQUE(word_id, category), so a word
@@ -319,8 +349,21 @@ def add_word_ai(body: dict):
     # than reporting a bland success.
     existing = database.get_word_by_zh(word_zh)
     if existing:
+        # An existing word moves inside its OWN language's tree, whatever the
+        # request said (#726): word_zh is globally unique, so a mistyped lang
+        # would otherwise scatter one word's cards across two language trees
+        # and make it invisible under both tabs.
+        lang = existing["lang"] or DEFAULT_LANG
+    else:
+        _validate_word_for_lang(word_zh, lang)
+
+    daily_deck_id, daily_path = database.get_or_create_daily_deck(target_day, lang)
+    deck_id = daily_deck_id
+    deck_path = "Saved" if to_list else daily_path
+
+    if existing:
         card_decks = _card_deck_ids(existing["id"])
-        saved_deck_id = database.get_or_create_saved_deck()
+        saved_deck_id = database.get_or_create_saved_deck(lang)
         was_only_saved = bool(card_decks) and card_decks <= {saved_deck_id}
         # Count the progress about to be dropped *before* the reset clears it.
         reps = _total_repetitions(existing["id"])
@@ -362,7 +405,7 @@ def add_word_ai(body: dict):
 
     def _run():
         try:
-            yaml_text = ai.generate_word_entry_yaml(word_zh)
+            yaml_text = ai.generate_word_entry_yaml(word_zh, lang=lang)
             result = importer.import_yaml_content(yaml_text, deck_id,
                                                   due_offset_days=due_offset_days)
             if result.get("yaml_error"):
@@ -373,7 +416,7 @@ def add_word_ai(body: dict):
                 entry = database.get_word_by_zh(word_zh)
                 if entry:
                     database.stage_word_in_saved(
-                        entry["id"], database.get_or_create_saved_deck())
+                        entry["id"], database.get_or_create_saved_deck(lang))
             with _import_jobs_lock:
                 started_at = _import_jobs[job_id]["started_at"]
                 _import_jobs[job_id] = {
@@ -466,11 +509,16 @@ def save_word(body: dict):
 
 @router.post("/api/saved/{word_id}/promote")
 def promote_saved(word_id: int):
-    """Move a saved word's suspended cards into tomorrow's Daily deck as active new cards."""
-    saved_deck_id = database.get_or_create_saved_deck()
+    """Move a saved word's suspended cards into tomorrow's daily deck as active new cards.
+
+    Both decks are the ones belonging to the word's own language (#726) — the
+    word knows its language, the caller doesn't have to.
+    """
+    entry = database.get_word(word_id)
+    lang = (entry or {}).get("lang") or DEFAULT_LANG
+    saved_deck_id = database.get_or_create_saved_deck(lang)
     tomorrow = (date.today() + timedelta(days=1)).isoformat()
-    deck_path = f"Daily::{tomorrow}"
-    daily_deck_id = database.get_or_create_deck_path(deck_path)
+    daily_deck_id, deck_path = database.get_or_create_daily_deck(tomorrow, lang)
     leaf_decks = database.get_or_create_category_decks(daily_deck_id, tomorrow)
 
     count = database.promote_saved_word(word_id, leaf_decks, saved_deck_id, tomorrow)
