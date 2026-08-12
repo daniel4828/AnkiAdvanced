@@ -216,7 +216,7 @@ bash sync_offline.sh push    # 只推不拉，推完归档本地库
 
 同一个软件、同一个数据库里学习多种语言（2026-07-06 起，议题 #428–#431）。当前：中文（zh，默认）+ 法语（fr，CEFR B1，释义以德语为主）。
 
-- **`languages.py` 是语言注册表**：每种语言定义 TTS 语音、翻译源、分词方式（jieba/空格）、AI 提示词参数、功能开关（拼音/汉字/量词仅中文）。加新语言 = 加一个条目
+- **`languages.py` 是语言注册表**：每种语言定义 TTS 语音、翻译源、分词方式（jieba/空格）、AI 提示词参数、牌组树根名（`deck_root`，#726）、功能开关（拼音/汉字/量词仅中文）。加新语言 = 加一个条目
 - **`decks.lang` / `entries.lang`**（默认 `'zh'`）：目标语言；子牌组创建时继承父牌组的 lang
 - `word_zh` 对所有语言存"目标语言词形"（`_zh` 后缀是历史遗留）；法语词条的 pinyin/characters 留空
 - **等级共用 1–6 整数**（#596）：`entries.hsk_level` 对中文存 HSK 1–6，对法语存 CEFR（A1=1 … C2=6，YAML 里写 `level: "B1"`）；故事设置弹窗的背景词汇难度滑块两种语言通用（1–6），前端按 `languages.py` 的 `level_system` 显示 "HSK 3" 或 "B1"，法语故事提示词用滑块值生成 "CEFR A1-X" 上限（原来写死 A1-A2）
@@ -234,9 +234,9 @@ bash sync_offline.sh push    # 只推不拉，推完归档本地库
 
 导入机制本身仍然存在（`importer.py`、`POST /api/import`、`python main.py import`，读取 `imports/<Source>/*.yaml`）：需要批量导入新词汇时，重新创建该目录放入 YAML 即可。日常添加单个词条：界面顶栏 `＋` 按钮（见下），或 `de-zh-bot` 技能生成 YAML 后导入。
 
-### 界面内添加生词（#627、#636、#643、#715）
+### 界面内添加生词（#627、#636、#643、#715、#726）
 
-顶栏 `＋` → 输入中文词 → 回车或点"加" → 后台 DeepSeek 生成完整词条 → 进 **★ List**（`Saved` 牌组，挂起，不进任何复习队列）。
+顶栏 `＋` → 输入词 → 回车或点"加" → 后台 DeepSeek 生成完整词条 → 进 **★ List**（`Saved` 牌组，挂起，不进任何复习队列）。
 
 > **界面上只有 ★ List 这一个去处（#715，Daniel 2026-08-12 决定）**：顶栏 ＋、知识库详情页的生词表格、`/add` 页面三处的 Today/Tomorrow 按钮全部撤掉，一律 `day='list'`。新词先攒着，之后在 Browse 的 saved 视图主动提升（那个「→ Add to Daily」按钮**保留**——★ List 是暂存区，总得有出口）。**后端 `day` 参数照旧支持 `today|tomorrow|list`**：Daniel 已有的 iOS 快捷指令 `/add?word=X&day=today` 不该突然改行为，而且以后想恢复某个按钮只是加回一个按钮。`/add` 因此仍尊重 URL 里的 `day`，只是无参数时默认 `list`。
 
@@ -257,6 +257,14 @@ bash sync_offline.sh push    # 只推不拉，推完归档本地库
 - **不阻塞连续输入**（#636）：提交后立刻清空输入框，每个词进弹窗里的队列各自轮询自己的 job
 - **独立加词页 `/add`（#668）+ URL 参数（#686）**：可收藏的网址，打开就是输入框（存 iPhone 主屏当图标用）。`?word=生态`（或 `?w=`）+ 可选 `&day=today|tomorrow|list` → 打开即自动提交，供 iOS 快捷指令在任意 App 里一键加词；`day` 非法值回落 today（词才是重点，不该为此失败）。**提交后必须 `history.replaceState` 抹掉参数** —— 否则刷新或 iOS 恢复标签页会静默再花一次 AI 钱。`static/add.html` 是自包含页面，**故意不加载 `app.js`** —— 5.5 KB vs 完整应用的 77 KB + 491 KB JS，秒开就是这个功能的全部意义。为此把 `addWordViaAi()` 和 `api()` 从 `app.js` 抽到 `static/shared.js` 两页共用，**不复制第二份**（理由同下条；`tests/test_add_word.py` 有一条测试专门守着 `app.js` 里不能再出现这两个定义）
 - **`/api/add-word-ai` 是全应用唯一的加词入口**（#643）：顶栏 ＋、播客单集的 HSK 生词表格、复习界面长按词的菜单、以及 `/add` 页面，全部共用 `shared.js` 的 `addWordViaAi()`。原来播客/长按走的 `/api/quick-add-word` 已删除 —— 它只让 AI 填四个字段（无例句/汉字分解/量词/同义反义词），而且 `added_to_deck` 分支在词已学过时被 `INSERT OR IGNORE` + `UNIQUE(word_id, category)` 全部静默丢弃，却照样返回成功。**加词只能有一条管线**，否则修好的坑会在第二条路上重新出现
+- **加法语词（#726）**：`lang` 参数（`zh` 默认 / `fr`）同时决定提示词和牌组树
+  - **每种语言一棵平行的牌组树**，根名在 `languages.py` 的 `deck_root`（zh → `Daily`，fr → `Français`）：`Français::<日期> · Listening/…` + `Français::Saved`，牌组本身 `lang='fr'`。**必须如此**——全应用的语言过滤（`_lang_subquery_clause`、`get_descendant_leaf_deck_ids`）筛的是 `decks.lang` 而不是 `entries.lang`，法语卡放进中文牌组会在 fr 标签下消失、反而混进中文复习队列（生产库里 #726 之前导入的那 7 个法语词正是这个状态）
+  - `Français::Saved` 的**牌组名仍是 `Saved`**（路径末段），所以 Browse 的 saved 视图（认 `deck_name === 'Saved'`）一行都不用改
+  - **已存在的词按 `entries.lang` 落点，不听请求参数**：`word_zh` 是全局唯一的，lang 传错会把同一个词的三张卡撒进两棵语言树，两个标签下都看不见它。`promote_saved`（Browse 的 → Add to Daily）同理
+  - **按语言校验输入文字体系**（zh 必须含汉字；fr 不能含汉字且要有拉丁字母）：加词框没有反问的机会（`de-zh-bot`/`de-fr-bot` 技能是靠追问"你指哪个意思"的），把德语词喂给法语提示词会静默生成一个错词条。查文字体系分不出法语和德语，但至少挡住 `生态` 走法语提示词
+  - 法语输出**自带 `lang: fr` 头**，不靠目标牌组的语言推断——条目格式（`word:`/`level:`/`examples[].fr`）和 lang 必须一致，写在文档里能整类消灭"法语词条被当中文导入"
+  - 复习界面长按菜单的两个按钮（`+ Add to Daily`、`★ Save for later`）按**当前卡片的语言**走（`currentCardLang()`），跟主页在哪个标签无关——词是从这张卡里挑出来的
+  - `/add` 支持 `?lang=fr`（每种语言一个 iOS 快捷指令）；页面自己拉一次 `/api/langs` 决定是否显示语言切换钮，**不加载 `app.js`** 的原则不变
 
 - **YAML 格式完整文档：** `docs/yaml-format.md`（中文格式：词性/例句/词源/汉字分解；法语格式：`lang: fr` + `type: word|sentence`，经 `importer._normalize_fr_entry` 适配后复用全部下游逻辑）
 - 文件顶部可选 `lang:` 字段（默认 `zh`）决定导入到哪个语言的牌组
@@ -482,9 +490,9 @@ GET  /api/costs/call/{id}                            → {prompt, response}（�
 
 # 其他
 POST /api/import                                     → 触发 YAML 导入
-GET  /add[?word=生态&day=today|tomorrow|list]         → 独立加词页（#668，可收藏/存主屏；不加载 app.js）；带 word 参数时打开即自动提交（#686，供 iOS 快捷指令用），提交后从地址栏抹掉该参数以免刷新重复扣费
+GET  /add[?word=生态&day=today|tomorrow|list&lang=zh|fr] → 独立加词页（#668，可收藏/存主屏；不加载 app.js）；带 word 参数时打开即自动提交（#686，供 iOS 快捷指令用），提交后从地址栏抹掉该参数以免刷新重复扣费；lang（#726）每种语言一个快捷指令
 GET  /save                                           → 独立素材收藏页（#681，Link/Text 两个标签；同样不加载 app.js）
-POST /api/add-word-ai                                → 界面内添加生词（#627）；body {word_zh, day?:today|tomorrow|list}（#636、#677；#715 起界面一律传 list，接口三值仍有效）；新词返回 {job_id}，已有词直接返回 {status}。**全应用唯一的加词入口**（#643）：顶栏 ＋、播客生词表格、复习界面长按菜单都走它
+POST /api/add-word-ai                                → 界面内添加生词（#627）；body {word_zh, day?:today|tomorrow|list, lang?:zh|fr}（#636、#677；#715 起界面一律传 list，接口三值仍有效；lang 见 #726，已存在的词按 entries.lang 落点、不听该参数）；新词返回 {job_id}，已有词直接返回 {status}。**全应用唯一的加词入口**（#643）：顶栏 ＋、播客生词表格、复习界面长按菜单都走它
 GET  /api/add-word-ai/progress/{job_id}              → 轮询后台生成+导入的结果
 GET  /api/browse                                     → {deck_id?, category?, state?, q?, lang?}
 GET  /api/stats ；/api/retention ；/api/card-evolution（均支持 ?lang=）
