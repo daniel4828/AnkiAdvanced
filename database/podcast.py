@@ -315,3 +315,49 @@ def word_zh_exists(words: list[str]) -> set[str]:
     ).fetchall()
     conn.close()
     return {r["word_zh"] for r in rows}
+
+
+def known_words_exists(words: list[str]) -> set[str]:
+    """Which of these words Daniel has marked as already known (#710).
+
+    The counterpart of word_zh_exists: a word can be known without ever having
+    been studied here. zh_annotate unions the two — see its _known_words()."""
+    if not words:
+        return set()
+    conn = get_db()
+    placeholders = ",".join("?" for _ in words)
+    rows = conn.execute(
+        f"SELECT word_zh FROM known_words WHERE word_zh IN ({placeholders})", words
+    ).fetchall()
+    conn.close()
+    return {r["word_zh"] for r in rows}
+
+
+def add_known_word(word_zh: str) -> None:
+    """Mark a word as already known (#710). Idempotent: marking a word twice
+    is exactly what happens when Daniel meets it in a second episode."""
+    conn = get_db()
+    conn.execute("INSERT OR IGNORE INTO known_words (word_zh) VALUES (?)", (word_zh,))
+    conn.commit()
+    conn.close()
+
+
+def remove_known_word(word_zh: str) -> bool:
+    """Undo add_known_word. Returns whether the word was actually on the list
+    — the caller reports a miss rather than pretending it removed something."""
+    conn = get_db()
+    cur = conn.execute("DELETE FROM known_words WHERE word_zh = ?", (word_zh,))
+    conn.commit()
+    removed = cur.rowcount > 0
+    conn.close()
+    return removed
+
+
+def list_known_words() -> list[dict]:
+    """All words marked as known, newest first."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT word_zh, added_at FROM known_words ORDER BY added_at DESC, word_zh"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]

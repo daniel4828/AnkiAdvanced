@@ -1345,6 +1345,9 @@ def send_email(episode: dict) -> bool:
     body_html = f"""
     <html><body style="font-family:sans-serif;max-width:640px">
       <h2>{episode['title']}</h2>
+      <p style="margin:0 0 14px">
+        <a href="{transcript_link}" style="font-weight:bold">▸ Auf der Website öffnen</a>
+      </p>
       {_summary_zh_html(episode.get('summary_zh') or '')}
       <div>{episode.get('summary_de') or ''}</div>
       <h3>Neue HSK5+ Vokabeln</h3>

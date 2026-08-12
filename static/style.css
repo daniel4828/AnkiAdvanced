@@ -5185,6 +5185,9 @@ table.fsrs-table td.ivl { font-weight: 700; }
   flex: 0 0 auto;
   min-width: 96px;
 }
+/* A word marked "✓ Known" (#710) — kept in the table but visibly settled, so
+   it's obvious which rows still need a decision. */
+.podcast-word-known { opacity: 0.45; }
 /* A failed add stays clickable to retry, so it must not look like success */
 .podcast-add-error {
   color: var(--again);

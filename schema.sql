@@ -614,6 +614,19 @@ CREATE TABLE IF NOT EXISTS app_settings (
 );
 
 -- ---------------------------------------------------------------------------
+-- Words Daniel already knows without ever having studied them here (#710).
+-- Pure marker: no card, no deck, no scheduling — the only thing this table
+-- does is widen zh_annotate's "already known" test, which until now was
+-- "exists in entries.word_zh". Everything downstream (inline annotations in
+-- both summaries, the HSK word table under an episode) follows from that one
+-- test, so a word marked here quietly stops being flagged everywhere at once.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS known_words (
+    word_zh  TEXT PRIMARY KEY,
+    added_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- ---------------------------------------------------------------------------
 -- Podcast crawler (issue #479): discover new episodes from podcast RSS feeds
 -- (#497 — replaced the original YouTube-channel source), transcribe them,
 -- summarize into German, extract HSK5+ vocabulary, and email a notification.
