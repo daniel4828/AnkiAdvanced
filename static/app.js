@@ -3877,6 +3877,9 @@ function _prettyModel(model) {
   return model
     .replace('claude-', '')
     .replace('-20251001', '')
+    .replace('gpt-5.6-luna', 'GPT-5.6 Luna')
+    .replace('gpt-5.6-terra', 'GPT-5.6 Terra')
+    .replace('gpt-5.6-sol', 'GPT-5.6 Sol')
     .replace('gpt-5.1', 'GPT-5.1')
     .replace('gpt-5-mini', 'GPT-5 Mini')
     .replace('gpt-4o-mini-transcribe', 'Whisper (audio)')
