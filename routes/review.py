@@ -38,6 +38,17 @@ def _attach_again_sentence(card: dict | None) -> dict | None:
     return card
 
 
+def again_regen_enabled() -> bool:
+    """User switch for the Again → regenerate behaviour (issue #714). Default on,
+    so an untouched install keeps the behaviour it always had.
+
+    Only the *automatic* trigger on a rating is gated. The "New sentence" button
+    (`/api/review/requeue`) asks for a regeneration explicitly and must keep
+    working regardless — a button silently swallowed by a global switch is a
+    broken button."""
+    return database.get_app_setting("again_regen_enabled", "1") == "1"
+
+
 def _spawn_again_regen(card: dict) -> None:
     """Fire-and-forget: regenerate one fresh sentence for this word in the
     background so the card shows something new when it reappears (~1-10 min)."""
@@ -253,8 +264,14 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
 
     # Rated Again → regenerate a fresh sentence for this word in the background,
     # so it shows something new when the card reappears in a few minutes.
+    # Switchable (issue #714): off means the card keeps its original sentence,
+    # which is what you want when the sentence was fine and only the recall failed.
     if rating == 1:
-        _spawn_again_regen(card_before)
+        if again_regen_enabled():
+            _spawn_again_regen(card_before)
+        else:
+            logger.debug("again-regen  word=%s — skipped, switch off",
+                         (card_before or {}).get("word_zh"))
 
     # Apply sibling repulsion: push sibling due dates that are too close to today.
     # Only kicks in when the reviewed card has a long enough interval (> sibling_separation),
@@ -425,6 +442,23 @@ def submit_review(card_id: int, rating: int, user_response: str | None = None,
     else:
         logger.info("submit_review: %.0f ms", _elapsed_ms)
     return {"next_card": next_card, "counts": counts, "transition": transition}
+
+
+@router.get("/api/again-regen-enabled")
+def get_again_regen_enabled():
+    """Whether rating Again auto-regenerates the card's sentence (issue #714)."""
+    return {"enabled": again_regen_enabled()}
+
+
+@router.put("/api/again-regen-enabled")
+def put_again_regen_enabled(body: dict):
+    """Set the Again → regenerate switch (issue #714). body: {"enabled": bool}.
+    Stored server-side because the regeneration itself runs there — a browser-only
+    preference would leave the other devices (and the phone) doing something else."""
+    enabled = bool(body.get("enabled"))
+    database.set_app_setting("again_regen_enabled", "1" if enabled else "0")
+    logger.info("again-regen-enabled  set to %s", enabled)
+    return {"ok": True, "enabled": enabled}
 
 
 @router.post("/api/review/requeue")
