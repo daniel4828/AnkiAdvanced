@@ -2845,6 +2845,33 @@ function openSettings() {
   showView('settings');
   renderSettings();
   _loadDayCutoffHour();
+  _loadAgainRegenEnabled();
+}
+
+// ── Again → new sentence switch (issue #714) ────────────────────────────────
+// Server-side setting, not localStorage: the regeneration runs on the server, so
+// a browser-local preference would have the phone doing the opposite.
+let _againRegenEnabled = true;
+
+async function _loadAgainRegenEnabled() {
+  try {
+    const res = await api('GET', '/api/again-regen-enabled');
+    _againRegenEnabled = res?.enabled !== false;
+    renderSettings();
+  } catch (e) { /* keep default (on) */ }
+}
+
+async function setAgainRegenEnabled(enabled) {
+  const prev = _againRegenEnabled;
+  _againRegenEnabled = enabled;
+  try {
+    const res = await api('PUT', '/api/again-regen-enabled', { enabled });
+    _againRegenEnabled = res?.enabled !== false && enabled;
+  } catch (e) {
+    _againRegenEnabled = prev;
+    showError('Could not save: ' + e.message);
+  }
+  renderSettings();
 }
 
 async function _loadDayCutoffHour() {
@@ -2895,6 +2922,18 @@ function renderSettings() {
       ${msg}
       ${rows}
       <button class="keymap-reset-all" onclick="resetKeymapAll()">Reset all to defaults</button>
+    </div>
+    <div class="keymap-panel">
+      <h2 class="keymap-heading">Again → new sentence</h2>
+      <p class="keymap-hint">Rating a card <b>Again</b> regenerates its sentence in the background, so it looks different when the card comes back. <b>Off</b> = the card keeps its original sentence (and costs no AI call) — better when the sentence was fine and only the recall failed. The <b>New sentence</b> button (${_keyLabel(_key('new-sentence'))}) always regenerates, switch or not.</p>
+      <div class="keymap-row">
+        <span class="keymap-label">Regenerate after Again</span>
+        <label class="switch-wrap">
+          <input type="checkbox" id="again-regen-switch" ${_againRegenEnabled ? 'checked' : ''}
+                 onchange="setAgainRegenEnabled(this.checked)" style="width:18px;height:18px;cursor:pointer">
+          <span>${_againRegenEnabled ? 'On' : 'Off'}</span>
+        </label>
+      </div>
     </div>
     <div class="keymap-panel">
       <h2 class="keymap-heading">News flow</h2>
