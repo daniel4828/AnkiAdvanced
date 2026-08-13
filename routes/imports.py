@@ -13,7 +13,7 @@ import importer
 from fastapi import APIRouter, Form, HTTPException, UploadFile
 from languages import DEFAULT_LANG, is_valid_lang
 
-from .utils import ai_disabled
+from .utils import ai_disabled, queue_mgr
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -382,6 +382,9 @@ def add_word_ai(body: dict):
             # Saved cards carry no progress, so that move is a promotion, not a
             # reset — the frontend words them differently.
             status = "promoted" if was_only_saved else "reset"
+        # Same in-memory-queue staleness as promote_saved (#728): a card moved
+        # into today has to reach a queue that may already have been built.
+        queue_mgr.invalidate()
         return {
             "status": status,
             "word_zh": word_zh, "entry_id": existing["id"],
@@ -417,6 +420,9 @@ def add_word_ai(body: dict):
                 if entry:
                     database.stage_word_in_saved(
                         entry["id"], database.get_or_create_saved_deck(lang))
+            if result.get("imported") and not to_list:
+                # New cards due today must reach queues built earlier (#728).
+                queue_mgr.invalidate()
             with _import_jobs_lock:
                 started_at = _import_jobs[job_id]["started_at"]
                 _import_jobs[job_id] = {
@@ -515,8 +521,15 @@ def save_word(body: dict):
 
 
 @router.post("/api/saved/{word_id}/promote")
-def promote_saved(word_id: int):
-    """Move a saved word's suspended cards into tomorrow's daily deck as active new cards.
+def promote_saved(word_id: int, day: str = "today"):
+    """Move a saved word's suspended cards into a daily deck as active new cards.
+
+    Defaults to *today* (#728): ★ List is the "keep it for later" staging area
+    (#715), so clicking promote means "I want to study this now" — landing the
+    cards in tomorrow's deck instead hid them behind the future-daily-deck lock
+    (parse_daily_deck_date) for the rest of the day. `day='tomorrow'` keeps the
+    old behaviour; as everywhere else, the deck and the due date have to move
+    together or a card sits due-today inside a locked deck (#636).
 
     Both decks are the ones belonging to the word's own language (#726) — the
     word knows its language, the caller doesn't have to.
@@ -524,12 +537,16 @@ def promote_saved(word_id: int):
     entry = database.get_word(word_id)
     lang = (entry or {}).get("lang") or DEFAULT_LANG
     saved_deck_id = database.get_or_create_saved_deck(lang)
-    tomorrow = (date.today() + timedelta(days=1)).isoformat()
-    daily_deck_id, deck_path = database.get_or_create_daily_deck(tomorrow, lang)
-    leaf_decks = database.get_or_create_category_decks(daily_deck_id, tomorrow)
+    target_day = (date.today() + timedelta(days=1 if day == "tomorrow" else 0)).isoformat()
+    daily_deck_id, deck_path = database.get_or_create_daily_deck(target_day, lang)
+    leaf_decks = database.get_or_create_category_decks(daily_deck_id, target_day)
 
-    count = database.promote_saved_word(word_id, leaf_decks, saved_deck_id, tomorrow)
+    count = database.promote_saved_word(word_id, leaf_decks, saved_deck_id, target_day)
     if not count:
         raise HTTPException(status_code=404, detail="No saved cards found for this word")
+    # Session queues are built once per Anki day and kept in memory, so a card
+    # that becomes due today after the build would not be served until tomorrow
+    # (#728). Landing in a future deck used to make this moot.
+    queue_mgr.invalidate()
 
     return {"status": "promoted", "count": count, "deck_path": deck_path, "deck_id": daily_deck_id}

@@ -450,8 +450,10 @@ def test_listed_word_can_be_promoted_into_a_daily_deck(tmp_db):
 
     r = client.post(f"/api/saved/{entry_id}/promote")
     assert r.status_code == 200, r.text
-    tomorrow = (date.today() + timedelta(days=1)).isoformat()
-    assert r.json()["deck_path"] == f"Daily::{tomorrow}"
+    # Today, not tomorrow (#728): a future daily deck is locked, so the word
+    # would be invisible for the rest of the day Daniel asked for it.
+    today = date.today().isoformat()
+    assert r.json()["deck_path"] == f"Daily::{today}"
 
     conn = database.get_db()
     rows = conn.execute(
@@ -459,8 +461,28 @@ def test_listed_word_can_be_promoted_into_a_daily_deck(tmp_db):
         (entry_id,),
     ).fetchall()
     conn.close()
+    assert {r["deck_id"] for r in rows} == set(_daily_leaf_decks(today).values())
+    assert all(r["state"] == "new" and r["due"] == today for r in rows)
+
+
+def test_listed_word_can_still_be_promoted_to_tomorrow(tmp_db):
+    """day=tomorrow keeps the pre-#728 behaviour; deck and due move together."""
+    _run_add_word("生态", day="list")
+    entry_id = database.get_word_by_zh("生态")["id"]
+
+    r = client.post(f"/api/saved/{entry_id}/promote?day=tomorrow")
+    assert r.status_code == 200, r.text
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    assert r.json()["deck_path"] == f"Daily::{tomorrow}"
+
+    conn = database.get_db()
+    rows = conn.execute(
+        "SELECT deck_id, due FROM cards WHERE word_id=? AND deleted_at IS NULL",
+        (entry_id,),
+    ).fetchall()
+    conn.close()
     assert {r["deck_id"] for r in rows} == set(_daily_leaf_decks(tomorrow).values())
-    assert all(r["state"] == "new" and r["due"] == tomorrow for r in rows)
+    assert all(r["due"] == tomorrow for r in rows)
 
 
 def test_invalid_day_still_rejected_and_list_accepted(tmp_db):
@@ -635,14 +657,14 @@ def test_listed_french_word_is_promoted_inside_its_own_tree(tmp_db):
 
     r = client.post(f"/api/saved/{entry_id}/promote")
     assert r.status_code == 200, r.text
-    tomorrow = (date.today() + timedelta(days=1)).isoformat()
-    assert r.json()["deck_path"] == f"Français::{tomorrow}"
+    today = date.today().isoformat()
+    assert r.json()["deck_path"] == f"Français::{today}"
 
     conn = database.get_db()
     decks = {row["deck_id"] for row in conn.execute(
         "SELECT deck_id FROM cards WHERE word_id=? AND deleted_at IS NULL", (entry_id,))}
     conn.close()
-    assert decks == set(_fr_leaf_decks(tomorrow).values())
+    assert decks == set(_fr_leaf_decks(today).values())
 
 
 def test_existing_word_ignores_a_wrong_lang_and_follows_its_own(tmp_db):

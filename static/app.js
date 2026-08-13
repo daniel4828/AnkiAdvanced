@@ -2042,7 +2042,7 @@ function _wordRow(w) {
     rightHtml =
       (w.definition ? '' :
         `<button class="bw-saved-btn" onclick="event.stopPropagation();savedGenerate(${w.id},this)" title="Generate content with AI">✨ Generate</button>`) +
-      `<button class="bw-saved-btn bw-saved-promote" onclick="event.stopPropagation();savedPromote(${w.id},this)" title="Add to tomorrow's Daily deck">→ Add to Daily</button>`;
+      `<button class="bw-saved-btn bw-saved-promote" onclick="event.stopPropagation();savedPromote(${w.id},this)" title="Add to today's Daily deck">→ Add to Daily</button>`;
   } else if (_browseCardStatus === 'leech' && w.cards.some(c => c.is_leech)) {
     rightHtml =
       `<button class="bw-unleech-btn" onclick="event.stopPropagation();browseUnleechWord(${w.id},this)"` +
@@ -2106,7 +2106,7 @@ async function savedGenerate(wordId, btn) {
   }
 }
 
-// Promote a saved word into tomorrow's Daily deck (leaves the Saved list).
+// Promote a saved word into today's Daily deck (leaves the Saved list, #728).
 async function savedPromote(wordId, btn) {
   btn.disabled = true;
   const orig = btn.textContent;
