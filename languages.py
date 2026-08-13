@@ -28,6 +28,12 @@ LANGUAGES = {
         "translator_source": "zh-CN",
         # ── Story tokenization for click-to-lookup: 'jieba' | 'whitespace' ──
         "tokenizer": "jieba",
+        # ── Deck tree root for words added through the UI (issue #726) ──
+        # Each language owns a parallel tree under 'All' whose decks carry that
+        # lang, because every language filter in the app keys off decks.lang —
+        # a French card in a zh deck is invisible under the fr tab and shows up
+        # in the Chinese review queue instead.
+        "deck_root": "Daily",
         # ── AI prompt fragments ──
         "level_system": "HSK",
         "learner_level": "HSK 4-5",            # the learner's level
@@ -51,6 +57,7 @@ LANGUAGES = {
         "say_voice": "Thomas",
         "translator_source": "fr",
         "tokenizer": "whitespace",
+        "deck_root": "Français",
         "level_system": "CEFR",
         "learner_level": "CEFR B1",            # Daniel's French level (2026-07-06)
         "background_vocab": "CEFR A1-A2",
@@ -76,3 +83,12 @@ def get_lang_config(lang: str | None) -> dict:
 
 def is_valid_lang(lang: str | None) -> bool:
     return lang in LANGUAGES
+
+
+def deck_root(lang: str | None) -> str:
+    """Name of the language's top-level deck under 'All' (issue #726).
+
+    zh keeps the historical 'Daily' root, so nothing about existing decks or
+    their names changes; every other language gets its own parallel tree.
+    """
+    return get_lang_config(lang).get("deck_root", "Daily")

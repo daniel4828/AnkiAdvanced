@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import re
+import textwrap
 import time
 
 import anthropic
@@ -1015,23 +1016,186 @@ EXAMPLE of the expected shape (for 生态):
 """
 
 
-def generate_word_entry_yaml(word_zh: str, model: str = DEFAULT_MODEL) -> str:
-    """Generate a complete de-zh-bot style YAML entry for a Chinese word.
+# ---------------------------------------------------------------------------
+# The French twin (issue #726) — same contract, different format: the entry is
+# the French half of docs/yaml-format.md ("法语格式"), ported from the de-fr-bot
+# skill. importer._normalize_fr_entry maps word/level/examples[].fr onto the
+# internal keys, so everything downstream stays shared with Chinese.
+# ---------------------------------------------------------------------------
 
-    Returns the raw YAML text (a one-item list), ready for
-    importer.import_yaml_content(). Raises ValueError if the model returns
+_ENTRY_YAML_EXAMPLE_FR = """- type: word
+  date: "07/21"
+  word: parler
+  pos: verbe
+  english: to speak, to talk
+  german: sprechen, reden
+  level: "A1"
+  register: neutral
+  note: |
+    Regelmäßiges Verb auf -er. Grundverb für „sprechen" — mit Sprache direkt
+    danach (parler français), mit „de" für „über etwas sprechen" (parler de qc),
+    mit „à" für den Gesprächspartner (parler à qn).
+
+    **Häufige Ausdrücke:**
+    - parler couramment — fließend sprechen
+    - entendre parler de — von etwas hören
+
+    **Étymologie:** Vom lateinischen *parabolare* („in Gleichnissen reden"),
+    abgeleitet von *parabola* — derselbe Ursprung wie dt. „Parabel".
+  examples:
+    - fr: Je parle un peu français.
+      english: I speak a little French.
+      german: Ich spreche ein wenig Französisch.
+    - fr: Nous avons parlé de toi hier.
+      english: We talked about you yesterday.
+      german: Wir haben gestern über dich gesprochen.
+  synonyms:
+    - word: discuter
+      meaning: diskutieren, sich unterhalten
+  antonyms:
+    - word: se taire
+      meaning: schweigen
+  conjugations:
+    présent:
+      je: parle
+      tu: parles
+      il/elle: parle
+      nous: parlons
+      vous: parlez
+      ils/elles: parlent
+    passé composé:
+      je: ai parlé
+      tu: as parlé
+      il/elle: a parlé
+      nous: avons parlé
+      vous: avez parlé
+      ils/elles: ont parlé
+    imparfait:
+      je: parlais
+      tu: parlais
+      il/elle: parlait
+      nous: parlions
+      vous: parliez
+      ils/elles: parlaient
+    futur simple:
+      je: parlerai
+      tu: parleras
+      il/elle: parlera
+      nous: parlerons
+      vous: parlerez
+      ils/elles: parleront
+    conditionnel présent:
+      je: parlerais
+      tu: parlerais
+      il/elle: parlerait
+      nous: parlerions
+      vous: parleriez
+      ils/elles: parleraient
+    subjonctif présent:
+      que je: parle
+      que tu: parles
+      qu'il/elle: parle
+      que nous: parlions
+      que vous: parliez
+      qu'ils/elles: parlent
+    impératif:
+      tu: parle
+      nous: parlons
+      vous: parlez
+    participe présent: parlant
+    participe passé: parlé (avoir)
+"""
+
+_ENTRY_YAML_PROMPT_FR = """You are a French dictionary expert producing an SRS flashcard entry for a
+German-speaking learner (CEFR B1, everyday spoken French). Generate a complete
+YAML entry for: {word}
+
+Return ONLY the YAML — a single list item starting with "- type:". No markdown
+fences, no commentary before or after.
+
+TYPE — pick exactly one:
+  word        a single word (verb, noun, adjective, adverb)
+  expression  a multi-word phrase acting as a unit (idiom, collocation)
+  sentence    a full sentence
+
+The headword key is named after the type: `word:`, `expression:` or `sentence:`.
+There is no `simplified` field and no Chinese in the output.
+
+REQUIRED FIELDS: type, the headword key, english, german, level, date: "{today}".
+  - pos: French part of speech — verbe, nom (m), nom (f), adjectif, adverbe,
+    locution … NOUNS ALWAYS CARRY THEIR GENDER. Omit pos for `sentence`.
+  - level: a quoted CEFR string "A1"…"C2"
+  - register: one of spoken_colloquial, spoken_neutral, neutral, formal_written,
+    literary, slang
+  - english / german: concise glosses; separate distinct meanings with " / "
+
+LANGUAGE RULES — these fields MUST be German:
+  note, explanations, synonyms[].meaning, antonyms[].meaning, examples[].german
+  examples[].english is English; the headword and examples[].fr are French.
+
+CONTENT:
+  - note (word/expression): German prose block scalar (|) covering usage,
+    common collocations, false-friend warnings, and a short
+    "**Étymologie:** …" line (1-2 sentences) — French has no separate
+    etymology column, so it belongs in the note.
+  - examples: 2-4 sentences, EACH with all three keys fr, english, german
+  - synonyms / antonyms: {{word, meaning}} items; include when they add real value
+  - conjugations: REQUIRED FOR EVERY VERB, omitted for everything else.
+    All of: présent, passé composé, imparfait, futur simple,
+    conditionnel présent, subjonctif présent, impératif, participe présent,
+    participe passé. Person keys are exactly je, tu, il/elle, nous, vous,
+    ils/elles (subjonctif: que je, que tu, qu'il/elle, que nous, que vous,
+    qu'ils/elles; impératif: only tu, nous, vous). The person key stays `je`
+    even where elision would give `j'…`, and the form is what follows the
+    pronoun (ai parlé, irai). passé composé includes the auxiliary; participe
+    passé names it in parentheses — parlé (avoir), allé (être). Pronominal
+    verbs keep the reflexive pronoun in the form (me lève). Never guess
+    irregular forms.
+  - sentence type: use `explanations` (German block scalar) instead of note,
+    add `source_de` with the German original, and optionally
+    similar_sentences: [{{fr, german}}].
+
+YAML SAFETY — the output is parsed by a strict loader:
+  - Never use double quotes for meaning/english/german fields. If a colon is
+    unavoidable inside an inline string, wrap it in single quotes; better yet,
+    rephrase to avoid the colon.
+  - A French apostrophe inside a single-quoted string must be doubled
+    ('l''école'). Prefer leaving such values unquoted.
+  - note / explanations use block scalars (|) — colons are safe there.
+  - Indent consistently with two spaces; no tab characters.
+
+EXAMPLE of the expected shape (for parler):
+
+{example}
+"""
+
+
+def generate_word_entry_yaml(word_zh: str, model: str = DEFAULT_MODEL,
+                             lang: str = "zh") -> str:
+    """Generate a complete dictionary YAML entry for one word.
+
+    `lang` picks the prompt and the output format: 'zh' produces a de-zh-bot
+    entry, 'fr' the de-fr-bot French format (issue #726). Returns YAML ready
+    for importer.import_yaml_content(). Raises ValueError if the model returns
     something that isn't a YAML list item — callers surface that to the user
     rather than importing garbage.
+
+    Non-Chinese output is wrapped in a `lang:` header rather than relying on
+    the target deck's language: the entry format and the lang have to agree, so
+    stating it in the document removes a whole class of "French entry imported
+    as Chinese" bugs.
     """
     from datetime import date as _date
 
-    prompt = _ENTRY_YAML_PROMPT.format(
+    template = _ENTRY_YAML_PROMPT if lang == "zh" else _ENTRY_YAML_PROMPT_FR
+    example = _ENTRY_YAML_EXAMPLE if lang == "zh" else _ENTRY_YAML_EXAMPLE_FR
+    prompt = template.format(
         word=word_zh,
         today=_date.today().strftime("%m/%d"),
-        example=_ENTRY_YAML_EXAMPLE,
+        example=example,
     )
 
-    logger.info("[%s] generate_word_entry_yaml: %s", model, word_zh)
+    logger.info("[%s] generate_word_entry_yaml (%s): %s", model, lang, word_zh)
     raw = _call_api(model, [{"role": "user", "content": prompt}], max_tokens=4000,
                     purpose=f"add_word:{word_zh}")
 
@@ -1047,7 +1211,10 @@ def generate_word_entry_yaml(word_zh: str, model: str = DEFAULT_MODEL) -> str:
                      word_zh, raw[:300])
         raise ValueError("AI did not return a YAML entry")
 
-    return raw[start:].rstrip() + "\n"
+    entry = raw[start:].rstrip() + "\n"
+    if lang == "zh":
+        return entry
+    return f"lang: {lang}\nentries:\n" + textwrap.indent(entry, "  ")
 
 
 def generate_character_info(char: str, pinyin: str, model: str = DEFAULT_MODEL) -> dict:

@@ -63,11 +63,13 @@ def tmp_db(tmp_path, monkeypatch):
     return tmp_path
 
 
-def _run_add_word(word_zh, yaml_text=ENTRY_YAML, day=None):
+def _run_add_word(word_zh, yaml_text=ENTRY_YAML, day=None, lang=None):
     """POST the word and, if a background job started, wait for it to finish."""
     payload = {"word_zh": word_zh}
     if day:
         payload["day"] = day
+    if lang:
+        payload["lang"] = lang
     with patch.object(ai, "_call_api", return_value=yaml_text):
         r = client.post("/api/add-word-ai", json=payload)
         assert r.status_code == 200, r.text
@@ -511,3 +513,195 @@ def test_add_page_defaults_to_the_list():
     assert "let day = 'list'" in src
     # …but an explicit ?day= from an existing Shortcut is still honoured.
     assert "params.get('day')" in src
+
+
+# ---------------------------------------------------------------------------
+# French (issue #726) — the same pipeline with the French prompt and a parallel
+# deck tree. The tree matters: every language filter in the app keys off
+# decks.lang, so a French card in a zh deck is invisible under the fr tab and
+# turns up in the Chinese review queue instead.
+# ---------------------------------------------------------------------------
+
+ENTRY_YAML_FR = """- type: word
+  date: "08/13"
+  word: séjour
+  pos: nom (m)
+  english: stay, sojourn
+  german: Aufenthalt
+  level: "B1"
+  register: neutral
+  note: |
+    Bezeichnet den Aufenthalt an einem Ort.
+
+    **Étymologie:** Vom altfranzösischen *sejorner*.
+  examples:
+    - fr: Bon séjour à Paris !
+      english: Enjoy your stay in Paris!
+      german: Schönen Aufenthalt in Paris!
+  synonyms:
+    - word: visite
+      meaning: Besuch
+"""
+
+ENTRY_YAML_FR_VERB = """- type: word
+  date: "08/13"
+  word: parler
+  pos: verbe
+  english: to speak
+  german: sprechen
+  level: "A1"
+  register: neutral
+  note: |
+    Regelmäßiges Verb auf -er.
+  examples:
+    - fr: Je parle français.
+      english: I speak French.
+      german: Ich spreche Französisch.
+  conjugations:
+    présent:
+      je: parle
+      tu: parles
+      il/elle: parle
+    participe passé: parlé (avoir)
+"""
+
+
+def _fr_leaf_decks(day=None):
+    day = day or date.today().isoformat()
+    deck_id, _ = database.get_or_create_daily_deck(day, "fr")
+    return database.get_or_create_category_decks(deck_id, day)
+
+
+def test_french_word_lands_in_the_french_deck_tree(tmp_db):
+    result = _run_add_word("séjour", yaml_text=ENTRY_YAML_FR, lang="fr")
+    assert result["job"]["status"] == "done", result["job"]
+    assert result["job"]["summary"]["imported"] == 1
+    assert result["deck_path"] == f"Français::{date.today().isoformat()}"
+
+    entry = database.get_word_by_zh("séjour")
+    assert entry["lang"] == "fr"
+    assert entry["definition_de"] == "Aufenthalt"
+    # level: "B1" → the shared 1-6 scale (#596)
+    assert entry["hsk_level"] == 3
+
+    conn = database.get_db()
+    rows = conn.execute(
+        """SELECT c.deck_id, d.lang FROM cards c JOIN decks d ON d.id = c.deck_id
+           WHERE c.word_id=? AND c.deleted_at IS NULL""",
+        (entry["id"],),
+    ).fetchall()
+    conn.close()
+    assert {r["deck_id"] for r in rows} == set(_fr_leaf_decks().values())
+    # The whole point: the decks themselves are French, not just the entry.
+    assert all(r["lang"] == "fr" for r in rows)
+
+
+def test_french_entry_keeps_its_conjugations(tmp_db):
+    """The French format's one structural extra (#596) has to survive the trip
+    — otherwise the in-app entry is poorer than a hand-imported one."""
+    _run_add_word("parler", yaml_text=ENTRY_YAML_FR_VERB, lang="fr")
+    entry = database.get_word_by_zh("parler")
+    detail = database.get_word_full(entry["id"])
+    forms = {(c["tense"], c["person"]): c["form"] for c in detail["conjugations"]}
+    assert forms[("présent", "je")] == "parle"
+    # Impersonal forms are stored with an empty person.
+    assert forms[("participe passé", "")] == "parlé (avoir)"
+
+
+def test_french_word_is_listed_in_the_french_saved_deck(tmp_db):
+    """★ List must stage the word inside the French tree; the Chinese 'Saved'
+    deck would hide it under the fr tab."""
+    _run_add_word("séjour", yaml_text=ENTRY_YAML_FR, lang="fr", day="list")
+    entry = database.get_word_by_zh("séjour")
+
+    fr_saved = database.get_or_create_saved_deck("fr")
+    assert fr_saved != _saved_deck_id(), "French words must not share the zh Saved deck"
+    conn = database.get_db()
+    rows = conn.execute(
+        "SELECT deck_id, state FROM cards WHERE word_id=? AND deleted_at IS NULL",
+        (entry["id"],),
+    ).fetchall()
+    conn.close()
+    assert {r["deck_id"] for r in rows} == {fr_saved}
+    assert all(r["state"] == "suspended" for r in rows)
+    # Browse's saved view matches on the deck *name*, which the path's last
+    # segment still is — that is why no Browse change was needed.
+    assert database.get_deck(fr_saved)["name"] == "Saved"
+
+
+def test_listed_french_word_is_promoted_inside_its_own_tree(tmp_db):
+    _run_add_word("séjour", yaml_text=ENTRY_YAML_FR, lang="fr", day="list")
+    entry_id = database.get_word_by_zh("séjour")["id"]
+
+    r = client.post(f"/api/saved/{entry_id}/promote")
+    assert r.status_code == 200, r.text
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    assert r.json()["deck_path"] == f"Français::{tomorrow}"
+
+    conn = database.get_db()
+    decks = {row["deck_id"] for row in conn.execute(
+        "SELECT deck_id FROM cards WHERE word_id=? AND deleted_at IS NULL", (entry_id,))}
+    conn.close()
+    assert decks == set(_fr_leaf_decks(tomorrow).values())
+
+
+def test_existing_word_ignores_a_wrong_lang_and_follows_its_own(tmp_db):
+    """word_zh is globally unique, so trusting the request's lang would scatter
+    one word's cards over two language trees and hide it under both tabs."""
+    _run_add_word("séjour", yaml_text=ENTRY_YAML_FR, lang="fr", day="list")
+    entry_id = database.get_word_by_zh("séjour")["id"]
+
+    with patch.object(ai, "_call_api", side_effect=AssertionError("AI was called")):
+        body = client.post("/api/add-word-ai",
+                           json={"word_zh": "séjour", "lang": "zh"}).json()
+
+    assert body["deck_path"].startswith("Français::")
+    conn = database.get_db()
+    decks = {row["deck_id"] for row in conn.execute(
+        "SELECT deck_id FROM cards WHERE word_id=? AND deleted_at IS NULL", (entry_id,))}
+    conn.close()
+    assert decks == set(_fr_leaf_decks().values())
+
+
+def test_wrong_script_is_rejected_per_language(tmp_db):
+    """The box takes no follow-up questions, so a word in the wrong script must
+    fail loudly instead of being fed to the wrong prompt."""
+    assert client.post("/api/add-word-ai",
+                       json={"word_zh": "生态", "lang": "fr"}).status_code == 400
+    assert client.post("/api/add-word-ai",
+                       json={"word_zh": "séjour", "lang": "zh"}).status_code == 400
+
+
+def test_unknown_lang_is_rejected(tmp_db):
+    assert client.post("/api/add-word-ai",
+                       json={"word_zh": "séjour", "lang": "es"}).status_code == 400
+
+
+def test_french_prompt_is_used_for_french(tmp_db):
+    """Sending the Chinese prompt would produce a Chinese-format entry that the
+    French half of the importer can't read."""
+    with patch.object(ai, "_call_api", return_value=ENTRY_YAML_FR) as call:
+        ai.generate_word_entry_yaml("séjour", lang="fr")
+    prompt = call.call_args[0][1][0]["content"]
+    assert "French dictionary expert" in prompt
+    assert "CEFR" in prompt and "conjugations" in prompt
+
+
+def test_french_yaml_carries_its_lang_header(tmp_db):
+    """The document states its language rather than relying on the target
+    deck's — the entry format and the lang have to agree."""
+    with patch.object(ai, "_call_api", return_value=ENTRY_YAML_FR):
+        out = ai.generate_word_entry_yaml("séjour", lang="fr")
+    import yaml as _yaml
+    doc = _yaml.safe_load(out)
+    assert doc["lang"] == "fr"
+    assert doc["entries"][0]["word"] == "séjour"
+
+
+def test_add_page_and_modal_pass_the_language():
+    """One client-side pipeline (#643): both entry points hand lang to the same
+    shared helper, neither talks to the endpoint directly."""
+    assert "lang) {" in _static("shared.js") or "onUpdate, lang)" in _static("shared.js")
+    assert "_addWordLang" in _static("app.js")
+    assert "params.get('lang')" in _static("add.html")
+    assert "/api/add-word-ai" not in _static("add.html")
