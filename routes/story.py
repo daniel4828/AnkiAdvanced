@@ -208,7 +208,10 @@ ALLOWED_MODELS = {
     "claude-opus-4-6",
     "gpt-5-mini",
     "gpt-5",
-    "gpt-5.1",
+    # gpt-5.1 retired here and in the model dropdown (#731) — gpt-5.6-luna
+    # does the same job at a sixth of the price. Old stories that stored it
+    # fall back via _validated_model; its pricing row stays in
+    # database/stats.py so historical cost records still resolve.
     "gpt-5.6-luna",
     "gpt-5.6-terra",
     "gpt-5.6-sol",
@@ -317,7 +320,7 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
         elif mode in ("paste", "briefing"):
             # Briefing (issue #444) and paste (issue #481) share the briefing
             # pipeline and ignore the frontend's model selection — they always
-            # use BRIEFING_MODEL (env, default gpt-5.1, verified/cached via
+            # use BRIEFING_MODEL (env, default gpt-5.6-luna, verified/cached via
             # ai.resolve_briefing_model()), OpenAI only. Resolved before the
             # article-selection call so summarize_news_items uses the same
             # model as the sentence generation (issue #448).

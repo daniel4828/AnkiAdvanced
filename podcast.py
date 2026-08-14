@@ -1065,20 +1065,26 @@ def fetch_transcript(video: dict) -> tuple[str | None, dict]:
 # AI summary
 # ---------------------------------------------------------------------------
 
-def summarize(transcript: str, title: str, detail_level: str) -> dict:
+def summarize(transcript: str, title: str, detail_level: str,
+              china_critical: bool = False) -> dict:
     """Summarize a transcript into {"summary_de", "words"} (#479, NotebookLM
     path added in #510). When podcast_config.summarizer is 'auto' (default)
     and NotebookLM credentials are present, tries the free
     _summarize_via_notebooklm path first; any failure (or summarizer='api')
     falls back to the paid/quota-limited API chain in
-    ai.summarize_podcast_transcript so the pipeline never breaks over it."""
+    ai.summarize_podcast_transcript so the pipeline never breaks over it.
+
+    `china_critical` (#731) only affects that API fallback — it picks OpenAI
+    over DeepSeek there. NotebookLM stays first regardless: it is Google's,
+    so it has no reason to censor the topic, and it is free."""
     cfg = database.get_podcast_config()
     summarizer = cfg.get("summarizer") or "auto"
     if summarizer == "auto" and _notebooklm_credentials_available():
         result = _summarize_via_notebooklm(transcript, title, detail_level)
         if result:
             return _annotate_summary(result)
-    return _annotate_summary(ai.summarize_podcast_transcript(transcript, title, detail_level))
+    return _annotate_summary(ai.summarize_podcast_transcript(
+        transcript, title, detail_level, china_critical=china_critical))
 
 
 def _annotate_summary(result: dict) -> dict:
@@ -1574,7 +1580,12 @@ def _process_episode(episode_id: int, video: dict, detail_level: str, summary: d
                     logger.warning("podcast: transcript_de build failed for %s: %s",
                                    video["video_id"], e)
 
-            result = summarize(transcript, video["title"], detail_level)
+            # china_critical (#731) is read from the row, not from `video`:
+            # `video` is an RSS item for the crawler path and has no such
+            # field — only the stored row knows what was ticked at paste time.
+            china_critical = bool((database.get_episode(episode_id) or {}).get("china_critical"))
+            result = summarize(transcript, video["title"], detail_level,
+                               china_critical=china_critical)
             if not result.get("summary_de"):
                 database.update_episode(episode_id, status="error",
                                         error="AI summary failed or empty")
@@ -1648,7 +1659,8 @@ def regenerate_summary(episode_id: int) -> dict:
 
     with database.action_context(f"Regenerate summary: {episode['title'][:30]}"):
         try:
-            result = summarize(_normalize_transcript(transcript), episode["title"], detail_level)
+            result = summarize(_normalize_transcript(transcript), episode["title"], detail_level,
+                               china_critical=bool(episode.get("china_critical")))
         except Exception as e:
             logger.error("podcast: summary regeneration raised for episode %s: %s", episode_id, e)
             return {"regenerated": False, "error": str(e)}

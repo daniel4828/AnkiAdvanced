@@ -164,7 +164,8 @@ def create_pending_episode(video_id: str, channel_id: str | None, title: str,
                            published_at: str | None, youtube_url: str,
                            audio_url: str | None = None,
                            duration_seconds: int | None = None,
-                           kind: str = 'podcast') -> int:
+                           kind: str = 'podcast',
+                           china_critical: bool = False) -> int:
     """Insert a new episode row with status=pending. Returns the new id.
 
     `channel_id` stores the source RSS feed URL (#497, was a YouTube channel
@@ -173,13 +174,16 @@ def create_pending_episode(video_id: str, channel_id: str | None, title: str,
     `audio_url`/`duration_seconds` (#497) come from the RSS enclosure and
     itunes:duration. `kind` (#650) is 'podcast' | 'video' | 'article' — see
     docs/knowledge-base.md for what the generic columns mean per kind.
+    `china_critical` (#731) makes the API summary fallback skip DeepSeek and
+    use OpenAI directly — see podcast.summarize().
     """
     conn = get_db()
     cur = conn.execute(
         """INSERT INTO podcast_episodes
-           (video_id, channel_id, title, published_at, youtube_url, audio_url, duration_seconds, status, kind)
-           VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)""",
-        (video_id, channel_id, title, published_at, youtube_url, audio_url, duration_seconds, kind),
+           (video_id, channel_id, title, published_at, youtube_url, audio_url, duration_seconds, status, kind, china_critical)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)""",
+        (video_id, channel_id, title, published_at, youtube_url, audio_url, duration_seconds,
+         kind, 1 if china_critical else 0),
     )
     conn.commit()
     episode_id = cur.lastrowid
@@ -265,7 +269,7 @@ def list_episodes(limit: int = 100, feed_url: str | None = None, kind: str | Non
     query = """SELECT id, video_id, channel_id, title, title_en, kind, published_at, youtube_url, spotify_url,
                       audio_url, duration_seconds,
                       summary_de, hsk_words, detail_level, status, error, email_sent_at, created_at,
-                      transcript_source,
+                      transcript_source, china_critical,
                       (transcript_zh IS NOT NULL AND transcript_zh != '') AS has_transcript
                FROM podcast_episodes"""
     clauses: list = []

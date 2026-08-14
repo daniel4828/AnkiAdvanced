@@ -662,6 +662,12 @@ CREATE TABLE IF NOT EXISTS podcast_episodes (
     error            TEXT,
     email_sent_at    TEXT,
     processing_started_at TEXT,  -- set while _process_episode runs, cleared on exit; a leftover value = killed mid-transcription, recovered at startup (#598)
+    -- china_critical (#731): set at paste time, read at summarize time. The
+    -- API summary fallback normally prefers DeepSeek to save money; for
+    -- material critical of China DeepSeek censors/waters down the answer, so
+    -- 1 means "skip DeepSeek, go straight to OpenAI". The free NotebookLM
+    -- path stays first either way — Google doesn't censor the topic.
+    china_critical   INTEGER NOT NULL DEFAULT 0,
     created_at       TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

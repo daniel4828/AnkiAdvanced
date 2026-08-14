@@ -26,9 +26,11 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "deepseek-v4-flash"
 
-# briefing mode (issue #444) — env var BRIEFING_MODEL, default gpt-5.1, verified
-# against the OpenAI models API with a fallback chain, cached for process lifetime.
-BRIEFING_MODEL_FALLBACKS = ("gpt-5.1", "gpt-5", "gpt-5-mini")
+# briefing mode (issue #444) — env var BRIEFING_MODEL, default gpt-5.6-luna,
+# verified against the OpenAI models API with a fallback chain, cached for
+# process lifetime. Retired gpt-5.1/gpt-5 here (#731, Daniel 2026-08-14): luna
+# is $0.20/$1.20 against their $1.25/$10.00 for the same job.
+BRIEFING_MODEL_FALLBACKS = ("gpt-5.6-luna", "gpt-5.6-terra", "gpt-5-mini")
 _briefing_model_cache: str | None = None
 
 # issue #514: if the OpenAI account runs out of quota mid-run (429
@@ -267,9 +269,9 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str,
 def resolve_briefing_model() -> str:
     """Resolve the OpenAI model id used for briefing mode (issue #444).
 
-    Reads BRIEFING_MODEL (default "gpt-5.1"), verifies on first use that the id
-    actually exists via the OpenAI models API, and falls back through
-    gpt-5.1 → gpt-5 → gpt-5-mini if not (or if the id is some other unlisted
+    Reads BRIEFING_MODEL (default "gpt-5.6-luna"), verifies on first use that
+    the id actually exists via the OpenAI models API, and falls back through
+    luna → terra → gpt-5-mini if not (or if the id is some other unlisted
     string). The resolved id is cached for the process lifetime — the models
     API is only ever hit once per process. OpenAI only (briefing is OpenAI-only,
     same reasoning as news/paste: DeepSeek censors news content).
@@ -2793,7 +2795,8 @@ def parse_podcast_summary_json(raw: str) -> dict:
 
 
 def summarize_podcast_transcript(transcript: str, title: str,
-                                 detail_level: str = "detailed") -> dict:
+                                 detail_level: str = "detailed",
+                                 china_critical: bool = False) -> dict:
     """Podcast crawler (issue #479): one AI call that turns a raw Chinese
     transcript into a German summary + a list of HSK5+ vocabulary worth
     reviewing before listening.
@@ -2804,6 +2807,13 @@ def summarize_podcast_transcript(transcript: str, title: str,
     DeepSeek pass is preferred to save money (#532). Falls back to
     resolve_briefing_model() (OpenAI/gpt) if DeepSeek is unavailable or its
     reply fails to parse — gpt is the paid-but-reliable backstop.
+
+    `china_critical` (#731) is the exception Daniel flags at paste time: for
+    material critical of China, DeepSeek is the censorship-sensitive case
+    after all, and it doesn't announce it — it quietly waters the summary
+    down or refuses, and a watered-down summary still parses, so no fallback
+    would ever trigger. The flag therefore drops DeepSeek from the candidate
+    list entirely rather than merely reordering it.
 
     This is the "api" summarizer path — podcast.summarize() (#510) tries the
     free NotebookLM chat.ask path first when podcast_config.summarizer=auto,
@@ -2817,7 +2827,7 @@ def summarize_podcast_transcript(transcript: str, title: str,
     prompt = build_podcast_summary_prompt(transcript, title, detail_level)
 
     candidates = []
-    if os.environ.get("DEEPSEEK_API_KEY"):
+    if os.environ.get("DEEPSEEK_API_KEY") and not china_critical:
         candidates.append(DEFAULT_MODEL)
     fallback = resolve_briefing_model()
     if fallback not in candidates:

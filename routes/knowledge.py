@@ -24,18 +24,24 @@ router = APIRouter()
 
 class AddKnowledgeRequest(BaseModel):
     url: str
+    # #731: ticked at paste time for material critical of China, which is the
+    # one case DeepSeek can't summarize honestly. Defaults to False so the
+    # iOS-shortcut / mailbox callers that don't send it keep the cheap
+    # DeepSeek-first behavior.
+    china_critical: bool = False
 
 
 class AddKnowledgeTextRequest(BaseModel):
     title: str
     text: str
     source_url: str | None = None
+    china_critical: bool = False
 
 
 @router.post("/api/knowledge/add")
 def add_knowledge(body: AddKnowledgeRequest):
     try:
-        return knowledge.ingest.ingest_url(body.url)
+        return knowledge.ingest.ingest_url(body.url, china_critical=body.china_critical)
     except knowledge.ingest.IngestError as e:
         raise HTTPException(400, str(e))
 
@@ -47,7 +53,8 @@ def add_knowledge_text(body: AddKnowledgeTextRequest):
     episode_id}) — the frontend's add flow branches on URL vs. text but
     otherwise treats the result identically (poll .../process next)."""
     try:
-        return knowledge.ingest.ingest_text(body.title, body.text, source_url=body.source_url)
+        return knowledge.ingest.ingest_text(body.title, body.text, source_url=body.source_url,
+                                            china_critical=body.china_critical)
     except knowledge.ingest.IngestError as e:
         raise HTTPException(400, str(e))
 
