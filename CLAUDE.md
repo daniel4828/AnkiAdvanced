@@ -4,6 +4,26 @@
 
 > **所有 AI 代理（dàilǐ - agent）和开发者必须遵守（zūnshǒu - comply with）以下规则。这些是固定规则，不是建议。**
 
+## 目录
+
+**工作方式（每次会话都要遵守）**
+1. [固定规则](#固定规则mandatory-rules) · 2. [语言指令](#语言指令) · 3. [代理编排：Opus 编排，Sonnet 执行](#代理编排opus-编排sonnet-执行) · 4. [Git & GitHub 工作流](#git--github-工作流)
+
+**项目总览**
+5. [项目简介与技术栈](#项目简介与技术栈) · 6. [项目结构](#项目结构)
+
+**运行环境**
+7. [生产环境](#生产环境2026-07-07-上线) · 8. [笔记本模式：本地 + 离线](#笔记本模式本地--离线议题-612625) · 9. [启动、CLI 与环境变量](#启动cli-与环境变量)
+
+**核心机制**
+10. [数据库模式](#数据库模式概述) · 11. [调度算法 FSRS-5](#调度算法--fsrs-5默认--sm-2-回退) · 12. [队列设计](#队列设计) · 13. [多语言支持](#多语言支持)
+
+**功能详解**
+14. [数据与导入 / 界面内加词](#数据与导入) · 15. [故事生成](#故事生成) · 16. [加星句子](#加星句子改进提示词的正例样本692) · 17. [知识库](#知识库knowledge-base650655) · 18. [生词标注](#生词标注代码做不用-aizh_annotatepy638) · 19. [复习收尾提醒](#复习收尾提醒701)
+
+**参考**
+20. [API 接口](#api-接口) · 21. [测试](#测试tests-pytest-tests-全套约-11-秒) · 22. [规范与约束](#规范与约束)
+
 ---
 
 ## 固定规则（MANDATORY RULES）
@@ -23,6 +43,7 @@
 | R11 | **每条消息开头必须改写 Daniel 的输入** | 无论他用中文、英语还是德语提问，第一步永远是改写为正确的中文，画分割线，再回答。这是帮助 Daniel 学习中文的核心机制，绝不可跳过 |
 | R12 | **调查问题时定期汇报进展** | 每读几个文件就向 Daniel 汇报发现了什么、还缺什么 |
 | R13 | **给 Daniel 的终端命令一律打包成临时脚本，且必须带分步日志** | 让 Daniel 复制粘贴多行命令经常因格式问题（换行/引号）失败。凡需要他在终端执行的操作，写成一个简短的临时脚本文件让他 `bash xxx.sh` 运行，用完删除。脚本必须：① 分步编号的 `echo` 进度提示（`== 步骤 2/4：… ==`）；② 每步说明在做什么、慢的步骤注明预计耗时；③ 结尾提示"把以上全部输出发给 Claude"——日志既让 Daniel 实时看到进展，也是 Claude 事后诊断的唯一依据（Daniel 2026-07-12 确认此做法很好，保持） |
+| R14 | **Opus 编排，Sonnet 执行** | （2026-08-14 起，由 Daniel 决定）主会话是编排者：读代码、定方案、写施工图、审查结果、跑 Git/gh 流程；**实现代码派给 Sonnet 子代理**。见"代理编排"章节 |
 
 ---
 
@@ -68,6 +89,47 @@
 
 ---
 
+## 代理编排：Opus 编排，Sonnet 执行
+
+（R14，2026-08-14 起）主会话（Opus）是编排者（biānpái zhě - orchestrator），不是打字员。**实现代码交给 Sonnet 子代理**——Opus 的上下文用来理解系统、做决定、把关，不该消耗在敲重复的代码上。
+
+### 分工边界
+
+**Opus 自己做（不派）：**
+- 读代码、定位问题、设计方案——需要全局上下文的事
+- 写施工图（要改哪些文件、每处改什么、怎么验收）
+- 审查子代理交回的改动
+- **全部 Git/gh 操作**：Issue、分支、提交、PR、合并
+- 与 Daniel 的所有对话：R11 改写、R12 进展汇报、最终结论
+
+**派给 Sonnet 子代理：**
+- 按施工图实现功能 / 修复缺陷
+- 写测试、跑测试、修测试
+- 机械性重构、批量改名、格式统一
+- 大范围代码搜索（用 `Explore` 代理，它只回结论不回文件全文）
+
+**判断标准：** 这件事需要"知道整个项目为什么这样设计"吗？需要 → Opus 做；只需要"照着说明改这几个文件" → 派 Sonnet。
+
+### 施工图必须自给自足
+
+子代理**拿不到本次对话历史**（R7 的同一条道理，只是对象从"未来的代理"变成"现在的子代理"）。任务描述里必须写全：
+
+1. **背景**：这是在解决什么问题，关联哪个 Issue
+2. **精确路径**：`routes/story.py` 的 `_generate_and_store()`，不是"故事生成那块"
+3. **现有约束**：比如"数据库访问只能走 `database/` 包，别处不写原始 SQL"、"前端无构建步骤，直接改 `static/`"——子代理不会自己读 CLAUDE.md 全文
+4. **验收方式**：跑哪条 `pytest tests/test_xxx.py`，或者具体检查什么
+
+一句含糊的"实现 X"换回来的是一份要重写的代码，比自己写还慢。
+
+### 硬性约束
+
+- **子代理不碰 Git**：它们只改文件；`git commit`、`git push`、`gh pr create` 全部由 Opus 做。否则并行会话会互相切分支（#573/#574 曾因此撞车）
+- **交回后必须审查再提交**：至少读一遍 diff，确认没有偏离施工图、没有引入项目禁止的写法（原始 SQL、静默吞异常、假装成功）。**审查不通过就打回重做，不要自己默默补救**——那等于施工图没写清楚，下次还会犯
+- **并行任务各用 worktree**：多个子代理同时改同一个工作目录会互相覆盖。`.claude/worktrees/` 里的目录由 Claude Code 自动管理，不要手动编辑里面的文件
+- **一次只派一个方向的任务**：两个子代理改同一个文件必然冲突，拆任务时按文件边界拆
+
+---
+
 ## Git & GitHub 工作流
 
 标准 **GitHub Flow**：议题（yìtí - Issue）→ 分支 → 拉取请求 → CI → 合并。**永远不要直接提交到 `main`。**
@@ -91,15 +153,17 @@
 
 **可交接（jiāojiē - handoff）原则：** 每个 Issue 描述背景、目标、完成标准；每个 PR 说明改了什么、为什么、怎么测试。开始新任务前先问："如果我现在离开，另一个 AI 能从 Issue/PR 历史完全理解项目状态吗？"否定就先补文档。
 
-**Worktree：** `.claude/worktrees/` 里的目录是代理的临时隔离工作空间，由 Claude Code 自动管理，不要手动编辑里面的文件。
+**Worktree：** `.claude/worktrees/` 里的目录是代理的临时隔离工作空间，由 Claude Code 自动管理，不要手动编辑里面的文件。并行任务必须各用一个（见"代理编排"）。
 
 ### 网络问题应急方案
 
-Daniel 在中国需要 VPN 访问 GitHub。`gh` 命令报 `EOF` 错误时（`curl -sv https://api.github.com` 出现 `198.18.x.x` IP = VPN 拦截）：**不要反复重试**，立刻把所有 `gh` 命令写入脚本（含 `echo` 进度提示），让 Daniel 关闭 VPN 后运行 `bash script.sh`，完成后删除脚本。
+`gh` 命令报 `EOF` 错误、或 `curl -sv https://api.github.com` 返回 `198.18.x.x` 这类假 IP 时，说明有代理/VPN 在拦截：**不要反复重试**，立刻把所有 `gh` 命令写入脚本（含 `echo` 进度提示，见 R13），让 Daniel 关闭代理后运行 `bash script.sh`，完成后删除脚本。
+
+> 2026-08-12 起 Daniel 不在中国、日常不开 VPN，GitHub 连不上**不要再默认归因于 VPN**——先看具体报错。
 
 ---
 
-## 项目简介
+## 项目简介与技术栈
 
 供个人使用的间隔重复（jiàngé chóngfù - Spaced Repetition）系统，为一位用户（Daniel，中文 HSK 4–5，法语 B1）打造。它用 AI 驱动的复习体验取代 Anki：每天根据到期词汇生成上下文故事。
 
@@ -112,14 +176,72 @@ Daniel 在中国需要 VPN 访问 GitHub。`gh` 命令报 `EOF` 错误时（`cur
 
 ---
 
+## 项目结构
+
+```
+├── CLAUDE.md              # 本文件
+├── main.py                # CLI 入口 + FastAPI 应用（含 Basic Auth 中间件）
+├── languages.py           # 语言注册表（每种语言的 TTS/翻译源/分词/AI 提示词参数/功能开关）
+├── schema.sql             # 数据库模式
+├── database/              # 所有数据库访问（其他文件不写原始 SQL）
+│   ├── core.py            # 连接管理、迁移
+│   └── cards.py / decks.py / entries.py / presets.py / stories.py / browse.py / stats.py / podcast.py
+├── routes/                # FastAPI 路由模块
+│   ├── browse.py / decks.py / imports.py / review.py / story.py / podcast.py / knowledge.py（`POST /api/knowledge/add`，#651/#652）
+│   ├── sync.py            # 一键同步（#625，只在笔记本实例注册）
+│   ├── queue_manager.py   # Anki v3 风格持久会话队列
+│   └── utils.py           # 共用工具（DISABLE_AI, leaf_ids, queue_manager 单例）
+├── static/                # 前端（index.html + app.js + style.css；shared.js = 两页共用的 api()/addWordViaAi()，add.html = 独立加词页 #668，login.html = 登录页 #666）
+│
+│   # ── 调度与导入 ──
+├── srs.py                 # 调度编排：学习步骤、状态转换，调用 fsrs.py
+├── fsrs.py                # FSRS-5 纯算法模块（DSR 记忆模型，无依赖）
+├── importer.py            # YAML 词汇导入器（中文 + 法语格式）
+├── yaml_fixer.py          # 修复 AI 生成的格式错误 YAML
+│
+│   # ── AI、内容与语音 ──
+├── ai.py                  # AI 提供商调用（每种提示词类型一个函数）
+├── news_fetcher.py        # 新闻抓取（Tagesschau API + RSS；按天缓存 data/news_cache/）
+├── podcast.py             # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、每源 auto_process 开关+非自动源只入库元数据（#502，podcast_feeds 表）、转录链 NotebookLM 免费主力+听悟+Whisper 保底、单步异常不中止整链（#510 重排，链式降级，原 #498/#485/#486）、摘要 NotebookLM chat.ask 免费优先+DeepSeek/gpt API 链回退（api 路径内部 DeepSeek 优先省钱，#532）、邮件通知+Signal 通知（signal-cli 关联设备，发 Note to Self，#521，二者独立可选、互不影响；消息抬头播客名·星期·日期、链接在末尾，单集日期按 Europe/Berlin 显示，#532）、摘要 table.media 风格（`<p>` 段落+每段首句 `<b>` 加粗总结，#567）+详情页 Regenerate summary 按钮、邮件主题=`播客名 - 单集标题`（查不到播客名只用标题，不要退回死前缀）+ `summary_zh` 开头中文总结（#708 起是 `summary_de` 的**完整翻译**：同段落数、同顺序、同事实，同样 `<p>`+段首 `<b>`，HSK4-5 用词；提示词里德语先写、中文后译，JSON 里 `summary_de` 排在前面；渲染三处——邮件 `podcast._summary_zh_html`、详情页 `app.js._summaryZhHtml` 均"先全转义再放行 `<p>/<b>/<strong>/<em>/<i>/<br>`"，Signal 用 `_summary_to_plain_text` 剥标签；#708 之前的旧条目是纯文本，两处渲染都按空行补 `<p>`；**是增量不是必需**——成功判定只看 `summary_de`，模型漏掉中文总结不能让整集失败）+ 摘要里任何 HSK5+ 中文概念都标 `pinyin/汉字`（不限于提取的词表，宁多勿少，#631）；已泛化为知识库存储层，见 `knowledge/` 包
+├── knowledge/             # 知识库摄取（#650–#655，播客功能泛化，见「知识库」节）：youtube.py（字幕摄取）、article.py（正文抽取）、ingest.py（唯一入库管线）、mailbox.py（IMAP 邮件收件）
+├── zh_annotate.py         # 生词标注（#638，零 AI）：HSK 表+词库+jieba+pypinyin+谷歌翻译
+├── translator.py          # 翻译（Google Translate，deep-translator，可选）
+├── tts.py                 # edge-tts 封装（离线模式下只读缓存，#612）
+├── review_notify.py       # 复习收尾提醒（#701）：去重 + 发信，判定在 database.due_notification_status()
+│
+│   # ── 本地 / 离线模式（#612、#625）──
+├── offline.py             # OFFLINE_MODE / LOCAL_MODE + 联网探测
+├── sync_offline.sh        # 同步 sync/pull/push
+├── run.local.sh           # 本地模式启动，日常用（#625）
+├── run.offline.sh         # 硬离线启动，飞机用（#612）
+│
+│   # ── 运维与文档 ──
+├── requirements.txt       # Python 依赖清单
+├── DEPLOY.md              # 服务器从零到上线的部署教程
+├── deploy/                # systemd 单元、Caddyfile 示例、deploy.sh（自动部署）
+├── scripts/               # morning_pregen.py（早晨预生成故事+TTS）、podcast_check.py（播客爬虫定时脚本）、due_check.py（复习收尾提醒定时脚本，#701）、knowledge_mail_check.py（知识库邮件收件定时脚本，#655）、offline_sync_server.py + offline_tts_manifest.py（离线同步，#612）、fsrs_optimize.py（用 review_log 训练个人 FSRS 权重，#629）+ README
+├── docs/yaml-format.md    # YAML 词条格式完整文档
+├── docs/knowledge-base.md # 知识库功能总体设计（#650–#655 各 Issue 引用的唯一设计说明）
+└── data/
+    ├── srs.db             # SQLite 数据库（生产版在服务器上！）
+    ├── news_sources.json  # 新闻来源配置（不在 git 里，服务器上已有）
+    └── tts/               # TTS 音频缓存
+```
+
+---
+
 ## 生产环境（2026-07-07 上线）
 
 系统运行在一台 Linux VPS 上，Daniel 通过手机/电脑浏览器访问 `https://powerdaniel3000.duckdns.org`（登录保护；凭据不入库——仓库是公开的）。
+
+### 登录与认证
 
 - **登录是 HTML 表单 + 长期签名 Cookie（#666）**，不是 HTTP Basic Auth：iOS 钥匙串只保存**表单**登录，原生 Basic 弹窗它一律不存也不自动填，Daniel 每次进都要手打密码。`GET/POST /login`（`static/login.html`，两个输入框必须带 `autocomplete="username"` / `current-password`，这正是钥匙串识别的前提）→ 校验通过下发 `anki_session` Cookie（HMAC 签名，含过期时间戳，有效期一年，HttpOnly/SameSite=Lax，HTTPS 下 Secure）。签名密钥由 `AUTH_USERNAME`+`AUTH_PASSWORD` 派生 —— 改密码即自动作废全部旧会话，无需存密钥
 - **Basic Auth 保留作回退**（curl/脚本），中间件顺序是 Cookie → Basic → 拒绝
 - **未认证时 `/api/*` 必须返回 401 JSON，不能重定向**：给 `fetch()` 一个 200 的 HTML 登录页会让所有前端请求"成功"拿到垃圾。页面路径才 303 跳 `/login`；`app.js` 的 `api()` 收到 401 自动跳登录页
 - Caddy 反代后应用自己收到的是明文 HTTP，Cookie 的 `secure` 标志按 `X-Forwarded-Proto` 判断
+
+### 数据库与部署
 
 - **唯一生产数据库在服务器上**（`/home/anki/AnkiAdvanced/data/srs.db`）。本地开发只用 `run.dev.sh` + `data/dev.db`。**本地的 `data/srs.db` 已过时，绝不要把它当作现状或复制回服务器。**
 - **自动部署：** 服务器 cron 每 2 分钟运行 `deploy/deploy.sh`——**PR 合并到 main ≈ 2 分钟后自动上线**（拉取、装依赖、重启 systemd 服务 `ankiadvanced`）
@@ -144,14 +266,19 @@ bash sync_offline.sh push    # 只推不拉，推完归档本地库
 
 两种模式共用 `data/offline.db`，在家同步好直接带上飞机。
 
+### 两种模式的区别
+
 - **`LOCAL_MODE=1`（`run.local.sh`，#625）**：日常实例。有网时 AI 故事、edge-tts 生成、翻译全部可用；断网后自动降级成下面 `OFFLINE_MODE` 的行为，**不用重启**。判断靠 `offline.network_available()`：带缓存的 TCP 探测（在线缓存 60 秒、离线 10 秒，超时 1.5 秒，探测目标 `LOCAL_MODE_PROBE_HOSTS`，默认 DeepSeek + Bing 语音端点——在中国不用 VPN 就能连）
 - **`ai_disabled()` 必须是函数不能是常量**：原来 `routes/utils.DISABLE_AI` 是模块级常量，进程启动时就冻死了，本地模式下 Wi-Fi 回来也解不开。改函数时 story/review/podcast 的调用点都要跟着改
 - **`OFFLINE_MODE=1`（`run.offline.sh`）**：飞机专用的硬开关，保留不变——需要"绝不发出站连接"的保证，连探测都不做。隐含 `DISABLE_AI`；TTS 只读 `data/tts/` 缓存，未命中抛 `tts.NotCachedOffline` → `/api/tts-file` 返回 404。**关键**：无网时 edge-tts 的 WebSocket 会挂到超时，拖死整个请求，所以缓存未命中必须立刻失败
 - 故事沿用同步下来的那一份（`DISABLE_AI` 分支本来就是"有缓存就返回、没有就返回 None"）；Again 单句重生成自动跳过
 - `GET /api/mode` → `{offline, local, hard_offline}`；`offline` 是**实时值**，本地模式下前端每 60 秒轮询一次，翻转时重放 `showView(_currentView)` 让 Regenerate 按钮跟着出现/消失
+- `PORT` 环境变量（默认 8000）让离线实例跑 8001，不占用 Daniel 浏览器连的端口
+
+### 同步
+
 - **界面一键同步（#625）**：顶栏 ⟳ 按钮 →`POST /api/sync/start[?mode=sync|pull]` 起后台线程跑 `sync_offline.sh`，`GET /api/sync/progress` 逐行回传脚本的中文分步日志，成功后失效队列缓存 + 重读日界点 + 清空探测缓存，前端整页刷新（库文件已经被换掉了）。**这两个路由只在 `LOCAL_MODE`/`OFFLINE_MODE` 下注册**（`main.py`）——服务器上必须根本不存在，误调一次就会用某份笔记本快照覆盖生产
 - **合并被拒时要有出路**：无令牌（手工拷贝的库）或令牌已轮换（推过一次了）时 merge 会拒绝，这是对的，但用户会永远卡住。`mode=pull` 是逃生口：只下载、覆盖本地。前端只在日志里出现 `sync token` 时才显示 ⤓ 按钮，并用 `showConfirm` 明说未同步的复习会丢失
-- `PORT` 环境变量（默认 8000）让离线实例跑 8001，不占用 Daniel 浏览器连的端口
 - **同步只合并 `cards` + `review_log` 两张表**（`scripts/offline_sync_server.py`，纯标准库，通过 ssh stdin 管道执行，不依赖服务器已部署该版本）。离线期间服务器 cron 仍在写入（播客单集、预生成故事、成本日志），整库对拷会毁掉这些数据——**绝不整库覆盖**
 - **同步令牌**（`app_settings.offline_sync_token`）：`pull` 时写入服务器并随快照带走，`push` 时两边必须一致，合并后轮换 → 同一份离线库无法重复 push；手工拷贝的库没有令牌，直接拒绝
 - **冲突按 `cards.last_review` 谁晚谁赢**（#625）：原来笔记本无条件覆盖服务器，飞机上没问题，但本地模式变日常后，手机上复习完再一同步就静默丢进度。`review_log` 两边的记录始终都保留，所以调度输了的那次复习仍然进统计
@@ -159,6 +286,9 @@ bash sync_offline.sh push    # 只推不拉，推完归档本地库
 - **传输量优化**（实测链路 ~2.7 MB/s，整个 pull 十几秒；这两项优化仍然保留，只是并非为了救命）：
   - 快照**瘦身**：`prepare` 在快照上（不动生产库）清空 `api_call_log`、`podcast_episodes.transcript_*`、`stories.prompt_text` 再 VACUUM → 29.6 MB 降到 18.5 MB。`prepare … --full` 可保留全部
   - 音频**按需**：`scripts/offline_tts_manifest.py` 从拉下来的库算出真正会用到的语音（故事句子 `sentence_zh` + 到期词 `word_zh`，前端只请求这两种），再与服务器实际存在的文件取交集 → 一百多个文件 / 几 MB，而不是整个 118 MB 的 `data/tts/`。**必须取交集**，否则 rsync 会为缺失文件返回非零码，`set -e` 会中断整个脚本
+
+### 改这些脚本时的坑
+
 - **中文提示里紧跟变量必须写 `${VAR}`**：`"…下载到 $LOCAL_DB（约 7 MB）"` 会让 bash 把全角括号的字节也算进变量名，配合 `set -u` 直接退出（#619）。这个仓库的脚本提示全是中文，极易踩
 - **脚本改动必须实机跑一遍，`bash -n` 不够**：它只查语法，`set -u` 的 unbound variable、选项不被支持（#617）都要到运行时才暴露。离线同步脚本用 `ANKI_REMOTE_DIR=/tmp/xxx`（服务器上的副本靶子）+ `ANKI_LOCAL_DB=/tmp/yyy.db`（临时本地库）就能安全演练，**两个都要设**——只设前者会给真的 `data/offline.db` 盖上演练令牌，之后它再也推不回生产库了
 - **rsync 只能用两边都支持的选项**：脚本跑在 Daniel 的 macOS 上，系统自带的是 **openrsync**，不认 GNU 的 `--info=progress2`（#617 因此挂掉）。用 `--progress`。凡是只在服务器上验证过的命令，都要想一想 Mac 上是不是同一个实现
@@ -166,110 +296,43 @@ bash sync_offline.sh push    # 只推不拉，推完归档本地库
 
 ---
 
-## 项目结构
+## 启动、CLI 与环境变量
 
-```
-├── CLAUDE.md              # 本文件
-├── main.py                # CLI 入口 + FastAPI 应用（含 Basic Auth 中间件）
-├── languages.py           # 语言注册表（每种语言的 TTS/翻译源/分词/AI 提示词参数/功能开关）
-├── database/              # 所有数据库访问（其他文件不写原始 SQL）
-│   ├── core.py            # 连接管理、迁移
-│   └── cards.py / decks.py / entries.py / presets.py / stories.py / browse.py / stats.py / podcast.py
-├── srs.py                 # 调度编排：学习步骤、状态转换，调用 fsrs.py
-├── fsrs.py                # FSRS-5 纯算法模块（DSR 记忆模型，无依赖）
-├── importer.py            # YAML 词汇导入器（中文 + 法语格式）
-├── ai.py                  # AI 提供商调用（每种提示词类型一个函数）
-├── news_fetcher.py        # 新闻抓取（Tagesschau API + RSS；按天缓存 data/news_cache/）
-├── podcast.py              # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、每源 auto_process 开关+非自动源只入库元数据（#502，podcast_feeds 表）、转录链 NotebookLM 免费主力+听悟+Whisper 保底、单步异常不中止整链（#510 重排，链式降级，原 #498/#485/#486）、摘要 NotebookLM chat.ask 免费优先+DeepSeek/gpt API 链回退（api 路径内部 DeepSeek 优先省钱，#532）、邮件通知+Signal 通知（signal-cli 关联设备，发 Note to Self，#521，二者独立可选、互不影响；消息抬头播客名·星期·日期、链接在末尾，单集日期按 Europe/Berlin 显示，#532）、摘要 table.media 风格（`<p>` 段落+每段首句 `<b>` 加粗总结，#567）+详情页 Regenerate summary 按钮、邮件主题=`播客名 - 单集标题`（查不到播客名只用标题，不要退回死前缀）+ `summary_zh` 开头中文总结（#708 起是 `summary_de` 的**完整翻译**：同段落数、同顺序、同事实，同样 `<p>`+段首 `<b>`，HSK4-5 用词；提示词里德语先写、中文后译，JSON 里 `summary_de` 排在前面；渲染三处——邮件 `podcast._summary_zh_html`、详情页 `app.js._summaryZhHtml` 均"先全转义再放行 `<p>/<b>/<strong>/<em>/<i>/<br>`"，Signal 用 `_summary_to_plain_text` 剥标签；#708 之前的旧条目是纯文本，两处渲染都按空行补 `<p>`；**是增量不是必需**——成功判定只看 `summary_de`，模型漏掉中文总结不能让整集失败）+ 摘要里任何 HSK5+ 中文概念都标 `pinyin/汉字`（不限于提取的词表，宁多勿少，#631）；已泛化为知识库存储层，见 `knowledge/` 包
-├── knowledge/              # 知识库摄取（#650–#655，播客功能泛化，见「知识库」节）：youtube.py（字幕摄取）、article.py（正文抽取）、ingest.py（唯一入库管线）、mailbox.py（IMAP 邮件收件）
-├── tts.py                 # edge-tts 封装（离线模式下只读缓存，#612）
-├── offline.py             # OFFLINE_MODE / LOCAL_MODE + 联网探测（#612、#625）
-├── sync_offline.sh        # 同步 sync/pull/push（#612、#625）
-├── run.offline.sh         # 硬离线启动，飞机用（#612）
-├── run.local.sh           # 本地模式启动，日常用（#625）
-├── translator.py          # 翻译（Google Translate，deep-translator，可选）
-├── zh_annotate.py         # 生词标注（#638，零 AI）：HSK 表+词库+jieba+pypinyin+谷歌翻译
-├── yaml_fixer.py          # 修复 AI 生成的格式错误 YAML
-├── schema.sql             # 数据库模式
-├── static/                # 前端（index.html + app.js + style.css；shared.js = 两页共用的 api()/addWordViaAi()，add.html = 独立加词页 #668，login.html = 登录页 #666）
-├── routes/                # FastAPI 路由模块
-│   ├── browse.py / decks.py / imports.py / review.py / story.py / podcast.py / knowledge.py（`POST /api/knowledge/add`，#651/#652）
-│   ├── sync.py            # 一键同步（#625，只在笔记本实例注册）
-│   ├── queue_manager.py   # Anki v3 风格持久会话队列
-│   └── utils.py           # 共用工具（DISABLE_AI, leaf_ids, queue_manager 单例）
-├── requirements.txt       # Python 依赖清单
-├── DEPLOY.md              # 服务器从零到上线的部署教程
-├── deploy/                # systemd 单元、Caddyfile 示例、deploy.sh（自动部署）
-├── review_notify.py       # 复习收尾提醒（#701）：去重 + 发信，判定在 database.due_notification_status()
-├── scripts/               # morning_pregen.py（早晨预生成故事+TTS）、podcast_check.py（播客爬虫定时脚本）、due_check.py（复习收尾提醒定时脚本，#701）、knowledge_mail_check.py（知识库邮件收件定时脚本，#655）、offline_sync_server.py + offline_tts_manifest.py（离线同步，#612）、fsrs_optimize.py（用 review_log 训练个人 FSRS 权重，#629）+ README
-├── docs/yaml-format.md    # YAML 词条格式完整文档
-├── docs/knowledge-base.md # 知识库功能总体设计（#650–#655 各 Issue 引用的唯一设计说明）
-└── data/
-    ├── srs.db             # SQLite 数据库（生产版在服务器上！）
-    ├── news_sources.json  # 新闻来源配置（不在 git 里，服务器上已有）
-    └── tts/               # TTS 音频缓存
+```bash
+bash run.sh          # 生产启动（读取 .env，清理 8000 端口）——服务器上由 systemd 代替
+bash run.dev.sh      # 开发启动（DB_PATH=data/dev.db，DISABLE_AI=1）
+bash run.local.sh    # 本地模式启动（LOCAL_MODE=1，端口 8001）——见"笔记本模式"
+bash run.offline.sh  # 硬离线启动（OFFLINE_MODE=1，DB_PATH=data/offline.db，端口 8001）——见"笔记本模式"
+python main.py import                # 导入 imports/ 下的 YAML（目录需存在）
+python main.py status [--deck X]     # 显示每个牌组/类别的到期数量
 ```
 
----
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `ANTHROPIC_API_KEY` | 必填 | Claude API 密钥 |
+| `DEEPSEEK_API_KEY` / `ZHIPU_API_KEY` / `QWEN_API_KEY` | 可选 | 其他 AI 提供商密钥 |
+| `OPENAI_API_KEY` | 可选 | 新闻模式默认模型 `gpt-5-mini`（DeepSeek 会审查新闻，故用 OpenAI） |
+| `DB_PATH` | `data/srs.db` | 数据库路径（开发用 `data/dev.db`） |
+| `DISABLE_AI` | `0` | 设为 `1` 跳过 AI 故事生成 |
+| `OFFLINE_MODE` | `0` | 设为 `1` 进入硬离线模式（#612）：隐含 `DISABLE_AI`，TTS 只读缓存，零网络请求，连探测都不做 |
+| `LOCAL_MODE` | `0` | 设为 `1` 进入本地模式（#625）：有网全功能，断网自动降级为离线行为 |
+| `LOCAL_MODE_PROBE_HOSTS` | `api.deepseek.com,speech.platform.bing.com` | 本地模式判断有没有网时探测的主机（443 端口，任一连通即算在线） |
+| `ANKI_LOCAL_DB` | `data/offline.db` | 同步脚本的本地库路径；配合 `ANKI_REMOTE_DIR` 做演练时必须一起设 |
+| `PORT` | `8000` | 服务监听端口（`run.offline.sh` 用 8001） |
+| `LOG_LEVEL` | `INFO` | 日志级别（`DEBUG` 输出详细日志） |
+| `DEV_CLEAR_DB` | `` | 设为任意值启动时清空数据库——生产环境绝不要设置 |
+| `AUTH_USERNAME` / `AUTH_PASSWORD` | 可选 | 两者都设置时启用登录保护（保护所有路径，`/login` 除外）。主流程是 HTML 表单登录 + 一年期签名 Cookie（#666），Basic Auth 保留作 curl/脚本的回退 |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `SMTP_FROM` | 可选 | 播客爬虫（#479）邮件通知用；`SMTP_PORT` 默认 587（STARTTLS）；未配置时跳过发信，记日志，不算失败 |
+| `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | 可选 | 播客爬虫用 Spotify Web API 搜索单集链接；未配置时退化为 Spotify 搜索链接 |
+| `PUBLIC_BASE_URL` | `https://powerdaniel3000.duckdns.org` | 播客邮件/Signal 通知里转录页链接的域名前缀 |
+| `SIGNAL_ACCOUNT` / `SIGNAL_CLI_PATH` | 可选 | 播客爬虫（#521）Signal 通知用；`SIGNAL_ACCOUNT` 是 Daniel 关联设备所属号码（如 `+49…`），`SIGNAL_CLI_PATH` 默认 `signal-cli`；`SIGNAL_ACCOUNT` 未配置时跳过发送，记日志，不算失败。一次性 signal-cli 安装/扫码关联步骤见 `scripts/README.md` |
+| `ALIBABA_CLOUD_ACCESS_KEY_ID` / `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | 可选 | 播客爬虫（#498）通义听悟（转录主力）用的阿里云 AccessKey；未配置时自动跳过，落到 Whisper/NotebookLM |
+| `TINGWU_APP_KEY` | 可选 | 播客爬虫（#498）通义听悟控制台创建的应用 AppKey；与上面两个 AccessKey 变量任一缺失都会跳过听悟。一次性开通步骤见 `scripts/README.md` |
+| `KNOWLEDGE_IMAP_HOST` / `KNOWLEDGE_IMAP_PORT` | 可选 | 知识库邮件收件（#655）的 IMAP 服务器；端口默认 `993`（SSL） |
+| `KNOWLEDGE_IMAP_USER` / `KNOWLEDGE_IMAP_PASSWORD` | 可选 | 知识库邮件收件（#655）专用邮箱的登录凭据；三者（含上面两个变量）任一未配置时 `scripts/knowledge_mail_check.py` 直接跳过，不连接 |
+| `KNOWLEDGE_MAIL_ALLOWED_SENDERS` | 可选 | 知识库邮件收件（#655）发件人白名单，逗号分隔的邮箱地址（不区分大小写，兼容 `Name <addr@x.de>` 格式）；**留空则整个邮箱检查被跳过，不处理任何邮件**——这是防止任何知道邮箱地址的人往服务器塞 URL 触发 AI 调用的唯一防线 |
 
-## 多语言支持
-
-同一个软件、同一个数据库里学习多种语言（2026-07-06 起，议题 #428–#431）。当前：中文（zh，默认）+ 法语（fr，CEFR B1，释义以德语为主）。
-
-- **`languages.py` 是语言注册表**：每种语言定义 TTS 语音、翻译源、分词方式（jieba/空格）、AI 提示词参数、牌组树根名（`deck_root`，#726）、功能开关（拼音/汉字/量词仅中文）。加新语言 = 加一个条目
-- **`decks.lang` / `entries.lang`**（默认 `'zh'`）：目标语言；子牌组创建时继承父牌组的 lang
-- `word_zh` 对所有语言存"目标语言词形"（`_zh` 后缀是历史遗留）；法语词条的 pinyin/characters 留空
-- **等级共用 1–6 整数**（#596）：`entries.hsk_level` 对中文存 HSK 1–6，对法语存 CEFR（A1=1 … C2=6，YAML 里写 `level: "B1"`）；故事设置弹窗的背景词汇难度滑块两种语言通用（1–6），前端按 `languages.py` 的 `level_system` 显示 "HSK 3" 或 "B1"，法语故事提示词用滑块值生成 "CEFR A1-X" 上限（原来写死 A1-A2）
-- **动词变位**（#596）：`entry_conjugations` 表按"时态 × 人称"通用存储（person='' 表示分词等无人称形式，position 保留 YAML 顺序）；法语 YAML 用 `conjugations:` 映射导入；`/api/word/{id}` 返回 `conjugations`，词条详情页和复习卡背面渲染 Conjugation 折叠区（每时态一张小卡片）；同义反义词/相似句处理对法语也启用
-- **已知限制：** `UNIQUE(word_zh)` 是全局约束——文字系统不同（中文 vs 法语）不冲突；将来加第二种拉丁字母语言需改为 `UNIQUE(word_zh, lang)`（要重建表）
-- **中文专属：** 汉字分解、量词、拼音、kahneman/paste/briefing 故事模式
-- **主页语言标签页**（#436）：`GET /api/langs` 返回使用中的语言；前端多于一种语言才显示标签栏，选择存 `localStorage`。所有主页/复习/故事/统计接口支持可选 `?lang=`（默认不过滤，向后兼容）；解析规则统一为 `lang 参数 或 get_deck_lang(deck_id)`
-- **故事按语言隔离：** `stories.lang`（NULL = 中文旧数据）；聚合牌组（如 All）在各语言标签下维护独立的活跃故事；后台生成的 progress_key 含 lang
-
----
-
-## 数据与导入
-
-**数据库是唯一事实来源。** 原来的 `imports/` YAML 目录已于 2026-07-07 删除——所有历史词条都已在数据库里，生产数据库在服务器上。
-
-导入机制本身仍然存在（`importer.py`、`POST /api/import`、`python main.py import`，读取 `imports/<Source>/*.yaml`）：需要批量导入新词汇时，重新创建该目录放入 YAML 即可。日常添加单个词条：界面顶栏 `＋` 按钮（见下），或 `de-zh-bot` 技能生成 YAML 后导入。
-
-### 界面内添加生词（#627、#636、#643、#715、#726）
-
-顶栏 `＋` → 输入词 → 回车或点"加" → 后台 DeepSeek 生成完整词条 → 进 **★ List**（`Saved` 牌组，挂起，不进任何复习队列）。
-
-> **界面上只有 ★ List 这一个去处（#715，Daniel 2026-08-12 决定）**：顶栏 ＋、知识库详情页的生词表格、`/add` 页面三处的 Today/Tomorrow 按钮全部撤掉，一律 `day='list'`。新词先攒着，之后在 Browse 的 saved 视图主动提升（那个「→ Add to Daily」按钮**保留**——★ List 是暂存区，总得有出口）。**后端 `day` 参数照旧支持 `today|tomorrow|list`**：Daniel 已有的 iOS 快捷指令 `/add?word=X&day=today` 不该突然改行为，而且以后想恢复某个按钮只是加回一个按钮。`/add` 因此仍尊重 URL 里的 `day`，只是无参数时默认 `list`。
-
-- `ai.generate_word_entry_yaml()` 把 `de-zh-bot` 技能的中文词条规则移植成服务端提示词，输出 **YAML** 而不是 JSON —— 这样能直接交给 `importer.import_yaml_content()`，例句/量词/同义反义词/汉字分解/词源全部复用既有下游逻辑，**没有一行特例建卡代码**。这也意味着卡片与手工导入的词条完全一致（`importer._create_cards` 的 due 就是 `anki_today()`，`_make_leaf_decks` 建的子牌组名与 `get_or_create_category_decks` 相同）
-- 模型没返回 YAML 列表项时抛 `ValueError`；导入数为 0 的"完成"任务前端也报错 —— **绝不把垃圾内容悄悄写进库，也不假装成功**
-- **已有的词是"移动"不是"新增"**：`cards` 有 `UNIQUE(word_id, category)`，一个词终身只有三张卡，`insert_card` 对它是静默无效果的 —— 不存在"再加一张到今天"。已有词**不调 AI**（重新生成的内容会被 importer 当重复丢掉，纯烧钱）
-- **再次添加已学过的词 = 重置为新卡**（#675，Daniel 2026-08-10 明确要求，此前是拒绝并返回 `already_exists`）：`database.reset_word_to_new(word_id, leaf_decks, due, from_deck_id=None)` 把该词的三张卡搬进今天/明天的 Daily 叶子牌组并清空全部调度状态。`promote_saved_word` 现在只是它 `from_deck_id=Saved` 的一层薄封装
-  - **这是不可撤销的破坏性操作**：stability/difficulty/interval/lapses 是这个词的全部 FSRS 记忆模型。所以接口返回 `status="reset"` + `previous_decks` + `reviews_discarded`，前端如实显示"↺ reset from X → Y, N reviews discarded"，**不报一句平淡的成功**。卡片原本只在 `Saved`（没有进度可丢）时返回 `status="promoted"`，措辞不同
-  - `review_log` 的历史记录不删，所以统计不受影响
-- 生成约 30 秒，所以走后台线程 + `job_id` 轮询（复用 `_import_jobs` 机制）
-- 只接受中文输入：德/英输入需要 AI 反问是哪个意思（`de-zh-bot` 就是这么做的），一个无交互的输入框做不到，猜错会静默存进一个错词
-- **第三个去处 ★ List**（#677）：`day="list"` —— 照常花钱生成完整词条，但卡片直接进 `Saved` 牌组并挂起，**不进任何复习队列**，直到在 Browse 的 saved 视图点 "→ Add to Daily" 提升。`database.stage_word_in_saved()` 是 `promote_saved_word` 的逆操作
-  - **导入仍走今天的 Daily 牌组，之后再搬**：直接以 `Saved` 为父牌组导入会建出 `Saved::listening` 等叶子牌组，而 Browse 的 saved 过滤器认的是 `deck_name === 'Saved'`
-  - **挂起靠 `state`，不靠 `due`**：`cards.due` 是 `NOT NULL DEFAULT date('now')`，写 NULL 直接违反约束。停留在 `Saved` 的卡照样有 due 值，是 `state='suspended'` 把它挡在队列外
-  - 停放**不清空** FSRS 字段（挂起已经够了；真要激活时 `promote_saved_word` 会重置），所以 `reviews_discarded` 返回 0 —— 与上面的 `reset` 不同，这不是破坏性操作
-  - Browse 的 saved 行只在词条**没有释义**时才显示 "✨ Generate"，★ List 进来的词内容已齐全，再生成纯烧钱
-- **今天/明天（#636，#715 起界面不再提供，接口保留）**：`day` 参数同时决定 Daily 牌组、`promote_saved_word` 的 due 和 `importer.import_yaml_content(due_offset_days=)`。**牌组和 due 必须一起后移** —— 未来日期的 Daily 牌组被 `parse_daily_deck_date` 锁住不可复习，卡片若还 due 今天就永远够不到
-- **不阻塞连续输入**（#636）：提交后立刻清空输入框，每个词进弹窗里的队列各自轮询自己的 job
-- **独立加词页 `/add`（#668）+ URL 参数（#686）**：可收藏的网址，打开就是输入框（存 iPhone 主屏当图标用）。`?word=生态`（或 `?w=`）+ 可选 `&day=today|tomorrow|list` → 打开即自动提交，供 iOS 快捷指令在任意 App 里一键加词；`day` 非法值回落 today（词才是重点，不该为此失败）。**提交后必须 `history.replaceState` 抹掉参数** —— 否则刷新或 iOS 恢复标签页会静默再花一次 AI 钱。`static/add.html` 是自包含页面，**故意不加载 `app.js`** —— 5.5 KB vs 完整应用的 77 KB + 491 KB JS，秒开就是这个功能的全部意义。为此把 `addWordViaAi()` 和 `api()` 从 `app.js` 抽到 `static/shared.js` 两页共用，**不复制第二份**（理由同下条；`tests/test_add_word.py` 有一条测试专门守着 `app.js` 里不能再出现这两个定义）
-- **`/api/add-word-ai` 是全应用唯一的加词入口**（#643）：顶栏 ＋、播客单集的 HSK 生词表格、复习界面长按词的菜单、以及 `/add` 页面，全部共用 `shared.js` 的 `addWordViaAi()`。原来播客/长按走的 `/api/quick-add-word` 已删除 —— 它只让 AI 填四个字段（无例句/汉字分解/量词/同义反义词），而且 `added_to_deck` 分支在词已学过时被 `INSERT OR IGNORE` + `UNIQUE(word_id, category)` 全部静默丢弃，却照样返回成功。**加词只能有一条管线**，否则修好的坑会在第二条路上重新出现
-- **加法语词（#726）**：`lang` 参数（`zh` 默认 / `fr`）同时决定提示词和牌组树
-  - **每种语言一棵平行的牌组树**，根名在 `languages.py` 的 `deck_root`（zh → `Daily`，fr → `Français`）：`Français::<日期> · Listening/…` + `Français::Saved`，牌组本身 `lang='fr'`。**必须如此**——全应用的语言过滤（`_lang_subquery_clause`、`get_descendant_leaf_deck_ids`）筛的是 `decks.lang` 而不是 `entries.lang`，法语卡放进中文牌组会在 fr 标签下消失、反而混进中文复习队列（生产库里 #726 之前导入的那 7 个法语词正是这个状态）
-  - `Français::Saved` 的**牌组名仍是 `Saved`**（路径末段），所以 Browse 的 saved 视图（认 `deck_name === 'Saved'`）一行都不用改
-  - **已存在的词按 `entries.lang` 落点，不听请求参数**：`word_zh` 是全局唯一的，lang 传错会把同一个词的三张卡撒进两棵语言树，两个标签下都看不见它。`promote_saved`（Browse 的 → Add to Daily）同理
-  - **按语言校验输入文字体系**（zh 必须含汉字；fr 不能含汉字且要有拉丁字母）：加词框没有反问的机会（`de-zh-bot`/`de-fr-bot` 技能是靠追问"你指哪个意思"的），把德语词喂给法语提示词会静默生成一个错词条。查文字体系分不出法语和德语，但至少挡住 `生态` 走法语提示词
-  - 法语输出**自带 `lang: fr` 头**，不靠目标牌组的语言推断——条目格式（`word:`/`level:`/`examples[].fr`）和 lang 必须一致，写在文档里能整类消灭"法语词条被当中文导入"
-  - 复习界面长按菜单的两个按钮（`+ Add to Daily`、`★ Save for later`）按**当前卡片的语言**走（`currentCardLang()`），跟主页在哪个标签无关——词是从这张卡里挑出来的
-  - `/add` 支持 `?lang=fr`（每种语言一个 iOS 快捷指令）；页面自己拉一次 `/api/langs` 决定是否显示语言切换钮，**不加载 `app.js`** 的原则不变
-
-- **YAML 格式完整文档：** `docs/yaml-format.md`（中文格式：词性/例句/词源/汉字分解；法语格式：`lang: fr` + `type: word|sentence`，经 `importer._normalize_fr_entry` 适配后复用全部下游逻辑）
-- 文件顶部可选 `lang:` 字段（默认 `zh`）决定导入到哪个语言的牌组
-- AI 在故事提示词（tíshící - prompt）中被告知"非目标词汇只使用 HSK 1–2 的词汇"
-- 汉字分解、量词、同义反义词、语法结构、`word_analyses` 组件处理**仅中文**执行
+注意：uvicorn 直接启动不建表——测试前先手动 `database.init_db()`（`run.sh`/`main.py` 会自动处理）。
 
 ---
 
@@ -342,18 +405,79 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 
 ---
 
-## 复习收尾提醒（#701）
+## 多语言支持
 
-清空队列（0 open cards）后，被评为 Again 的卡片还留在学习步骤里（`1m 10m 1d 3d`）分批回来，Daniel 离开界面就无从知道它们什么时候到期。服务器 cron 每 5 分钟跑 `scripts/due_check.py` → `POST /api/review/due-notify-check`，条件成立时发一封邮件。
+同一个软件、同一个数据库里学习多种语言（2026-07-06 起，议题 #428–#431）。当前：中文（zh，默认）+ 法语（fr，CEFR B1，释义以德语为主）。
 
-- **三条同时成立才发**（`database.due_notification_status()`）：`due_now > 0`（有已到期的 learning/relearn 卡）、`later_today == 0`（现在→明天日界点之间没有还在等的学习卡）、`other_due == 0`（new + review 到期卡已清零，即队列确实空过）
-- **`later_today == 0` 是这个功能的全部意义**：第一张卡回来就通知，等于把 Daniel 叫回去做两张卡再干等十分钟，那还不如不提醒
-- **1d/3d 步骤的卡刻意不参与判断**：它们到期在明天日界之后，属于别的一天；等它们就永远发不出去
-- **计数复用 `count_due_all_decks()`**，不手写 COUNT(*)：新卡每日上限、锁定的未来 Daily 牌组、禁用的 reading 类别它都处理过了，自己写一份迟早和界面角标说两套话
-- **"明天日界点"必须算成完整 ISO datetime**（`get_day_cutoff_hour()`）：`cards.due` 对 learning 卡存的是 datetime，拿日期字符串比会把凌晨 0–5 点的卡算成明天
-- **每个 Anki 日最多一封**，标记存 `app_settings.due_notify_last_day`；`?force=true` 只跳过去重，条件不成立照样不发
-- **SMTP 未配置 = 跳过不是失败，且此时不写标记** —— 否则等配置好了当天再也收不到
-- 发信走 `podcast.send_mail()`（从 `send_email()` 抽出的通用函数，播客/知识库通知与本提醒共用一份 SMTP 逻辑）
+- **`languages.py` 是语言注册表**：每种语言定义 TTS 语音、翻译源、分词方式（jieba/空格）、AI 提示词参数、牌组树根名（`deck_root`，#726）、功能开关（拼音/汉字/量词仅中文）。加新语言 = 加一个条目
+- **`decks.lang` / `entries.lang`**（默认 `'zh'`）：目标语言；子牌组创建时继承父牌组的 lang
+- `word_zh` 对所有语言存"目标语言词形"（`_zh` 后缀是历史遗留）；法语词条的 pinyin/characters 留空
+- **等级共用 1–6 整数**（#596）：`entries.hsk_level` 对中文存 HSK 1–6，对法语存 CEFR（A1=1 … C2=6，YAML 里写 `level: "B1"`）；故事设置弹窗的背景词汇难度滑块两种语言通用（1–6），前端按 `languages.py` 的 `level_system` 显示 "HSK 3" 或 "B1"，法语故事提示词用滑块值生成 "CEFR A1-X" 上限（原来写死 A1-A2）
+- **动词变位**（#596）：`entry_conjugations` 表按"时态 × 人称"通用存储（person='' 表示分词等无人称形式，position 保留 YAML 顺序）；法语 YAML 用 `conjugations:` 映射导入；`/api/word/{id}` 返回 `conjugations`，词条详情页和复习卡背面渲染 Conjugation 折叠区（每时态一张小卡片）；同义反义词/相似句处理对法语也启用
+- **已知限制：** `UNIQUE(word_zh)` 是全局约束——文字系统不同（中文 vs 法语）不冲突；将来加第二种拉丁字母语言需改为 `UNIQUE(word_zh, lang)`（要重建表）
+- **中文专属：** 汉字分解、量词、拼音、kahneman/paste/briefing 故事模式
+- **主页语言标签页**（#436）：`GET /api/langs` 返回使用中的语言；前端多于一种语言才显示标签栏，选择存 `localStorage`。所有主页/复习/故事/统计接口支持可选 `?lang=`（默认不过滤，向后兼容）；解析规则统一为 `lang 参数 或 get_deck_lang(deck_id)`
+- **故事按语言隔离：** `stories.lang`（NULL = 中文旧数据）；聚合牌组（如 All）在各语言标签下维护独立的活跃故事；后台生成的 progress_key 含 lang
+
+---
+
+## 数据与导入
+
+**数据库是唯一事实来源。** 原来的 `imports/` YAML 目录已于 2026-07-07 删除——所有历史词条都已在数据库里，生产数据库在服务器上。
+
+导入机制本身仍然存在（`importer.py`、`POST /api/import`、`python main.py import`，读取 `imports/<Source>/*.yaml`）：需要批量导入新词汇时，重新创建该目录放入 YAML 即可。日常添加单个词条：界面顶栏 `＋` 按钮（见下），或 `de-zh-bot` 技能生成 YAML 后导入。
+
+- **YAML 格式完整文档：** `docs/yaml-format.md`（中文格式：词性/例句/词源/汉字分解；法语格式：`lang: fr` + `type: word|sentence`，经 `importer._normalize_fr_entry` 适配后复用全部下游逻辑）
+- 文件顶部可选 `lang:` 字段（默认 `zh`）决定导入到哪个语言的牌组
+- AI 在故事提示词（tíshící - prompt）中被告知"非目标词汇只使用 HSK 1–2 的词汇"
+- 汉字分解、量词、同义反义词、语法结构、`word_analyses` 组件处理**仅中文**执行
+
+### 界面内添加生词（#627、#636、#643、#715、#726）
+
+顶栏 `＋` → 输入词 → 回车或点"加" → 后台 DeepSeek 生成完整词条 → 进 **★ List**（`Saved` 牌组，挂起，不进任何复习队列）。
+
+> **界面上只有 ★ List 这一个去处（#715，Daniel 2026-08-12 决定）**：顶栏 ＋、知识库详情页的生词表格、`/add` 页面三处的 Today/Tomorrow 按钮全部撤掉，一律 `day='list'`。新词先攒着，之后在 Browse 的 saved 视图主动提升（那个「→ Add to Daily」按钮**保留**——★ List 是暂存区，总得有出口）。**后端 `day` 参数照旧支持 `today|tomorrow|list`**：Daniel 已有的 iOS 快捷指令 `/add?word=X&day=today` 不该突然改行为，而且以后想恢复某个按钮只是加回一个按钮。`/add` 因此仍尊重 URL 里的 `day`，只是无参数时默认 `list`。
+
+**复用导入器，不写特例建卡代码：**
+
+- `ai.generate_word_entry_yaml()` 把 `de-zh-bot` 技能的中文词条规则移植成服务端提示词，输出 **YAML** 而不是 JSON —— 这样能直接交给 `importer.import_yaml_content()`，例句/量词/同义反义词/汉字分解/词源全部复用既有下游逻辑，**没有一行特例建卡代码**。这也意味着卡片与手工导入的词条完全一致（`importer._create_cards` 的 due 就是 `anki_today()`，`_make_leaf_decks` 建的子牌组名与 `get_or_create_category_decks` 相同）
+- 模型没返回 YAML 列表项时抛 `ValueError`；导入数为 0 的"完成"任务前端也报错 —— **绝不把垃圾内容悄悄写进库，也不假装成功**
+- 生成约 30 秒，所以走后台线程 + `job_id` 轮询（复用 `_import_jobs` 机制）
+- 只接受中文输入：德/英输入需要 AI 反问是哪个意思（`de-zh-bot` 就是这么做的），一个无交互的输入框做不到，猜错会静默存进一个错词
+- **不阻塞连续输入**（#636）：提交后立刻清空输入框，每个词进弹窗里的队列各自轮询自己的 job
+
+**已有的词：移动，不是新增**
+
+- `cards` 有 `UNIQUE(word_id, category)`，一个词终身只有三张卡，`insert_card` 对它是静默无效果的 —— 不存在"再加一张到今天"。已有词**不调 AI**（重新生成的内容会被 importer 当重复丢掉，纯烧钱）
+- **再次添加已学过的词 = 重置为新卡**（#675，Daniel 2026-08-10 明确要求，此前是拒绝并返回 `already_exists`）：`database.reset_word_to_new(word_id, leaf_decks, due, from_deck_id=None)` 把该词的三张卡搬进今天/明天的 Daily 叶子牌组并清空全部调度状态。`promote_saved_word` 现在只是它 `from_deck_id=Saved` 的一层薄封装
+  - **这是不可撤销的破坏性操作**：stability/difficulty/interval/lapses 是这个词的全部 FSRS 记忆模型。所以接口返回 `status="reset"` + `previous_decks` + `reviews_discarded`，前端如实显示"↺ reset from X → Y, N reviews discarded"，**不报一句平淡的成功**。卡片原本只在 `Saved`（没有进度可丢）时返回 `status="promoted"`，措辞不同
+  - `review_log` 的历史记录不删，所以统计不受影响
+
+**三个去处：★ List / 今天 / 明天**
+
+- **★ List**（#677）：`day="list"` —— 照常花钱生成完整词条，但卡片直接进 `Saved` 牌组并挂起，**不进任何复习队列**，直到在 Browse 的 saved 视图点 "→ Add to Daily" 提升。`database.stage_word_in_saved()` 是 `promote_saved_word` 的逆操作
+  - **导入仍走今天的 Daily 牌组，之后再搬**：直接以 `Saved` 为父牌组导入会建出 `Saved::listening` 等叶子牌组，而 Browse 的 saved 过滤器认的是 `deck_name === 'Saved'`
+  - **挂起靠 `state`，不靠 `due`**：`cards.due` 是 `NOT NULL DEFAULT date('now')`，写 NULL 直接违反约束。停留在 `Saved` 的卡照样有 due 值，是 `state='suspended'` 把它挡在队列外
+  - 停放**不清空** FSRS 字段（挂起已经够了；真要激活时 `promote_saved_word` 会重置），所以 `reviews_discarded` 返回 0 —— 与上面的 `reset` 不同，这不是破坏性操作
+  - Browse 的 saved 行只在词条**没有释义**时才显示 "✨ Generate"，★ List 进来的词内容已齐全，再生成纯烧钱
+- **今天/明天（#636，#715 起界面不再提供，接口保留）**：`day` 参数同时决定 Daily 牌组、`promote_saved_word` 的 due 和 `importer.import_yaml_content(due_offset_days=)`。**牌组和 due 必须一起后移** —— 未来日期的 Daily 牌组被 `parse_daily_deck_date` 锁住不可复习，卡片若还 due 今天就永远够不到
+
+**单一入口与独立页面**
+
+- **`/api/add-word-ai` 是全应用唯一的加词入口**（#643）：顶栏 ＋、播客单集的 HSK 生词表格、复习界面长按词的菜单、以及 `/add` 页面，全部共用 `shared.js` 的 `addWordViaAi()`。原来播客/长按走的 `/api/quick-add-word` 已删除 —— 它只让 AI 填四个字段（无例句/汉字分解/量词/同义反义词），而且 `added_to_deck` 分支在词已学过时被 `INSERT OR IGNORE` + `UNIQUE(word_id, category)` 全部静默丢弃，却照样返回成功。**加词只能有一条管线**，否则修好的坑会在第二条路上重新出现
+- **独立加词页 `/add`（#668）+ URL 参数（#686）**：可收藏的网址，打开就是输入框（存 iPhone 主屏当图标用）。`?word=生态`（或 `?w=`）+ 可选 `&day=today|tomorrow|list` → 打开即自动提交，供 iOS 快捷指令在任意 App 里一键加词；`day` 非法值回落 today（词才是重点，不该为此失败）。**提交后必须 `history.replaceState` 抹掉参数** —— 否则刷新或 iOS 恢复标签页会静默再花一次 AI 钱。`static/add.html` 是自包含页面，**故意不加载 `app.js`** —— 5.5 KB vs 完整应用的 77 KB + 491 KB JS，秒开就是这个功能的全部意义。为此把 `addWordViaAi()` 和 `api()` 从 `app.js` 抽到 `static/shared.js` 两页共用，**不复制第二份**（理由同上条；`tests/test_add_word.py` 有一条测试专门守着 `app.js` 里不能再出现这两个定义）
+
+**加法语词（#726）**：`lang` 参数（`zh` 默认 / `fr`）同时决定提示词和牌组树
+
+- **每种语言一棵平行的牌组树**，根名在 `languages.py` 的 `deck_root`（zh → `Daily`，fr → `Français`）：`Français::<日期> · Listening/…` + `Français::Saved`，牌组本身 `lang='fr'`。**必须如此**——全应用的语言过滤（`_lang_subquery_clause`、`get_descendant_leaf_deck_ids`）筛的是 `decks.lang` 而不是 `entries.lang`，法语卡放进中文牌组会在 fr 标签下消失、反而混进中文复习队列（生产库里 #726 之前导入的那 7 个法语词正是这个状态）
+- `Français::Saved` 的**牌组名仍是 `Saved`**（路径末段），所以 Browse 的 saved 视图（认 `deck_name === 'Saved'`）一行都不用改
+- **已存在的词按 `entries.lang` 落点，不听请求参数**：`word_zh` 是全局唯一的，lang 传错会把同一个词的三张卡撒进两棵语言树，两个标签下都看不见它。`promote_saved`（Browse 的 → Add to Daily）同理
+- **按语言校验输入文字体系**（zh 必须含汉字；fr 不能含汉字且要有拉丁字母）：加词框没有反问的机会（`de-zh-bot`/`de-fr-bot` 技能是靠追问"你指哪个意思"的），把德语词喂给法语提示词会静默生成一个错词条。查文字体系分不出法语和德语，但至少挡住 `生态` 走法语提示词
+- 法语输出**自带 `lang: fr` 头**，不靠目标牌组的语言推断——条目格式（`word:`/`level:`/`examples[].fr`）和 lang 必须一致，写在文档里能整类消灭"法语词条被当中文导入"
+- 复习界面长按菜单的两个按钮（`+ Add to Daily`、`★ Save for later`）按**当前卡片的语言**走（`currentCardLang()`），跟主页在哪个标签无关——词是从这张卡里挑出来的
+- `/add` 支持 `?lang=fr`（每种语言一个 iOS 快捷指令）；页面自己拉一次 `/api/langs` 决定是否显示语言切换钮，**不加载 `app.js`** 的原则不变
+
+---
 
 ## 故事生成
 
@@ -368,11 +492,11 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 - `briefing`（News flow，#399）——AI 写一篇**连贯的新闻总结**，目标词各恰好出现一次，但**不是每句都含目标词**——目标词句之间允许纯上下文句（承载数字/事实，不受 15 字限制）。含目标词的句子成为卡片；前面的上下文句用 Google Translate（非 AI）译成德语存 `story_sentences.context_de`（显示在卡片正面），中文原文存 `reasoning_zh`（背景弹窗）。briefing 卡片没有标题（concept_zh 为空）。自动抓取当日新闻（`news_fetcher.fetch_all()`：Tagesschau API + RSS，按天缓存）：两步 AI，`summarize_news_items` 挑最重要的 8 条（平衡德国/国际/中国相关）→ `generate_briefing_sentences` 生成连贯中文简报（模型固定服务器端 BRIEFING_MODEL，因 DeepSeek 会审查新闻内容）。抓取全部失败时报明确错误，不静默降级为普通故事
 - **旧 `news` 模式已移除**（#512，界面曾叫 "News briefing"）：新故事生成拒绝 `mode='news'`（`_generate_and_store` 直接抛 `ValueError`）；但历史 `news` 故事仍能正常展示，且 Again 单句重生成仍复用 `ai.generate_news_sentences`（`generate_sentence_for_word` 保留该分支）——不影响旧数据
 - briefing/paste 共同点：每句带 `source_url`（背景弹窗"打开原文"链接），复用 kahneman 的概念框/背景弹窗 UI；文章内容存 `stories.gen_params.articles` 供 Again 重生成复现同一批内容（paste 的文章通过 regenerate 的 POST body 传输）
-- `knowledge`（#482，原 `podcast` 模式，#654 改名以配合下方「知识库」泛化）——从已摘要的知识库素材（播客/视频/文章均可，`database.get_episode(episode_id)`）生成句子：素材文本优先取该条目的 `transcript_zh`（截断到 15000 字），无转录时才降级用 `summary_de`（#661；#561 曾改用摘要纯为省成本/延迟，实测一次约 $0.003 后确认没必要，副作用是输入变回中文全文更容易触发 DeepSeek 内容过滤，敏感话题走设置弹窗下拉框换 GPT 重新生成）。同样走 briefing 管线（`generate_briefing_sentences(generic=True, include_context=False)`），但**不允许上下文句**——每句都必须含一个目标词。`episode_id` 沿用 kahneman 的 `chapter_ids` 传参模式（GET 查询参数/regenerate POST body/gen_params），设置弹窗提供单选条目选择器（仅列 `status=summarized` 的条目）；不在早晨预生成 `_PREGEN_MODES` 里，因为选素材是一次性的。**历史 `mode='podcast'` 故事仍能展示和做 Again 单句重生成**——只在生成*新*故事时拒绝旧标识符（`ValueError`）
+- `knowledge`（#482，原 `podcast` 模式，#654 改名以配合「知识库」泛化）——从已摘要的知识库素材（播客/视频/文章均可，`database.get_episode(episode_id)`）生成句子：素材文本优先取该条目的 `transcript_zh`（截断到 15000 字），无转录时才降级用 `summary_de`（#661；#561 曾改用摘要纯为省成本/延迟，实测一次约 $0.003 后确认没必要，副作用是输入变回中文全文更容易触发 DeepSeek 内容过滤，敏感话题走设置弹窗下拉框换 GPT 重新生成）。同样走 briefing 管线（`generate_briefing_sentences(generic=True, include_context=False)`），但**不允许上下文句**——每句都必须含一个目标词。`episode_id` 沿用 kahneman 的 `chapter_ids` 传参模式（GET 查询参数/regenerate POST body/gen_params），设置弹窗提供单选条目选择器（仅列 `status=summarized` 的条目）；不在早晨预生成 `_PREGEN_MODES` 里，因为选素材是一次性的。**历史 `mode='podcast'` 故事仍能展示和做 Again 单句重生成**——只在生成*新*故事时拒绝旧标识符（`ValueError`）
 
 ---
 
-### 加星句子：改进提示词的正例样本（#692）
+## 加星句子：改进提示词的正例样本（#692）
 
 复习时读到写得好的句子，就地按 **Shift+F** 或点卡背工具条的 ☆ 加星；之后在 Browse 的 **⭐ Sentences** 视图集中回看。判断一句话好不好只有读到它的那一秒才可能，事后翻故事历史回忆不起来 —— 这是这个功能存在的全部理由。
 
@@ -385,6 +509,25 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 - **前端是独立渲染分支**：Browse 其余所有过滤（`_filteredBrowseWords()`）都是**按词**过滤的，加星是**句子**级实体，塞不进那条链。切到任何按词的过滤/搜索/排序时用 `_leaveStarredView()` 自动退出，免得标签高亮和列表内容说两套话
 - 复习时的加星是**乐观更新**：复习途中按钮卡住比星标没存上更打断节奏；失败回滚并报错
 - 没有句子的卡（还没生成故事，正面只显示单词）不显示该按钮
+
+---
+
+## 知识库（Knowledge Base，#650–#655）
+
+播客爬虫（#479）泛化成一个统一的知识库：播客单集、YouTube 视频、报刊文章三类素材走**同一条流水线**（获取 → 转录/正文 → 中文+德语摘要 → 生词标注 → 通知 → 造卡）。总体设计见 `docs/knowledge-base.md`（各阶段 Issue 都引用它）。
+
+- **不新建表，泛化 `podcast_episodes`**：加两列 `kind`（`podcast`|`video`|`article`）、`title_en`。**表名和历史列名故意不改**——改名要重建表+迁移生产库，风险远大于收益，本仓库已有同类先例（`youtube_url` 现在也存文章/播客链接，`word_zh` 对法语存法语词形）。`video_id` 对文章存 `normalize_url()` 去掉跟踪参数后的规范化 URL（`podcast_episodes` 的去重键），`transcript_source` 存 `youtube_captions`/`article`/`tingwu`/`whisper`/`notebooklm`
+- **`knowledge/` 包，`ingest.py` 是唯一入库管线**：`ingest_url()` 判断 YouTube 链接走 `youtube.py`（oEmbed 拿标题 + `youtube-transcript-api` 拿字幕，语言优先级 zh-Hans→zh-CN→zh→zh-TW→de→en，找不到任何字幕轨直接 `no_transcript`，**不跑 Whisper**；**YouTube 封锁云服务商 IP，所以服务器上字幕 API 恒返回 `RequestBlocked`，实际走的是 NotebookLM 兜底**，见下条），否则当文章走 `article.py`（`trafilatura` 抽正文，不足 200 字视为失败并抛 `ArticleExtractionError`——付费墙/登录墙/JS 页面绝不能存进库冒充正文，见其 docstring）。界面「粘贴 URL」框（`POST /api/knowledge/add`）和邮件收件（`mailbox.py`）**共用这一个函数**——理由同 #643 加词单一入口：两条平行管线迟早会让修好的坑在另一条上复活
+- **邮件收件（`knowledge/mailbox.py`，#655）**：IMAP 轮询 UNSEEN 邮件，标题+正文都扫 URL（手机分享到邮件，链接位置因 App 而异）。`KNOWLEDGE_MAIL_ALLOWED_SENDERS` 未配置时**整个邮箱检查被跳过，不读取也不标已读**——这是防止任何知道邮箱地址的人远程触发付费 AI 调用的唯一防线；处理失败的邮件同样不标已读，留给下一轮重试（`ingest_url()` 对已入库 URL 幂等返回 `already_exists`，重试安全）
+- **前端：播客页 → 知识页**（#653，`static/app.js`）：🎙️/📺/📄 三个子标签，播客管理页原有的 RSS 源/详情/生词表格逻辑全部保留，只是按 `?kind=` 过滤。**旧的 `#podcast-<id>` hash 链接永久保留**——已发出去的邮件/Signal 消息里全是这种链接；播客条目仍生成旧格式 hash，只有视频/文章条目用新的 `#knowledge-<id>`
+- **独立收藏页 `/save`（#681）**：`/add` 的素材版 —— 可收藏的网址，🔗 Link / 📋 Text 两个标签，粘链接或粘正文，同样**不加载 `app.js`**（手机上从别的 App 分享文章时秒开）。入库逻辑抽到 `shared.js` 的 `ingestKnowledge()`，应用的知识页和本页共用一份；`knowledgeTitleFor()` 统一"标题留空则取首行"的规则。**两处都不许直接调 `/api/knowledge/add*`**，有测试守着
+- **`GET /api/podcast/episodes` 加 `?kind=` 过滤**，`POST /api/knowledge/add` 只负责入库，**不在请求里做转录/摘要**——前端拿到 `episode_id` 后照常调用既有的 `POST /api/podcast/episodes/{id}/process`，造卡侧（`routes/story.py` 的 `knowledge` 模式，见「故事生成」）几乎零改动就能吃到播客以外的素材
+- **YouTube 字幕在服务器上必须走 NotebookLM（#681）**：YouTube 整片封锁云服务商 IP，Contabo 的服务器调字幕 API 永远得到 `RequestBlocked`。而 `RequestBlocked`/`IpBlocked`/`PoTokenRequired`/`AgeRestricted` **全是 `CouldNotRetrieveTranscript` 的子类** —— 原来只 `except` 基类，于是"被 YouTube 拒绝"被静默写成 `no_transcript`，一个有 9833 字中文字幕的视频在界面上显示"没有字幕"。现在拒绝类异常必须在基类**之前**捕获（`_blocked_error_types()`），先转 `podcast.transcribe_url_via_notebooklm()`（`sources.add_url()` 自动识别 YouTube 链接，由 Google 自己去取，绕开我们的出口 IP，免费、不下音频），兜底也空则抛 `CaptionsUnavailable` → `status='error'` + 可读原因。**真没字幕的视频不进兜底**，仍走廉价的 `no_transcript`，不浪费几分钟的 NotebookLM 轮次
+  - **代价**：NotebookLM 不能指定字幕语言，返回的是视频原声轨（那条视频拿回来的是英文 32633 字，不是本地能拿到的中文翻译轨 9833 字）。摘要提示词本来就容忍任意输入语言，所以功能通；要中文轨只能给字幕 API 配付费代理（`WebshareProxyConfig`），暂不做
+- 新依赖 `youtube-transcript-api`、`trafilatura`（已在 `requirements.txt`）
+- **一次性数据清理必须真的只跑一次（#688）**：`init_db()` 里 #497 那段"删除卡住的遗留 YouTube 行"按 `video_id` 是 11 位 + `status != 'summarized'` 判断，既没有一次性标记（每次启动都跑），又正好命中知识库摄取的视频 —— 生产 cron 每 2 分钟重启一次服务，于是每个新视频在 NotebookLM 转录完成前必被删除，界面上表现为"加完就消失"。现在两道保护：限定 `kind='podcast'` + `app_settings.purged_legacy_youtube_rows` 标记（标记写在"表已存在"迁移块之外，全新库首次启动也写）。**往 `init_db()` 里加任何 DELETE 之前，先想清楚它在第 100 次启动时会删掉什么**
+
+---
 
 ## 生词标注：代码做，不用 AI（`zh_annotate.py`，#638）
 
@@ -401,20 +544,20 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 
 ---
 
-## 知识库（Knowledge Base，#650–#655）
+## 复习收尾提醒（#701）
 
-播客爬虫（#479）泛化成一个统一的知识库：播客单集、YouTube 视频、报刊文章三类素材走**同一条流水线**（获取 → 转录/正文 → 中文+德语摘要 → 生词标注 → 通知 → 造卡）。总体设计见 `docs/knowledge-base.md`（各阶段 Issue 都引用它）。
+清空队列（0 open cards）后，被评为 Again 的卡片还留在学习步骤里（`1m 10m 1d 3d`）分批回来，Daniel 离开界面就无从知道它们什么时候到期。服务器 cron 每 5 分钟跑 `scripts/due_check.py` → `POST /api/review/due-notify-check`，条件成立时发一封邮件。
 
-- **不新建表，泛化 `podcast_episodes`**：加两列 `kind`（`podcast`|`video`|`article`）、`title_en`。**表名和历史列名故意不改**——改名要重建表+迁移生产库，风险远大于收益，本仓库已有同类先例（`youtube_url` 现在也存文章/播客链接，`word_zh` 对法语存法语词形）。`video_id` 对文章存 `normalize_url()` 去掉跟踪参数后的规范化 URL（`podcast_episodes` 的去重键），`transcript_source` 存 `youtube_captions`/`article`/`tingwu`/`whisper`/`notebooklm`
-- **`knowledge/` 包，`ingest.py` 是唯一入库管线**：`ingest_url()` 判断 YouTube 链接走 `youtube.py`（oEmbed 拿标题 + `youtube-transcript-api` 拿字幕，语言优先级 zh-Hans→zh-CN→zh→zh-TW→de→en，找不到任何字幕轨直接 `no_transcript`，**不跑 Whisper**；**YouTube 封锁云服务商 IP，所以服务器上字幕 API 恒返回 `RequestBlocked`，实际走的是 NotebookLM 兜底**，见下条），否则当文章走 `article.py`（`trafilatura` 抽正文，不足 200 字视为失败并抛 `ArticleExtractionError`——付费墙/登录墙/JS 页面绝不能存进库冒充正文，见其 docstring）。界面「粘贴 URL」框（`POST /api/knowledge/add`）和邮件收件（`mailbox.py`）**共用这一个函数**——理由同 #643 加词单一入口：两条平行管线迟早会让修好的坑在另一条上复活
-- **邮件收件（`knowledge/mailbox.py`，#655）**：IMAP 轮询 UNSEEN 邮件，标题+正文都扫 URL（手机分享到邮件，链接位置因 App 而异）。`KNOWLEDGE_MAIL_ALLOWED_SENDERS` 未配置时**整个邮箱检查被跳过，不读取也不标已读**——这是防止任何知道邮箱地址的人远程触发付费 AI 调用的唯一防线；处理失败的邮件同样不标已读，留给下一轮重试（`ingest_url()` 对已入库 URL 幂等返回 `already_exists`，重试安全）
-- **前端：播客页 → 知识页**（#653，`static/app.js`）：🎙️/📺/📄 三个子标签，播客管理页原有的 RSS 源/详情/生词表格逻辑全部保留，只是按 `?kind=` 过滤。**旧的 `#podcast-<id>` hash 链接永久保留**——已发出去的邮件/Signal 消息里全是这种链接；播客条目仍生成旧格式 hash，只有视频/文章条目用新的 `#knowledge-<id>`
-- **独立收藏页 `/save`（#681）**：`/add` 的素材版 —— 可收藏的网址，🔗 Link / 📋 Text 两个标签，粘链接或粘正文，同样**不加载 `app.js`**（手机上从别的 App 分享文章时秒开）。入库逻辑抽到 `shared.js` 的 `ingestKnowledge()`，应用的知识页和本页共用一份；`knowledgeTitleFor()` 统一"标题留空则取首行"的规则。**两处都不许直接调 `/api/knowledge/add*`**，有测试守着
-- **`GET /api/podcast/episodes` 加 `?kind=` 过滤**，`POST /api/knowledge/add` 只负责入库，**不在请求里做转录/摘要**——前端拿到 `episode_id` 后照常调用既有的 `POST /api/podcast/episodes/{id}/process`，造卡侧（`routes/story.py` 的 `knowledge` 模式，见上）几乎零改动就能吃到播客以外的素材
-- **YouTube 字幕在服务器上必须走 NotebookLM（#681）**：YouTube 整片封锁云服务商 IP，Contabo 的服务器调字幕 API 永远得到 `RequestBlocked`。而 `RequestBlocked`/`IpBlocked`/`PoTokenRequired`/`AgeRestricted` **全是 `CouldNotRetrieveTranscript` 的子类** —— 原来只 `except` 基类，于是"被 YouTube 拒绝"被静默写成 `no_transcript`，一个有 9833 字中文字幕的视频在界面上显示"没有字幕"。现在拒绝类异常必须在基类**之前**捕获（`_blocked_error_types()`），先转 `podcast.transcribe_url_via_notebooklm()`（`sources.add_url()` 自动识别 YouTube 链接，由 Google 自己去取，绕开我们的出口 IP，免费、不下音频），兜底也空则抛 `CaptionsUnavailable` → `status='error'` + 可读原因。**真没字幕的视频不进兜底**，仍走廉价的 `no_transcript`，不浪费几分钟的 NotebookLM 轮次
-  - **代价**：NotebookLM 不能指定字幕语言，返回的是视频原声轨（那条视频拿回来的是英文 32633 字，不是本地能拿到的中文翻译轨 9833 字）。摘要提示词本来就容忍任意输入语言，所以功能通；要中文轨只能给字幕 API 配付费代理（`WebshareProxyConfig`），暂不做
-- 新依赖 `youtube-transcript-api`、`trafilatura`（已在 `requirements.txt`）
-- **一次性数据清理必须真的只跑一次（#688）**：`init_db()` 里 #497 那段"删除卡住的遗留 YouTube 行"按 `video_id` 是 11 位 + `status != 'summarized'` 判断，既没有一次性标记（每次启动都跑），又正好命中知识库摄取的视频 —— 生产 cron 每 2 分钟重启一次服务，于是每个新视频在 NotebookLM 转录完成前必被删除，界面上表现为"加完就消失"。现在两道保护：限定 `kind='podcast'` + `app_settings.purged_legacy_youtube_rows` 标记（标记写在"表已存在"迁移块之外，全新库首次启动也写）。**往 `init_db()` 里加任何 DELETE 之前，先想清楚它在第 100 次启动时会删掉什么**
+- **三条同时成立才发**（`database.due_notification_status()`）：`due_now > 0`（有已到期的 learning/relearn 卡）、`later_today == 0`（现在→明天日界点之间没有还在等的学习卡）、`other_due == 0`（new + review 到期卡已清零，即队列确实空过）
+- **`later_today == 0` 是这个功能的全部意义**：第一张卡回来就通知，等于把 Daniel 叫回去做两张卡再干等十分钟，那还不如不提醒
+- **1d/3d 步骤的卡刻意不参与判断**：它们到期在明天日界之后，属于别的一天；等它们就永远发不出去
+- **计数复用 `count_due_all_decks()`**，不手写 COUNT(*)：新卡每日上限、锁定的未来 Daily 牌组、禁用的 reading 类别它都处理过了，自己写一份迟早和界面角标说两套话
+- **"明天日界点"必须算成完整 ISO datetime**（`get_day_cutoff_hour()`）：`cards.due` 对 learning 卡存的是 datetime，拿日期字符串比会把凌晨 0–5 点的卡算成明天
+- **每个 Anki 日最多一封**，标记存 `app_settings.due_notify_last_day`；`?force=true` 只跳过去重，条件不成立照样不发
+- **SMTP 未配置 = 跳过不是失败，且此时不写标记** —— 否则等配置好了当天再也收不到
+- 发信走 `podcast.send_mail()`（从 `send_email()` 抽出的通用函数，播客/知识库通知与本提醒共用一份 SMTP 逻辑）
+
+---
 
 ## API 接口
 
@@ -497,45 +640,6 @@ GET  /api/add-word-ai/progress/{job_id}              → 轮询后台生成+导�
 GET  /api/browse                                     → {deck_id?, category?, state?, q?, lang?}
 GET  /api/stats ；/api/retention ；/api/card-evolution（均支持 ?lang=）
 ```
-
----
-
-## 启动、CLI 与环境变量
-
-```bash
-bash run.sh          # 生产启动（读取 .env，清理 8000 端口）——服务器上由 systemd 代替
-bash run.dev.sh      # 开发启动（DB_PATH=data/dev.db，DISABLE_AI=1）
-bash run.offline.sh  # 离线启动（OFFLINE_MODE=1，DB_PATH=data/offline.db，端口 8001）——见"离线模式"
-python main.py import                # 导入 imports/ 下的 YAML（目录需存在）
-python main.py status [--deck X]     # 显示每个牌组/类别的到期数量
-```
-
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `ANTHROPIC_API_KEY` | 必填 | Claude API 密钥 |
-| `DEEPSEEK_API_KEY` / `ZHIPU_API_KEY` / `QWEN_API_KEY` | 可选 | 其他 AI 提供商密钥 |
-| `OPENAI_API_KEY` | 可选 | 新闻模式默认模型 `gpt-5-mini`（DeepSeek 会审查新闻，故用 OpenAI） |
-| `DB_PATH` | `data/srs.db` | 数据库路径（开发用 `data/dev.db`） |
-| `DISABLE_AI` | `0` | 设为 `1` 跳过 AI 故事生成 |
-| `OFFLINE_MODE` | `0` | 设为 `1` 进入硬离线模式（#612）：隐含 `DISABLE_AI`，TTS 只读缓存，零网络请求，连探测都不做 |
-| `LOCAL_MODE` | `0` | 设为 `1` 进入本地模式（#625）：有网全功能，断网自动降级为离线行为 |
-| `LOCAL_MODE_PROBE_HOSTS` | `api.deepseek.com,speech.platform.bing.com` | 本地模式判断有没有网时探测的主机（443 端口，任一连通即算在线） |
-| `ANKI_LOCAL_DB` | `data/offline.db` | 同步脚本的本地库路径；配合 `ANKI_REMOTE_DIR` 做演练时必须一起设 |
-| `PORT` | `8000` | 服务监听端口（`run.offline.sh` 用 8001） |
-| `LOG_LEVEL` | `INFO` | 日志级别（`DEBUG` 输出详细日志） |
-| `DEV_CLEAR_DB` | `` | 设为任意值启动时清空数据库——生产环境绝不要设置 |
-| `AUTH_USERNAME` / `AUTH_PASSWORD` | 可选 | 两者都设置时启用登录保护（保护所有路径，`/login` 除外）。主流程是 HTML 表单登录 + 一年期签名 Cookie（#666），Basic Auth 保留作 curl/脚本的回退 |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `SMTP_FROM` | 可选 | 播客爬虫（#479）邮件通知用；`SMTP_PORT` 默认 587（STARTTLS）；未配置时跳过发信，记日志，不算失败 |
-| `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | 可选 | 播客爬虫用 Spotify Web API 搜索单集链接；未配置时退化为 Spotify 搜索链接 |
-| `PUBLIC_BASE_URL` | `https://powerdaniel3000.duckdns.org` | 播客邮件/Signal 通知里转录页链接的域名前缀 |
-| `SIGNAL_ACCOUNT` / `SIGNAL_CLI_PATH` | 可选 | 播客爬虫（#521）Signal 通知用；`SIGNAL_ACCOUNT` 是 Daniel 关联设备所属号码（如 `+49…`），`SIGNAL_CLI_PATH` 默认 `signal-cli`；`SIGNAL_ACCOUNT` 未配置时跳过发送，记日志，不算失败。一次性 signal-cli 安装/扫码关联步骤见 `scripts/README.md` |
-| `ALIBABA_CLOUD_ACCESS_KEY_ID` / `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | 可选 | 播客爬虫（#498）通义听悟（转录主力）用的阿里云 AccessKey；未配置时自动跳过，落到 Whisper/NotebookLM |
-| `TINGWU_APP_KEY` | 可选 | 播客爬虫（#498）通义听悟控制台创建的应用 AppKey；与上面两个 AccessKey 变量任一缺失都会跳过听悟。一次性开通步骤见 `scripts/README.md` |
-| `KNOWLEDGE_IMAP_HOST` / `KNOWLEDGE_IMAP_PORT` | 可选 | 知识库邮件收件（#655）的 IMAP 服务器；端口默认 `993`（SSL） |
-| `KNOWLEDGE_IMAP_USER` / `KNOWLEDGE_IMAP_PASSWORD` | 可选 | 知识库邮件收件（#655）专用邮箱的登录凭据；三者（含上面两个变量）任一未配置时 `scripts/knowledge_mail_check.py` 直接跳过，不连接 |
-| `KNOWLEDGE_MAIL_ALLOWED_SENDERS` | 可选 | 知识库邮件收件（#655）发件人白名单，逗号分隔的邮箱地址（不区分大小写，兼容 `Name <addr@x.de>` 格式）；**留空则整个邮箱检查被跳过，不处理任何邮件**——这是防止任何知道邮箱地址的人往服务器塞 URL 触发 AI 调用的唯一防线 |
-
-注意：uvicorn 直接启动不建表——测试前先手动 `database.init_db()`（`run.sh`/`main.py` 会自动处理）。
 
 ---
 
