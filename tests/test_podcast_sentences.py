@@ -133,3 +133,94 @@ def test_no_material_returns_empty_prompt(monkeypatch):
                         lambda *a, **kw: pytest.fail("素材为空时不该调 AI"))
     sentences, prompt = ai.generate_podcast_sentences(CARDS, "   ", "标题")
     assert sentences == [] and prompt == ""
+
+
+# ── #743: 截断 JSON 救回 ────────────────────────────────────────────────────
+
+def test_salvage_parses_complete_array():
+    raw = json.dumps([
+        {"sentence_zh": "第一句。"},
+        {"sentence_zh": "第二句。"},
+    ], ensure_ascii=False)
+    items, truncated = ai._parse_json_array_salvage(raw)
+    assert truncated is False
+    assert [i["sentence_zh"] for i in items] == ["第一句。", "第二句。"]
+
+
+def test_salvage_recovers_truncated_array():
+    """一个 3 元素数组的字符串，从中间某处砍掉——只留前两个完整对象。"""
+    full = json.dumps([
+        {"sentence_zh": "第一句。"},
+        {"sentence_zh": "第二句。"},
+        {"sentence_zh": "第三句，这句被砍掉了。"},
+    ], ensure_ascii=False)
+    # 砍在第三个对象的开头之后、闭合花括号之前——模拟 max_tokens 截断。
+    cut_at = full.rfind('"sentence_zh"')
+    truncated_raw = full[:cut_at] + '"sentence_zh": "第三句，这句'
+
+    items, truncated = ai._parse_json_array_salvage(truncated_raw)
+    assert truncated is True
+    assert len(items) == 2
+    assert [i["sentence_zh"] for i in items] == ["第一句。", "第二句。"]
+
+
+def test_salvage_handles_braces_and_quotes_in_content():
+    """句子内容里含 { } " 转义时不会解析错位。"""
+    raw = json.dumps([
+        {"sentence_zh": '他说："这个{词}很难"，然后笑了。'},
+        {"sentence_zh": "第二句正常。"},
+    ], ensure_ascii=False)
+    items, truncated = ai._parse_json_array_salvage(raw)
+    assert truncated is False
+    assert items[0]["sentence_zh"] == '他说："这个{词}很难"，然后笑了。'
+    assert items[1]["sentence_zh"] == "第二句正常。"
+
+
+def test_salvage_with_braces_and_quotes_when_truncated():
+    """截断场景下同样要正确跳过字符串内的花括号/引号，不能在里面误判对象结束。"""
+    full = json.dumps([
+        {"sentence_zh": '他说："这个{词}很难"，然后笑了。'},
+        {"sentence_zh": "第二句正常。"},
+        {"sentence_zh": "第三句被砍掉。"},
+    ], ensure_ascii=False)
+    cut_at = full.rfind('"sentence_zh"')
+    truncated_raw = full[:cut_at] + '"sentence_zh": "第三句被'
+
+    items, truncated = ai._parse_json_array_salvage(truncated_raw)
+    assert truncated is True
+    assert len(items) == 2
+    assert items[0]["sentence_zh"] == '他说："这个{词}很难"，然后笑了。'
+    assert items[1]["sentence_zh"] == "第二句正常。"
+
+
+def test_end_to_end_truncated_reply_still_yields_sentences(monkeypatch):
+    """原来：截断的一轮整轮作废，句子数为 0。现在：救回完整的那几条。"""
+    full = json.dumps([
+        {"sentence_zh": "张一鸣承认公司暂时落后。"},
+        {"sentence_zh": "他在抖音上刷视频，顺便就下了单。"},
+    ], ensure_ascii=False)
+    cut_at = full.rfind("]")
+    truncated_raw = full[:cut_at]  # 砍掉收尾的 ]
+
+    def fake_call(model, messages, *a, **kw):
+        return truncated_raw
+
+    monkeypatch.setattr(ai, "_call_api", fake_call)
+    sentences, prompt = ai.generate_podcast_sentences(CARDS, "Zusammenfassung", "标题")
+
+    assert len(sentences) > 0
+    assert not all("我学了" in s["sentence_zh"] for s in sentences)
+
+
+# ── #743: 输出预算按词数计算 ─────────────────────────────────────────────────
+
+def test_max_tokens_floor_for_small_batch():
+    assert ai._podcast_max_tokens("deepseek-v4-flash", 1) == 4096
+
+
+def test_max_tokens_caps_at_gpt_ceiling_for_large_batch():
+    assert ai._podcast_max_tokens("gpt-5.6-luna", 154) == 16384
+
+
+def test_max_tokens_caps_at_non_gpt_ceiling_for_large_batch():
+    assert ai._podcast_max_tokens("deepseek-v4-flash", 154) == 8192
