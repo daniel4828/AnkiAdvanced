@@ -208,7 +208,7 @@ class TestGenerateBriefingSentencesRetry:
         with patch("ai._call_api", side_effect=responses) as mock_call, \
              patch("ai.fact_check_briefing", return_value=[]), \
              patch("ai._fill_translations", lambda sentences, **kw: None):
-            result = ai.generate_briefing_sentences(CARDS, ARTICLES, model="gpt-5.1")
+            result = ai.generate_briefing_sentences(CARDS, ARTICLES, model="gpt-5.6-luna")
 
         assert mock_call.call_count == 2
         assert len(result) == len(CARDS)
@@ -222,7 +222,7 @@ class TestGenerateBriefingSentencesRetry:
         with patch("ai._call_api", return_value=json.dumps(VALID_ITEMS)) as mock_call, \
              patch("ai.fact_check_briefing", return_value=[]), \
              patch("ai._fill_translations", lambda sentences, **kw: None):
-            result = ai.generate_briefing_sentences(CARDS, ARTICLES, model="gpt-5.1")
+            result = ai.generate_briefing_sentences(CARDS, ARTICLES, model="gpt-5.6-luna")
 
         assert mock_call.call_count == 1
         assert len(result) == len(CARDS)
@@ -238,7 +238,7 @@ class TestGenerateBriefingSentencesRetry:
         with patch("ai._call_api", side_effect=responses) as mock_call, \
              patch("ai.fact_check_briefing", return_value=[]), \
              patch("ai._fill_translations", lambda sentences, **kw: None):
-            result = ai.generate_briefing_sentences(CARDS, ARTICLES, model="gpt-5.1")
+            result = ai.generate_briefing_sentences(CARDS, ARTICLES, model="gpt-5.6-luna")
 
         assert mock_call.call_count == 2
         assert len(result) == len(CARDS)
@@ -252,7 +252,7 @@ class TestGenerateBriefingSentencesRetry:
         with patch("ai._call_api", return_value=json.dumps(VALID_ITEMS)) as mock_call, \
              patch("ai.fact_check_briefing", side_effect=[["句子1：数字不符"], []]) as mock_fc, \
              patch("ai._fill_translations", lambda sentences, **kw: None):
-            result = ai.generate_briefing_sentences(CARDS, ARTICLES, model="gpt-5.1")
+            result = ai.generate_briefing_sentences(CARDS, ARTICLES, model="gpt-5.6-luna")
 
         # 1 initial generation + 1 fact-check-triggered regeneration = 2 calls
         assert mock_call.call_count == 2
@@ -280,41 +280,41 @@ class TestResolveBriefingModel:
         return mock_client
 
     def test_uses_requested_model_when_available(self, monkeypatch):
-        monkeypatch.setenv("BRIEFING_MODEL", "gpt-5.1")
+        monkeypatch.setenv("BRIEFING_MODEL", "gpt-5.6-luna")
         with patch("openai.OpenAI", return_value=self._mock_models_client(
-            ["gpt-5.1", "gpt-5", "gpt-5-mini"])):
-            assert ai.resolve_briefing_model() == "gpt-5.1"
+            ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5-mini"])):
+            assert ai.resolve_briefing_model() == "gpt-5.6-luna"
 
     def test_falls_back_when_requested_model_missing(self, monkeypatch):
-        monkeypatch.setenv("BRIEFING_MODEL", "gpt-5.1")
+        monkeypatch.setenv("BRIEFING_MODEL", "gpt-5.6-luna")
         with patch("openai.OpenAI", return_value=self._mock_models_client(
-            ["gpt-5", "gpt-5-mini"])):
-            assert ai.resolve_briefing_model() == "gpt-5"
+            ["gpt-5.6-terra", "gpt-5-mini"])):
+            assert ai.resolve_briefing_model() == "gpt-5.6-terra"
 
     def test_falls_back_to_mini_when_only_mini_available(self, monkeypatch):
-        monkeypatch.setenv("BRIEFING_MODEL", "gpt-5.1")
+        monkeypatch.setenv("BRIEFING_MODEL", "gpt-5.6-luna")
         with patch("openai.OpenAI", return_value=self._mock_models_client(["gpt-5-mini"])):
             assert ai.resolve_briefing_model() == "gpt-5-mini"
 
     def test_falls_back_to_last_resort_when_nothing_matches(self, monkeypatch):
-        monkeypatch.setenv("BRIEFING_MODEL", "gpt-5.1")
+        monkeypatch.setenv("BRIEFING_MODEL", "gpt-5.6-luna")
         with patch("openai.OpenAI", return_value=self._mock_models_client(["some-other-model"])):
             assert ai.resolve_briefing_model() == "gpt-5-mini"
 
     def test_falls_back_to_last_resort_on_api_error(self, monkeypatch):
-        monkeypatch.setenv("BRIEFING_MODEL", "gpt-5.1")
+        monkeypatch.setenv("BRIEFING_MODEL", "gpt-5.6-luna")
         mock_client = MagicMock()
         mock_client.models.list.side_effect = RuntimeError("network down")
         with patch("openai.OpenAI", return_value=mock_client):
             assert ai.resolve_briefing_model() == "gpt-5-mini"
 
     def test_result_is_cached_across_calls(self, monkeypatch):
-        monkeypatch.setenv("BRIEFING_MODEL", "gpt-5.1")
+        monkeypatch.setenv("BRIEFING_MODEL", "gpt-5.6-luna")
         with patch("openai.OpenAI", return_value=self._mock_models_client(
-            ["gpt-5.1"])) as mock_cls:
+            ["gpt-5.6-luna"])) as mock_cls:
             first = ai.resolve_briefing_model()
             second = ai.resolve_briefing_model()
-        assert first == second == "gpt-5.1"
+        assert first == second == "gpt-5.6-luna"
         mock_cls.assert_called_once()
 
 
