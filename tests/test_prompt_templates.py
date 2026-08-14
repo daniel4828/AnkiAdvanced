@@ -76,9 +76,11 @@ def test_knowledge_template_keeps_json_example_braces():
         "title": "T", "summary": "S", "words": "1. 蘑菇（mógū）— mushroom",
         "max_hsk": "3", "extra_hint": "",
     })
-    # JSON 示例的花括号必须原样保留（替换只针对已知记号）
-    assert ('{"reasoning_zh": "解释内容", "sentence_zh": "含目标词的句子", '
-            '"target_word": "词汇"}') in rendered
+    # JSON 示例的花括号必须原样保留（替换只针对已知记号）。断言写在结构上而不是
+    # 示例的逐字文本上——提示词本身会被反复调（#737/#741），逐字断言只会逼着
+    # 每次调词都来改测试，守不住任何真实契约。
+    assert '{"reasoning_zh":' in rendered
+    assert '"sentence_zh":' in rendered and '"target_word":' in rendered
     assert "T" in rendered and "S" in rendered and "HSK 1-3" in rendered
     # 所有记号都已被替换
     for var in ai.PROMPT_TEMPLATE_VARIABLES["knowledge"]:
