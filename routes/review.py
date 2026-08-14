@@ -104,8 +104,11 @@ def _order_by_story(cards: list[dict], story_deck_id: int | None,
     """Reorder due cards to match today's News-flow-style story (briefing/news/
     paste — issue #454): word_id → story_sentences.position, via
     database.get_story_position_map(). `sorted` is stable, so cards whose word
-    isn't in the story (or when there's no such story at all) keep their
-    existing interleaved order and sort after everything that is in the story.
+    isn't in the story keep their existing interleaved order within their group;
+    database.story_sort_key() decides the groups — learning/review leftovers the
+    story doesn't cover come first, new cards it doesn't cover come last (#732).
+    Without that split, a story regenerated mid-session (it only covers the words
+    due at generation time) pushed every leftover behind all new cards.
 
     Single-category sessions that don't find a per-category story also try the
     'unified' story — a unified story (from a mixed/"All" review session)
@@ -120,7 +123,7 @@ def _order_by_story(cards: list[dict], story_deck_id: int | None,
         pos = database.get_story_position_map(story_deck_id, "unified", today, lang)
     if not pos:
         return cards
-    ordered = sorted(cards, key=lambda c: pos.get(c.get("word_id"), float("inf")))
+    ordered = sorted(cards, key=lambda c: database.story_sort_key(c, pos))
     # Mark the result so QueueManager._build() knows story order is in effect:
     # already-due intraday learning cards must NOT jump ahead of it (issue #462).
     for c in ordered:

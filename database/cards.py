@@ -353,6 +353,30 @@ def _still_learning(card: dict, learned_interval: int) -> bool:
     return card["state"] == "review" and (card.get("interval") or 0) < learned_interval
 
 
+def story_sort_key(card: dict, story_pos: dict) -> tuple[int, int]:
+    """Where a due card sits relative to today's story (issue #732).
+
+    Every caller that orders a review queue by story position used to write
+    `story_pos.get(word_id, <some max>)`, which drops cards missing from the
+    story behind *everything* — including new cards.  A story only covers the
+    words that were due when it was generated, so re-generating it after a
+    partial review session leaves the morning's leftovers (especially the ones
+    rated Again) outside it, and on a day with many new cards they were never
+    reached.  Deck badges still counted them, so they looked lost.
+
+    Three groups instead:
+      0 — due cards outside the story that are NOT new: real debt with no
+          sentence to read, and the learning-first order that applies when no
+          story exists must keep applying when one does.
+      1 — cards in the story, in narrative order.
+      2 — new cards outside the story (added or promoted after generation).
+    """
+    pos = story_pos.get(card.get("word_id"))
+    if pos is not None:
+        return (1, pos)
+    return (2, 0) if card.get("state") == "new" else (0, 0)
+
+
 def _interleave_cards(base: list, inserts: list) -> list:
     """Distribute inserts evenly across the full combined length.
 
@@ -541,8 +565,7 @@ def get_next_card(deck_id: int, category: str) -> dict | None:
         sentences = get_story_sentences(story["id"])
         # word_id → story position
         story_pos = {s["word_id"]: s["position"] for s in sentences}
-        NO_POS = len(sentences)  # cards not in story go last
-        cards.sort(key=lambda c: story_pos.get(c["word_id"], NO_POS))
+        cards.sort(key=lambda c: story_sort_key(c, story_pos))
 
     return cards[0]
 
@@ -973,12 +996,14 @@ def get_due_cards_any_cat(root_deck_id: int, lang: str | None = None) -> list[di
                 for wid in s["word_ids"]:
                     story_pos[wid] = s["position"]
 
-    NO_POS = 9999
     if story_pos:
         # Story exists: follow narrative order so the session reads top-to-bottom.
+        # Cards the story doesn't cover are grouped by story_sort_key (#732) —
+        # learning/review leftovers ahead of it, new cards behind it — instead of
+        # all landing behind every new card.
         # Use category_order as tiebreaker so same-word cards respect deck settings.
         all_cards.sort(key=lambda c: (
-            story_pos.get(c["word_id"], NO_POS),
+            story_sort_key(c, story_pos),
             cat_order.get(c["category"], 99),
         ))
     else:
