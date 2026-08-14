@@ -657,6 +657,9 @@ def init_db() -> None:
             conn.execute("ALTER TABLE podcast_episodes ADD COLUMN kind TEXT NOT NULL DEFAULT 'podcast'")
         if "title_en" not in pe_cols:
             conn.execute("ALTER TABLE podcast_episodes ADD COLUMN title_en TEXT")
+        if "china_critical" not in pe_cols:
+            conn.execute("ALTER TABLE podcast_episodes ADD COLUMN "
+                         "china_critical INTEGER NOT NULL DEFAULT 0")
         conn.commit()
 
 

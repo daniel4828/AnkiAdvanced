@@ -58,6 +58,9 @@
   li.done { background: var(--ok-bg); } li.done .msg { color: var(--ok); }
   li.error { background: var(--err-bg); } li.error .msg { color: var(--err); }
   .hint { margin: .8rem 0 0; font-size: .8rem; color: var(--muted); }
+  .china { display: flex; align-items: center; gap: .5rem; margin-top: .8rem;
+           font-size: .85rem; color: var(--muted); cursor: pointer; }
+  .china input { width: 1.1rem; height: 1.1rem; margin: 0; }
 </style>
 </head>
 <body>
@@ -85,6 +88,13 @@
       <textarea id="text" placeholder="Paste the article body…"></textarea>
       <button class="go" id="go-text">Add</button>
     </div>
+
+    <!-- #731: DeepSeek waters down China-critical material without saying so,
+         so this flag makes the server's API summary fallback use GPT instead.
+         Shared by both tabs and cleared after every submit — the cheap model
+         is right for almost everything, and a sticky box would quietly spend
+         GPT money on all of it. -->
+    <label class="china"><input type="checkbox" id="china"> china-kritisch — summarize with GPT</label>
 
     <p class="hint" id="hint">Transcription and the Chinese + German summary run on the
       server — you can close this page, it keeps going.</p>
@@ -131,6 +141,8 @@
     }));
   }
 
+  const china = document.getElementById('china');
+
   async function submit(payload, what) {
     // Clear immediately — the next link can be pasted while this one runs.
     const item = { what, state: 'running', text: 'Adding…' };
@@ -156,7 +168,8 @@
     if (!v) return;
     url.value = '';
     url.focus();
-    submit({ url: v }, v);
+    submit({ url: v, china_critical: china.checked }, v);
+    china.checked = false;
   };
   url.addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('go-link').click();
@@ -170,7 +183,8 @@
     title.value = '';
     text.value = '';
     text.focus();
-    submit({ title: t, text: body }, t);
+    submit({ title: t, text: body, china_critical: china.checked }, t);
+    china.checked = false;
   };
 </script>
 </body>

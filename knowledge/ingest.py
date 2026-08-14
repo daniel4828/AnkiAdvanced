@@ -37,21 +37,27 @@ class IngestError(Exception):
     failed, pasted text too short, ...)."""
 
 
-def ingest_url(url: str) -> dict:
+def ingest_url(url: str, china_critical: bool = False) -> dict:
     """Resolve `url` to a podcast_episodes row and return either
     {"episode_id": int} (newly created) or {"status": "already_exists",
-    "episode_id": int} (deduped). Raises IngestError on failure."""
+    "episode_id": int} (deduped). Raises IngestError on failure.
+
+    `china_critical` (#731) is stored on the row and only read much later,
+    at summarize time (podcast.summarize) — the summary happens in the
+    separate .../process call when nobody is watching, so the flag has to be
+    captured here, at paste time, which is the only moment Daniel knows what
+    he is adding. A deduped row keeps whatever flag it already had."""
     url = (url or "").strip()
     if not url:
         raise IngestError("url is required")
 
     video_id = knowledge.youtube.parse_video_id(url)
     if video_id:
-        return _ingest_video(url, video_id)
-    return _ingest_article(url)
+        return _ingest_video(url, video_id, china_critical=china_critical)
+    return _ingest_article(url, china_critical=china_critical)
 
 
-def _ingest_video(url: str, video_id: str) -> dict:
+def _ingest_video(url: str, video_id: str, china_critical: bool = False) -> dict:
     existing = database.get_episode_by_video_id(video_id)
     if existing:
         return {"status": "already_exists", "episode_id": existing["id"]}
@@ -78,6 +84,7 @@ def _ingest_video(url: str, video_id: str) -> dict:
         audio_url=None,
         duration_seconds=None,
         kind="video",
+        china_critical=china_critical,
     )
     if title_en:
         database.update_episode(episode_id, title_en=title_en)
@@ -96,7 +103,8 @@ def _existing_episode(video_id: str) -> dict | None:
 
 
 def _store_article(*, video_id: str, title: str, site: str | None, published_at,
-                    source_url: str | None, text: str, transcript_source: str) -> dict:
+                    source_url: str | None, text: str, transcript_source: str,
+                    china_critical: bool = False) -> dict:
     """Create the kind='article' podcast_episodes row and store `text` as
     transcript_zh immediately — this is the ONE row-building code path for
     both _ingest_article (URL) and ingest_text (pasted body, #668); they
@@ -125,6 +133,7 @@ def _store_article(*, video_id: str, title: str, site: str | None, published_at,
         audio_url=None,
         duration_seconds=None,
         kind="article",
+        china_critical=china_critical,
     )
     updates = {"transcript_zh": text, "transcript_source": transcript_source}
     if title_en:
@@ -134,7 +143,7 @@ def _store_article(*, video_id: str, title: str, site: str | None, published_at,
     return {"episode_id": episode_id}
 
 
-def _ingest_article(url: str) -> dict:
+def _ingest_article(url: str, china_critical: bool = False) -> dict:
     """Article ingestion (#652): anything that isn't a recognized YouTube
     URL is treated as an article. normalize_url() (strips utm_*/fbclid/...)
     is the dedup key, so the same article shared via different links lands
@@ -163,6 +172,7 @@ def _ingest_article(url: str) -> dict:
         source_url=url,
         text=article["text"],
         transcript_source="article",
+        china_critical=china_critical,
     )
 
 
@@ -173,7 +183,8 @@ _MIN_TEXT_CHARS = knowledge.article._MIN_ARTICLE_CHARS
 _MAX_TEXT_CHARS = knowledge.article._MAX_ARTICLE_CHARS
 
 
-def ingest_text(title: str, text: str, source_url: str | None = None) -> dict:
+def ingest_text(title: str, text: str, source_url: str | None = None,
+                china_critical: bool = False) -> dict:
     """Ingest a pasted article body (#668) — for paywalled articles
     (Spiegel+, FAZ, ...) the server can't fetch, but the user can read in
     their browser and paste the text in directly. Same kind='article' row
@@ -216,4 +227,5 @@ def ingest_text(title: str, text: str, source_url: str | None = None) -> dict:
         source_url=source_url,
         text=text,
         transcript_source="pasted",
+        china_critical=china_critical,
     )

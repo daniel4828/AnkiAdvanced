@@ -3376,6 +3376,10 @@ function _renderKnowledgeMaterialList() {
           </div>
           <button class="btn-secondary" onclick="submitKnowledgeText()" style="flex-shrink:0">Add</button>
         </div>
+        <label class="keymap-row" style="gap:6px;font-size:12px;color:var(--muted);cursor:pointer">
+          <input type="checkbox" id="knowledge-add-china" style="margin:0">
+          china-kritisch — summarize with GPT instead of DeepSeek
+        </label>
         <span id="knowledge-add-msg" style="font-size:12px;color:var(--muted)"></span>
       </div>`
     : `<div class="keymap-panel">
@@ -3385,6 +3389,10 @@ function _renderKnowledgeMaterialList() {
                  onkeydown="if(event.key==='Enter') submitKnowledgeUrl()">
           <button class="btn-secondary" onclick="submitKnowledgeUrl()">Add</button>
         </div>
+        <label class="keymap-row" style="gap:6px;font-size:12px;color:var(--muted);cursor:pointer">
+          <input type="checkbox" id="knowledge-add-china" style="margin:0">
+          china-kritisch — summarize with GPT instead of DeepSeek
+        </label>
         <span id="knowledge-add-msg" style="font-size:12px;color:var(--muted)"></span>
       </div>`;
   el.innerHTML = `
@@ -3439,8 +3447,11 @@ async function submitKnowledgeUrl() {
   const msg = document.getElementById('knowledge-add-msg');
   const url = (input?.value || '').trim();
   if (!url) return;
+  // Read the checkbox BEFORE clearing/re-rendering — _submitKnowledgeAdd
+  // rebuilds this panel's DOM when it refreshes the list.
+  const china_critical = _knowledgeChinaCriticalChecked();
   if (input) { input.value = ''; input.focus(); }
-  await _submitKnowledgeAdd({ url }, msg);
+  await _submitKnowledgeAdd({ url, china_critical }, msg);
 }
 
 // Paste-text box (article tab only, #668) — for paywalled pieces the server
@@ -3457,9 +3468,19 @@ async function submitKnowledgeText() {
     if (msg) msg.textContent = 'Need a title (or a non-blank first line).';
     return;
   }
+  const china_critical = _knowledgeChinaCriticalChecked();
   if (titleInput) titleInput.value = '';
   if (textInput) { textInput.value = ''; textInput.focus(); }
-  await _submitKnowledgeAdd({ title, text }, msg);
+  await _submitKnowledgeAdd({ title, text, china_critical }, msg);
+}
+
+// china-kritisch (#731): DeepSeek summarizes these dishonestly, so the box
+// sends a flag that makes the server's API fallback use GPT. Deliberately
+// resets to unchecked on every re-render — the overwhelming majority of
+// material is fine on the cheap model, and a sticky checkbox would silently
+// spend GPT money on all of it.
+function _knowledgeChinaCriticalChecked() {
+  return !!document.getElementById('knowledge-add-china')?.checked;
 }
 
 // Shared tail end of both paste boxes: ingest (shared.js kicks off processing),
@@ -7716,7 +7737,7 @@ function _autoSwitchModelForMode(mode) {
 
   // Briefing and paste (issues #481/#444) share the briefing pipeline and
   // ignore this dropdown server-side — the server always resolves
-  // BRIEFING_MODEL (env, default gpt-5.1). Lock the control and show that
+  // BRIEFING_MODEL (env, default gpt-5.6-luna). Lock the control and show that
   // honestly instead of a stale gpt-5-mini selection (issue #448).
   const serverOpt = document.getElementById('setup-model-server-opt');
   if (mode === 'briefing' || mode === 'paste') {
@@ -7728,7 +7749,7 @@ function _autoSwitchModelForMode(mode) {
       const opt = document.createElement('option');
       opt.id = 'setup-model-server-opt';
       opt.value = 'briefing-server';   // ignored by the server for briefing/paste
-      opt.textContent = 'Server: BRIEFING_MODEL (gpt-5.1)';
+      opt.textContent = 'Server: BRIEFING_MODEL (gpt-5.6-luna)';
       modelSel.appendChild(opt);
     }
     if (modelSel.value !== 'briefing-server') {
@@ -7736,7 +7757,7 @@ function _autoSwitchModelForMode(mode) {
       modelSel.value = 'briefing-server';
     }
     modelSel.disabled = true;
-    modelSel.title = 'News flow always uses BRIEFING_MODEL on the server (default gpt-5.1)';
+    modelSel.title = 'News flow always uses BRIEFING_MODEL on the server (default gpt-5.6-luna)';
     _modelSelMode = null;   // dropdown shows the server placeholder, not a real mode's model
     return;
   }
