@@ -4611,7 +4611,11 @@ async function saveOptions() {
       }
     }));
     closeModal();
-    loadDecks();
+    // Options can be opened mid-review (the `o` shortcut), and loadDecks()
+    // would otherwise showView('decks') and throw the session away. Refresh
+    // the deck tree in the background instead — the backend already
+    // invalidated the queue, so the rebuilt one picks up the new settings.
+    loadDecks({ keepView: _currentView !== 'decks' });
   } catch (e) {
     showError('Save failed: ' + e.message);
   }
