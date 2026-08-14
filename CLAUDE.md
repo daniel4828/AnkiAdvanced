@@ -202,7 +202,7 @@
 │   # ── AI、内容与语音 ──
 ├── ai.py                  # AI 提供商调用（每种提示词类型一个函数）
 ├── news_fetcher.py        # 新闻抓取（Tagesschau API + RSS；按天缓存 data/news_cache/）
-├── podcast.py             # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、每源 auto_process 开关+非自动源只入库元数据（#502，podcast_feeds 表）、转录链 NotebookLM 免费主力+听悟+Whisper 保底、单步异常不中止整链（#510 重排，链式降级，原 #498/#485/#486）、摘要 NotebookLM chat.ask 免费优先+DeepSeek/gpt API 链回退（api 路径内部 DeepSeek 优先省钱，#532）、邮件通知+Signal 通知（signal-cli 关联设备，发 Note to Self，#521，二者独立可选、互不影响；消息抬头播客名·星期·日期、链接在末尾，单集日期按 Europe/Berlin 显示，#532）、摘要 table.media 风格（`<p>` 段落+每段首句 `<b>` 加粗总结，#567）+详情页 Regenerate summary 按钮、邮件主题=`播客名 - 单集标题`（查不到播客名只用标题，不要退回死前缀）+ `summary_zh` 开头中文总结（#708 起是 `summary_de` 的**完整翻译**：同段落数、同顺序、同事实，同样 `<p>`+段首 `<b>`，HSK4-5 用词；提示词里德语先写、中文后译，JSON 里 `summary_de` 排在前面；渲染三处——邮件 `podcast._summary_zh_html`、详情页 `app.js._summaryZhHtml` 均"先全转义再放行 `<p>/<b>/<strong>/<em>/<i>/<br>`"，Signal 用 `_summary_to_plain_text` 剥标签；#708 之前的旧条目是纯文本，两处渲染都按空行补 `<p>`；**是增量不是必需**——成功判定只看 `summary_de`，模型漏掉中文总结不能让整集失败）+ 摘要里任何 HSK5+ 中文概念都标 `pinyin/汉字`（不限于提取的词表，宁多勿少，#631）；已泛化为知识库存储层，见 `knowledge/` 包
+├── podcast.py             # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、每源 auto_process 开关+非自动源只入库元数据（#502，podcast_feeds 表）、转录链 NotebookLM 免费主力+听悟+Whisper 保底、单步异常不中止整链（#510 重排，链式降级，原 #498/#485/#486）、摘要 NotebookLM chat.ask 免费优先+DeepSeek/gpt API 链回退（api 路径内部 DeepSeek 优先省钱，#532；勾了 china-kritisch 的素材跳过 DeepSeek 直接用 OpenAI，#731）、邮件通知+Signal 通知（signal-cli 关联设备，发 Note to Self，#521，二者独立可选、互不影响；消息抬头播客名·星期·日期、链接在末尾，单集日期按 Europe/Berlin 显示，#532）、摘要 table.media 风格（`<p>` 段落+每段首句 `<b>` 加粗总结，#567）+详情页 Regenerate summary 按钮、邮件主题=`播客名 - 单集标题`（查不到播客名只用标题，不要退回死前缀）+ `summary_zh` 开头中文总结（#708 起是 `summary_de` 的**完整翻译**：同段落数、同顺序、同事实，同样 `<p>`+段首 `<b>`，HSK4-5 用词；提示词里德语先写、中文后译，JSON 里 `summary_de` 排在前面；渲染三处——邮件 `podcast._summary_zh_html`、详情页 `app.js._summaryZhHtml` 均"先全转义再放行 `<p>/<b>/<strong>/<em>/<i>/<br>`"，Signal 用 `_summary_to_plain_text` 剥标签；#708 之前的旧条目是纯文本，两处渲染都按空行补 `<p>`；**是增量不是必需**——成功判定只看 `summary_de`，模型漏掉中文总结不能让整集失败）+ 摘要里任何 HSK5+ 中文概念都标 `pinyin/汉字`（不限于提取的词表，宁多勿少，#631）；已泛化为知识库存储层，见 `knowledge/` 包
 ├── knowledge/             # 知识库摄取（#650–#655，播客功能泛化，见「知识库」节）：youtube.py（字幕摄取）、article.py（正文抽取）、ingest.py（唯一入库管线）、mailbox.py（IMAP 邮件收件）
 ├── zh_annotate.py         # 生词标注（#638，零 AI）：HSK 表+词库+jieba+pypinyin+谷歌翻译
 ├── translator.py          # 翻译（Google Translate，deep-translator，可选）
@@ -311,7 +311,7 @@ python main.py status [--deck X]     # 显示每个牌组/类别的到期数量
 |------|--------|------|
 | `ANTHROPIC_API_KEY` | 必填 | Claude API 密钥 |
 | `DEEPSEEK_API_KEY` / `ZHIPU_API_KEY` / `QWEN_API_KEY` | 可选 | 其他 AI 提供商密钥 |
-| `OPENAI_API_KEY` | 可选 | 新闻模式默认模型 `gpt-5-mini`（DeepSeek 会审查新闻，故用 OpenAI） |
+| `OPENAI_API_KEY` | 可选 | 新闻/briefing 模式（DeepSeek 会审查新闻内容，故用 OpenAI），以及 china-kritisch 素材的摘要（#731）。模型由 `BRIEFING_MODEL` 决定，默认 `gpt-5.6-luna`，回退链 luna → terra → `gpt-5-mini`。**`gpt-5.1` 自 #731 起全应用停用**（同样的活贵六倍），价格表里保留它只为解析历史成本记录 |
 | `DB_PATH` | `data/srs.db` | 数据库路径（开发用 `data/dev.db`） |
 | `DISABLE_AI` | `0` | 设为 `1` 跳过 AI 故事生成 |
 | `OFFLINE_MODE` | `0` | 设为 `1` 进入硬离线模式（#612）：隐含 `DISABLE_AI`，TTS 只读缓存，零网络请求，连探测都不做 |
@@ -521,6 +521,10 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 - **邮件收件（`knowledge/mailbox.py`，#655）**：IMAP 轮询 UNSEEN 邮件，标题+正文都扫 URL（手机分享到邮件，链接位置因 App 而异）。`KNOWLEDGE_MAIL_ALLOWED_SENDERS` 未配置时**整个邮箱检查被跳过，不读取也不标已读**——这是防止任何知道邮箱地址的人远程触发付费 AI 调用的唯一防线；处理失败的邮件同样不标已读，留给下一轮重试（`ingest_url()` 对已入库 URL 幂等返回 `already_exists`，重试安全）
 - **前端：播客页 → 知识页**（#653，`static/app.js`）：🎙️/📺/📄 三个子标签，播客管理页原有的 RSS 源/详情/生词表格逻辑全部保留，只是按 `?kind=` 过滤。**旧的 `#podcast-<id>` hash 链接永久保留**——已发出去的邮件/Signal 消息里全是这种链接；播客条目仍生成旧格式 hash，只有视频/文章条目用新的 `#knowledge-<id>`
 - **独立收藏页 `/save`（#681）**：`/add` 的素材版 —— 可收藏的网址，🔗 Link / 📋 Text 两个标签，粘链接或粘正文，同样**不加载 `app.js`**（手机上从别的 App 分享文章时秒开）。入库逻辑抽到 `shared.js` 的 `ingestKnowledge()`，应用的知识页和本页共用一份；`knowledgeTitleFor()` 统一"标题留空则取首行"的规则。**两处都不许直接调 `/api/knowledge/add*`**，有测试守着
+- **china-kritisch 复选框（#731）**：摘要默认走便宜的 DeepSeek —— Daniel 的博客素材绝大多数不批评中国，没必要为它们付 OpenAI 的钱。少数确实批评中国的素材勾选后存 `podcast_episodes.china_critical=1`，摘要时把 DeepSeek 从候选模型里**彻底删掉**（不是排后面）：它对这类内容会悄悄弱化或拒答，而弱化后的摘要照样能解析出 `summary_de`，任何"解析失败就回退"的机制都永远不会触发
+  - **免费的 NotebookLM 路径不受影响，照旧第一优先**：它是 Google 的，没理由审查这个话题，而且不花钱。勾选只改变它失败之后 API 兜底那一层选谁
+  - **标记必须在粘贴那一刻打上**：摘要发生在之后独立的 `POST .../process` 调用里（甚至是 cron 里），那时已经没人在旁边说明这是什么素材
+  - 三个入口（应用知识页的链接框/正文框、独立收藏页 `/save`）都有该复选框，**每次提交后自动复位**——粘性复选框会在之后所有素材上静默烧 GPT 的钱。请求字段可选且默认 false，所以不发这个字段的 iOS 快捷指令和邮件收件行为完全不变
 - **`GET /api/podcast/episodes` 加 `?kind=` 过滤**，`POST /api/knowledge/add` 只负责入库，**不在请求里做转录/摘要**——前端拿到 `episode_id` 后照常调用既有的 `POST /api/podcast/episodes/{id}/process`，造卡侧（`routes/story.py` 的 `knowledge` 模式，见「故事生成」）几乎零改动就能吃到播客以外的素材
 - **YouTube 字幕在服务器上必须走 NotebookLM（#681）**：YouTube 整片封锁云服务商 IP，Contabo 的服务器调字幕 API 永远得到 `RequestBlocked`。而 `RequestBlocked`/`IpBlocked`/`PoTokenRequired`/`AgeRestricted` **全是 `CouldNotRetrieveTranscript` 的子类** —— 原来只 `except` 基类，于是"被 YouTube 拒绝"被静默写成 `no_transcript`，一个有 9833 字中文字幕的视频在界面上显示"没有字幕"。现在拒绝类异常必须在基类**之前**捕获（`_blocked_error_types()`），先转 `podcast.transcribe_url_via_notebooklm()`（`sources.add_url()` 自动识别 YouTube 链接，由 Google 自己去取，绕开我们的出口 IP，免费、不下音频），兜底也空则抛 `CaptionsUnavailable` → `status='error'` + 可读原因。**真没字幕的视频不进兜底**，仍走廉价的 `no_transcript`，不浪费几分钟的 NotebookLM 轮次
   - **代价**：NotebookLM 不能指定字幕语言，返回的是视频原声轨（那条视频拿回来的是英文 32633 字，不是本地能拿到的中文翻译轨 9833 字）。摘要提示词本来就容忍任意输入语言，所以功能通；要中文轨只能给字幕 API 配付费代理（`WebshareProxyConfig`），暂不做
@@ -605,7 +609,7 @@ GET  /api/story-prompt/{story_id}                    → 生成该故事的完�
                                                        **不能**写成 /api/story/{id}/prompt——GET /api/story/{deck_id}/{category} 注册在前会把它当 category='prompt' 吃掉
 
 # 知识库（播客爬虫 #479 泛化，#650–#655；详见「知识库」节）
-POST /api/knowledge/add                               → body {url} → 新素材 {episode_id}；已存在 {status:"already_exists", episode_id}；不转录不摘要，前端拿 id 后另调 .../process
+POST /api/knowledge/add                               → body {url, china_critical?}（#731，默认 false）→ 新素材 {episode_id}；已存在 {status:"already_exists", episode_id}；不转录不摘要，前端拿 id 后另调 .../process
 GET/POST /api/known-words ；DELETE /api/known-words/{word} → 已认识词库（#710）：标记后 zh_annotate 不再当生词；不建卡不排程；DELETE 词不在表里返回 404（不假装成功）
 POST /api/podcast/check                              → 跑一轮抓取，返回汇总 {new, summarized, emailed, failed}
 GET  /api/podcast/episodes                            → 列表（不含转录全文；?feed_id= 按源过滤；?kind= 按 podcast/video/article 过滤，#650；手动处理中的单集 status 显示为 processing）
