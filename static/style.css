@@ -87,6 +87,22 @@ header h1 { font-size: 18px; font-weight: 700; }
   margin-left: 4px;
 }
 #random-words-btn:hover { background: var(--border); }
+/* Dictionary page link (#746) — plain nav icon like #random-words-btn, not a
+   create action, so it doesn't get the primary-colour treatment #add-word-btn has. */
+#dict-link-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  line-height: 1;
+  margin-left: 4px;
+  color: var(--muted);
+  text-decoration: none;
+}
+#dict-link-btn:hover { background: var(--border); }
 /* The one action button in the header that creates something — give it the
    primary colour and a real touch target instead of the browser default (#636) */
 #add-word-btn {

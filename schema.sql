@@ -687,3 +687,25 @@ CREATE TABLE IF NOT EXISTS podcast_feeds (
     auto_process INTEGER NOT NULL DEFAULT 0,  -- 1 = new episodes are transcribed+summarized automatically
     created_at   TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- ---------------------------------------------------------------------------
+-- In-app AI dictionary (#746): Daniel used to paste words into a chat AI and
+-- copy the answer into the add-word box by hand. This table stores each
+-- lookup's full structured result (see ai.dictionary_lookup()) so the /dict
+-- page can show a searchable history below the query box. Adding a word from
+-- a result still goes through /api/add-word-ai (#643's single add pipeline)
+-- — this table only remembers what the dictionary said, not any card state.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dict_queries (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    query       TEXT NOT NULL,              -- user's raw input, verbatim
+    lang        TEXT NOT NULL DEFAULT 'zh', -- target vocabulary language (only 'zh' for now)
+    input_lang  TEXT,                       -- AI-detected input language: zh|de|en|fr
+    kind        TEXT,                       -- chinese|word|phrase|sentence
+    headline    TEXT,                       -- short display title, denormalized so the
+                                             -- history list doesn't need to parse result_json for every row
+    result_json TEXT NOT NULL,              -- full JSON returned by ai.dictionary_lookup()
+    model       TEXT,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_dict_queries_created ON dict_queries(created_at DESC);

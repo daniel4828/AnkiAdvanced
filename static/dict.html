@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dictionary</title>
+<!-- Saved to the iPhone home screen this opens without Safari's chrome, same as
+     add.html (#668) and save.html (#681). Deliberately does NOT load app.js —
+     77 KB of HTML + 491 KB of JS would defeat the entire point of a page whose
+     job is "open instantly, type a word, get an answer" (#746). -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Dictionary">
+<meta name="theme-color" content="#c7871f">
+<style>
+  :root { color-scheme: light dark; --bg:#f4f5f7; --card:#fff; --fg:#1c1e21; --muted:#6b7075;
+          --line:#d7d9dd; --accent:#c7871f; --ok:#1f7a44; --err:#a3232b;
+          --ok-bg:#e6f4ec; --err-bg:#fdecee; --star-bg:#fff7e6; --star-line:#f0d38a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#16181c; --card:#232629; --fg:#e6e6e6; --muted:#9aa0a6;
+            --line:#3a3d42; --ok:#6ed49b; --err:#ff9ba1;
+            --ok-bg:#1d3328; --err-bg:#3a2326; --star-bg:#332c18; --star-line:#5c4c22; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; padding: 1.5rem 1rem calc(1.5rem + env(safe-area-inset-bottom));
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--fg);
+  }
+  main { max-width: 560px; margin: 0 auto; }
+  header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 1.25rem; }
+  h1 { margin: 0; font-size: 1.15rem; }
+  header a { color: var(--muted); font-size: .85rem; text-decoration: none; }
+  h2 { margin: 1.4rem 0 .5rem; font-size: .8rem; font-weight: 600; color: var(--muted);
+       text-transform: uppercase; letter-spacing: .03em; }
+  .card { padding: 1rem; border-radius: 14px; background: var(--card); }
+
+  textarea#query {
+    display: block; width: 100%; min-height: 4.5rem; padding: .75rem;
+    font: inherit; font-size: 1.1rem; color: inherit; resize: vertical;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
+  }
+  textarea#query:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+  button.go {
+    width: 100%; padding: .8rem; margin-top: .6rem;
+    font-size: 1.05rem; font-weight: 600;
+    color: #fff; background: var(--accent); border: 0; border-radius: 10px; cursor: pointer;
+  }
+  button.go:disabled { opacity: .5; }
+  .hint { margin: .8rem 0 0; font-size: .8rem; color: var(--muted); }
+
+  /* Result area */
+  #result { margin-top: 1.1rem; }
+  #result:empty { display: none; }
+  .headline-row { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+  .headline { font-size: 1.6rem; font-weight: 700; }
+  .headline-pinyin { color: var(--muted); font-size: 1rem; }
+  .headline-de { color: var(--fg); opacity: .8; margin-top: .15rem; }
+  .notes { margin-top: .5rem; font-size: .9rem; color: var(--muted); }
+
+  .sentence-card {
+    margin-top: 1rem; padding: .8rem; border-radius: 10px;
+    background: var(--star-bg); border: 1px solid var(--star-line);
+    display: flex; align-items: flex-start; justify-content: space-between; gap: .6rem;
+  }
+  .sentence-card .text { flex: 1; min-width: 0; }
+  .sentence-card .zh { font-size: 1.25rem; font-weight: 600; }
+  .sentence-card .pinyin { color: var(--muted); font-size: .9rem; margin-top: .1rem; }
+  .sentence-card .de { font-size: .9rem; margin-top: .2rem; opacity: .85; }
+
+  .group { margin-top: 1.1rem; }
+  .group-label { font-size: .85rem; font-weight: 600; color: var(--muted); margin-bottom: .4rem; }
+  .option {
+    display: flex; align-items: flex-start; gap: .6rem;
+    padding: .6rem .7rem; margin-bottom: .5rem; border-radius: 10px;
+    background: var(--bg); border: 1px solid var(--line);
+  }
+  .option.recommended { background: var(--star-bg); border-color: var(--star-line); }
+  .option .key { color: var(--muted); font-size: .85rem; min-width: 1rem; }
+  .option .body { flex: 1; min-width: 0; }
+  .option .zh-row { display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
+  .option .zh { font-size: 1.15rem; font-weight: 700; }
+  .option .pinyin { color: var(--muted); font-size: .9rem; }
+  .option .star-mark { font-size: .95rem; }
+  .option .register {
+    font-size: .7rem; color: var(--muted); background: var(--card);
+    border: 1px solid var(--line); border-radius: 6px; padding: .05rem .4rem;
+  }
+  .option .trans { font-size: .88rem; margin-top: .2rem; }
+  .option .trans .lbl { color: var(--muted); }
+  .option .usage { font-size: .85rem; margin-top: .3rem; color: var(--fg); opacity: .85; }
+  .option .example { font-size: .85rem; margin-top: .35rem; padding-top: .35rem; border-top: 1px dashed var(--line); }
+  .option .example .ex-zh { font-weight: 600; }
+  .option .example .ex-pinyin { color: var(--muted); }
+  .option .example .ex-de { opacity: .8; }
+
+  button.star {
+    flex-shrink: 0; width: 2.1rem; height: 2.1rem; padding: 0;
+    font-size: 1.1rem; line-height: 1; border-radius: 8px; cursor: pointer;
+    background: var(--card); border: 1px solid var(--line); color: var(--fg);
+  }
+  button.star:hover { background: var(--line); }
+  button.star:disabled { cursor: default; }
+  button.star.running { opacity: .6; }
+  button.star.done { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); }
+  button.star.error { background: var(--err-bg); border-color: var(--err); color: var(--err); }
+  .star-err-msg { font-size: .78rem; color: var(--err); margin-top: .3rem; overflow-wrap: anywhere; }
+
+  #status { margin-top: .8rem; font-size: .9rem; color: var(--muted); }
+  #status.error { color: var(--err); }
+
+  /* History */
+  input[type=text]#hist-search {
+    width: 100%; padding: .6rem .75rem; font: inherit; font-size: .95rem; color: inherit;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--bg);
+  }
+  ul#hist-list { list-style: none; margin: .7rem 0 0; padding: 0; }
+  ul#hist-list li {
+    display: flex; align-items: center; gap: .6rem;
+    padding: .55rem .7rem; margin-bottom: .35rem; border-radius: 10px;
+    background: var(--card); font-size: .88rem; cursor: pointer;
+  }
+  ul#hist-list li:hover { background: var(--line); }
+  ul#hist-list .hist-main { flex: 1; min-width: 0; }
+  ul#hist-list .hist-q { font-weight: 600; }
+  ul#hist-list .hist-headline { color: var(--muted); overflow-wrap: anywhere; }
+  ul#hist-list .hist-time { color: var(--muted); font-size: .78rem; white-space: nowrap; }
+  ul#hist-list button.hist-del {
+    flex-shrink: 0; background: none; border: none; color: var(--muted);
+    font-size: 1.1rem; cursor: pointer; padding: .1rem .3rem; line-height: 1;
+  }
+  ul#hist-list button.hist-del:hover { color: var(--err); }
+  #hist-empty { color: var(--muted); font-size: .88rem; margin-top: .5rem; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dictionary</h1>
+    <a href="/">← app</a>
+  </header>
+
+  <div class="card">
+    <textarea id="query" placeholder="German / English / Chinese word, phrase or sentence…"
+              autocapitalize="none" autocorrect="off" spellcheck="false" autofocus></textarea>
+    <button class="go" id="go">Look up</button>
+    <p class="hint">Enter to look up, Shift+Enter for a new line. Single question — no follow-up.</p>
+    <div id="status"></div>
+  </div>
+
+  <div id="result"></div>
+
+  <h2>History</h2>
+  <div class="card">
+    <input type="text" id="hist-search" placeholder="Search history…" autocomplete="off"
+           autocapitalize="none" autocorrect="off" spellcheck="false">
+    <ul id="hist-list"></ul>
+    <p id="hist-empty" style="display:none">No queries yet.</p>
+  </div>
+</main>
+
+<script src="/static/shared.js?v=3"></script>
+<script>
+  // Standalone dictionary page (#746). Daniel already uses DeepSeek as an
+  // ad-hoc dictionary — this gives that a home with history and one-tap
+  // add-to-★-List, without pulling in the full app bundle. Single-shot
+  // lookups only: no follow-up/refinement round, so the UI never needs to
+  // remember conversational state between queries.
+  const queryEl = document.getElementById('query');
+  const goBtn = document.getElementById('go');
+  const statusEl = document.getElementById('status');
+  const resultEl = document.getElementById('result');
+  const histSearch = document.getElementById('hist-search');
+  const histList = document.getElementById('hist-list');
+  const histEmpty = document.getElementById('hist-empty');
+
+  function setStatus(text, isError) {
+    statusEl.textContent = text || '';
+    statusEl.classList.toggle('error', !!isError);
+  }
+
+  function fmtTime(iso) {
+    // created_at is 'datetime(now,localtime)' — a plain "YYYY-MM-DD HH:MM:SS"
+    // string, not a Date the browser will parse reliably across engines.
+    if (!iso) return '';
+    const d = new Date(iso.replace(' ', 'T'));
+    if (isNaN(d)) return iso;
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    return sameDay
+      ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }
+
+  // ---- Star button: adds option.zh to the ★ List via the one shared
+  // add-word pipeline (#643). Each button tracks its own state so several
+  // can be "running" (~30s each) at once without blocking one another —
+  // addWordViaAi already polls its own job, we just need to not share state.
+  function makeStarButton(zh) {
+    const btn = document.createElement('button');
+    btn.className = 'star';
+    btn.type = 'button';
+    btn.textContent = '★';
+    btn.title = `Add "${zh}" to your ★ List`;
+    const errMsg = document.createElement('div');
+    errMsg.className = 'star-err-msg';
+    errMsg.style.display = 'none';
+
+    btn.onclick = () => {
+      btn.disabled = true;
+      btn.classList.add('running');
+      btn.textContent = '…';
+      errMsg.style.display = 'none';
+      addWordViaAi(zh, 'list', (state, text) => {
+        if (state === 'running') {
+          btn.classList.add('running');
+          btn.textContent = '…';
+        } else if (state === 'done') {
+          btn.classList.remove('running');
+          btn.classList.add('done');
+          btn.textContent = '✓';
+          btn.title = text || 'Added';
+        } else if (state === 'error') {
+          btn.classList.remove('running');
+          btn.classList.add('error');
+          btn.textContent = '⚠';
+          btn.disabled = false;
+          errMsg.textContent = text || 'Failed to add';
+          errMsg.style.display = '';
+        }
+      }, 'zh');
+    };
+
+    const wrap = document.createElement('div');
+    wrap.style.flexShrink = '0';
+    wrap.append(btn, errMsg);
+    return wrap;
+  }
+
+  function textEl(tag, cls, text) {
+    const el = document.createElement(tag);
+    if (cls) el.className = cls;
+    if (text != null) el.textContent = text;
+    return el;
+  }
+
+  // Renders one {id, created_at, query, result} record into #result.
+  // Everything from the AI is untrusted text — textContent only, never
+  // innerHTML, all the way through this function.
+  function renderResult(record) {
+    const r = record.result || {};
+    resultEl.replaceChildren();
+
+    const head = document.createElement('div');
+    const hrow = textEl('div', 'headline-row');
+    hrow.append(textEl('span', 'headline', r.headline || record.query));
+    if (r.headline_pinyin) hrow.append(textEl('span', 'headline-pinyin', r.headline_pinyin));
+    head.append(hrow);
+    if (r.headline_de) head.append(textEl('div', 'headline-de', r.headline_de));
+    if (r.notes) head.append(textEl('div', 'notes', r.notes));
+    resultEl.append(head);
+
+    if (r.kind === 'sentence' && r.sentence) {
+      const card = document.createElement('div');
+      card.className = 'sentence-card';
+      const text = document.createElement('div');
+      text.className = 'text';
+      text.append(textEl('div', 'zh', r.sentence.zh || ''));
+      if (r.sentence.pinyin) text.append(textEl('div', 'pinyin', r.sentence.pinyin));
+      if (r.sentence.de) text.append(textEl('div', 'de', r.sentence.de));
+      card.append(text);
+      if (r.sentence.zh) card.append(makeStarButton(r.sentence.zh));
+      resultEl.append(card);
+    }
+
+    for (const group of (r.groups || [])) {
+      const g = document.createElement('div');
+      g.className = 'group';
+      if (group.label) g.append(textEl('div', 'group-label', group.label));
+      for (const opt of (group.options || [])) {
+        g.append(renderOption(opt));
+      }
+      resultEl.append(g);
+    }
+  }
+
+  function renderOption(opt) {
+    const row = document.createElement('div');
+    row.className = 'option' + (opt.recommended ? ' recommended' : '');
+
+    row.append(textEl('div', 'key', opt.key || ''));
+
+    const body = document.createElement('div');
+    body.className = 'body';
+
+    const zhRow = textEl('div', 'zh-row');
+    zhRow.append(textEl('span', 'zh', opt.zh || ''));
+    if (opt.pinyin) zhRow.append(textEl('span', 'pinyin', opt.pinyin));
+    if (opt.recommended) zhRow.append(textEl('span', 'star-mark', '⭐'));
+    if (opt.register) zhRow.append(textEl('span', 'register', opt.register));
+    body.append(zhRow);
+
+    if (opt.de) {
+      const t = textEl('div', 'trans');
+      t.append(textEl('span', 'lbl', 'de: '), document.createTextNode(opt.de));
+      body.append(t);
+    }
+    if (opt.fr) {
+      const t = textEl('div', 'trans');
+      t.append(textEl('span', 'lbl', 'fr: '), document.createTextNode(opt.fr));
+      body.append(t);
+    }
+    if (opt.usage) body.append(textEl('div', 'usage', opt.usage));
+
+    if (opt.example_zh) {
+      const ex = document.createElement('div');
+      ex.className = 'example';
+      ex.append(textEl('div', 'ex-zh', opt.example_zh));
+      if (opt.example_pinyin) ex.append(textEl('div', 'ex-pinyin', opt.example_pinyin));
+      if (opt.example_de) ex.append(textEl('div', 'ex-de', opt.example_de));
+      body.append(ex);
+    }
+
+    row.append(body);
+    if (opt.zh) row.append(makeStarButton(opt.zh));
+    return row;
+  }
+
+  // ---- Lookup ----
+  async function lookup(q) {
+    if (!q) return;
+    goBtn.disabled = true;
+    queryEl.disabled = true;
+    setStatus('Looking up… (5–15s)');
+    try {
+      const record = await api('POST', '/api/dict/lookup', { query: q, lang: 'zh' });
+      setStatus('');
+      // Cleared only on success: a failed lookup (AI hiccup, bad JSON) is worth
+      // retrying verbatim, and retyping a pasted German sentence is painful.
+      if (queryEl.value.trim() === q) queryEl.value = '';
+      renderResult(record);
+      loadHistory(histSearch.value.trim());
+    } catch (e) {
+      setStatus(e.message || 'Lookup failed', true);
+    } finally {
+      goBtn.disabled = false;
+      queryEl.disabled = false;
+      queryEl.focus();
+    }
+  }
+
+  function submit() {
+    const q = queryEl.value.trim();
+    if (!q) return;
+    lookup(q);
+  }
+
+  goBtn.onclick = submit;
+  queryEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      submit();
+    }
+  });
+
+  // ---- History ----
+  let histSeq = 0;
+  async function loadHistory(q) {
+    const seq = ++histSeq;
+    let data;
+    try {
+      data = await api('GET', `/api/dict/history?q=${encodeURIComponent(q || '')}&limit=50`);
+    } catch {
+      return;
+    }
+    if (seq !== histSeq) return; // a newer search superseded this one
+    const items = (data && data.items) || [];
+    histEmpty.style.display = items.length ? 'none' : '';
+    histList.replaceChildren(...items.map(it => {
+      const li = document.createElement('li');
+      const main = document.createElement('div');
+      main.className = 'hist-main';
+      main.append(textEl('div', 'hist-q', it.query));
+      if (it.headline) main.append(textEl('div', 'hist-headline', it.headline));
+      li.append(main, textEl('span', 'hist-time', fmtTime(it.created_at)));
+
+      const del = document.createElement('button');
+      del.className = 'hist-del';
+      del.type = 'button';
+      del.textContent = '×';
+      del.title = 'Delete';
+      del.onclick = async (ev) => {
+        ev.stopPropagation();
+        if (!confirm(`Delete "${it.query}" from history?`)) return;
+        try {
+          await api('DELETE', `/api/dict/history/${it.id}`);
+          loadHistory(histSearch.value.trim());
+        } catch (e) {
+          alert(e.message || 'Failed to delete');
+        }
+      };
+      li.append(del);
+
+      li.onclick = async () => {
+        setStatus('Loading…');
+        try {
+          const record = await api('GET', `/api/dict/history/${it.id}`);
+          setStatus('');
+          renderResult(record);
+          queryEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (e) {
+          setStatus(e.message || 'Failed to load', true);
+        }
+      };
+      return li;
+    }));
+  }
+
+  let histDebounce;
+  histSearch.addEventListener('input', () => {
+    clearTimeout(histDebounce);
+    histDebounce = setTimeout(() => loadHistory(histSearch.value.trim()), 250);
+  });
+
+  loadHistory('');
+
+  // URL parameters — /dict?q=anordnen — so an iOS Shortcut or a link can open
+  // straight into a lookup. Accepts ?query= as an alias. Must strip the param
+  // afterwards (history.replaceState): a reload or an iOS "restore tabs" would
+  // otherwise silently spend another AI call, the same trap #686 hit on /add.
+  const params = new URLSearchParams(location.search);
+  const preset = (params.get('q') || params.get('query') || '').trim();
+  if (preset) {
+    history.replaceState(null, '', location.pathname);
+    queryEl.value = preset;
+    lookup(preset);
+  }
+</script>
+</body>
+</html>

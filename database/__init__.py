@@ -8,3 +8,4 @@ from .stories import *
 from .stats import *
 from .podcast import *
 from .prompts import *
+from .dictionary import *
