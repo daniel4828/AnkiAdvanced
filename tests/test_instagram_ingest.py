@@ -716,3 +716,58 @@ def test_ingest_url_does_not_treat_instagram_as_article(monkeypatch):
     result = ingest.ingest_url("https://www.instagram.com/reel/notanarticle/")
     episode = database.get_episode(result["episode_id"])
     assert episode["kind"] == "video"
+
+
+# ---------------------------------------------------------------------------
+# #766: the video dict handed to fetch_transcript must carry youtube_url
+# ---------------------------------------------------------------------------
+
+def test_episode_to_video_carries_youtube_url():
+    """The Instagram-vs-YouTube branch in fetch_transcript is decided purely
+    by youtube_url. retry_episode used to build its dict inline and omit the
+    field, so every Reel was routed into the YouTube captions API and came
+    back 'no_transcript' (#766)."""
+    episode = {
+        "video_id": "abc123", "title": "T", "audio_url": None,
+        "duration_seconds": 12, "kind": "video",
+        "youtube_url": "https://www.instagram.com/reel/abc123/",
+    }
+    video = podcast._episode_to_video(episode)
+    assert video["youtube_url"] == "https://www.instagram.com/reel/abc123/"
+    assert video["kind"] == "video"
+
+
+def test_retry_episode_routes_a_reel_to_instagram_transcription(monkeypatch):
+    """End-to-end for the actual caller: an Instagram row going through
+    retry_episode() must reach _transcribe_instagram, never the YouTube
+    captions path. This is the test that would have caught #766 — the
+    existing ones fed fetch_transcript a hand-built dict and so never
+    exercised how the real caller builds it."""
+    episode_id = database.create_pending_episode(
+        video_id="reelcode99", channel_id="someuser", title="Ein Reel",
+        published_at=None, youtube_url="https://www.instagram.com/reel/reelcode99/",
+        audio_url=None, duration_seconds=45, kind="video",
+    )
+
+    took = {"instagram": False, "youtube": False}
+
+    def fake_instagram(video):
+        took["instagram"] = True
+        return "Das ist ein kurzer Text aus einem Reel.", {"transcript_source": "groq_whisper"}
+
+    import knowledge.youtube
+
+    def fail_youtube(*a, **k):
+        took["youtube"] = True
+        raise AssertionError("a Reel must never reach the YouTube captions API")
+
+    monkeypatch.setattr(podcast, "_transcribe_instagram", fake_instagram)
+    monkeypatch.setattr(knowledge.youtube, "fetch_captions", fail_youtube)
+    monkeypatch.setattr(podcast, "build_transcript_de", lambda transcript: [])
+    monkeypatch.setattr(podcast, "_translate_segments",
+                        lambda segs, target, source: [f"[{target}]{s}" for s in segs])
+
+    podcast.retry_episode(episode_id)
+
+    assert took["instagram"] is True
+    assert took["youtube"] is False
