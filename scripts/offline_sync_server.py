@@ -43,7 +43,7 @@ WATERMARK_KEY = "offline_sync_review_log_max"
 CARD_FIELDS = [
     "state", "due", "step_index", "interval", "ease", "repetitions", "lapses",
     "stability", "difficulty", "last_review", "learning_again_count",
-    "is_leech", "buried_until", "pre_suspend_state", "next_note", "probation",
+    "is_leech", "leeched_at", "buried_until", "pre_suspend_state", "next_note", "probation",
 ]
 
 REVIEW_FIELDS = [

@@ -327,6 +327,10 @@ CREATE TABLE IF NOT EXISTS cards (
     -- set to 1 when the card was suspended by leech detection (vs. manual suspend)
     is_leech    INTEGER NOT NULL DEFAULT 0,
 
+    -- when the leech flag was set (NULL when not a leech); drives the Leeched
+    -- browse sort. Cleared back to NULL whenever the leech flag is cleared.
+    leeched_at  TEXT,
+
     -- Temporary burial: card is hidden until this date (resets automatically next day)
     buried_until TEXT,
 
