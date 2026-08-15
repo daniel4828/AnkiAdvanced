@@ -1513,26 +1513,13 @@ def _split_segments_any(text: str) -> list[str]:
 
 
 def _translate_segments(segs: list[str], target: str, source: str) -> list[str]:
-    """Translate `segs` to `target` from `source`, batching under Google
-    Translate's ~5000-char free-endpoint request limit (translate_batch joins
-    a batch with newlines into one request). Returns a list aligned 1:1 with
-    segs (translate_batch already falls back to the source text for any
-    segment it can't translate). Generalized (#750) from the zh->de-only
-    original (_translate_segments_de, kept below as a thin wrapper) so
-    _zero_cost_summary can reuse the exact same batching logic for any
-    direction instead of a second copy."""
-    out: list[str] = []
-    batch: list[str] = []
-    size = 0
-    for seg in segs:
-        if batch and size + len(seg) > 4500:
-            out.extend(translator.translate_batch(batch, target=target, source=source))
-            batch, size = [], 0
-        batch.append(seg)
-        size += len(seg) + 1
-    if batch:
-        out.extend(translator.translate_batch(batch, target=target, source=source))
-    return out
+    """Translate `segs` to `target` from `source`. Returns a list aligned 1:1
+    with segs (translate_batch falls back to the source text for any segment it
+    can't translate, and since #756 does the chunking under Google Translate's
+    ~5000-char free-endpoint request limit itself — this function used to carry
+    that batching loop). Generalized (#750) from the zh->de-only original
+    (_translate_segments_de, kept below as a thin wrapper)."""
+    return translator.translate_batch(segs, target=target, source=source)
 
 
 def _translate_segments_de(zh_segments: list[str]) -> list[str]:

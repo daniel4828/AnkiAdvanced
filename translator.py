@@ -19,10 +19,6 @@ _translators: dict[tuple[str, str], object] = {}
 # for 14h this way while holding its run lock (#565).
 _REQUEST_TIMEOUT_SECONDS = 90
 
-# Google Translate rejects inputs over 5000 characters. Stay well under it so a
-# batch never trips the limit and falls back to one-request-per-sentence (#758).
-_MAX_REQUEST_CHARS = 4500
-
 
 def _translate_with_timeout(t, text: str) -> str:
     """Run t.translate(text) with a hard deadline on a throwaway thread. On
@@ -64,44 +60,17 @@ def translate_zh(text: str, target: str = "en", source: str = "zh-CN") -> str:
         return text
 
 
-def _chunk_by_chars(texts: list[str], limit: int) -> list[list[str]]:
-    """Split texts into groups whose newline-joined length stays under `limit`.
-    A single over-long text still gets its own group — nothing is dropped."""
-    chunks: list[list[str]] = []
-    current: list[str] = []
-    size = 0
-    for text in texts:
-        cost = len(text) + 1  # +1 for the separator
-        if current and size + cost > limit:
-            chunks.append(current)
-            current, size = [], 0
-        current.append(text)
-        size += cost
-    if current:
-        chunks.append(current)
-    return chunks
+# The free Google endpoint rejects requests beyond ~5000 characters, so a batch
+# is split into chunks below that limit (podcast.py did this at its own call
+# site; #756 moved it in here so every caller gets it).
+_CHUNK_CHAR_BUDGET = 4500
 
 
-def translate_batch(texts: list[str], target: str = "en", source: str = "zh-CN") -> list[str]:
-    """Translate a list of strings from `source`, batching them into as few HTTP
-    requests as Google's 5000-character input limit allows.
-
-    Sending everything in one request used to blow past that limit for long
-    stories, and the resulting fallback was one request *per sentence* — 228
-    serial calls that looked like a total freeze from the UI (#758). Chunking
-    keeps the common case at a handful of requests, and a failed chunk only
-    degrades its own sentences."""
-    t = _load(source, target)
-    if t is None or not texts:
-        return texts
-
-    results: list[str] = []
-    for chunk in _chunk_by_chars(texts, _MAX_REQUEST_CHARS):
-        results.extend(_translate_chunk(t, chunk, target, source))
-    return results
-
-
-def _translate_chunk(t, texts: list[str], target: str, source: str) -> list[str]:
+def _translate_chunk(t, texts: list[str], target: str, source: str,
+                     on_item=None) -> list[str]:
+    """One HTTP request for the whole chunk; per-sentence retry on failure.
+    on_item() is called once per sentence in the slow retry path only — the
+    joined request has no interior progress to report."""
     sep = "\n"
     combined = sep.join(text.strip() or " " for text in texts)
     try:
@@ -113,7 +82,65 @@ def _translate_chunk(t, texts: list[str], target: str, source: str) -> list[str]
     except Exception as e:
         logger.warning("translator: batch error (source=%s, target=%s) — %s", source, target, e)
 
-    return [translate_zh(text, target, source) for text in texts]
+    out = []
+    for text in texts:
+        out.append(translate_zh(text, target, source))
+        if on_item:
+            on_item()
+    return out
+
+
+def translate_batch(texts: list[str], target: str = "en", source: str = "zh-CN",
+                    on_progress=None) -> list[str]:
+    """Translate a list of strings from `source`, chunked under the endpoint's
+    request-size limit. on_progress(done, total) is called after each chunk (and
+    after each sentence of a chunk that had to fall back to one request per
+    sentence) so callers can show real progress instead of 0/N → N/N (#756)."""
+    t = _load(source, target)
+    if t is None:
+        return texts
+    if not texts:
+        return texts
+
+    total = len(texts)
+    out: list[str] = []
+    done = 0
+
+    def _report(extra: int = 0) -> None:
+        """Report progress as `len(out) + extra` — out is the single source of
+        truth for how many sentences are finished, so the fast path (whole chunk
+        at once) and the per-sentence retry path can share one counter."""
+        nonlocal done
+        n = len(out) + extra
+        if n != done:
+            done = n
+            if on_progress:
+                on_progress(done, total)
+
+    def _translate_and_report(chunk: list[str]) -> None:
+        # In the retry path the chunk's own results aren't in `out` yet, so the
+        # callback counts them via `extra`.
+        pending = {"n": 0}
+
+        def _on_item() -> None:
+            pending["n"] += 1
+            _report(pending["n"])
+
+        out.extend(_translate_chunk(t, chunk, target, source, on_item=_on_item))
+        _report()
+
+    chunk: list[str] = []
+    size = 0
+    for text in texts:
+        if chunk and size + len(text) > _CHUNK_CHAR_BUDGET:
+            _translate_and_report(chunk)
+            chunk, size = [], 0
+        chunk.append(text)
+        size += len(text) + 1
+    if chunk:
+        _translate_and_report(chunk)
+
+    return out
 
 
 # Legacy aliases kept for any callers that used the old API

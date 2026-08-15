@@ -555,6 +555,8 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
   - **失败重试靠自己存队列，不是靠"留着不读"**：`signal-cli receive` 一次调用就把消息从 Signal 服务器上取走，不像 IMAP 能把邮件留成 UNSEEN 等下一轮。入库失败的 URL 存进 `app_settings['signal_retry_queue']`（JSON 列表），下一轮优先处理，满 3 次放弃并在回执里说明
   - **新链接入库后立即同步处理**（转录+摘要），不像邮件/网页粘贴那样只入库、等前端另外调 `.../process`——Signal 分享的语义就是"现在就要"。处理复用 `podcast.retry_episode()`（`routes/podcast.py` 的 process 端点背后那个同步函数，脚本进程里直接调用，不起后台线程——脚本跑完就退出，线程会被杀掉）
   - **`podcast.send_signal_text(text, context=...)`（#749 从 `send_signal()` 抽出）是发 Signal 消息的唯一函数**：`send_signal()`（摘要通知）和 `signal_inbox.send_receipt()`（收件回执）都调它，不重复写 subprocess 调用。处理成功时**不重复发一遍摘要**——`send_signal()` 已经在摘要成功后自动发了完整版，回执只发一行简短结果
+  - **`receive` 必须带 `-t`，且超时要给足（#755）**：不带 `-t` 的 `signal-cli receive` **不会**"取空就退"，它会一直监听等新消息直到被杀——cron 一次性调用因此永远等到 subprocess 超时，一条都收不到。另外**首轮特别慢**：这个账号自 #521 起只发不收，Signal 服务端攒了大量待投递消息，实测消化超过 2 分钟（原来 120 秒的上限就是这么被撑爆的），所以 `_RECEIVE_TIMEOUT=300`。之后每 5 分钟一轮只有零星消息，秒级返回
+  - **`receive` 会把 Daniel 与所有人的对话都同步下来**（#755 实测）：别人的消息正文、附件元数据、已读回执、正在输入指示，全都在返回的 envelope 流里。上面那道安全门挡住了它们入库，但它们**经过了本进程的内存**。所以：**永远不要把 envelope 原文写进日志**，也不要放进错误信息或 Signal 回执——只记 URL 和处理结果
   - `scripts/signal_check.py`：cron 入口，结构照抄 `knowledge_mail_check.py`（同款 PID 锁 + `database.init_db()` 直连）
 - **前端：播客页 → 知识页**（#653，`static/app.js`）：🎙️/📺/📄 三个子标签，播客管理页原有的 RSS 源/详情/生词表格逻辑全部保留，只是按 `?kind=` 过滤。**旧的 `#podcast-<id>` hash 链接永久保留**——已发出去的邮件/Signal 消息里全是这种链接；播客条目仍生成旧格式 hash，只有视频/文章条目用新的 `#knowledge-<id>`
 - **独立收藏页 `/save`（#681）**：`/add` 的素材版 —— 可收藏的网址，🔗 Link / 📋 Text 两个标签，粘链接或粘正文，同样**不加载 `app.js`**（手机上从别的 App 分享文章时秒开）。入库逻辑抽到 `shared.js` 的 `ingestKnowledge()`，应用的知识页和本页共用一份；`knowledgeTitleFor()` 统一"标题留空则取首行"的规则。**两处都不许直接调 `/api/knowledge/add*`**，有测试守着
