@@ -168,6 +168,12 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str,
         cached_tokens = getattr(msg.usage, "cache_read_input_tokens", 0) or 0
         logger.info("[%s] API call done in %.1fs — in=%d out=%d cached=%d purpose=%s",
                     model, elapsed, msg.usage.input_tokens, msg.usage.output_tokens, cached_tokens, purpose)
+        if getattr(msg, "stop_reason", None) == "max_tokens":
+            # #743: caller-side JSON salvage relies on knowing when a reply was
+            # cut off — this is the signal, not an exception.
+            logger.warning("[%s] response truncated (stop_reason=max_tokens, max_tokens=%d, "
+                           "output_tokens=%d, purpose=%s)", model, max_tokens,
+                           msg.usage.output_tokens, purpose)
         text = msg.content[0].text.strip()
         database.log_api_call(
             # Log the requested model id, not msg.model (the API returns a dated
@@ -256,8 +262,12 @@ def _call_api(model: str, messages: list, max_tokens: int, purpose: str,
                     model, max_tokens, reasoning_chars,
                 )
             else:
+                # #743: this is the signal callers (e.g. generate_podcast_sentences'
+                # JSON salvage) rely on to know a reply was cut off mid-content.
                 logger.warning("[%s] response truncated (finish_reason=length, max_tokens=%d, "
-                               "content_chars=%d)", model, max_tokens, len(content or ""))
+                               "completion_tokens=%d, content_chars=%d, purpose=%s)",
+                               model, max_tokens, resp.usage.completion_tokens,
+                               len(content or ""), purpose)
 
         if not content and not reasoning:
             logger.warning("[%s] empty response — no content and no reasoning (purpose=%s)",
@@ -2445,6 +2455,79 @@ def generate_briefing_sentences(
     return sentences
 
 
+def _parse_json_array_salvage(raw: str) -> tuple[list, bool]:
+    """从 AI 回复里解析 JSON 对象数组；数组被截断时救回其中完整的对象。
+
+    返回 (items, truncated)。truncated=True 表示整体解析失败、结果是逐个对象
+    扫描救回来的。#743：一次 154 个词的调用正好用满输出预算，回复在数组中间
+    断掉，原来整轮作废，几十句已经写好的句子和已经花掉的钱一起丢了。
+    """
+    json_start = raw.find("[")
+    if json_start == -1:
+        return [], True
+
+    json_end = raw.rfind("]") + 1
+    if json_end != 0:
+        try:
+            items = json.loads(raw[json_start:json_end])
+            if isinstance(items, list):
+                return items, False
+        except json.JSONDecodeError:
+            pass
+
+    # 括号深度扫描，逐个切出顶层 {...} 片段——必须正确处理字符串内的
+    # 花括号/引号（句子里可能出现 { } "），否则切割点会错位。
+    items = []
+    depth = 0
+    in_string = False
+    escape = False
+    obj_start = None
+    for i in range(json_start + 1, len(raw)):
+        ch = raw[i]
+        if obj_start is None:
+            if ch == "{":
+                obj_start = i
+                depth = 1
+                in_string = False
+                escape = False
+            continue
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    obj = json.loads(raw[obj_start:i + 1])
+                    if isinstance(obj, dict):
+                        items.append(obj)
+                except json.JSONDecodeError:
+                    pass
+                obj_start = None
+    return items, True
+
+
+def _podcast_max_tokens(model: str, n_words: int) -> int:
+    """#743：写死 8192 时 154 个词的一次性调用根本装不下（每句约需
+    150-200 tokens 用于 reasoning_zh + sentence_zh + target_word），回复在数组
+    中间被截断。按批次词数估算预算，按模型族封顶——gpt-5 系列的输出预算与内部
+    reasoning tokens 共享，给它更大的上限；deepseek/glm/qwen/claude 的单次
+    输出上限就在 8192 量级，写更大会被 provider 拒绝。
+    """
+    needed = 1500 + 200 * n_words
+    cap = 16384 if model.startswith("gpt-") else 8192
+    return max(4096, min(needed, cap))
+
+
 def generate_podcast_sentences(
     cards: list[dict],
     material: str,            # transcript_zh (preferred) or summary_de fallback; caller ensures non-empty — see routes/story.py's _knowledge_material()
@@ -2527,24 +2610,22 @@ def generate_podcast_sentences(
 
     def _run_round(batch: list[dict], extra_hint: str, label: str) -> None:
         """One AI call for `batch`; moves every word it covered out of `remaining`."""
-        # 8192: all-at-once batching (issue #563) can mean 30+ sentences in one
-        # response, and the gpt-5 series shares this budget with internal
-        # reasoning tokens (same rationale as the briefing call).
+        # #743: all-at-once batching (issue #563) can mean 30+ sentences in one
+        # response — a fixed 8192 cap left no room for that many, so the model's
+        # reply got cut off mid-array and the whole round used to be discarded.
+        # Budget scales with batch size (see _podcast_max_tokens); the gpt-5
+        # series shares this budget with internal reasoning tokens.
         prompt = _build_prompt(batch, extra_hint)
         prompts_sent.append(f"── {label} ──\n{prompt}" if prompts_sent else prompt)
         raw = _call_api(model, [{"role": "user", "content": prompt}],
-                         8192, purpose="podcast")
+                         _podcast_max_tokens(model, len(batch)), purpose="podcast")
 
-        json_start = raw.find("[")
-        json_end = raw.rfind("]") + 1
-        if json_start == -1 or json_end == 0:
-            log_progress(progress_key, f"{label}：AI 回复里找不到 JSON 数组，本轮作废")
+        items, truncated = _parse_json_array_salvage(raw)
+        if not items:
+            log_progress(progress_key, f"{label}：AI 回复无法解析，本轮作废")
             return
-        try:
-            items = json.loads(raw[json_start:json_end])
-        except json.JSONDecodeError as e:
-            log_progress(progress_key, f"{label}：JSON 解析失败（{e}），本轮作废")
-            return
+        if truncated:
+            log_progress(progress_key, f"{label}：AI 回复被截断，救回 {len(items)} 条")
 
         # Scan in order: not trusting the AI's target_word tag, only the actual
         # sentence content counts (same approach as briefing).
