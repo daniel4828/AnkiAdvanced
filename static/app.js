@@ -1815,16 +1815,56 @@ function _sortWords(words) {
     case 'hanzi-asc':   sorted.sort((a, b) => (a.word_zh || '').localeCompare(b.word_zh || '', 'zh')); break;
     case 'hanzi-desc':  sorted.sort((a, b) => (b.word_zh || '').localeCompare(a.word_zh || '', 'zh')); break;
     case 'newest':      sorted.sort((a, b) => b.id - a.id); break;
+    case 'leeched-desc': case 'leeched-asc': {
+      // Sort key = the latest leeched_at across a word's cards (a word has up
+      // to three cards, only some of which may be leeches). Words with no
+      // leeched_at at all sort last regardless of direction — they don't
+      // belong on this axis, so burying them mid-list would look broken (#773).
+      const asc = _browseSort === 'leeched-asc';
+      const key = w => (w.cards || []).reduce((max, c) => c.leeched_at && c.leeched_at > max ? c.leeched_at : max, '');
+      sorted.sort((a, b) => {
+        const ka = key(a), kb = key(b);
+        if (!ka && !kb) return 0;
+        if (!ka) return 1;   // no leeched_at → always last
+        if (!kb) return -1;
+        if (ka === kb) return 0;
+        return (ka < kb) === asc ? -1 : 1;
+      });
+      break;
+    }
   }
   return sorted;
 }
 
 function onBrowseSort(val) {
   _browseSort = val;
+  // Picking a starred-* option re-sorts the sentence list in place — it must
+  // NOT leave the starred view, unlike every other sort option (#773).
+  if (val.startsWith('starred-') && _browseCardStatus === 'starred') { renderStarredSentences(); return; }
   _leaveStarredView();  // the sort options are word fields (pinyin/hanzi), #692
   const q = document.getElementById('browse-search').value.trim();
   if (_browseMode === 'hanzi') renderHanziList(_allHanzi, q);
   else if (q) onBrowseSearch(q); else renderBrowseWords(_filteredBrowseWords());
+}
+
+// The Leeched and ⭐ Sentences views sort by a timestamp the other views
+// don't have (leeched_at / starred_at), so their options only appear while
+// that view is active, and switching away falls back to the default word
+// sort (#773). Must run BEFORE the list is (re)rendered so _browseSort is
+// already correct.
+function _syncSortOptions() {
+  const showLeeched = _browseCardStatus === 'leech';
+  const showStarred = _browseCardStatus === 'starred';
+  document.querySelectorAll('#browse-sort option[value^="leeched-"]').forEach(o => o.hidden = !showLeeched);
+  document.querySelectorAll('#browse-sort option[value^="starred-"]').forEach(o => o.hidden = !showStarred);
+  if (showLeeched && !_browseSort.startsWith('leeched-')) _browseSort = 'leeched-desc';
+  else if (showStarred && !_browseSort.startsWith('starred-')) _browseSort = 'starred-desc';
+  else if (!showLeeched && !showStarred &&
+           (_browseSort.startsWith('leeched-') || _browseSort.startsWith('starred-'))) {
+    _browseSort = 'pinyin-asc';
+  }
+  const sel = document.getElementById('browse-sort');
+  if (sel) sel.value = _browseSort;
 }
 
 function _leafDeckIds(deckId) {
@@ -1861,6 +1901,7 @@ function setBrowseFilter(mode, filter) {
   _browseFilter = filter;
   _browseDeckId = null;
   _leaveStarredView();
+  _syncSortOptions();
   // Update sidebar active state
   document.querySelectorAll('.bs-item').forEach(el => el.classList.remove('bs-active'));
   const btnId = mode === 'hanzi' ? 'bsf-hanzi' : `bsf-${filter}`;
@@ -1875,6 +1916,7 @@ function setBrowseFilter(mode, filter) {
 
 function setBrowseStatusFilter(status) {
   _browseCardStatus = status;
+  _syncSortOptions();
   document.querySelectorAll('.bs-status-item').forEach(el => el.classList.remove('bs-active'));
   const btn = document.getElementById(`bss-${status}`);
   if (btn) btn.classList.add('bs-active');
@@ -1892,6 +1934,8 @@ function setBrowseStatusFilter(status) {
 function _leaveStarredView() {
   if (_browseCardStatus !== 'starred') return;
   _browseCardStatus = 'all';
+  _starredSentencesCache = null;  // stale on next entry — re-fetch (#773)
+  _syncSortOptions();
   document.querySelectorAll('.bs-status-item').forEach(el => el.classList.remove('bs-active'));
   document.getElementById('bss-all')?.classList.add('bs-active');
 }
@@ -1939,9 +1983,10 @@ async function openBrowse() {
     _browseDeckExpanded = new Set();
     _browseSelected.clear();
     _browseCardStatus = 'all';
+    _starredSentencesCache = null;  // fresh browse open — re-fetch, don't reuse a stale list (#773)
+    _syncSortOptions();
     showView('browse');
     document.getElementById('browse-search').value = '';
-    document.getElementById('browse-sort').value = _browseSort;
     _renderBrowseSidebar();
     _updateBrowseActionBar();
     document.querySelectorAll('.bs-status-item').forEach(el => el.classList.remove('bs-active'));
@@ -2266,8 +2311,41 @@ function renderBrowseWords(words) {
 // context that makes it useful: which mode/model produced it and from which
 // source material. That's what you read when deciding how to change a prompt.
 
+let _starredSentencesCache = null;  // avoids a refetch when only the sort changes (#773)
+
+// starred-asc = oldest first; anything else (including the default) = newest
+// first. Sentences without a starred_at (shouldn't happen, but defensive)
+// sort last regardless of direction, same rule as the leeched sort.
+function _sortStarredSentences(sentences) {
+  const asc = _browseSort === 'starred-asc';
+  const sorted = [...sentences];
+  sorted.sort((a, b) => {
+    const ka = a.starred_at || '', kb = b.starred_at || '';
+    if (!ka && !kb) return 0;
+    if (!ka) return 1;
+    if (!kb) return -1;
+    if (ka === kb) return 0;
+    return (ka < kb) === asc ? -1 : 1;
+  });
+  return sorted;
+}
+
+// Single paint path for both the fetched and the cached list, so the empty
+// state can't go missing on one of them (unstarring the last sentence goes
+// through the cached branch).
+function _paintStarredList(sentences) {
+  const list = document.getElementById('browse-list');
+  if (!sentences.length) {
+    list.innerHTML = '<div class="browse-empty">No starred sentences yet — press Shift+F ' +
+                     'or tap ☆ while reviewing to keep a good one.</div>';
+    return;
+  }
+  list.innerHTML = `<div class="bw-list">${_sortStarredSentences(sentences).map(_starredSentenceRow).join('')}</div>`;
+}
+
 async function renderStarredSentences() {
   const list = document.getElementById('browse-list');
+  if (_starredSentencesCache) { _paintStarredList(_starredSentencesCache); return; }
   list.innerHTML = '<div class="browse-empty">Loading…</div>';
   let sentences;
   try {
@@ -2278,12 +2356,8 @@ async function renderStarredSentences() {
     return;
   }
   if (_browseCardStatus !== 'starred') return;  // user switched tabs while loading
-  if (!sentences.length) {
-    list.innerHTML = '<div class="browse-empty">No starred sentences yet — press Shift+F ' +
-                     'or tap ☆ while reviewing to keep a good one.</div>';
-    return;
-  }
-  list.innerHTML = `<div class="bw-list">${sentences.map(_starredSentenceRow).join('')}</div>`;
+  _starredSentencesCache = sentences;
+  _paintStarredList(sentences);
 }
 
 function _starredSentenceRow(s) {
@@ -2327,6 +2401,7 @@ async function unstarSentence(sentenceId, btn) {
   btn.disabled = true;
   try {
     await api('POST', `/api/story-sentence/${sentenceId}/star`, { starred: false });
+    if (_starredSentencesCache) _starredSentencesCache = _starredSentencesCache.filter(s => s.id !== sentenceId);
     btn.closest('.ss-row')?.remove();
     if (!document.querySelector('.ss-row')) renderStarredSentences();  // back to empty state
   } catch (e) {

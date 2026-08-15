@@ -13,7 +13,7 @@ def get_words_for_browse() -> list[dict]:
         SELECT w.id, w.word_zh, w.pinyin, w.definition, w.definition_de, w.pos, w.hsk_level, w.note_type,
                c.id as card_id, c.category, c.state, c.interval, c.ease,
                c.due, c.lapses, c.step_index, c.deck_id,
-               c.is_leech, c.learning_again_count,
+               c.is_leech, c.leeched_at, c.learning_again_count,
                d.name as deck_name
         FROM entries w
         LEFT JOIN cards c ON c.word_id = w.id AND c.deleted_at IS NULL
@@ -51,6 +51,7 @@ def get_words_for_browse() -> list[dict]:
                 "step_index": r["step_index"],
                 "deck_id": r["deck_id"],
                 "is_leech": r["is_leech"],
+                "leeched_at": r["leeched_at"],
                 "learning_again_count": r["learning_again_count"],
                 "deck_name": r["deck_name"],
             })
@@ -115,7 +116,8 @@ def mark_leech_suspend(card_id: int) -> None:
     conn = get_db()
     conn.execute(
         """UPDATE cards
-              SET pre_suspend_state = state, state = 'suspended', is_leech = 1
+              SET pre_suspend_state = state, state = 'suspended', is_leech = 1,
+                  leeched_at = datetime('now')
             WHERE id = ? AND state != 'suspended'""",
         (card_id,),
     )
@@ -125,7 +127,7 @@ def mark_leech_suspend(card_id: int) -> None:
 
 _CLEAR_LEECH_SQL = """
     UPDATE cards
-       SET is_leech = 0, lapses = 0, learning_again_count = 0, probation = 0,
+       SET is_leech = 0, leeched_at = NULL, lapses = 0, learning_again_count = 0, probation = 0,
            state = CASE WHEN state = 'suspended' THEN COALESCE(pre_suspend_state, 'new') ELSE state END,
            pre_suspend_state = NULL
      WHERE is_leech = 1 AND deleted_at IS NULL
@@ -168,7 +170,7 @@ def toggle_card_suspension(card_id: int) -> dict:
     if cur and cur["state"] == "suspended":
         if cur["is_leech"]:
             conn.execute(
-                "UPDATE cards SET state='new', is_leech=0, lapses=0, learning_again_count=0, probation=0 WHERE id=?",
+                "UPDATE cards SET state='new', is_leech=0, leeched_at=NULL, lapses=0, learning_again_count=0, probation=0 WHERE id=?",
                 (card_id,),
             )
         else:

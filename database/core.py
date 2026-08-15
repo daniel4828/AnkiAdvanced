@@ -285,6 +285,8 @@ def init_db() -> None:
         conn.execute("ALTER TABLE cards ADD COLUMN learning_again_count INTEGER NOT NULL DEFAULT 0")
     if "is_leech" not in card_cols:
         conn.execute("ALTER TABLE cards ADD COLUMN is_leech INTEGER NOT NULL DEFAULT 0")
+    if "leeched_at" not in card_cols:
+        conn.execute("ALTER TABLE cards ADD COLUMN leeched_at TEXT")
 
     # FSRS memory state. Absence of `stability` signals a pre-FSRS database →
     # seed existing review/relearn cards from their SM-2 interval/ease below.
@@ -699,6 +701,28 @@ def init_db() -> None:
                 "DELETE FROM podcast_episodes WHERE id = ?", [(i,) for i in stale_ids])
         conn.execute(
             "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('purged_legacy_youtube_rows', '1')")
+        conn.commit()
+
+    # One-time backfill of cards.leeched_at (#773): the column is new, so
+    # existing leech cards have no timestamp to sort the Leeched browse view
+    # by. Approximate it with last_review — mark_leech_suspend() is always
+    # called right after the review that tripped the threshold, so the two
+    # are effectively the same moment. Marker-guarded like
+    # purged_legacy_youtube_rows above (same reasoning: production redeploys
+    # and re-runs init_db every 2 minutes, so an unguarded UPDATE would
+    # re-stamp leeched_at on every startup, clobbering the real value written
+    # later by mark_leech_suspend()). Deliberately outside the "table already
+    # existed" migration block above so a brand-new database sets the marker
+    # too and the backfill can never fire on rows created later in its life.
+    already_backfilled_leeched_at = conn.execute(
+        "SELECT value FROM app_settings WHERE key = 'backfilled_leeched_at'"
+    ).fetchone()
+    if not already_backfilled_leeched_at:
+        conn.execute(
+            "UPDATE cards SET leeched_at = COALESCE(last_review, date('now')) "
+            "WHERE is_leech = 1 AND leeched_at IS NULL")
+        conn.execute(
+            "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('backfilled_leeched_at', '1')")
         conn.commit()
 
     # One-time transcript normalization (#500): NotebookLM ASR output stored

@@ -59,7 +59,7 @@ def reset_word_to_new(word_id: int, target_deck_ids: dict, due: str,
         sql = """UPDATE cards
                  SET deck_id=?, state='new', due=?, step_index=0, interval=0,
                      ease=2.5, repetitions=0, lapses=0, stability=NULL, difficulty=NULL,
-                     last_review=NULL, learning_again_count=0, is_leech=0,
+                     last_review=NULL, learning_again_count=0, is_leech=0, leeched_at=NULL,
                      probation=0, buried_until=NULL, pre_suspend_state=NULL
                  WHERE word_id=? AND category=? AND deleted_at IS NULL"""
         params = [target_deck_id, due, word_id, category]
