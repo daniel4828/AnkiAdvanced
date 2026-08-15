@@ -1194,6 +1194,31 @@ def _whisper_duration_allowed(duration: float, cfg: dict) -> bool:
     return duration <= max_minutes * 60
 
 
+def _episode_to_video(episode: dict) -> dict:
+    """Build the `video` dict that _process_episode/fetch_transcript expect
+    from a stored podcast_episodes row.
+
+    Exists because three call sites used to build this dict inline, and one
+    dropped field silently broke a whole ingestion path (#766): the Instagram
+    branch in fetch_transcript keys off `youtube_url`, which retry_episode's
+    hand-rolled dict never carried — so every Reel fell through to the
+    YouTube captions path and tried to look up its Instagram shortcode as a
+    YouTube video id (they're both 11 base64-ish characters, so it looks
+    plausible right up until YouTube says "no such video"). One builder, so
+    the next field added here reaches every caller.
+    """
+    return {
+        "video_id": episode["video_id"],
+        "title": episode["title"],
+        "audio_url": episode.get("audio_url"),
+        "duration_seconds": episode.get("duration_seconds"),
+        "kind": episode.get("kind") or "podcast",
+        # The Reel-vs-YouTube discriminator. Not optional despite the name:
+        # since #650 this column holds article and Instagram URLs too.
+        "youtube_url": episode.get("youtube_url"),
+    }
+
+
 def fetch_transcript(video: dict) -> tuple[str | None, dict]:
     """Get the Chinese transcript for one RSS episode. `video` needs
     video_id/title/audio_url/duration_seconds (an episode row or a
@@ -1231,6 +1256,16 @@ def fetch_transcript(video: dict) -> tuple[str | None, dict]:
     meta = {"title": title, "transcript_source": None}
 
     if video.get("kind") == "video":
+        if "youtube_url" not in video:
+            # #766: the Instagram branch below is decided purely by this
+            # field, so a caller that forgot it doesn't get a wrong answer —
+            # it gets a Reel silently routed into the YouTube captions API.
+            # Loud, because the symptom (status='no_transcript') otherwise
+            # looks exactly like "this video genuinely has no captions".
+            logger.warning(
+                "podcast: video episode %s has no 'youtube_url' key — cannot tell a "
+                "Reel from a YouTube video, assuming YouTube (see _episode_to_video)",
+                video_id)
         if _is_instagram_url(video.get("youtube_url") or ""):
             # Instagram Reel ingestion (#750): no captions API exists for
             # Instagram at all, so this never touches knowledge.youtube —
@@ -2096,12 +2131,7 @@ def retry_episode(episode_id: int) -> dict:
     database.update_episode(episode_id, status="pending", error=None)
 
     summary = {"summarized": 0, "emailed": 0, "failed": 0}
-    video = {
-        "video_id": episode["video_id"], "title": episode["title"],
-        "audio_url": episode.get("audio_url"), "duration_seconds": episode.get("duration_seconds"),
-        "kind": episode.get("kind") or "podcast",
-    }
-    _process_episode(episode_id, video, detail_level, summary)
+    _process_episode(episode_id, _episode_to_video(episode), detail_level, summary)
 
     fresh = database.get_episode(episode_id)
     return {
@@ -2214,10 +2244,6 @@ def _run_check_locked(cfg: dict) -> dict:
         logger.info("podcast: auto-retrying failed episode %s (%s)", ep["id"], ep["video_id"])
         summary["retried"] += 1
         database.update_episode(ep["id"], status="pending", error=None)
-        _process_episode(ep["id"], {
-            "video_id": ep["video_id"], "title": ep["title"],
-            "audio_url": ep.get("audio_url"), "duration_seconds": ep.get("duration_seconds"),
-            "kind": ep.get("kind") or "podcast",
-        }, detail_level, summary)
+        _process_episode(ep["id"], _episode_to_video(ep), detail_level, summary)
 
     return summary
