@@ -114,6 +114,23 @@ def test_no_account_configured_skips_everything(tmp_db, monkeypatch):
     assert calls == []
 
 
+def test_receive_is_invoked_with_an_idle_timeout(tmp_db, monkeypatch):
+    """#755: without `-t`, `signal-cli receive` never returns — it keeps
+    listening for new messages until killed, so the cron one-shot always died
+    on the subprocess timeout instead of draining the queue. The flag is the
+    entire fix, so it gets a test of its own."""
+    monkeypatch.setenv("SIGNAL_ACCOUNT", ACCOUNT)
+    calls = []
+    signal_inbox.check_signal_inbox(runner=_make_runner("", calls))
+
+    assert len(calls) == 1
+    args = calls[0]
+    assert "receive" in args
+    assert "-t" in args, "receive must carry an idle timeout or it never returns"
+    # The value must follow -t, and be a positive number of seconds.
+    assert int(args[args.index("-t") + 1]) > 0
+
+
 # ---------------------------------------------------------------------------
 # Security: only Note-to-Self from the account itself is ingested
 # ---------------------------------------------------------------------------
