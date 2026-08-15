@@ -218,7 +218,7 @@
 ├── ai.py                  # AI 提供商调用（每种提示词类型一个函数）
 ├── news_fetcher.py        # 新闻抓取（Tagesschau API + RSS；按天缓存 data/news_cache/）
 ├── podcast.py             # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、每源 auto_process 开关+非自动源只入库元数据（#502，podcast_feeds 表）、转录链 NotebookLM 免费主力+听悟+Whisper 保底、单步异常不中止整链（#510 重排，链式降级，原 #498/#485/#486）、摘要 NotebookLM chat.ask 免费优先+DeepSeek/gpt API 链回退（api 路径内部 DeepSeek 优先省钱，#532；勾了 china-kritisch 的素材跳过 DeepSeek 直接用 OpenAI，#731）、邮件通知+Signal 通知（signal-cli 关联设备，发 Note to Self，#521，二者独立可选、互不影响；消息抬头播客名·星期·日期、链接在末尾，单集日期按 Europe/Berlin 显示，#532）、摘要 table.media 风格（`<p>` 段落+每段首句 `<b>` 加粗总结，#567）+详情页 Regenerate summary 按钮、邮件主题=`播客名 - 单集标题`（查不到播客名只用标题，不要退回死前缀）+ `summary_zh` 开头中文总结（#708 起是 `summary_de` 的**完整翻译**：同段落数、同顺序、同事实，同样 `<p>`+段首 `<b>`，HSK4-5 用词；提示词里德语先写、中文后译，JSON 里 `summary_de` 排在前面；渲染三处——邮件 `podcast._summary_zh_html`、详情页 `app.js._summaryZhHtml` 均"先全转义再放行 `<p>/<b>/<strong>/<em>/<i>/<br>`"，Signal 用 `_summary_to_plain_text` 剥标签；#708 之前的旧条目是纯文本，两处渲染都按空行补 `<p>`；**是增量不是必需**——成功判定只看 `summary_de`，模型漏掉中文总结不能让整集失败）+ 摘要里任何 HSK5+ 中文概念都标 `pinyin/汉字`（不限于提取的词表，宁多勿少，#631）；已泛化为知识库存储层，见 `knowledge/` 包
-├── knowledge/             # 知识库摄取（#650–#655，播客功能泛化，见「知识库」节）：youtube.py（字幕摄取）、article.py（正文抽取）、ingest.py（唯一入库管线）、mailbox.py（IMAP 邮件收件）
+├── knowledge/             # 知识库摄取（#650–#655，播客功能泛化，见「知识库」节）：youtube.py（字幕摄取）、article.py（正文抽取）、ingest.py（唯一入库管线）、mailbox.py（IMAP 邮件收件）、signal_inbox.py（Signal Note to Self 分享收件，#749）
 ├── zh_annotate.py         # 生词标注（#638，零 AI）：HSK 表+词库+jieba+pypinyin+谷歌翻译
 ├── translator.py          # 翻译（Google Translate，deep-translator，可选）
 ├── tts.py                 # edge-tts 封装（离线模式下只读缓存，#612）
@@ -235,7 +235,7 @@
 ├── requirements.txt       # Python 依赖清单
 ├── DEPLOY.md              # 服务器从零到上线的部署教程
 ├── deploy/                # systemd 单元、Caddyfile 示例、deploy.sh（自动部署）
-├── scripts/               # morning_pregen.py（早晨预生成故事+TTS）、podcast_check.py（播客爬虫定时脚本）、due_check.py（复习收尾提醒定时脚本，#701）、knowledge_mail_check.py（知识库邮件收件定时脚本，#655）、offline_sync_server.py + offline_tts_manifest.py（离线同步，#612）、fsrs_optimize.py（用 review_log 训练个人 FSRS 权重，#629）+ README
+├── scripts/               # morning_pregen.py（早晨预生成故事+TTS）、podcast_check.py（播客爬虫定时脚本）、due_check.py（复习收尾提醒定时脚本，#701）、knowledge_mail_check.py（知识库邮件收件定时脚本，#655）、signal_check.py（知识库 Signal 分享收件定时脚本，#749）、offline_sync_server.py + offline_tts_manifest.py（离线同步，#612）、fsrs_optimize.py（用 review_log 训练个人 FSRS 权重，#629）+ README
 ├── docs/yaml-format.md    # YAML 词条格式完整文档
 ├── docs/knowledge-base.md # 知识库功能总体设计（#650–#655 各 Issue 引用的唯一设计说明）
 └── data/
@@ -351,7 +351,7 @@ python main.py status [--deck X]     # 显示每个牌组/类别的到期数量
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `SMTP_FROM` | 可选 | 播客爬虫（#479）邮件通知用；`SMTP_PORT` 默认 587（STARTTLS）；未配置时跳过发信，记日志，不算失败 |
 | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | 可选 | 播客爬虫用 Spotify Web API 搜索单集链接；未配置时退化为 Spotify 搜索链接 |
 | `PUBLIC_BASE_URL` | `https://powerdaniel3000.duckdns.org` | 播客邮件/Signal 通知里转录页链接的域名前缀 |
-| `SIGNAL_ACCOUNT` / `SIGNAL_CLI_PATH` | 可选 | 播客爬虫（#521）Signal 通知用；`SIGNAL_ACCOUNT` 是 Daniel 关联设备所属号码（如 `+49…`），`SIGNAL_CLI_PATH` 默认 `signal-cli`；`SIGNAL_ACCOUNT` 未配置时跳过发送，记日志，不算失败。一次性 signal-cli 安装/扫码关联步骤见 `scripts/README.md` |
+| `SIGNAL_ACCOUNT` / `SIGNAL_CLI_PATH` | 可选 | 播客爬虫（#521）Signal 通知用，**以及**知识库 Signal 分享入口（#749）的收件用；`SIGNAL_ACCOUNT` 是 Daniel 关联设备所属号码（如 `+49…`），`SIGNAL_CLI_PATH` 默认 `signal-cli`；`SIGNAL_ACCOUNT` 未配置时发送/收件都跳过，记日志，不算失败。一次性 signal-cli 安装/扫码关联步骤见 `scripts/README.md`（两个用途共用同一次关联，不用配两遍） |
 | `ALIBABA_CLOUD_ACCESS_KEY_ID` / `ALIBABA_CLOUD_ACCESS_KEY_SECRET` | 可选 | 播客爬虫（#498）通义听悟（转录主力）用的阿里云 AccessKey；未配置时自动跳过，落到 Whisper/NotebookLM |
 | `TINGWU_APP_KEY` | 可选 | 播客爬虫（#498）通义听悟控制台创建的应用 AppKey；与上面两个 AccessKey 变量任一缺失都会跳过听悟。一次性开通步骤见 `scripts/README.md` |
 | `KNOWLEDGE_IMAP_HOST` / `KNOWLEDGE_IMAP_PORT` | 可选 | 知识库邮件收件（#655）的 IMAP 服务器；端口默认 `993`（SSL） |
@@ -547,6 +547,12 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 - **不新建表，泛化 `podcast_episodes`**：加两列 `kind`（`podcast`|`video`|`article`）、`title_en`。**表名和历史列名故意不改**——改名要重建表+迁移生产库，风险远大于收益，本仓库已有同类先例（`youtube_url` 现在也存文章/播客链接，`word_zh` 对法语存法语词形）。`video_id` 对文章存 `normalize_url()` 去掉跟踪参数后的规范化 URL（`podcast_episodes` 的去重键），`transcript_source` 存 `youtube_captions`/`article`/`tingwu`/`whisper`/`notebooklm`
 - **`knowledge/` 包，`ingest.py` 是唯一入库管线**：`ingest_url()` 判断 YouTube 链接走 `youtube.py`（oEmbed 拿标题 + `youtube-transcript-api` 拿字幕，语言优先级 zh-Hans→zh-CN→zh→zh-TW→de→en，找不到任何字幕轨直接 `no_transcript`，**不跑 Whisper**；**YouTube 封锁云服务商 IP，所以服务器上字幕 API 恒返回 `RequestBlocked`，实际走的是 NotebookLM 兜底**，见下条），否则当文章走 `article.py`（`trafilatura` 抽正文，不足 200 字视为失败并抛 `ArticleExtractionError`——付费墙/登录墙/JS 页面绝不能存进库冒充正文，见其 docstring）。界面「粘贴 URL」框（`POST /api/knowledge/add`）和邮件收件（`mailbox.py`）**共用这一个函数**——理由同 #643 加词单一入口：两条平行管线迟早会让修好的坑在另一条上复活
 - **邮件收件（`knowledge/mailbox.py`，#655）**：IMAP 轮询 UNSEEN 邮件，标题+正文都扫 URL（手机分享到邮件，链接位置因 App 而异）。`KNOWLEDGE_MAIL_ALLOWED_SENDERS` 未配置时**整个邮箱检查被跳过，不读取也不标已读**——这是防止任何知道邮箱地址的人远程触发付费 AI 调用的唯一防线；处理失败的邮件同样不标已读，留给下一轮重试（`ingest_url()` 对已入库 URL 幂等返回 `already_exists`，重试安全）
+- **Signal 分享入口（`knowledge/signal_inbox.py`，#749）**：手机把链接分享到 Signal 自己的「Note to Self」，服务器用 #521 早就关联好的**同一个** signal-cli 设备（`SIGNAL_ACCOUNT`）把消息收下来，正文里的 URL 同样走 `ingest_url()`。与邮件收件方向相反、账号相同——`send_signal()` 是服务器→Daniel，这个是 Daniel→服务器
+  - **安全防线**：只收下**源账号和目的账号都等于 `SIGNAL_ACCOUNT` 自己**的消息（真正的 Note to Self）——关联设备会同步收到 Daniel 手机发出的所有消息，包括发给别人的，那些一律忽略。作用等同于 `KNOWLEDGE_MAIL_ALLOWED_SENDERS` 之于邮件入口
+  - **失败重试靠自己存队列，不是靠"留着不读"**：`signal-cli receive` 一次调用就把消息从 Signal 服务器上取走，不像 IMAP 能把邮件留成 UNSEEN 等下一轮。入库失败的 URL 存进 `app_settings['signal_retry_queue']`（JSON 列表），下一轮优先处理，满 3 次放弃并在回执里说明
+  - **新链接入库后立即同步处理**（转录+摘要），不像邮件/网页粘贴那样只入库、等前端另外调 `.../process`——Signal 分享的语义就是"现在就要"。处理复用 `podcast.retry_episode()`（`routes/podcast.py` 的 process 端点背后那个同步函数，脚本进程里直接调用，不起后台线程——脚本跑完就退出，线程会被杀掉）
+  - **`podcast.send_signal_text(text, context=...)`（#749 从 `send_signal()` 抽出）是发 Signal 消息的唯一函数**：`send_signal()`（摘要通知）和 `signal_inbox.send_receipt()`（收件回执）都调它，不重复写 subprocess 调用。处理成功时**不重复发一遍摘要**——`send_signal()` 已经在摘要成功后自动发了完整版，回执只发一行简短结果
+  - `scripts/signal_check.py`：cron 入口，结构照抄 `knowledge_mail_check.py`（同款 PID 锁 + `database.init_db()` 直连）
 - **前端：播客页 → 知识页**（#653，`static/app.js`）：🎙️/📺/📄 三个子标签，播客管理页原有的 RSS 源/详情/生词表格逻辑全部保留，只是按 `?kind=` 过滤。**旧的 `#podcast-<id>` hash 链接永久保留**——已发出去的邮件/Signal 消息里全是这种链接；播客条目仍生成旧格式 hash，只有视频/文章条目用新的 `#knowledge-<id>`
 - **独立收藏页 `/save`（#681）**：`/add` 的素材版 —— 可收藏的网址，🔗 Link / 📋 Text 两个标签，粘链接或粘正文，同样**不加载 `app.js`**（手机上从别的 App 分享文章时秒开）。入库逻辑抽到 `shared.js` 的 `ingestKnowledge()`，应用的知识页和本页共用一份；`knowledgeTitleFor()` 统一"标题留空则取首行"的规则。**两处都不许直接调 `/api/knowledge/add*`**，有测试守着
 - **china-kritisch 复选框（#731）**：摘要默认走便宜的 DeepSeek —— Daniel 的博客素材绝大多数不批评中国，没必要为它们付 OpenAI 的钱。少数确实批评中国的素材勾选后存 `podcast_episodes.china_critical=1`，摘要时把 DeepSeek 从候选模型里**彻底删掉**（不是排后面）：它对这类内容会悄悄弱化或拒答，而弱化后的摘要照样能解析出 `summary_de`，任何"解析失败就回退"的机制都永远不会触发
