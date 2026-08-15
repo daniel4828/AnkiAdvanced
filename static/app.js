@@ -3359,8 +3359,16 @@ function _renderKnowledgeMaterialList() {
   const el = document.getElementById('view-knowledge-content');
   if (!el) return;
   const kindLabel = _knowledgeTab === 'video' ? 'video' : 'article';
+  // The video tab also accepts Instagram Reels (#750) — same paste box, same
+  // ingest_url() dispatch. Say so, or nobody discovers it (#761).
+  const linkHint = _knowledgeTab === 'video'
+    ? 'Paste a YouTube or Instagram Reel link…'
+    : `Paste a ${kindLabel} link…`;
+  const emptyHint = _knowledgeTab === 'video'
+    ? 'No videos yet — paste a YouTube or Instagram Reel link above.'
+    : `No ${kindLabel}s yet — paste a link above.`;
   const rows = _podcastEpisodes.map(ep => _knowledgeMaterialRowHtml(ep)).join('') ||
-    `<div class="keymap-hint">No ${kindLabel}s yet — paste a link above.</div>`;
+    `<div class="keymap-hint">${emptyHint}</div>`;
   // Paste-text is an article-only escape hatch for paywalled pieces the server
   // can't fetch (#668) — video/podcast tabs only ever get a link box.
   const isArticleTab = _knowledgeTab === 'article';
@@ -3385,7 +3393,7 @@ function _renderKnowledgeMaterialList() {
     : `<div class="keymap-panel">
         <div class="keymap-row">
           <input type="text" class="opt-input" id="knowledge-add-url"
-                 placeholder="Paste a ${kindLabel} link…" style="flex:1"
+                 placeholder="${linkHint}" style="flex:1"
                  onkeydown="if(event.key==='Enter') submitKnowledgeUrl()">
           <button class="btn-secondary" onclick="submitKnowledgeUrl()">Add</button>
         </div>
@@ -3417,6 +3425,18 @@ function switchKnowledgeAddMode(mode) {
   _renderKnowledgeMaterialList();
 }
 
+// Instagram Reels ride in the video tab as kind='video' (#750 deliberately
+// did NOT add a fourth kind — a Reel is a video, and a new kind means a new
+// tab, new filters, a migration). But a list mixing YouTube and Reels reads
+// as undifferentiated mush, so mark the Reels with an icon (#761). Purely
+// presentational: derived from the stored URL, nothing stored for it.
+function _knowledgeSourceIcon(ep) {
+  const url = ep.youtube_url || '';
+  return /(^|\.)instagram\.com/.test((() => {
+    try { return new URL(url).hostname; } catch (e) { return ''; }
+  })()) ? '📱 ' : '';
+}
+
 function _knowledgeMaterialRowHtml(ep) {
   const date = _localDate(ep.published_at || ep.created_at || '');
   const status = ep.status || 'pending';
@@ -3430,7 +3450,7 @@ function _knowledgeMaterialRowHtml(ep) {
   return `<div class="podcast-row${clickable ? ' podcast-row-clickable' : ''}"
                ${clickable ? `onclick="openKnowledgeItem(${ep.id})"` : ''}>
     <span class="podcast-row-title" style="display:flex;flex-direction:column;gap:2px;overflow:hidden">
-      <span>${_escHtml(ep.title || '(untitled)')}</span>
+      <span>${_knowledgeSourceIcon(ep)}${_escHtml(ep.title || '(untitled)')}</span>
       ${ep.title_en ? `<span style="font-size:12px;color:var(--muted)">${_escHtml(ep.title_en)}</span>` : ''}
     </span>
     ${source ? `<span class="podcast-row-date">${_escHtml(source)}</span>` : ''}
