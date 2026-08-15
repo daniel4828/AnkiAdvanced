@@ -455,7 +455,7 @@ Return ONLY a numbered list of Chinese sentences, no explanation:
     照抄其中的名字和数字（用素材原文的语言写这部分），
     再用一句中文说明这句话在讲什么。面向 HSK 4-5 学习者，中文部分用词不要太难。
 21. 把事实写出来正是为了自查：任何两句的「事实：」都不许相同。
-
+{multi_source_block}
 五、输出前自检（内部进行，不要输出）
 - 句子数是否等于目标词数？
 - 每个目标词是否恰好出现一次？
@@ -486,7 +486,7 @@ PROMPT_TEMPLATE_VARIABLES: dict[str, list[str]] = {
     "story": ["words", "max_hsk", "grammar_block", "topic_block"],
     "qa": ["words", "max_hsk", "grammar_block", "topic"],
     "expository": ["words", "max_hsk", "grammar_block", "topic"],
-    "knowledge": ["words", "summary", "title", "max_hsk", "extra_hint"],
+    "knowledge": ["words", "summary", "title", "max_hsk", "extra_hint", "multi_source_block"],
 }
 
 
@@ -2681,14 +2681,11 @@ def _podcast_max_tokens(model: str, n_words: int) -> int:
 
 def generate_podcast_sentences(
     cards: list[dict],
-    material: str,            # transcript_zh (preferred) or summary_de fallback; caller ensures non-empty — see routes/story.py's _knowledge_material()
-    episode_title: str,
+    sources: list[dict],      # [{"index", "title", "kind", "url", "material"}, ...] — see routes/story.py's knowledge branch; caller ensures every entry has non-empty "material"
     model: str = DEFAULT_MODEL,     # #640: DeepSeek, same as kahneman
     max_hsk: int = 3,
     progress_key: str | None = None,
     attempt_label: str = "",
-    source_url: str | None = None,
-    source_title: str | None = None,
 ) -> tuple[list[dict], str]:
     """Podcast/knowledge mode rework (issue #561) — a lean single-purpose
     pipeline that replaces reuse of the briefing machinery (originally #482).
@@ -2714,14 +2711,19 @@ def generate_podcast_sentences(
     Deliberately has NO fact-check and NO whole-material validation retry —
     those are what make briefing slow and expensive, and podcast/knowledge
     content (unlike news) is not something to fact-check against an external
-    source in the same way. `material` is normally the item's full transcript
-    (transcript_zh, truncated to 15000 chars by the caller — issue #661;
-    Daniel explicitly asked for transcript-based cards, #561 had switched to
-    summary_de purely to cut cost/latency, which stopped mattering once cost
-    was confirmed to be ~$0.003/generation) with summary_de as a fallback for
-    rows that only have a summary (old synced-down data, etc.). The prompt
-    template's {summary} placeholder is reused for whichever text is passed
-    in, so custom prompt_presets Daniel already saved keep working unchanged.
+    source in the same way.
+
+    `sources` (issue #752, multi-source): one or more selected knowledge
+    items, each already carrying its own material text (the caller —
+    routes/story.py — has already resolved transcript_zh vs summary_de and
+    split the _KNOWLEDGE_MATERIAL_MAX_CHARS budget evenly across the
+    selection). With exactly one source, {title}/{summary} render as that
+    source's title/material verbatim and {multi_source_block} renders empty —
+    the single-source prompt must stay byte-for-byte identical to before this
+    was added, since Daniel is actively tuning it. With several sources,
+    {title} becomes a numbered list and {summary} a labeled concatenation of
+    every source's material, and {multi_source_block} adds the instruction to
+    spread sentences across sources and tag each with "source_index".
 
     attempt_label: chunk marker like " (2/3)" appended to every progress
     message — the route batches cards by MAX_NEWS_BATCH and calls this once
@@ -2732,7 +2734,7 @@ def generate_podcast_sentences(
     an extra_hint, so a prompt rebuilt afterwards would not be the one that
     produced these sentences, which is the whole point of keeping it (#697).
     """
-    if not cards or not material.strip():
+    if not cards or not sources:
         return [], ""
 
     # 模板可被用户自定义覆盖（issue #581）；默认渲染结果与旧内联 f-string 逐字一致。
@@ -2742,22 +2744,76 @@ def generate_podcast_sentences(
     # 摘要）——改名会让 Daniel 已保存的自定义模板失效。
     tpl = _story_prompt_template("knowledge")
 
+    # #752: single source keeps {title}/{summary} rendering exactly as before
+    # multi-source support existed (Daniel is actively tuning this prompt, so
+    # the well-worn single-source path must not shift under him). Only with
+    # more than one source do these turn into a labeled listing, and only
+    # then does {multi_source_block} carry any text.
+    if len(sources) == 1:
+        title_block = sources[0].get("title") or ""
+        summary_block = sources[0].get("material") or ""
+        multi_source_block = ""
+    else:
+        title_block = "\n".join(
+            f"{s['index']}. 《{s.get('title') or '（无标题）'}》（{s.get('kind') or 'podcast'}）"
+            for s in sources
+        )
+        summary_block = "\n\n".join(
+            f"── 素材 {s['index']}：《{s.get('title') or '（无标题）'}》（{s.get('kind') or 'podcast'}）──\n"
+            f"{s.get('material') or ''}"
+            for s in sources
+        )
+        # 这段插在「四、reasoning_zh」与「五、输出前自检」之间，所以不另起大节号
+        # （避免出现「六」排在「五」前面），条目号顺着 21 往下接。
+        multi_source_block = (
+            "\n【本次有多份素材】\n"
+            "22. 上面的素材列表和内容各有编号，句子要分散覆盖到不同素材上，"
+            "尽量让每一份都至少被用到，不要全挤在第 1 份。\n"
+            "23. 同一句话只能依据一份素材，不许把不同素材的事实混进同一句。\n"
+            "24. 每个 JSON 元素都要多带一个整数字段 \"source_index\"，"
+            "写这句话依据的是上面第几份素材（对照素材编号）。\n"
+            "25. 输出前再自查一遍：每句都带了 source_index 吗？"
+            "是不是有素材一句都没用到？\n"
+        )
+
     def _build_prompt(batch: list[dict], extra_hint: str = "") -> str:
         word_list = "\n".join(
             f"{i + 1}. {c['word_zh']}（{c.get('pinyin', '')}）— {c.get('definition', '')}"
             for i, c in enumerate(batch)
         )
         return _render_prompt(tpl, {
-            "title": episode_title,
-            "summary": material,
+            "title": title_block,
+            "summary": summary_block,
             "words": word_list,
             "max_hsk": str(max_hsk),
             "extra_hint": extra_hint,
+            "multi_source_block": multi_source_block,
         })
 
     sentences: list[dict] = []
     remaining = list(cards)
     prompts_sent: list[str] = []
+
+    def _source_for(item: dict, label: str) -> dict:
+        """Resolve which source a sentence is attributed to (#752).
+
+        Single-source calls always use sources[0] — no index parsing needed
+        or expected. Multi-source calls read the model's "source_index"
+        (1-based, matching the numbering shown in the prompt); a missing,
+        non-integer, or out-of-range value falls back to sources[0] rather
+        than dropping the sentence — a wrong/missing attribution is a minor
+        cosmetic issue (wrong "open article" link), not worth discarding an
+        otherwise-good sentence over."""
+        if len(sources) == 1:
+            return sources[0]
+        raw_idx = item.get("source_index")
+        idx = raw_idx if isinstance(raw_idx, int) else None
+        if idx is None and isinstance(raw_idx, str) and raw_idx.strip().lstrip("-").isdigit():
+            idx = int(raw_idx)
+        if idx is not None and 1 <= idx <= len(sources):
+            return sources[idx - 1]
+        log_progress(progress_key, f"{label}：句子缺少有效 source_index，回退到素材 1")
+        return sources[0]
 
     def _run_round(batch: list[dict], extra_hint: str, label: str) -> None:
         """One AI call for `batch`; moves every word it covered out of `remaining`."""
@@ -2790,6 +2846,7 @@ def generate_podcast_sentences(
                 continue          # no target word → drop (this mode allows no context sentences)
             remaining.remove(matched)
             got += 1
+            src = _source_for(item, label)
             sentences.append({
                 "word_ids": [matched["word_id"]],
                 "sentence_zh": s_zh,
@@ -2800,8 +2857,8 @@ def generate_podcast_sentences(
                 # reasoning_zh before writing — keep it, it shows in the card's
                 # background popup like kahneman's does.
                 "reasoning_zh": (item.get("reasoning_zh") or "").strip(),
-                "source_url": source_url,
-                "source_title": source_title,
+                "source_url": src.get("url"),
+                "source_title": src.get("title"),
                 "tokens": [],
             })
         log_progress(progress_key, f"{label}：拿到 {got} 句，还差 {len(remaining)} 个词")
@@ -2858,8 +2915,8 @@ def generate_podcast_sentences(
             "concept_en": "",
             "concept_zh": "",
             "reasoning_zh": "",
-            "source_url": source_url,
-            "source_title": source_title,
+            "source_url": sources[0].get("url"),
+            "source_title": sources[0].get("title"),
             "tokens": [],
         })
 
