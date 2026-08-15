@@ -4770,10 +4770,10 @@ function _resumeBackgroundReview(ctx) {
   deckName   = ctx.deckName;
   rootDeckId = ctx.rootDeckId;
   quickMode  = false;
-  _doStartReview(ctx.topic, ctx.maxHsk, ctx.model, ctx.grammarFocus, ctx.grammarPct, ctx.mode, ctx.chapterIds, null, ctx.episodeId);
+  _doStartReview(ctx.topic, ctx.maxHsk, ctx.model, ctx.grammarFocus, ctx.grammarPct, ctx.mode, ctx.chapterIds, null, ctx.episodeIds);
 }
 
-async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null, episodeId = null) {
+async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null, episodeIds = null) {
   if (quickMode) {
     setLoading('Loading audio…', true);
     try {
@@ -4803,19 +4803,19 @@ async function _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mo
     const resumeCtx = {
       key: `${storyDeckId}/${storyCategory}`,
       deckId, category, deckName, rootDeckId, storyDeckId, storyCategory,
-      topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId,
+      topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeIds,
     };
     _bgLeaveRequested = false;
     _bgActiveResume = resumeCtx;
     _showLoadingBgButton();
 
-    const storyUrl = `/api/story/${storyDeckId}/${storyCategory}` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId);
+    const storyUrl = `/api/story/${storyDeckId}/${storyCategory}` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeIds);
     const bgUrl = storyUrl + (storyUrl.includes('?') ? '&' : '?') + 'background=true';
     let todayData, storyData;
     try {
       todayData = await api('GET', `/api/today/${deckId}/${category}${_langQP('?')}`);
       storyData = await _fetchStoryOrNewsRegen(storyDeckId, storyCategory, topic, maxHsk, model,
-        grammarFocus, grammarPct, mode, chapterIds, articles, bgUrl, episodeId);
+        grammarFocus, grammarPct, mode, chapterIds, articles, bgUrl, episodeIds);
     } catch (e) {
       await _startQuickFallback(e.message);
       return;
@@ -4893,16 +4893,20 @@ async function _startQuickFallback(reason) {
 // a session); news mode auto-fetches today's news server-side (issue #387).
 async function _fetchStoryOrNewsRegen(storyDeckId, storyCategory, topic, maxHsk, model,
                                       grammarFocus, grammarPct, mode, chapterIds, articles, bgUrl,
-                                      episodeId) {
+                                      episodeIds) {
   if (mode === 'paste' && articles && articles.length) {
     const url = `/api/story/${storyDeckId}/${storyCategory}/regenerate`
-      + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId);
+      + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeIds);
     return api('POST', url, { articles });
   }
   return _pollBackgroundStory(bgUrl);
 }
 
-function _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId) {
+// episodeIds: array of item ids for knowledge mode (issue #752, multi-select —
+// previously a single episodeId / `episode_id` param). Backend accepts the new
+// comma-joined `episode_ids` and still accepts the old singular `episode_id`,
+// but the frontend only ever sends the former now.
+function _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeIds) {
   const p = new URLSearchParams();
   if (topic)                              p.set('topic', topic);
   if (maxHsk !== 3)                       p.set('max_hsk', maxHsk);
@@ -4911,7 +4915,7 @@ function _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chap
   if (grammarFocus && grammarPct !== 75)  p.set('grammar_pct', grammarPct);
   if (mode && mode !== 'story')           p.set('mode', mode);
   if (chapterIds && chapterIds.length)    p.set('chapter_ids', chapterIds.join(','));
-  if (episodeId)                          p.set('episode_id', episodeId);
+  if (episodeIds && episodeIds.length)    p.set('episode_ids', episodeIds.join(','));
   // Words per AI call (issue #563 podcast-only, #574 all modes) — persisted
   // per mode in localStorage (like setupModel) rather than yet another
   // positional parameter through every call chain. Unset = mode default.
@@ -4963,7 +4967,7 @@ async function startReviewMixed(id, name, noStory = false, quick = false) {
   }
 }
 
-async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', noStory = false, chapterIds = null, articles = null, episodeId = null) {
+async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', noStory = false, chapterIds = null, articles = null, episodeIds = null) {
   setLoading(noStory ? 'Loading…' : 'Generating stories…', !noStory);
   if (!noStory) {
     setLoadingStep(10, null, 'Sending request to AI…');
@@ -4984,8 +4988,8 @@ async function _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPc
       // Load a single unified story covering all categories (1 AI call instead of 3)
       try {
         story = (mode === 'paste' && articles && articles.length)
-          ? await api('POST', `/api/story/${rootDeckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId), { articles })
-          : await api('GET', `/api/story/${rootDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId));
+          ? await api('POST', `/api/story/${rootDeckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeIds), { articles })
+          : await api('GET', `/api/story/${rootDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeIds));
       } catch (e) {
         await _startQuickFallback(e.message);
         return;
@@ -5065,7 +5069,7 @@ async function startReviewUnfinished() {
   }
 }
 
-async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null, episodeId = null) {
+async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null, episodeIds = null) {
   unfinishedMode = true;
   setLoading('Loading cards…');
   // In "existing" story mode, never trigger generation — fetch cached stories only.
@@ -5086,9 +5090,9 @@ async function _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, gram
     try {
       if (!noGen && mode === 'paste' && articles && articles.length) {
         story = await api('POST', `/api/story/${firstDeckId}/unified/regenerate`
-          + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId), { articles });
+          + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeIds), { articles });
       } else {
-        let url = `/api/story/${firstDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId);
+        let url = `/api/story/${firstDeckId}/unified` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeIds);
         if (noGen) url += (url.includes('?') ? '&' : '?') + 'no_generate=true';
         story = await api('GET', url);
       }
@@ -7562,6 +7566,11 @@ function openStorySetup(sentenceCount, { isMixed = false, isUnfinished = false, 
   document.getElementById('setup-topic').value = '';
   document.getElementById('setup-grammar').value = '';
   document.getElementById('setup-grammar-pct').value = 50;
+  // Knowledge-item multi-select (issue #752): each fresh open of the modal starts
+  // with nothing picked, same as topic/grammar being cleared above — a leftover
+  // selection from a previous session would silently reuse the wrong sources.
+  _setupSelectedEpisodes.clear();
+  _renderSetupSelectedEpisodes();
   // In-session regenerate: prefill mode + HSK from the active story's gen_params
   // so a quick regenerate keeps News flow / kahneman / … instead of silently
   // downgrading to mode=story (issue #468 — a briefing was overwritten exactly
@@ -8133,6 +8142,11 @@ let _setupPodcastFeeds = null;              // null = not loaded yet
 // key `${kind}|${feedId}` ('' feedId = all podcasts, only meaningful for kind=podcast) → episodes array
 let _setupPodcastEpisodesByFeed = {};
 let _setupKnowledgeKind = localStorage.getItem('setupKnowledgeKind') || 'podcast';
+// Multi-select of knowledge-base items (issue #752): id -> {id, title, kind}. This
+// Map — not the checkbox DOM — is the single source of truth, because switching
+// Source type or podcast feed re-renders #setup-podcast-episodes from scratch and
+// would otherwise wipe out any selection made under a different kind/feed.
+let _setupSelectedEpisodes = new Map();
 // Words per AI call (issue #563 podcast-only, #574 all modes): persisted per
 // mode like setupModel. null = the mode's default chunking. Read by
 // _storyParams for every generation URL.
@@ -8195,8 +8209,9 @@ function _onKnowledgeKindChange() {
   localStorage.setItem('setupKnowledgeKind', _setupKnowledgeKind);
   const feedSel = document.getElementById('setup-podcast-feed');
   if (feedSel) feedSel.style.display = _setupKnowledgeKind === 'podcast' ? '' : 'none';
-  // Selecting a new item clears any previous radio pick — the episode ids
-  // aren't comparable across kinds.
+  // The list is re-rendered from scratch for the new kind, but the selection
+  // itself survives (issue #752) — _setupSelectedEpisodes, not the DOM, is
+  // the source of truth, and _renderPodcastEpisodes re-checks boxes from it.
   _loadPodcastEpisodesForCurrentFeed();
 }
 
@@ -8241,11 +8256,14 @@ function _renderPodcastEpisodes(cacheKey) {
     return;
   }
   const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  // Rows show just title + date (issue #561) — the summary preview was
-  // dropped, it made the list too tall to scan with many episodes.
+  // Checkboxes, not radios (issue #752 — multiple items can seed one story).
+  // `checked` is driven by _setupSelectedEpisodes, not by what was checked
+  // before the list was re-rendered (e.g. after switching Source type).
   container.innerHTML = episodes.map(ep => `
     <label class="kahneman-chapter-row">
-      <input type="radio" class="podcast-episode-radio" name="podcast-episode" value="${ep.id}">
+      <input type="checkbox" class="podcast-episode-cb" value="${ep.id}"
+        ${_setupSelectedEpisodes.has(ep.id) ? 'checked' : ''}
+        onchange="_onEpisodeCheckboxChange(this, ${ep.id}, '${_setupKnowledgeKind}')">
       <div class="kahneman-chapter-info">
         <span class="kahneman-chapter-title">${esc(ep.title || '(untitled)')}</span>
         <span class="kahneman-chapter-concept">${esc(_localDate(ep.published_at || ''))}</span>
@@ -8253,16 +8271,64 @@ function _renderPodcastEpisodes(cacheKey) {
     </label>`).join('');
 }
 
+// Checkbox change handler for the knowledge-item list (issue #752). Keeps
+// _setupSelectedEpisodes (the source of truth) in sync and re-renders the
+// "Selected: N" chip list above it. Title/kind are captured from the row at
+// check-time so the chip list still shows a name after the underlying list
+// is re-rendered for a different kind/feed.
+function _onEpisodeCheckboxChange(cb, id, kind) {
+  if (cb.checked) {
+    // Pull the title straight from the row rather than re-searching the
+    // cached lists — the row that fired this event always has it.
+    const title = cb.closest('.kahneman-chapter-row')
+      ?.querySelector('.kahneman-chapter-title')?.textContent || `#${id}`;
+    _setupSelectedEpisodes.set(id, { id, title, kind });
+  } else {
+    _setupSelectedEpisodes.delete(id);
+  }
+  _renderSetupSelectedEpisodes();
+}
+
+// Renders the "Selected: N" chip list above the item picker (issue #752).
+// Hidden entirely when nothing is selected — an empty chip bar is just noise.
+function _renderSetupSelectedEpisodes() {
+  const box = document.getElementById('setup-podcast-selected');
+  if (!box) return;
+  const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const items = Array.from(_setupSelectedEpisodes.values());
+  if (!items.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.style.display = 'block';
+  const kindIcon = { podcast: '🎙️', video: '📺', article: '📄' };
+  box.innerHTML = `<div style="font-size:12px;color:var(--muted,#888);margin-bottom:4px">Selected: ${items.length}</div>` +
+    items.map(it => `
+      <span style="display:inline-flex;align-items:center;gap:4px;background:var(--hover-bg,#f0f0f0);
+        border-radius:12px;padding:2px 8px 2px 10px;margin:0 4px 4px 0;font-size:12px;max-width:100%">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px">${kindIcon[it.kind] || ''} ${esc(it.title)}</span>
+        <span role="button" aria-label="Remove" onclick="_setupRemoveEpisode(${it.id})"
+          style="cursor:pointer;color:var(--muted,#888);font-weight:700;padding:0 2px">×</span>
+      </span>`).join('');
+}
+
+// Removing via the chip's × (issue #752): drop from the selection map, then
+// uncheck the corresponding checkbox if it's currently visible in the list
+// (it won't be if the user is looking at a different kind/feed right now).
+function _setupRemoveEpisode(id) {
+  _setupSelectedEpisodes.delete(id);
+  const cb = document.querySelector(`.podcast-episode-cb[value="${id}"]`);
+  if (cb) cb.checked = false;
+  _renderSetupSelectedEpisodes();
+}
+
 function _getSelectedChapterIds() {
   return Array.from(document.querySelectorAll('.kahneman-chapter-cb:checked'))
     .map(cb => parseInt(cb.value));
 }
 
-// Podcast episode picker (issue #482) — single-select, same idea as the
-// kahneman chapter checkboxes but radio-style (one episode per story).
-function _getSelectedEpisodeId() {
-  const checked = document.querySelector('.podcast-episode-radio:checked');
-  return checked ? parseInt(checked.value) : null;
+// Podcast/video/article item picker (issue #482, multi-select since #752).
+// Reads from _setupSelectedEpisodes (not the DOM) so a selection made under
+// a different Source type/feed — currently not rendered — still counts.
+function _getSelectedEpisodeIds() {
+  return Array.from(_setupSelectedEpisodes.keys());
 }
 
 function confirmStorySetup() {
@@ -8277,16 +8343,16 @@ function confirmStorySetup() {
   if (model && model !== 'briefing-server') localStorage.setItem('setupModel:' + mode, model);
   const chapterIds  = mode === 'kahneman' ? _getSelectedChapterIds() : null;
   const articles    = mode === 'paste' ? _collectPastedContents() : null;
-  const episodeId   = mode === 'knowledge' ? _getSelectedEpisodeId() : null;
+  const episodeIds  = mode === 'knowledge' ? _getSelectedEpisodeIds() : null;
   // News mode never sends articles: today's news is auto-fetched server-side
   // (issue #387). Paste mode requires at least one non-empty text (issue #396).
   if (mode === 'paste' && !articles.length) {
     showError('Paste mode needs at least one text — paste some content first.');
     return;
   }
-  // Knowledge mode requires picking exactly one source item (issue #482/#654).
-  if (mode === 'knowledge' && !episodeId) {
-    showError('Knowledge mode needs a source — select one first.');
+  // Knowledge mode requires picking at least one source item (issue #482/#654/#752).
+  if (mode === 'knowledge' && !episodeIds.length) {
+    showError('Knowledge mode needs a source — select at least one first.');
     return;
   }
   // Words per AI call (issue #563 podcast-only, #574 all modes): empty input
@@ -8318,20 +8384,20 @@ function confirmStorySetup() {
     return;
   }
   if (_setupIsDeckListRegen) {
-    _doRegenStoryForDeckList(_deckListRegenId, topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles, episodeId);
+    _doRegenStoryForDeckList(_deckListRegenId, topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles, episodeIds);
   } else if (_setupIsRegen) {
-    _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles, episodeId);
+    _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles, episodeIds);
   } else if (_setupIsUnfinished) {
-    _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles, episodeId);
+    _doStartReviewUnfinished(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles, episodeIds);
   } else if (_setupIsMixed) {
     // noStory=false: confirmStorySetup always wants a fresh generation, unlike
     // the `?scope=` quick paths above that call this with noStory=true directly.
     // (Pre-#482 this call under-supplied args, so chapterIds silently landed in
     // the noStory slot — harmless for story/paste/news since chapterIds was null
     // there, but it would have broken kahneman+podcast in mixed review.)
-    _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct, mode, false, chapterIds, articles, episodeId);
+    _doStartReviewMixed(topic, maxHsk, model, grammarFocus, grammarPct, mode, false, chapterIds, articles, episodeIds);
   } else {
-    _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles, episodeId);
+    _doStartReview(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, articles, episodeIds);
   }
 }
 
@@ -8852,7 +8918,7 @@ async function regenerateStory() {
   }
 }
 
-async function _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null, episodeId = null) {
+async function _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null, episodeIds = null) {
   setLoading('Regenerating story…', true);
   setLoadingStep(10, null, 'Sending request to AI…');
   _startFakeProgress(10, 55, 45000);
@@ -8862,7 +8928,7 @@ async function _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct
     _startStoryProgressPoll(storyDeckId, storyCategory);
     let storyData;
     try {
-      storyData = await api('POST', `/api/story/${storyDeckId}/${storyCategory}/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId), { articles });
+      storyData = await api('POST', `/api/story/${storyDeckId}/${storyCategory}/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeIds), { articles });
     } catch (e) {
       _stopFakeProgress(); _stopStoryProgressPoll();
       _showLoadingError('AI request failed', e.message);
@@ -8921,6 +8987,10 @@ async function regenerateStoryFromList(deckId) {
   document.getElementById('setup-grammar').value = '';
   document.getElementById('setup-grammar-pct').value = 50;
   document.getElementById('setup-hsk-slider').value = 3;
+  // Knowledge-item multi-select (issue #752) — reset on every fresh open, same
+  // reasoning as openStorySetup above.
+  _setupSelectedEpisodes.clear();
+  _renderSetupSelectedEpisodes();
   updateHskLabel();
   // Sync the per-mode control visibility to the current dropdown value (e.g. hide
   // story-only controls when Words-only is selected, #547).
@@ -8933,7 +9003,7 @@ async function regenerateStoryFromList(deckId) {
 // Regenerate a deck's story in the BACKGROUND: instead of a blocking full-screen
 // loader, show a small persistent banner and let the user keep reviewing. When
 // the new story is ready the banner turns into a clickable "open for review".
-async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null, episodeId = null) {
+async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null, episodeIds = null) {
   const deck = flatten(_cachedDecks || []).find(d => d.id === deckId);
   const deckName = deck ? deck.name : 'deck';
   const noStory = !!(deck && deck.no_story);
@@ -8947,7 +9017,7 @@ async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model, grammarFoc
   }
 
   try {
-    await api('POST', `/api/story/${deckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeId), { articles });
+    await api('POST', `/api/story/${deckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeIds), { articles });
     // Warm the audio cache in the background so review starts fast; don't block
     // the "ready" banner on it.
     _preloadWithProgress(deckId, 'unified', () => {}).catch(() => {});
