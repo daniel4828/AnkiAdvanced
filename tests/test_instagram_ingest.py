@@ -4,9 +4,12 @@
   (subprocess stubbed — never actually shell out to yt-dlp)
 - podcast.py: hallucination filtering (_filter_whisper_hallucinations),
   word counting (_word_count), the Groq/whisper-1 fallback chain
-  (_transcribe_instagram), the short-transcript AI-summary skip
-  (SUMMARY_WORD_THRESHOLD / _zero_cost_summary), and the non-Chinese
-  transcript guard on build_transcript_de.
+  (_transcribe_instagram), and build_transcript_de's bidirectional
+  translation (#772: Chinese source -> German, non-Chinese source -> Chinese,
+  with the "zh" slot always holding the Chinese side). The short-transcript
+  AI-summary skip from #750 (SUMMARY_WORD_THRESHOLD / _zero_cost_summary) was
+  removed in #772 — Daniel decided short items should get the same detailed
+  AI summary as everything else.
 - knowledge/ingest.py: ingest_url() dispatching Instagram URLs to
   _ingest_instagram (real throwaway sqlite db via database.init_db(), same
   pattern as test_knowledge_ingest_text.py).
@@ -378,54 +381,61 @@ def test_is_chinese_text_mostly_chinese_with_a_few_latin_words():
 
 
 # ---------------------------------------------------------------------------
-# podcast.build_transcript_de guards against non-Chinese input (#750)
+# podcast.build_transcript_de: bidirectional translation (#772)
 # ---------------------------------------------------------------------------
 
-def test_build_transcript_de_returns_empty_for_non_chinese(monkeypatch):
-    def fail_if_called(*a, **k):
-        raise AssertionError("translate_segments_de must not be called for non-Chinese input")
-
-    monkeypatch.setattr(podcast, "_translate_segments_de", fail_if_called)
-    assert podcast.build_transcript_de("This is an English transcript, not Chinese at all.") == []
-
-
 def test_build_transcript_de_still_works_for_chinese(monkeypatch):
+    """Chinese source -> German, unchanged since before #750/#772: same
+    splitter, same _translate_segments_de call."""
     monkeypatch.setattr(podcast, "_translate_segments_de", lambda segs: [f"DE:{s}" for s in segs])
     pairs = podcast.build_transcript_de("你好世界。今天天气不错。")
     assert pairs
     assert all(p["de"].startswith("DE:") for p in pairs)
+    assert all(not p["zh"].startswith("DE:") for p in pairs)
 
 
-# ---------------------------------------------------------------------------
-# podcast._zero_cost_summary
-# ---------------------------------------------------------------------------
-
-def test_zero_cost_summary_chinese_transcript_keeps_zh_translates_de(monkeypatch):
-    monkeypatch.setattr(podcast, "_translate_segments", lambda segs, target, source: [f"[{target}]{s}" for s in segs])
-    result = podcast._zero_cost_summary("你好世界。今天天气不错。")
-    assert result["summary_zh"] == "你好世界。今天天气不错。"
-    assert "[de]" in result["summary_de"]
-
-
-def test_zero_cost_summary_non_chinese_translates_to_zh(monkeypatch):
-    monkeypatch.setattr(podcast, "_translate_segments", lambda segs, target, source: [f"[{target}]{s}" for s in segs])
-    result = podcast._zero_cost_summary("This is an English transcript with real content in it.")
-    assert result["summary_de"] == "This is an English transcript with real content in it."
-    assert "[zh-CN]" in result["summary_zh"]
+def test_build_transcript_de_translates_non_chinese_to_zh(monkeypatch):
+    """Non-Chinese source (e.g. a German/English Instagram Reel, #772) gets
+    translated INTO Chinese instead of being skipped — the "zh" slot must
+    hold the (translated) Chinese side, "de" the original."""
+    monkeypatch.setattr(podcast, "_translate_segments",
+                         lambda segs, target, source: [f"ZH:{s}" for s in segs])
+    pairs = podcast.build_transcript_de("This is an English transcript, not Chinese at all.")
+    assert pairs
+    assert all(p["zh"].startswith("ZH:") for p in pairs)
+    assert all(not p["de"].startswith("ZH:") for p in pairs)
+    # original English text is preserved untranslated in the "de" slot
+    assert "This is an English transcript" in pairs[0]["de"]
 
 
-def test_zero_cost_summary_translation_failure_degrades_to_original(monkeypatch):
+def test_build_transcript_de_zh_slot_always_chinese_both_directions(monkeypatch):
+    """Direction-agnostic sanity check on the contract every renderer relies
+    on: whichever branch runs, "zh" ends up holding Chinese text."""
+    monkeypatch.setattr(podcast, "_translate_segments_de", lambda segs: ["DE" for _ in segs])
+    monkeypatch.setattr(podcast, "_translate_segments",
+                         lambda segs, target, source: ["中文" for _ in segs])
+
+    zh_source_pairs = podcast.build_transcript_de("你好世界。今天天气不错。")
+    non_zh_source_pairs = podcast.build_transcript_de("Hello world. The weather is nice today.")
+
+    for pairs in (zh_source_pairs, non_zh_source_pairs):
+        assert pairs
+        for p in pairs:
+            assert podcast._is_chinese_text(p["zh"])
+
+
+def test_build_transcript_de_non_chinese_translation_failure_returns_empty(monkeypatch):
+    """Best-effort like the zh->de branch: a translation failure must not
+    raise out of _process_episode's caller, just yield no bilingual view."""
     def boom(segs, target, source):
         raise RuntimeError("translate service down")
 
     monkeypatch.setattr(podcast, "_translate_segments", boom)
-    result = podcast._zero_cost_summary("这是一段中文文本内容测试。")
-    assert result["summary_zh"] == "这是一段中文文本内容测试。"
-    assert result["summary_de"] == "这是一段中文文本内容测试。"
+    assert podcast.build_transcript_de("This is an English transcript with real content.") == []
 
 
 # ---------------------------------------------------------------------------
-# _process_episode: SUMMARY_WORD_THRESHOLD branch (both sides)
+# _process_episode: every item now gets the full AI summary (#772)
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(autouse=True)
@@ -475,38 +485,36 @@ def _make_video_episode(transcript: str) -> tuple[int, dict]:
     return episode_id, video
 
 
-def test_short_transcript_skips_ai_summary(monkeypatch):
-    """< SUMMARY_WORD_THRESHOLD words -> _zero_cost_summary runs,
-    ai.summarize_podcast_transcript must NOT be called."""
+def test_short_transcript_also_uses_ai_summary(monkeypatch):
+    """#772: the #750 short-transcript AI-summary skip is gone — even a
+    short (well under the old 1000-word threshold) transcript must still go
+    through ai.summarize_podcast_transcript, same as any other episode."""
     called = {"ai": False}
 
     def fake_ai_summarize(*a, **k):
         called["ai"] = True
-        return {"summary_de": "should not happen", "words": []}
+        return {"summary_zh": "中文摘要", "summary_de": "Deutsche Zusammenfassung", "words": []}
 
     monkeypatch.setattr(ai, "summarize_podcast_transcript", fake_ai_summarize)
+    monkeypatch.setattr(database, "get_podcast_config", lambda: {"summarizer": "api"})
     monkeypatch.setattr(podcast, "build_transcript_de", lambda transcript: [])
-    monkeypatch.setattr(podcast, "_translate_segments", lambda segs, target, source: [f"[{target}]{s}" for s in segs])
 
-    short_transcript = "这是一段很短的转录文本，内容不多，用来测试短文本跳过摘要的功能。" * 2
-    assert podcast._word_count(short_transcript) < podcast.SUMMARY_WORD_THRESHOLD
+    short_transcript = "这是一段很短的转录文本，内容不多，用来测试短文本也走 AI 摘要的功能。" * 2
 
     episode_id, video = _make_video_episode(short_transcript)
     summary = {"summarized": 0, "failed": 0, "emailed": 0}
     podcast._process_episode(episode_id, video, "medium", summary)
 
-    assert called["ai"] is False
+    assert called["ai"] is True
     episode = database.get_episode(episode_id)
     assert episode["status"] == "summarized"
     assert episode["summary_zh"]
     assert episode["summary_de"]
-    # New-word table still gets populated from the zero-cost summary text.
-    assert isinstance(episode["hsk_words"], list)
 
 
 def test_long_transcript_still_uses_ai_summary(monkeypatch):
-    """>= SUMMARY_WORD_THRESHOLD words -> the existing AI summarizer path
-    runs unchanged."""
+    """Long transcripts always went through the AI summarizer — unaffected
+    by #772's removal of the short-transcript skip."""
     called = {"ai": False}
 
     def fake_ai_summarize(transcript, title, detail_level, china_critical=False):
@@ -518,7 +526,6 @@ def test_long_transcript_still_uses_ai_summary(monkeypatch):
     monkeypatch.setattr(podcast, "build_transcript_de", lambda transcript: [])
 
     long_transcript = "这是一句用来测试长文本的句子，句子会被重复很多次以便超过一千字的阈值。" * 30
-    assert podcast._word_count(long_transcript) >= podcast.SUMMARY_WORD_THRESHOLD
 
     episode_id, video = _make_video_episode(long_transcript)
     summary = {"summarized": 0, "failed": 0, "emailed": 0}
