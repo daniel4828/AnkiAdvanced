@@ -3723,6 +3723,34 @@ select.opt-input {
 }
 .cost-table tbody tr:last-child td { border-bottom: none; }
 .cost-table tbody tr:hover td { background: var(--bg); }
+
+/* Compact variant for the knowledge-item vocabulary table (#769). The two
+   action buttons per row used the generic .btn-secondary, which is sized for
+   modal footers (padding 11px, flex:1) — inside a <td> that pushed each row
+   to ~100px tall and wrapped "★ List" onto two lines, so a screen held about
+   eight words. */
+.word-table-wrap { overflow-x: auto; }
+.cost-table-compact td { padding: 4px 8px; }
+.cost-table-compact th { padding: 6px 8px; }
+.cost-table-compact .word-zh { font-size: 15px; white-space: nowrap; }
+.cost-table-compact .word-pinyin { color: var(--muted); white-space: nowrap; }
+/* The action column must never be what makes the table overflow: keep both
+   buttons on one line and let the German gloss column absorb the slack. */
+.cost-table-compact td:nth-child(4),
+.cost-table-compact td:nth-child(5) { width: 1%; white-space: nowrap; }
+.word-table-btn {
+  flex: none;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: none;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: pointer;
+  color: var(--text);
+}
+.word-table-btn:hover { border-color: var(--primary); }
 .cost-model {
   font-family: monospace;
   font-size: 12px;
