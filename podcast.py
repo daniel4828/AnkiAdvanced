@@ -95,13 +95,6 @@ _HALLUCINATION_MIN_AVG_LOGPROB = -1.0  # the model's own token-confidence for th
 _HALLUCINATION_REPEAT_COUNT = 3        # same sentence N times in a row = looping on nothing
 _HALLUCINATION_MIN_WORDS = 20          # too short to be worth summarizing/carding either way
 
-# Short-transcript AI-summary skip (#750): a 60s Instagram Reel (or any other
-# short knowledge-base item) yields only a few hundred words — a paid 3-part
-# AI summary of that is both wasteful and less useful to Daniel than just the
-# full (translated) text plus a generated new-word table. See
-# _zero_cost_summary and its call site in _process_episode.
-SUMMARY_WORD_THRESHOLD = 1000
-
 # NotebookLM (#486) settings. The notebook is created once and its id cached
 # in podcast_config so every episode's audio lands in the same place; the
 # source is deleted right after we read its fulltext so the notebook never
@@ -563,9 +556,8 @@ _NON_CJK_TOKEN_RE = re.compile(r"[^\s一-鿿]+")
 
 def _word_count(text: str) -> int:
     """Estimate a word count for mixed Chinese/Western text (#750), used to
-    decide whether a transcript is short enough to skip AI summarization
-    (SUMMARY_WORD_THRESHOLD) and whether a hallucination-filtered transcript
-    is still worth keeping (_HALLUCINATION_MIN_WORDS). Chinese has no spaces
+    decide whether a hallucination-filtered transcript is still worth keeping
+    (_HALLUCINATION_MIN_WORDS). Chinese has no spaces
     between words, so this counts CJK *characters* (roughly one word/morpheme
     each — close enough for a threshold check) and adds the count of
     whitespace-delimited non-CJK tokens — a mixed transcript (e.g. a German
@@ -581,8 +573,8 @@ def _word_count(text: str) -> int:
 
 def _is_chinese_text(text: str, threshold: float = 0.2) -> bool:
     """True when at least `threshold` fraction of `text`'s non-whitespace
-    characters are CJK (#750). Decides translation direction for both
-    build_transcript_de (zh->de) and _zero_cost_summary (any->zh + any->de)
+    characters are CJK (#750). Decides build_transcript_de's translation
+    direction (#772: zh->de for a Chinese transcript, ->zh for anything else)
     so a German/English Instagram Reel transcript — stored in the same
     transcript_zh column, see podcast_episodes' schema.sql docstring — isn't
     treated as Chinese and run through a zh->de translator that would mangle
@@ -1423,58 +1415,6 @@ def summarize(transcript: str, title: str, detail_level: str,
         transcript, title, detail_level, china_critical=china_critical))
 
 
-def _zero_cost_summary(transcript: str) -> dict:
-    """Skip AI summarization entirely for a short transcript (#750): produce
-    {"summary_zh", "summary_de"} via Google Translate (free) instead of a
-    paid 3-part AI summary. Called from _process_episode when
-    _word_count(transcript) < SUMMARY_WORD_THRESHOLD — a 60s Instagram Reel
-    yields only a few hundred words, and a short AI summary of that is both
-    wasteful and less useful than the full (translated) transcript plus the
-    generated new-word table. The result is passed through _annotate_summary()
-    exactly like summarize()'s result, so pinyin annotation and
-    zh_annotate.extract_new_words() run identically either way — that word
-    table, not a summary, is the actual point of this path.
-
-    Direction depends on _is_chinese_text(transcript): an already-Chinese
-    transcript needs no zh translation and instead gets translated INTO
-    German (keeping summary_de's "always German" contract intact for every
-    downstream renderer); anything else (Reels are commonly German/English)
-    is assumed to already be summary_de-shaped and gets translated INTO
-    Chinese instead.
-
-    Best-effort like build_transcript_de: a translation failure degrades to
-    the untranslated original in that slot rather than losing the episode —
-    Daniel would rather see the raw transcript in the "wrong" language than
-    no episode at all.
-    """
-    if _is_chinese_text(transcript):
-        summary_zh = transcript
-        summary_de = transcript
-        segs = _split_transcript_segments(transcript)
-        if segs:
-            try:
-                de_segs = _translate_segments(segs, target="de", source="zh-CN")
-                joined = " ".join(d for d in de_segs if d)
-                if joined:
-                    summary_de = joined
-            except Exception as e:
-                logger.warning("podcast: zero-cost zh->de translation failed: %s", e)
-    else:
-        summary_de = transcript
-        summary_zh = transcript
-        segs = _split_segments_any(transcript)
-        if segs:
-            try:
-                zh_segs = _translate_segments(segs, target="zh-CN", source="auto")
-                joined = "".join(z for z in zh_segs if z)
-                if joined:
-                    summary_zh = joined
-            except Exception as e:
-                logger.warning("podcast: zero-cost ->zh translation failed: %s", e)
-
-    return {"summary_zh": summary_zh, "summary_de": summary_de}
-
-
 def _annotate_summary(result: dict) -> dict:
     """Add the AI-free vocabulary annotations (#638) to a fresh summary. Done
     here, at the single choke point both summarizer paths and both callers
@@ -1538,9 +1478,9 @@ def _split_segments_any(text: str) -> list[str]:
     """Sentence-ish split usable for Chinese OR Western text (#750). Unlike
     _split_transcript_segments (CJK sentence-final punctuation only), this
     also breaks after '.', '!', '?' followed by whitespace — needed for
-    _zero_cost_summary's zh->de/any->zh translation batching, where the
-    source language isn't known ahead of time (Instagram Reels are commonly
-    German or English, not Chinese)."""
+    build_transcript_de's non-Chinese ->zh branch (#772), where the source
+    language isn't known ahead of time (Instagram Reels are commonly German
+    or English, not Chinese)."""
     if not text:
         return []
     parts = _SENTENCE_SPLIT_ANY_RE.split(text)
@@ -1565,22 +1505,53 @@ def _translate_segments_de(zh_segments: list[str]) -> list[str]:
 
 def build_transcript_de(transcript_zh: str) -> list[dict]:
     """Build the bilingual segment-pair list [{"zh","de"}] for a transcript
-    (#553). Best-effort: returns [] if the transcript is empty, isn't
-    (mostly) Chinese (#750 — e.g. a German/English Instagram Reel stored in
-    this same transcript_zh column, see podcast_episodes' schema.sql
-    docstring — translating that zh->de would mangle it), or translation is
-    unavailable/fails."""
-    if not _is_chinese_text(transcript_zh):
-        return []
-    segs = _split_transcript_segments(transcript_zh)
+    (#553). The `transcript_zh` column (and this function's parameter name)
+    stores whatever language the source material actually was — a Chinese
+    podcast, but since #750/#772 also a German/English Instagram Reel; see
+    podcast_episodes' schema.sql docstring for that precedent (same as
+    `word_zh` doubling for French word forms).
+
+    Direction depends on _is_chinese_text(transcript_zh):
+    - Chinese source -> translated to German (#553's original behavior,
+      unchanged byte-for-byte since #750/#772: same split function
+      (_split_transcript_segments), same translate call (_translate_segments_de)).
+    - Non-Chinese source (#772: Daniel decided short items should get a full
+      bilingual transcript instead of the AI-summary skip that used to cover
+      them) -> translated to Chinese instead, using the direction-agnostic
+      splitter (_split_segments_any) since the source language isn't known
+      ahead of time.
+
+    Either way the returned dicts keep the SAME two keys, "zh" and "de" —
+    the "zh" slot always holds the Chinese-language side of the pair and
+    "de" always holds the other side, regardless of which one was the
+    original. This is the contract every renderer (email's
+    _bilingual_transcript_html, the detail page's transcript block in
+    static/app.js) relies on: they just print p.zh above p.de, so as long as
+    this invariant holds neither renderer needs to know or care which side
+    was the source.
+
+    Best-effort: returns [] if the transcript is empty, has no segments, or
+    translation is unavailable/fails."""
+    if _is_chinese_text(transcript_zh):
+        segs = _split_transcript_segments(transcript_zh)
+        if not segs:
+            return []
+        try:
+            de = _translate_segments_de(segs)
+        except Exception as e:
+            logger.warning("podcast: transcript translation failed: %s", e)
+            return []
+        return [{"zh": z, "de": (d or "")} for z, d in zip(segs, de)]
+
+    segs = _split_segments_any(transcript_zh)
     if not segs:
         return []
     try:
-        de = _translate_segments_de(segs)
+        zh = _translate_segments(segs, target="zh-CN", source="auto")
     except Exception as e:
         logger.warning("podcast: transcript translation failed: %s", e)
         return []
-    return [{"zh": z, "de": (d or "")} for z, d in zip(segs, de)]
+    return [{"zh": (z or ""), "de": d} for d, z in zip(segs, zh)]
 
 
 # ---------------------------------------------------------------------------
@@ -1990,9 +1961,12 @@ def _process_episode(episode_id: int, video: dict, detail_level: str, summary: d
                 # call, no email — matches DISABLE_AI's behavior for stories.
                 return
 
-            # Bilingual transcript (#553): translate the Chinese transcript to
-            # German segment-by-segment for the parallel view + email. Skip if
-            # already built (retry path). Best-effort — must not fail the episode.
+            # Bilingual transcript (#553): translate the transcript segment-by-
+            # segment for the parallel view + email — Chinese source ->
+            # German, non-Chinese source (e.g. a German/English Instagram
+            # Reel, #772) -> Chinese; see build_transcript_de's docstring for
+            # the direction rule and the zh/de slot contract. Skip if already
+            # built (retry path). Best-effort — must not fail the episode.
             if not (database.get_episode(episode_id) or {}).get("transcript_de"):
                 try:
                     pairs = build_transcript_de(transcript)
@@ -2006,16 +1980,12 @@ def _process_episode(episode_id: int, video: dict, detail_level: str, summary: d
             # `video` is an RSS item for the crawler path and has no such
             # field — only the stored row knows what was ticked at paste time.
             china_critical = bool((database.get_episode(episode_id) or {}).get("china_critical"))
-            word_count = _word_count(transcript)
-            if word_count < SUMMARY_WORD_THRESHOLD:
-                # Short transcript (#750): skip the paid AI summarizer
-                # entirely — see _zero_cost_summary's docstring for why.
-                logger.info("podcast: transcript for %s is %d words (< %d), skipping AI summary",
-                            video["video_id"], word_count, SUMMARY_WORD_THRESHOLD)
-                result = _annotate_summary(_zero_cost_summary(transcript))
-            else:
-                result = summarize(transcript, video["title"], detail_level,
-                                   china_critical=china_critical)
+            # #772: every item, short or long, gets the full AI summary now —
+            # Daniel decided the #750 short-transcript skip made Reels less
+            # useful, not more. The full transcript translation moved to the
+            # bilingual transcript block above instead.
+            result = summarize(transcript, video["title"], detail_level,
+                               china_critical=china_critical)
             if not result.get("summary_de"):
                 database.update_episode(episode_id, status="error",
                                         error="AI summary failed or empty")
