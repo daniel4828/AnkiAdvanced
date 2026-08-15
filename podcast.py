@@ -1402,6 +1402,40 @@ def _summary_to_plain_text(summary: str | None) -> str:
     return text
 
 
+def send_signal_text(text: str, *, context: str = "signal") -> bool:
+    """Send one plain-text Signal "Note to Self" message via a linked-device
+    signal-cli install (#521, extracted #749 so knowledge/signal_inbox.py's
+    receipts can share this instead of re-implementing the subprocess call).
+    Returns True if sent, False if skipped (SIGNAL_ACCOUNT not configured) —
+    skipping is not an error, mirrors send_mail(). Never raises.
+
+    `context` is only used in log lines to identify the caller (an episode's
+    video_id for send_signal(), "signal-inbox-receipt" for the inbox script).
+    """
+    account = os.environ.get("SIGNAL_ACCOUNT")
+    if not account:
+        logger.info("podcast: SIGNAL_ACCOUNT not configured, skipping Signal message (%s)", context)
+        return False
+
+    cli_path = os.environ.get("SIGNAL_CLI_PATH", "signal-cli")
+    try:
+        result = subprocess.run(
+            [cli_path, "-a", account, "send", "--note-to-self", "-m", text],
+            capture_output=True, timeout=60,
+        )
+    except Exception as e:
+        logger.warning("podcast: signal-cli invocation failed for %s: %s", context, e)
+        return False
+
+    if result.returncode != 0:
+        stderr = result.stderr.decode("utf-8", "replace") if isinstance(result.stderr, bytes) else result.stderr
+        logger.warning("podcast: signal-cli exited %s for %s: %s", result.returncode, context, stderr)
+        return False
+
+    logger.info("podcast: Signal message sent (%s)", context)
+    return True
+
+
 def send_signal(episode: dict) -> bool:
     """Send a plain-text Signal "Note to Self" notification for a freshly-
     summarized episode via a linked-device signal-cli install (#521).
@@ -1413,7 +1447,6 @@ def send_signal(episode: dict) -> bool:
                      episode["video_id"])
         return False
 
-    cli_path = os.environ.get("SIGNAL_CLI_PATH", "signal-cli")
     public_base = os.environ.get("PUBLIC_BASE_URL", "https://powerdaniel3000.duckdns.org")
     transcript_link = f"{public_base}/#podcast-{episode['id']}"
 
@@ -1471,23 +1504,7 @@ def send_signal(episode: dict) -> bool:
         lines.append(episode["spotify_url"])
     text = "\n".join(lines)
 
-    try:
-        result = subprocess.run(
-            [cli_path, "-a", account, "send", "--note-to-self", "-m", text],
-            capture_output=True, timeout=60,
-        )
-    except Exception as e:
-        logger.warning("podcast: signal-cli invocation failed for %s: %s", episode["video_id"], e)
-        return False
-
-    if result.returncode != 0:
-        stderr = result.stderr.decode("utf-8", "replace") if isinstance(result.stderr, bytes) else result.stderr
-        logger.warning("podcast: signal-cli exited %s for %s: %s",
-                        result.returncode, episode["video_id"], stderr)
-        return False
-
-    logger.info("podcast: Signal notification sent for %s", episode["video_id"])
-    return True
+    return send_signal_text(text, context=episode["video_id"])
 
 
 # ---------------------------------------------------------------------------

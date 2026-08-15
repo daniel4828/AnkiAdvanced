@@ -301,6 +301,12 @@ SIGNAL_CLI_PATH=/usr/local/bin/signal-cli   # 可省略，默认就是 "signal-c
 `send_signal` 只记 info 日志并返回 `False`（视为"未启用"）——**不会**让
 爬虫报错，与邮件通知完全独立、互不影响。
 
+🔴 **`/home/anki/.local/share/signal-cli` 必须纳入服务器备份**——丢了这
+个目录（换机、误删）唯一的恢复办法是重新扫码关联，没有其他找回途径。
+issue #749 的 Signal 知识库入口（见下面 `signal_check.py`）复用的是同一
+个关联账号/同一份会话数据，所以这个目录现在同时承载"发通知"和"收链接"
+两种用途，重要性比 #521 时更高。
+
 用法与环境变量同 `morning_pregen.py`（`BASE_URL`/`AUTH_USERNAME`/`AUTH_PASSWORD`）。
 另外邮件发送需要 SMTP 环境变量（`SMTP_HOST`/`SMTP_PORT`/`SMTP_USERNAME`/
 `SMTP_PASSWORD`/`SMTP_FROM`/`PUBLIC_BASE_URL`，见 CLAUDE.md 环境变量表），
@@ -376,3 +382,54 @@ python scripts/knowledge_mail_check.py
 
 退出码：跳过（未配置白名单/凭据）或全部成功为 `0`；有失败邮件时为 `1`
 （方便 cron 邮件通知/监控接入）。
+
+---
+
+## signal_check.py（issue #749）
+
+知识库 Signal 分享入口：手机把链接分享到 Signal 自己的「Note to Self」
+（给自己的备忘），服务器用**已经关联好的同一个 signal-cli 设备**（见上
+面"Signal 通知一次性安装/关联设置"，#521 建立的那份关联——不需要再关联
+一次）把消息收下来，从正文里提取 URL，逐个走
+`knowledge.ingest.ingest_url()`——和知识页粘贴框、`knowledge_mail_check.py`
+用的是**同一条入库管线**。新入库的链接接着同步跑一遍转录+摘要
+（`podcast.retry_episode()`），完成后把结果发回 Note to Self。
+
+**这是"发通知"的反方向**：`send_signal()`（#521）是服务器 → Daniel，这
+个脚本是 Daniel → 服务器，走的是同一个关联设备、同一个 `SIGNAL_ACCOUNT`。
+
+**和 IMAP 邮箱收件的关键差异**：`imaplib` 可以把处理失败的邮件留成
+UNSEEN，下一轮重新看到；但 `signal-cli receive` 一次调用就会把消息从
+Signal 服务器上永久取走，没有"留着不读"这个选项。所以入库失败的 URL
+由 `knowledge/signal_inbox.py` 自己存进一个 JSON 重试队列
+（`app_settings['signal_retry_queue']`），下一轮优先处理，最多重试 3 次
+后放弃，并在回执里告诉 Daniel。
+
+**安全**：只有源账号和目的账号都是 `SIGNAL_ACCOUNT` 自己的消息（Note to
+Self）才会被当作入库输入——signal-cli 作为关联设备会同步收到 Daniel 手
+机发出的**所有**消息，包括发给别人的；发给别人的消息、以及任何来自其他
+号码的消息一律忽略。这条防线和 `KNOWLEDGE_MAIL_ALLOWED_SENDERS` 对邮件
+入口的作用相同：挡住"服务器替任何人抓取 URL 并触发付费 AI 调用"。
+
+### 环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `SIGNAL_ACCOUNT` | 无（**必须配置**） | 关联设备所属的 Signal 号码；未配置时整个检查被跳过 |
+| `SIGNAL_CLI_PATH` | `signal-cli` | 可执行文件路径 |
+| `DB_PATH` | `data/srs.db` | 数据库路径 |
+
+### 用法
+
+```bash
+python scripts/signal_check.py
+```
+
+### 服务器 cron：每 5 分钟检查一次
+
+```cron
+*/5 * * * * cd /opt/ankiadvanced && /usr/bin/python3 scripts/signal_check.py >> data/signal-check.log 2>&1
+```
+
+退出码：跳过（未配置账号）或全部成功为 `0`；`signal-cli receive` 失败或
+有 URL 最终放弃时为 `1`。
