@@ -199,7 +199,7 @@ try:
     import uvicorn
 
     from offline import LOCAL_MODE, OFFLINE_MODE
-    from routes import decks, review, story, browse, imports, podcast as podcast_routes, knowledge as knowledge_routes
+    from routes import decks, review, story, browse, imports, podcast as podcast_routes, knowledge as knowledge_routes, dictionary as dictionary_routes
 
     @asynccontextmanager
     async def lifespan(app):
@@ -446,6 +446,18 @@ try:
             "Expires": "0",
         })
 
+    # Standalone AI dictionary page (#746): the /add counterpart for lookups —
+    # type a word/phrase/sentence and get a structured, option-by-option
+    # translation with a one-tap add into ★ List. Same "no app.js" reasoning
+    # as /add and /save: bookmarkable/home-screen, opens fast.
+    @app.get("/dict")
+    def dictionary_page():
+        return FileResponse("static/dict.html", headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        })
+
     # Bookmarkable knowledge-base tab links (#704): /knowledge/videos is the
     # browsing counterpart to /add and /save — a clean URL for the iPhone home
     # screen that lands on one sub-tab. Unlike those two this is *not* a
@@ -506,6 +518,7 @@ try:
     app.include_router(imports.router)
     app.include_router(podcast_routes.router)
     app.include_router(knowledge_routes.router)
+    app.include_router(dictionary_routes.router)
     # Sync only makes sense on a laptop copy — on the server these routes must
     # not exist at all, or a stray call would overwrite production (#625).
     if LOCAL_MODE or OFFLINE_MODE:

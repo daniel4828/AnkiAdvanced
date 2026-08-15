@@ -1254,6 +1254,157 @@ def generate_word_entry_yaml(word_zh: str, model: str = DEFAULT_MODEL,
     return f"lang: {lang}\nentries:\n" + textwrap.indent(entry, "  ")
 
 
+DICTIONARY_PROMPT = """You are a Chinese dictionary for a German-speaking learner (Daniel, HSK 4-5).
+He types a word, phrase, or sentence in Chinese, German, or English and wants a
+structured lookup, not a chat reply. Never use Japanese.
+
+Behavior rules:
+- Chinese input -> give the FULL dictionary entry directly. List EVERY sense
+  (meaning) of the word/phrase, each as its own group. Do not ask him to
+  choose anything and do not present alternative translations to pick from
+  — there is nothing to choose, he already has the Chinese word.
+- German or English input (word, phrase, or a full sentence) -> always give an
+  ANALYSIS: an overall translation plus one or more groups of candidate
+  Chinese translations, each option labeled a/b/c... (NEVER use 1/2/3).
+  Exactly one option per group may be "recommended": true, and the
+  recommendation should lean toward spoken/colloquial Chinese (kǒuyǔ) — this
+  is Daniel's strongest, most repeated preference.
+- A full German sentence as input -> first give the whole-sentence Chinese
+  translation + pinyin (the "sentence" field), THEN break the sentence into
+  its components (each a candidate group of its own) so every component is
+  individually addable as a word.
+- Explanations, usage notes, and example sentence translations are always in
+  GERMAN. A French equivalent may optionally be added to a single-word option
+  (the "fr" field) — never for phrases or sentences.
+
+Quality rules (these decide whether the entry is useful at all):
+- At most 3-5 options per group, and only GENUINELY DIFFERENT translations —
+  different register, connotation, or part of speech. Do not pad a group with
+  near-synonyms; two options that a learner would use interchangeably are one
+  option.
+- EVERY option must carry example_zh + example_pinyin + example_de. An option
+  without an example is unusable: register claims are only believable when the
+  sentence shows them.
+- "usage" must say WHEN to use it (register, context, connotation), not repeat
+  the translation.
+- Pinyin always with tone marks (pài, not pai4 or pai).
+- "register" must be one of: spoken_colloquial, spoken_neutral, neutral,
+  formal_written, literary, slang.
+- For Chinese input, "headline" is the input word itself and each group's
+  "label" names one sense in German (e.g. "1. Ökologie (Biologie)").
+- "kind" is exactly one of: "chinese" (any Chinese input), "word",
+  "phrase", "sentence" (German/English input, by length). Only "sentence"
+  makes the "sentence" field appear.
+
+Output ONLY raw JSON — no markdown code fence, no prose before or after it.
+Match this shape exactly (omit "sentence" unless kind == "sentence"; "fr" is
+optional; every group needs at least one option; option "key" values are
+a/b/c... never digits):
+
+{{
+  "input_lang": "de",
+  "kind": "phrase",
+  "headline": "派任务",
+  "headline_pinyin": "pài rènwu",
+  "headline_de": "jemandem eine Aufgabe geben",
+  "notes": "kurze deutsche Anmerkung, optional",
+  "sentence": {{
+    "zh": "你下周什么时候有空？",
+    "pinyin": "Nǐ xià zhōu shénme shíhou yǒu kòng?",
+    "de": "Wann hast du nächste Woche Zeit?"
+  }},
+  "groups": [
+    {{
+      "label": "setzen / assign (Verb)",
+      "options": [
+        {{
+          "key": "a",
+          "zh": "派",
+          "pinyin": "pài",
+          "de": "beauftragen, jdm. eine Aufgabe geben",
+          "fr": "assigner",
+          "usage": "sehr umgangssprachlich, im Alltag am natürlichsten.",
+          "register": "spoken_colloquial",
+          "recommended": true,
+          "example_zh": "老师又给我派任务了。",
+          "example_pinyin": "Lǎoshī yòu gěi wǒ pài rènwu le.",
+          "example_de": "Der Lehrer hat mir schon wieder eine Aufgabe gegeben."
+        }}
+      ]
+    }}
+  ]
+}}
+
+Input to look up: {query}"""
+
+
+def _strip_code_fence(raw: str) -> str:
+    """Some models wrap JSON in ```json ... ``` despite being told not to."""
+    fenced = re.search(r"```(?:json)?\s*\n(.*?)```", raw, re.DOTALL)
+    return fenced.group(1) if fenced else raw
+
+
+def dictionary_lookup(query: str, lang: str = "zh", model: str | None = None) -> tuple[dict, str]:
+    """Look up a word/phrase/sentence for the /dict page (#746).
+
+    Returns (parsed result dict, model actually used). Raises ValueError if
+    the model's response doesn't parse into the expected shape — callers must
+    not store or return a placeholder, since a blank dictionary entry is worse
+    than an error (routes/dictionary.py turns this into a 500).
+
+    lang is the target vocabulary language. Only Chinese is implemented — a
+    French dictionary needs its own prompt (see the de-fr-bot skill), and
+    silently answering a French request with the Chinese prompt would produce
+    a plausible-looking but wrong entry, exactly the failure #726 guarded
+    against on the add-word side.
+    """
+    if lang != "zh":
+        raise ValueError(f"dictionary_lookup: language {lang!r} is not supported yet (only 'zh')")
+    use_model = model or DEFAULT_MODEL
+    prompt = DICTIONARY_PROMPT.format(query=query)
+
+    logger.info("[%s] dictionary_lookup: %s", use_model, query)
+    raw = _call_api(use_model, [{"role": "user", "content": prompt}], max_tokens=4000,
+                    purpose="dictionary", thinking=False)
+
+    stripped = _strip_code_fence(raw).strip()
+    try:
+        result = json.loads(stripped)
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"dictionary_lookup: could not parse AI response as JSON: {e}. "
+            f"Raw response (first 500 chars): {raw[:500]!r}"
+        )
+
+    if not isinstance(result, dict):
+        raise ValueError(
+            f"dictionary_lookup: expected a JSON object, got {type(result).__name__}. "
+            f"Raw response (first 500 chars): {raw[:500]!r}"
+        )
+
+    groups = result.get("groups")
+    if not isinstance(groups, list):
+        raise ValueError(
+            f"dictionary_lookup: 'groups' missing or not a list. "
+            f"Raw response (first 500 chars): {raw[:500]!r}"
+        )
+    for group in groups:
+        options = group.get("options") if isinstance(group, dict) else None
+        if not isinstance(options, list) or not options:
+            raise ValueError(
+                f"dictionary_lookup: a group is missing non-empty 'options'. "
+                f"Raw response (first 500 chars): {raw[:500]!r}"
+            )
+        for option in options:
+            if not isinstance(option, dict) or not option.get("zh"):
+                raise ValueError(
+                    f"dictionary_lookup: an option is missing non-empty 'zh'. "
+                    f"Raw response (first 500 chars): {raw[:500]!r}"
+                )
+
+    return result, use_model
+
+
 def generate_character_info(char: str, pinyin: str, model: str = DEFAULT_MODEL) -> dict:
     """
     Generate etymology and translation for a single Chinese character.
