@@ -433,3 +433,69 @@ python scripts/signal_check.py
 
 退出码：跳过（未配置账号）或全部成功为 `0`；`signal-cli receive` 失败或
 有 URL 最终放弃时为 `1`。
+
+---
+
+## Instagram Reel 摄取（issue #750）：yt-dlp + cookies + Groq
+
+知识库现在能吃 Instagram Reel/Post 链接（`knowledge/instagram.py`），走和
+YouTube/文章一样的入口——粘贴框、`signal_check.py`、
+`knowledge_mail_check.py` 都自动支持，不需要额外配置这三个入口本身。要让
+转录真正跑起来，服务器上需要一次性配置以下三样。
+
+### 1. 安装 yt-dlp（需要 nightly 版）
+
+Instagram 的页面结构变化快，稳定版 yt-dlp 经常滞后几周才修复对应的解析
+逻辑；nightly 构建修复更快。系统级命令行工具，**不进 `requirements.txt`**
+（和 `ffmpeg` 一个处理方式）：
+
+```bash
+# 装最新 nightly（pip 方式，跨发行版通用）
+python3 -m pip install --upgrade --pre "yt-dlp[default]"
+
+# 验证
+yt-dlp --version
+```
+
+非默认路径（例如装进虚拟环境）时设置 `YT_DLP_PATH` 指向可执行文件。
+
+### 2. 导出 Instagram cookies.txt
+
+公开 Reel 有时不需要登录也能下载，但大多数情况下（尤其是被限流/需要登录
+才能看的账号）需要一份登录态的 cookies：
+
+1. 电脑浏览器登录 Instagram（用一个愿意专门给这个用的账号，不要用 Daniel
+   的主账号——cookies 会存在服务器上）
+2. 装一个"导出 cookies.txt"的浏览器扩展（Chrome/Firefox 商店搜
+   "Get cookies.txt LOCALLY"之类，选支持 Netscape 格式导出的）
+3. 在 instagram.com 页面上用扩展导出，文件存到服务器
+   `data/instagram_cookies.txt`（或任意路径，配 `INSTAGRAM_COOKIES_FILE`
+   指过去）
+
+Cookies **会过期**（登录态失效/被 Instagram 判定异常）。过期后
+`knowledge/instagram.py` 的失败信息会明确提示"可能是 cookies 过期"，
+Daniel 会在 Signal 回执里读到——看到这条提示就重新导出一份替换旧文件即可，
+不需要重启服务。
+
+### 3. Groq API key（转录主力，可选）
+
+Instagram Reel 转录优先用 Groq 的 `whisper-large-v3-turbo`（比 OpenAI
+Whisper 便宜约 9 倍、快约 10 倍）：
+
+1. https://console.groq.com 注册账号，创建 API key
+2. 服务器 `.env` 加一行：`GROQ_API_KEY=gsk_xxxxxxxx`
+
+`GROQ_API_KEY` **是可选的**——未配置时自动回退到已有的 OpenAI
+`whisper-1`（服务器上已配好 `OPENAI_API_KEY`），只是单价贵约 9 倍（一条
+60 秒 Reel 约 $0.006，仍然便宜到可以忽略）。两条转录路径都过同一道
+幻觉过滤（`podcast._filter_whisper_hallucinations`）——Reel 常常是纯音乐
+无人声，过滤器负责把 Whisper 对着音乐编出来的假文本挡掉，不管实际是哪家
+转录的。
+
+### 环境变量小结
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `GROQ_API_KEY` | 无（可选） | 未配置时自动回退 OpenAI `whisper-1`，只是贵约 9 倍 |
+| `INSTAGRAM_COOKIES_FILE` | `data/instagram_cookies.txt` | Instagram cookies.txt 路径；文件不存在时公开 Reel 仍会尝试（不一定成功） |
+| `YT_DLP_PATH` | `yt-dlp` | yt-dlp 可执行文件路径，装在非默认位置时指过去 |

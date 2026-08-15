@@ -26,6 +26,7 @@ import re
 
 import database
 import knowledge.article
+import knowledge.instagram
 import knowledge.youtube
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,11 @@ def ingest_url(url: str, china_critical: bool = False) -> dict:
     video_id = knowledge.youtube.parse_video_id(url)
     if video_id:
         return _ingest_video(url, video_id, china_critical=china_critical)
+
+    shortcode = knowledge.instagram.parse_shortcode(url)
+    if shortcode:
+        return _ingest_instagram(url, shortcode, china_critical=china_critical)
+
     return _ingest_article(url, china_critical=china_critical)
 
 
@@ -83,6 +89,50 @@ def _ingest_video(url: str, video_id: str, china_critical: bool = False) -> dict
         youtube_url=url,
         audio_url=None,
         duration_seconds=None,
+        kind="video",
+        china_critical=china_critical,
+    )
+    if title_en:
+        database.update_episode(episode_id, title_en=title_en)
+
+    return {"episode_id": episode_id}
+
+
+def _ingest_instagram(url: str, shortcode: str, china_critical: bool = False) -> dict:
+    """Instagram Reel/Post ingestion (#750), metadata-only at add time —
+    mirrors _ingest_video: the audio download + transcription (Groq/OpenAI
+    Whisper, podcast._transcribe_instagram) happens later, in the
+    .../process call, not here. video_id is the Instagram shortcode
+    (Instagram's own unique-per-post id), the same dedup key _ingest_video
+    uses the YouTube video id for."""
+    existing = database.get_episode_by_video_id(shortcode)
+    if existing:
+        return {"status": "already_exists", "episode_id": existing["id"]}
+
+    try:
+        meta = knowledge.instagram.fetch_metadata(url)
+    except knowledge.instagram.InstagramError as e:
+        logger.warning("knowledge.ingest: Instagram metadata lookup failed for %s: %s", shortcode, e)
+        raise IngestError(str(e))
+    except Exception as e:
+        logger.warning("knowledge.ingest: Instagram metadata lookup failed for %s: %s", shortcode, e)
+        raise IngestError(f"Could not fetch Instagram metadata: {e}")
+
+    title = meta.get("title") or shortcode
+    # translate_title (#651) is one cheap AI call — best-effort, must not
+    # block/fail the ingest if it errors (translate_title itself already
+    # swallows exceptions and returns None in that case).
+    import ai
+    title_en = ai.translate_title(title)
+
+    episode_id = database.create_pending_episode(
+        video_id=shortcode,
+        channel_id=meta.get("uploader"),
+        title=title,
+        published_at=None,
+        youtube_url=meta.get("webpage_url") or url,
+        audio_url=None,
+        duration_seconds=meta.get("duration"),
         kind="video",
         china_critical=china_critical,
     )

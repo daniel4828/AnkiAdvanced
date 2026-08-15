@@ -658,7 +658,7 @@ CREATE TABLE IF NOT EXISTS podcast_episodes (
     detail_level     TEXT,   -- detail_level used for the summary (short|medium|detailed)
     status           TEXT NOT NULL DEFAULT 'pending'
                      CHECK(status IN ('pending', 'no_transcript', 'summarized', 'error')),
-    transcript_source TEXT,  -- 'tingwu' | 'whisper' | 'notebooklm' | 'youtube_captions' (#651) | 'article' (#652) | NULL; legacy rows may say 'captions'
+    transcript_source TEXT,  -- 'tingwu' | 'whisper' | 'notebooklm' | 'youtube_captions' (#651) | 'article' (#652) | 'groq_whisper' (#750, Instagram Reels — 'whisper' also occurs here when the Groq step was skipped/failed and the OpenAI whisper-1 fallback ran instead) | NULL; legacy rows may say 'captions'
     error            TEXT,
     email_sent_at    TEXT,
     processing_started_at TEXT,  -- set while _process_episode runs, cleared on exit; a leftover value = killed mid-transcription, recovered at startup (#598)
