@@ -89,7 +89,7 @@ def get_stats(deck_id: int | None = None, lang: str | None = None) -> dict:
 # this table is hand-maintained — update it (and the static price table in
 # static/index.html's story-setup modal) whenever a provider changes pricing
 # or a new model is adopted. See CLAUDE.md "规范与约束".
-_PRICING_AS_OF = "2026-08-09"
+_PRICING_AS_OF = "2026-08-15"
 _MODEL_PRICING: dict[str, dict[str, float]] = {
     # OpenAI (news/briefing/podcast summaries)
     "gpt-5.6-sol":   {"input": 5.00, "cached": 0.50, "output": 30.00},
@@ -101,6 +101,14 @@ _MODEL_PRICING: dict[str, dict[str, float]] = {
     # OpenAI audio transcription (podcast Whisper path) — billed per minute;
     # input_tokens stores audio *seconds* for these rows (see podcast.py).
     "gpt-4o-mini-transcribe": {"per_minute": 0.003},
+    # whisper-1 (#750): the Instagram Reel transcription fallback
+    # (podcast._transcribe_instagram) — the only OpenAI transcription model
+    # that supports response_format="verbose_json" (needed for the
+    # hallucination filter's per-segment no_speech_prob/avg_logprob).
+    "whisper-1": {"per_minute": 0.006},
+    # Groq whisper-large-v3-turbo (#750): Instagram Reel transcription,
+    # primary path — $0.04/hour of audio = $0.04/60 per minute.
+    "whisper-large-v3-turbo": {"per_minute": 0.04 / 60},
     # DeepSeek (default story/enrichment models)
     "deepseek-v4-flash": {"input": 0.14,  "cached": 0.0028,   "output": 0.28},
     "deepseek-v4-pro":   {"input": 0.435, "cached": 0.003625, "output": 0.87},

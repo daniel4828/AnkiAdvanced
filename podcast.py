@@ -75,6 +75,33 @@ _ITUNES_NS = {"itunes": "http://www.itunes.com/dtds/podcast-1.0.dtd"}
 _AUDIO_MAX_SECONDS = 3 * 60 * 60  # 3h — guards against a mislabeled/huge episode
 _WHISPER_SEGMENT_SECONDS = 20 * 60  # 20min segments stay well under OpenAI's 25MB upload cap
 
+# Instagram Reel transcription (#750): Groq's OpenAI-compatible audio
+# endpoint running whisper-large-v3-turbo — ~9x cheaper and ~10x faster than
+# the OpenAI whisper-1 fallback below. GROQ_API_KEY is optional (same
+# contract as Tingwu/NotebookLM's credential checks): unset just means
+# "fall back to whisper-1", not a failure.
+_GROQ_MODEL = "whisper-large-v3-turbo"
+
+# Instagram Reel hallucination guardrails (#750): a Reel that's pure
+# background music with no speech makes Whisper-family models *invent*
+# plausible-sounding text rather than admit silence. Both transcription
+# providers in the Instagram chain (_transcribe_via_groq,
+# _transcribe_via_whisper with filter_hallucinations=True) are asked for
+# response_format="verbose_json" specifically so these checks — run by
+# _filter_whisper_hallucinations — have real per-segment metadata to work
+# with regardless of which provider actually ran.
+_HALLUCINATION_NO_SPEECH_PROB = 0.6    # Whisper's own "this might be silence" signal
+_HALLUCINATION_MIN_AVG_LOGPROB = -1.0  # the model's own token-confidence for the segment
+_HALLUCINATION_REPEAT_COUNT = 3        # same sentence N times in a row = looping on nothing
+_HALLUCINATION_MIN_WORDS = 20          # too short to be worth summarizing/carding either way
+
+# Short-transcript AI-summary skip (#750): a 60s Instagram Reel (or any other
+# short knowledge-base item) yields only a few hundred words — a paid 3-part
+# AI summary of that is both wasteful and less useful to Daniel than just the
+# full (translated) text plus a generated new-word table. See
+# _zero_cost_summary and its call site in _process_episode.
+SUMMARY_WORD_THRESHOLD = 1000
+
 # NotebookLM (#486) settings. The notebook is created once and its id cached
 # in podcast_config so every episode's audio lands in the same place; the
 # source is deleted right after we read its fulltext so the notebook never
@@ -369,13 +396,29 @@ def _split_audio_segments(mp3_path: str, tmp_dir: str, duration: float) -> list[
     return [os.path.join(tmp_dir, s) for s in segments]
 
 
-def _transcribe_via_whisper(mp3_path: str, duration: float, video_id: str, tmp_dir: str) -> str | None:
+def _transcribe_via_whisper(mp3_path: str, duration: float, video_id: str, tmp_dir: str,
+                            *, language: str | None = "zh",
+                            model: str = "gpt-4o-mini-transcribe",
+                            filter_hallucinations: bool = False) -> str | None:
     """Paid fallback (#485): segment the shared mp3 and transcribe each
     segment via OpenAI's audio.transcriptions endpoint.
 
+    `language`/`model`/`filter_hallucinations` (#750): defaults reproduce the
+    original Chinese-podcast-only behavior unchanged. The Instagram Reel
+    chain (_transcribe_instagram) instead calls this with
+    model="whisper-1" (the only OpenAI transcription model that accepts
+    response_format="verbose_json" — gpt-4o-mini-transcribe rejects that
+    value outright, so it can't give per-segment no_speech_prob/avg_logprob),
+    language=None (Reels are German/English, not Chinese — forcing "zh"
+    would corrupt the transcript), and filter_hallucinations=True so a
+    music-only Reel's invented text gets caught by
+    _filter_whisper_hallucinations exactly like the Groq path does.
+
     Returns None when OPENAI_API_KEY is simply missing (config choice, not a
-    failure). Raises on actual transcription failure; callers log and treat
-    that the same as no transcript.
+    failure), or — filter_hallucinations=True only — when everything
+    transcribed is filtered out as hallucination/silence. Raises on actual
+    transcription failure; callers log and treat that the same as no
+    transcript.
     """
     if not os.environ.get("OPENAI_API_KEY"):
         logger.warning("podcast: OPENAI_API_KEY not set, skipping Whisper for %s", video_id)
@@ -386,40 +429,290 @@ def _transcribe_via_whisper(mp3_path: str, duration: float, video_id: str, tmp_d
     import openai
     client = openai.OpenAI()
     texts: list[str] = []
+    raw_segments: list = []
     for seg_path in segments:
         seg_name = os.path.basename(seg_path)
-        text = None
+        result = None
         for attempt in range(2):  # one retry on transient failure
             try:
                 with open(seg_path, "rb") as f:
-                    resp = client.audio.transcriptions.create(
-                        model="gpt-4o-mini-transcribe", file=f, language="zh",
-                    )
-                text = resp.text
+                    kwargs = {"model": model, "file": f}
+                    if language:
+                        kwargs["language"] = language
+                    if filter_hallucinations:
+                        kwargs["response_format"] = "verbose_json"
+                    result = client.audio.transcriptions.create(**kwargs)
                 break
             except Exception as e:
                 logger.warning(
                     "podcast: Whisper transcription failed (attempt %d) for %s/%s: %s",
                     attempt + 1, video_id, seg_name, e,
                 )
-        if text is None:
+        if result is None:
             raise RuntimeError(f"podcast: Whisper transcription failed twice for {video_id}/{seg_name}")
-        texts.append(text.strip())
+
+        if filter_hallucinations:
+            seg_list = getattr(result, "segments", None) or []
+            if seg_list:
+                raw_segments.extend(seg_list)
+            else:
+                # This model/response_format combination didn't return
+                # per-segment metadata after all — degrade gracefully to a
+                # single pseudo-segment so the repeat/min-length checks in
+                # _filter_whisper_hallucinations still run, just without the
+                # no_speech_prob/avg_logprob checks (both skip cleanly on a
+                # segment missing those keys).
+                raw_segments.append({"text": (getattr(result, "text", "") or "").strip()})
+        else:
+            texts.append((result.text or "").strip())
+
+    # Whisper is billed per minute, not per token. Log the audio duration (in
+    # seconds) as input_tokens so database.stats._row_cost can price it via
+    # the "per_minute" pricing entry — only on success, since a failed call
+    # above already raised before reaching here.
+    database.log_api_call(
+        model=model, input_tokens=int(duration),
+        output_tokens=0, purpose="podcast-transcribe",
+    )
+
+    if filter_hallucinations:
+        transcript = _filter_whisper_hallucinations(raw_segments)
+        if not transcript:
+            logger.info("podcast: Whisper (%s) transcript for %s filtered out as hallucination/silence",
+                        model, video_id)
+            return None
+        logger.info("podcast: Whisper (%s) transcribed %s (%d segment(s), %.0fs audio)",
+                    model, video_id, len(segments), duration)
+        return transcript
 
     transcript = " ".join(t for t in texts if t)
     logger.info(
         "podcast: Whisper transcribed %s (%d segment(s), %.0fmin)",
         video_id, len(segments), duration / 60,
     )
-    # Whisper is billed per minute, not per token. Log the audio duration (in
-    # seconds) as input_tokens so database.stats._row_cost can price it via
-    # the "per_minute" pricing entry — only on success, since a failed call
-    # above already raised before reaching here.
+    return transcript or None
+
+
+def _seg_field(seg, name: str, default=None):
+    """Segment objects come back as SDK pydantic models (OpenAI/Groq clients,
+    production) but as plain dicts (tests, and the degraded pseudo-segment
+    fallback in _transcribe_via_whisper) — accept either (#750)."""
+    if isinstance(seg, dict):
+        return seg.get(name, default)
+    return getattr(seg, name, default)
+
+
+def _filter_whisper_hallucinations(segments: list) -> str:
+    """Drop hallucinated segments from a Whisper/Groq verbose_json response
+    and join what's left (#750). A Reel with no speech (background music
+    only) makes Whisper-family models invent text with real confidence in
+    the *words* they pick but strong internal signals that they're making it
+    up:
+
+    1. no_speech_prob > _HALLUCINATION_NO_SPEECH_PROB — the model's own guess
+       that this segment is silence/non-speech, worth ignoring the emitted
+       text for even though it went ahead and emitted some anyway.
+    2. avg_logprob < _HALLUCINATION_MIN_AVG_LOGPROB — the model's own
+       token-confidence for the segment.
+    3. the exact same segment text repeated >= _HALLUCINATION_REPEAT_COUNT
+       times in a row — a stronger signal than either probability alone, and
+       catches cases they miss. This voids the WHOLE transcript, not just
+       the repeats: a model confabulating anywhere in a clip this short
+       isn't trustworthy anywhere else in it either.
+    4. fewer than _HALLUCINATION_MIN_WORDS words survive checks 1-3 — too
+       short to be worth summarizing/carding regardless of confidence.
+
+    A segment missing no_speech_prob/avg_logprob (see
+    _transcribe_via_whisper's degraded-fallback comment) simply skips checks
+    1-2 for that segment; checks 3-4 still run on whatever text came back.
+    """
+    kept: list[str] = []
+    for seg in segments:
+        text = (_seg_field(seg, "text") or "").strip()
+        if not text:
+            continue
+        no_speech = _seg_field(seg, "no_speech_prob")
+        if no_speech is not None and no_speech > _HALLUCINATION_NO_SPEECH_PROB:
+            continue
+        avg_logprob = _seg_field(seg, "avg_logprob")
+        if avg_logprob is not None and avg_logprob < _HALLUCINATION_MIN_AVG_LOGPROB:
+            continue
+        kept.append(text)
+
+    if not kept:
+        return ""
+
+    run_text, run_len = None, 0
+    for text in kept:
+        if text == run_text:
+            run_len += 1
+        else:
+            run_text, run_len = text, 1
+        if run_len >= _HALLUCINATION_REPEAT_COUNT:
+            return ""
+
+    joined = " ".join(kept)
+    if _word_count(joined) < _HALLUCINATION_MIN_WORDS:
+        return ""
+    return joined
+
+
+_CJK_CHAR_RE = re.compile(r"[一-鿿]")
+_NON_CJK_TOKEN_RE = re.compile(r"[^\s一-鿿]+")
+
+
+def _word_count(text: str) -> int:
+    """Estimate a word count for mixed Chinese/Western text (#750), used to
+    decide whether a transcript is short enough to skip AI summarization
+    (SUMMARY_WORD_THRESHOLD) and whether a hallucination-filtered transcript
+    is still worth keeping (_HALLUCINATION_MIN_WORDS). Chinese has no spaces
+    between words, so this counts CJK *characters* (roughly one word/morpheme
+    each — close enough for a threshold check) and adds the count of
+    whitespace-delimited non-CJK tokens — a mixed transcript (e.g. a German
+    Reel with an occasional Chinese aside) gets a reasonable combined
+    estimate instead of one language's counting rule misapplied to the
+    other."""
+    if not text:
+        return 0
+    cjk_chars = len(_CJK_CHAR_RE.findall(text))
+    western_tokens = len(_NON_CJK_TOKEN_RE.findall(text))
+    return cjk_chars + western_tokens
+
+
+def _is_chinese_text(text: str, threshold: float = 0.2) -> bool:
+    """True when at least `threshold` fraction of `text`'s non-whitespace
+    characters are CJK (#750). Decides translation direction for both
+    build_transcript_de (zh->de) and _zero_cost_summary (any->zh + any->de)
+    so a German/English Instagram Reel transcript — stored in the same
+    transcript_zh column, see podcast_episodes' schema.sql docstring — isn't
+    treated as Chinese and run through a zh->de translator that would mangle
+    it. 0.2 is deliberately low: real Chinese text (even mixed with English
+    loanwords/numbers) sits well above it, while non-Chinese text with an
+    occasional Chinese aside (e.g. one word said in Mandarin) stays well
+    below."""
+    stripped = re.sub(r"\s+", "", text or "")
+    if not stripped:
+        return False
+    cjk = len(_CJK_CHAR_RE.findall(stripped))
+    return (cjk / len(stripped)) >= threshold
+
+
+def _probe_duration_seconds(path: str) -> float:
+    """ffprobe wrapper for an audio file's duration in seconds (#750) — used
+    for accurate per-minute Whisper/Groq cost logging when there's no RSS
+    itunes:duration to read (Instagram Reels have no RSS feed at all).
+    Best-effort: returns 0.0 (logged) on any failure, which only means the
+    cost log for that call undercounts — it must never block transcription."""
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=noprint_wrappers=1:nokey=1", path],
+            capture_output=True, text=True, timeout=30,
+        )
+        return float(result.stdout.strip())
+    except Exception as e:
+        logger.warning("podcast: ffprobe duration probe failed for %s: %s", path, e)
+        return 0.0
+
+
+def _transcribe_via_groq(mp3_path: str, duration: float, video_id: str) -> str | None:
+    """Instagram Reel transcription, primary path (#750): Groq's
+    OpenAI-compatible audio endpoint running whisper-large-v3-turbo — ~9x
+    cheaper and ~10x faster than the OpenAI whisper-1 fallback
+    (_transcribe_via_whisper). Returns None (not a failure, same contract as
+    every other optional-credential transcriber in this module — Tingwu,
+    NotebookLM) when GROQ_API_KEY isn't configured, or when the whole
+    transcript is filtered out as hallucination/silence
+    (_filter_whisper_hallucinations). Raises on an actual API failure; the
+    caller (_transcribe_instagram) logs and falls through to whisper-1."""
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        logger.info("podcast: GROQ_API_KEY not set, skipping Groq for %s", video_id)
+        return None
+
+    import openai
+    client = openai.OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
+    with open(mp3_path, "rb") as f:
+        resp = client.audio.transcriptions.create(
+            model=_GROQ_MODEL, file=f, response_format="verbose_json",
+        )
+
+    # Billed per minute of audio, same accounting convention as Whisper (see
+    # _transcribe_via_whisper) — only reached after a successful API call.
     database.log_api_call(
-        model="gpt-4o-mini-transcribe", input_tokens=int(duration),
+        model=_GROQ_MODEL, input_tokens=int(duration),
         output_tokens=0, purpose="podcast-transcribe",
     )
-    return transcript or None
+
+    seg_list = getattr(resp, "segments", None) or []
+    raw_segments = seg_list if seg_list else [{"text": (getattr(resp, "text", "") or "").strip()}]
+    transcript = _filter_whisper_hallucinations(raw_segments)
+    if not transcript:
+        logger.info("podcast: Groq transcript for %s filtered out as hallucination/silence", video_id)
+        return None
+    logger.info("podcast: Groq transcribed %s (%.0fs audio)", video_id, duration)
+    return transcript
+
+
+def _is_instagram_url(url: str) -> bool:
+    return "instagram.com" in (url or "").lower()
+
+
+def _transcribe_instagram(video: dict) -> tuple[str | None, dict]:
+    """Instagram Reel transcription chain (#750): download the audio once,
+    then try Groq's whisper-large-v3-turbo first (cheap/fast), falling back
+    to OpenAI's whisper-1 when GROQ_API_KEY isn't configured or Groq itself
+    errors. Both requests ask for response_format="verbose_json" so
+    _filter_whisper_hallucinations runs at full fidelity regardless of which
+    provider actually ran — Reels are very often pure background music with
+    no speech at all, and that filter is the entire reason this function
+    exists rather than just calling _transcribe_via_whisper the way the RSS
+    podcast path does.
+
+    The audio *download* failing (dead link, expired/missing Instagram
+    cookies, private post) is allowed to raise knowledge.instagram.
+    InstagramError straight through to _process_episode's outer except,
+    landing on status='error' with a message that names cookies as the
+    likely cause — that's the only diagnostic signal Daniel gets, via the
+    Signal receipt (#749). A clip that downloads fine but has nothing
+    (hallucination-filtered) or both transcribers unavailable instead
+    returns (None, meta), landing on status='no_transcript' — "downloaded
+    but nothing to transcribe" is not an error.
+    """
+    import knowledge.instagram as ig
+
+    video_id = video["video_id"]
+    url = video.get("youtube_url") or ""
+    meta = {"transcript_source": None}
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        mp3_path = ig.download_audio(url, tmp_dir)  # InstagramError propagates on purpose
+        duration = _probe_duration_seconds(mp3_path)
+
+        transcript = None
+        try:
+            transcript = _transcribe_via_groq(mp3_path, duration, video_id)
+        except Exception as e:
+            logger.warning("podcast: Groq step raised for %s: %s", video_id, e)
+        if transcript:
+            meta["transcript_source"] = "groq_whisper"
+            return transcript, meta
+
+        try:
+            transcript = _transcribe_via_whisper(
+                mp3_path, duration, video_id, tmp_dir,
+                language=None, model="whisper-1", filter_hallucinations=True,
+            )
+        except Exception as e:
+            logger.warning("podcast: Whisper step raised for %s: %s", video_id, e)
+            transcript = None
+        if transcript:
+            meta["transcript_source"] = "whisper"
+            return transcript, meta
+
+    logger.info("podcast: no usable transcript for Instagram Reel %s "
+                "(both transcribers unavailable/filtered)", video_id)
+    return None, meta
 
 
 async def _get_or_create_notebooklm_notebook(client) -> str:
@@ -938,6 +1231,14 @@ def fetch_transcript(video: dict) -> tuple[str | None, dict]:
     meta = {"title": title, "transcript_source": None}
 
     if video.get("kind") == "video":
+        if _is_instagram_url(video.get("youtube_url") or ""):
+            # Instagram Reel ingestion (#750): no captions API exists for
+            # Instagram at all, so this never touches knowledge.youtube —
+            # straight to download-audio + Groq/Whisper (_transcribe_instagram).
+            # Checked via the URL (kind='video' alone doesn't distinguish a
+            # Reel from a YouTube video) rather than transcript_source, which
+            # is only set *after* a transcription attempt succeeds.
+            return _transcribe_instagram(video)
         # YouTube ingestion (#651): captions only, no audio download/Whisper.
         # Dispatches out of the podcast RSS/Tingwu/NotebookLM/Whisper chain
         # entirely — that chain (below) is for kind='podcast' only.
@@ -1087,6 +1388,58 @@ def summarize(transcript: str, title: str, detail_level: str,
         transcript, title, detail_level, china_critical=china_critical))
 
 
+def _zero_cost_summary(transcript: str) -> dict:
+    """Skip AI summarization entirely for a short transcript (#750): produce
+    {"summary_zh", "summary_de"} via Google Translate (free) instead of a
+    paid 3-part AI summary. Called from _process_episode when
+    _word_count(transcript) < SUMMARY_WORD_THRESHOLD — a 60s Instagram Reel
+    yields only a few hundred words, and a short AI summary of that is both
+    wasteful and less useful than the full (translated) transcript plus the
+    generated new-word table. The result is passed through _annotate_summary()
+    exactly like summarize()'s result, so pinyin annotation and
+    zh_annotate.extract_new_words() run identically either way — that word
+    table, not a summary, is the actual point of this path.
+
+    Direction depends on _is_chinese_text(transcript): an already-Chinese
+    transcript needs no zh translation and instead gets translated INTO
+    German (keeping summary_de's "always German" contract intact for every
+    downstream renderer); anything else (Reels are commonly German/English)
+    is assumed to already be summary_de-shaped and gets translated INTO
+    Chinese instead.
+
+    Best-effort like build_transcript_de: a translation failure degrades to
+    the untranslated original in that slot rather than losing the episode —
+    Daniel would rather see the raw transcript in the "wrong" language than
+    no episode at all.
+    """
+    if _is_chinese_text(transcript):
+        summary_zh = transcript
+        summary_de = transcript
+        segs = _split_transcript_segments(transcript)
+        if segs:
+            try:
+                de_segs = _translate_segments(segs, target="de", source="zh-CN")
+                joined = " ".join(d for d in de_segs if d)
+                if joined:
+                    summary_de = joined
+            except Exception as e:
+                logger.warning("podcast: zero-cost zh->de translation failed: %s", e)
+    else:
+        summary_de = transcript
+        summary_zh = transcript
+        segs = _split_segments_any(transcript)
+        if segs:
+            try:
+                zh_segs = _translate_segments(segs, target="zh-CN", source="auto")
+                joined = "".join(z for z in zh_segs if z)
+                if joined:
+                    summary_zh = joined
+            except Exception as e:
+                logger.warning("podcast: zero-cost ->zh translation failed: %s", e)
+
+    return {"summary_zh": summary_zh, "summary_de": summary_de}
+
+
 def _annotate_summary(result: dict) -> dict:
     """Add the AI-free vocabulary annotations (#638) to a fresh summary. Done
     here, at the single choke point both summarizer paths and both callers
@@ -1143,30 +1496,60 @@ def _split_transcript_segments(text: str) -> list[str]:
     return [p.strip() for p in parts if p.strip()]
 
 
-def _translate_segments_de(zh_segments: list[str]) -> list[str]:
-    """Translate each Chinese segment to German via Google Translate, batching
-    under the free endpoint's ~5000-char request limit (translate_batch joins
+_SENTENCE_SPLIT_ANY_RE = re.compile(r"(?<=[。！？…])\s*|(?<=[.!?])\s+")
+
+
+def _split_segments_any(text: str) -> list[str]:
+    """Sentence-ish split usable for Chinese OR Western text (#750). Unlike
+    _split_transcript_segments (CJK sentence-final punctuation only), this
+    also breaks after '.', '!', '?' followed by whitespace — needed for
+    _zero_cost_summary's zh->de/any->zh translation batching, where the
+    source language isn't known ahead of time (Instagram Reels are commonly
+    German or English, not Chinese)."""
+    if not text:
+        return []
+    parts = _SENTENCE_SPLIT_ANY_RE.split(text)
+    return [p.strip() for p in parts if p.strip()]
+
+
+def _translate_segments(segs: list[str], target: str, source: str) -> list[str]:
+    """Translate `segs` to `target` from `source`, batching under Google
+    Translate's ~5000-char free-endpoint request limit (translate_batch joins
     a batch with newlines into one request). Returns a list aligned 1:1 with
-    zh_segments (translate_batch already falls back to the source text for any
-    segment it can't translate)."""
+    segs (translate_batch already falls back to the source text for any
+    segment it can't translate). Generalized (#750) from the zh->de-only
+    original (_translate_segments_de, kept below as a thin wrapper) so
+    _zero_cost_summary can reuse the exact same batching logic for any
+    direction instead of a second copy."""
     out: list[str] = []
     batch: list[str] = []
     size = 0
-    for seg in zh_segments:
+    for seg in segs:
         if batch and size + len(seg) > 4500:
-            out.extend(translator.translate_batch(batch, target="de", source="zh-CN"))
+            out.extend(translator.translate_batch(batch, target=target, source=source))
             batch, size = [], 0
         batch.append(seg)
         size += len(seg) + 1
     if batch:
-        out.extend(translator.translate_batch(batch, target="de", source="zh-CN"))
+        out.extend(translator.translate_batch(batch, target=target, source=source))
     return out
+
+
+def _translate_segments_de(zh_segments: list[str]) -> list[str]:
+    """zh->de translation — build_transcript_de's original narrow entry
+    point, now a thin wrapper over _translate_segments (#750)."""
+    return _translate_segments(zh_segments, target="de", source="zh-CN")
 
 
 def build_transcript_de(transcript_zh: str) -> list[dict]:
     """Build the bilingual segment-pair list [{"zh","de"}] for a transcript
-    (#553). Best-effort: returns [] if the transcript is empty or translation
-    is unavailable/fails."""
+    (#553). Best-effort: returns [] if the transcript is empty, isn't
+    (mostly) Chinese (#750 — e.g. a German/English Instagram Reel stored in
+    this same transcript_zh column, see podcast_episodes' schema.sql
+    docstring — translating that zh->de would mangle it), or translation is
+    unavailable/fails."""
+    if not _is_chinese_text(transcript_zh):
+        return []
     segs = _split_transcript_segments(transcript_zh)
     if not segs:
         return []
@@ -1601,8 +1984,16 @@ def _process_episode(episode_id: int, video: dict, detail_level: str, summary: d
             # `video` is an RSS item for the crawler path and has no such
             # field — only the stored row knows what was ticked at paste time.
             china_critical = bool((database.get_episode(episode_id) or {}).get("china_critical"))
-            result = summarize(transcript, video["title"], detail_level,
-                               china_critical=china_critical)
+            word_count = _word_count(transcript)
+            if word_count < SUMMARY_WORD_THRESHOLD:
+                # Short transcript (#750): skip the paid AI summarizer
+                # entirely — see _zero_cost_summary's docstring for why.
+                logger.info("podcast: transcript for %s is %d words (< %d), skipping AI summary",
+                            video["video_id"], word_count, SUMMARY_WORD_THRESHOLD)
+                result = _annotate_summary(_zero_cost_summary(transcript))
+            else:
+                result = summarize(transcript, video["title"], detail_level,
+                                   china_critical=china_critical)
             if not result.get("summary_de"):
                 database.update_episode(episode_id, status="error",
                                         error="AI summary failed or empty")

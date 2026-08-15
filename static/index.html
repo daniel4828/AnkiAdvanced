@@ -813,6 +813,15 @@
           </tbody>
         </table>
         <p class="price-table-note">Prices per 1M tokens (USD)</p>
+        <table class="price-table">
+          <thead><tr><th>Transcription</th><th>Provider</th><th colspan="2">Per minute of audio</th></tr></thead>
+          <tbody>
+            <tr><td>Whisper-large-v3-turbo</td><td>Groq</td><td colspan="2">$0.0007</td></tr>
+            <tr><td>Whisper-1</td><td>OpenAI</td><td colspan="2">$0.006</td></tr>
+            <tr><td>GPT-4o-mini-transcribe</td><td>OpenAI</td><td colspan="2">$0.003</td></tr>
+          </tbody>
+        </table>
+        <p class="price-table-note">Instagram Reels: Groq first, OpenAI Whisper-1 fallback (#750)</p>
       </div>
       <!-- Prices: $input/$output per 1M tokens (issue #584); keep in sync with
            database/stats.py _MODEL_PRICING and the ℹ price table above -->

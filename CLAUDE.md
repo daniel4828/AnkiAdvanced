@@ -218,7 +218,7 @@
 ├── ai.py                  # AI 提供商调用（每种提示词类型一个函数）
 ├── news_fetcher.py        # 新闻抓取（Tagesschau API + RSS；按天缓存 data/news_cache/）
 ├── podcast.py             # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、每源 auto_process 开关+非自动源只入库元数据（#502，podcast_feeds 表）、转录链 NotebookLM 免费主力+听悟+Whisper 保底、单步异常不中止整链（#510 重排，链式降级，原 #498/#485/#486）、摘要 NotebookLM chat.ask 免费优先+DeepSeek/gpt API 链回退（api 路径内部 DeepSeek 优先省钱，#532；勾了 china-kritisch 的素材跳过 DeepSeek 直接用 OpenAI，#731）、邮件通知+Signal 通知（signal-cli 关联设备，发 Note to Self，#521，二者独立可选、互不影响；消息抬头播客名·星期·日期、链接在末尾，单集日期按 Europe/Berlin 显示，#532）、摘要 table.media 风格（`<p>` 段落+每段首句 `<b>` 加粗总结，#567）+详情页 Regenerate summary 按钮、邮件主题=`播客名 - 单集标题`（查不到播客名只用标题，不要退回死前缀）+ `summary_zh` 开头中文总结（#708 起是 `summary_de` 的**完整翻译**：同段落数、同顺序、同事实，同样 `<p>`+段首 `<b>`，HSK4-5 用词；提示词里德语先写、中文后译，JSON 里 `summary_de` 排在前面；渲染三处——邮件 `podcast._summary_zh_html`、详情页 `app.js._summaryZhHtml` 均"先全转义再放行 `<p>/<b>/<strong>/<em>/<i>/<br>`"，Signal 用 `_summary_to_plain_text` 剥标签；#708 之前的旧条目是纯文本，两处渲染都按空行补 `<p>`；**是增量不是必需**——成功判定只看 `summary_de`，模型漏掉中文总结不能让整集失败）+ 摘要里任何 HSK5+ 中文概念都标 `pinyin/汉字`（不限于提取的词表，宁多勿少，#631）；已泛化为知识库存储层，见 `knowledge/` 包
-├── knowledge/             # 知识库摄取（#650–#655，播客功能泛化，见「知识库」节）：youtube.py（字幕摄取）、article.py（正文抽取）、ingest.py（唯一入库管线）、mailbox.py（IMAP 邮件收件）、signal_inbox.py（Signal Note to Self 分享收件，#749）
+├── knowledge/             # 知识库摄取（#650–#655，播客功能泛化，见「知识库」节）：youtube.py（字幕摄取）、article.py（正文抽取）、instagram.py（Reel/Post 摄取，yt-dlp 元数据+音频下载，#750）、ingest.py（唯一入库管线）、mailbox.py（IMAP 邮件收件）、signal_inbox.py（Signal Note to Self 分享收件，#749）
 ├── zh_annotate.py         # 生词标注（#638，零 AI）：HSK 表+词库+jieba+pypinyin+谷歌翻译
 ├── translator.py          # 翻译（Google Translate，deep-translator，可选）
 ├── tts.py                 # edge-tts 封装（离线模式下只读缓存，#612）
@@ -357,6 +357,9 @@ python main.py status [--deck X]     # 显示每个牌组/类别的到期数量
 | `KNOWLEDGE_IMAP_HOST` / `KNOWLEDGE_IMAP_PORT` | 可选 | 知识库邮件收件（#655）的 IMAP 服务器；端口默认 `993`（SSL） |
 | `KNOWLEDGE_IMAP_USER` / `KNOWLEDGE_IMAP_PASSWORD` | 可选 | 知识库邮件收件（#655）专用邮箱的登录凭据；三者（含上面两个变量）任一未配置时 `scripts/knowledge_mail_check.py` 直接跳过，不连接 |
 | `KNOWLEDGE_MAIL_ALLOWED_SENDERS` | 可选 | 知识库邮件收件（#655）发件人白名单，逗号分隔的邮箱地址（不区分大小写，兼容 `Name <addr@x.de>` 格式）；**留空则整个邮箱检查被跳过，不处理任何邮件**——这是防止任何知道邮箱地址的人往服务器塞 URL 触发 AI 调用的唯一防线 |
+| `GROQ_API_KEY` | 可选 | Instagram Reel 转录（#750）的主力，Groq `whisper-large-v3-turbo`（约比 OpenAI 便宜 9 倍、快 10 倍）；未配置时自动回退已有的 OpenAI `whisper-1`（`OPENAI_API_KEY`），只是单价贵约 9 倍——不是本功能能否使用的前提。获取方式见 `scripts/README.md` |
+| `INSTAGRAM_COOKIES_FILE` | `data/instagram_cookies.txt` | Instagram Reel 摄取（#750）用的登录态 cookies（Netscape 格式，`yt-dlp --cookies`）；文件不存在时公开 Reel 仍会尝试下载，不一定成功。会过期，过期时的错误信息会明说，一次性导出步骤见 `scripts/README.md` |
+| `YT_DLP_PATH` | `yt-dlp` | Instagram Reel 摄取（#750）用的 yt-dlp 可执行文件路径；系统级命令行工具（同 `ffmpeg` 的处理方式），装在非默认位置时指过去 |
 
 注意：uvicorn 直接启动不建表——测试前先手动 `database.init_db()`（`run.sh`/`main.py` 会自动处理）。
 
@@ -564,6 +567,11 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
   - **代价**：NotebookLM 不能指定字幕语言，返回的是视频原声轨（那条视频拿回来的是英文 32633 字，不是本地能拿到的中文翻译轨 9833 字）。摘要提示词本来就容忍任意输入语言，所以功能通；要中文轨只能给字幕 API 配付费代理（`WebshareProxyConfig`），暂不做
 - 新依赖 `youtube-transcript-api`、`trafilatura`（已在 `requirements.txt`）
 - **一次性数据清理必须真的只跑一次（#688）**：`init_db()` 里 #497 那段"删除卡住的遗留 YouTube 行"按 `video_id` 是 11 位 + `status != 'summarized'` 判断，既没有一次性标记（每次启动都跑），又正好命中知识库摄取的视频 —— 生产 cron 每 2 分钟重启一次服务，于是每个新视频在 NotebookLM 转录完成前必被删除，界面上表现为"加完就消失"。现在两道保护：限定 `kind='podcast'` + `app_settings.purged_legacy_youtube_rows` 标记（标记写在"表已存在"迁移块之外，全新库首次启动也写）。**往 `init_db()` 里加任何 DELETE 之前，先想清楚它在第 100 次启动时会删掉什么**
+- **Instagram Reel 摄取（`knowledge/instagram.py`，#750）**：`kind='video'`，`video_id` 存 Instagram 的短码（shortcode）。没有字幕 API 可用，`ingest_url()` 只存元数据（`yt-dlp --dump-json` 拿标题/作者/时长，标题缺失时退回 `description` 首行再退回短码），下载音频+转录都推迟到 `.../process`（`podcast._transcribe_instagram`）。**转录是降级链**（本仓库转录链一贯的风格，同 `fetch_transcript()`）：① `GROQ_API_KEY` 已配置 → Groq `whisper-large-v3-turbo`（$0.04/小时，约比 OpenAI 便宜 9 倍、快 10 倍）；② 否则/失败 → 已有的 `podcast._transcribe_via_whisper()`（OpenAI `whisper-1`，$0.006/分钟，一条 60 秒 Reel ≈ $0.006）；③ 都不行 → `status='no_transcript'`。`GROQ_API_KEY` 因此是**可选**的，不是本功能能否用的前提
+  - **幻觉过滤两条转录路径都要过（`podcast._filter_whisper_hallucinations`）**：Reel 常是纯音乐无人声，Whisper 系模型会对着音乐编造整段文本。两条路径都请求 `response_format="verbose_json"` 拿到真正的分段元数据（`no_speech_prob`/`avg_logprob`）——OpenAI 这边为此把模型从播客路径默认的 `gpt-4o-mini-transcribe` 换成 `whisper-1`（前者不接受 `verbose_json`，只有 `whisper-1` 支持）。过滤三道：`no_speech_prob`/`avg_logprob` 超阈值的段落丢弃 → 同一段文本连续重复 ≥3 次判整条作废（比单看概率更强的信号）→ 剩余不足 20 词判 `no_transcript`。**绝不能把幻觉文本存进库假装成功**
+  - **Instagram cookies 会过期**：下载失败时错误信息明说"可能是 cookies 过期"（`knowledge/instagram.py._yt_dlp_error_message`），这是 Daniel 唯一能看到的诊断线索（走 #749 的 Signal 回执通道）。一次性安装/cookies 导出步骤见 `scripts/README.md`
+  - **短文本跳过 AI 摘要，YouTube/Instagram/文章共用（`podcast.SUMMARY_WORD_THRESHOLD=1000`）**：转录词数低于阈值（`podcast._word_count`，CJK 按字符数+西文按空格分词的混合估计）时 `_process_episode` 完全跳过 `summarize()`，改走零 AI 成本的 `podcast._zero_cost_summary()`——`summary_zh`/`summary_de` 靠 Google Translate（免费）互译，不靠 AI 三段式总结；生词表照常走 `zh_annotate.extract_new_words()`（这正是 Daniel 要的"只给我不认识的词"）。两段文本仍过 `_annotate_summary()` 同一套拼音/汉字标注，和 AI 摘要路径展示效果一致。**长素材（≥1000 词）行为完全不变**，仍走原 AI 摘要
+  - **翻译方向不能假设"转录永远是中文"**：`transcript_zh`/`build_transcript_de()` 历史上都假设 zh→de 单向；Reel 常是德语/英语音频，方向反了。`podcast._is_chinese_text()`（CJK 字符占比 ≥0.2）判断转录语言——非中文转录时 `build_transcript_de()` 直接返回 `[]`（不产出"德语翻德语"的垃圾），`_zero_cost_summary()` 按方向选择往哪边翻译。**不改列名、不建新表**——`transcript_zh` 存"任意语言源文本"是本仓库已有先例（同 `word_zh` 对法语存法语词形）
 
 ---
 
