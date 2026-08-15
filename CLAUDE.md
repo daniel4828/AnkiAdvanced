@@ -19,10 +19,10 @@
 10. [数据库模式](#数据库模式概述) · 11. [调度算法 FSRS-5](#调度算法--fsrs-5默认--sm-2-回退) · 12. [队列设计](#队列设计) · 13. [多语言支持](#多语言支持)
 
 **功能详解**
-14. [数据与导入 / 界面内加词](#数据与导入) · 15. [故事生成](#故事生成) · 16. [加星句子](#加星句子改进提示词的正例样本692) · 17. [知识库](#知识库knowledge-base650655) · 18. [生词标注](#生词标注代码做不用-aizh_annotatepy638) · 19. [复习收尾提醒](#复习收尾提醒701)
+14. [数据与导入 / 界面内加词](#数据与导入) · 15. [故事生成](#故事生成) · 16. [加星句子](#加星句子改进提示词的正例样本692) · 17. [知识库](#知识库knowledge-base650655) · 18. [生词标注](#生词标注代码做不用-aizh_annotatepy638) · 19. [复习收尾提醒](#复习收尾提醒701) · 20. [AI 词典页 /dict](#ai-词典页-dict746)
 
 **参考**
-20. [API 接口](#api-接口) · 21. [测试](#测试tests-pytest-tests-全套约-11-秒) · 22. [规范与约束](#规范与约束)
+21. [API 接口](#api-接口) · 22. [测试](#测试tests-pytest-tests-全套约-11-秒) · 23. [规范与约束](#规范与约束)
 
 ---
 
@@ -206,7 +206,7 @@
 │   ├── sync.py            # 一键同步（#625，只在笔记本实例注册）
 │   ├── queue_manager.py   # Anki v3 风格持久会话队列
 │   └── utils.py           # 共用工具（DISABLE_AI, leaf_ids, queue_manager 单例）
-├── static/                # 前端（index.html + app.js + style.css；shared.js = 两页共用的 api()/addWordViaAi()，add.html = 独立加词页 #668，login.html = 登录页 #666）
+├── static/                # 前端（index.html + app.js + style.css；shared.js = 两页共用的 api()/addWordViaAi()，add.html = 独立加词页 #668，save.html = 独立收藏页 #681，dict.html = 独立 AI 词典页 #746，login.html = 登录页 #666；这三个独立页都故意不加载 app.js）
 │
 │   # ── 调度与导入 ──
 ├── srs.py                 # 调度编排：学习步骤、状态转换，调用 fsrs.py
@@ -222,6 +222,7 @@
 ├── zh_annotate.py         # 生词标注（#638，零 AI）：HSK 表+词库+jieba+pypinyin+谷歌翻译
 ├── translator.py          # 翻译（Google Translate，deep-translator，可选）
 ├── tts.py                 # edge-tts 封装（离线模式下只读缓存，#612）
+├── routes/dictionary.py   # AI 词典 API（#746）：/api/dict/lookup + 历史；结果存 dict_queries（database/dictionary.py）
 ├── review_notify.py       # 复习收尾提醒（#701）：去重 + 发信，判定在 database.due_notification_status()
 │
 │   # ── 本地 / 离线模式（#612、#625）──
@@ -590,6 +591,21 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 
 ---
 
+## AI 词典页 `/dict`（#746）
+
+Daniel 长期把 DeepSeek 聊天当中文词典用，再手工把结果复制进加词框。这个页面把词典搬进应用：输入德语/英语/中文的词、词组或句子 → AI 返回**结构化**查词结果 → 每个候选译法旁边一个 `★` 按钮直接加进 ★ List。**单轮问答，不做追问**（Daniel 明确说他从不追问，查完直接输下一个）。
+
+- **结构化 JSON 而非自由 Markdown**：这是整个功能成立的前提——只有结构化才能让选项变成可点的按钮。契约见 `ai.DICTIONARY_PROMPT` 里嵌的示例（`headline`/`kind`/`sentence`/`groups[].options[]`）
+- **提示词移植自 `de-zh-bot` 技能**（`ai.DICTIONARY_PROMPT`）：中文输入**直接给全部义项、不给选择**；德/英输入一律先分析 + `a/b/c` 选项（**不用数字**）+ 明确推荐、**倾向口语**（Daniel 反复强调的偏好）；整句先整句翻译再逐词拆解，每个成分单独可加词；解释语言德语，单词可附法语
+- **加词仍走 `/api/add-word-ai`**（`shared.js` 的 `addWordViaAi()`）：`★` 之后照常花 30 秒生成完整词条（例句/汉字分解/量词/同义反义词齐全）。词典**不得**成为第二条加词管线（#643），哪怕它手里已经有译文——省下的那一次调用换来的是内容简陋、与其它词条不一致的条目
+- **解析失败不写库**：`ai.dictionary_lookup()` 解析不出 JSON 或缺 `groups`/`zh` 就抛 `ValueError` → 500 带原始回复前 500 字。空壳词典条目比报错更糟
+- **`dict_queries.headline` 是反范式的一列**：历史列表不该为了显示一行标题去解析 50 份 `result_json`
+- **`lang` 目前只支持 `zh`**，传别的值返回 400——拿中文提示词去答法语请求会静默生成一个**看起来合理但错误**的词条（同 #726 在加词侧的教训）
+- **页面不加载 `app.js`**（同 `/add` #668、`/save` #681）；`?q=` 打开即查询，随后 `history.replaceState` 抹掉参数——否则刷新或 iOS 恢复标签页会静默再花一次 AI 钱（#686 踩过）
+- AI 返回的文本一律 `textContent`/`createElement` 渲染，全页无 `innerHTML` 拼接
+
+---
+
 ## API 接口
 
 ```
@@ -666,6 +682,13 @@ GET  /api/costs/call/{id}                            → {prompt, response}（�
 POST /api/import                                     → 触发 YAML 导入
 GET  /add[?word=生态&day=today|tomorrow|list&lang=zh|fr] → 独立加词页（#668，可收藏/存主屏；不加载 app.js）；带 word 参数时打开即自动提交（#686，供 iOS 快捷指令用），提交后从地址栏抹掉该参数以免刷新重复扣费；lang（#726）每种语言一个快捷指令
 GET  /save                                           → 独立素材收藏页（#681，Link/Text 两个标签；同样不加载 app.js）
+
+# AI 词典（#746，详见「AI 词典页」节）
+GET    /dict[?q=anordnen]                            → 独立词典页（不加载 app.js）；带 q 时打开即查询并抹掉参数
+POST   /api/dict/lookup                              → body {query, lang?='zh', model?} → {id, created_at, query, result}
+                                                       同步约 5–15 秒；query 空 / lang 非 zh / AI 关闭 → 400；解析失败 → 500 且**不写库**
+GET    /api/dict/history[?q=&limit=]                 → 历史列表（不含 result_json；q 对 query/headline 做 LIKE）
+GET    /api/dict/history/{id} ；DELETE /api/dict/history/{id}  → 单条 / 删除；不存在均 404（不假装成功）
 POST /api/add-word-ai                                → 界面内添加生词（#627）；body {word_zh, day?:today|tomorrow|list, lang?:zh|fr}（#636、#677；#715 起界面一律传 list，接口三值仍有效；lang 见 #726，已存在的词按 entries.lang 落点、不听该参数）；新词返回 {job_id}，已有词直接返回 {status}。**全应用唯一的加词入口**（#643）：顶栏 ＋、播客生词表格、复习界面长按菜单都走它
 GET  /api/add-word-ai/progress/{job_id}              → 轮询后台生成+导入的结果
 GET  /api/browse                                     → {deck_id?, category?, state?, q?, lang?}
