@@ -1518,8 +1518,16 @@ def _fill_translations(sentences: list[dict], progress_key: str | None = None,
             _set_progress(progress_key, phase="translating",
                           msg=f"Translating… 0/{total}", percent=88)
 
+        # Real per-chunk progress (#756): the loading screen used to sit at
+        # 0/N for the whole translation and then jump straight to N/N.
+        def _on_progress(done: int, n: int) -> None:
+            _set_progress(progress_key, phase="translating",
+                          msg=f"Translating… {done}/{n}",
+                          percent=88 + 4 * done / n)
+
         t0 = time.time()
-        de_results = _t.translate_batch(texts, target="de", source=source)
+        de_results = _t.translate_batch(texts, target="de", source=source,
+                                        on_progress=_on_progress if progress_key else None)
         logger.info("translate DE done in %.1fs (%d sentences)", time.time() - t0, total)
 
         if progress_key and total > 0:
