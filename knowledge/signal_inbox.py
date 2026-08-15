@@ -27,6 +27,14 @@ account itself (Note to Self) are ever treated as ingest input; anything
 else is ignored. This is the same role KNOWLEDGE_MAIL_ALLOWED_SENDERS plays
 for the mailbox intake — the one gate stopping this channel from turning
 into "anyone who can message Daniel triggers a paid AI call".
+
+Privacy (measured in production, #755): `receive` doesn't hand over just
+Note-to-Self messages, it drains EVERYTHING Signal has queued for this
+linked device — message bodies from other people, attachment metadata,
+read receipts, typing indicators. The gate above keeps all of it out of the
+database, but it does pass through this process's memory. So: never log a
+raw envelope, and never put envelope contents in an error message or a
+Signal receipt. Log the URL and the outcome, nothing else.
 """
 import json
 import logging
@@ -43,10 +51,22 @@ logger = logging.getLogger(__name__)
 _RETRY_QUEUE_KEY = "signal_retry_queue"
 _MAX_ATTEMPTS = 3
 
-# signal-cli's `receive` blocks briefly waiting for the server; 120s is
-# generous headroom over its usual few-second turnaround without letting a
-# hung connection stall the cron slot indefinitely.
-_RECEIVE_TIMEOUT = 120
+# `signal-cli receive` without -t does NOT "drain the queue and exit" — it
+# keeps listening for new messages until killed, which is exactly what we
+# don't want from a cron one-shot. -t tells it to return once the queue has
+# been quiet for this many seconds (#755: the first production run hit the
+# subprocess timeout instead of ever returning).
+_RECEIVE_IDLE_SECONDS = 10
+
+# Wall-clock ceiling for the whole receive call. Generous on purpose: the
+# FIRST run after an account has only ever *sent* (this one had been sending
+# podcast notifications since #521 without ever receiving) has to chew
+# through everything Signal queued up server-side — sync copies of every
+# message from every linked device, delivery receipts, typing indicators.
+# That measured at over 2 minutes in production, which is what blew the
+# original 120s ceiling. Later runs, five minutes apart, see a handful of
+# envelopes and return in seconds.
+_RECEIVE_TIMEOUT = 300
 
 
 def _default_runner(args: list) -> str:
@@ -217,9 +237,14 @@ def check_signal_inbox(runner=None) -> dict:
             retry_items.append((url, attempts))
 
     try:
-        stdout = runner([cli_path, "-a", account, "-o", "json", "receive"])
+        stdout = runner([cli_path, "-a", account, "-o", "json", "receive",
+                         "-t", str(_RECEIVE_IDLE_SECONDS)])
     except Exception as e:
-        logger.warning("knowledge.signal_inbox: signal-cli receive 失败: %s", e)
+        # 超时不是"坏了"，通常是首轮积压还没消化完（见 _RECEIVE_TIMEOUT
+        # 的注释）。日志要说人话，否则看到一行 timeout 只会以为功能是坏的。
+        logger.warning(
+            "knowledge.signal_inbox: signal-cli receive 失败: %s"
+            "（若是超时：可能是首轮积压未消化完，下一轮 cron 会继续）", e)
         summary["reason"] = "receive_failed"
         summary["errors"].append(str(e))
         return summary
