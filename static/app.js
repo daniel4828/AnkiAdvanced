@@ -3126,12 +3126,42 @@ let _podcastEpisodes = [];
 let _podcastConfig = null;
 let _podcastCurrentFeedId = null;   // layer 2/3 (podcast tab): which feed's episode list we're in
 let _podcastPollTimer = null;       // re-poll while any listed item is "processing"
-let _knowledgeTab = localStorage.getItem('knowledgeTab') || 'podcast';  // 'podcast' | 'video' | 'article'
+let _knowledgeTab = localStorage.getItem('knowledgeTab') || 'podcast';  // 'podcast' | 'video' | 'reel' | 'article'
 let _knowledgeListKind = null;      // set while a flat video/article list is showing (layer 1 for those tabs)
 let _knowledgeAddMode = 'link';     // 'link' | 'text' — article tab only (#668); paywalled articles can't be fetched, so pasting the body is the escape hatch
 
 function _clearPodcastPoll() {
   if (_podcastPollTimer) { clearTimeout(_podcastPollTimer); _podcastPollTimer = null; }
+}
+
+// 📱 Reels is a *virtual* tab (#764): Instagram Reels are stored as
+// kind='video' rows (#750 deliberately did not add a fourth kind — that
+// means a schema change, a production migration, and touching every kind
+// filter in the backend, all so a Reel can be labelled as the video it
+// already is). So both the Videos and Reels tabs fetch kind=video and get
+// split here, in the frontend, by where the URL points.
+function _knowledgeApiKind(tab) {
+  return tab === 'reel' ? 'video' : tab;
+}
+
+function _isInstagramEpisode(ep) {
+  let host = '';
+  try { host = new URL(ep.youtube_url || '').hostname; } catch (e) { return false; }
+  return /(^|\.)instagram\.com$/.test(host);
+}
+
+// The one place the video/reel split is decided. Both tabs ask the backend
+// for the same rows, so whichever filter is applied here must be the exact
+// complement of the other — otherwise a row belongs to both tabs or neither.
+function _knowledgeListFilter(tab) {
+  if (tab === 'reel') return _isInstagramEpisode;
+  if (tab === 'video') return (ep) => !_isInstagramEpisode(ep);
+  return () => true;
+}
+
+async function _fetchKnowledgeList(tab) {
+  const episodes = await api('GET', `/api/podcast/episodes?kind=${_knowledgeApiKind(tab)}&limit=1000`);
+  return (episodes || []).filter(_knowledgeListFilter(tab));
 }
 
 // Top level: sub-tab bar + per-tab list -----------------------------------------
@@ -3155,7 +3185,8 @@ async function switchKnowledgeTab(tab) {
 }
 
 function _knowledgeTabBarHtml() {
-  const tabs = [['podcast', '🎙️ Podcasts'], ['video', '📺 Videos'], ['article', '📄 Articles']];
+  const tabs = [['podcast', '🎙️ Podcasts'], ['video', '📺 Videos'],
+                ['reel', '📱 Reels'], ['article', '📄 Articles']];
   const btns = tabs.map(([id, label]) =>
     `<button class="hcal-seg-btn ${_knowledgeTab === id ? 'active' : ''}" onclick="switchKnowledgeTab('${id}')">${label}</button>`
   ).join('');
@@ -3177,8 +3208,7 @@ async function _loadKnowledgeTab() {
       _renderPodcastFeedList();
     } else {
       _knowledgeListKind = _knowledgeTab;
-      const episodes = await api('GET', `/api/podcast/episodes?kind=${_knowledgeTab}&limit=1000`);
-      _podcastEpisodes = episodes || [];
+      _podcastEpisodes = await _fetchKnowledgeList(_knowledgeTab);
       _renderKnowledgeMaterialList();
       _schedulePodcastPollIfNeeded();
     }
@@ -3358,15 +3388,15 @@ function _renderPodcastEpisodeList() {
 function _renderKnowledgeMaterialList() {
   const el = document.getElementById('view-knowledge-content');
   if (!el) return;
-  const kindLabel = _knowledgeTab === 'video' ? 'video' : 'article';
-  // The video tab also accepts Instagram Reels (#750) — same paste box, same
-  // ingest_url() dispatch. Say so, or nobody discovers it (#761).
-  const linkHint = _knowledgeTab === 'video'
-    ? 'Paste a YouTube or Instagram Reel link…'
-    : `Paste a ${kindLabel} link…`;
-  const emptyHint = _knowledgeTab === 'video'
-    ? 'No videos yet — paste a YouTube or Instagram Reel link above.'
-    : `No ${kindLabel}s yet — paste a link above.`;
+  // Each tab says what it actually takes — the paste box is the same
+  // ingest_url() dispatch for all of them, so the only thing that tells
+  // Daniel a Reel link is welcome here is this text (#761/#764).
+  const HINTS = {
+    video: ['Paste a YouTube link…', 'No videos yet — paste a YouTube link above.'],
+    reel: ['Paste an Instagram Reel link…', 'No Reels yet — paste an Instagram link above.'],
+    article: ['Paste an article link…', 'No articles yet — paste a link above.'],
+  };
+  const [linkHint, emptyHint] = HINTS[_knowledgeTab] || HINTS.article;
   const rows = _podcastEpisodes.map(ep => _knowledgeMaterialRowHtml(ep)).join('') ||
     `<div class="keymap-hint">${emptyHint}</div>`;
   // Paste-text is an article-only escape hatch for paywalled pieces the server
@@ -3425,16 +3455,12 @@ function switchKnowledgeAddMode(mode) {
   _renderKnowledgeMaterialList();
 }
 
-// Instagram Reels ride in the video tab as kind='video' (#750 deliberately
-// did NOT add a fourth kind — a Reel is a video, and a new kind means a new
-// tab, new filters, a migration). But a list mixing YouTube and Reels reads
-// as undifferentiated mush, so mark the Reels with an icon (#761). Purely
-// presentational: derived from the stored URL, nothing stored for it.
+// Reels get an icon even inside their own tab (#761), so a row stays
+// self-describing wherever it's rendered. Same predicate the tab split uses
+// (#764) — two independent "is this Instagram?" checks would eventually
+// disagree, and then a row shows the phone icon in the Videos tab.
 function _knowledgeSourceIcon(ep) {
-  const url = ep.youtube_url || '';
-  return /(^|\.)instagram\.com/.test((() => {
-    try { return new URL(url).hostname; } catch (e) { return ''; }
-  })()) ? '📱 ' : '';
+  return _isInstagramEpisode(ep) ? '📱 ' : '';
 }
 
 function _knowledgeMaterialRowHtml(ep) {
@@ -3513,8 +3539,7 @@ async function _submitKnowledgeAdd(payload, msg) {
       if (msg) msg.textContent = 'Already in your library.';
     }
     if (_knowledgeListKind === _knowledgeTab) {
-      const episodes = await api('GET', `/api/podcast/episodes?kind=${_knowledgeTab}&limit=1000`);
-      _podcastEpisodes = episodes || [];
+      _podcastEpisodes = await _fetchKnowledgeList(_knowledgeTab);
       _renderKnowledgeMaterialList();
       _schedulePodcastPollIfNeeded();
     }
@@ -3811,7 +3836,7 @@ function _openKnowledgeFromHash() {
   // digits-only patterns above can never match. This is what /knowledge/videos
   // redirects to, and also what the tab bar writes into the address bar, so
   // reloading a bookmarked tab stays on that tab.
-  const tabMatch = /^#knowledge-(podcast|video|article)$/.exec(location.hash);
+  const tabMatch = /^#knowledge-(podcast|video|reel|article)$/.exec(location.hash);
   if (tabMatch) openKnowledge(tabMatch[1]);
 }
 
@@ -10966,7 +10991,7 @@ async function _loadVersionBadge() {
 // are recognized (see _openKnowledgeFromHash).
 if (/^#(?:podcast|knowledge)-feed-\d+$/.test(location.hash)
     || /^#(?:podcast|knowledge)-\d+$/.test(location.hash)
-    || /^#knowledge-(?:podcast|video|article)$/.test(location.hash)) {
+    || /^#knowledge-(?:podcast|video|reel|article)$/.test(location.hash)) {
   _openKnowledgeFromHash();
 } else {
   loadDecks();

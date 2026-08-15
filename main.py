@@ -469,6 +469,10 @@ try:
     _KNOWLEDGE_TAB_KINDS = {
         "podcast": "podcast", "podcasts": "podcast",
         "video": "video", "videos": "video",
+        # Reels are a frontend-only split of kind='video' (#764), but the
+        # bookmarkable URL has to exist all the same — /knowledge/reels is
+        # exactly the link Daniel wants on his home screen.
+        "reel": "reel", "reels": "reel", "instagram": "reel",
         "article": "article", "articles": "article",
     }
 
