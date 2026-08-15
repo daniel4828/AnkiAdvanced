@@ -28,6 +28,11 @@ def client():
     ("/knowledge/podcasts", "podcast"),
     ("/knowledge/podcast", "podcast"),
     ("/knowledge/VIDEOS", "video"),
+    # Reels (#764) are a frontend-only split of kind='video', but the URL
+    # has to work like any other tab.
+    ("/knowledge/reels", "reel"),
+    ("/knowledge/reel", "reel"),
+    ("/knowledge/instagram", "reel"),
 ])
 def test_tab_link_redirects_to_the_matching_hash(client, path, tab):
     resp = client.get(path, follow_redirects=False)
@@ -53,7 +58,7 @@ APP_JS = pathlib.Path("static/app.js").read_text(encoding="utf-8")
 HASH_PATTERNS = [
     re.compile(r"^#(?:podcast|knowledge)-feed-\d+$"),
     re.compile(r"^#(?:podcast|knowledge)-\d+$"),
-    re.compile(r"^#knowledge-(?:podcast|video|article)$"),
+    re.compile(r"^#knowledge-(?:podcast|video|reel|article)$"),
 ]
 
 
@@ -61,14 +66,14 @@ def test_app_js_declares_the_tab_hash_pattern():
     """The boot branch decides between "open the knowledge view" and "load the
     deck list"; if it doesn't know the tab form, a bookmarked tab link opens
     the deck list instead."""
-    assert APP_JS.count("#knowledge-(?:podcast|video|article)$") == 1
-    assert "/^#knowledge-(podcast|video|article)$/" in APP_JS
+    assert APP_JS.count("#knowledge-(?:podcast|video|reel|article)$") == 1
+    assert "/^#knowledge-(podcast|video|reel|article)$/" in APP_JS
 
 
 def test_tab_hash_is_matched_by_exactly_one_pattern():
     """The tab form is letters-only and the item/feed forms are digits-only,
     so an item link can never be mistaken for a tab link or vice versa."""
-    for tab in ("podcast", "video", "article"):
+    for tab in ("podcast", "video", "reel", "article"):
         matched = [p for p in HASH_PATTERNS if p.match(f"#knowledge-{tab}")]
         assert len(matched) == 1, tab
     # The legacy links that already went out in podcast emails/Signal messages.
