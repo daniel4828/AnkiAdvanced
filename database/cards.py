@@ -301,7 +301,7 @@ def _get_virtually_buried_word_ids(
               AND c_sib.state != 'suspended'
               AND (c_sib.buried_until IS NULL OR c_sib.buried_until < ?)
               AND (
-                (c_sib.state IN ('learning', 'relearn') AND c_sib.due <= ?)
+                (c_sib.state IN ('learning', 'relearn') AND {_learning_due_now_sql('c_sib.')})
                 OR (c_sib.state IN ('review', 'new') AND c_sib.due <= ?)
               )
               AND (
@@ -323,7 +323,7 @@ def _get_virtually_buried_word_ids(
                   CASE c_mine.category WHEN 'listening' THEN 0 WHEN 'reading' THEN 1 ELSE 2 END
                 )
               )""",
-        (*word_ids, category, category, today, now, today),
+        (*word_ids, category, category, today, now, today, today),
     ).fetchall()
     return {r["word_id"] for r in rows}
 
@@ -420,7 +420,6 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
         return []
 
     today = anki_today().isoformat()
-    tomorrow = (date.fromisoformat(today) + timedelta(days=1)).isoformat()
     now = datetime.now().isoformat(timespec="seconds")
     conn = get_db()
 
@@ -431,7 +430,7 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
     new_remaining = max(0, new_limit - new_done_today)
 
     rows = conn.execute(
-        """SELECT c.*, w.word_zh, w.pinyin, w.definition, w.pos,
+        f"""SELECT c.*, w.word_zh, w.pinyin, w.definition, w.pos,
                   w.hsk_level, w.traditional, w.definition_zh,
                   w.note_type, w.source_sentence, w.notes, w.definition_de, w.definition_fr, w.register
            FROM cards c
@@ -442,11 +441,11 @@ def get_due_cards(deck_id: int, category: str, *, sibling_suppression: bool = Fa
              AND c.deleted_at IS NULL
              AND (c.buried_until IS NULL OR c.buried_until < ?)
              AND (
-               (c.state IN ('learning', 'relearn') AND c.due < ?)
+               (c.state IN ('learning', 'relearn') AND {_learning_due_today_sql()})
                OR (c.state = 'review' AND c.due <= ?)
                OR (c.state = 'new' AND c.due <= ?)
              )""",
-        (deck_id, category, today, tomorrow, today, today),
+        (deck_id, category, today, _tomorrow_cutoff(), today, today, today),
     ).fetchall()
 
     all_cards = [dict(r) for r in rows]
@@ -666,11 +665,11 @@ def _count_due_bulk(deck_ids: list[int], category: str) -> dict[int, dict]:
               AND c.deleted_at IS NULL
               AND (c.buried_until IS NULL OR c.buried_until < ?)
               AND (
-                (c.state IN ('learning', 'relearn') AND c.due <= ?)
+                (c.state IN ('learning', 'relearn') AND {_learning_due_now_sql()})
                 OR (c.state = 'review' AND c.due <= ?)
                 OR (c.state = 'new' AND c.due <= ?)
               )""",
-        active_ids + [category, today, now, today, today],
+        active_ids + [category, today, now, today, today, today],
     ).fetchall()
     by_deck_rows: dict[int, list] = {}
     for r in due_rows:
@@ -680,11 +679,11 @@ def _count_due_bulk(deck_ids: list[int], category: str) -> dict[int, dict]:
         f"""SELECT deck_id, COUNT(*) AS cnt FROM cards
             WHERE deck_id IN ({ph}) AND category = ?
               AND state IN ('learning', 'relearn')
-              AND due > ?
+              AND NOT {_learning_due_now_sql('')}
               AND deleted_at IS NULL
               AND (buried_until IS NULL OR buried_until < ?)
             GROUP BY deck_id""",
-        active_ids + [category, now, today],
+        active_ids + [category, now, today, today],
     ).fetchall()
     learning_future = {r["deck_id"]: r["cnt"] for r in learning_future_rows}
     conn.close()
@@ -728,17 +727,17 @@ def count_due(deck_id: int, category: str) -> dict:
     new_remaining = max(0, new_limit - new_done_today)
 
     rows = conn.execute(
-        """SELECT c.word_id, c.state, c.due, c.interval FROM cards c
+        f"""SELECT c.word_id, c.state, c.due, c.interval FROM cards c
            WHERE c.deck_id = ? AND c.category = ?
              AND c.state != 'suspended'
              AND c.deleted_at IS NULL
              AND (c.buried_until IS NULL OR c.buried_until < ?)
              AND (
-               (c.state IN ('learning', 'relearn') AND c.due <= ?)
+               (c.state IN ('learning', 'relearn') AND {_learning_due_now_sql()})
                OR (c.state = 'review' AND c.due <= ?)
                OR (c.state = 'new' AND c.due <= ?)
              )""",
-        (deck_id, category, today, now, today, today),
+        (deck_id, category, today, now, today, today, today),
     ).fetchall()
 
     # A 'review' card whose interval hasn't reached learned_interval is still
@@ -753,13 +752,13 @@ def count_due(deck_id: int, category: str) -> dict:
     new_avail = sum(1 for r in rows if r["state"] == "new")
 
     learning_future = conn.execute(
-        """SELECT COUNT(*) FROM cards
+        f"""SELECT COUNT(*) FROM cards
            WHERE deck_id = ? AND category = ?
              AND state IN ('learning', 'relearn')
-             AND due > ?
+             AND NOT {_learning_due_now_sql('')}
              AND deleted_at IS NULL
              AND (buried_until IS NULL OR buried_until < ?)""",
-        (deck_id, category, now, today),
+        (deck_id, category, now, today, today),
     ).fetchone()[0]
 
     conn.close()
@@ -908,6 +907,49 @@ _READING_DISABLED_SQL = (
     "(SELECT d.id FROM decks d JOIN deck_presets p ON p.id = d.preset_id "
     "WHERE p.reading_enabled = 0))"
 )
+
+
+def _learning_due_now_sql(prefix: str = "c.") -> str:
+    """SQL fragment matching learning/relearn cards due RIGHT NOW.
+
+    Takes two params: now (ISO datetime), today (anki_today() ISO date).
+
+    cards.due holds two shapes for learning cards: the minute steps (1m/10m)
+    store an ISO datetime, the cross-day steps (1d/3d) store a bare date. A
+    bare date means "due when that Anki day starts", so it must be compared
+    against anki_today() — never against now. Between midnight and the day
+    cutoff (4am) the Anki day is still yesterday, and a plain string comparison
+    reads tomorrow's date as already due ('2026-08-16' <= '2026-08-16T03:13'),
+    so the deck badges showed dozens of cards the queue refused to hand out —
+    Daniel saw "73 due" and an immediate "all done" (#762).
+    """
+    d = f"{prefix}due"
+    return (f"((instr({d}, 'T') > 0 AND {d} <= ?) "
+            f" OR (instr({d}, 'T') = 0 AND {d} <= ?))")
+
+
+def _learning_due_today_sql(prefix: str = "c.") -> str:
+    """SQL fragment matching learning/relearn cards due anywhere in the current
+    Anki day — the queue's cut, wider than _learning_due_now_sql() because
+    queue_manager re-checks each timestamp against `now` when handing cards out.
+
+    Takes two params: _tomorrow_cutoff(), today (anki_today() ISO date).
+
+    Same two due shapes as _learning_due_now_sql(). The old cut was a single
+    `due < tomorrow` against a bare date, which between midnight and the cutoff
+    dropped every minute-step card of the current Anki day
+    ('2026-08-16T03:00' < '2026-08-16' is false) — the other half of #762.
+    """
+    d = f"{prefix}due"
+    return (f"((instr({d}, 'T') > 0 AND {d} < ?) "
+            f" OR (instr({d}, 'T') = 0 AND {d} <= ?))")
+
+
+def _tomorrow_cutoff() -> str:
+    """The moment the current Anki day ends, as a full ISO datetime."""
+    return datetime.combine(
+        anki_today() + timedelta(days=1), time(hour=get_day_cutoff_hour())
+    ).isoformat(timespec="seconds")
 
 
 def _leaf_decks_with_category(root_deck_id: int, lang: str | None = None) -> list[tuple[int, str]]:
@@ -1230,17 +1272,17 @@ def count_due_deduped(leaf_pairs: list[tuple[int, str]]) -> dict:
         new_remaining_map[(deck_id, category)] = max(0, pr["new_per_day"] - new_done)
 
         rows = conn.execute(
-            """SELECT c.word_id, c.state, c.interval FROM cards c
+            f"""SELECT c.word_id, c.state, c.interval FROM cards c
                WHERE c.deck_id = ? AND c.category = ?
                  AND c.state != 'suspended'
                  AND c.deleted_at IS NULL
                  AND (c.buried_until IS NULL OR c.buried_until < ?)
                  AND (
-                   (c.state IN ('learning', 'relearn') AND c.due <= ?)
+                   (c.state IN ('learning', 'relearn') AND {_learning_due_now_sql()})
                    OR (c.state = 'review' AND c.due <= ?)
                    OR (c.state = 'new' AND c.due <= ?)
                  )""",
-            (deck_id, category, today, now, today, today),
+            (deck_id, category, today, now, today, today, today),
         ).fetchall()
 
         for r in rows:
@@ -1295,27 +1337,27 @@ def _unfinished_where(scope: str) -> tuple[str, list]:
     lock_clause, lock_params = _locked_exclusion()
     if scope == "all":
         today = anki_today().isoformat()
-        tomorrow = (date.fromisoformat(today) + timedelta(days=1)).isoformat()
         clause = (
             "state != 'suspended' AND deleted_at IS NULL "
             "AND (buried_until IS NULL OR buried_until < ?) "
             "AND ("
-            "  (state IN ('learning', 'relearn') AND due < ?)"
+            f"  (state IN ('learning', 'relearn') AND {_learning_due_today_sql('')})"
             "  OR (state = 'review' AND due <= ?)"
             "  OR (state = 'new' AND due <= ?)"
             ")"
             + lock_clause
             + f" AND NOT {_READING_DISABLED_SQL}"
         )
-        return clause, [today, tomorrow, today, today, *lock_params]
+        return clause, [today, _tomorrow_cutoff(), today, today, today, *lock_params]
+    today = anki_today().isoformat()
     clause = (
-        "state IN ('learning', 'relearn') AND due <= ? "
+        f"state IN ('learning', 'relearn') AND {_learning_due_now_sql('')} "
         "AND deleted_at IS NULL "
         "AND (buried_until IS NULL OR buried_until < date('now'))"
         + lock_clause
         + f" AND NOT {_READING_DISABLED_SQL}"
     )
-    return clause, [now, *lock_params]
+    return clause, [now, today, *lock_params]
 
 
 def _lang_subquery_clause(lang: str | None, params: list) -> tuple[str, list]:
@@ -1663,30 +1705,32 @@ def count_due_all_decks() -> dict:
 
     # 1. Due cards grouped by (deck_id, category, state)
     due_rows = conn.execute(
-        """SELECT c.deck_id, c.category, c.state, COUNT(*) AS cnt
+        f"""SELECT c.deck_id, c.category, c.state, COUNT(*) AS cnt
            FROM cards c
            WHERE c.state != 'suspended'
              AND c.deleted_at IS NULL
              AND (c.buried_until IS NULL OR c.buried_until < ?)
              AND (
-               (c.state IN ('learning', 'relearn') AND c.due <= ?)
+               (c.state IN ('learning', 'relearn') AND {_learning_due_now_sql()})
                OR (c.state = 'review' AND c.due <= ?)
                OR (c.state = 'new' AND c.due <= ?)
              )
            GROUP BY c.deck_id, c.category, c.state""",
-        (today, now, today, today),
+        (today, now, today, today, today),
     ).fetchall()
 
     # 2. Future learning cards grouped by (deck_id, category)
+    #    Mirror of _learning_due_now_sql() — a card that is not due now must
+    #    land here, or the 1d/3d steps would vanish from both counts overnight.
     future_rows = conn.execute(
-        """SELECT deck_id, category, COUNT(*) AS cnt
+        f"""SELECT deck_id, category, COUNT(*) AS cnt
            FROM cards
            WHERE state IN ('learning', 'relearn')
-             AND due > ?
+             AND NOT {_learning_due_now_sql('')}
              AND deleted_at IS NULL
              AND (buried_until IS NULL OR buried_until < ?)
            GROUP BY deck_id, category""",
-        (now, today),
+        (now, today, today),
     ).fetchall()
 
     # 3. New cards introduced today grouped by (deck_id, category)
@@ -1819,9 +1863,7 @@ def due_notification_status() -> dict:
     # Tomorrow's cutoff as a full ISO datetime: cards.due holds datetimes for
     # learning cards, so comparing against a bare date string would place
     # everything due between midnight and the cutoff on the wrong day.
-    tomorrow_cutoff = datetime.combine(
-        anki_today() + timedelta(days=1), time(hour=get_day_cutoff_hour())
-    ).isoformat(timespec="seconds")
+    tomorrow_cutoff = _tomorrow_cutoff()
 
     lock_clause, lock_params = _locked_exclusion()
     conn = get_db()
