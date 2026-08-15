@@ -15,6 +15,13 @@ CARDS = [
 ]
 
 
+def _sources(material, title="标题"):
+    """#752: generate_podcast_sentences now takes a list of source dicts
+    instead of a bare (material, title) pair — this builds a single-source
+    list, which is what most of these tests exercise."""
+    return [{"index": 1, "title": title, "kind": "podcast", "url": None, "material": material}]
+
+
 def _reply(items):
     return json.dumps(items, ensure_ascii=False)
 
@@ -28,7 +35,7 @@ def test_reasoning_is_kept(monkeypatch):
         {"reasoning_zh": "话题：抖音电商。", "sentence_zh": "他在抖音上刷视频，顺便就下了单。",
          "target_word": "顺便"},
     ]))
-    sentences, prompt = ai.generate_podcast_sentences(CARDS, "Zusammenfassung", "标题")
+    sentences, prompt = ai.generate_podcast_sentences(CARDS, _sources("Zusammenfassung"))
 
     assert [s["reasoning_zh"] for s in sentences] == [
         "话题：字节跳动的AI路线。", "话题：抖音电商。"]
@@ -41,7 +48,7 @@ def test_missing_reasoning_is_not_fatal(monkeypatch):
         {"sentence_zh": "张一鸣承认公司暂时落后。"},
         {"sentence_zh": "他在抖音上刷视频，顺便就下了单。"},
     ]))
-    sentences, prompt = ai.generate_podcast_sentences(CARDS, "Zusammenfassung", "标题")
+    sentences, prompt = ai.generate_podcast_sentences(CARDS, _sources("Zusammenfassung"))
 
     assert [s["reasoning_zh"] for s in sentences] == ["", ""]
     assert len(sentences) == 2
@@ -59,7 +66,7 @@ def test_skipped_word_is_re_requested(monkeypatch):
         return _reply([{"sentence_zh": "他在抖音上刷视频，顺便就下了单。"}])
 
     monkeypatch.setattr(ai, "_call_api", fake_call)
-    sentences, prompt = ai.generate_podcast_sentences(CARDS, "Zusammenfassung", "标题")
+    sentences, prompt = ai.generate_podcast_sentences(CARDS, _sources("Zusammenfassung"))
 
     assert len(prompts) == 2
     assert "顺便" in prompts[1] and "补漏轮" in prompts[1]
@@ -70,7 +77,7 @@ def test_skipped_word_is_re_requested(monkeypatch):
 def test_fallback_only_after_all_rounds(monkeypatch):
     """AI 始终不写句子时仍然收敛：每张卡都有句子，且轮数有上限。"""
     monkeypatch.setattr(ai, "_call_api", lambda *a, **kw: _reply([]))
-    sentences, prompt = ai.generate_podcast_sentences(CARDS, "Zusammenfassung", "标题")
+    sentences, prompt = ai.generate_podcast_sentences(CARDS, _sources("Zusammenfassung"))
 
     assert len(sentences) == 2
     assert all("我学了" in s["sentence_zh"] for s in sentences)
@@ -84,7 +91,7 @@ def test_progress_log_is_recorded(monkeypatch):
     ]))
     key = "test/reading/zh"
     ai.reset_story_log(key)
-    ai.generate_podcast_sentences(CARDS, "Zusammenfassung", "标题", progress_key=key)
+    ai.generate_podcast_sentences(CARDS, _sources("Zusammenfassung"), progress_key=key)
 
     log = ai._story_log[key]
     assert any("开始生成播客句子" in line for line in log)
@@ -105,7 +112,7 @@ def test_returns_the_prompt_actually_sent(monkeypatch):
                        {"sentence_zh": "他在抖音上刷视频，顺便就下了单。"}])
 
     monkeypatch.setattr(ai, "_call_api", fake_call)
-    sentences, prompt = ai.generate_podcast_sentences(CARDS, "字节跳动的一集", "标题")
+    sentences, prompt = ai.generate_podcast_sentences(CARDS, _sources("字节跳动的一集"))
 
     assert prompt == sent[0]
     assert "字节跳动的一集" in prompt      # 素材
@@ -121,17 +128,19 @@ def test_prompt_includes_every_retry_round(monkeypatch):
         return _reply([{"sentence_zh": "他在抖音上刷视频，顺便就下了单。"}])
 
     monkeypatch.setattr(ai, "_call_api", fake_call)
-    _, prompt = ai.generate_podcast_sentences(CARDS, "Zusammenfassung", "标题")
+    _, prompt = ai.generate_podcast_sentences(CARDS, _sources("Zusammenfassung"))
 
     assert "补漏轮" in prompt
     assert prompt.count("【补漏轮】") == 1
 
 
 def test_no_material_returns_empty_prompt(monkeypatch):
-    """没有素材时不调 AI，也就没有提示词可存。"""
+    """没有素材（#752 起：没有任何可用素材源）时不调 AI，也就没有提示词可存。
+    caller（routes/story.py）在真正调用前就已经把无素材的条目过滤掉了，所以
+    这里模拟"过滤后什么都不剩"的情形：sources=[]。"""
     monkeypatch.setattr(ai, "_call_api",
                         lambda *a, **kw: pytest.fail("素材为空时不该调 AI"))
-    sentences, prompt = ai.generate_podcast_sentences(CARDS, "   ", "标题")
+    sentences, prompt = ai.generate_podcast_sentences(CARDS, [])
     assert sentences == [] and prompt == ""
 
 
@@ -206,7 +215,7 @@ def test_end_to_end_truncated_reply_still_yields_sentences(monkeypatch):
         return truncated_raw
 
     monkeypatch.setattr(ai, "_call_api", fake_call)
-    sentences, prompt = ai.generate_podcast_sentences(CARDS, "Zusammenfassung", "标题")
+    sentences, prompt = ai.generate_podcast_sentences(CARDS, _sources("Zusammenfassung"))
 
     assert len(sentences) > 0
     assert not all("我学了" in s["sentence_zh"] for s in sentences)

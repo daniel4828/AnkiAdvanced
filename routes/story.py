@@ -43,21 +43,51 @@ _AGAIN_ACTION_LABELS = {
 _KNOWLEDGE_MATERIAL_MAX_CHARS = 15000
 
 
-def _knowledge_material(episode: dict) -> str:
+def _knowledge_material(episode: dict, limit: int = _KNOWLEDGE_MATERIAL_MAX_CHARS) -> str:
     """Return the text to feed knowledge-mode story generation for `episode`.
 
     issue #661: prefer the full transcript (transcript_zh, truncated to
-    _KNOWLEDGE_MATERIAL_MAX_CHARS) — Daniel explicitly asked for this when
-    the feature shipped; #561 switched to summary_de purely to cut cost/
-    latency (skip fact-check + fewer tokens per call), which stopped
-    mattering once the per-generation cost was confirmed to be ~$0.003.
-    Rows synced down before this change (or otherwise missing a transcript)
-    may only have summary_de — fall back to it rather than erroring, so old
-    episodes keep working."""
+    `limit`) — Daniel explicitly asked for this when the feature shipped;
+    #561 switched to summary_de purely to cut cost/latency (skip fact-check +
+    fewer tokens per call), which stopped mattering once the per-generation
+    cost was confirmed to be ~$0.003. Rows synced down before this change (or
+    otherwise missing a transcript) may only have summary_de — fall back to
+    it rather than erroring, so old episodes keep working.
+
+    `limit` (issue #752): when generating from several sources at once, the
+    caller passes _KNOWLEDGE_MATERIAL_MAX_CHARS // len(sources) so the total
+    prompt stays within the same context-window budget as a single source —
+    each item just gets a smaller slice instead of the ceiling multiplying
+    with the number of selected items."""
     transcript = (episode.get("transcript_zh") or "").strip()
     if transcript:
-        return transcript[:_KNOWLEDGE_MATERIAL_MAX_CHARS]
-    return (episode.get("summary_de") or "").strip()
+        return transcript[:limit]
+    return (episode.get("summary_de") or "").strip()[:limit]
+
+
+def _parse_episode_ids(episode_ids: str | None, episode_id: int | None) -> list[int]:
+    """Parse the multi-select `episode_ids` query param (issue #752) into a
+    deduped, order-preserving list of ints.
+
+    `episode_ids` is a comma-separated string like "12,34,56" from the new
+    multi-select frontend. Falls back to the single legacy `episode_id` param
+    when `episode_ids` is absent — old bookmarked URLs / iOS shortcuts using
+    the singular param keep working unchanged. Malformed fragments (empty,
+    non-numeric) are dropped rather than raising: one bad id in a multi-select
+    submission shouldn't blow up the whole generation."""
+    if not episode_ids:
+        return [episode_id] if episode_id else []
+    seen: set[int] = set()
+    result: list[int] = []
+    for chunk in episode_ids.split(","):
+        chunk = chunk.strip()
+        if not chunk.lstrip("-").isdigit():
+            continue
+        eid = int(chunk)
+        if eid not in seen:
+            seen.add(eid)
+            result.append(eid)
+    return result
 
 # 《思考，快与慢》原书的 5 个部分（Part）—— 按章节号区间划分。
 # 数据文件不存部分信息，统一在此按章节号计算，保证一致性。
@@ -237,7 +267,7 @@ def _validated_model(model: str | None, default: str | None = None) -> str:
 def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
                         topic, max_hsk, model, grammar_focus, grammar_pct, mode,
                         chapter_ids, articles=None, progress_key, lang: str | None = None,
-                        origin: str | None = None, episode_id: int | None = None,
+                        origin: str | None = None, episode_ids: list[int] | None = None,
                         batch_size: int | None = None) -> dict | None:
     """Generate a story for `cards`, persist it, and return the stored story
     (with sentences) — or an error dict on failure, or None if there is nothing
@@ -266,7 +296,7 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
             topic=topic, max_hsk=max_hsk, model=model, grammar_focus=grammar_focus,
             grammar_pct=grammar_pct, mode=mode, chapter_ids=chapter_ids,
             articles=articles, progress_key=progress_key, lang=lang,
-            origin=origin, episode_id=episode_id, batch_size=batch_size,
+            origin=origin, episode_ids=episode_ids, batch_size=batch_size,
         )
 
 
@@ -290,7 +320,7 @@ def _action_label_for_story(mode: str, deck_id: int) -> str:
 def _generate_and_store_body(deck_id: int, category: str, today: str, cards: list, *,
                              topic, max_hsk, model, grammar_focus, grammar_pct, mode,
                              chapter_ids, articles, progress_key, lang: str,
-                             origin: str | None, episode_id: int | None,
+                             origin: str | None, episode_ids: list[int] | None,
                              batch_size: int | None = None) -> dict | None:
     kind = None  # knowledge mode's source kind (podcast/video/article, issue #654)
     try:
@@ -372,18 +402,48 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
             # generation. See _knowledge_material()'s docstring. Rows without
             # a transcript (synced-down snapshots, etc.) fall back to
             # summary_de automatically.
-            if not episode_id:
-                raise ValueError("Knowledge mode requires selecting a source item.")
-            episode = database.get_episode(episode_id)
-            if not episode:
-                raise ValueError(f"Knowledge item {episode_id} not found.")
-            material = _knowledge_material(episode)
-            if not material:
+            # #752: episode_ids can now hold several source items — the words
+            # are spread across all of them in one call instead of forcing a
+            # single source. sources[] built below only includes items that
+            # actually have material; an id that resolves to nothing usable
+            # is dropped with a warning rather than failing the whole batch,
+            # since Daniel picking 3 items where 1 has no transcript yet
+            # shouldn't block the other 2.
+            if not episode_ids:
+                raise ValueError("Knowledge mode requires selecting at least one source item.")
+            episodes = []
+            for eid in episode_ids:
+                episode = database.get_episode(eid)
+                if not episode:
+                    raise ValueError(f"Knowledge item {eid} not found.")
+                episodes.append(episode)
+            # Budget split evenly across sources (issue #752) so a 3-item
+            # selection stays within the same total context-window budget as
+            # a single item — see _knowledge_material()'s docstring.
+            per_source_limit = _KNOWLEDGE_MATERIAL_MAX_CHARS // len(episodes)
+            sources: list[dict] = []
+            for eid, episode in zip(episode_ids, episodes):
+                material = _knowledge_material(episode, limit=per_source_limit)
+                if not material:
+                    logger.warning("story  knowledge item %d has no transcript/summary — skipped", eid)
+                    continue
+                ep_kind = episode.get("kind") or "podcast"
+                sources.append({
+                    "index": len(sources) + 1,
+                    "title": episode.get("title") or "",
+                    "kind": ep_kind,
+                    "url": episode.get("youtube_url") or f"/#{ep_kind}-{eid}",
+                    "material": material,
+                })
+            if not sources:
                 raise ValueError("Selected item has no transcript or summary yet.")
-            kind = episode.get("kind") or "podcast"
+            # kind recorded in gen_params (issue #654): single source keeps its
+            # own kind, multiple sources collapse to "mixed" — there is no
+            # single kind to show in the frontend once items are combined.
+            kind = sources[0]["kind"] if len(sources) == 1 else "mixed"
             model = _validated_model(model, default=ai.DEFAULT_MODEL)
-            logger.info("story  knowledge model in use: %s kind=%s batch_size=%s",
-                        model, kind, batch_size)
+            logger.info("story  knowledge model in use: %s kind=%s sources=%d batch_size=%s",
+                        model, kind, len(sources), batch_size)
             # batch_size (issue #563): user-controlled words-per-call from the
             # setup modal; empty/0 = one single call, capped at MAX_PODCAST_BATCH
             # (#634). Spreading the words over the material's topics only works
@@ -397,11 +457,9 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
             for idx, chunk in enumerate(chunks):
                 label = f" ({idx + 1}/{len(chunks)})" if len(chunks) > 1 else ""
                 chunk_sentences, chunk_prompt = ai.generate_podcast_sentences(
-                    chunk, material, episode.get("title") or "",
+                    chunk, sources,
                     model=model, max_hsk=max_hsk, progress_key=progress_key,
-                    attempt_label=label,
-                    source_url=episode.get("youtube_url") or f"/#{kind}-{episode_id}",
-                    source_title=episode.get("title"))
+                    attempt_label=label)
                 sentences.extend(chunk_sentences)
                 if chunk_prompt:
                     chunk_prompts.append(
@@ -422,7 +480,7 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
             topic=topic, max_hsk=max_hsk, model=model,
             grammar_focus=grammar_focus, grammar_pct=grammar_pct,
             mode=mode, chapter_ids=chapter_ids, articles=articles, lang=lang,
-            origin=origin, episode_id=episode_id, batch_size=batch_size, kind=kind)
+            origin=origin, episode_ids=episode_ids, batch_size=batch_size, kind=kind)
         database.create_story(today, category, deck_id, sentences, prompt_text, topic, gen_params, lang=lang)
         story = database.get_active_story(today, category, deck_id, lang=lang)
     except Exception as e:
@@ -444,7 +502,7 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
 def _start_background_generation(deck_id: int, category: str, today: str, cards: list, *,
                                  topic, max_hsk, model, grammar_focus, grammar_pct,
                                  mode, chapter_ids, articles=None, progress_key,
-                                 lang: str | None = None, episode_id: int | None = None,
+                                 lang: str | None = None, episode_ids: list[int] | None = None,
                                  batch_size: int | None = None) -> None:
     """Spawn a daemon thread that generates+stores a story, recording a terminal
     progress state (done/error) the frontend can poll. De-duped by progress_key."""
@@ -456,7 +514,7 @@ def _start_background_generation(deck_id: int, category: str, today: str, cards:
                 topic=topic, max_hsk=max_hsk, model=model,
                 grammar_focus=grammar_focus, grammar_pct=grammar_pct,
                 mode=mode, chapter_ids=chapter_ids, articles=articles, progress_key=progress_key,
-                lang=lang, episode_id=episode_id, batch_size=batch_size)
+                lang=lang, episode_ids=episode_ids, batch_size=batch_size)
             if isinstance(result, dict) and result.get("error"):
                 ai._story_progress[progress_key] = {
                     "phase": "error", "percent": 0, "msg": result.get("reason", "Generation failed")}
@@ -478,7 +536,7 @@ def _start_background_generation(deck_id: int, category: str, today: str, cards:
 
 def _gen_params_dict(*, topic, max_hsk, model, grammar_focus, grammar_pct,
                      mode, chapter_ids, articles=None, lang="zh",
-                     origin=None, episode_id=None, batch_size=None,
+                     origin=None, episode_ids=None, batch_size=None,
                      kind=None) -> dict:
     """Bundle the story generation settings persisted on each story row, so the
     Again regeneration can reproduce the same style (see generate_sentence_for_word).
@@ -488,15 +546,18 @@ def _gen_params_dict(*, topic, max_hsk, model, grammar_focus, grammar_pct,
     origin: "pregen" when the story was created by the morning pregen —
     get_recent_story_keys skips those rows so pregen only ever reproduces
     user-initiated generations instead of feeding on its own output (issue #468).
-    episode_id: knowledge mode's selected source item (issue #482, renamed
+    episode_ids: knowledge mode's selected source item(s) (issue #482, renamed
     from "podcast" mode in #654; lean pipeline since #561, transcript-first
-    material since #661) — Again-regen re-fetches the item's transcript_zh
-    (falling back to summary_de) by this id rather than reusing `articles`
-    (knowledge stories don't store any).
-    kind: the selected item's source kind (podcast/video/article, issue #654)
-    at generation time — purely informational (regen re-derives it from the
-    episode row via episode_id), kept here so the frontend can show what kind
-    of source a knowledge story came from without an extra lookup.
+    material since #661; multi-source since #752) — Again-regen re-fetches
+    each item's transcript_zh (falling back to summary_de) by these ids rather
+    than reusing `articles` (knowledge stories don't store any). The legacy
+    singular `episode_id` key is also written (= episode_ids[0]) so old code
+    paths and old story rows reading that key keep working unchanged.
+    kind: the selected item's source kind (podcast/video/article, issue #654;
+    "mixed" when multiple sources were selected, #752) at generation time —
+    purely informational (regen re-derives it from the episode row(s) via
+    episode_ids), kept here so the frontend can show what kind of source a
+    knowledge story came from without an extra lookup.
     batch_size: user-chosen words-per-AI-call (issue #563 podcast-only, #574 all
     modes); None/0 = each mode's default chunking (knowledge: all at once; story
     family: CHUNK_SIZE; kahneman: per-chapter split capped at MAX_KAHNEMAN_BATCH;
@@ -514,7 +575,8 @@ def _gen_params_dict(*, topic, max_hsk, model, grammar_focus, grammar_pct,
         "articles": articles,
         "lang": lang,
         "origin": origin,
-        "episode_id": episode_id,
+        "episode_id": episode_ids[0] if episode_ids else None,
+        "episode_ids": episode_ids,
         "batch_size": batch_size,
         "kind": kind,
     }
@@ -572,25 +634,43 @@ def generate_sentence_for_word(card: dict, gen_params: dict | None) -> dict | No
                     sentences, _ = ai.generate_story([card], model=model, lang=lang)
             elif mode in ("knowledge", "podcast"):
                 # Knowledge Again-regen (issue #561, renamed from "podcast" in
-                # #654): same lean pipeline, one card + the item's material,
-                # honoring the story's stored user-picked model (old stories
-                # stored gpt-5.1, which is not whitelisted, so _validated_model
-                # falls back). mode="podcast" here means a *historical* story
-                # (new stories are generated with mode="knowledge" — #654
-                # rejects "podcast" at generation time, but old stories must
-                # keep regenerating). Material is transcript_zh with a
-                # summary_de fallback (issue #661, see _knowledge_material());
-                # no material at all → plain sentence.
-                ep = database.get_episode(gp["episode_id"]) if gp.get("episode_id") else None
-                material = _knowledge_material(ep) if ep else ""
-                if material:
-                    ep_kind = ep.get("kind") or "podcast"
+                # #654; multi-source since #752): same lean pipeline, one card
+                # + the selected item(s)' material, honoring the story's stored
+                # user-picked model (old stories stored gpt-5.1, which is not
+                # whitelisted, so _validated_model falls back). mode="podcast"
+                # here means a *historical* story (new stories are generated
+                # with mode="knowledge" — #654 rejects "podcast" at generation
+                # time, but old stories must keep regenerating). Material is
+                # transcript_zh with a summary_de fallback (issue #661, see
+                # _knowledge_material()); no material at all → plain sentence.
+                #
+                # There is no reliable way to know which single source (of the
+                # story's several) this particular card's earlier sentence
+                # came from, so every stored source is offered again and the
+                # model picks — same as the main multi-source generation path.
+                episode_ids = gp.get("episode_ids") or ([gp["episode_id"]] if gp.get("episode_id") else [])
+                episodes = [database.get_episode(eid) for eid in episode_ids]
+                episodes = [ep for ep in episodes if ep]
+                sources: list[dict] = []
+                if episodes:
+                    per_source_limit = _KNOWLEDGE_MATERIAL_MAX_CHARS // len(episodes)
+                    for ep in episodes:
+                        material = _knowledge_material(ep, limit=per_source_limit)
+                        if not material:
+                            continue
+                        ep_kind = ep.get("kind") or "podcast"
+                        sources.append({
+                            "index": len(sources) + 1,
+                            "title": ep.get("title") or "",
+                            "kind": ep_kind,
+                            "url": ep.get("youtube_url") or f"/#{ep_kind}-{ep['id']}",
+                            "material": material,
+                        })
+                if sources:
                     sentences, _ = ai.generate_podcast_sentences(
-                        [card], material, ep.get("title") or "",
+                        [card], sources,
                         model=_validated_model(gp.get("model"), default=ai.DEFAULT_MODEL),
-                        max_hsk=gp.get("max_hsk", 3),
-                        source_url=ep.get("youtube_url") or f"/#{ep_kind}-{ep['id']}",
-                        source_title=ep.get("title"))
+                        max_hsk=gp.get("max_hsk", 3))
                 else:
                     sentences, _ = ai.generate_story([card], model=model, lang=lang)
             elif mode in ("news", "paste", "briefing"):
@@ -628,6 +708,7 @@ def get_story(deck_id: int, category: str,
               mode: str = "story",
               chapter_ids: str | None = None,
               episode_id: int | None = None,
+              episode_ids: str | None = None,
               batch_size: int | None = None,
               no_generate: bool = False,
               background: bool = False,
@@ -648,6 +729,7 @@ def get_story(deck_id: int, category: str,
     """
     today = database.anki_today().isoformat()
     lang = lang or database.get_deck_lang(deck_id)
+    parsed_episode_ids = _parse_episode_ids(episode_ids, episode_id)
     # progress_key includes lang: without it, a zh generation and a fr generation
     # started back-to-back for the same aggregate deck+category would collide in
     # the _generating set / ai._story_progress dict (only one runs at a time via
@@ -708,7 +790,7 @@ def get_story(deck_id: int, category: str,
             topic=topic, max_hsk=max_hsk, model=chosen_model,
             grammar_focus=grammar_focus, grammar_pct=grammar_pct,
             mode=mode, chapter_ids=chapter_ids, progress_key=progress_key, lang=lang,
-            episode_id=episode_id, batch_size=batch_size)
+            episode_ids=parsed_episode_ids, batch_size=batch_size)
         return {"generating": True}
 
     # ── Synchronous mode (default): generate now and return the story ─────────
@@ -722,7 +804,7 @@ def get_story(deck_id: int, category: str,
         topic=topic, max_hsk=max_hsk, model=chosen_model,
         grammar_focus=grammar_focus, grammar_pct=grammar_pct,
         mode=mode, chapter_ids=chapter_ids, progress_key=progress_key, lang=lang,
-        episode_id=episode_id, batch_size=batch_size)
+        episode_ids=parsed_episode_ids, batch_size=batch_size)
     ai._story_progress.pop(progress_key, None)
     return result
 
@@ -735,6 +817,7 @@ def regenerate_story(deck_id: int, category: str,
                      mode: str = "story",
                      chapter_ids: str | None = None,
                      episode_id: int | None = None,
+                     episode_ids: str | None = None,
                      batch_size: int | None = None,
                      body: dict | None = None,
                      lang: str | None = None):
@@ -754,6 +837,7 @@ def regenerate_story(deck_id: int, category: str,
     chosen_model = _validated_model(model)
     today = database.anki_today().isoformat()
     lang = lang or database.get_deck_lang(deck_id)
+    parsed_episode_ids = _parse_episode_ids(episode_ids, episode_id)
     progress_key = f"{deck_id}/{category}/{lang}"
     articles = (body or {}).get("articles") or []
     cards = _get_cards_for_story(deck_id, category, lang=lang)
@@ -766,7 +850,7 @@ def regenerate_story(deck_id: int, category: str,
         topic=topic, max_hsk=max_hsk, model=chosen_model,
         grammar_focus=grammar_focus, grammar_pct=grammar_pct,
         mode=mode, chapter_ids=chapter_ids, articles=articles, progress_key=progress_key, lang=lang,
-        episode_id=episode_id, batch_size=batch_size)
+        episode_ids=parsed_episode_ids, batch_size=batch_size)
     ai._story_progress.pop(progress_key, None)
     if result:
         # A new story means word→position mapping changed — invalidate every

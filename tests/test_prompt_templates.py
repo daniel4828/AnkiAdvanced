@@ -75,6 +75,7 @@ def test_knowledge_template_keeps_json_example_braces():
     rendered = ai._render_prompt(ai.DEFAULT_PROMPT_TEMPLATES["knowledge"], {
         "title": "T", "summary": "S", "words": "1. 蘑菇（mógū）— mushroom",
         "max_hsk": "3", "extra_hint": "",
+        "multi_source_block": "",  # #752: new placeholder, empty in the single-source case
     })
     # JSON 示例的花括号必须原样保留（替换只针对已知记号）。断言写在结构上而不是
     # 示例的逐字文本上——提示词本身会被反复调（#737/#741），逐字断言只会逼着
