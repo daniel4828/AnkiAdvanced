@@ -3619,14 +3619,14 @@ function _renderKnowledgeDetail(ep) {
   _podcastDetailWords = ep.hsk_words || [];
   _podcastDetailEpisodeId = ep.id;
   const hskRows = _podcastDetailWords.map((w, idx) => `<tr id="podcast-word-row-${idx}">
-      <td>${_escHtml(w.word || w.word_zh || '')}</td>
-      <td>${_escHtml(w.pinyin || '')}</td>
+      <td class="word-zh">${_escHtml(w.word || w.word_zh || '')}</td>
+      <td class="word-pinyin">${_escHtml(w.pinyin || '')}</td>
       <td>${_escHtml(w.definition_de || w.definition || '')}</td>
-      <td><button id="podcast-add-word-${idx}" class="btn-secondary" onclick="doPodcastAddWord(${idx})">★ List</button></td>
-      <td><button id="podcast-known-word-${idx}" class="btn-secondary" onclick="doPodcastKnownWord(${idx})" title="I already know this word — stop flagging it">✓ Known</button></td>
+      <td><button id="podcast-add-word-${idx}" class="word-table-btn" onclick="doPodcastAddWord(${idx})" title="Add to the ★ List">★ List</button></td>
+      <td><button id="podcast-known-word-${idx}" class="word-table-btn" onclick="doPodcastKnownWord(${idx})" title="I already know this word — stop flagging it">✓ Known</button></td>
     </tr>`).join('');
   const hskTable = hskRows
-    ? `<table class="cost-table"><thead><tr><th>Word</th><th>Pinyin</th><th>German</th><th>Save</th><th>Known</th></tr></thead><tbody>${hskRows}</tbody></table>`
+    ? `<div class="word-table-wrap"><table class="cost-table cost-table-compact"><thead><tr><th>Word</th><th>Pinyin</th><th>German</th><th>Save</th><th>Known</th></tr></thead><tbody>${hskRows}</tbody></table></div>`
     : '<p class="keymap-hint">No HSK vocabulary extracted.</p>';
   const links = [
     ep.youtube_url ? `<a href="${_escHtml(ep.youtube_url)}" target="_blank" rel="noopener" class="btn-secondary">${isPodcast ? 'YouTube' : 'Open'} ↗</a>` : '',
