@@ -129,6 +129,52 @@ def test_delete_missing_history_item_is_404(tmp_db):
     assert client.delete("/api/dict/history/999").status_code == 404
 
 
+# ---------------------------------------------------------------------------
+# Repeat button (#777): replace_id
+# ---------------------------------------------------------------------------
+
+def test_repeat_overwrites_the_same_row(tmp_db):
+    with patch.object(ai, "_call_api", return_value=_stub_response()):
+        first = client.post("/api/dict/lookup", json={"query": "anordnen"}).json()
+
+    better = dict(GOOD_RESULT, headline="安排")
+    with patch.object(ai, "_call_api", return_value=_stub_response(better)):
+        again = client.post(
+            "/api/dict/lookup", json={"query": "anordnen", "replace_id": first["id"]}
+        )
+    assert again.status_code == 200, again.text
+    assert again.json()["id"] == first["id"]
+    assert again.json()["result"]["headline"] == "安排"
+
+    # One row, not two — the history keeps only the latest answer.
+    items = client.get("/api/dict/history").json()["items"]
+    assert len(items) == 1
+    assert items[0]["headline"] == "安排"
+
+
+def test_repeat_on_missing_row_is_404_and_creates_nothing(tmp_db):
+    """A stale id must not silently degrade into a fresh lookup."""
+    with patch.object(ai, "_call_api", return_value=_stub_response()):
+        r = client.post("/api/dict/lookup", json={"query": "test", "replace_id": 999})
+    assert r.status_code == 404
+    assert client.get("/api/dict/history").json()["items"] == []
+
+
+def test_failed_repeat_leaves_the_previous_answer_intact(tmp_db):
+    """A bad retry must never destroy the answer it was meant to improve."""
+    with patch.object(ai, "_call_api", return_value=_stub_response()):
+        first = client.post("/api/dict/lookup", json={"query": "anordnen"}).json()
+
+    with patch.object(ai, "_call_api", return_value="Sorry, I cannot help with that."):
+        r = client.post(
+            "/api/dict/lookup", json={"query": "anordnen", "replace_id": first["id"]}
+        )
+    assert r.status_code == 500
+
+    stored = client.get(f"/api/dict/history/{first['id']}").json()
+    assert stored["result"] == GOOD_RESULT
+
+
 def test_empty_query_is_rejected(tmp_db):
     assert client.post("/api/dict/lookup", json={"query": "   "}).status_code == 400
 

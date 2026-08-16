@@ -23,6 +23,10 @@ class DictLookupRequest(BaseModel):
     query: str
     lang: str = "zh"
     model: str | None = None
+    # Repeat button (#777): ask the same question again and overwrite this
+    # stored row instead of adding a second one. Daniel wants only the latest
+    # answer in the history — a repeat means "that one was bad", not "keep both".
+    replace_id: int | None = None
 
 
 def _row_to_result(row: dict) -> dict:
@@ -48,24 +52,34 @@ def lookup(body: DictLookupRequest):
     if body.lang != "zh":
         raise HTTPException(400, f"language {body.lang!r} is not supported yet (only 'zh')")
 
+    # Check the target exists *before* spending 5–15s and a paid AI call on a
+    # repeat that could never be stored.
+    if body.replace_id is not None and database.get_dict_query(body.replace_id) is None:
+        raise HTTPException(404, "not found")
+
     try:
         result, model_used = ai.dictionary_lookup(query, lang=body.lang, model=body.model)
     except ValueError as e:
+        # Nothing is written on a parse failure — for a repeat that also means
+        # the previous (good) answer stays untouched: a bad retry must never
+        # destroy what it was meant to improve.
         logger.error("dict lookup failed for %r: %s", query, e)
         raise HTTPException(500, str(e))
 
-    headline = result.get("headline") or None
-    new_id = database.save_dict_query(
-        query=query,
-        lang=body.lang,
+    fields = dict(
         input_lang=result.get("input_lang"),
         kind=result.get("kind"),
-        headline=headline,
+        headline=result.get("headline") or None,
         result_json=json.dumps(result, ensure_ascii=False),
         model=model_used,
     )
-    row = database.get_dict_query(new_id)
-    return _row_to_result(row)
+    if body.replace_id is not None:
+        if not database.update_dict_query(body.replace_id, **fields):
+            raise HTTPException(404, "not found")
+        row_id = body.replace_id
+    else:
+        row_id = database.save_dict_query(query=query, lang=body.lang, **fields)
+    return _row_to_result(database.get_dict_query(row_id))
 
 
 @router.get("/api/dict/history")
