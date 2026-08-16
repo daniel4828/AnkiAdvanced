@@ -63,7 +63,28 @@ header {
   display: none;
 }
 #back-btn:hover { background: var(--border); }
-header h1 { font-size: 18px; font-weight: 700; }
+/* 𰻞 标志（#780）。用 <img> 引用 static/logo.svg —— 这个字（U+30EDE，Unicode
+   扩展 G 区）没有任何常见字体包含，写成字符在所有设备上都是豆腐块。
+   颜色由 SVG 文件内部的 prefers-color-scheme 规则处理，不走 currentColor：
+   <img> 引用的 SVG 不继承外部文字颜色。 */
+   尺寸不能再小：这个字 58 画，26px 及以下会糊成一团墨点（实测），32px 才
+   看得出字形结构。 */
+#header-logo { flex: 0 0 auto; width: 32px; height: 32px; }
+/* min-width:0 + 省略号：应用名 19 个字符，复习时还会被换成任意长度的牌组名。
+   .header-left 在 #679 的窄屏布局里已是 min-width:0 的 grid 项，但 h1 自身
+   不收缩就仍会把顶栏撑开。 */
+header h1 {
+  font-size: 18px;
+  font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 560px) {
+  header h1 { font-size: 15px; }
+  #header-logo { width: 26px; height: 26px; }
+}
 #header-regen-btn {
   background: none;
   border: none;

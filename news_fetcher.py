@@ -52,7 +52,7 @@ def _clean(raw: str | None) -> str:
 
 
 def _http_get(url: str, timeout: int = 20) -> bytes:
-    req = urllib.request.Request(url, headers={"User-Agent": "AnkiAdvanced/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "biangbiangmian3000/1.0"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return resp.read()
 

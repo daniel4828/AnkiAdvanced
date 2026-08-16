@@ -19,7 +19,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 # Must be set before database.core is imported: it reads DB_PATH at import time.
-_FALLBACK_DB = os.path.join(tempfile.mkdtemp(prefix="ankiadvanced-tests-"), "fallback.db")
+_FALLBACK_DB = os.path.join(tempfile.mkdtemp(prefix="biangbiangmian3000-tests-"), "fallback.db")
 os.environ["DB_PATH"] = _FALLBACK_DB
 
 # DISABLE_AI is deliberately NOT set here: routes.utils reads it at import time,

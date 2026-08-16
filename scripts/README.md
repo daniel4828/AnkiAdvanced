@@ -58,7 +58,7 @@ launchd/cron 的失败通知）。
 launchd 是 macOS 的定时任务机制（比 cron 更适合 Mac，因为它能处理系统
 休眠/唤醒）。
 
-1. 创建 plist 文件 `~/Library/LaunchAgents/com.ankiadvanced.morning-pregen.plist`：
+1. 创建 plist 文件 `~/Library/LaunchAgents/com.biangbiangmian3000.morning-pregen.plist`：
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -67,7 +67,7 @@ launchd 是 macOS 的定时任务机制（比 cron 更适合 Mac，因为它能�
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.ankiadvanced.morning-pregen</string>
+    <string>com.biangbiangmian3000.morning-pregen</string>
 
     <key>ProgramArguments</key>
     <array>
@@ -103,20 +103,20 @@ launchd 是 macOS 的定时任务机制（比 cron 更适合 Mac，因为它能�
 2. 加载并启动：
 
 ```bash
-launchctl load ~/Library/LaunchAgents/com.ankiadvanced.morning-pregen.plist
+launchctl load ~/Library/LaunchAgents/com.biangbiangmian3000.morning-pregen.plist
 ```
 
 3. 常用管理命令：
 
 ```bash
 # 立即手动触发一次（不用等到 06:00）
-launchctl start com.ankiadvanced.morning-pregen
+launchctl start com.biangbiangmian3000.morning-pregen
 
 # 查看日志
 tail -f ~/Documents/AnkiAdvanced/data/morning-pregen.log
 
 # 卸载
-launchctl unload ~/Library/LaunchAgents/com.ankiadvanced.morning-pregen.plist
+launchctl unload ~/Library/LaunchAgents/com.biangbiangmian3000.morning-pregen.plist
 ```
 
 ---
@@ -128,13 +128,13 @@ cron 只负责在服务已经运行时定时触发预生成：
 
 ```cron
 # 每天 06:00 运行早晨预生成脚本（假设服务已由 systemd 常驻运行）
-0 6 * * * cd /opt/ankiadvanced && /usr/bin/python3 scripts/morning_pregen.py >> data/morning-pregen.log 2>&1
+0 6 * * * cd /opt/biangbiangmian3000 && /usr/bin/python3 scripts/morning_pregen.py >> data/morning-pregen.log 2>&1
 ```
 
 用 `crontab -e` 添加以上一行。如果服务地址/端口非默认，加上环境变量：
 
 ```cron
-0 6 * * * cd /opt/ankiadvanced && BASE_URL=http://127.0.0.1:8000 /usr/bin/python3 scripts/morning_pregen.py >> data/morning-pregen.log 2>&1
+0 6 * * * cd /opt/biangbiangmian3000 && BASE_URL=http://127.0.0.1:8000 /usr/bin/python3 scripts/morning_pregen.py >> data/morning-pregen.log 2>&1
 ```
 
 ---
@@ -190,7 +190,7 @@ feed。每个 feed **首次**被爬到时（该 feed 在库里一集都没有）
    `OPENAI_API_KEY`）转录后拼接。
 3. **NotebookLM（免费但非官方，可选，issue #486）**：Whisper 也失败/被
    门槛跳过时落到这里，复用同一份已下载的 mp3 → 上传到专用笔记本
-   "AnkiAdvanced Transcripts"（笔记本 id 缓存进
+   "biangbiangmian3000 Transcripts"（笔记本 id 缓存进
    `podcast_config.notebooklm_notebook_id`）→ 轮询等索引完成（上限 10
    分钟）→ 读取来源全文（fulltext）作为转录 → 删除该来源（防止笔记本无限
    膨胀）。用的是非官方库 `notebooklm-py`（见下方一次性设置），未认证时
@@ -257,7 +257,7 @@ notebooklm auth check --test
 
 ```cron
 # 每天凌晨刷新一次 NotebookLM 会话，防止过期
-0 3 * * * NOTEBOOKLM_HOME=/home/anki/.notebooklm /usr/local/bin/notebooklm auth refresh --quiet >> /home/anki/AnkiAdvanced/data/notebooklm-refresh.log 2>&1
+0 3 * * * NOTEBOOKLM_HOME=/home/anki/.notebooklm /usr/local/bin/notebooklm auth refresh --quiet >> /home/anki/biangbiangmian3000/data/notebooklm-refresh.log 2>&1
 ```
 
 凭据文件不存在或加载失败时，`_transcribe_via_notebooklm` 只记 info 日志并
@@ -288,7 +288,7 @@ sudo ln -sf /opt/signal-cli/bin/signal-cli /usr/local/bin/signal-cli
 #    用 qrencode 转成终端二维码，然后用手机 Signal App
 #    「关联新设备」扫码（必须由 anki 用户运行——关联数据存在
 #    anki 用户的 home 目录下，其他用户跑 signal-cli 看不到这个账号）
-sudo -u anki signal-cli link -n "AnkiAdvanced" | qrencode -t ansiutf8
+sudo -u anki signal-cli link -n "biangbiangmian3000" | qrencode -t ansiutf8
 
 # 4. 关联成功后，把号码写进服务器的 .env（或 systemd 环境文件）：
 SIGNAL_ACCOUNT=+49xxxxxxxxx
@@ -320,7 +320,7 @@ python scripts/podcast_check.py
 ### 服务器 cron：每小时检查一次
 
 ```cron
-0 * * * * cd /opt/ankiadvanced && /usr/bin/python3 scripts/podcast_check.py >> data/podcast-check.log 2>&1
+0 * * * * cd /opt/biangbiangmian3000 && /usr/bin/python3 scripts/podcast_check.py >> data/podcast-check.log 2>&1
 ```
 
 ---
@@ -377,7 +377,7 @@ python scripts/knowledge_mail_check.py
 ### 服务器 cron：每 5 分钟检查一次
 
 ```cron
-*/5 * * * * cd /opt/ankiadvanced && /usr/bin/python3 scripts/knowledge_mail_check.py >> data/knowledge-mail-check.log 2>&1
+*/5 * * * * cd /opt/biangbiangmian3000 && /usr/bin/python3 scripts/knowledge_mail_check.py >> data/knowledge-mail-check.log 2>&1
 ```
 
 退出码：跳过（未配置白名单/凭据）或全部成功为 `0`；有失败邮件时为 `1`
@@ -428,7 +428,7 @@ python scripts/signal_check.py
 ### 服务器 cron：每 5 分钟检查一次
 
 ```cron
-*/5 * * * * cd /opt/ankiadvanced && /usr/bin/python3 scripts/signal_check.py >> data/signal-check.log 2>&1
+*/5 * * * * cd /opt/biangbiangmian3000 && /usr/bin/python3 scripts/signal_check.py >> data/signal-check.log 2>&1
 ```
 
 退出码：跳过（未配置账号）或全部成功为 `0`；`signal-cli receive` 失败或

@@ -2,7 +2,7 @@
 # 自动部署脚本 —— 无需 GitHub secrets/webhook，靠 cron 轮询实现“推送即上线”。
 #
 # 用法：配合 cron 每 2 分钟运行一次，例如在服务器上执行 `crontab -e` 后添加：
-#   */2 * * * * /home/anki/AnkiAdvanced/deploy/deploy.sh >> /home/anki/deploy.log 2>&1
+#   */2 * * * * /home/anki/biangbiangmian3000/deploy/deploy.sh >> /home/anki/deploy.log 2>&1
 #
 # 行为：
 #   1. git fetch 获取 origin/main 最新提交
@@ -14,7 +14,7 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-LOCK_FILE="/tmp/ankiadvanced-deploy.lock"
+LOCK_FILE="/tmp/biangbiangmian3000-deploy.lock"
 
 exec 200>"$LOCK_FILE"
 if ! flock -n 200; then
@@ -44,6 +44,6 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] 安装/更新依赖..."
 .venv/bin/pip install -q -r requirements.txt
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] 重启服务..."
-sudo systemctl restart ankiadvanced
+sudo systemctl restart biangbiangmian3000
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] 部署完成，当前版本：$(git rev-parse HEAD)"

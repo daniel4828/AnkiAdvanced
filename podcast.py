@@ -102,7 +102,7 @@ _HALLUCINATION_MIN_WORDS = 20          # too short to be worth summarizing/cardi
 # has no documented per-source size cap; our mp3s are 16kHz/mono/32kbps, so
 # even a full 3h episode (the guardrail above) is only ~43MB — the ceiling
 # below is a generous safety net, not a known Google limit.
-NOTEBOOKLM_NOTEBOOK_TITLE = "AnkiAdvanced Transcripts"
+NOTEBOOKLM_NOTEBOOK_TITLE = "biangbiangmian3000 Transcripts"
 _NOTEBOOKLM_INDEX_TIMEOUT = 10 * 60  # 10min cap for source indexing to finish
 # Hard ceiling for a whole NotebookLM round (upload + indexing + fulltext/ask).
 # wait_until_ready only bounds the indexing wait — the other RPCs have no
@@ -129,7 +129,7 @@ _TINGWU_POLL_TIMEOUT_SECONDS = 20 * 60
 
 
 def _http_get(url: str, timeout: int = 20) -> bytes:
-    req = urllib.request.Request(url, headers={"User-Agent": "AnkiAdvanced/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "biangbiangmian3000/1.0"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return resp.read()
 
@@ -346,7 +346,7 @@ def _download_audio(audio_url: str, video_id: str, tmp_dir: str) -> str:
     download/ffmpeg failures.
     """
     src_path = os.path.join(tmp_dir, "src_audio")
-    req = urllib.request.Request(audio_url, headers={"User-Agent": "AnkiAdvanced/1.0"})
+    req = urllib.request.Request(audio_url, headers={"User-Agent": "biangbiangmian3000/1.0"})
     try:
         with urllib.request.urlopen(req, timeout=60) as resp, open(src_path, "wb") as f:
             shutil.copyfileobj(resp, f)
@@ -708,7 +708,7 @@ def _transcribe_instagram(video: dict) -> tuple[str | None, dict]:
 
 
 async def _get_or_create_notebooklm_notebook(client) -> str:
-    """Return the id of the dedicated 'AnkiAdvanced Transcripts' notebook,
+    """Return the id of the dedicated 'biangbiangmian3000 Transcripts' notebook,
     reusing the id cached in podcast_config when it still resolves; creates
     (and re-caches) a fresh one otherwise (first run, or the cached notebook
     was deleted server-side)."""

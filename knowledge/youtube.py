@@ -75,7 +75,7 @@ def _watch_url(video_id: str) -> str:
 def _http_get_json(url: str, timeout: int = 10) -> dict:
     """Mirrors podcast._http_get's plain-urllib style (no extra HTTP
     dependency) but decodes JSON — used for the oEmbed metadata lookup."""
-    req = urllib.request.Request(url, headers={"User-Agent": "AnkiAdvanced/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "biangbiangmian3000/1.0"})
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read())
 

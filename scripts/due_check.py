@@ -9,8 +9,8 @@
     BASE_URL=http://127.0.0.1:8000 python scripts/due_check.py
 
 服务器 cron（每 5 分钟一次；条件不满足时脚本什么都不做，很便宜）：
-    */5 * * * * cd /home/anki/AnkiAdvanced && /home/anki/AnkiAdvanced/venv/bin/python \
-        scripts/due_check.py >> /home/anki/AnkiAdvanced/data/due_check.log 2>&1
+    */5 * * * * cd /home/anki/biangbiangmian3000 && /home/anki/biangbiangmian3000/venv/bin/python \
+        scripts/due_check.py >> /home/anki/biangbiangmian3000/data/due_check.log 2>&1
 
 环境变量：
     BASE_URL       服务器地址，默认 http://127.0.0.1:8000

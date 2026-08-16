@@ -13,7 +13,7 @@
 set -euo pipefail
 
 SERVER="${ANKI_SERVER:-anki@207.180.204.135}"
-REMOTE_DIR="${ANKI_REMOTE_DIR:-/home/anki/AnkiAdvanced}"
+REMOTE_DIR="${ANKI_REMOTE_DIR:-/home/anki/biangbiangmian3000}"
 REMOTE_DB="$REMOTE_DIR/data/srs.db"
 REMOTE_SNAPSHOT="/tmp/anki_offline_snapshot.db"
 REMOTE_INCOMING="/tmp/anki_offline_incoming.db"

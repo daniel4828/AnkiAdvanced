@@ -163,7 +163,7 @@ def cmd_status(args):
 def main():
     database.init_db()
 
-    parser = argparse.ArgumentParser(description="AnkiAdvanced")
+    parser = argparse.ArgumentParser(description="biangbiangmian3000")
     sub = parser.add_subparsers(dest="command")
     sub.add_parser("import", help="Import vocabulary from imports/")
     status_p = sub.add_parser("status", help="Show due counts per deck/category")
@@ -228,7 +228,7 @@ try:
                 pass
             logger.info("[dev] DB and TTS cache cleared on exit.")
 
-    app = FastAPI(title="AnkiAdvanced", lifespan=lifespan)
+    app = FastAPI(title="biangbiangmian3000", lifespan=lifespan)
 
     # gzip JSON/JS/CSS responses over ~500 bytes (issue #513: app.js is ~9000
     # lines uncompressed, and /api/decks etc. can also be sizeable JSON).
@@ -299,7 +299,7 @@ try:
             return JSONResponse(
                 status_code=401,
                 content={"detail": "Unauthorized"},
-                headers={"WWW-Authenticate": 'Basic realm="AnkiAdvanced"'},
+                headers={"WWW-Authenticate": 'Basic realm="biangbiangmian3000"'},
             )
         return RedirectResponse("/login", status_code=303)
 

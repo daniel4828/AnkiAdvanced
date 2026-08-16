@@ -82,7 +82,7 @@ def main() -> int:
         if isinstance(e, urllib.error.URLError) and isinstance(e.reason, TimeoutError):
             _log(
                 f"客户端等待 {STORY_TIMEOUT_SECONDS // 60} 分钟后超时，但服务器"
-                f"可能仍在后台继续生成——请稍后查 journalctl（服务名 ankiadvanced）"
+                f"可能仍在后台继续生成——请稍后查 journalctl（服务名 biangbiangmian3000）"
                 f"确认实际结果，不要立即当作失败重跑。"
             )
         else:
@@ -91,7 +91,7 @@ def main() -> int:
     except TimeoutError:
         _log(
             f"客户端等待 {STORY_TIMEOUT_SECONDS // 60} 分钟后超时，但服务器"
-            f"可能仍在后台继续生成——请稍后查 journalctl（服务名 ankiadvanced）"
+            f"可能仍在后台继续生成——请稍后查 journalctl（服务名 biangbiangmian3000）"
             f"确认实际结果，不要立即当作失败重跑。"
         )
         return 1
