@@ -1447,6 +1447,37 @@ def _annotate_summary(result: dict) -> dict:
     return result
 
 
+_PLACEHOLDER_TITLE_RE = re.compile(r"^(video|reel|post|photo|clip)\s+by\s+\S", re.IGNORECASE)
+_SHORTCODE_TITLE_RE = re.compile(r"^[A-Za-z0-9_-]{8,20}$")
+
+
+def _is_placeholder_title(title: str) -> bool:
+    """True if `title` looks like an auto-generated non-title rather than
+    real content (#781) — the only gate that decides whether the AI's
+    title_suggestion is allowed to overwrite an episode's stored title.
+
+    Instagram Reel/Post metadata (knowledge/instagram.py) almost always
+    yields "Video by <uploader>" as yt-dlp's `title` field — informative
+    about who posted it, not what it's about, so every Reel ends up with
+    the same handful of indistinguishable list entries. Bare Instagram
+    shortcodes show up too when even that fallback is missing.
+
+    This must be conservative: a false positive here would let an AI
+    guess silently overwrite a perfectly good real title (a podcast/
+    YouTube/article title fetched from RSS/oEmbed/trafilatura) — false
+    negatives just mean a placeholder title survives one summary cycle,
+    which is harmless (it can still be fixed via regenerate_summary).
+    """
+    title = (title or "").strip()
+    if not title or title.lower() == "(untitled)":
+        return True
+    if _PLACEHOLDER_TITLE_RE.match(title):
+        return True
+    if " " not in title and _SHORTCODE_TITLE_RE.match(title):
+        return True
+    return False
+
+
 def filter_new_words(words: list[dict]) -> list[dict]:
     """Drop words the AI picked that are already in entries.word_zh — Daniel
     already has those in his SRS deck, no need to flag them again."""
@@ -1993,9 +2024,12 @@ def _process_episode(episode_id: int, video: dict, detail_level: str, summary: d
                 return
 
             words = filter_new_words(result.get("words") or [])
+            # find_spotify_url intentionally keeps using the OLD title, even
+            # when it's about to be replaced below — Reels never need a
+            # Spotify search link, and podcasts/YouTube never have a
+            # placeholder title in the first place, so this never matters.
             spotify_url = find_spotify_url(video["title"])
-            database.update_episode(
-                episode_id,
+            update_fields = dict(
                 summary_zh=result.get("summary_zh") or "",
                 summary_de=result["summary_de"],
                 hsk_words=words,
@@ -2003,6 +2037,24 @@ def _process_episode(episode_id: int, video: dict, detail_level: str, summary: d
                 spotify_url=spotify_url,
                 status="summarized",
             )
+            title_suggestion = (result.get("title_suggestion") or "").strip()
+            if title_suggestion and _is_placeholder_title(video["title"]):
+                update_fields["title"] = title_suggestion
+                try:
+                    title_en = ai.translate_title(title_suggestion)
+                except Exception as e:
+                    # translate_title already swallows its own errors and
+                    # returns None — this is just an extra safety net so a
+                    # totally unexpected exception here can't fail the whole
+                    # episode over a nice-to-have English title.
+                    logger.warning("podcast: translate_title failed for %r: %s",
+                                    title_suggestion, e)
+                    title_en = None
+                if title_en:
+                    update_fields["title_en"] = title_en
+                logger.info("podcast: replaced placeholder title %r -> %r for %s",
+                            video["title"], title_suggestion, video["video_id"])
+            database.update_episode(episode_id, **update_fields)
             summary["summarized"] += 1
 
             episode = database.get_episode(episode_id)
@@ -2070,13 +2122,29 @@ def regenerate_summary(episode_id: int) -> dict:
         return {"regenerated": False, "error": "AI summary failed or empty"}
 
     words = filter_new_words(result.get("words") or [])
-    database.update_episode(
-        episode_id,
+    update_fields = dict(
         summary_zh=result.get("summary_zh") or "",
         summary_de=result["summary_de"],
         hsk_words=words,
         detail_level=detail_level,
     )
+    # Same placeholder-title gate as _process_episode (#781) — this is the
+    # only path that can retroactively fix the existing backlog of Reels
+    # stuck with "Video by <uploader>" titles, since it's the one Daniel can
+    # trigger by hand from the detail page's "Regenerate summary" button.
+    title_suggestion = (result.get("title_suggestion") or "").strip()
+    if title_suggestion and _is_placeholder_title(episode["title"]):
+        update_fields["title"] = title_suggestion
+        try:
+            title_en = ai.translate_title(title_suggestion)
+        except Exception as e:
+            logger.warning("podcast: translate_title failed for %r: %s", title_suggestion, e)
+            title_en = None
+        if title_en:
+            update_fields["title_en"] = title_en
+        logger.info("podcast: replaced placeholder title %r -> %r for episode %s",
+                    episode["title"], title_suggestion, episode_id)
+    database.update_episode(episode_id, **update_fields)
     logger.info("podcast: summary regenerated for episode %s (%d word(s))", episode_id, len(words))
     return {"regenerated": True, "error": None}
 
