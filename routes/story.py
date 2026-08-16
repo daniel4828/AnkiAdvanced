@@ -442,7 +442,14 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
                 sources.append({
                     "title": episode.get("title") or "",
                     "kind": ep_kind,
-                    "url": episode.get("youtube_url") or f"/#{ep_kind}-{eid}",
+                    # #790: always the in-app knowledge detail page, never the
+                    # external video/article URL — the detail page carries the
+                    # summary, bilingual transcript and new-word table, and has
+                    # its own "Open ↗" button to the original. Hash shape must
+                    # match the frontend router (app.js): podcasts keep the
+                    # legacy #podcast-<id>, everything else is #knowledge-<id>
+                    # (the old f"/#{ep_kind}-…" produced dead #video-<id> links).
+                    "url": f"/#{'podcast' if ep_kind == 'podcast' else 'knowledge'}-{eid}",
                     "material": material,
                 })
             if not sources:
