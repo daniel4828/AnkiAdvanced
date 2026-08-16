@@ -109,3 +109,37 @@ def test_leftover_due_cards_are_not_pushed_behind_new_cards(tmp_db):
     assert last_leftover < first_new, (
         "有故事时，不在故事里的到期卡被排到了新卡之后（议题 #732 回归）"
     )
+
+
+# ---------------------------------------------------------------------------
+# 生成故事后必须失效会话队列（议题 #783）
+# ---------------------------------------------------------------------------
+
+def _run_generate(monkeypatch, body_result):
+    """跑 _generate_and_store，桩掉真正的生成逻辑，返回 invalidate 的调用次数。"""
+    from routes import story as story_routes
+
+    calls = []
+    monkeypatch.setattr(story_routes.queue_mgr, "invalidate",
+                        lambda *a, **kw: calls.append(1))
+    monkeypatch.setattr(story_routes.ai, "fix_definition_commas", lambda *a, **kw: None)
+    monkeypatch.setattr(story_routes, "_generate_and_store_body",
+                        lambda *a, **kw: body_result)
+    story_routes._generate_and_store(
+        1, "unified", "2026-08-16", [{"word_zh": "词"}],
+        topic=None, max_hsk=3, model="x", grammar_focus=None, grammar_pct=75,
+        mode="story", chapter_ids=None, progress_key="1/unified/zh", lang="zh")
+    return len(calls)
+
+
+def test_generation_invalidates_queue(tmp_db, monkeypatch):
+    """故事由 GET /api/story 首次生成时队列也必须失效（#783）：
+    队列是持久的，构建时若还没有故事就按 learning-first 排序，不失效的话
+    整个复习会话都从故事中间某一句开始。"""
+    assert _run_generate(monkeypatch, {"id": 1, "sentences": []}) == 1
+
+
+def test_failed_generation_keeps_queue(tmp_db, monkeypatch):
+    """生成失败时故事没变，不该白白丢掉队列。"""
+    assert _run_generate(monkeypatch, {"error": True, "reason": "boom"}) == 0
+    assert _run_generate(monkeypatch, None) == 0
