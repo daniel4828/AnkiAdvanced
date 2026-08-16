@@ -1,13 +1,18 @@
-"""知识库故事模式的多素材生成（issue #752）：一次生成混合多个知识库素材
-（播客/视频/文章），到期词分散到几份材料上。
+"""知识库故事模式的多素材生成（issue #776，取代 #752 的混合生成方式）：选中
+多份素材（播客/视频/文章）时，到期词表在素材之间平均切分，每份素材各自发起
+一次独立的 AI 调用，句子按素材顺序拼接——读起来是"先讲完第一份素材，
+再讲第二份"，而不是像 #752 那样在同一次调用里让模型交替引用多份素材。
 
 覆盖：
-- routes.story._parse_episode_ids 的输入解析
-- 多素材时材料预算按素材数量均分，且 ai.generate_podcast_sentences 收到的
-  sources[] 结构正确（title/kind/url/material/index）
-- ai.generate_podcast_sentences 按模型返回的 source_index 回填每句的
-  source_url/source_title，越界/缺失时回退到第一个素材
-- 单素材路径下 {multi_source_block} 渲染为空，提示词与旧版逐字一致
+- routes.story._parse_episode_ids 的输入解析（不变）
+- 词表在素材间平均切分，余数分给靠前的素材
+- 调用次数等于有材料的素材数（batch_size 未设时）；每次调用只收到一个
+  source dict，且 material 是完整的 _KNOWLEDGE_MATERIAL_MAX_CHARS 预算
+  （不再像 #752 那样按素材数量均分）
+- 返回的句子顺序：素材 1 的词全部排在素材 2 之前
+- 没有材料的素材被跳过、未知 id 报错、全部为空报错
+- 单素材路径下提示词里不能出现任何 #752 遗留的多素材痕迹
+  （source_index / multi_source_block / "素材 N" 等）
 
 AI 一律打桩在 ai._call_api 上——打在某个提供商的客户端上会随默认模型变化而
 静默失效。隔离数据库只打 database.core.DB_PATH 这个补丁。
@@ -30,6 +35,12 @@ client = TestClient(main.app)
 
 ENTRY_你好 = {"type": "vocabulary", "simplified": "你好", "pinyin": "nǐ hǎo",
                "english": "hello", "pos": "intj", "hsk": "1"}
+
+# 16 个不同的词，供"词表平均切分"测试使用。
+_MANY_WORDS = [
+    "苹果", "香蕉", "橙子", "葡萄", "西瓜", "草莓", "桃子", "梨",
+    "柠檬", "樱桃", "芒果", "菠萝", "石榴", "椰子", "木瓜", "柿子",
+]
 
 
 def write_yaml(tmp_path, name, entries):
@@ -54,15 +65,27 @@ def populated_db(tmp_db, tmp_path):
     return next(d["id"] for d in database.get_all_decks() if d["name"] == "Kouyu")
 
 
-def _fake_podcast_sentences(cards, sources, **kwargs):
+@pytest.fixture
+def many_words_db(tmp_db, tmp_path):
+    entries = [
+        {"type": "vocabulary", "simplified": w, "pinyin": w, "english": w,
+         "pos": "n", "hsk": "1"}
+        for w in _MANY_WORDS
+    ]
+    write_yaml(tmp_path, "words.yaml", entries)
+    importer.import_all(str(tmp_path))
+    return next(d["id"] for d in database.get_all_decks() if d["name"] == "Kouyu")
+
+
+def _fake_podcast_sentences(cards, source, **kwargs):
     return [
         {"word_id": c["word_id"], "sentence_zh": f"{c['word_zh']}出现在这一集里。",
          "sentence_en": "", "target_word": c["word_zh"]}
         for c in cards
-    ], "假提示词"
+    ], f"假提示词：{source.get('title') if source else ''}"
 
 
-# ── _parse_episode_ids ───────────────────────────────────────────────────────
+# ── _parse_episode_ids（不变，仍是逗号串解析）───────────────────────────────
 
 def test_parse_episode_ids_comma_separated():
     assert story_routes._parse_episode_ids("12,34,56", None) == [12, 34, 56]
@@ -92,32 +115,30 @@ def test_parse_episode_ids_episode_ids_takes_priority_over_singular():
     assert story_routes._parse_episode_ids("1,2", 999) == [1, 2]
 
 
-# ── material budget split + sources[] structure ─────────────────────────────
+# ── 词表切分 + 每次调用只带一个 source ──────────────────────────────────────
 
-def test_multi_source_budget_split_evenly(populated_db):
-    """三个素材同时选中时，每份材料的预算是总预算的三分之一——不是三份各自
-    拿到全额（那会让总提示词随选择数量线性膨胀，撑爆上下文窗口）。"""
-    deck_id = populated_db
-    long_transcript_a = "甲" * 100
-    long_transcript_b = "乙" * 100
-    long_transcript_c = "丙" * 100
-    ids = []
-    for vid, transcript, title in [
-        ("m1", long_transcript_a, "素材甲"),
-        ("m2", long_transcript_b, "素材乙"),
-        ("m3", long_transcript_c, "素材丙"),
-    ]:
-        eid = database.create_pending_episode(
-            vid, "https://example.com/feed.xml", title, None,
-            f"https://example.com/{vid}", kind="podcast")
-        database.update_episode(eid, status="summarized", transcript_zh=transcript)
-        ids.append(eid)
+def _create_episode(vid, transcript, title, kind="podcast"):
+    eid = database.create_pending_episode(
+        vid, "https://example.com/feed.xml", title, None,
+        f"https://example.com/{vid}", kind=kind)
+    database.update_episode(eid, status="summarized", transcript_zh=transcript)
+    return eid
 
-    captured = {}
 
-    def _capturing(cards, sources, **kwargs):
-        captured["sources"] = sources
-        return _fake_podcast_sentences(cards, sources, **kwargs)
+def test_word_list_split_evenly_across_three_sources(many_words_db):
+    """16 词 / 3 素材 → 6/5/5（余数分给靠前的素材）。"""
+    deck_id = many_words_db
+    ids = [
+        _create_episode("m1", "甲" * 100, "素材甲"),
+        _create_episode("m2", "乙" * 100, "素材乙"),
+        _create_episode("m3", "丙" * 100, "素材丙"),
+    ]
+
+    calls = []
+
+    def _capturing(cards, source, **kwargs):
+        calls.append((source["title"], [c["word_zh"] for c in cards]))
+        return _fake_podcast_sentences(cards, source, **kwargs)
 
     with patch("ai.generate_podcast_sentences", side_effect=_capturing) as mock_gen:
         r = client.get(f"/api/story/{deck_id}/listening",
@@ -126,34 +147,83 @@ def test_multi_source_budget_split_evenly(populated_db):
 
     assert r.status_code == 200
     assert not r.json().get("error")
-    mock_gen.assert_called_once()
-
-    sources = captured["sources"]
-    assert len(sources) == 3
-    expected_limit = story_routes._KNOWLEDGE_MATERIAL_MAX_CHARS // 3
-    for s in sources:
-        assert len(s["material"]) <= expected_limit
-    # every material distinct — budget applied per-source, not shared/truncated
-    # to a single common slice
-    assert sources[0]["material"][0] == "甲"
-    assert sources[1]["material"][0] == "乙"
-    assert sources[2]["material"][0] == "丙"
-    # index is 1-based and matches submission order
-    assert [s["index"] for s in sources] == [1, 2, 3]
-    assert [s["title"] for s in sources] == ["素材甲", "素材乙", "素材丙"]
-    assert all(s["kind"] == "podcast" for s in sources)
+    assert mock_gen.call_count == 3   # one call per source, not one call total
+    sizes = [len(words) for _, words in calls]
+    assert sizes == [6, 5, 5]
 
     story = database.get_active_story(database.anki_today().isoformat(), "listening", deck_id)
     gen_params = json.loads(story["gen_params"])
     assert gen_params["episode_ids"] == ids
-    assert gen_params["episode_id"] == ids[0]   # legacy singular key = first id
-    assert gen_params["kind"] == "mixed"        # #752: multiple sources → "mixed"
+    assert gen_params["kind"] == "mixed"   # multiple sources → "mixed"
 
 
-def test_multi_source_skips_items_without_material(populated_db):
+def test_each_call_gets_full_material_budget_not_divided(many_words_db):
+    """#752 曾把预算按素材数量均分；#776 每次调用只带一个素材，不再共享
+    上下文窗口，所以每份素材都拿到完整的 _KNOWLEDGE_MATERIAL_MAX_CHARS 预算。"""
+    deck_id = many_words_db
+    long_a = "甲" * (story_routes._KNOWLEDGE_MATERIAL_MAX_CHARS + 500)
+    long_b = "乙" * (story_routes._KNOWLEDGE_MATERIAL_MAX_CHARS + 500)
+    ids = [
+        _create_episode("m1", long_a, "素材甲"),
+        _create_episode("m2", long_b, "素材乙"),
+    ]
+
+    materials = []
+
+    def _capturing(cards, source, **kwargs):
+        materials.append(source["material"])
+        return _fake_podcast_sentences(cards, source, **kwargs)
+
+    with patch("ai.generate_podcast_sentences", side_effect=_capturing) as mock_gen:
+        r = client.get(f"/api/story/{deck_id}/listening",
+                       params={"mode": "knowledge",
+                               "episode_ids": ",".join(str(i) for i in ids)})
+
+    assert r.status_code == 200
+    assert not r.json().get("error")
+    assert mock_gen.call_count == 2
+    for m in materials:
+        assert len(m) == story_routes._KNOWLEDGE_MATERIAL_MAX_CHARS
+    assert materials[0][0] == "甲"
+    assert materials[1][0] == "乙"
+
+
+def test_sentence_order_follows_source_order(many_words_db):
+    """句子按素材顺序拼接：素材 1 的词全部排在素材 2 之前——这是本次改动
+    存在的全部理由（Daniel 不要交替讲两份素材）。不依赖词表本身的原始顺序，
+    直接记录每次 AI 调用实际收到的词，再核对最终句子顺序与之一致。"""
+    deck_id = many_words_db
+    ids = [
+        _create_episode("m1", "第一份素材正文。", "素材一"),
+        _create_episode("m2", "第二份素材正文。", "素材二"),
+    ]
+
+    calls = []
+
+    def _capturing(cards, source, **kwargs):
+        calls.append([c["word_zh"] for c in cards])
+        return _fake_podcast_sentences(cards, source, **kwargs)
+
+    with patch("ai.generate_podcast_sentences", side_effect=_capturing):
+        r = client.get(f"/api/story/{deck_id}/listening",
+                       params={"mode": "knowledge",
+                               "episode_ids": ",".join(str(i) for i in ids)})
+
+    assert r.status_code == 200
+    body = r.json()
+    assert not body.get("error")
+    assert len(calls) == 2
+    expected_order = calls[0] + calls[1]
+    actual_order = [s["sentence_zh"].split("出现在这一集里。")[0] for s in body["sentences"]]
+    assert actual_order == expected_order
+
+
+def test_multi_source_skips_items_without_material(many_words_db):
     """选了 3 个素材，其中 1 个还没有转录/摘要——生成不因此整体失败，
-    只是那一份被跳过（routes/story.py 的 knowledge 分支约定，见施工图）。"""
-    deck_id = populated_db
+    只是那一份被跳过，也就不会发起对应的 AI 调用。用多词的 fixture，
+    确保每份有材料的素材都能分到至少一个词（避免因词数太少、词表被
+    切分成空组而巧合地只调用一次）。"""
+    deck_id = many_words_db
     eid_ok1 = database.create_pending_episode(
         "s1", "https://example.com/feed.xml", "有内容 1", None,
         "https://example.com/s1", kind="podcast")
@@ -169,11 +239,11 @@ def test_multi_source_skips_items_without_material(populated_db):
         "https://example.com/s3", kind="video")
     database.update_episode(eid_ok2, status="summarized", transcript_zh="正文二。")
 
-    captured = {}
+    calls = []
 
-    def _capturing(cards, sources, **kwargs):
-        captured["sources"] = sources
-        return _fake_podcast_sentences(cards, sources, **kwargs)
+    def _capturing(cards, source, **kwargs):
+        calls.append(source["title"])
+        return _fake_podcast_sentences(cards, source, **kwargs)
 
     with patch("ai.generate_podcast_sentences", side_effect=_capturing) as mock_gen:
         r = client.get(f"/api/story/{deck_id}/listening",
@@ -182,10 +252,8 @@ def test_multi_source_skips_items_without_material(populated_db):
 
     assert r.status_code == 200
     assert not r.json().get("error")
-    mock_gen.assert_called_once()
-    sources = captured["sources"]
-    assert len(sources) == 2
-    assert [s["title"] for s in sources] == ["有内容 1", "有内容 2"]
+    assert mock_gen.call_count == 2
+    assert calls == ["有内容 1", "有内容 2"]
 
 
 def test_knowledge_mode_requires_at_least_one_item(populated_db):
@@ -207,16 +275,11 @@ def test_knowledge_mode_unknown_id_raises(populated_db):
     assert "999999" in body["reason"]
 
 
-# ── ai.generate_podcast_sentences: source_index attribution ────────────────
+# ── 单素材路径：提示词里不能有任何 #752 遗留的多素材痕迹 ─────────────────────
 
 CARDS = [
     {"word_id": 1, "word_zh": "承认", "pinyin": "chéngrèn", "definition": "admit"},
     {"word_id": 2, "word_zh": "顺便", "pinyin": "shùnbiàn", "definition": "by the way"},
-]
-
-SOURCES_2 = [
-    {"index": 1, "title": "素材一", "kind": "podcast", "url": "https://a.example/1", "material": "第一份素材正文。"},
-    {"index": 2, "title": "素材二", "kind": "video", "url": "https://b.example/2", "material": "第二份素材正文。"},
 ]
 
 
@@ -224,56 +287,8 @@ def _reply(items):
     return json.dumps(items, ensure_ascii=False)
 
 
-def test_source_index_attributes_sentence_to_right_source(monkeypatch):
-    monkeypatch.setattr(ai, "_call_api", lambda *a, **kw: _reply([
-        {"sentence_zh": "张一鸣承认公司暂时落后。", "source_index": 2},
-        {"sentence_zh": "他顺便去买了咖啡。", "source_index": 1},
-    ]))
-    sentences, _ = ai.generate_podcast_sentences(CARDS, SOURCES_2)
-
-    by_word = {s["word_ids"][0]: s for s in sentences}
-    assert by_word[1]["source_url"] == "https://b.example/2"
-    assert by_word[1]["source_title"] == "素材二"
-    assert by_word[2]["source_url"] == "https://a.example/1"
-    assert by_word[2]["source_title"] == "素材一"
-
-
-def test_source_index_out_of_range_falls_back_to_first_source(monkeypatch):
-    monkeypatch.setattr(ai, "_call_api", lambda *a, **kw: _reply([
-        {"sentence_zh": "张一鸣承认公司暂时落后。", "source_index": 99},
-        {"sentence_zh": "他顺便去买了咖啡。"},   # missing entirely
-    ]))
-    sentences, _ = ai.generate_podcast_sentences(CARDS, SOURCES_2)
-
-    for s in sentences:
-        assert s["source_url"] == "https://a.example/1"
-        assert s["source_title"] == "素材一"
-
-
-def test_multi_source_prompt_lists_sources_with_numbered_titles(monkeypatch):
-    sent = []
-
-    def fake_call(model, messages, *a, **kw):
-        sent.append(messages[0]["content"])
-        return _reply([{"sentence_zh": "张一鸣承认公司暂时落后。", "source_index": 1},
-                       {"sentence_zh": "他顺便去买了咖啡。", "source_index": 2}])
-
-    monkeypatch.setattr(ai, "_call_api", fake_call)
-    ai.generate_podcast_sentences(CARDS, SOURCES_2)
-
-    prompt = sent[0]
-    assert "1. 《素材一》（podcast）" in prompt
-    assert "2. 《素材二》（video）" in prompt
-    assert "第一份素材正文。" in prompt
-    assert "第二份素材正文。" in prompt
-    assert "source_index" in prompt   # multi_source_block instructs the model
-
-
-# ── single-source path: {multi_source_block} renders empty (逐字不变) ───────
-
-def test_single_source_prompt_has_no_multi_source_block(monkeypatch):
-    """单素材时提示词里不能出现 #752 新增的多素材说明，否则说明单素材路径
-    被这次改动动过了——Daniel 正在调这份提示词，单素材必须逐字不变。"""
+def test_single_source_prompt_has_no_multi_source_traces(monkeypatch):
+    """提示词必须逐字回到 #752 之前的样子——Daniel 正在调这份提示词。"""
     sent = []
 
     def fake_call(model, messages, *a, **kw):
@@ -282,11 +297,12 @@ def test_single_source_prompt_has_no_multi_source_block(monkeypatch):
                        {"sentence_zh": "他顺便去买了咖啡。"}])
 
     monkeypatch.setattr(ai, "_call_api", fake_call)
-    single_source = [{"index": 1, "title": "标题", "kind": "podcast",
-                       "url": None, "material": "Zusammenfassung"}]
-    ai.generate_podcast_sentences(CARDS, single_source)
+    source = {"title": "标题", "kind": "podcast", "url": None, "material": "Zusammenfassung"}
+    ai.generate_podcast_sentences(CARDS, source)
 
     prompt = sent[0]
     assert "{multi_source_block}" not in prompt
     assert "多份素材" not in prompt
     assert "source_index" not in prompt
+    assert "素材 2" not in prompt
+    assert "素材甲" not in prompt

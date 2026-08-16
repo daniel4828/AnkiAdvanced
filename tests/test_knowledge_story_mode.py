@@ -46,11 +46,10 @@ def populated_db(tmp_db, tmp_path):
     return next(d["id"] for d in database.get_all_decks() if d["name"] == "Kouyu")
 
 
-def _fake_podcast_sentences(cards, sources, **kwargs):
+def _fake_podcast_sentences(cards, source, **kwargs):
     # (sentences, prompt) since #697 — the route stores the prompt on the story.
-    # #752: signature is now (cards, sources, ...) — sources[0]["title"] stands
-    # in for the old bare `title` param since every test here uses one source.
-    title = sources[0]["title"] if sources else ""
+    # #776: signature is (cards, source, ...) — one dict, not a list.
+    title = source.get("title") if source else ""
     return [
         {"word_id": c["word_id"], "sentence_zh": f"{c['word_zh']}出现在这一集里。",
          "sentence_en": "", "target_word": c["word_zh"]}
@@ -192,9 +191,9 @@ def test_knowledge_mode_story_generation_uses_transcript(populated_db):
 
     seen_material = {}
 
-    def _capturing(cards, sources, **kwargs):
-        seen_material["value"] = sources[0]["material"] if sources else ""
-        return _fake_podcast_sentences(cards, sources, **kwargs)
+    def _capturing(cards, source, **kwargs):
+        seen_material["value"] = source.get("material") if source else ""
+        return _fake_podcast_sentences(cards, source, **kwargs)
 
     with patch("ai.generate_podcast_sentences", side_effect=_capturing) as mock_gen:
         r = client.get(f"/api/story/{deck_id}/listening",
@@ -218,9 +217,9 @@ def test_knowledge_mode_story_generation_falls_back_without_transcript(populated
 
     seen_material = {}
 
-    def _capturing(cards, sources, **kwargs):
-        seen_material["value"] = sources[0]["material"] if sources else ""
-        return _fake_podcast_sentences(cards, sources, **kwargs)
+    def _capturing(cards, source, **kwargs):
+        seen_material["value"] = source.get("material") if source else ""
+        return _fake_podcast_sentences(cards, source, **kwargs)
 
     with patch("ai.generate_podcast_sentences", side_effect=_capturing) as mock_gen:
         r = client.get(f"/api/story/{deck_id}/listening",

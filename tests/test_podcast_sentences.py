@@ -16,10 +16,9 @@ CARDS = [
 
 
 def _sources(material, title="标题"):
-    """#752: generate_podcast_sentences now takes a list of source dicts
-    instead of a bare (material, title) pair — this builds a single-source
-    list, which is what most of these tests exercise."""
-    return [{"index": 1, "title": title, "kind": "podcast", "url": None, "material": material}]
+    """#776: generate_podcast_sentences takes a single source dict (one AI
+    call = one source; routes/story.py loops over sources itself)."""
+    return {"title": title, "kind": "podcast", "url": None, "material": material}
 
 
 def _reply(items):
@@ -135,12 +134,12 @@ def test_prompt_includes_every_retry_round(monkeypatch):
 
 
 def test_no_material_returns_empty_prompt(monkeypatch):
-    """没有素材（#752 起：没有任何可用素材源）时不调 AI，也就没有提示词可存。
+    """没有素材（没有可用的 source dict）时不调 AI，也就没有提示词可存。
     caller（routes/story.py）在真正调用前就已经把无素材的条目过滤掉了，所以
-    这里模拟"过滤后什么都不剩"的情形：sources=[]。"""
+    这里模拟"过滤后什么都不剩"的情形：source={}。"""
     monkeypatch.setattr(ai, "_call_api",
                         lambda *a, **kw: pytest.fail("素材为空时不该调 AI"))
-    sentences, prompt = ai.generate_podcast_sentences(CARDS, [])
+    sentences, prompt = ai.generate_podcast_sentences(CARDS, {})
     assert sentences == [] and prompt == ""
 
 
