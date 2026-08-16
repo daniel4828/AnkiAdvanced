@@ -837,7 +837,7 @@ function showView(name) {
     name === 'hanzi-detail' ? 'Hanzi Detail' :
     name === 'stats'        ? 'Stats' :
     name === 'settings'     ? 'Settings' :
-    name === 'knowledge'    ? 'Knowledge' : 'AnkiAdvanced';
+    name === 'knowledge'    ? 'Knowledge' : 'biangbiangmian3000';
   if (name === 'decks') quickMode = false;
   const headerRegenBtn = document.getElementById('header-regen-btn');
   // Offline mode hides both regenerate affordances — they can only fail (#612).

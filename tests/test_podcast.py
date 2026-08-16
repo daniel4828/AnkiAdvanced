@@ -255,3 +255,109 @@ def test_parse_summary_json_failure_still_has_chinese_key():
     assert out["summary_zh"] == ""
     assert out["summary_de"] == ""
     assert out["words"] == []
+
+
+# ---------------------------------------------------------------------------
+# Reel title suggestion (#781): AI-suggested titles may only overwrite a
+# placeholder title (Instagram's "Video by <uploader>" / bare shortcode),
+# never a real podcast/YouTube/article title.
+# ---------------------------------------------------------------------------
+
+
+def test_parse_summary_json_reads_title_suggestion():
+    raw = ('{"summary_de": "<p>Text</p>", "words": [], '
+           '"title_suggestion": "Warum die Zinsen steigen"}')
+    out = ai.parse_podcast_summary_json(raw)
+    assert out["title_suggestion"] == "Warum die Zinsen steigen"
+
+
+def test_parse_summary_json_tolerates_missing_title_suggestion():
+    """title_suggestion is a bonus like summary_zh — an older model reply
+    without it must not fail the summary."""
+    out = ai.parse_podcast_summary_json('{"summary_de": "<p>Text</p>", "words": []}')
+    assert out["title_suggestion"] == ""
+
+
+import pytest
+
+
+@pytest.mark.parametrize("title,expected", [
+    ("Video by thefreepress", True),
+    ("video by thefreepress", True),
+    ("Reel by some.account", True),
+    ("Post by another_user", True),
+    ("", True),
+    ("   ", True),
+    ("(untitled)", True),
+    ("(Untitled)", True),
+    ("DM4x_kLpQ2b", True),          # bare Instagram shortcode
+    ("abcDEF123", True),           # shortcode-shaped, no spaces
+    ("Warum die Zinsen steigen", False),
+    ("第 12 集：人工智能与就业", False),
+    ("How AI Changed My Job Search", False),
+    ("Video killed the radio star", False),  # "Video" but not "Video by ..."
+])
+def test_is_placeholder_title(title, expected):
+    assert podcast._is_placeholder_title(title) is expected
+
+
+def _summary_result(title_suggestion="Warum die Zinsen steigen"):
+    return {
+        "summary_zh": "简短总结。",
+        "summary_de": "<p><b>Text</b></p>",
+        "words": [],
+        "title_suggestion": title_suggestion,
+    }
+
+
+def test_regenerate_summary_replaces_placeholder_title(monkeypatch):
+    """Reel stuck with 'Video by thefreepress' gets the AI's real title on
+    regenerate_summary — the only path Daniel can trigger by hand to fix the
+    existing backlog (#781)."""
+    episode = {
+        "id": 42,
+        "title": "Video by thefreepress",
+        "transcript_zh": "一些转录文本" * 20,
+        "china_critical": False,
+    }
+    monkeypatch.setattr(database, "get_episode", lambda eid: episode)
+    monkeypatch.setattr(database, "get_podcast_config", lambda: {"detail_level": "detailed"})
+    monkeypatch.setattr(podcast, "summarize", lambda *a, **kw: _summary_result())
+    monkeypatch.setattr(podcast, "filter_new_words", lambda words: words)
+    monkeypatch.setattr(ai, "translate_title", lambda t: "Why Interest Rates Are Rising")
+
+    captured = {}
+    def fake_update_episode(eid, **fields):
+        captured.update(fields)
+    monkeypatch.setattr(database, "update_episode", fake_update_episode)
+
+    result = podcast.regenerate_summary(42)
+    assert result["regenerated"] is True
+    assert captured["title"] == "Warum die Zinsen steigen"
+    assert captured["title_en"] == "Why Interest Rates Are Rising"
+
+
+def test_regenerate_summary_keeps_real_title(monkeypatch):
+    """A real podcast title must never be overwritten by the AI's guess,
+    even if a title_suggestion comes back (#781's whole point)."""
+    episode = {
+        "id": 7,
+        "title": "第 12 集：人工智能与就业",
+        "transcript_zh": "一些转录文本" * 20,
+        "china_critical": False,
+    }
+    monkeypatch.setattr(database, "get_episode", lambda eid: episode)
+    monkeypatch.setattr(database, "get_podcast_config", lambda: {"detail_level": "detailed"})
+    monkeypatch.setattr(podcast, "summarize", lambda *a, **kw: _summary_result())
+    monkeypatch.setattr(podcast, "filter_new_words", lambda words: words)
+    monkeypatch.setattr(ai, "translate_title", lambda t: "should not be called")
+
+    captured = {}
+    def fake_update_episode(eid, **fields):
+        captured.update(fields)
+    monkeypatch.setattr(database, "update_episode", fake_update_episode)
+
+    result = podcast.regenerate_summary(7)
+    assert result["regenerated"] is True
+    assert "title" not in captured
+    assert "title_en" not in captured
