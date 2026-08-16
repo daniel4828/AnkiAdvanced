@@ -3027,15 +3027,16 @@ Task:
 3. Extract the 20-35 most important Chinese words/phrases from the transcript that are HSK
    level 5 or above (i.e. non-basic vocabulary Daniel would benefit from pre-learning). For
    each, give pinyin and a German definition.
-4. Suggest a short German title that summarizes what this episode is actually ABOUT (the
+4. Suggest a short CHINESE title that summarizes what this episode is actually ABOUT (the
    people, event or argument involved) — like a real article headline, not a generic label.
-   Maximum 10 words. Do NOT write anything generic like "Video von X", "Reel von X" or
-   "Zusammenfassung" — those carry zero information about the content. No quotes, no
-   trailing period.
+   Maximum 15 characters, written at HSK 4-5 level like summary_zh, since this is the title
+   Daniel reads in the list. Do NOT write anything generic like "某人的视频", "Reel 总结" or
+   "内容总结" — those carry zero information about the content. No quotes, no punctuation
+   at the end.
 
 Return ONLY a JSON object, no other text, no markdown fences:
 {{
-  "title_suggestion": "<kurzer deutscher Titel, max. 10 Wörter>",
+  "title_suggestion": "<简短中文标题，最多 15 字，HSK 4-5 水平>",
   "summary_de": "<German HTML summary: <p> paragraphs, each starting with a <b> lead sentence, <strong> highlights>",
   "summary_zh": "<德语总结的完整中文翻译：同样的 <p> 段落，每段首句用 <b> 包住，HSK 4-5 水平的简单中文>",
   "words": [

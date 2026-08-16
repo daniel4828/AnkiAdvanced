@@ -266,9 +266,9 @@ def test_parse_summary_json_failure_still_has_chinese_key():
 
 def test_parse_summary_json_reads_title_suggestion():
     raw = ('{"summary_de": "<p>Text</p>", "words": [], '
-           '"title_suggestion": "Warum die Zinsen steigen"}')
+           '"title_suggestion": "为什么利率会上升"}')
     out = ai.parse_podcast_summary_json(raw)
-    assert out["title_suggestion"] == "Warum die Zinsen steigen"
+    assert out["title_suggestion"] == "为什么利率会上升"
 
 
 def test_parse_summary_json_tolerates_missing_title_suggestion():
@@ -292,7 +292,7 @@ import pytest
     ("(Untitled)", True),
     ("DM4x_kLpQ2b", True),          # bare Instagram shortcode
     ("abcDEF123", True),           # shortcode-shaped, no spaces
-    ("Warum die Zinsen steigen", False),
+    ("为什么利率会上升", False),
     ("第 12 集：人工智能与就业", False),
     ("How AI Changed My Job Search", False),
     ("Video killed the radio star", False),  # "Video" but not "Video by ..."
@@ -301,7 +301,7 @@ def test_is_placeholder_title(title, expected):
     assert podcast._is_placeholder_title(title) is expected
 
 
-def _summary_result(title_suggestion="Warum die Zinsen steigen"):
+def _summary_result(title_suggestion="为什么利率会上升"):
     return {
         "summary_zh": "简短总结。",
         "summary_de": "<p><b>Text</b></p>",
@@ -333,7 +333,7 @@ def test_regenerate_summary_replaces_placeholder_title(monkeypatch):
 
     result = podcast.regenerate_summary(42)
     assert result["regenerated"] is True
-    assert captured["title"] == "Warum die Zinsen steigen"
+    assert captured["title"] == "为什么利率会上升"
     assert captured["title_en"] == "Why Interest Rates Are Rising"
 
 
