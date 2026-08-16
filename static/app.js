@@ -10421,6 +10421,17 @@ document.addEventListener('keydown', async e => {
     return;
   }
 
+  // Shift+A opens (or closes) the add-word modal (#788)
+  if (e.key === 'A' && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+    if (!inInput) {
+      e.preventDefault();
+      const modal = document.getElementById('add-word-modal');
+      if (modal && modal.style.display !== 'none') closeAddWordModal();
+      else openAddWordModal();
+    }
+    return;
+  }
+
   // Shift+S toggles the FSRS scheduler inspector
   if (e.key === 'S' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
     if (!inInput) { e.preventDefault(); toggleFsrsInspector(); }
