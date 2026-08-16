@@ -43,26 +43,26 @@ _AGAIN_ACTION_LABELS = {
 _KNOWLEDGE_MATERIAL_MAX_CHARS = 15000
 
 
-def _knowledge_material(episode: dict, limit: int = _KNOWLEDGE_MATERIAL_MAX_CHARS) -> str:
+def _knowledge_material(episode: dict) -> str:
     """Return the text to feed knowledge-mode story generation for `episode`.
 
     issue #661: prefer the full transcript (transcript_zh, truncated to
-    `limit`) — Daniel explicitly asked for this when the feature shipped;
-    #561 switched to summary_de purely to cut cost/latency (skip fact-check +
-    fewer tokens per call), which stopped mattering once the per-generation
-    cost was confirmed to be ~$0.003. Rows synced down before this change (or
-    otherwise missing a transcript) may only have summary_de — fall back to
-    it rather than erroring, so old episodes keep working.
+    _KNOWLEDGE_MATERIAL_MAX_CHARS) — Daniel explicitly asked for this when
+    the feature shipped; #561 switched to summary_de purely to cut
+    cost/latency (skip fact-check + fewer tokens per call), which stopped
+    mattering once the per-generation cost was confirmed to be ~$0.003. Rows
+    synced down before this change (or otherwise missing a transcript) may
+    only have summary_de — fall back to it rather than erroring, so old
+    episodes keep working.
 
-    `limit` (issue #752): when generating from several sources at once, the
-    caller passes _KNOWLEDGE_MATERIAL_MAX_CHARS // len(sources) so the total
-    prompt stays within the same context-window budget as a single source —
-    each item just gets a smaller slice instead of the ceiling multiplying
-    with the number of selected items."""
+    issue #776: each selected source now gets its own AI call (see the
+    knowledge branch below), so there's no longer a shared context-window
+    budget to split across sources — every source gets the full
+    _KNOWLEDGE_MATERIAL_MAX_CHARS, same as when only one was ever selected."""
     transcript = (episode.get("transcript_zh") or "").strip()
     if transcript:
-        return transcript[:limit]
-    return (episode.get("summary_de") or "").strip()[:limit]
+        return transcript[:_KNOWLEDGE_MATERIAL_MAX_CHARS]
+    return (episode.get("summary_de") or "").strip()[:_KNOWLEDGE_MATERIAL_MAX_CHARS]
 
 
 def _parse_episode_ids(episode_ids: str | None, episode_id: int | None) -> list[int]:
@@ -402,13 +402,16 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
             # generation. See _knowledge_material()'s docstring. Rows without
             # a transcript (synced-down snapshots, etc.) fall back to
             # summary_de automatically.
-            # #752: episode_ids can now hold several source items — the words
-            # are spread across all of them in one call instead of forcing a
-            # single source. sources[] built below only includes items that
-            # actually have material; an id that resolves to nothing usable
-            # is dropped with a warning rather than failing the whole batch,
-            # since Daniel picking 3 items where 1 has no transcript yet
-            # shouldn't block the other 2.
+            # #752 let episode_ids hold several source items and crammed them
+            # into one AI call with a "source_index" tag per sentence so the
+            # model could interleave sources. Daniel didn't want interleaving
+            # — he wants source 1 finished before source 2 starts (#776). So
+            # each source now gets its own call(s), one at a time, and the
+            # results are concatenated in source order. sources[] built below
+            # only includes items that actually have material; an id that
+            # resolves to nothing usable is dropped with a warning rather than
+            # failing the whole batch, since Daniel picking 3 items where 1
+            # has no transcript yet shouldn't block the other 2.
             if not episode_ids:
                 raise ValueError("Knowledge mode requires selecting at least one source item.")
             episodes = []
@@ -417,19 +420,14 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
                 if not episode:
                     raise ValueError(f"Knowledge item {eid} not found.")
                 episodes.append(episode)
-            # Budget split evenly across sources (issue #752) so a 3-item
-            # selection stays within the same total context-window budget as
-            # a single item — see _knowledge_material()'s docstring.
-            per_source_limit = _KNOWLEDGE_MATERIAL_MAX_CHARS // len(episodes)
             sources: list[dict] = []
             for eid, episode in zip(episode_ids, episodes):
-                material = _knowledge_material(episode, limit=per_source_limit)
+                material = _knowledge_material(episode)
                 if not material:
                     logger.warning("story  knowledge item %d has no transcript/summary — skipped", eid)
                     continue
                 ep_kind = episode.get("kind") or "podcast"
                 sources.append({
-                    "index": len(sources) + 1,
                     "title": episode.get("title") or "",
                     "kind": ep_kind,
                     "url": episode.get("youtube_url") or f"/#{ep_kind}-{eid}",
@@ -444,26 +442,63 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
             model = _validated_model(model, default=ai.DEFAULT_MODEL)
             logger.info("story  knowledge model in use: %s kind=%s sources=%d batch_size=%s",
                         model, kind, len(sources), batch_size)
+
+            # Split the due-word list evenly across sources (issue #776):
+            # remainder words go to the earlier sources (16 words / 3 sources
+            # → 6/5/5). Sentences are generated and appended source by source,
+            # so the finished story reads "source 1 in full, then source 2"
+            # instead of the words being interleaved.
+            n_sources = len(sources)
+            word_groups: list[list] = []
+            start = 0
+            for i in range(n_sources):
+                size = len(cards) // n_sources + (1 if i < len(cards) % n_sources else 0)
+                word_groups.append(cards[start:start + size])
+                start += size
+
             # batch_size (issue #563): user-controlled words-per-call from the
-            # setup modal; empty/0 = one single call, capped at MAX_PODCAST_BATCH
-            # (#634). Spreading the words over the material's topics only works
-            # if one call sees them all, so one call stays the default — but
-            # past ~20 words the model starts dropping rules, hence the ceiling.
-            chunk_size = (batch_size if batch_size and batch_size > 0
-                          else min(len(cards), ai.MAX_PODCAST_BATCH))
-            chunks = [cards[i:i + chunk_size] for i in range(0, len(cards), chunk_size)]
+            # setup modal; empty/0 = one call per source, capped at
+            # MAX_PODCAST_BATCH (#634). Spreading a source's words over its
+            # own material's topics only works if one call sees them all, so
+            # one call per source stays the default — but past ~20 words the
+            # model starts dropping rules, hence the ceiling.
+            per_source_chunks: list[list[list]] = []
+            for group in word_groups:
+                if not group:
+                    per_source_chunks.append([])
+                    continue
+                chunk_size = (batch_size if batch_size and batch_size > 0
+                              else min(len(group), ai.MAX_PODCAST_BATCH))
+                per_source_chunks.append(
+                    [group[i:i + chunk_size] for i in range(0, len(group), chunk_size)])
+            total_calls = sum(len(c) for c in per_source_chunks)
+
             sentences = []
             chunk_prompts = []
-            for idx, chunk in enumerate(chunks):
-                label = f" ({idx + 1}/{len(chunks)})" if len(chunks) > 1 else ""
-                chunk_sentences, chunk_prompt = ai.generate_podcast_sentences(
-                    chunk, sources,
-                    model=model, max_hsk=max_hsk, progress_key=progress_key,
-                    attempt_label=label)
-                sentences.extend(chunk_sentences)
-                if chunk_prompt:
-                    chunk_prompts.append(
-                        f"══ chunk{label} ══\n{chunk_prompt}" if len(chunks) > 1 else chunk_prompt)
+            for s_idx, (source, chunks) in enumerate(zip(sources, per_source_chunks)):
+                for c_idx, chunk in enumerate(chunks):
+                    if n_sources > 1:
+                        label = f" (素材 {s_idx + 1}/{n_sources}"
+                        if len(chunks) > 1:
+                            label += f" · {c_idx + 1}/{len(chunks)}"
+                        label += ")"
+                    elif len(chunks) > 1:
+                        label = f" ({c_idx + 1}/{len(chunks)})"
+                    else:
+                        label = ""
+                    chunk_sentences, chunk_prompt = ai.generate_podcast_sentences(
+                        chunk, source,
+                        model=model, max_hsk=max_hsk, progress_key=progress_key,
+                        attempt_label=label)
+                    sentences.extend(chunk_sentences)
+                    if chunk_prompt and total_calls > 1:
+                        heading = f"══ 素材 {s_idx + 1}/{n_sources}《{source.get('title') or '（无标题）'}》"
+                        if len(chunks) > 1:
+                            heading += f" · {c_idx + 1}/{len(chunks)}"
+                        heading += " ══"
+                        chunk_prompts.append(f"{heading}\n{chunk_prompt}")
+                    elif chunk_prompt:
+                        chunk_prompts.append(chunk_prompt)
             # #697: this used to store a placeholder string, so knowledge stories —
             # the mode being actively tuned — were the one mode whose prompt you
             # couldn't go back and read.
@@ -634,41 +669,45 @@ def generate_sentence_for_word(card: dict, gen_params: dict | None) -> dict | No
                     sentences, _ = ai.generate_story([card], model=model, lang=lang)
             elif mode in ("knowledge", "podcast"):
                 # Knowledge Again-regen (issue #561, renamed from "podcast" in
-                # #654; multi-source since #752): same lean pipeline, one card
-                # + the selected item(s)' material, honoring the story's stored
-                # user-picked model (old stories stored gpt-5.1, which is not
-                # whitelisted, so _validated_model falls back). mode="podcast"
-                # here means a *historical* story (new stories are generated
-                # with mode="knowledge" — #654 rejects "podcast" at generation
+                # #654): same lean pipeline, one card + one source's material,
+                # honoring the story's stored user-picked model (old stories
+                # stored gpt-5.1, which is not whitelisted, so
+                # _validated_model falls back). mode="podcast" here means a
+                # *historical* story (new stories are generated with
+                # mode="knowledge" — #654 rejects "podcast" at generation
                 # time, but old stories must keep regenerating). Material is
                 # transcript_zh with a summary_de fallback (issue #661, see
                 # _knowledge_material()); no material at all → plain sentence.
                 #
                 # There is no reliable way to know which single source (of the
-                # story's several) this particular card's earlier sentence
-                # came from, so every stored source is offered again and the
-                # model picks — same as the main multi-source generation path.
+                # story's several, #752) this particular card's earlier
+                # sentence came from, and since #776 removed the mechanism
+                # that let a call juggle several sources at once, this is a
+                # deliberate simplification rather than "let the model pick":
+                # just use the first stored source that still has material.
+                # Which exact source narrates one regenerated sentence barely
+                # matters — what matters is that the style/material stays
+                # consistent with the rest of the story.
                 episode_ids = gp.get("episode_ids") or ([gp["episode_id"]] if gp.get("episode_id") else [])
-                episodes = [database.get_episode(eid) for eid in episode_ids]
-                episodes = [ep for ep in episodes if ep]
-                sources: list[dict] = []
-                if episodes:
-                    per_source_limit = _KNOWLEDGE_MATERIAL_MAX_CHARS // len(episodes)
-                    for ep in episodes:
-                        material = _knowledge_material(ep, limit=per_source_limit)
-                        if not material:
-                            continue
-                        ep_kind = ep.get("kind") or "podcast"
-                        sources.append({
-                            "index": len(sources) + 1,
-                            "title": ep.get("title") or "",
-                            "kind": ep_kind,
-                            "url": ep.get("youtube_url") or f"/#{ep_kind}-{ep['id']}",
-                            "material": material,
-                        })
-                if sources:
+                source = None
+                for eid in episode_ids:
+                    ep = database.get_episode(eid)
+                    if not ep:
+                        continue
+                    material = _knowledge_material(ep)
+                    if not material:
+                        continue
+                    ep_kind = ep.get("kind") or "podcast"
+                    source = {
+                        "title": ep.get("title") or "",
+                        "kind": ep_kind,
+                        "url": ep.get("youtube_url") or f"/#{ep_kind}-{ep['id']}",
+                        "material": material,
+                    }
+                    break
+                if source:
                     sentences, _ = ai.generate_podcast_sentences(
-                        [card], sources,
+                        [card], source,
                         model=_validated_model(gp.get("model"), default=ai.DEFAULT_MODEL),
                         max_hsk=gp.get("max_hsk", 3))
                 else:
