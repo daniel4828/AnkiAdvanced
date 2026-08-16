@@ -52,6 +52,14 @@
   #result { margin-top: 1.1rem; }
   #result:empty { display: none; }
   .headline-row { display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+  button.repeat {
+    margin-left: auto; align-self: center; flex-shrink: 0;
+    padding: .3rem .6rem; font: inherit; font-size: .82rem;
+    color: var(--muted); background: var(--card);
+    border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
+  }
+  button.repeat:hover:not(:disabled) { background: var(--line); color: var(--fg); }
+  button.repeat:disabled { opacity: .5; cursor: default; }
   .headline { font-size: 1.6rem; font-weight: 700; }
   .headline-pinyin { color: var(--muted); font-size: 1rem; }
   .headline-de { color: var(--fg); opacity: .8; margin-top: .15rem; }
@@ -254,6 +262,16 @@
     const hrow = textEl('div', 'headline-row');
     hrow.append(textEl('span', 'headline', r.headline || record.query));
     if (r.headline_pinyin) hrow.append(textEl('span', 'headline-pinyin', r.headline_pinyin));
+    // Repeat (#777): ask the exact same question again when the answer was
+    // poor. The query box is empty by now (cleared on success) and a pasted
+    // German sentence is painful to retype — the record still knows it.
+    const repeat = document.createElement('button');
+    repeat.className = 'repeat';
+    repeat.type = 'button';
+    repeat.textContent = '↻ Repeat';
+    repeat.title = 'Ask again — this stored answer is replaced';
+    repeat.onclick = () => lookup(record.query, record.id);
+    hrow.append(repeat);
     head.append(hrow);
     if (r.headline_de) head.append(textEl('div', 'headline-de', r.headline_de));
     if (r.notes) head.append(textEl('div', 'notes', r.notes));
@@ -326,13 +344,19 @@
   }
 
   // ---- Lookup ----
-  async function lookup(q) {
+  // replaceId (#777, optional): overwrite that stored lookup instead of adding
+  // a new history row — a repeat means "that answer was bad", not "keep both".
+  async function lookup(q, replaceId) {
     if (!q) return;
     goBtn.disabled = true;
     queryEl.disabled = true;
-    setStatus('Looking up… (5–15s)');
+    const repeatBtns = resultEl.querySelectorAll('button.repeat');
+    repeatBtns.forEach(b => { b.disabled = true; });
+    setStatus(replaceId ? 'Asking again… (5–15s)' : 'Looking up… (5–15s)');
     try {
-      const record = await api('POST', '/api/dict/lookup', { query: q, lang: 'zh' });
+      const body = { query: q, lang: 'zh' };
+      if (replaceId) body.replace_id = replaceId;
+      const record = await api('POST', '/api/dict/lookup', body);
       setStatus('');
       // Cleared only on success: a failed lookup (AI hiccup, bad JSON) is worth
       // retrying verbatim, and retyping a pasted German sentence is painful.
@@ -341,6 +365,9 @@
       loadHistory(histSearch.value.trim());
     } catch (e) {
       setStatus(e.message || 'Lookup failed', true);
+      // The old result is still on screen and still stored — a failed repeat
+      // must leave its Repeat button usable rather than stranding the answer.
+      repeatBtns.forEach(b => { b.disabled = false; });
     } finally {
       goBtn.disabled = false;
       queryEl.disabled = false;

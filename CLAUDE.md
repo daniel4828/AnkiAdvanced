@@ -615,6 +615,7 @@ Daniel 长期把 DeepSeek 聊天当中文词典用，再手工把结果复制进
 - **提示词移植自 `de-zh-bot` 技能**（`ai.DICTIONARY_PROMPT`）：中文输入**直接给全部义项、不给选择**；德/英输入一律先分析 + `a/b/c` 选项（**不用数字**）+ 明确推荐、**倾向口语**（Daniel 反复强调的偏好）；整句先整句翻译再逐词拆解，每个成分单独可加词；解释语言德语，单词可附法语
 - **加词仍走 `/api/add-word-ai`**（`shared.js` 的 `addWordViaAi()`）：`★` 之后照常花 30 秒生成完整词条（例句/汉字分解/量词/同义反义词齐全）。词典**不得**成为第二条加词管线（#643），哪怕它手里已经有译文——省下的那一次调用换来的是内容简陋、与其它词条不一致的条目
 - **解析失败不写库**：`ai.dictionary_lookup()` 解析不出 JSON 或缺 `groups`/`zh` 就抛 `ValueError` → 500 带原始回复前 500 字。空壳词典条目比报错更糟
+- **↻ Repeat 按钮（#777）**：结果标题行右侧，用**同样的 query 原样再问一次**（AI 有随机性，多半会换个说法）。`POST /api/dict/lookup` 的可选 `replace_id` 让这次结果 **UPDATE 覆盖那一行**而不是新增 —— 重查的语义是"刚才那个答案不好"，不是"两个都留着"。三条规矩：① `replace_id` 指向不存在的行 → 404，绝不静默降级成新增；② 解析失败（`ValueError`）时什么都不写，**旧的好答案原样保留** —— 一次失败的重试不能毁掉它本想改进的东西；③ 覆盖时 `query`/`lang` 不动，只换答案，`created_at` 刷新（历史仍按"最后回答时间"排序）。从历史里点开的旧记录同样能 Repeat
 - **`dict_queries.headline` 是反范式的一列**：历史列表不该为了显示一行标题去解析 50 份 `result_json`
 - **`lang` 目前只支持 `zh`**，传别的值返回 400——拿中文提示词去答法语请求会静默生成一个**看起来合理但错误**的词条（同 #726 在加词侧的教训）
 - **页面不加载 `app.js`**（同 `/add` #668、`/save` #681）；`?q=` 打开即查询，随后 `history.replaceState` 抹掉参数——否则刷新或 iOS 恢复标签页会静默再花一次 AI 钱（#686 踩过）
@@ -701,8 +702,9 @@ GET  /save                                           → 独立素材收藏页�
 
 # AI 词典（#746，详见「AI 词典页」节）
 GET    /dict[?q=anordnen]                            → 独立词典页（不加载 app.js）；带 q 时打开即查询并抹掉参数
-POST   /api/dict/lookup                              → body {query, lang?='zh', model?} → {id, created_at, query, result}
+POST   /api/dict/lookup                              → body {query, lang?='zh', model?, replace_id?} → {id, created_at, query, result}
                                                        同步约 5–15 秒；query 空 / lang 非 zh / AI 关闭 → 400；解析失败 → 500 且**不写库**
+                                                       replace_id（#777，Repeat 按钮）→ 覆盖该行而非新增；行不存在 → 404；失败时旧答案不动
 GET    /api/dict/history[?q=&limit=]                 → 历史列表（不含 result_json；q 对 query/headline 做 LIKE）
 GET    /api/dict/history/{id} ；DELETE /api/dict/history/{id}  → 单条 / 删除；不存在均 404（不假装成功）
 POST /api/add-word-ai                                → 界面内添加生词（#627）；body {word_zh, day?:today|tomorrow|list, lang?:zh|fr}（#636、#677；#715 起界面一律传 list，接口三值仍有效；lang 见 #726，已存在的词按 entries.lang 落点、不听该参数）；新词返回 {job_id}，已有词直接返回 {status}。**全应用唯一的加词入口**（#643）：顶栏 ＋、播客生词表格、复习界面长按菜单都走它

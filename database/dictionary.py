@@ -28,6 +28,33 @@ def save_dict_query(
     return new_id
 
 
+def update_dict_query(
+    qid: int,
+    input_lang: str | None,
+    kind: str | None,
+    headline: str | None,
+    result_json: str,
+    model: str | None,
+) -> bool:
+    """Overwrite one stored lookup in place (#777's Repeat button) and return
+    whether the row existed. `query`/`lang` are deliberately not touched — a
+    repeat re-asks the *same* question, so only the answer may change.
+    created_at is refreshed so the history list still sorts by "last answered".
+    """
+    conn = get_db()
+    cur = conn.execute(
+        """UPDATE dict_queries
+           SET input_lang = ?, kind = ?, headline = ?, result_json = ?, model = ?,
+               created_at = datetime('now','localtime')
+           WHERE id = ?""",
+        (input_lang, kind, headline, result_json, model, qid),
+    )
+    conn.commit()
+    updated = cur.rowcount > 0
+    conn.close()
+    return updated
+
+
 def get_dict_query(qid: int) -> dict | None:
     """Full row for one lookup, including the raw result_json string — the
     caller (routes/dictionary.py) is responsible for json.loads-ing it."""
