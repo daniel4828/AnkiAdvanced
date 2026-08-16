@@ -3027,9 +3027,15 @@ Task:
 3. Extract the 20-35 most important Chinese words/phrases from the transcript that are HSK
    level 5 or above (i.e. non-basic vocabulary Daniel would benefit from pre-learning). For
    each, give pinyin and a German definition.
+4. Suggest a short German title that summarizes what this episode is actually ABOUT (the
+   people, event or argument involved) — like a real article headline, not a generic label.
+   Maximum 10 words. Do NOT write anything generic like "Video von X", "Reel von X" or
+   "Zusammenfassung" — those carry zero information about the content. No quotes, no
+   trailing period.
 
 Return ONLY a JSON object, no other text, no markdown fences:
 {{
+  "title_suggestion": "<kurzer deutscher Titel, max. 10 Wörter>",
   "summary_de": "<German HTML summary: <p> paragraphs, each starting with a <b> lead sentence, <strong> highlights>",
   "summary_zh": "<德语总结的完整中文翻译：同样的 <p> 段落，每段首句用 <b> 包住，HSK 4-5 水平的简单中文>",
   "words": [
@@ -3044,14 +3050,19 @@ def parse_podcast_summary_json(raw: str) -> dict:
     markers like "[1]" before parsing — harmless no-op for plain API
     responses, which never contain them.
 
-    Returns {"summary_zh": str, "summary_de": str, "words": [...]}; summary_de
-    is "" and words is [] on any parse failure (mirrors the previous inline
+    Returns {"summary_zh": str, "summary_de": str, "words": [...], "title_suggestion": str};
+    summary_de is "" and words is [] on any parse failure (mirrors the previous inline
     behavior in summarize_podcast_transcript).
 
     summary_zh (#631) is a bonus, not a requirement: an older model reply — or
     one that simply omitted the field — still yields a perfectly usable German
     summary, so callers gate success on summary_de alone and treat an empty
     summary_zh as "no Chinese intro this time".
+
+    title_suggestion (#781) is the same kind of bonus: NotebookLM's chat.ask path
+    and older prompt versions never produced it, so it defaults to "" on omission.
+    Callers must keep gating success on summary_de alone — a missing title
+    suggestion must never fail an otherwise-good summary.
     """
     raw = re.sub(r"\[\d+\]", "", raw)
     start, end = raw.find("{"), raw.rfind("}") + 1
@@ -3072,7 +3083,9 @@ def parse_podcast_summary_json(raw: str) -> dict:
             "definition_de": (w.get("definition_de") or "").strip(),
             "hsk": w.get("hsk") if isinstance(w.get("hsk"), int) else 5,
         })
-    return {"summary_zh": summary_zh, "summary_de": summary_de, "words": words}
+    title_suggestion = (data.get("title_suggestion") or "").strip()
+    return {"summary_zh": summary_zh, "summary_de": summary_de, "words": words,
+            "title_suggestion": title_suggestion}
 
 
 def summarize_podcast_transcript(transcript: str, title: str,
