@@ -25,7 +25,7 @@ IP（207.180.204.135），**不需要注册任何新域名**。想再加一个�
 3. 服务器 cron 每 2 分钟运行 `deploy/deploy.sh` 拉取 main
    → **合并后约 2 分钟主页自动更新**，无需登录服务器
 
-注意：`deploy.sh` 合并后会重启 SRS 服务（`systemctl restart ankiadvanced`）。
+注意：`deploy.sh` 合并后会重启 SRS 服务（`systemctl restart biangbiangmian3000`）。
 只改主页时这个重启无害（几秒钟），但如果正在复习卡片，等复习完再合并更稳妥。
 
 ## 文件结构
@@ -51,7 +51,7 @@ homepage/
 
 ```caddyfile
 home.powerdaniel3000.duckdns.org {
-    root * /home/anki/AnkiAdvanced/homepage
+    root * /home/anki/biangbiangmian3000/homepage
     file_server
 }
 ```

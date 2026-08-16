@@ -1,5 +1,5 @@
 [Unit]
-Description=AnkiAdvanced 中文间隔重复系统
+Description=biangbiangmian3000 中文间隔重复系统
 After=network.target
 
 [Service]
@@ -8,9 +8,9 @@ Type=simple
 User=anki
 Group=anki
 # 替换为项目在服务器上的实际路径
-WorkingDirectory=/home/anki/AnkiAdvanced
-EnvironmentFile=/home/anki/AnkiAdvanced/.env
-ExecStart=/home/anki/AnkiAdvanced/.venv/bin/python main.py
+WorkingDirectory=/home/anki/biangbiangmian3000
+EnvironmentFile=/home/anki/biangbiangmian3000/.env
+ExecStart=/home/anki/biangbiangmian3000/.venv/bin/python main.py
 Restart=always
 RestartSec=3
 

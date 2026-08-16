@@ -1,6 +1,6 @@
 # 部署指南 —— Hetzner VPS（Ubuntu 24.04）
 
-本文档假设你从一台全新的 Hetzner VPS（Ubuntu 24.04）开始，一步步把 AnkiAdvanced
+本文档假设你从一台全新的 Hetzner VPS（Ubuntu 24.04）开始，一步步把 biangbiangmian3000
 部署到线上，最终可以用手机浏览器通过 HTTPS 访问。任何人（或任何 AI 代理）照着做即可上线，
 不需要额外背景知识。
 
@@ -77,11 +77,11 @@ sudo apt install -y caddy
 
 ```bash
 cd /home/anki
-git clone https://github.com/daniel4828/AnkiAdvanced.git
-cd AnkiAdvanced
+git clone https://github.com/daniel4828/biangbiangmian3000.git
+cd biangbiangmian3000
 ```
 
-（如果仓库是私有的，用 `git clone git@github.com:daniel4828/AnkiAdvanced.git`，
+（如果仓库是私有的，用 `git clone git@github.com:daniel4828/biangbiangmian3000.git`，
 并提前在服务器上配置好部署用的 SSH key 或 GitHub Personal Access Token。）
 
 ### 创建虚拟环境并安装依赖
@@ -142,20 +142,20 @@ chmod 600 .env
 
 ## 5. 配置 systemd 服务
 
-复制 service 文件并按需修改（如果用户名/路径与示例不同，需要先编辑 `deploy/ankiadvanced.service`）：
+复制 service 文件并按需修改（如果用户名/路径与示例不同，需要先编辑 `deploy/biangbiangmian3000.service`）：
 
 ```bash
-sudo cp deploy/ankiadvanced.service /etc/systemd/system/ankiadvanced.service
+sudo cp deploy/biangbiangmian3000.service /etc/systemd/system/biangbiangmian3000.service
 sudo systemctl daemon-reload
-sudo systemctl enable ankiadvanced
-sudo systemctl start ankiadvanced
-sudo systemctl status ankiadvanced
+sudo systemctl enable biangbiangmian3000
+sudo systemctl start biangbiangmian3000
+sudo systemctl status biangbiangmian3000
 ```
 
 查看日志：
 
 ```bash
-journalctl -u ankiadvanced -f
+journalctl -u biangbiangmian3000 -f
 ```
 
 ---
@@ -180,7 +180,7 @@ DuckDNS 支持通配符解析——`*.你的域名.duckdns.org` 全部自动指�
 ```caddyfile
 # 追加到 /etc/caddy/Caddyfile（完整示例见 deploy/Caddyfile.example）
 home.your-domain.duckdns.org {
-	root * /home/anki/AnkiAdvanced/homepage
+	root * /home/anki/biangbiangmian3000/homepage
 	file_server
 }
 ```
@@ -206,16 +206,16 @@ crontab -e
 添加一行（每 2 分钟检查一次）：
 
 ```
-*/2 * * * * /home/anki/AnkiAdvanced/deploy/deploy.sh >> /home/anki/deploy.log 2>&1
+*/2 * * * * /home/anki/biangbiangmian3000/deploy/deploy.sh >> /home/anki/deploy.log 2>&1
 ```
 
 `deploy.sh` 内部用 `flock` 防止并发运行；如果两分钟内上一次部署还没跑完，会自动跳过。
 
-要让 `deploy.sh` 里的 `sudo systemctl restart ankiadvanced` 免密码执行，
-给 `anki` 用户加一条 sudoers 规则（用 `sudo visudo -f /etc/sudoers.d/ankiadvanced`）：
+要让 `deploy.sh` 里的 `sudo systemctl restart biangbiangmian3000` 免密码执行，
+给 `anki` 用户加一条 sudoers 规则（用 `sudo visudo -f /etc/sudoers.d/biangbiangmian3000`）：
 
 ```
-anki ALL=(ALL) NOPASSWD: /bin/systemctl restart ankiadvanced
+anki ALL=(ALL) NOPASSWD: /bin/systemctl restart biangbiangmian3000
 ```
 
 查看部署日志：
@@ -231,14 +231,14 @@ tail -f /home/anki/deploy.log
 数据库文件在 `data/srs.db`，建议用 cron 每 6 小时做一次快照，并保留一段时间：
 
 ```bash
-mkdir -p /home/anki/AnkiAdvanced/data/backups
+mkdir -p /home/anki/biangbiangmian3000/data/backups
 crontab -e
 ```
 
 添加一行：
 
 ```
-0 */6 * * * sqlite3 /home/anki/AnkiAdvanced/data/srs.db ".backup '/home/anki/AnkiAdvanced/data/backups/srs_$(date +\%Y-\%m-\%d_\%H-\%M-\%S).db'"
+0 */6 * * * sqlite3 /home/anki/biangbiangmian3000/data/srs.db ".backup '/home/anki/biangbiangmian3000/data/backups/srs_$(date +\%Y-\%m-\%d_\%H-\%M-\%S).db'"
 ```
 
 （本地 Mac 上已经有类似的 `backup.sh` + launchd 方案，可以参考其保留策略——
@@ -248,7 +248,7 @@ crontab -e
 
 ```bash
 # 在本地 Mac 上运行（可以加进 backup.sh 或单独写一个 cron）
-rsync -avz anki@<服务器IP>:/home/anki/AnkiAdvanced/data/backups/ ~/Documents/AnkiAdvanced/data/remote_backups/
+rsync -avz anki@<服务器IP>:/home/anki/biangbiangmian3000/data/backups/ ~/Documents/AnkiAdvanced/data/remote_backups/
 ```
 
 ---
@@ -266,7 +266,7 @@ rsync -avz anki@<服务器IP>:/home/anki/AnkiAdvanced/data/backups/ ~/Documents/
 
 | 现象 | 排查方向 |
 |------|---------|
-| 服务启动失败 | `journalctl -u ankiadvanced -e`，检查 `.env` 路径/权限、`.venv` 是否存在 |
+| 服务启动失败 | `journalctl -u biangbiangmian3000 -e`，检查 `.env` 路径/权限、`.venv` 是否存在 |
 | Caddy 无法签发证书 | 确认 80/443 端口已在 ufw 放行，且域名 DNS 已生效 |
 | deploy.sh 报 sudo 密码错误 | 检查第 7 节的 sudoers NOPASSWD 配置 |
 | 8000 端口被占用 | `run.sh` 会自动 `lsof -ti :8000 | xargs kill -9`，确认服务器已安装 `lsof` |
