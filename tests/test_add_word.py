@@ -442,6 +442,62 @@ def test_listing_an_already_listed_word_is_reported_as_such(tmp_db):
     assert body["status"] == "already_listed"
 
 
+def test_trashed_saved_deck_is_revived_instead_of_breaking_add_word(tmp_db):
+    """Trashing the 'Saved' deck used to 500 every add-word request (#801).
+
+    UNIQUE(name, parent_id) ignores `deleted_at`, so get_or_create_deck found no
+    live deck, inserted, and hit an IntegrityError. Reviving is the only sane
+    answer: the user asked for the word to be parked in ★ List, so ★ List has
+    to exist.
+    """
+    saved_id = database.get_or_create_saved_deck("zh")
+    database.delete_deck(saved_id)
+
+    body = _run_add_word("生态", day="list")
+    assert body["job"]["status"] == "done", body["job"]
+
+    conn = database.get_db()
+    row = conn.execute("SELECT deleted_at FROM decks WHERE id=?", (saved_id,)).fetchone()
+    dupes = conn.execute(
+        "SELECT COUNT(*) c FROM decks WHERE name='Saved' AND parent_id IS ?",
+        (database.get_all_deck_id(),),
+    ).fetchone()["c"]
+    conn.close()
+    assert row["deleted_at"] is None
+    assert dupes == 1
+    # The word really landed in the revived deck, not somewhere improvised.
+    entry_id = database.get_word_by_zh("生态")["id"]
+    conn = database.get_db()
+    decks = {r["deck_id"] for r in conn.execute(
+        "SELECT deck_id FROM cards WHERE word_id=? AND deleted_at IS NULL", (entry_id,))}
+    conn.close()
+    assert decks == {saved_id}
+
+
+def test_reviving_a_deck_leaves_its_cards_alone(tmp_db):
+    """Trashing a deck and emptying it are separate actions (#801): a deck that
+    comes back must not drag deleted cards back with it."""
+    deck_id = database.get_or_create_deck("Reviveme")
+    database.delete_deck(deck_id)
+    conn = database.get_db()
+    conn.execute(
+        "INSERT INTO entries (word_zh, pinyin) VALUES ('测试词', 'cèshìcí')")
+    entry_id = conn.execute("SELECT id FROM entries WHERE word_zh='测试词'").fetchone()["id"]
+    conn.execute(
+        "INSERT INTO cards (word_id, deck_id, category, due, deleted_at)"
+        " VALUES (?, ?, 'reading', date('now'), datetime('now'))",
+        (entry_id, deck_id),
+    )
+    conn.commit()
+    conn.close()
+
+    assert database.get_or_create_deck("Reviveme") == deck_id
+    conn = database.get_db()
+    card = conn.execute("SELECT deleted_at FROM cards WHERE word_id=?", (entry_id,)).fetchone()
+    conn.close()
+    assert card["deleted_at"] is not None
+
+
 def test_listed_word_can_be_promoted_into_a_daily_deck(tmp_db):
     """Browse's '→ Add to Daily' button must work on words added via ★ List —
     that round trip is the reason the feature exists."""
