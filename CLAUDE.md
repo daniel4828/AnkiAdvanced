@@ -218,7 +218,8 @@
 ├── ai.py                  # AI 提供商调用（每种提示词类型一个函数）
 ├── news_fetcher.py        # 新闻抓取（Tagesschau API + RSS；按天缓存 data/news_cache/）
 ├── podcast.py             # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、每源 auto_process 开关+非自动源只入库元数据（#502，podcast_feeds 表）、转录链 NotebookLM 免费主力+听悟+Whisper 保底、单步异常不中止整链（#510 重排，链式降级，原 #498/#485/#486）、摘要 NotebookLM chat.ask 免费优先+DeepSeek/gpt API 链回退（api 路径内部 DeepSeek 优先省钱，#532；勾了 china-kritisch 的素材跳过 DeepSeek 直接用 OpenAI，#731）、邮件通知+Signal 通知（signal-cli 关联设备，发 Note to Self，#521，二者独立可选、互不影响；消息抬头播客名·星期·日期、链接在末尾，单集日期按 Europe/Berlin 显示，#532）、摘要 table.media 风格（`<p>` 段落+每段首句 `<b>` 加粗总结，#567）+详情页 Regenerate summary 按钮、邮件主题=`播客名 - 单集标题`（查不到播客名只用标题，不要退回死前缀）+ `summary_zh` 开头中文总结（#708 起是 `summary_de` 的**完整翻译**：同段落数、同顺序、同事实，同样 `<p>`+段首 `<b>`，HSK4-5 用词；提示词里德语先写、中文后译，JSON 里 `summary_de` 排在前面；渲染三处——邮件 `podcast._summary_zh_html`、详情页 `app.js._summaryZhHtml` 均"先全转义再放行 `<p>/<b>/<strong>/<em>/<i>/<br>`"，Signal 用 `_summary_to_plain_text` 剥标签；#708 之前的旧条目是纯文本，两处渲染都按空行补 `<p>`；**是增量不是必需**——成功判定只看 `summary_de`，模型漏掉中文总结不能让整集失败）+ 摘要里任何 HSK5+ 中文概念都标 `pinyin/汉字`（不限于提取的词表，宁多勿少，#631）；已泛化为知识库存储层，见 `knowledge/` 包
-├── knowledge/             # 知识库摄取（#650–#655，播客功能泛化，见「知识库」节）：youtube.py（字幕摄取）、article.py（正文抽取）、instagram.py（Reel/Post 摄取，yt-dlp 元数据+音频下载，#750）、ingest.py（唯一入库管线）、mailbox.py（IMAP 邮件收件）、signal_inbox.py（Signal Note to Self 分享收件，#749）
+├── annotate/              # 知识库生词标注分派（#804）：__init__.py 按 languages 的 annotator 字段分派，zh 走 zh_annotate（原样不动），romance.py 是法语/西语实现（entry_forms 精确匹配，零词干还原）+ stopwords_fr/es.txt 功能词表
+├── knowledge/             # 知识库摄取（#650–#655，播客功能泛化，见「知识库」节）：rendition.py（按语言渲染摘要，#804）、youtube.py（字幕摄取）、article.py（正文抽取）、instagram.py（Reel/Post 摄取，yt-dlp 元数据+音频下载，#750）、ingest.py（唯一入库管线）、mailbox.py（IMAP 邮件收件）、signal_inbox.py（Signal Note to Self 分享收件，#749）
 ├── zh_annotate.py         # 生词标注（#638，零 AI）：HSK 表+词库+jieba+pypinyin+谷歌翻译
 ├── translator.py          # 翻译（Google Translate，deep-translator，可选）
 ├── tts.py                 # edge-tts 封装（离线模式下只读缓存，#612）
@@ -571,6 +572,12 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
   - **免费的 NotebookLM 路径不受影响，照旧第一优先**：它是 Google 的，没理由审查这个话题，而且不花钱。勾选只改变它失败之后 API 兜底那一层选谁
   - **标记必须在粘贴那一刻打上**：摘要发生在之后独立的 `POST .../process` 调用里（甚至是 cron 里），那时已经没人在旁边说明这是什么素材
   - 三个入口（应用知识页的链接框/正文框、独立收藏页 `/save`）都有该复选框，**每次提交后自动复位**——粘性复选框会在之后所有素材上静默烧 GPT 的钱。请求字段可选且默认 false，所以不发这个字段的 iOS 快捷指令和邮件收件行为完全不变
+- **按语言渲染摘要（#804）**：知识源全语言共享，**AI 摘要只生成一次**（`summary_de` 是主版本），其它语言的阅读版本是它的谷歌翻译 + 生词标注派生物，存 `knowledge_renditions(episode_id, lang)`，第一次打开时懒生成并缓存 —— 不为每种语言再花一次 AI 的钱。中文侧**完全不走这条路**（`summary_zh` 本来就是 AI 原生的，由 `zh_annotate` 标注），零回归
+  - **翻译按 HTML 文本节点分块**（`knowledge/rendition.py._translate_html_strict`）：摘要是 `<p>`/`<b>` 标记的 HTML，整块丢给谷歌翻译会两头出错——免费端点超过约 5000 字直接拒绝，而且标签会被吃掉或挪位。所以只送文本节点、标签原样保留；行数对不上就逐节点重译
+  - **失败绝不写库**：`translator.translate_strict()` 是为此新加的（`translate_zh` 的契约是"失败返回原文"，那在这里等于把德语原文冒充成法语存进库）。失败时详情页显示原因，不静默退回德语
+  - **重新生成摘要会清空该素材的全部 rendition**，否则旧译文会留在库里和新摘要说两套话
+  - **罗曼语的生词判定不做词干还原**（`annotate/romance.py`）：靠 `database.forms_lookup()` 精确匹配 `entry_forms` 里存好的全部变位/词形 —— 这正是 #803 要求加词时把变位表生成齐全的原因。判定 = 词形表 ∪ `known_words(lang)` ∪ 功能词表；标注每篇最多 40 个词，标签内的词（`<strong>` 里的 `strong`）必须跳过，否则会毁掉标记
+  - `GET /api/podcast/episodes/{id}?lang=fr` 返回 `rendition`/`rendition_error`；`known-words` 三个接口都加了 `lang`（默认 `zh`）
 - **`GET /api/podcast/episodes` 加 `?kind=` 过滤**，`POST /api/knowledge/add` 只负责入库，**不在请求里做转录/摘要**——前端拿到 `episode_id` 后照常调用既有的 `POST /api/podcast/episodes/{id}/process`，造卡侧（`routes/story.py` 的 `knowledge` 模式，见「故事生成」）几乎零改动就能吃到播客以外的素材
 - **YouTube 字幕在服务器上必须走 NotebookLM（#681）**：YouTube 整片封锁云服务商 IP，Contabo 的服务器调字幕 API 永远得到 `RequestBlocked`。而 `RequestBlocked`/`IpBlocked`/`PoTokenRequired`/`AgeRestricted` **全是 `CouldNotRetrieveTranscript` 的子类** —— 原来只 `except` 基类，于是"被 YouTube 拒绝"被静默写成 `no_transcript`，一个有 9833 字中文字幕的视频在界面上显示"没有字幕"。现在拒绝类异常必须在基类**之前**捕获（`_blocked_error_types()`），先转 `podcast.transcribe_url_via_notebooklm()`（`sources.add_url()` 自动识别 YouTube 链接，由 Google 自己去取，绕开我们的出口 IP，免费、不下音频），兜底也空则抛 `CaptionsUnavailable` → `status='error'` + 可读原因。**真没字幕的视频不进兜底**，仍走廉价的 `no_transcript`，不浪费几分钟的 NotebookLM 轮次
   - **代价**：NotebookLM 不能指定字幕语言，返回的是视频原声轨（那条视频拿回来的是英文 32633 字，不是本地能拿到的中文翻译轨 9833 字）。摘要提示词本来就容忍任意输入语言，所以功能通；要中文轨只能给字幕 API 配付费代理（`WebshareProxyConfig`），暂不做

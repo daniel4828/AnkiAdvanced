@@ -68,11 +68,16 @@ def add_knowledge_text(body: AddKnowledgeTextRequest):
 
 class KnownWordRequest(BaseModel):
     word: str
+    # #804: known_words is keyed per language (see #803's known_words.lang) —
+    # a known French word and a known Chinese word that happen to share a
+    # surface form must not silently mark each other known. Defaults to 'zh'
+    # so pre-#804 callers (no lang field sent) keep their existing behavior.
+    lang: str = "zh"
 
 
 @router.get("/api/known-words")
-def get_known_words():
-    return {"words": database.list_known_words()}
+def get_known_words(lang: str | None = None):
+    return {"words": database.list_known_words(lang)}
 
 
 @router.post("/api/known-words")
@@ -80,14 +85,14 @@ def add_known_word(body: KnownWordRequest):
     word = (body.word or "").strip()
     if not word:
         raise HTTPException(400, "word required")
-    database.add_known_word(word)
-    return {"status": "ok", "word": word}
+    database.add_known_word(word, body.lang)
+    return {"status": "ok", "word": word, "lang": body.lang}
 
 
 @router.delete("/api/known-words/{word}")
-def delete_known_word(word: str):
+def delete_known_word(word: str, lang: str = "zh"):
     """Undo. Reports a miss instead of pretending — a 404 here means the
     frontend and the database disagree about what is on the list."""
-    if not database.remove_known_word(word.strip()):
+    if not database.remove_known_word(word.strip(), lang):
         raise HTTPException(404, "word not on the known list")
-    return {"status": "ok", "word": word}
+    return {"status": "ok", "word": word, "lang": lang}

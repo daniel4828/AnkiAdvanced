@@ -382,3 +382,58 @@ def list_known_words(lang: str | None = None) -> list[dict]:
         ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# Per-language knowledge-base renditions (#804)
+# ---------------------------------------------------------------------------
+# One episode, one AI-generated summary_de — every other language's reading
+# view is a translated-and-annotated derivative, generated lazily and cached
+# here so repeat views don't re-translate. Chinese has no rendition row: its
+# summary_zh is AI-native and annotated by zh_annotate.py already.
+
+def get_knowledge_rendition(episode_id: int, lang: str) -> dict | None:
+    """The cached rendition for (episode_id, lang), or None if it hasn't been
+    generated yet."""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM knowledge_renditions WHERE episode_id = ? AND lang = ?",
+        (episode_id, lang),
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    d = dict(row)
+    d["new_words"] = json.loads(d["new_words"]) if d.get("new_words") else []
+    return d
+
+
+def save_knowledge_rendition(episode_id: int, lang: str, summary: str,
+                             new_words: list[dict] | None = None) -> None:
+    """Store (or overwrite) the rendition for (episode_id, lang). Only ever
+    called after a translation succeeds — see knowledge/rendition.py; a
+    failed translation must never reach here (#804: no half-finished or
+    untranslated text may be stored pretending to be a lang's summary)."""
+    conn = get_db()
+    conn.execute(
+        """INSERT INTO knowledge_renditions (episode_id, lang, summary, new_words)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(episode_id, lang) DO UPDATE SET
+               summary = excluded.summary,
+               new_words = excluded.new_words,
+               created_at = datetime('now')""",
+        (episode_id, lang, summary, json.dumps(new_words or [], ensure_ascii=False)),
+    )
+    conn.commit()
+    conn.close()
+
+
+def delete_knowledge_renditions(episode_id: int) -> None:
+    """Wipe every cached rendition for an episode (#804) — called whenever
+    summary_de is regenerated, so a stale French/Spanish translation of the
+    OLD summary can't keep being served next to a freshly regenerated German
+    one. The next detail-page view for that language regenerates it lazily."""
+    conn = get_db()
+    conn.execute("DELETE FROM knowledge_renditions WHERE episode_id = ?", (episode_id,))
+    conn.commit()
+    conn.close()

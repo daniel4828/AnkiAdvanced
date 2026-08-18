@@ -7,6 +7,7 @@ import threading
 from xml.etree import ElementTree
 
 import database
+import knowledge.rendition
 import podcast
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -56,7 +57,7 @@ def list_episodes(limit: int = 100, feed_id: int | None = None, kind: str | None
 
 
 @router.get("/api/podcast/episodes/{episode_id}")
-def get_episode(episode_id: int):
+def get_episode(episode_id: int, lang: str = "zh"):
     episode = database.get_episode(episode_id)
     if not episode:
         raise HTTPException(404, "Episode not found")
@@ -72,6 +73,21 @@ def get_episode(episode_id: int):
         except Exception:
             logger.warning("podcast: lazy transcript_de backfill failed for episode %s",
                            episode_id, exc_info=True)
+    # Per-language reading rendition (#804): zh reads summary_zh/hsk_words
+    # directly (unchanged, see docstring on knowledge/rendition.py), every
+    # other language gets a lazily generated + cached translated summary.
+    # Never lets a translation failure turn the whole detail view into a
+    # 500 — the frontend gets rendition=None + rendition_error and falls
+    # back to showing the German summary.
+    if lang != "zh":
+        episode = dict(episode)
+        try:
+            rendition = knowledge.rendition.get_or_create_rendition(episode_id, lang)
+            episode["rendition"] = rendition
+            episode["rendition_error"] = None
+        except knowledge.rendition.RenditionError as e:
+            episode["rendition"] = None
+            episode["rendition_error"] = str(e)
     return _overlay_processing_status(episode)
 
 
