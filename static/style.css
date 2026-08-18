@@ -411,6 +411,7 @@ main.browse-open {
   display: flex;
   align-items: center;
   min-height: 14px;
+  flex-shrink: 0;
 }
 .card-meta-row > #review-cat-row {
   flex: 0;
@@ -426,6 +427,11 @@ main.browse-open {
   display: flex;
   align-items: center;
   gap: 4px;
+  /* The card is a height-constrained flex column on desktop; without this the
+     row gets squeezed and its overflow:hidden clips the text (issue: clipped
+     "Sentence x / y" header). */
+  flex-shrink: 0;
+  line-height: 1.5;
   font-size: 11px;
   font-weight: 600;
   color: var(--muted);
@@ -475,6 +481,8 @@ main.browse-open {
 #card-timer.card-timer-capped { color: #b45309; opacity: 1; }
 .card-deck-path {
   width: 100%;
+  flex-shrink: 0;
+  line-height: 1.5;
   font-size: 11px;
   font-weight: 500;
   color: var(--muted);
@@ -1803,7 +1811,7 @@ main.browse-open {
   margin: 4px 12px 0;
 }
 .news-source-line {
-  font-size: 11px;
+  font-size: 14px;
   color: var(--muted);
   text-decoration: none;
   opacity: 0.85;
