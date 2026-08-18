@@ -62,6 +62,16 @@
   }
   button.repeat:hover:not(:disabled) { background: var(--line); color: var(--fg); }
   button.repeat:disabled { opacity: .5; cursor: default; }
+  /* Language picker (#805) — same pattern as /add (#726): hidden until
+     /api/langs says more than one language is in use. */
+  .langs { display: none; gap: .4rem; margin-bottom: .9rem; }
+  .langs button {
+    padding: .35rem .9rem; font: inherit; font-size: .85rem; font-weight: 600;
+    color: var(--muted); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
+  }
+  .langs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
   .headline { font-size: 1.6rem; font-weight: 700; }
   .headline-pinyin { color: var(--muted); font-size: 1rem; }
   .headline-de { color: var(--fg); opacity: .8; margin-top: .15rem; }
@@ -150,6 +160,7 @@
   </header>
 
   <div class="card">
+    <div class="langs" id="langs"></div>
     <textarea id="query" placeholder="German / English / Chinese word, phrase or sentence…"
               autocapitalize="none" autocorrect="off" spellcheck="false" autofocus></textarea>
     <button class="go" id="go">Look up</button>
@@ -183,6 +194,45 @@
   const histList = document.getElementById('hist-list');
   const histEmpty = document.getElementById('hist-empty');
 
+  // Language of the lookup (#805) — same picker pattern as /add (#726).
+  // Chinese unless ?lang= or the picker says otherwise.
+  let lang = 'zh';
+  const LANG_LABELS = { zh: '中文', fr: 'Français', es: 'Español' };
+  const PLACEHOLDERS = {
+    zh: 'German / English / Chinese word, phrase or sentence…',
+    fr: 'German / English / French word, phrase or sentence…',
+    es: 'German / English / Spanish word, phrase or sentence…',
+  };
+
+  function setLang(l) {
+    lang = l;
+    queryEl.placeholder = PLACEHOLDERS[l] || l;
+    for (const b of document.getElementById('langs').children) {
+      b.classList.toggle('active', b.dataset.lang === l);
+    }
+  }
+
+  async function loadLangs() {
+    let langs;
+    try {
+      langs = await api('GET', '/api/langs?available=1');
+    } catch { return; }
+    if (!langs || !langs.length) return;
+    if (!langs.includes(lang)) setLang('zh');
+    if (langs.length <= 1) return;
+    const el = document.getElementById('langs');
+    el.replaceChildren(...langs.map(l => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.lang = l;
+      b.textContent = LANG_LABELS[l] || l;
+      b.onclick = () => setLang(l);
+      return b;
+    }));
+    el.style.display = 'flex';
+    setLang(langs.includes(lang) ? lang : 'zh');
+  }
+
   function setStatus(text, isError) {
     statusEl.textContent = text || '';
     statusEl.classList.toggle('error', !!isError);
@@ -205,7 +255,7 @@
   // add-word pipeline (#643). Each button tracks its own state so several
   // can be "running" (~30s each) at once without blocking one another —
   // addWordViaAi already polls its own job, we just need to not share state.
-  function makeStarButton(zh) {
+  function makeStarButton(zh, wordLang) {
     const btn = document.createElement('button');
     btn.className = 'star';
     btn.type = 'button';
@@ -237,7 +287,7 @@
           errMsg.textContent = text || 'Failed to add';
           errMsg.style.display = '';
         }
-      }, 'zh');
+      }, wordLang || lang);
     };
 
     const wrap = document.createElement('div');
@@ -272,7 +322,7 @@
     repeat.type = 'button';
     repeat.textContent = '↻ Repeat';
     repeat.title = 'Ask again — this stored answer is replaced';
-    repeat.onclick = () => lookup(record.query, record.id);
+    repeat.onclick = () => lookup(record.query, record.id, record.lang);
     hrow.append(repeat);
     head.append(hrow);
     if (r.headline_de) head.append(textEl('div', 'headline-de', r.headline_de));
@@ -288,7 +338,7 @@
       if (r.sentence.pinyin) text.append(textEl('div', 'pinyin', r.sentence.pinyin));
       if (r.sentence.de) text.append(textEl('div', 'de', r.sentence.de));
       card.append(text);
-      if (r.sentence.zh) card.append(makeStarButton(r.sentence.zh));
+      if (r.sentence.zh) card.append(makeStarButton(r.sentence.zh, record.lang));
       resultEl.append(card);
     }
 
@@ -297,13 +347,13 @@
       g.className = 'group';
       if (group.label) g.append(textEl('div', 'group-label', group.label));
       for (const opt of (group.options || [])) {
-        g.append(renderOption(opt));
+        g.append(renderOption(opt, record.lang));
       }
       resultEl.append(g);
     }
   }
 
-  function renderOption(opt) {
+  function renderOption(opt, wordLang) {
     const row = document.createElement('div');
     row.className = 'option' + (opt.recommended ? ' recommended' : '');
 
@@ -341,14 +391,17 @@
     }
 
     row.append(body);
-    if (opt.zh) row.append(makeStarButton(opt.zh));
+    if (opt.zh) row.append(makeStarButton(opt.zh, wordLang));
     return row;
   }
 
   // ---- Lookup ----
   // replaceId (#777, optional): overwrite that stored lookup instead of adding
   // a new history row — a repeat means "that answer was bad", not "keep both".
-  async function lookup(q, replaceId) {
+  // queryLang (#805, optional): Repeat re-asks in the language the stored
+  // record was originally answered in, not whatever the picker currently
+  // shows — switching tabs must not silently change a repeat's language.
+  async function lookup(q, replaceId, queryLang) {
     if (!q) return;
     goBtn.disabled = true;
     queryEl.disabled = true;
@@ -356,7 +409,7 @@
     repeatBtns.forEach(b => { b.disabled = true; });
     setStatus(replaceId ? 'Asking again… (5–15s)' : 'Looking up… (5–15s)');
     try {
-      const body = { query: q, lang: 'zh' };
+      const body = { query: q, lang: queryLang || lang };
       if (replaceId) body.replace_id = replaceId;
       const record = await api('POST', '/api/dict/lookup', body);
       setStatus('');
@@ -456,8 +509,12 @@
   // straight into a lookup. Accepts ?query= as an alias. Must strip the param
   // afterwards (history.replaceState): a reload or an iOS "restore tabs" would
   // otherwise silently spend another AI call, the same trap #686 hit on /add.
+  // ?lang=fr (#805) picks the language, same convention as /add (#726).
   const params = new URLSearchParams(location.search);
   const preset = (params.get('q') || params.get('query') || '').trim();
+  const langParam = (params.get('lang') || '').trim();
+  if (langParam) setLang(langParam);
+  loadLangs();
   if (preset) {
     history.replaceState(null, '', location.pathname);
     queryEl.value = preset;

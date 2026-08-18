@@ -36,6 +36,7 @@ def _row_to_result(row: dict) -> dict:
         "id": row["id"],
         "created_at": row["created_at"],
         "query": row["query"],
+        "lang": row["lang"],
         "result": json.loads(row["result_json"]),
     }
 
@@ -49,8 +50,8 @@ def lookup(body: DictLookupRequest):
         raise HTTPException(400, "AI is disabled")
     # A bad language is the caller's mistake, not a model failure — 400, not
     # the 500 the ValueError below would otherwise produce.
-    if body.lang != "zh":
-        raise HTTPException(400, f"language {body.lang!r} is not supported yet (only 'zh')")
+    if body.lang not in ("zh", "fr", "es"):
+        raise HTTPException(400, f"language {body.lang!r} is not supported yet (zh/fr/es only)")
 
     # Check the target exists *before* spending 5–15s and a paid AI call on a
     # repeat that could never be stored.

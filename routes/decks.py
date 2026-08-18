@@ -110,9 +110,19 @@ def get_mode():
 
 
 @router.get("/api/langs")
-def get_langs():
+def get_langs(available: bool = False):
     """Distinct languages currently in use across decks. Frontend shows the
-    tab bar only when more than one language is returned."""
+    tab bar only when more than one language is returned.
+
+    available=1 returns every language registered in languages.py instead
+    (#805). The home tab bar wants "in use" — showing a tab for a language
+    with no cards would be noise. The /add and /dict pages want "registered":
+    they are where a language *starts*, and a brand-new language has no decks
+    yet, so filtering by usage there would make it impossible to add its very
+    first word.
+    """
+    if available:
+        return list(languages.LANGUAGES.keys())
     return database.get_available_langs()
 
 

@@ -305,8 +305,89 @@ CREATE TABLE knowledge_renditions (
 `sentence_limit`）已经是从 `languages.py` 取的，新语言不需要新的生成逻辑，
 只需要语言族的 `features.extended_story_modes` 等标志位控制哪些模式可用。
 
-### AI 词典多语言（本 Issue 仍不实现，只占位）
+## 加词与词典：fr/es 的完整形态生成（#805，已实现）
 
-`/api/dict/lookup` 目前 `lang` 硬编码只接受 `'zh'`（见 CLAUDE.md「AI 词典页」
-一节）——扩展到 fr/es 时提示词要按 `family` 分支，不是按具体语言分支（法语
-和西班牙语的提示词结构应该几乎一样）。
+依赖上面的语言族 + `entry_forms`。目标：法语/西班牙语加词生成的词条要和中文
+一样完整——动词全部变位、名词/形容词全部词形变化——因为 `database.forms_lookup()`
+是知识库判定"这个词形学过没有"的唯一办法，**不做词干还原**，所以形态表不全
+就等于知识库标注对罗曼语永远漏词。
+
+### 加词：`ai.generate_word_entry_yaml`
+
+`_ENTRY_YAML_TEMPLATES = {"zh": ..., "fr": ..., "es": ...}` 按 `lang` 选提示词
++ 示例块，新增语言只是往这个字典里加一对，不改函数本身。法语/西班牙语提示词
+要求：
+
+- **名词**：`gender: m|f|mf` 字段 + `forms:` 里的复数（`nombre`/`numero`
+  维度）。
+- **形容词**：`forms:` 里的阴性、复数、阴性复数（`genre`/`genero` +
+  `nombre`/`numero`）。
+- **动词**：`conjugations:`——法语沿用 #726 已有的 7 个时态；西班牙语额外要求
+  `presente`、`pretérito perfecto`、`pretérito indefinido`、`imperfecto`、
+  `futuro`、`condicional`、`presente de subjuntivo` + `participio`/`gerundio`
+  （西班牙语日常口语区分的过去时比法语这套多，少一个时态就是一整类"这句话
+  哪个时态"的生词标注漏判）。
+
+`forms:` 的 YAML 结构与 `conjugations:` 完全同构（`{维度: {槽位: 形式}}`），
+这不是巧合——两者最终都写进同一张 `entry_forms` 表，只是 `kind` 不同
+（见下）。完整字段规则和示例见 `docs/yaml-format.md` 的"法语格式"/"西班牙语
+格式"两节，那里是唯一详细文档，这里不重复。
+
+### 导入器：`_normalize_romance_entry` 泛化，`_process_forms` 新增
+
+`importer._normalize_fr_entry` 改名（旧名保留为别名）为
+`_normalize_romance_entry(entry, lang)`，用 `lang` 参数决定例句/相似句读
+`fr:` 还是 `es:` 键，其余归一化逻辑（headword、CEFR 等级映射、丢弃中文专属
+字段）两种语言完全共享。`gender:` 字段做一次合法性校验（`m`/`f`/`mf`，非法
+值静默丢弃为 `None`，不因为一个可选字段拒绝整条词条——同 `register` 字段的
+处理姿态）。
+
+`_process_forms(entry, word_id)` 与既有的 `_process_conjugations` 是姊妹函数
+（结构几乎一样，`kind='inflection'` 而不是 `'conjugation'`），把 `forms:`
+映射逐槽位写进 `entry_forms`。`database/entries.py` 新增
+`insert_word_form(word_id, kind, paradigm, slot, form, position)` 作为通用的
+单行写入函数，`insert_word_conjugation` 现在是它的薄封装——两个写入路径共享
+同一段 SQL，不是各写一份。`get_word_full()` 新增 `word["inflections"]`（形状
+同 `word["conjugations"]`：`[{paradigm, slot, form, position}]`）。
+
+### `POST /api/add-word-ai` 的 `lang` 参数
+
+`is_valid_lang()` 已经认得 `es`（#803 把它注册成真语言），`_validate_word_for_lang`
+的拉丁字母校验对 fr/es 天然通用（判断逻辑不认字母表具体是哪种，只认"不是
+汉字且含拉丁字母"），所以这条路径**不需要改代码**——#805 在这里唯一动的是
+错误提示信息，从硬编码"in French"改成按 `languages.get_lang_config(lang)["name_en"]`
+取语言名。
+
+### 词典：`DICTIONARY_PROMPT_ROMANCE`
+
+`ai.py` 新增一份罗曼语版提示词（移植自 `de-fr-bot` 技能），用
+`{lang_name}`/`{level}` 参数化，法语和西班牙语共用同一份模板——正是语言族存在
+的意义：两种语言的词典分析结构应该几乎一样，不需要各写一份。**JSON 契约与
+中文版完全一致**（`headline`/`kind`/`sentence`/`groups[].options[]`，字段名
+不变）：目标语言的词/例句仍然写进名叫 `"zh"`/`"example_zh"` 的字段（历史命名，
+`/dict` 前端不分语言渲染，字段名换了前端就要按语言分支，反而制造出#805明确
+要避免的那类耦合）；`pinyin`/`headline_pinyin` 对 fr/es 留空——拉丁字母没有
+单独的注音需要。
+
+`ai.dictionary_lookup(query, lang, model)` 按 `lang in {"zh","fr","es"}` 选
+`DICTIONARY_PROMPT` 或 `DICTIONARY_PROMPT_ROMANCE`；其他值抛 `ValueError`
+（路由层转 400，不是让模型硬答一个错误语言的词典条目——同 #726 加词侧的姿态）。
+`routes/dictionary.py` 的 400 校验、`dict_queries.lang` 列同步放开到三个值。
+
+### 前端：`/dict` 语言切换
+
+`static/dict.html` 加了和 `/add`（#726）完全一样的语言选择器模式：拉一次
+`/api/langs`，只有多于一种语言在用时才显示切换钮；`?lang=` URL 参数打开即
+选定语言。★ 按钮和 Repeat 按钮都要带上"这条历史记录当初是用哪种语言查的"
+（`record.lang`，由 `_row_to_result` 新增的 `lang` 字段带出），而不是"选择器
+现在显示的语言"——否则切标签页再点旧结果的 Repeat/★，会用错误的语言重新生成。
+`/dict` 页面**仍然不加载 `app.js`**（保持原则不变）。
+
+### 浏览与词条详情：`entry_forms` → 词形变化折叠区
+
+`renderConjugationSection` 早已经从 `entry_forms`（经 `get_word_conjugations`
+读回旧形状）读数据，这次不用改。新增 `renderInflectionSection`——同样的分组
+渲染逻辑，读 `word.inflections` + `word.gender`，中文词条两者都是空/None，
+折叠区直接不渲染（`el.innerHTML = ''`），零 UI 差异。挂载点：`wd-inflection-section`
+（词条详情弹窗）+ `inflection-section`（复习卡背面），紧跟在各自的
+conjugation 挂载点后面。
