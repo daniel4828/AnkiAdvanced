@@ -248,7 +248,7 @@ crontab -e
 
 ```bash
 # 在本地 Mac 上运行（可以加进 backup.sh 或单独写一个 cron）
-rsync -avz anki@<服务器IP>:/home/anki/biangbiangmian3000/data/backups/ ~/Documents/AnkiAdvanced/data/remote_backups/
+rsync -avz anki@<服务器IP>:/home/anki/biangbiangmian3000/data/backups/ ~/Documents/biangbiangmian3000/data/remote_backups/
 ```
 
 ---
