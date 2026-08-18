@@ -815,6 +815,14 @@ function _triggerClapAnimation() {
 
 function showView(name) {
   _currentView = name;
+  // Back on the deck list: drop any #knowledge-* deep-link hash still sitting in
+  // the address bar (#792). The boot logic reopens whatever the hash points at,
+  // so leaving it there made every later reload land on the knowledge view
+  // instead of the home screen. Direct links and staying on a knowledge tab are
+  // unaffected — this only fires once the user is back home.
+  if (name === 'decks' && location.hash) {
+    history.replaceState(null, '', location.pathname + location.search);
+  }
   if (name === 'done' && _sessionReviewedCount > 0) _triggerClapAnimation();
   // Leaving the knowledge view (#502, generalized #653): stop the episode-list
   // "processing" poll loop — it has no reason to keep firing once the view
