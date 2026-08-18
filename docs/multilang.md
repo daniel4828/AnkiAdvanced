@@ -1,0 +1,215 @@
+# 多语言地基：语言族 + entry_forms（#803）
+
+> 法语（fr）模式此前只是"能跑"：导入器、加词、牌组树支持 `lang=fr`，但没人真正
+> 用过，也没有法语/西班牙语真正需要的东西——动词变位、名词/形容词词形变化、
+> 阴阳性。本文件是这层地基的唯一设计说明，后续各阶段（知识库多语言标注、AI
+> 词典多语言、造句多语言）的 Issue 都引用它。
+
+---
+
+## 数据库决定（已定）：单一数据库，不分库
+
+知识库、`review_log`、统计、离线同步全部跨语言共享；分库要靠 `ATTACH`，
+`database/` 里每条查询都得改，收益换不回这个成本。语言隔离继续靠 `lang` 列
+（`entries.lang` / `decks.lang` / `stories.lang`）。"某语言从主模式继承哪些
+行为"这件事，落在 `languages.py` 的语言族配置上，不落在数据库结构上。
+
+## 语言族：sinitic vs. romance
+
+中文和罗曼语族（法语/西班牙语）是根本不同的两类语言——分词方式、语素结构、
+要不要存拼音/汉字/量词，全都不一样。而法语和西班牙语彼此极像：都需要动词变位
+表、名词/形容词的阴阳性和单复数、都用空格分词、CEFR 分级。
+
+`languages.py` 用两个"语言族基底" dict 表达这层继承：
+
+```python
+_SINITIC_BASE = {
+    "family": "sinitic",
+    "annotator": "zh",
+    "tokenizer": "jieba",
+    "features": {
+        "pinyin": True, "characters": True, "measure_words": True,
+        "traditional": True, "extended_story_modes": True,
+        "conjugation": False, "gender": False, "inflection": False,
+    },
+}
+
+_ROMANCE_BASE = {
+    "family": "romance",
+    "annotator": "romance",
+    "tokenizer": "whitespace",
+    "features": {
+        "pinyin": False, "characters": False, "measure_words": False,
+        "traditional": False, "extended_story_modes": False,
+        "conjugation": True, "gender": True, "inflection": True,
+    },
+}
+```
+
+具体语言用浅合并继承基底，再覆盖自己独有的字段：
+
+```python
+"fr": {**_ROMANCE_BASE, "code": "fr", "tts_voice": "fr-FR-DeniseNeural", ...,
+       "features": {**_ROMANCE_BASE["features"]}},
+"es": {**_ROMANCE_BASE, "code": "es", "tts_voice": "es-ES-ElviraNeural", ...,
+       "features": {**_ROMANCE_BASE["features"]}},
+```
+
+**`features` 必须显式重新展开，不能让整个 dict 被子语言的字面量覆盖**——否则
+以后某个语言想单独覆盖一个 feature（比如某天西班牙语要区分 `vosotros` 这种
+法语没有的东西）就会把其它全部继承来的 feature 一起清空。加新的罗曼语族语言
+（比如意大利语）只需要 `{**_ROMANCE_BASE, "code": "it", ...}` 一个条目。
+
+新增字段（本 Issue 起所有语言都必须有）：
+
+| 字段 | 含义 |
+|---|---|
+| `family` | `"sinitic"` \| `"romance"` —— 未来加新语言族时再扩展这个枚举 |
+| `annotator` | 知识库生词标注用哪套实现：`"zh"`（`zh_annotate.py`，HSK 表+jieba+pypinyin，零 AI）\| `"romance"`（尚未实现，留给知识库多语言标注的 Issue） |
+| `features.conjugation` | 该语言是否需要动词变位表（`entry_forms` 的 `kind='conjugation'`） |
+| `features.gender` | 该语言的名词/形容词是否分阴阳性（`entries.gender` 列 + `entry_forms` 的 `kind='inflection', paradigm='genre'`） |
+| `features.inflection` | 该语言是否需要名词单复数等词形变化（`entry_forms` 的 `kind='inflection'`） |
+
+`get_lang_config` / `is_valid_lang` / `deck_root` 三个函数的签名不变，所有
+既有调用点（`tts.py`、`translator.py`、`routes/story.py`、`ai.py`、
+`database/decks.py`、`static/app.js` 的 features 判断）不用改。
+
+---
+
+## entry_forms：一张表装下变位和词形变化
+
+`entry_conjugations` 只有 `tense × person` 两个维度，装得下动词变位，装不下
+名词复数、形容词阴阳性——那些不是"时态×人称"，是"维度×值"。与其为词形变化
+另开一张表（`entry_inflections`），不如把 `entry_conjugations` 泛化成一张
+更通用的表，两种用法靠 `kind` 区分：
+
+```sql
+CREATE TABLE entry_forms (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    word_id  INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+    kind     TEXT NOT NULL DEFAULT 'conjugation',  -- 'conjugation' | 'inflection'
+    paradigm TEXT NOT NULL,   -- 变位: 时态；词形: 维度
+    slot     TEXT NOT NULL DEFAULT '',              -- 变位: 人称；词形: 槽位
+    form     TEXT NOT NULL,
+    position INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(word_id, paradigm, slot)
+);
+CREATE INDEX idx_entry_forms_form ON entry_forms(form);
+CREATE INDEX idx_entry_forms_word ON entry_forms(word_id);
+```
+
+### 两种用法
+
+**`kind='conjugation'`**（动词变位，与旧 `entry_conjugations` 语义一一对应）：
+
+| 列 | 含义 | 例子 |
+|---|---|---|
+| `paradigm` | 时态 | `'présent'`、`'passé composé'`、`'participe passé'` |
+| `slot` | 人称，无人称形式（分词/不定式）为 `''` | `'je'`、`'tu'`、`'il/elle'`、`''` |
+| `form` | 变位后的形式 | `'parle'` |
+
+**`kind='inflection'`**（名词/形容词词形变化，#803 新增）：
+
+| 列 | 含义 | 例子 |
+|---|---|---|
+| `paradigm` | 维度 | `'nombre'`（数）、`'genre'`（性）|
+| `slot` | 该维度下的槽位 | `'pluriel'`、`'féminin'`、`'masculin_pluriel'` |
+| `form` | 该槽位对应的表层形式 | `'chevaux'`（cheval 的复数）|
+
+`entries.gender` 列（`'m' \| 'f' \| 'mf' \| NULL`）单独存"这个词条本身的默认
+性"——这是词条级别的固定属性，不是"变化出的一个形式"，所以不进 `entry_forms`；
+`entry_forms` 里的 `genre` 维度存的是阴阳性变化出的**具体词形**（比如某个
+形容词的阴性形式），二者互补，不重复。
+
+### 为什么 `idx_entry_forms_form` 是必需的
+
+知识库标注（zh_annotate 的罗曼语对应实现，后续 Issue）要对一篇文章里的每个
+词形问"这是不是 Daniel 已经学过的某个词的一个变化形式"——这是每篇文章几百次
+的查询，全表扫描不可接受。`database.forms_lookup(surface_forms, lang)` 就是
+这条查询的实现，同时也匹配 `entries.word_zh` 本身（词典形也算已学）：
+
+```python
+def forms_lookup(surface_forms: list[str], lang: str) -> set[str]: ...
+```
+
+`lang` 参数不可省略：法语和西班牙语共享大量同形词面（`capital`、`animal`、
+`total`、`region`……），不按语言过滤会把西班牙语文章里的生词误判成"已经学过
+的法语词"。
+
+### 迁移：一次性，不删旧表
+
+`entry_conjugations` 的全部行在 `init_db()` 里被搬进 `entry_forms`
+（`kind='conjugation'`、`paradigm=tense`、`slot=person`），用
+`app_settings['migrated_entry_conjugations']` 标记保证只跑一次——原因同 #688
+的教训：`init_db()` 每次进程启动都会跑，生产上每 2 分钟一次（`deploy.sh`），
+不加标记的话每次重启都会重新灌一遍（`INSERT OR IGNORE` 本身是幂等的，但没有
+标记就没法安全地允许之后手工修改 `entry_forms` 而不被下次启动覆盖）。
+
+`entry_conjugations` 表**保留但代码不再读写**——`database.insert_word_conjugation`
+/ `get_word_conjugations` 现在直接操作 `entry_forms`，只是保持旧的函数签名和
+返回形状（`{tense, person, form, position}`）不变，因为 `/api/word/{id}` 和
+`static/app.js` 的 `renderConjugationSection` 都依赖这个形状——法语词条详情页
+不能因为这次重构而坏掉。
+
+---
+
+## `UNIQUE(word_zh)` → `UNIQUE(word_zh, lang)`
+
+`entries.word_zh` 原来是全局唯一。这在只有中文+法语时凑合能用（文字系统不同，
+天然不撞），但法语和西班牙语共享拉丁字母，`capital`、`animal`、`total`、
+`region` 这类词两种语言里长得一模一样。全局唯一约束会：
+
+- 要么直接拒绝插入西班牙语的 `capital`（因为法语的 `capital` 已经占了这个
+  `word_zh`）；
+- 要么更糟——`INSERT OR IGNORE` 静默把它当"已存在"跳过，西班牙语版本的释义/
+  变位/例句从未真正写入，用户看到的是法语内容。
+
+`known_words`（#710，"已认识但没学过的词"标记表）有一模一样的问题，同样从
+`PRIMARY KEY(word_zh)` 改成 `PRIMARY KEY(word_zh, lang)`。
+
+两张表都是**重建**（SQLite 不支持直接改 `UNIQUE`/主键约束），套用仓库里
+`entries` register CHECK 迁移的先例：建新表 → 拷全量数据 → `DROP` → 
+`RENAME`，全程 `PRAGMA foreign_keys=OFF`。`schema.sql` 与 `database/core.py`
+的迁移代码两处的列定义必须逐字一致——这是新库（走 `schema.sql`）和老库迁移后
+（走 `init_db()` 的 ALTER/重建）必须收敛到同一份表结构的唯一保证。
+
+**已知限制*仍然*没有解决**：中文和法语之间仍然共享全局命名空间的风险为零
+（文字系统不同），但如果将来加入另一种使用汉字的语言（日语？），
+`UNIQUE(word_zh, lang)` 已经是正确答案，不用再迁移一次。
+
+---
+
+## `database/entries.py` 的形态接口
+
+```python
+def set_entry_forms(word_id: int, forms: list[dict]) -> None: ...
+def get_entry_forms(word_id: int) -> dict: ...          # kind -> paradigm -> slot -> form
+def forms_lookup(surface_forms: list[str], lang: str) -> set[str]: ...
+
+# 向后兼容（读写都改成走 entry_forms，返回/参数形状不变）：
+def insert_word_conjugation(word_id, tense, person, form, position) -> None: ...
+def get_word_conjugations(word_id: int) -> list[dict]: ...   # [{tense, person, form, position}]
+```
+
+`set_entry_forms` 是**整表替换**，不是合并——调用方（导入器、AI 生成的词条）
+每次都拿到完整的变位表/词形表，不存在"只更新一个时态"的场景，这与
+`entry_examples` 用 `delete_word_examples` + 重新插入的模式一致。
+
+`known_words` 相关函数（`database/podcast.py`）全部加了 `lang: str = "zh"`
+参数，默认值保证中文侧所有既有调用点（`zh_annotate.py`、
+`routes/knowledge.py`）行为完全不变。
+
+---
+
+## 后续阶段的接口约定（本 Issue 不实现，只占位）
+
+- **知识库多语言标注**：`annotator` 字段决定走哪套实现；罗曼语实现要用
+  `forms_lookup()` 而不是简单的字符串包含判断——"reconnaître 出现在文章里"
+  不代表"reconnaissons"这个变位形式也该被认成已学。
+- **AI 词典多语言**：`/api/dict/lookup` 目前 `lang` 硬编码只接受 `'zh'`
+  （见 CLAUDE.md「AI 词典页」一节）——扩展到 fr/es 时提示词要按 `family`
+  分支，不是按具体语言分支（法语和西班牙语的提示词结构应该几乎一样）。
+- **造句（story generation）多语言**：`ai.py` 的提示词片段（`learner_level`
+  / `background_vocab` / `sentence_limit`）已经是从 `languages.py` 取的，
+  新语言不需要新的生成逻辑，只需要语言族的 `features.extended_story_modes`
+  等标志位控制哪些模式可用。

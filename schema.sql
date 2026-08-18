@@ -162,15 +162,18 @@ CREATE TABLE IF NOT EXISTS decks (
 CREATE TABLE IF NOT EXISTS entries (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     -- word_zh holds the target-language headword for ALL languages (the _zh
-    -- suffix is historical). Known limitation: UNIQUE(word_zh) is global, not
-    -- per-lang — fine while languages use different scripts (zh vs fr).
-    word_zh         TEXT NOT NULL UNIQUE,
+    -- suffix is historical). Unique per (word_zh, lang) — not globally unique
+    -- (issue #803): French and Spanish share many identical surface forms
+    -- (capital, animal, total, region...), so a global constraint would
+    -- either reject a genuinely new word or silently collide with an
+    -- unrelated language's entry.
+    word_zh         TEXT NOT NULL,
     -- target language of this entry (see languages.py registry)
     lang            TEXT NOT NULL DEFAULT 'zh',
     pinyin          TEXT,
     definition      TEXT,           -- English definition
     pos             TEXT,           -- part of speech
-    hsk_level       INTEGER,        -- 1-6, NULL for 超纲
+    hsk_level       INTEGER,        -- 1-6, NULL for 超纲 (or CEFR A1-C2 for non-zh langs)
     traditional     TEXT,
     definition_zh   TEXT,
     date_added      TEXT NOT NULL DEFAULT (datetime('now')),
@@ -183,8 +186,10 @@ CREATE TABLE IF NOT EXISTS entries (
     definition_fr   TEXT,           -- French translation / definition
     note_type       TEXT NOT NULL DEFAULT 'vocabulary',
                         -- vocabulary | sentence | chengyu | expression | grammar
-    register        TEXT CHECK(register IN ('spoken', 'written', 'both', 'spoken_colloquial', 'spoken_neutral', 'neutral', 'formal_written', 'literary'))
+    register        TEXT CHECK(register IN ('spoken', 'written', 'both', 'spoken_colloquial', 'spoken_neutral', 'neutral', 'formal_written', 'literary')),
                         -- language register: spoken=口语, written=书面语, both=通用, spoken_colloquial=口语俚语, spoken_neutral=中性口语, neutral=通用, formal_written=正式书面语, literary=文学语体
+    gender          TEXT,           -- 'm' | 'f' | 'mf' | NULL — noun grammatical gender (French/Spanish; #803)
+    UNIQUE(word_zh, lang)
 );
 
 -- ---------------------------------------------------------------------------
@@ -227,6 +232,35 @@ CREATE TABLE IF NOT EXISTS entry_conjugations (
     position    INTEGER NOT NULL DEFAULT 0, -- preserves the YAML tense/person order
     UNIQUE(word_id, tense, person)
 );
+-- NOTE (#803): entry_conjugations is kept around but no longer read or
+-- written by application code — its rows were migrated into entry_forms
+-- below (one-time, see database/core.py's migrated_entry_conjugations
+-- marker). entry_forms is the single source of truth going forward.
+
+-- ---------------------------------------------------------------------------
+-- entry_forms  (morphological forms — generalizes entry_conjugations to also
+-- cover noun/adjective inflection: plural, gender agreement, etc. Two uses,
+-- distinguished by `kind` (issue #803, docs/multilang.md has the full model):
+--   kind='conjugation': paradigm=tense (e.g. 'présent'), slot=person
+--                        (e.g. 'je', '' for impersonal forms)
+--   kind='inflection':  paradigm=dimension (e.g. 'nombre', 'genre'),
+--                        slot=value (e.g. 'pluriel', 'féminin')
+-- idx_entry_forms_form is required for forms_lookup(): the knowledge-base
+-- annotator runs "is this surface form one Daniel already knows" hundreds of
+-- times per article.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS entry_forms (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    word_id  INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+    kind     TEXT NOT NULL DEFAULT 'conjugation',
+    paradigm TEXT NOT NULL,
+    slot     TEXT NOT NULL DEFAULT '',
+    form     TEXT NOT NULL,
+    position INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(word_id, paradigm, slot)
+);
+CREATE INDEX IF NOT EXISTS idx_entry_forms_form ON entry_forms(form);
+CREATE INDEX IF NOT EXISTS idx_entry_forms_word ON entry_forms(word_id);
 
 -- ---------------------------------------------------------------------------
 -- entry_examples
@@ -625,9 +659,15 @@ CREATE TABLE IF NOT EXISTS app_settings (
 -- both summaries, the HSK word table under an episode) follows from that one
 -- test, so a word marked here quietly stops being flagged everywhere at once.
 -- ---------------------------------------------------------------------------
+-- lang (#803): known_words was PK'd on word_zh alone, which is wrong for the
+-- same reason entries.word_zh is — French/Spanish share surface forms, so
+-- marking a French word known must not silently mark an identical-looking
+-- Spanish word known too.
 CREATE TABLE IF NOT EXISTS known_words (
-    word_zh  TEXT PRIMARY KEY,
-    added_at TEXT NOT NULL DEFAULT (datetime('now'))
+    word_zh  TEXT NOT NULL,
+    lang     TEXT NOT NULL DEFAULT 'zh',
+    added_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (word_zh, lang)
 );
 
 -- ---------------------------------------------------------------------------

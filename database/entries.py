@@ -204,12 +204,17 @@ def insert_word_relation(word_id: int, related_zh: str,
 
 def insert_word_conjugation(word_id: int, tense: str, person: str,
                             form: str, position: int) -> None:
-    """person is '' for impersonal forms (participles, infinitive)."""
+    """person is '' for impersonal forms (participles, infinitive).
+
+    Writes into entry_forms, not the legacy entry_conjugations table (#803:
+    entry_forms is the single source of truth going forward — see
+    docs/multilang.md). tense -> paradigm, person -> slot.
+    """
     conn = get_db()
     conn.execute(
-        """INSERT OR IGNORE INTO entry_conjugations
-           (word_id, tense, person, form, position)
-           VALUES (?, ?, ?, ?, ?)""",
+        """INSERT OR IGNORE INTO entry_forms
+           (word_id, kind, paradigm, slot, form, position)
+           VALUES (?, 'conjugation', ?, ?, ?, ?)""",
         (word_id, tense, person, form, position),
     )
     conn.commit()
@@ -217,13 +222,99 @@ def insert_word_conjugation(word_id: int, tense: str, person: str,
 
 
 def get_word_conjugations(word_id: int) -> list[dict]:
+    """Conjugation rows for a word, shaped like the old entry_conjugations
+    table (tense/person/form/position) for backward compatibility with
+    /api/word/{id} and the frontend's renderConjugationSection (#803)."""
     conn = get_db()
     rows = conn.execute(
-        "SELECT * FROM entry_conjugations WHERE word_id = ? ORDER BY position, id",
+        """SELECT paradigm AS tense, slot AS person, form, position
+           FROM entry_forms WHERE word_id = ? AND kind = 'conjugation'
+           ORDER BY position, id""",
         (word_id,),
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# entry_forms (#803) — generalizes entry_conjugations to also cover noun/
+# adjective inflection (plural, gender agreement). See docs/multilang.md for
+# the full model.
+# ---------------------------------------------------------------------------
+
+def set_entry_forms(word_id: int, forms: list[dict]) -> None:
+    """Replace all morphological forms for a word.
+
+    Each form dict: {kind, paradigm, slot, form, position}. kind is
+    'conjugation' (paradigm=tense, slot=person) or 'inflection'
+    (paradigm=dimension e.g. 'nombre'/'genre', slot=value e.g.
+    'pluriel'/'féminin'). Full replace, not merge — callers are expected to
+    pass the complete current set for the word (AI-generated entries always
+    ship a full table, never a partial patch), mirroring how
+    delete_word_examples + re-insert works for entry_examples.
+    """
+    conn = get_db()
+    conn.execute("DELETE FROM entry_forms WHERE word_id = ?", (word_id,))
+    for f in forms:
+        conn.execute(
+            """INSERT OR IGNORE INTO entry_forms
+               (word_id, kind, paradigm, slot, form, position)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (
+                word_id,
+                f.get("kind", "conjugation"),
+                f["paradigm"],
+                f.get("slot", ""),
+                f["form"],
+                f.get("position", 0),
+            ),
+        )
+    conn.commit()
+    conn.close()
+
+
+def get_entry_forms(word_id: int) -> dict:
+    """All morphological forms for a word, grouped kind -> paradigm -> slot -> form."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM entry_forms WHERE word_id = ? ORDER BY kind, position, id",
+        (word_id,),
+    ).fetchall()
+    conn.close()
+    grouped: dict = {}
+    for r in rows:
+        grouped.setdefault(r["kind"], {}).setdefault(r["paradigm"], {})[r["slot"]] = r["form"]
+    return grouped
+
+
+def forms_lookup(surface_forms: list[str], lang: str) -> set[str]:
+    """Which of these surface forms belong to an already-studied entry in `lang`.
+
+    A surface form matches if it's either a stored conjugated/inflected form
+    (entry_forms.form) or the dictionary headword itself (entries.word_zh —
+    the word's citation/dictionary form also counts as "already learned").
+    This is the core query behind knowledge-base annotation for conjugating
+    languages (#803): given the tokens of an article, which ones are forms of
+    a word Daniel already knows. `lang` is required — the same surface form
+    can belong to unrelated words in different languages (French/Spanish
+    share many identical forms).
+    """
+    if not surface_forms:
+        return set()
+    conn = get_db()
+    placeholders = ",".join("?" for _ in surface_forms)
+    form_rows = conn.execute(
+        f"""SELECT DISTINCT ef.form FROM entry_forms ef
+            JOIN entries e ON e.id = ef.word_id
+            WHERE e.lang = ? AND ef.form IN ({placeholders})""",
+        (lang, *surface_forms),
+    ).fetchall()
+    zh_rows = conn.execute(
+        f"SELECT word_zh FROM entries WHERE lang = ? AND word_zh IN ({placeholders})",
+        (lang, *surface_forms),
+    ).fetchall()
+    conn.close()
+    return {r["form"] for r in form_rows} | {r["word_zh"] for r in zh_rows}
 
 
 def delete_word_examples(word_id: int) -> None:

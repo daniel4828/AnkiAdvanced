@@ -321,47 +321,64 @@ def word_zh_exists(words: list[str]) -> set[str]:
     return {r["word_zh"] for r in rows}
 
 
-def known_words_exists(words: list[str]) -> set[str]:
+def known_words_exists(words: list[str], lang: str = "zh") -> set[str]:
     """Which of these words Daniel has marked as already known (#710).
 
     The counterpart of word_zh_exists: a word can be known without ever having
-    been studied here. zh_annotate unions the two — see its _known_words()."""
+    been studied here. zh_annotate unions the two — see its _known_words().
+    `lang` defaults to 'zh' so existing Chinese call sites are unaffected
+    (#803: known_words is now keyed per language, same reasoning as
+    entries.word_zh — French/Spanish share surface forms)."""
     if not words:
         return set()
     conn = get_db()
     placeholders = ",".join("?" for _ in words)
     rows = conn.execute(
-        f"SELECT word_zh FROM known_words WHERE word_zh IN ({placeholders})", words
+        f"SELECT word_zh FROM known_words WHERE lang = ? AND word_zh IN ({placeholders})",
+        (lang, *words),
     ).fetchall()
     conn.close()
     return {r["word_zh"] for r in rows}
 
 
-def add_known_word(word_zh: str) -> None:
+def add_known_word(word_zh: str, lang: str = "zh") -> None:
     """Mark a word as already known (#710). Idempotent: marking a word twice
     is exactly what happens when Daniel meets it in a second episode."""
     conn = get_db()
-    conn.execute("INSERT OR IGNORE INTO known_words (word_zh) VALUES (?)", (word_zh,))
+    conn.execute(
+        "INSERT OR IGNORE INTO known_words (word_zh, lang) VALUES (?, ?)",
+        (word_zh, lang),
+    )
     conn.commit()
     conn.close()
 
 
-def remove_known_word(word_zh: str) -> bool:
+def remove_known_word(word_zh: str, lang: str = "zh") -> bool:
     """Undo add_known_word. Returns whether the word was actually on the list
     — the caller reports a miss rather than pretending it removed something."""
     conn = get_db()
-    cur = conn.execute("DELETE FROM known_words WHERE word_zh = ?", (word_zh,))
+    cur = conn.execute(
+        "DELETE FROM known_words WHERE word_zh = ? AND lang = ?", (word_zh, lang)
+    )
     conn.commit()
     removed = cur.rowcount > 0
     conn.close()
     return removed
 
 
-def list_known_words() -> list[dict]:
-    """All words marked as known, newest first."""
+def list_known_words(lang: str | None = None) -> list[dict]:
+    """Words marked as known, newest first. `lang=None` (default) returns all
+    languages, matching the pre-#803 behavior of this endpoint."""
     conn = get_db()
-    rows = conn.execute(
-        "SELECT word_zh, added_at FROM known_words ORDER BY added_at DESC, word_zh"
-    ).fetchall()
+    if lang is not None:
+        rows = conn.execute(
+            "SELECT word_zh, lang, added_at FROM known_words "
+            "WHERE lang = ? ORDER BY added_at DESC, word_zh",
+            (lang,),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT word_zh, lang, added_at FROM known_words ORDER BY added_at DESC, word_zh"
+        ).fetchall()
     conn.close()
     return [dict(r) for r in rows]

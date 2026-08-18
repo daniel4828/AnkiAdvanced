@@ -751,8 +751,11 @@ def test_wrong_script_is_rejected_per_language(tmp_db):
 
 
 def test_unknown_lang_is_rejected(tmp_db):
+    # 'es' used to be the stand-in "unsupported language" here, but #803 adds
+    # it to languages.py as a real (foundation-only) language, so it's no
+    # longer unknown — use a code that will never be a real entry here.
     assert client.post("/api/add-word-ai",
-                       json={"word_zh": "séjour", "lang": "es"}).status_code == 400
+                       json={"word_zh": "séjour", "lang": "xx"}).status_code == 400
 
 
 def test_french_prompt_is_used_for_french(tmp_db):
