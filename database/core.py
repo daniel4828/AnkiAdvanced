@@ -159,6 +159,76 @@ def init_db() -> None:
         conn.execute("ALTER TABLE entries ADD COLUMN lang TEXT NOT NULL DEFAULT 'zh'")
     if "grammar_notes" not in cols:
         conn.execute("ALTER TABLE entries ADD COLUMN grammar_notes TEXT")
+    if "gender" not in cols:
+        conn.execute("ALTER TABLE entries ADD COLUMN gender TEXT")
+
+    # One-time table rebuild (#803): UNIQUE(word_zh) -> UNIQUE(word_zh, lang).
+    # French and Spanish share many identical surface forms (capital, animal,
+    # total, region...) — a global unique constraint would either reject a
+    # genuinely new word or silently collide with an unrelated language's
+    # entry. Detected via the stored CREATE TABLE sql text (same approach as
+    # the register-CHECK migration above), so this only fires once, on
+    # databases created before #803.
+    entries_sql = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='entries'"
+    ).fetchone()["sql"]
+    if entries_sql and "UNIQUE(word_zh, lang)" not in entries_sql:
+        col_names = [r["name"] for r in conn.execute("PRAGMA table_info(entries)").fetchall()]
+        cols_csv = ", ".join(col_names)
+        conn.execute("PRAGMA foreign_keys = OFF")
+        conn.commit()
+        conn.execute("""CREATE TABLE _entries_new (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                word_zh         TEXT NOT NULL,
+                lang            TEXT NOT NULL DEFAULT 'zh',
+                pinyin          TEXT,
+                definition      TEXT,
+                pos             TEXT,
+                hsk_level       INTEGER,
+                traditional     TEXT,
+                definition_zh   TEXT,
+                date_added      TEXT NOT NULL DEFAULT (datetime('now')),
+                date_yaml       TEXT,
+                source          TEXT NOT NULL DEFAULT 'kouyu',
+                notes           TEXT,
+                source_sentence TEXT,
+                grammar_notes   TEXT,
+                definition_de   TEXT,
+                definition_fr   TEXT,
+                note_type       TEXT NOT NULL DEFAULT 'vocabulary',
+                register        TEXT CHECK(register IN ('spoken', 'written', 'both', 'spoken_colloquial', 'spoken_neutral', 'neutral', 'formal_written', 'literary')),
+                gender          TEXT,
+                UNIQUE(word_zh, lang)
+            )""")
+        conn.execute(f"INSERT INTO _entries_new ({cols_csv}) SELECT {cols_csv} FROM entries")
+        conn.execute("DROP TABLE entries")
+        conn.execute("ALTER TABLE _entries_new RENAME TO entries")
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.commit()
+
+    # One-time table rebuild (#803): known_words gains a `lang` column and its
+    # primary key becomes (word_zh, lang) — see entries' UNIQUE(word_zh, lang)
+    # rebuild above for the same reasoning (French/Spanish surface-form
+    # collisions). Existing rows are all Chinese (known_words predates #803's
+    # multi-language morphology work), so they backfill lang='zh'.
+    kw_cols = {r["name"] for r in conn.execute("PRAGMA table_info(known_words)").fetchall()}
+    if "lang" not in kw_cols:
+        conn.execute("PRAGMA foreign_keys = OFF")
+        conn.commit()
+        conn.execute("""CREATE TABLE known_words_new (
+                word_zh  TEXT NOT NULL,
+                lang     TEXT NOT NULL DEFAULT 'zh',
+                added_at TEXT NOT NULL DEFAULT (datetime('now')),
+                PRIMARY KEY (word_zh, lang)
+            )""")
+        conn.execute(
+            "INSERT INTO known_words_new (word_zh, lang, added_at) "
+            "SELECT word_zh, 'zh', added_at FROM known_words"
+        )
+        conn.execute("DROP TABLE known_words")
+        conn.execute("ALTER TABLE known_words_new RENAME TO known_words")
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.commit()
 
     ex_cols = {r["name"] for r in conn.execute("PRAGMA table_info(entry_examples)").fetchall()}
     if "example_type" not in ex_cols:
@@ -701,6 +771,33 @@ def init_db() -> None:
                 "DELETE FROM podcast_episodes WHERE id = ?", [(i,) for i in stale_ids])
         conn.execute(
             "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('purged_legacy_youtube_rows', '1')")
+        conn.commit()
+
+    # One-time migration (#803): entry_conjugations -> entry_forms. entry_forms
+    # generalizes the old tense x person grid to also cover noun/adjective
+    # inflection (kind='inflection'), which entry_conjugations has no columns
+    # for. The old table is left in place (not dropped) so this is safe to
+    # roll back; going forward it is never read or written by application
+    # code — entry_forms is the single source of truth. Marker-guarded
+    # (production redeploys re-run init_db() every ~2 minutes via deploy.sh)
+    # so re-running this doesn't reprocess rows that were already migrated
+    # and then possibly edited independently in entry_forms.
+    already_migrated_forms = conn.execute(
+        "SELECT value FROM app_settings WHERE key = 'migrated_entry_conjugations'"
+    ).fetchone()
+    if not already_migrated_forms:
+        conj_rows = conn.execute(
+            "SELECT word_id, tense, person, form, position FROM entry_conjugations"
+        ).fetchall()
+        for r in conj_rows:
+            conn.execute(
+                """INSERT OR IGNORE INTO entry_forms
+                   (word_id, kind, paradigm, slot, form, position)
+                   VALUES (?, 'conjugation', ?, ?, ?, ?)""",
+                (r["word_id"], r["tense"], r["person"], r["form"], r["position"]),
+            )
+        conn.execute(
+            "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('migrated_entry_conjugations', '1')")
         conn.commit()
 
     # One-time backfill of cards.leeched_at (#773): the column is new, so

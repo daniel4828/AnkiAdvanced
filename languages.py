@@ -1,23 +1,83 @@
-"""
-Language registry — the single source of truth for per-language behavior.
+"""Language registry — the single source of truth for per-language behavior.
 
 Every language the app supports gets one entry here. Adding a new language
 means adding one dict entry (plus an importer YAML format if it needs one) —
 no other module should hard-code language-specific values.
 
-Consumers (wired up across PRs #428–#431):
+Consumers (wired up across PRs #428–#431, #803):
   - tts.py             → tts_voice / say_voice
   - translator.py      → translator_source
   - routes/story.py    → tokenizer (jieba vs. whitespace)
-  - ai.py              → prompt fragments (language_name, learner_level,
+  - ai.py               → prompt fragments (language_name, learner_level,
                           background_vocab, sentence_limit)
-  - static/app.js      → features (which UI elements to show per deck)
+  - static/app.js       → features (which UI elements to show per deck)
+  - zh_annotate.py       → annotator (which knowledge-base annotation
+                          implementation a language uses; #803)
+  - database/entries.py  → features.conjugation / .gender / .inflection
+                          (whether entry_forms rows apply to this language)
+
+Language family (issue #803)
+-----------------------------
+Chinese is structurally unlike anything else the app supports; French and
+Spanish are structurally alike (and any future Romance language will be too).
+Rather than repeat every shared field per language, each family has a base
+dict (`_SINITIC_BASE` / `_ROMANCE_BASE`) that concrete languages spread into
+their own entry (`{**_ROMANCE_BASE, "code": "fr", ...}`). `features` is
+merged explicitly too — never let a child language's dict silently replace
+the whole features block when it only means to override one flag.
 """
 
 DEFAULT_LANG = "zh"
 
+# ---------------------------------------------------------------------------
+# Family bases — shared defaults for every language in that family. Concrete
+# language entries below spread these in, then override the fields that make
+# that specific language distinct (name, voice, level system, ...).
+# ---------------------------------------------------------------------------
+
+_SINITIC_BASE = {
+    "family": "sinitic",
+    # Which knowledge-base annotation implementation this language uses
+    # (zh_annotate.py's zero-AI HSK-table + jieba + pypinyin pipeline is
+    # Chinese-specific; Romance languages get a different implementation).
+    "annotator": "zh",
+    "tokenizer": "jieba",
+    "features": {
+        "pinyin": True,
+        "characters": True,        # per-character breakdown (汉字)
+        "measure_words": True,     # 量词
+        "traditional": True,
+        # news/kahneman/paste/briefing story modes are zh-only for now
+        "extended_story_modes": True,
+        # Morphology (issue #803): whether entry_forms rows apply.
+        "conjugation": False,
+        "gender": False,
+        "inflection": False,
+    },
+}
+
+_ROMANCE_BASE = {
+    "family": "romance",
+    "annotator": "romance",
+    "tokenizer": "whitespace",
+    "features": {
+        "pinyin": False,
+        "characters": False,
+        "measure_words": False,
+        "traditional": False,
+        "extended_story_modes": False,
+        # Morphology (issue #803): Romance languages conjugate verbs, mark
+        # noun/adjective gender, and inflect for number/gender — all stored
+        # in entry_forms (see docs/multilang.md).
+        "conjugation": True,
+        "gender": True,
+        "inflection": True,
+    },
+}
+
 LANGUAGES = {
     "zh": {
+        **_SINITIC_BASE,
         "code": "zh",
         "name_en": "Mandarin Chinese",     # language name used inside AI prompts
         "name_native": "中文",
@@ -26,8 +86,6 @@ LANGUAGES = {
         "say_voice": "Tingting",               # macOS `say` fallback voice
         # ── Translation (deep-translator source code) ──
         "translator_source": "zh-CN",
-        # ── Story tokenization for click-to-lookup: 'jieba' | 'whitespace' ──
-        "tokenizer": "jieba",
         # ── Deck tree root for words added through the UI (issue #726) ──
         # Each language owns a parallel tree under 'All' whose decks carry that
         # lang, because every language filter in the app keys off decks.lang —
@@ -40,35 +98,37 @@ LANGUAGES = {
         "background_vocab": "HSK 1-2",         # default level cap for non-target words
         "sentence_limit": "15 Chinese characters",
         # ── Language-specific features (drive schema usage + frontend UI) ──
-        "features": {
-            "pinyin": True,
-            "characters": True,        # per-character breakdown (汉字)
-            "measure_words": True,     # 量词
-            "traditional": True,
-            # news/kahneman/paste/briefing story modes are zh-only for now
-            "extended_story_modes": True,
-        },
+        "features": {**_SINITIC_BASE["features"]},
     },
     "fr": {
+        **_ROMANCE_BASE,
         "code": "fr",
         "name_en": "French",
         "name_native": "français",
         "tts_voice": "fr-FR-DeniseNeural",
         "say_voice": "Thomas",
         "translator_source": "fr",
-        "tokenizer": "whitespace",
         "deck_root": "Français",
         "level_system": "CEFR",
         "learner_level": "CEFR B1",            # Daniel's French level (2026-07-06)
         "background_vocab": "CEFR A1-A2",
         "sentence_limit": "12 words",
-        "features": {
-            "pinyin": False,
-            "characters": False,
-            "measure_words": False,
-            "traditional": False,
-            "extended_story_modes": False,
-        },
+        "features": {**_ROMANCE_BASE["features"]},
+    },
+    "es": {
+        **_ROMANCE_BASE,
+        "code": "es",
+        "name_en": "Spanish",
+        "name_native": "Español",
+        "tts_voice": "es-ES-ElviraNeural",
+        "say_voice": "Mónica",
+        "translator_source": "es",
+        "deck_root": "Español",
+        "level_system": "CEFR",
+        "learner_level": "CEFR A2",
+        "background_vocab": "CEFR A1",
+        "sentence_limit": "12 words",
+        "features": {**_ROMANCE_BASE["features"]},
     },
 }
 

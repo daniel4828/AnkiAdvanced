@@ -438,14 +438,21 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 
 ## 多语言支持
 
-同一个软件、同一个数据库里学习多种语言（2026-07-06 起，议题 #428–#431）。当前：中文（zh，默认）+ 法语（fr，CEFR B1，释义以德语为主）。
+同一个软件、同一个数据库里学习多种语言（2026-07-06 起，议题 #428–#431）。当前：中文（zh，默认）+ 法语（fr，CEFR B1）+ 西班牙语（es，CEFR A2）——两种罗曼语的释义都以德语为主。
+
+> **不分库是有意的决定（#803）**：知识库、`review_log`、统计、离线同步全部跨语言共享，分库要靠 `ATTACH`，`database/` 里每条查询都得改。语言隔离靠 `lang` 列 + `languages.py` 的语言族配置。
 
 - **`languages.py` 是语言注册表**：每种语言定义 TTS 语音、翻译源、分词方式（jieba/空格）、AI 提示词参数、牌组树根名（`deck_root`，#726）、功能开关（拼音/汉字/量词仅中文）。加新语言 = 加一个条目
 - **`decks.lang` / `entries.lang`**（默认 `'zh'`）：目标语言；子牌组创建时继承父牌组的 lang
 - `word_zh` 对所有语言存"目标语言词形"（`_zh` 后缀是历史遗留）；法语词条的 pinyin/characters 留空
 - **等级共用 1–6 整数**（#596）：`entries.hsk_level` 对中文存 HSK 1–6，对法语存 CEFR（A1=1 … C2=6，YAML 里写 `level: "B1"`）；故事设置弹窗的背景词汇难度滑块两种语言通用（1–6），前端按 `languages.py` 的 `level_system` 显示 "HSK 3" 或 "B1"，法语故事提示词用滑块值生成 "CEFR A1-X" 上限（原来写死 A1-A2）
 - **动词变位**（#596）：`entry_conjugations` 表按"时态 × 人称"通用存储（person='' 表示分词等无人称形式，position 保留 YAML 顺序）；法语 YAML 用 `conjugations:` 映射导入；`/api/word/{id}` 返回 `conjugations`，词条详情页和复习卡背面渲染 Conjugation 折叠区（每时态一张小卡片）；同义反义词/相似句处理对法语也启用
-- **已知限制：** `UNIQUE(word_zh)` 是全局约束——文字系统不同（中文 vs 法语）不冲突；将来加第二种拉丁字母语言需改为 `UNIQUE(word_zh, lang)`（要重建表）
+- **词条按语言唯一**（#803）：`UNIQUE(word_zh, lang)`。原来是全局唯一，加西班牙语必撞车——法语和西语共享大量同形词（`capital`/`animal`/`total`），全局唯一会把新西语词静默认成已有的法语词条
+- **语言族（#803）：** `languages.py` 里 `_SINITIC_BASE` / `_ROMANCE_BASE` 两个基底 dict，各语言用 `{**_ROMANCE_BASE, ...}` 继承再覆盖差异（`features` 必须显式合并，否则子语言会整块顶掉基底的开关）。中文是自成一族；法语、西班牙语同族，以后加葡语/意语就是再加一个条目。每种语言带 `family` / `annotator` / `features.conjugation|gender|inflection`
+- **形态表 `entry_forms`（#803）：** 统一存动词变位和名词/形容词词形，取代只有"时态 × 人称"的 `entry_conjugations`（该表保留但代码不再读写，**唯一事实来源是 `entry_forms`**）。`kind='conjugation'` 时 `paradigm`=时态、`slot`=人称；`kind='inflection'` 时 `paradigm`=维度（`nombre`/`genre`）、`slot`=值（`pluriel`/`féminin`）。`idx_entry_forms_form` 是必需的：知识库标注靠 `database.forms_lookup(词形, lang)` 判断"这个词形属不属于我学过的词"，每篇文章要查几百次——**罗曼语的生词判定不做词干还原，全靠这张表**，所以加词时必须把全部变位/词形都生成出来
+- **`entries.gender`（#803）：** 名词的阴阳性（`m`/`f`/`mf`），中文恒为 NULL
+- **`known_words` 按语言（#803）：** 主键改为 `(word_zh, lang)`；`database` 里的四个函数都加了 `lang` 参数（默认 `zh`，中文调用点行为不变）
+- **总体设计见 `docs/multilang.md`** —— 为什么不分库、语言族模型、各阶段接口约定都在那里
 - **中文专属：** 汉字分解、量词、拼音、kahneman/paste/briefing 故事模式
 - **主页语言标签页**（#436）：`GET /api/langs` 返回使用中的语言；前端多于一种语言才显示标签栏，选择存 `localStorage`。所有主页/复习/故事/统计接口支持可选 `?lang=`（默认不过滤，向后兼容）；解析规则统一为 `lang 参数 或 get_deck_lang(deck_id)`
 - **故事按语言隔离：** `stories.lang`（NULL = 中文旧数据）；聚合牌组（如 All）在各语言标签下维护独立的活跃故事；后台生成的 progress_key 含 lang
