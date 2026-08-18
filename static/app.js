@@ -10373,6 +10373,14 @@ document.addEventListener('keydown', async e => {
       closeLogsViewer();
       return;
     }
+    // Esc closes the add-word modal (its input has focus, so this must come
+    // before the blur branch below). Running jobs keep going server-side.
+    const addWordModal = document.getElementById('add-word-modal');
+    if (addWordModal && addWordModal.style.display !== 'none') {
+      e.preventDefault();
+      closeAddWordModal();
+      return;
+    }
     // Blur input fields in review view so space bar can flip the card
     if (inInput) {
       const reviewView = document.getElementById('view-review');
