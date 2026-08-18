@@ -11,6 +11,7 @@ import threading
 import jieba
 import database
 import ai
+import languages
 import news_fetcher
 import tts
 from fastapi import APIRouter, HTTPException
@@ -352,8 +353,16 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
             # below), only *new* full-story generation with this identifier
             # is rejected — same pattern as the #512 removal of mode='news'.
             raise ValueError("mode 'podcast' has been renamed — use 'knowledge' instead")
-        if lang != "zh" and mode in ("kahneman", "paste", "briefing", "knowledge"):
-            raise ValueError(f"mode '{mode}' is only available for Chinese decks")
+        if lang != "zh":
+            # Issue #806: knowledge mode is language-agnostic (the AI writes
+            # in the deck's target language regardless of the source
+            # material's language) and gets its own feature flag so it isn't
+            # bundled with the still-Chinese-only kahneman/paste/briefing
+            # modes, which stay gated by extended_story_modes.
+            feats = languages.get_lang_config(lang)["features"]
+            gate = "knowledge_story_mode" if mode == "knowledge" else "extended_story_modes"
+            if mode in ("kahneman", "paste", "briefing", "knowledge") and not feats.get(gate):
+                raise ValueError(f"mode '{mode}' is only available for Chinese decks")
         if mode == "kahneman":
             parsed_chapter_ids = [int(x) for x in chapter_ids.split(",") if x.strip()] if chapter_ids else []
             sentences, prompt_text = _generate_kahneman_story_sentences(
@@ -508,7 +517,7 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
                     chunk_sentences, chunk_prompt = ai.generate_podcast_sentences(
                         chunk, source,
                         model=model, max_hsk=max_hsk, progress_key=progress_key,
-                        attempt_label=label)
+                        attempt_label=label, lang=lang)
                     sentences.extend(chunk_sentences)
                     if chunk_prompt and total_calls > 1:
                         heading = f"══ 素材 {s_idx + 1}/{n_sources}《{source.get('title') or '（无标题）'}》"
@@ -728,7 +737,7 @@ def generate_sentence_for_word(card: dict, gen_params: dict | None) -> dict | No
                     sentences, _ = ai.generate_podcast_sentences(
                         [card], source,
                         model=_validated_model(gp.get("model"), default=ai.DEFAULT_MODEL),
-                        max_hsk=gp.get("max_hsk", 3))
+                        max_hsk=gp.get("max_hsk", 3), lang=lang)
                 else:
                     sentences, _ = ai.generate_story([card], model=model, lang=lang)
             elif mode in ("news", "paste", "briefing"):

@@ -49,6 +49,12 @@ _SINITIC_BASE = {
         "traditional": True,
         # news/kahneman/paste/briefing story modes are zh-only for now
         "extended_story_modes": True,
+        # Knowledge mode (build cards from a saved podcast/video/article
+        # source) is language-agnostic — the source material's language
+        # doesn't matter, only the prompt's target language does (issue
+        # #806). Kept as its own flag, separate from extended_story_modes,
+        # so it isn't accidentally hidden alongside kahneman/paste/briefing.
+        "knowledge_story_mode": True,
         # Morphology (issue #803): whether entry_forms rows apply.
         "conjugation": False,
         "gender": False,
@@ -66,6 +72,7 @@ _ROMANCE_BASE = {
         "measure_words": False,
         "traditional": False,
         "extended_story_modes": False,
+        "knowledge_story_mode": True,
         # Morphology (issue #803): Romance languages conjugate verbs, mark
         # noun/adjective gender, and inflect for number/gender — all stored
         # in entry_forms (see docs/multilang.md).

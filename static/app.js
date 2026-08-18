@@ -7805,6 +7805,9 @@ function openStorySetup(sentenceCount, { isMixed = false, isUnfinished = false, 
 // Story setup modal: kahneman/news/briefing/paste and grammar-focus are
 // Chinese-only server features (backend rejects those modes, and grammar
 // patterns like 把字句 don't apply to French) — hide them for non-zh decks.
+// Knowledge mode is deliberately NOT in this list (issue #806): it's
+// language-agnostic (the source material's language doesn't matter, the AI
+// writes in the deck's target language), so it stays visible for every deck.
 function _applySetupLangRestrictions() {
   const lang = _deckLangById[deckId] || 'zh';
   const modeSelect = document.getElementById('setup-mode');
