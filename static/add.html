@@ -107,8 +107,8 @@
   // otherwise; the backend rejects the wrong script, so the placeholder has to
   // say which language the box currently expects.
   let lang = 'zh';
-  const LANG_LABELS = { zh: '中文', fr: 'Français' };
-  const PLACEHOLDERS = { zh: '中文生词', fr: 'nouveau mot' };
+  const LANG_LABELS = { zh: '中文', fr: 'Français', es: 'Español' };
+  const PLACEHOLDERS = { zh: '中文生词', fr: 'nouveau mot', es: 'palabra nueva' };
 
   function setLang(l) {
     lang = l;
@@ -126,7 +126,7 @@
   async function loadLangs() {
     let langs;
     try {
-      langs = await api('GET', '/api/langs');
+      langs = await api('GET', '/api/langs?available=1');
     } catch { return; }
     if (!langs || !langs.length) return;
     // A ?lang= naming a language this install doesn't use falls back to zh

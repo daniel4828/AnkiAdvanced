@@ -14,10 +14,12 @@ def insert_word(word: dict) -> int:
         """INSERT OR IGNORE INTO entries
            (word_zh, lang, pinyin, definition, pos, hsk_level,
             traditional, definition_zh, source, note_type,
-            notes, date_yaml, source_sentence, grammar_notes, register, definition_de, definition_fr)
+            notes, date_yaml, source_sentence, grammar_notes, register, definition_de, definition_fr,
+            gender)
            VALUES (:word_zh, :lang, :pinyin, :definition, :pos, :hsk_level,
                    :traditional, :definition_zh, :source, :note_type,
-                   :notes, :date_yaml, :source_sentence, :grammar_notes, :register, :definition_de, :definition_fr)""",
+                   :notes, :date_yaml, :source_sentence, :grammar_notes, :register, :definition_de, :definition_fr,
+                   :gender)""",
         {
             **word,
             "lang":            word.get("lang") or "zh",
@@ -36,6 +38,8 @@ def insert_word(word: dict) -> int:
             "register":        word.get("register"),
             "definition_de":   word.get("definition_de"),
             "definition_fr":   word.get("definition_fr"),
+            # Noun grammatical gender (French/Spanish; #803/#805) — 'm'|'f'|'mf'|None
+            "gender":          word.get("gender"),
         },
     )
     # Backfill notes / date_yaml for entries that existed before these fields were added
@@ -97,6 +101,7 @@ def get_word_full(word_id: int) -> dict | None:
     word["relations"] = get_word_relations(word_id)
     word["components"] = get_note_components(word_id)
     word["conjugations"] = get_word_conjugations(word_id)
+    word["inflections"] = get_word_inflections(word_id)
     return word
 
 
@@ -202,6 +207,25 @@ def insert_word_relation(word_id: int, related_zh: str,
     conn.close()
 
 
+def insert_word_form(word_id: int, kind: str, paradigm: str, slot: str,
+                     form: str, position: int) -> None:
+    """Generic single-row writer for entry_forms (#805). `kind` is
+    'conjugation' (paradigm=tense, slot=person) or 'inflection'
+    (paradigm=dimension e.g. 'nombre'/'genre', slot=value e.g.
+    'pluriel'/'féminin'). insert_word_conjugation is a thin wrapper over this
+    kept for its established call sites/signature.
+    """
+    conn = get_db()
+    conn.execute(
+        """INSERT OR IGNORE INTO entry_forms
+           (word_id, kind, paradigm, slot, form, position)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (word_id, kind, paradigm, slot, form, position),
+    )
+    conn.commit()
+    conn.close()
+
+
 def insert_word_conjugation(word_id: int, tense: str, person: str,
                             form: str, position: int) -> None:
     """person is '' for impersonal forms (participles, infinitive).
@@ -210,15 +234,7 @@ def insert_word_conjugation(word_id: int, tense: str, person: str,
     entry_forms is the single source of truth going forward — see
     docs/multilang.md). tense -> paradigm, person -> slot.
     """
-    conn = get_db()
-    conn.execute(
-        """INSERT OR IGNORE INTO entry_forms
-           (word_id, kind, paradigm, slot, form, position)
-           VALUES (?, 'conjugation', ?, ?, ?, ?)""",
-        (word_id, tense, person, form, position),
-    )
-    conn.commit()
-    conn.close()
+    insert_word_form(word_id, "conjugation", tense, person, form, position)
 
 
 def get_word_conjugations(word_id: int) -> list[dict]:
@@ -229,6 +245,21 @@ def get_word_conjugations(word_id: int) -> list[dict]:
     rows = conn.execute(
         """SELECT paradigm AS tense, slot AS person, form, position
            FROM entry_forms WHERE word_id = ? AND kind = 'conjugation'
+           ORDER BY position, id""",
+        (word_id,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_word_inflections(word_id: int) -> list[dict]:
+    """Inflection rows for a word (noun/adjective forms — plural, gender
+    agreement; #805), shaped like get_word_conjugations for the frontend's
+    'inflection' collapsible section: [{paradigm, slot, form, position}]."""
+    conn = get_db()
+    rows = conn.execute(
+        """SELECT paradigm, slot, form, position
+           FROM entry_forms WHERE word_id = ? AND kind = 'inflection'
            ORDER BY position, id""",
         (word_id,),
     ).fetchall()

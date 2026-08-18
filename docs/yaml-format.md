@@ -15,6 +15,7 @@
 6. [嵌套结构：`word_analyses`](#嵌套结构-word_analyses)
 7. [向后兼容性](#向后兼容性)
 8. [法语格式（`lang: fr`）](#法语格式lang-fr)
+9. [西班牙语格式（`lang: es`）](#西班牙语格式lang-es)
 
 ---
 
@@ -323,7 +324,9 @@ word_analyses:
 ## 法语格式（`lang: fr`）
 
 文件顶层必须声明 `lang: fr`（或粘贴导入到法语牌组——此时可省略）。法语条目经
-`importer._normalize_fr_entry` 归一化后复用全部下游逻辑；中文专属模块（汉字分解、
+`importer._normalize_romance_entry(entry, "fr")` 归一化后复用全部下游逻辑
+（`_normalize_fr_entry` 仍作为别名保留，向后兼容）；同一函数按 `lang` 参数
+也服务西班牙语（见下方「西班牙语格式」一节）。中文专属模块（汉字分解、
 量词、拼音、`word_analyses`）不适用。
 
 ### 与中文格式的字段差异
@@ -337,7 +340,9 @@ word_analyses:
 | `examples[]` | 每项 `{fr, german, english}`（`fr` 代替 `zh`，`german` 代替 `de`） |
 | `similar_sentences[]` | 同上，`{fr, german}`，仅 sentence 类型 |
 | `synonyms` / `antonyms` | 同中文格式：`{word, meaning}`（meaning 用德语） |
-| `conjugations` | 动词专用，见下——存入 `entry_conjugations` 表（议题 #596） |
+| `conjugations` | 动词专用，见下——存入 `entry_forms` 表，`kind='conjugation'`（议题 #596/#803） |
+| `gender` | 名词专用，`m`\|`f`\|`mf`——存入 `entries.gender`（议题 #805） |
+| `forms` | 名词/形容词专用，见下——存入 `entry_forms` 表，`kind='inflection'`（议题 #805） |
 | `register` | 同中文格式的取值集合 |
 
 ### `conjugations` 结构（仅动词）
@@ -386,6 +391,64 @@ entries:
       participe passé: parlé (avoir)
 ```
 
+### `gender` + `forms`（名词/形容词，罗曼语通用，议题 #805）
+
+`gender` 是词条本身固定的语法性别（`entries.gender` 列）：**每个名词必须写**，
+形容词/动词/句子不写。`forms` 是词形变化表——存入 `entry_forms`
+（`kind='inflection'`），与 `conjugations` 用**同一套 `{维度: {槽位: 形式}}`
+映射结构**，只是维度/槽位的名字换成"数""性"而不是"时态""人称"：
+
+```yaml
+lang: fr
+entries:
+  - type: word
+    date: "07/21"
+    word: le chat
+    pos: nom (m)
+    english: cat
+    german: die Katze
+    level: "A1"
+    register: neutral
+    gender: m
+    note: |
+      Männliches Substantiv. Für weibliche Katzen sagt man "la chatte".
+    examples:
+      - fr: Le chat dort sur le canapé.
+        english: The cat is sleeping on the couch.
+        german: Die Katze schläft auf dem Sofa.
+    forms:
+      nombre:
+        pluriel: chats
+
+  - type: word
+    date: "07/21"
+    word: vert
+    pos: adjectif
+    english: green
+    german: grün
+    level: "A1"
+    register: neutral
+    note: |
+      Regelmäßiges Adjektiv, stimmt in Genus und Numerus überein.
+    examples:
+      - fr: Le pull vert est à moi.
+        english: The green sweater is mine.
+        german: Der grüne Pullover gehört mir.
+    forms:
+      genre:
+        féminin: verte
+        féminin pluriel: vertes
+      nombre:
+        pluriel: verts
+```
+
+**名词**只需要 `nombre: {pluriel: ...}`（复数）。**形容词**通常两个维度都要：
+`genre`（阴性、阴性复数）+ `nombre`（阳性复数——阳性单数就是词条本身，不重复
+写）。省音/单复数不变的词形不必写。维度名/槽位名不是强制枚举——代码只按 YAML
+里写的原样存入 `paradigm`/`slot` 两列并原样展示，但为了和西班牙语/未来语言
+的标注实现（`forms_lookup`）保持词面一致，建议只用上面示例里出现的这几个：
+`nombre`（`pluriel`）、`genre`（`féminin`、`féminin pluriel`）。
+
 ### sentence 类型（法语）
 
 ```yaml
@@ -409,4 +472,82 @@ entries:
 |-----------|--------------|
 | `word` / `sentence` / `expression` | `entries.word_zh`（列名是历史遗留，存目标语言词形） |
 | `level`（CEFR） | `entries.hsk_level`（A1=1 … C2=6） |
-| `conjugations` | `entry_conjugations`（word_id, tense, person, form, position；无人称形式 person=''） |
+| `gender` | `entries.gender`（#805） |
+| `conjugations` | `entry_forms`，`kind='conjugation'`（word_id, paradigm=tense, slot=person, form, position；无人称形式 slot=''；#803 起不再写旧的 `entry_conjugations` 表） |
+| `forms` | `entry_forms`，`kind='inflection'`（word_id, paradigm=维度, slot=槽位, form, position；#805） |
+
+---
+
+## 西班牙语格式（`lang: es`）
+
+文件顶层必须声明 `lang: es`（或粘贴导入到西班牙语牌组——此时可省略）。与法语
+共享同一套罗曼语归一化逻辑（`importer._normalize_romance_entry(entry, "es")`），
+唯一区别是例句用 `es:` 键代替 `fr:` 键；字段规则、`forms`/`gender` 结构、
+数据库映射与上面的法语格式完全一致，只是动词变位的时态集合更大（西班牙语
+日常口语区分的时态比法语这套多）。
+
+### 与法语格式的字段差异
+
+| 字段 | 说明 |
+|------|------|
+| `examples[].es` / `similar_sentences[].es` | 代替 `fr`，西班牙语原文 |
+| `pos` | `verbo`、`sustantivo (m)`、`sustantivo (f)`、`adjetivo`、`adverbio`、`locución` … |
+| `conjugations` | 时态键：`presente`、`pretérito perfecto`、`pretérito indefinido`、`imperfecto`、`futuro`、`condicional`、`presente de subjuntivo` + `participio`/`gerundio`（无人称，纯字符串）。人称键固定 `yo`、`tú`、`él/ella`、`nosotros`、`vosotros`、`ellos/ellas` |
+| `forms` | 维度命名习惯用 `numero`（`plural`）+ `genero`（`femenino`、`femenino plural`）—— 与法语的 `nombre`/`genre` 同构，只是西班牙语拼写不带重音（数据库不关心具体拼法，`paradigm`/`slot` 原样存储） |
+| `note` | 词源行写 `**Etimología:** …`（法语是 `**Étymologie:**`） |
+
+### 完整示例
+
+```yaml
+lang: es
+entries:
+  - type: word
+    date: "08/18"
+    word: hablar
+    pos: verbo
+    english: to speak
+    german: sprechen
+    level: "A1"
+    register: neutral
+    note: |
+      Regelmäßiges Verb auf -ar.
+
+      **Etimología:** Vom lateinischen *fabulari*.
+    examples:
+      - es: Hablo un poco de español.
+        english: I speak a little Spanish.
+        german: Ich spreche ein wenig Spanisch.
+    conjugations:
+      presente:
+        yo: hablo
+        tú: hablas
+        él/ella: habla
+        nosotros: hablamos
+        vosotros: habláis
+        ellos/ellas: hablan
+      participio: hablado
+      gerundio: hablando
+
+  - type: word
+    date: "08/18"
+    word: el gato
+    pos: sustantivo (m)
+    english: cat
+    german: die Katze
+    level: "A1"
+    register: neutral
+    gender: m
+    note: |
+      Männliches Substantiv. Für weibliche Katzen sagt man "la gata".
+    examples:
+      - es: El gato duerme en el sofá.
+        english: The cat is sleeping on the couch.
+        german: Die Katze schläft auf dem Sofa.
+    forms:
+      numero:
+        plural: gatos
+```
+
+### 西班牙语专属数据库映射
+
+与法语一致（同一套 `entry_forms`/`entries.gender` 映射），见上表。

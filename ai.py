@@ -1141,6 +1141,48 @@ _ENTRY_YAML_EXAMPLE_FR = """- type: word
       vous: parlez
     participe présent: parlant
     participe passé: parlé (avoir)
+
+- type: word
+  date: "07/21"
+  word: le chat
+  pos: nom (m)
+  english: cat
+  german: die Katze, der Kater
+  level: "A1"
+  register: neutral
+  gender: m
+  note: |
+    Männliches Substantiv. Für weibliche Katzen sagt man "la chatte".
+
+    **Étymologie:** Vom lateinischen *cattus*.
+  examples:
+    - fr: Le chat dort sur le canapé.
+      english: The cat is sleeping on the couch.
+      german: Die Katze schläft auf dem Sofa.
+  forms:
+    nombre:
+      pluriel: chats
+
+- type: word
+  date: "07/21"
+  word: vert
+  pos: adjectif
+  english: green
+  german: grün
+  level: "A1"
+  register: neutral
+  note: |
+    Regelmäßiges Adjektiv, stimmt in Genus und Numerus mit dem Substantiv überein.
+  examples:
+    - fr: Le pull vert est à moi.
+      english: The green sweater is mine.
+      german: Der grüne Pullover gehört mir.
+  forms:
+    genre:
+      féminin: verte
+      féminin pluriel: vertes
+    nombre:
+      pluriel: verts
 """
 
 _ENTRY_YAML_PROMPT_FR = """You are a French dictionary expert producing an SRS flashcard entry for a
@@ -1165,6 +1207,16 @@ REQUIRED FIELDS: type, the headword key, english, german, level, date: "{today}"
   - register: one of spoken_colloquial, spoken_neutral, neutral, formal_written,
     literary, slang
   - english / german: concise glosses; separate distinct meanings with " / "
+  - gender: REQUIRED FOR EVERY NOUN, omitted for everything else. One of
+    m, f, mf (structurally both, e.g. some nouns for people). This is the
+    entry's OWN grammatical gender, separate from any inflected forms below.
+  - forms: REQUIRED FOR EVERY NOUN AND ADJECTIVE, omitted for verbs/sentences.
+    A mapping {{dimension: {{slot: form}}}} of inflected surface forms — nouns
+    need "nombre: {{pluriel: <plural form>}}"; adjectives need BOTH
+    "genre: {{féminin: <feminine>, féminin pluriel: <feminine plural>}}" AND
+    "nombre: {{pluriel: <masculine plural>}}". Only include forms that
+    genuinely differ from the headword (an invariable adjective like "rose"
+    still needs its plural "roses" if that changes).
 
 LANGUAGE RULES — these fields MUST be German:
   note, explanations, synonyms[].meaning, antonyms[].meaning, examples[].german
@@ -1201,10 +1253,225 @@ YAML SAFETY — the output is parsed by a strict loader:
   - note / explanations use block scalars (|) — colons are safe there.
   - Indent consistently with two spaces; no tab characters.
 
-EXAMPLE of the expected shape (for parler):
+EXAMPLES of the expected shape (a verb with conjugations, a noun with
+gender+forms, an adjective with forms):
 
 {example}
 """
+
+
+# ---------------------------------------------------------------------------
+# The Spanish twin (issue #805) — same Romance-family contract as French
+# (docs/yaml-format.md "西班牙语格式"), just different vocabulary: gender,
+# forms (plural/feminine), and a fuller conjugation table (Spanish distinguishes
+# more tenses in everyday speech than the French set already covers).
+# importer._normalize_romance_entry(entry, "es") maps word/level/examples[].es
+# onto the internal keys the same way it does for French.
+# ---------------------------------------------------------------------------
+
+_ENTRY_YAML_EXAMPLE_ES = """- type: word
+  date: "07/21"
+  word: hablar
+  pos: verbo
+  english: to speak, to talk
+  german: sprechen, reden
+  level: "A1"
+  register: neutral
+  note: |
+    Regelmäßiges Verb auf -ar. Grundverb für „sprechen" — mit Sprache direkt
+    danach (hablar español), mit „de" für „über etwas sprechen" (hablar de algo),
+    mit „con" für den Gesprächspartner (hablar con alguien).
+
+    **Etimología:** Vom lateinischen *fabulari* („erzählen, plaudern").
+  examples:
+    - es: Hablo un poco de español.
+      english: I speak a little Spanish.
+      german: Ich spreche ein wenig Spanisch.
+    - es: Hablamos de ti ayer.
+      english: We talked about you yesterday.
+      german: Wir haben gestern über dich gesprochen.
+  synonyms:
+    - word: charlar
+      meaning: plaudern, sich unterhalten
+  antonyms:
+    - word: callarse
+      meaning: schweigen
+  conjugations:
+    presente:
+      yo: hablo
+      tú: hablas
+      él/ella: habla
+      nosotros: hablamos
+      vosotros: habláis
+      ellos/ellas: hablan
+    pretérito perfecto:
+      yo: he hablado
+      tú: has hablado
+      él/ella: ha hablado
+      nosotros: hemos hablado
+      vosotros: habéis hablado
+      ellos/ellas: han hablado
+    pretérito indefinido:
+      yo: hablé
+      tú: hablaste
+      él/ella: habló
+      nosotros: hablamos
+      vosotros: hablasteis
+      ellos/ellas: hablaron
+    imperfecto:
+      yo: hablaba
+      tú: hablabas
+      él/ella: hablaba
+      nosotros: hablábamos
+      vosotros: hablabais
+      ellos/ellas: hablaban
+    futuro:
+      yo: hablaré
+      tú: hablarás
+      él/ella: hablará
+      nosotros: hablaremos
+      vosotros: hablaréis
+      ellos/ellas: hablarán
+    condicional:
+      yo: hablaría
+      tú: hablarías
+      él/ella: hablaría
+      nosotros: hablaríamos
+      vosotros: hablaríais
+      ellos/ellas: hablarían
+    presente de subjuntivo:
+      yo: hable
+      tú: hables
+      él/ella: hable
+      nosotros: hablemos
+      vosotros: habléis
+      ellos/ellas: hablen
+    participio: hablado
+    gerundio: hablando
+
+- type: word
+  date: "07/21"
+  word: el gato
+  pos: sustantivo (m)
+  english: cat
+  german: die Katze, der Kater
+  level: "A1"
+  register: neutral
+  gender: m
+  note: |
+    Männliches Substantiv. Für weibliche Katzen sagt man "la gata".
+
+    **Etimología:** Vom lateinischen *cattus*.
+  examples:
+    - es: El gato duerme en el sofá.
+      english: The cat is sleeping on the couch.
+      german: Die Katze schläft auf dem Sofa.
+  forms:
+    numero:
+      plural: gatos
+
+- type: word
+  date: "07/21"
+  word: verde
+  pos: adjetivo
+  english: green
+  german: grün
+  level: "A1"
+  register: neutral
+  note: |
+    Regelmäßiges Adjektiv. Endet auf -e, deshalb gleiche Form für Maskulin
+    und Femininum — nur die Pluralform ändert sich.
+  examples:
+    - es: El jersey verde es mío.
+      english: The green sweater is mine.
+      german: Der grüne Pullover gehört mir.
+  forms:
+    numero:
+      plural: verdes
+"""
+
+_ENTRY_YAML_PROMPT_ES = """You are a Spanish dictionary expert producing an SRS flashcard entry for a
+German-speaking learner (CEFR A2, everyday spoken Spanish). Generate a complete
+YAML entry for: {word}
+
+Return ONLY the YAML — a single list item starting with "- type:". No markdown
+fences, no commentary before or after.
+
+TYPE — pick exactly one:
+  word        a single word (verb, noun, adjective, adverb)
+  expression  a multi-word phrase acting as a unit (idiom, collocation)
+  sentence    a full sentence
+
+The headword key is named after the type: `word:`, `expression:` or `sentence:`.
+There is no `simplified` field and no Chinese in the output.
+
+REQUIRED FIELDS: type, the headword key, english, german, level, date: "{today}".
+  - pos: Spanish part of speech — verbo, sustantivo (m), sustantivo (f),
+    adjetivo, adverbio, locución … NOUNS ALWAYS CARRY THEIR GENDER. Omit pos
+    for `sentence`.
+  - level: a quoted CEFR string "A1"…"C2"
+  - register: one of spoken_colloquial, spoken_neutral, neutral, formal_written,
+    literary, slang
+  - english / german: concise glosses; separate distinct meanings with " / "
+  - gender: REQUIRED FOR EVERY NOUN, omitted for everything else. One of
+    m, f, mf (structurally both, e.g. some nouns for people). This is the
+    entry's OWN grammatical gender, separate from any inflected forms below.
+  - forms: REQUIRED FOR EVERY NOUN AND ADJECTIVE, omitted for verbs/sentences.
+    A mapping {{dimension: {{slot: form}}}} of inflected surface forms — nouns
+    need "numero: {{plural: <plural form>}}"; adjectives need "numero:
+    {{plural: <plural form>}}" and, when the adjective actually varies by
+    gender (most -o/-a adjectives do, -e ones usually don't), also "genero:
+    {{femenino: <feminine>, femenino plural: <feminine plural>}}". Only include
+    forms that genuinely differ from the headword.
+
+LANGUAGE RULES — these fields MUST be German:
+  note, explanations, synonyms[].meaning, antonyms[].meaning, examples[].german
+  examples[].english is English; the headword and examples[].es are Spanish.
+
+CONTENT:
+  - note (word/expression): German prose block scalar (|) covering usage,
+    common collocations, false-friend warnings, and a short
+    "**Etimología:** …" line (1-2 sentences) — Spanish has no separate
+    etymology column, so it belongs in the note.
+  - examples: 2-4 sentences, EACH with all three keys es, english, german
+  - synonyms / antonyms: {{word, meaning}} items; include when they add real value
+  - conjugations: REQUIRED FOR EVERY VERB, omitted for everything else.
+    All of: presente, pretérito perfecto, pretérito indefinido, imperfecto,
+    futuro, condicional, presente de subjuntivo, participio, gerundio.
+    Person keys are exactly yo, tú, él/ella, nosotros, vosotros, ellos/ellas
+    (omit vosotros only if you are certain the learner only needs Latin
+    American Spanish — default to including it). participio/gerundio are
+    plain strings (no person). Never guess irregular forms (ser, estar, ir,
+    tener, hacer, poder, querer, decir, poner, saber, venir … are all
+    irregular — get them right).
+  - sentence type: use `explanations` (German block scalar) instead of note,
+    add `source_de` with the German original, and optionally
+    similar_sentences: [{{es, german}}].
+
+YAML SAFETY — the output is parsed by a strict loader:
+  - Never use double quotes for meaning/english/german fields. If a colon is
+    unavoidable inside an inline string, wrap it in single quotes; better yet,
+    rephrase to avoid the colon.
+  - A Spanish apostrophe (rare, but e.g. in loanwords) inside a single-quoted
+    string must be doubled. Prefer leaving such values unquoted.
+  - note / explanations use block scalars (|) — colons are safe there.
+  - Indent consistently with two spaces; no tab characters.
+
+EXAMPLES of the expected shape (a verb with conjugations, a noun with
+gender+forms, an adjective with forms):
+
+{example}
+"""
+
+
+# lang -> (prompt template, example block). Every Romance language shares the
+# same contract (docs/multilang.md); adding a new one is one more entry here
+# plus its own prompt/example pair, no other code path changes (issue #805).
+_ENTRY_YAML_TEMPLATES = {
+    "zh": (_ENTRY_YAML_PROMPT, _ENTRY_YAML_EXAMPLE),
+    "fr": (_ENTRY_YAML_PROMPT_FR, _ENTRY_YAML_EXAMPLE_FR),
+    "es": (_ENTRY_YAML_PROMPT_ES, _ENTRY_YAML_EXAMPLE_ES),
+}
 
 
 def generate_word_entry_yaml(word_zh: str, model: str = DEFAULT_MODEL,
@@ -1212,10 +1479,10 @@ def generate_word_entry_yaml(word_zh: str, model: str = DEFAULT_MODEL,
     """Generate a complete dictionary YAML entry for one word.
 
     `lang` picks the prompt and the output format: 'zh' produces a de-zh-bot
-    entry, 'fr' the de-fr-bot French format (issue #726). Returns YAML ready
-    for importer.import_yaml_content(). Raises ValueError if the model returns
-    something that isn't a YAML list item — callers surface that to the user
-    rather than importing garbage.
+    entry, 'fr'/'es' the de-fr-bot-style Romance format (issues #726, #805).
+    Returns YAML ready for importer.import_yaml_content(). Raises ValueError
+    if the model returns something that isn't a YAML list item — callers
+    surface that to the user rather than importing garbage.
 
     Non-Chinese output is wrapped in a `lang:` header rather than relying on
     the target deck's language: the entry format and the lang have to agree, so
@@ -1224,8 +1491,7 @@ def generate_word_entry_yaml(word_zh: str, model: str = DEFAULT_MODEL,
     """
     from datetime import date as _date
 
-    template = _ENTRY_YAML_PROMPT if lang == "zh" else _ENTRY_YAML_PROMPT_FR
-    example = _ENTRY_YAML_EXAMPLE if lang == "zh" else _ENTRY_YAML_EXAMPLE_FR
+    template, example = _ENTRY_YAML_TEMPLATES.get(lang, (_ENTRY_YAML_PROMPT, _ENTRY_YAML_EXAMPLE))
     prompt = template.format(
         word=word_zh,
         today=_date.today().strftime("%m/%d"),
@@ -1338,6 +1604,99 @@ a/b/c... never digits):
 Input to look up: {query}"""
 
 
+# ---------------------------------------------------------------------------
+# Romance-language dictionary (issue #805) — ported from the de-fr-bot skill,
+# generalized to fr/es via {lang_name}/{level}. The JSON CONTRACT IS IDENTICAL
+# to DICTIONARY_PROMPT above (same "headline"/"kind"/"sentence"/"groups[].
+# options[]" shape, same field names, "zh"/"pinyin" included) so the /dict
+# frontend never has to branch on language — the target-language word/pinyin
+# just goes in the "zh"/"pinyin" slots regardless of what language they
+# actually hold (pinyin is simply omitted for Romance languages, which have
+# no tone-mark transcription need).
+# ---------------------------------------------------------------------------
+
+DICTIONARY_PROMPT_ROMANCE = """You are a {lang_name} dictionary for a German-speaking learner (Daniel, {level}).
+He types a word, phrase, or sentence in {lang_name}, German, or English and wants
+a structured lookup, not a chat reply. Never use Japanese or Chinese.
+
+Behavior rules:
+- {lang_name} input -> give the FULL dictionary entry directly. List EVERY sense
+  (meaning) of the word/phrase, each as its own group. Do not ask him to
+  choose anything and do not present alternative translations to pick from
+  — there is nothing to choose, he already has the {lang_name} word.
+- German or English input (word, phrase, or a full sentence) -> always give an
+  ANALYSIS: an overall translation plus one or more groups of candidate
+  {lang_name} translations, each option labeled a/b/c... (NEVER use 1/2/3).
+  Exactly one option per group may be "recommended": true, and the
+  recommendation should lean toward everyday spoken {lang_name} (langage
+  courant) — this is Daniel's strongest, most repeated preference.
+- A full German sentence as input -> first give the whole-sentence {lang_name}
+  translation (the "sentence" field, no pinyin — leave "pinyin" out), THEN
+  break the sentence into its components (each a candidate group of its own)
+  so every component is individually addable as a word.
+- Explanations, usage notes, and example sentence translations are always in
+  GERMAN.
+
+Quality rules (these decide whether the entry is useful at all):
+- At most 3-5 options per group, and only GENUINELY DIFFERENT translations —
+  different register, connotation, or part of speech. Do not pad a group with
+  near-synonyms; two options that a learner would use interchangeably are one
+  option.
+- EVERY option must carry example_zh (the {lang_name} example sentence) +
+  example_de. An option without an example is unusable: register claims are
+  only believable when the sentence shows them. Omit example_pinyin entirely
+  — {lang_name} uses the Latin alphabet, there is no separate transcription.
+- "usage" must say WHEN to use it (register, context, connotation), not repeat
+  the translation.
+- Do not fill in "pinyin" or "headline_pinyin" for {lang_name} — leave them out.
+- "register" must be one of: spoken_colloquial, spoken_neutral, neutral,
+  formal_written, literary, slang.
+- For {lang_name} input, "headline" is the input word itself and each group's
+  "label" names one sense in German (e.g. "1. Ökologie (Biologie)").
+- "kind" is exactly one of: "chinese" (reused here to mean "target-language
+  input", i.e. any {lang_name} input), "word", "phrase", "sentence"
+  (German/English input, by length). Only "sentence" makes the "sentence"
+  field appear.
+
+Output ONLY raw JSON — no markdown code fence, no prose before or after it.
+Match this shape exactly (omit "sentence" unless kind == "sentence"; omit
+"pinyin"/"headline_pinyin" always; every group needs at least one option;
+option "key" values are a/b/c... never digits). Note: the JSON field is
+literally named "zh" for historical reasons (this contract is shared with the
+Chinese dictionary) — put the {lang_name} word/sentence there:
+
+{{
+  "input_lang": "de",
+  "kind": "phrase",
+  "headline": "assigner une tâche",
+  "headline_de": "jemandem eine Aufgabe geben",
+  "notes": "kurze deutsche Anmerkung, optional",
+  "sentence": {{
+    "zh": "Tu es libre quand la semaine prochaine ?",
+    "de": "Wann hast du nächste Woche Zeit?"
+  }},
+  "groups": [
+    {{
+      "label": "assigner / donner une tâche (Verb)",
+      "options": [
+        {{
+          "key": "a",
+          "zh": "confier une tâche",
+          "de": "jdm. eine Aufgabe anvertrauen",
+          "usage": "neutral, im Alltag üblich.",
+          "register": "spoken_neutral",
+          "recommended": true,
+          "example_zh": "Le prof m'a encore confié une tâche.",
+          "example_de": "Der Lehrer hat mir schon wieder eine Aufgabe gegeben."
+        }}
+      ]
+    }}
+  ]
+}}
+
+Input to look up: {query}"""
+
+
 def _strip_code_fence(raw: str) -> str:
     """Some models wrap JSON in ```json ... ``` despite being told not to."""
     fenced = re.search(r"```(?:json)?\s*\n(.*?)```", raw, re.DOTALL)
@@ -1352,16 +1711,22 @@ def dictionary_lookup(query: str, lang: str = "zh", model: str | None = None) ->
     not store or return a placeholder, since a blank dictionary entry is worse
     than an error (routes/dictionary.py turns this into a 500).
 
-    lang is the target vocabulary language. Only Chinese is implemented — a
-    French dictionary needs its own prompt (see the de-fr-bot skill), and
-    silently answering a French request with the Chinese prompt would produce
-    a plausible-looking but wrong entry, exactly the failure #726 guarded
-    against on the add-word side.
+    lang is the target vocabulary language: 'zh', 'fr' or 'es' (#805).
+    Silently answering a French/Spanish request with the Chinese prompt (or
+    vice versa) would produce a plausible-looking but wrong entry, exactly the
+    failure #726 guarded against on the add-word side — so an unsupported lang
+    raises rather than falling back.
     """
-    if lang != "zh":
-        raise ValueError(f"dictionary_lookup: language {lang!r} is not supported yet (only 'zh')")
     use_model = model or DEFAULT_MODEL
-    prompt = DICTIONARY_PROMPT.format(query=query)
+    if lang == "zh":
+        prompt = DICTIONARY_PROMPT.format(query=query)
+    elif lang in ("fr", "es"):
+        cfg = languages.get_lang_config(lang)
+        prompt = DICTIONARY_PROMPT_ROMANCE.format(
+            query=query, lang_name=cfg["name_en"], level=cfg["learner_level"],
+        )
+    else:
+        raise ValueError(f"dictionary_lookup: language {lang!r} is not supported yet (zh/fr/es only)")
 
     logger.info("[%s] dictionary_lookup: %s", use_model, query)
     raw = _call_api(use_model, [{"role": "user", "content": prompt}], max_tokens=4000,

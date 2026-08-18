@@ -11,7 +11,7 @@ import ai
 import database
 import importer
 from fastapi import APIRouter, Form, HTTPException, UploadFile
-from languages import DEFAULT_LANG, is_valid_lang
+from languages import DEFAULT_LANG, get_lang_config, is_valid_lang
 
 from .utils import ai_disabled, queue_mgr
 
@@ -292,7 +292,8 @@ def _validate_word_for_lang(word: str, lang: str) -> None:
         raise HTTPException(status_code=400,
                             detail="That looks like Chinese — switch the language first")
     if not _LATIN_RE.search(word):
-        raise HTTPException(status_code=400, detail="Please enter the word in French")
+        lang_name = get_lang_config(lang)["name_en"]
+        raise HTTPException(status_code=400, detail=f"Please enter the word in {lang_name}")
 
 
 @router.post("/api/add-word-ai")

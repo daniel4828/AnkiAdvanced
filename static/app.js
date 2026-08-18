@@ -2577,6 +2577,7 @@ function renderWordDetail(word) {
 
   // Shared sections (notes, conjugation, word analysis, examples)
   renderConjugationSection(document.getElementById('wd-conjugation-section'), word);
+  renderInflectionSection(document.getElementById('wd-inflection-section'), word);
   renderNotesSection(document.getElementById('wd-notes-section'), word.notes, word.id);
   renderWordAnalysis(document.getElementById('wd-word-analysis-section'), word, word.id);
   renderVocabDetail(document.getElementById('wd-examples-section'), word.examples, word.id);
@@ -5488,6 +5489,7 @@ function loadCard(c, counts) {
         renderVocabDetail();
         renderNotesSection();
         renderConjugationSection();
+        renderInflectionSection();
         _callRenderWordAnalysis();
         // MOST IMPORTANT: Re-render category row with actual card data
         renderReviewCatRow();
@@ -5880,6 +5882,7 @@ function revealAnswer() {
   // Populate character breakdown, examples, notes, conjugation, and word analysis
   renderNotesSection();
   renderConjugationSection();
+  renderInflectionSection();
   _callRenderWordAnalysis();
   renderVocabDetail();
   renderReviewCatRow();
@@ -6409,6 +6412,50 @@ function renderConjugationSection(container, wordData) {
     `<div class="section-label section-toggle" onclick="toggleSection('${bodyId}')">` +
       `<span id="${bodyId}-arrow">▶</span> Conjugation</div>` +
     `<div id="${bodyId}" style="display:none"><div class="conj-grid">${cards}</div></div>`;
+}
+
+// Noun/adjective inflection section (issue #805) — plural, gender agreement.
+// Chinese entries never have wordData.gender or .inflections, so this section
+// is simply absent for them. wordData.inflections rows come pre-ordered by
+// position, shaped like conjugations ({paradigm, slot, form}); group them
+// back into per-dimension cards (e.g. paradigm='nombre'/'genre').
+const GENDER_LABELS = { m: 'masculine', f: 'feminine', mf: 'masculine/feminine' };
+
+function renderInflectionSection(container, wordData) {
+  const el = container ?? document.getElementById('inflection-section');
+  if (!el) return;
+  const wd = wordData ?? wordDetails;
+  const inflections = wd?.inflections || [];
+  const gender = wd?.gender;
+  if (!inflections.length && !gender) { el.innerHTML = ''; return; }
+
+  let genderRow = '';
+  if (gender) {
+    genderRow = `<div class="conj-row"><span class="conj-person">Gender</span>` +
+      `<span class="conj-form">${GENDER_LABELS[gender] || gender}</span></div>`;
+  }
+
+  const paradigms = [];
+  const byParadigm = new Map();
+  inflections.forEach(f => {
+    if (!byParadigm.has(f.paradigm)) { byParadigm.set(f.paradigm, []); paradigms.push(f.paradigm); }
+    byParadigm.get(f.paradigm).push(f);
+  });
+  const cards = paradigms.map(p => {
+    const rows = byParadigm.get(p).map(f =>
+      f.slot
+        ? `<div class="conj-row"><span class="conj-person">${f.slot}</span><span class="conj-form">${f.form}</span></div>`
+        : `<div class="conj-row"><span class="conj-form">${f.form}</span></div>`
+    ).join('');
+    return `<div class="conj-tense-card"><div class="conj-tense-name">${p}</div>${rows}</div>`;
+  }).join('');
+
+  const bodyId = el.id + '-body';
+  const genderCard = genderRow ? `<div class="conj-tense-card">${genderRow}</div>` : '';
+  el.innerHTML =
+    `<div class="section-label section-toggle" onclick="toggleSection('${bodyId}')">` +
+      `<span id="${bodyId}-arrow">▶</span> Inflection</div>` +
+    `<div id="${bodyId}" style="display:none"><div class="conj-grid">${genderCard}${cards}</div></div>`;
 }
 
 function renderWordAnalysis(container, wordData, wordId) {

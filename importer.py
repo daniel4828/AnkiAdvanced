@@ -197,7 +197,7 @@ def preview_yaml_content(content: str) -> dict:
 
     for entry in entries:
         if preview_lang and preview_lang != "zh":
-            entry = _normalize_fr_entry(entry)
+            entry = _normalize_romance_entry(entry, preview_lang)
 
         yaml_type = entry.get("type", "")
         note_type = NOTE_TYPE_MAP.get(yaml_type)
@@ -346,11 +346,23 @@ def _cefr_to_int(level) -> int | None:
     return _CEFR_TO_INT.get(str(level or "").strip().upper())
 
 
-def _normalize_fr_entry(entry: dict) -> dict:
-    """Reshape a French-format YAML entry into the internal (Chinese-era) key
-    layout so all downstream processing (_build_word_dict, examples, etc.)
-    stays untouched. Chinese-only modules (characters, measure words,
-    word_analyses) are simply absent from the French format.
+_VALID_GENDERS = {"m", "f", "mf"}
+
+
+def _normalize_gender(raw) -> str | None:
+    g = str(raw or "").strip().lower()
+    return g if g in _VALID_GENDERS else None
+
+
+def _normalize_romance_entry(entry: dict, lang: str = "fr") -> dict:
+    """Reshape a Romance-language (fr/es) YAML entry into the internal
+    (Chinese-era) key layout so all downstream processing (_build_word_dict,
+    examples, etc.) stays untouched. Chinese-only modules (characters,
+    measure words, word_analyses) are simply absent from this format.
+
+    `lang` picks which example/similar_sentence key holds the target-language
+    text ('fr' or 'es') — everything else about the format is shared between
+    Romance languages (issue #805).
     """
     normalized = dict(entry)
     normalized["simplified"] = (
@@ -359,7 +371,7 @@ def _normalize_fr_entry(entry: dict) -> dict:
     )
     normalized["examples"] = [
         {
-            "zh":     ex.get("fr", ""),
+            "zh":     ex.get(lang) or ex.get("fr", ""),
             "english": ex.get("english"),
             "de":     ex.get("german") or ex.get("de"),
             "pinyin": None,
@@ -368,21 +380,29 @@ def _normalize_fr_entry(entry: dict) -> dict:
     ]
     # `level: B1` (CEFR string) → shared 1-6 integer level (issue #596)
     normalized["cefr_level"] = _cefr_to_int(entry.get("level"))
-    # similar_sentences {fr, german} → internal {zh, de} keys (sentence entries)
+    # similar_sentences {fr/es, german} → internal {zh, de} keys (sentence entries)
     normalized["similar_sentences"] = [
         {
-            "zh":      ss.get("fr", ""),
+            "zh":      ss.get(lang) or ss.get("fr", ""),
             "english": ss.get("english"),
             "de":      ss.get("german") or ss.get("de"),
             "pinyin":  None,
         }
         for ss in (entry.get("similar_sentences") or [])
     ]
-    # French format doesn't define these Chinese-only fields
+    # gender: m|f|mf (#805) — invalid/missing values fall back to None rather
+    # than raising, same "don't fail the whole entry over an optional field"
+    # posture as register in _build_word_dict.
+    normalized["gender"] = _normalize_gender(entry.get("gender"))
+    # Romance format doesn't define these Chinese-only fields
     for key in ("hsk", "traditional", "pinyin", "word_analyses",
                 "characters", "measure_words"):
         normalized.pop(key, None)
     return normalized
+
+
+# Backward-compatible alias — existing callers/tests import this name.
+_normalize_fr_entry = _normalize_romance_entry
 
 
 def _build_word_dict(entry: dict, source: str, note_type: str = "vocabulary",
@@ -414,6 +434,9 @@ def _build_word_dict(entry: dict, source: str, note_type: str = "vocabulary",
         "source_sentence": entry.get("source_de"),
         "grammar_notes":   None,
         "register":        register,
+        # Noun grammatical gender (French/Spanish; #803/#805) — normalized to
+        # m|f|mf|None in _normalize_romance_entry; absent (zh) stays None.
+        "gender":          entry.get("gender"),
     }
 
 
@@ -520,6 +543,38 @@ def _process_conjugations(entry: dict, word_id: int) -> None:
             database.insert_word_conjugation(
                 word_id=word_id, tense=tense, person=person,
                 form=form, position=position,
+            )
+            position += 1
+
+
+def _process_forms(entry: dict, word_id: int) -> None:
+    """Insert noun/adjective inflected forms (issue #805) from an entry's
+    `forms` mapping into entry_forms with kind='inflection'.
+
+    YAML shape mirrors `conjugations`: {dimension: {slot: form, ...}}, e.g.
+    {"nombre": {"pluriel": "chats"}, "genre": {"féminin": "verte"}} — dimension
+    -> entry_forms.paradigm, slot -> entry_forms.slot (see docs/multilang.md).
+    A bare {dimension: "form"} value (single slot, no sub-mapping) is also
+    accepted, stored with slot=''.
+    """
+    forms = entry.get("forms")
+    if not isinstance(forms, dict):
+        return
+    position = 0
+    for dimension, slots in forms.items():
+        dimension = str(dimension).strip()
+        if not dimension:
+            continue
+        if isinstance(slots, dict):
+            pairs = [(str(s).strip(), str(f).strip()) for s, f in slots.items()]
+        else:
+            pairs = [("", str(slots).strip())]
+        for slot, form in pairs:
+            if not form:
+                continue
+            database.insert_word_form(
+                word_id=word_id, kind="inflection", paradigm=dimension,
+                slot=slot, form=form, position=position,
             )
             position += 1
 
@@ -664,7 +719,7 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
     for entry in entries:
       try:
         if lang != "zh":
-            entry = _normalize_fr_entry(entry)
+            entry = _normalize_romance_entry(entry, lang)
 
         yaml_type = entry.get("type", "")
         note_type = NOTE_TYPE_MAP.get(yaml_type)
@@ -806,8 +861,11 @@ def _import_entries(entries: list, deck_ids: dict, source: str, label: str,
         # word/meaning keys, issue #596)
         _process_word_relations(entry, word_id)
 
-        # Verb conjugations (fr and future conjugating languages, issue #596)
+        # Verb conjugations (fr/es and future conjugating languages, issue #596)
         _process_conjugations(entry, word_id)
+
+        # Noun/adjective inflected forms — plural, gender agreement (issue #805)
+        _process_forms(entry, word_id)
 
         # The following processors handle Chinese-only YAML fields (characters,
         # measure words, grammar structures, word_analyses components).

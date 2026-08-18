@@ -506,6 +506,13 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 - **`/api/add-word-ai` 是全应用唯一的加词入口**（#643）：顶栏 ＋、播客单集的 HSK 生词表格、复习界面长按词的菜单、以及 `/add` 页面，全部共用 `shared.js` 的 `addWordViaAi()`。原来播客/长按走的 `/api/quick-add-word` 已删除 —— 它只让 AI 填四个字段（无例句/汉字分解/量词/同义反义词），而且 `added_to_deck` 分支在词已学过时被 `INSERT OR IGNORE` + `UNIQUE(word_id, category)` 全部静默丢弃，却照样返回成功。**加词只能有一条管线**，否则修好的坑会在第二条路上重新出现
 - **独立加词页 `/add`（#668）+ URL 参数（#686）**：可收藏的网址，打开就是输入框（存 iPhone 主屏当图标用）。`?word=生态`（或 `?w=`）+ 可选 `&day=today|tomorrow|list` → 打开即自动提交，供 iOS 快捷指令在任意 App 里一键加词；`day` 非法值回落 today（词才是重点，不该为此失败）。**提交后必须 `history.replaceState` 抹掉参数** —— 否则刷新或 iOS 恢复标签页会静默再花一次 AI 钱。`static/add.html` 是自包含页面，**故意不加载 `app.js`** —— 5.5 KB vs 完整应用的 77 KB + 491 KB JS，秒开就是这个功能的全部意义。为此把 `addWordViaAi()` 和 `api()` 从 `app.js` 抽到 `static/shared.js` 两页共用，**不复制第二份**（理由同上条；`tests/test_add_word.py` 有一条测试专门守着 `app.js` 里不能再出现这两个定义）
 
+**加西班牙语词与罗曼语形态（#805）**：`lang` 支持 `zh|fr|es`
+
+- **加词必须把全部变位/词形生成出来**，这不是锦上添花：知识库判定"这个词形我学过没有"靠的是 `entry_forms` 的精确匹配（`database.forms_lookup()`，零词干还原），漏掉的变位就等于这个词在阅读里永远显示为生词。提示词对法语/西语强制要求：动词给完整变位表、名词给 `gender:` + 复数、形容词给阴性/复数
+- YAML 里 `conjugations:` 进 `entry_forms(kind='conjugation')`，`forms:`（`{维度: {槽位: 形式}}`）进 `kind='inflection'`，`gender:` 进 `entries.gender`。格式见 `docs/yaml-format.md`
+- **词典 `/dict` 支持 fr/es**（`ai.DICTIONARY_PROMPT_ROMANCE`，移植自 `de-fr-bot`）：**返回的 JSON 契约与中文版完全一致**，所以前端渲染代码不分语言。★ 加词仍然走 `/api/add-word-ai`——词典不得成为第二条加词管线（#643）
+- **`GET /api/langs?available=1` 返回全部已注册语言**，`/add` 和 `/dict` 用它；主页标签栏仍用"在用语言"。区别是有意的：**一门新语言还没有牌组，按"在用"过滤就永远加不了它的第一个词**
+
 **加法语词（#726）**：`lang` 参数（`zh` 默认 / `fr`）同时决定提示词和牌组树
 
 - **每种语言一棵平行的牌组树**，根名在 `languages.py` 的 `deck_root`（zh → `Daily`，fr → `Français`）：`Français::<日期> · Listening/…` + `Français::Saved`，牌组本身 `lang='fr'`。**必须如此**——全应用的语言过滤（`_lang_subquery_clause`、`get_descendant_leaf_deck_ids`）筛的是 `decks.lang` 而不是 `entries.lang`，法语卡放进中文牌组会在 fr 标签下消失、反而混进中文复习队列（生产库里 #726 之前导入的那 7 个法语词正是这个状态）
