@@ -815,14 +815,6 @@ function _triggerClapAnimation() {
 
 function showView(name) {
   _currentView = name;
-  // Back on the deck list: drop any #knowledge-* deep-link hash still sitting in
-  // the address bar (#792). The boot logic reopens whatever the hash points at,
-  // so leaving it there made every later reload land on the knowledge view
-  // instead of the home screen. Direct links and staying on a knowledge tab are
-  // unaffected — this only fires once the user is back home.
-  if (name === 'decks' && location.hash) {
-    history.replaceState(null, '', location.pathname + location.search);
-  }
   if (name === 'done' && _sessionReviewedCount > 0) _triggerClapAnimation();
   // Leaving the knowledge view (#502, generalized #653): stop the episode-list
   // "processing" poll loop — it has no reason to keep firing once the view
@@ -3251,7 +3243,6 @@ async function _fetchKnowledgeList(tab) {
 
 async function openKnowledge(tab) {
   if (tab) { _knowledgeTab = tab; localStorage.setItem('knowledgeTab', tab); }
-  location.hash = `knowledge-${_knowledgeTab}`;
   _clearPodcastPoll();
   _podcastCurrentFeedId = null;
   setLoading('Loading…');
@@ -3263,7 +3254,6 @@ async function openKnowledge(tab) {
 async function switchKnowledgeTab(tab) {
   _knowledgeTab = tab;
   localStorage.setItem('knowledgeTab', tab);
-  location.hash = `knowledge-${tab}`;
   await _loadKnowledgeTab();
 }
 
@@ -3400,7 +3390,6 @@ async function _savePodcastDetailLevel(value) {
 // Layer 2 (podcast tab only): one feed's episode list ---------------------------
 
 async function openPodcastFeed(feedId) {
-  location.hash = `knowledge-feed-${feedId}`;
   _clearPodcastPoll();
   _podcastCurrentFeedId = feedId;
   _knowledgeListKind = null;
@@ -3693,10 +3682,6 @@ async function openKnowledgeItem(id) {
   setLoading('Loading…');
   try {
     const ep = await api('GET', `/api/podcast/episodes/${id}`);
-    // Old podcast notification emails/Signal messages link to #podcast-<id> —
-    // keep that hash for podcast items; video/article items (which never went
-    // out in a pre-#653 notification) get the new #knowledge-<id> form.
-    location.hash = (ep.kind && ep.kind !== 'podcast') ? `knowledge-${id}` : `podcast-${id}`;
     _clearPodcastPoll();
     showView('knowledge');
     _renderKnowledgeDetail(ep);
@@ -3916,9 +3901,8 @@ function _openKnowledgeFromHash() {
   const m = /^#(?:podcast|knowledge)-(\d+)$/.exec(location.hash);
   if (m) { openKnowledgeItem(parseInt(m[1])); return; }
   // Tab link (#704): #knowledge-video etc. — the letters-only form, which the
-  // digits-only patterns above can never match. This is what /knowledge/videos
-  // redirects to, and also what the tab bar writes into the address bar, so
-  // reloading a bookmarked tab stays on that tab.
+  // digits-only patterns above can never match. This is what the server's
+  // /knowledge/videos redirect lands on; nothing in the frontend writes it.
   const tabMatch = /^#knowledge-(podcast|video|reel|article)$/.exec(location.hash);
   if (tabMatch) openKnowledge(tabMatch[1]);
 }
@@ -11087,6 +11071,11 @@ if (/^#(?:podcast|knowledge)-feed-\d+$/.test(location.hash)
     || /^#(?:podcast|knowledge)-\d+$/.test(location.hash)
     || /^#knowledge-(?:podcast|video|reel|article)$/.test(location.hash)) {
   _openKnowledgeFromHash();
+  // Consume the hash: a direct link is a one-shot instruction to open one
+  // thing, not a sticky location. Leaving it in the address bar made every
+  // later reload land back in the knowledge base instead of the home screen
+  // (#792) — the whole reason nothing in the app writes a hash any more.
+  history.replaceState(null, '', location.pathname + location.search);
 } else {
   loadDecks();
 }

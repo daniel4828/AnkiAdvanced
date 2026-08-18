@@ -81,9 +81,26 @@ def test_tab_hash_is_matched_by_exactly_one_pattern():
         assert len([p for p in HASH_PATTERNS if p.match(legacy)]) == 1, legacy
 
 
-def test_tab_switch_writes_the_tab_into_the_hash():
-    """A bare "#knowledge" is recognized by nothing, so reloading such a URL
-    used to drop back to the deck list. The tab bar must write the full form."""
-    assert "location.hash = 'knowledge';" not in APP_JS
-    assert APP_JS.count("location.hash = `knowledge-${tab}`;") == 1
-    assert APP_JS.count("location.hash = `knowledge-${_knowledgeTab}`;") == 1
+def test_nothing_in_the_app_writes_a_hash():
+    """#792 reversed the #704 contract. The tab bar used to write the tab into
+    the address bar so a reload stayed put — but that is exactly what made
+    *every* later reload land in the knowledge base instead of the home screen,
+    since the hash outlived the visit. Navigation inside the app now leaves the
+    address bar alone; the sub-tab is remembered in localStorage instead, and
+    the bookmarkable entry points (/knowledge/videos, notification links) are
+    server-generated, so they do not depend on the frontend writing anything."""
+    assert "location.hash =" not in APP_JS
+
+
+def test_boot_consumes_the_hash_so_later_reloads_go_home():
+    """A direct link is a one-shot instruction to open one item, not a sticky
+    location: after acting on it the boot code must clear it, otherwise the
+    next reload reopens the same thing instead of the deck list (#792)."""
+    boot = APP_JS[APP_JS.index("// \u2500\u2500 Boot"):]
+    boot = boot[:boot.index("_loadVersionBadge();")]
+    assert "_openKnowledgeFromHash();" in boot
+    # The clear has to sit in the branch that consumed the hash, before the
+    # else-branch that just loads the decks.
+    assert "history.replaceState(null, '', location.pathname + location.search);" in boot
+    assert boot.index("_openKnowledgeFromHash();") < boot.index("history.replaceState")
+    assert boot.index("history.replaceState") < boot.index("loadDecks();")
