@@ -223,13 +223,27 @@ def purge_old_trash(days: int = 30) -> int:
 
 def get_or_create_deck(name: str, parent_id: int | None = None,
                        category: str | None = None, lang: str | None = None) -> int:
-    """Get deck id by (name, parent_id), creating it if it doesn't exist."""
+    """Get deck id by (name, parent_id), creating it if it doesn't exist.
+
+    A soft-deleted deck with the same (name, parent_id) is revived rather than
+    duplicated (issue #801): UNIQUE(name, parent_id) does not include
+    `deleted_at`, so inserting alongside a trashed twin raises IntegrityError.
+    That is how trashing the 'Saved' deck made every add-word request return
+    500. Only the deck row comes back — its cards keep whatever `deleted_at`
+    they have, since trashing a deck and emptying it are separate actions.
+    """
     conn = get_db()
     row = conn.execute(
-        "SELECT id FROM decks WHERE name = ? AND parent_id IS ? AND deleted_at IS NULL",
+        "SELECT id, deleted_at FROM decks WHERE name = ? AND parent_id IS ?",
         (name, parent_id),
     ).fetchone()
     if row:
+        if row["deleted_at"] is not None:
+            conn.execute("UPDATE decks SET deleted_at = NULL WHERE id = ?", (row["id"],))
+            conn.commit()
+            conn.close()
+            _invalidate_locked_deck_cache()
+            return row["id"]
         conn.close()
         return row["id"]
     preset_id = _ensure_default_preset(conn)
