@@ -4,6 +4,8 @@ import re
 import sqlite3
 from datetime import date, datetime, timedelta
 
+from languages import DEFAULT_LANG, deck_root, is_valid_lang
+
 DB_PATH = os.environ.get("DB_PATH", "data/srs.db")
 SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "..", "schema.sql")
 
@@ -1009,6 +1011,35 @@ def _ensure_default_preset(conn: sqlite3.Connection) -> int:
         return row["id"]
     _ensure_presets(conn)
     return conn.execute("SELECT id FROM deck_presets WHERE is_default = 1 LIMIT 1").fetchone()["id"]
+
+
+def _ensure_lang_preset(conn: sqlite3.Connection, lang: str) -> int:
+    """Per-language scheduling preset (issue #806): every non-Chinese language
+    tree gets its own preset — named after its deck root ('Français',
+    'Español') — cloned from the current default preset the first time a deck
+    is created for that language, so Daniel can retune fr/es scheduling
+    without touching preset id=2 ("Anki Default"), which every Chinese deck is
+    bound to. See CLAUDE.md's #629 postmortem: editing the wrong preset once
+    already wasted three weeks of tuning, so zh's preset assignment must never
+    be reachable through this path — callers only call this for lang != 'zh'.
+
+    Looked up / created by name; reused on every later deck under that tree.
+    """
+    preset_name = deck_root(lang)
+    row = conn.execute("SELECT id FROM deck_presets WHERE name = ?", (preset_name,)).fetchone()
+    if row:
+        return row["id"]
+    default_id = _ensure_default_preset(conn)
+    cols = [r["name"] for r in conn.execute("PRAGMA table_info(deck_presets)").fetchall()
+            if r["name"] not in ("id", "name", "is_default")]
+    col_list = ", ".join(cols)
+    conn.execute(
+        f"INSERT INTO deck_presets (name, is_default, {col_list}) "
+        f"SELECT ?, 0, {col_list} FROM deck_presets WHERE id = ?",
+        (preset_name, default_id),
+    )
+    conn.commit()
+    return conn.execute("SELECT id FROM deck_presets WHERE name = ?", (preset_name,)).fetchone()["id"]
 
 
 def _ensure_deck(conn: sqlite3.Connection, name: str,

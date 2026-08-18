@@ -391,3 +391,40 @@ CREATE TABLE knowledge_renditions (
 折叠区直接不渲染（`el.innerHTML = ''`），零 UI 差异。挂载点：`wd-inflection-section`
 （词条详情弹窗）+ `inflection-section`（复习卡背面），紧跟在各自的
 conjugation 挂载点后面。
+
+---
+
+## 造句与调度预设（#806，已实现）
+
+### 知识模式对所有语言可用
+
+知识模式（从已摘要的素材造句）**与语言无关**：素材是德语转录还是中文全文都不影响，
+决定输出语言的只有提示词。所以它有自己的开关 `features.knowledge_story_mode`（所有语言 True），
+**不能**和 `extended_story_modes`（kahneman/paste/briefing，仍然只有中文）捆在一起。
+
+- 中文走 `ai.DEFAULT_PROMPT_TEMPLATES["knowledge"]`（用户可在提示词版本库里改，那个界面本来就只有中文）。
+- 其它语言走 `ai._KNOWLEDGE_PROMPT_NON_ZH`：同样的规则（每句恰好一个目标词、每句复述素材里的一个
+  具体事实、优先硬数据、不许编造），只是用目标语言写、句长上限取 `languages` 的 `sentence_limit`、
+  背景词汇取 CEFR 上限。
+- `briefing` / `paste` 仍然只有中文，所以 `generate_briefing_sentences()` **没有**加 `lang` 参数——
+  加了就是死代码。知识模式走的是 `generate_podcast_sentences()`。
+
+### 匹配必须接受变位形（这是 entry_forms 的第二个用途）
+
+提示词明确允许模型调整目标词的形态（`réduire` → `a réduit`）——不允许的话法语句子根本写不通顺。
+所以匹配也必须接受：`ai._card_surface_forms(card, lang)` = 词典形 + 该词条在 `entry_forms` 里
+存的全部变位/词形，每次生成只查一遍。
+
+**漏存变位的代价在这里第二次出现**：匹配不上 → 句子被丢弃 → 该词拿到兜底句。加词时把变位表
+生成齐全，既让知识库不把学过的词标成生词（#804），也让造句不白白丢句子。
+
+非中文的兜底句是词本身加句号，不是中文的「我学了X这个词。」——兜底就该看起来像兜底。
+
+### 每种语言一套调度预设
+
+`database.core._ensure_lang_preset()`：某语言第一次建牌组时，复制当前默认预设建一个以牌组树根
+命名的预设（`Français` / `Español`），该语言树下所有牌组都绑它。
+
+**中文的绑定一个字节都不许动**——生产库里全部中文牌组绑在 preset id=2（"Anki Default"）上，
+改错过一次浪费了三周（见 CLAUDE.md 的 #629）。所以 `get_or_create_deck` 里 `lang == 'zh'` 仍然
+走原来的 `_ensure_default_preset`，`_ensure_lang_preset` 只对非中文调用。

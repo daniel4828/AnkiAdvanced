@@ -5,7 +5,7 @@ from datetime import date
 
 from languages import DEFAULT_LANG, deck_root
 
-from .core import anki_today, get_db, _ensure_default_preset
+from .core import anki_today, get_db, _ensure_default_preset, _ensure_lang_preset
 
 
 # ---------------------------------------------------------------------------
@@ -246,10 +246,16 @@ def get_or_create_deck(name: str, parent_id: int | None = None,
             return row["id"]
         conn.close()
         return row["id"]
-    preset_id = _ensure_default_preset(conn)
+    resolved_lang = _resolve_deck_lang(conn, parent_id, lang)
+    # Issue #806: every non-Chinese language tree gets its own scheduling
+    # preset, cloned from the default the first time it's needed — zh keeps
+    # going through _ensure_default_preset (preset id=2 in production, see
+    # #629's postmortem in CLAUDE.md) completely untouched.
+    preset_id = (_ensure_default_preset(conn) if resolved_lang == DEFAULT_LANG
+                 else _ensure_lang_preset(conn, resolved_lang))
     cur = conn.execute(
         "INSERT INTO decks (name, parent_id, preset_id, category, lang) VALUES (?, ?, ?, ?, ?)",
-        (name, parent_id, preset_id, category, _resolve_deck_lang(conn, parent_id, lang)),
+        (name, parent_id, preset_id, category, resolved_lang),
     )
     conn.commit()
     deck_id = cur.lastrowid

@@ -2146,7 +2146,12 @@ reasoning_zh 的规则：
         logger.warning("kahneman: using fallback sentence for %s", card["word_zh"])
         sentences.append({
             "word_ids": [card["word_id"]],
-            "sentence_zh": card.get("source_sentence") or f"我学了{card['word_zh']}这个词。",
+            # The Chinese filler sentence would be nonsense in a French deck;
+            # for other languages fall back to the word itself, which is at
+            # least honest about being a fallback (issue #806).
+            "sentence_zh": (card.get("source_sentence")
+                            or (f"我学了{card['word_zh']}这个词。" if lang == "zh"
+                                else f"{card['word_zh']}.")),
             "sentence_en": "",
             "concept_en": concept_en,
             "concept_zh": concept_zh,
@@ -2330,7 +2335,12 @@ def generate_news_sentences(
         logger.warning("news: using fallback sentence for %s", card["word_zh"])
         sentences.append({
             "word_ids": [card["word_id"]],
-            "sentence_zh": card.get("source_sentence") or f"我学了{card['word_zh']}这个词。",
+            # The Chinese filler sentence would be nonsense in a French deck;
+            # for other languages fall back to the word itself, which is at
+            # least honest about being a fallback (issue #806).
+            "sentence_zh": (card.get("source_sentence")
+                            or (f"我学了{card['word_zh']}这个词。" if lang == "zh"
+                                else f"{card['word_zh']}.")),
             "sentence_en": "",
             "concept_en": "",
             "concept_zh": "",
@@ -2348,6 +2358,56 @@ def _briefing_word_match(word_zh: str, sentence_zh: str) -> bool:
         chars = [c for c in word_zh if c not in '.…']
         return all(c in sentence_zh for c in chars)
     return word_zh in sentence_zh
+
+
+# Leading articles the AI may adapt/drop to fit a target word into a sentence
+# (same set generate_story uses) — needed to match e.g. "le chat" against a
+# sentence that only contains "chat".
+_ROMANCE_ARTICLE_PREFIXES = {
+    "fr": ("le ", "la ", "les ", "un ", "une ", "des ", "du ", "de la ", "de l'", "l'"),
+    "es": ("el ", "la ", "los ", "las ", "un ", "una ", "unos ", "unas ", "del ", "al "),
+}
+
+
+def _card_surface_forms(card: dict, lang: str) -> list[str]:
+    """Every surface form that counts as "this card's word" in `lang`.
+
+    For conjugating languages the knowledge prompt explicitly allows the model
+    to adapt a word's form ("réduire" -> "a réduit"), so matching on the
+    headword alone would discard most correct sentences and replace them with
+    fallbacks. #803 stores the full conjugation/inflection table per entry, so
+    the accepted set is simply the headword plus everything in entry_forms.
+    Chinese has no forms and skips the lookup entirely.
+    """
+    word = card.get("word_zh") or ""
+    if lang == "zh" or not card.get("word_id"):
+        return [word]
+    forms = [word]
+    try:
+        grouped = database.get_entry_forms(card["word_id"])
+        for paradigm in grouped.values():
+            for slots in paradigm.values():
+                forms.extend(f for f in slots.values() if f)
+    except Exception as e:
+        logger.warning("could not load stored forms for word %s — %s", card.get("word_id"), e)
+    # Longest first so a multi-word form wins over a bare headword prefix.
+    return sorted({f for f in forms if f}, key=len, reverse=True)
+
+
+def _word_match(word_zh: str, sentence_zh: str, lang: str = "zh") -> bool:
+    """Target-word-in-sentence check for knowledge mode (issue #806) — zh uses
+    the plain substring/abbreviated-sentence rule (_briefing_word_match);
+    fr/es strip a leading article and match on a word boundary, tolerating a
+    plural suffix (same approach as generate_story's non-zh matching)."""
+    if lang == "zh":
+        return _briefing_word_match(word_zh, sentence_zh)
+    w = word_zh.casefold()
+    s = sentence_zh.casefold()
+    for prefix in _ROMANCE_ARTICLE_PREFIXES.get(lang, ()):
+        if w.startswith(prefix):
+            w = w[len(prefix):]
+            break
+    return re.search(rf"(?<!\w){re.escape(w)}(?:s|es)?(?!\w)", s) is not None
 
 
 def validate_briefing_items(items: list[dict], cards: list[dict],
@@ -2948,7 +3008,12 @@ def generate_briefing_sentences(
         logger.warning("briefing: using fallback sentence for %s", card["word_zh"])
         sentences.append({
             "word_ids": [card["word_id"]],
-            "sentence_zh": card.get("source_sentence") or f"我学了{card['word_zh']}这个词。",
+            # The Chinese filler sentence would be nonsense in a French deck;
+            # for other languages fall back to the word itself, which is at
+            # least honest about being a fallback (issue #806).
+            "sentence_zh": (card.get("source_sentence")
+                            or (f"我学了{card['word_zh']}这个词。" if lang == "zh"
+                                else f"{card['word_zh']}.")),
             "sentence_en": "",
             "concept_en": "",
             "concept_zh": "",
@@ -3052,6 +3117,79 @@ def _podcast_max_tokens(model: str, n_words: int) -> int:
     return max(4096, min(needed, cap))
 
 
+# Knowledge mode for non-Chinese decks (issue #806). The Chinese prompt lives
+# in DEFAULT_PROMPT_TEMPLATES["knowledge"] and is user-editable via the prompt
+# preset UI (that UI is Chinese-only); this is its target-language counterpart,
+# carrying the same rules — one target word per sentence, every sentence
+# retells one concrete fact from the material, hard data preferred, no
+# invented content. The source material may be in any language; only the
+# output language is fixed here.
+_KNOWLEDGE_PROMPT_NON_ZH = """Task: below is the content of a podcast/video/article. It may be a raw
+transcript or a summary, and it may be in any language. Write a set of
+sentences IN {lang_name} — one sentence per target word — where each sentence
+also retells one concrete fact from the material. The learner is at {learner}.
+
+Title: {title}
+Material:
+{summary}
+Target words:
+{words}
+
+1. Each sentence must contain exactly ONE target word. You may adapt the
+   word's form (conjugation, agreement, article) so the sentence is
+   grammatical — that is expected in {lang_name}, not a violation.
+2. Each sentence must retell one concrete fact from the material: who, what,
+   how much, when, why, with what result.
+3. Use each fact exactly once. Rephrasing the same information counts as the
+   same fact.
+4. The number of sentences equals the number of target words.
+5. Before writing, list the material's facts internally — at least as many as
+   there are target words — spread across its beginning, middle and end, and
+   covering every topic it raises. Never pile every sentence onto the opening
+   topic.
+6. Prefer facts carrying hard data: years, dates, amounts, sums, percentages,
+   rankings, durations, ages; then facts naming people, companies,
+   institutions, places. Facts with both come first.
+7. Output the sentences in the order the facts appear in the material, so the
+   set reads like an outline. Reorder only when strict order would force an
+   unnatural pairing.
+8. No connectives or plot between sentences — each stands on its own.
+9. No empty sentences ("it was interesting", "he said a lot").
+10. Use ONLY information stated in the material. Never invent, never add
+    background knowledge, never comment.
+11. Keep each sentence to about {sentence_limit}.
+12. Apart from the target word and the key terms in rule 13, use only simple
+    {background} vocabulary.
+13. KEY-TERM EXCEPTION: names of people, places and institutions, numbers,
+    years, amounts and core terminology from the material must be kept
+    verbatim even when they are above that level — they are exactly what is
+    worth remembering. Never blur them into "someone", "somewhere", "a lot",
+    "several years". There is no cap on how many appear in one sentence.
+14. Never mark the target word in any way — no quotes, brackets, bold or
+    parentheses. Write it plainly inside the sentence.
+15. Never use markdown anywhere in the output.
+
+For every sentence also write reasoning_zh: start with "Fact: " and the fact
+that sentence retells, copying its names and numbers verbatim from the
+material, then one short sentence in German saying what the sentence is
+about. Writing the fact out is the self-check — no two sentences may carry
+the same one.
+
+Self-check before answering (internally, do not output): as many sentences as
+target words? each target word used exactly once? every sentence carrying a
+concrete fact? no fact used twice? facts spread over the whole material? no
+number or name blurred away?
+
+{extra_hint}
+
+Return ONLY this JSON array, no other text (reasoning_zh first, sentence_zh
+second; the key names are historical — sentence_zh holds the {lang_name}
+sentence):
+[
+  {{"reasoning_zh": "Fact: … + one German sentence", "sentence_zh": "the {lang_name} sentence containing the target word", "target_word": "the word"}}
+]"""
+
+
 def generate_podcast_sentences(
     cards: list[dict],
     source: dict,              # {"title", "kind", "url", "material"} — see routes/story.py's knowledge branch; caller ensures non-empty "material"
@@ -3059,6 +3197,7 @@ def generate_podcast_sentences(
     max_hsk: int = 3,
     progress_key: str | None = None,
     attempt_label: str = "",
+    lang: str = "zh",
 ) -> tuple[list[dict], str]:
     """Podcast/knowledge mode rework (issue #561) — a lean single-purpose
     pipeline that replaces reuse of the briefing machinery (originally #482).
@@ -3124,21 +3263,43 @@ def generate_podcast_sentences(
     summary_block = source.get("material") or ""
 
     def _build_prompt(batch: list[dict], extra_hint: str = "") -> str:
+        if lang == "zh":
+            word_list = "\n".join(
+                f"{i + 1}. {c['word_zh']}（{c.get('pinyin', '')}）— {c.get('definition', '')}"
+                for i, c in enumerate(batch)
+            )
+            return _render_prompt(tpl, {
+                "title": title_block,
+                "summary": summary_block,
+                "words": word_list,
+                "max_hsk": str(max_hsk),
+                "extra_hint": extra_hint,
+            })
+        # Non-Chinese decks (issue #806): knowledge mode is language-agnostic —
+        # the material's language never mattered, only the output language
+        # does. The background-vocabulary slider's shared 1-6 value maps to a
+        # CEFR cap here, exactly as in generate_sentences.
+        cfg = languages.get_lang_config(lang)
         word_list = "\n".join(
-            f"{i + 1}. {c['word_zh']}（{c.get('pinyin', '')}）— {c.get('definition', '')}"
+            f"{i + 1}. {c['word_zh']} — {c.get('definition_de') or c.get('definition') or ''}"
             for i, c in enumerate(batch)
         )
-        return _render_prompt(tpl, {
-            "title": title_block,
-            "summary": summary_block,
-            "words": word_list,
-            "max_hsk": str(max_hsk),
-            "extra_hint": extra_hint,
-        })
+        return _KNOWLEDGE_PROMPT_NON_ZH.format(
+            lang_name=cfg["name_en"],
+            learner=cfg["learner_level"],
+            title=title_block,
+            summary=summary_block,
+            words=word_list,
+            background=f"CEFR A1-{_CEFR_LEVELS.get(max_hsk, 'B1')}",
+            sentence_limit=cfg["sentence_limit"],
+            extra_hint=extra_hint,
+        )
 
     sentences: list[dict] = []
     remaining = list(cards)
     prompts_sent: list[str] = []
+    # Looked up once per generation, not once per candidate sentence.
+    forms_by_card = {c["word_id"]: _card_surface_forms(c, lang) for c in cards}
 
     def _run_round(batch: list[dict], extra_hint: str, label: str) -> None:
         """One AI call for `batch`; moves every word it covered out of `remaining`."""
@@ -3166,7 +3327,10 @@ def generate_podcast_sentences(
             s_zh = (item.get("sentence_zh") or "").strip()
             if not s_zh:
                 continue
-            matched = next((c for c in remaining if _briefing_word_match(c["word_zh"], s_zh)), None)
+            matched = next(
+                (c for c in remaining
+                 if any(_word_match(f, s_zh, lang) for f in forms_by_card[c["word_id"]])),
+                None)
             if matched is None:
                 continue          # no target word → drop (this mode allows no context sentences)
             remaining.remove(matched)
@@ -3208,7 +3372,12 @@ def generate_podcast_sentences(
             hint = (f"\n\n【补漏轮】上一轮你漏掉了这些词：{missing}。"
                     f"这一轮只需要为上面列出的每一个词各写一句话，一个都不能少。"
                     f"词少的时候不必覆盖素材里的所有话题，但每句仍然必须包含"
-                    f"一个来自素材的专有名词。")
+                    f"一个来自素材的专有名词。") if lang == "zh" else (
+                    f"\n\nRETRY ROUND: you skipped these words last time: {missing}. "
+                    f"Write one sentence for each of them — none may be missing. "
+                    f"With only a few words left you no longer have to cover every "
+                    f"topic in the material, but each sentence must still name a "
+                    f"proper noun or a hard datum taken from it.")
             msg = f"补漏 {len(remaining)} 个词（第{round_no}轮）…{attempt_label}"
             # Late rounds go one word per call: with only a few words left this
             # is the most reliable shape — the model has no room to "pick the
@@ -3234,7 +3403,12 @@ def generate_podcast_sentences(
         log_progress(progress_key, f"⚠️ {card['word_zh']}：{MAX_PODCAST_ROUNDS} 轮都没写出句子，用兜底句")
         sentences.append({
             "word_ids": [card["word_id"]],
-            "sentence_zh": card.get("source_sentence") or f"我学了{card['word_zh']}这个词。",
+            # The Chinese filler sentence would be nonsense in a French deck;
+            # for other languages fall back to the word itself, which is at
+            # least honest about being a fallback (issue #806).
+            "sentence_zh": (card.get("source_sentence")
+                            or (f"我学了{card['word_zh']}这个词。" if lang == "zh"
+                                else f"{card['word_zh']}.")),
             "sentence_en": "",
             "concept_en": "",
             "concept_zh": "",
@@ -3244,7 +3418,7 @@ def generate_podcast_sentences(
             "tokens": [],
         })
 
-    _fill_translations(sentences, progress_key=progress_key)
+    _fill_translations(sentences, progress_key=progress_key, lang=lang)
     return sentences, "\n\n".join(prompts_sent)
 
 
