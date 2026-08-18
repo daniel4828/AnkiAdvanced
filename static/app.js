@@ -10413,8 +10413,10 @@ document.addEventListener('keydown', async e => {
     return;
   }
 
-  // Shift+A opens (or closes) the add-word modal (#788)
-  if (e.key === 'A' && e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+  // Cmd+A (Ctrl+A on Windows/Linux) opens (or closes) the add-word modal (#788).
+  // Use e.code, not e.key: with Cmd held macOS may report a different e.key.
+  // Inside inputs we let the browser's select-all through untouched.
+  if (e.code === 'KeyA' && (e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey) {
     if (!inInput) {
       e.preventDefault();
       const modal = document.getElementById('add-word-modal');
