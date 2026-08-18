@@ -72,7 +72,7 @@ launchd 是 macOS 的定时任务机制（比 cron 更适合 Mac，因为它能�
     <key>ProgramArguments</key>
     <array>
         <string>/usr/bin/python3</string>
-        <string>/Users/daniel/Documents/AnkiAdvanced/scripts/morning_pregen.py</string>
+        <string>/Users/daniel/Documents/biangbiangmian3000/scripts/morning_pregen.py</string>
     </array>
 
     <key>EnvironmentVariables</key>
@@ -90,9 +90,9 @@ launchd 是 macOS 的定时任务机制（比 cron 更适合 Mac，因为它能�
     </dict>
 
     <key>StandardOutPath</key>
-    <string>/Users/daniel/Documents/AnkiAdvanced/data/morning-pregen.log</string>
+    <string>/Users/daniel/Documents/biangbiangmian3000/data/morning-pregen.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/daniel/Documents/AnkiAdvanced/data/morning-pregen.err.log</string>
+    <string>/Users/daniel/Documents/biangbiangmian3000/data/morning-pregen.err.log</string>
 </dict>
 </plist>
 ```
@@ -113,7 +113,7 @@ launchctl load ~/Library/LaunchAgents/com.biangbiangmian3000.morning-pregen.plis
 launchctl start com.biangbiangmian3000.morning-pregen
 
 # 查看日志
-tail -f ~/Documents/AnkiAdvanced/data/morning-pregen.log
+tail -f ~/Documents/biangbiangmian3000/data/morning-pregen.log
 
 # 卸载
 launchctl unload ~/Library/LaunchAgents/com.biangbiangmian3000.morning-pregen.plist

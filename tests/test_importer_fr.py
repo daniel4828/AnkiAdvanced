@@ -21,15 +21,11 @@ import importer
 
 FIXTURE_PATH = os.path.join(os.path.dirname(__file__), "fixtures", "francais_test.yaml")
 
-SCRATCHPAD = ("/private/tmp/claude-501/-Users-daniel-Documents-AnkiAdvanced/"
-              "30a5ad06-70ac-41c2-bff5-48df913a3af3/scratchpad")
-
 
 @pytest.fixture
-def tmp_db(monkeypatch):
-    """Point database.core.DB_PATH at a fresh scratchpad file and init the schema."""
-    os.makedirs(SCRATCHPAD, exist_ok=True)
-    db_file = os.path.join(SCRATCHPAD, f"test_importer_fr_{uuid.uuid4().hex}.db")
+def tmp_db(monkeypatch, tmp_path):
+    """Point database.core.DB_PATH at a fresh temp file and init the schema."""
+    db_file = os.path.join(tmp_path, f"test_importer_fr_{uuid.uuid4().hex}.db")
     monkeypatch.setattr(db_core, "DB_PATH", db_file)
     database.init_db()
     yield db_file

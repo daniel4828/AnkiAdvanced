@@ -2,8 +2,8 @@
 # SQLite backup (runs every 6h via launchd) — keeps last 120 snapshots (~30 days), then auto-prunes.
 # Backs up the database only; TTS audio in data/tts/ is intentionally NOT backed up.
 
-DB="/Users/daniel/Documents/AnkiAdvanced/data/srs.db"
-BACKUP_DIR="/Users/daniel/Documents/AnkiAdvanced/data/backups"
+DB="/Users/daniel/Documents/biangbiangmian3000/data/srs.db"
+BACKUP_DIR="/Users/daniel/Documents/biangbiangmian3000/data/backups"
 
 mkdir -p "$BACKUP_DIR"
 
