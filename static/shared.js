@@ -133,6 +133,9 @@ function knowledgeTitleFor(title, text) {
 // action, the opposite of adding it to a deck. Fire-and-await — the caller
 // updates its own UI optimistically and reports a rejected promise as an
 // error rather than silently leaving a wrong ✓ on screen.
-async function markWordKnown(word) {
-  return api('POST', '/api/known-words', { word });
+//
+// lang (#804) keys known_words per language, same reasoning as addWordViaAi's
+// lang param — omitted means Chinese, so every pre-#804 call site is unaffected.
+async function markWordKnown(word, lang) {
+  return api('POST', '/api/known-words', lang ? { word, lang } : { word });
 }

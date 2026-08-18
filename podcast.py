@@ -2145,6 +2145,16 @@ def regenerate_summary(episode_id: int) -> dict:
         logger.info("podcast: replaced placeholder title %r -> %r for episode %s",
                     episode["title"], title_suggestion, episode_id)
     database.update_episode(episode_id, **update_fields)
+    # #804: the German summary just changed, so any cached French/Spanish/etc.
+    # rendition was translated from the OLD text and is now stale — drop them
+    # all, the next per-language detail view regenerates lazily. Best-effort:
+    # the summary itself already saved successfully above, so a hiccup
+    # invalidating a secondary cache must not turn that into a failure.
+    try:
+        database.delete_knowledge_renditions(episode_id)
+    except Exception as e:
+        logger.warning("podcast: failed to invalidate renditions for episode %s — %s",
+                       episode_id, e)
     logger.info("podcast: summary regenerated for episode %s (%d word(s))", episode_id, len(words))
     return {"regenerated": True, "error": None}
 

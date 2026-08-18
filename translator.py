@@ -48,6 +48,22 @@ def _load(source: str, target: str) -> object | None:
         return None
 
 
+def translate_strict(text: str, target: str = "en", source: str = "zh-CN") -> str:
+    """Like translate_zh, but raises instead of silently returning the
+    original text on failure (#804). translate_zh's swallow-everything
+    contract is right for its existing callers (a missing gloss shouldn't
+    sink a whole story/episode), but knowledge-base language renditions need
+    to tell "translated" apart from "translation failed" so a failure can be
+    reported to the frontend instead of being stored as if it were a real
+    translation into that language."""
+    t = _load(source, target)
+    if t is None:
+        raise RuntimeError(f"translator unavailable (source={source}, target={target})")
+    if not text.strip():
+        return text
+    return _translate_with_timeout(t, text)
+
+
 def translate_zh(text: str, target: str = "en", source: str = "zh-CN") -> str:
     """Translate a string from `source` to the target language. Returns original on failure."""
     t = _load(source, target)

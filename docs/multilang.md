@@ -201,15 +201,112 @@ def get_word_conjugations(word_id: int) -> list[dict]: ...   # [{tense, person, 
 
 ---
 
-## 后续阶段的接口约定（本 Issue 不实现，只占位）
+## 知识库按语言渲染摘要与生词（#804，已实现）
 
-- **知识库多语言标注**：`annotator` 字段决定走哪套实现；罗曼语实现要用
-  `forms_lookup()` 而不是简单的字符串包含判断——"reconnaître 出现在文章里"
-  不代表"reconnaissons"这个变位形式也该被认成已学。
-- **AI 词典多语言**：`/api/dict/lookup` 目前 `lang` 硬编码只接受 `'zh'`
-  （见 CLAUDE.md「AI 词典页」一节）——扩展到 fr/es 时提示词要按 `family`
-  分支，不是按具体语言分支（法语和西班牙语的提示词结构应该几乎一样）。
-- **造句（story generation）多语言**：`ai.py` 的提示词片段（`learner_level`
-  / `background_vocab` / `sentence_limit`）已经是从 `languages.py` 取的，
-  新语言不需要新的生成逻辑，只需要语言族的 `features.extended_story_modes`
-  等标志位控制哪些模式可用。
+依赖上面的语言族 + `forms_lookup` + 按语言 `known_words`。目标：知识库素材
+（播客/视频/文章）只存一份摘要，但每种学习语言看到的"哪些词带翻译"必须不同
+——中文模式和法语模式下的生词集合天然不重合，因为两边"已学词"是两套完全不同
+的表。
+
+### 设计取舍：翻译一次，不重新调用 AI
+
+`podcast_episodes.summary_de`（德语）是唯一的 AI 生成版本。其他语言的阅读版
+是它的**翻译+标注**衍生品，不是第二次 AI 摘要——多语言不该让每篇素材的摘要
+成本乘以语言数。中文是例外：`summary_zh` 本来就是 AI 原生生成、由
+`zh_annotate.py` 标注的，不走这条派生路径，行为一字不改。
+
+### 新表 `knowledge_renditions`
+
+```sql
+CREATE TABLE knowledge_renditions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    episode_id INTEGER NOT NULL REFERENCES podcast_episodes(id) ON DELETE CASCADE,
+    lang TEXT NOT NULL,
+    summary TEXT NOT NULL,     -- 目标语言摘要，生词已内联标注
+    new_words TEXT,            -- JSON [{word, lemma, definition_de}]
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(episode_id, lang)
+);
+```
+
+懒生成：`GET /api/podcast/episodes/{id}?lang=fr` 第一次访问时才翻译+标注并
+写入这张表；之后同一 (episode, lang) 直接读缓存，不重复调用 Google 翻译。
+`podcast.regenerate_summary()` 重新生成 `summary_de` 成功后立即
+`database.delete_knowledge_renditions(episode_id)` 清空全部旧翻译（否则旧
+法语翻译会和新德语摘要说两套话）——这一步是 best-effort（try/except 包裹），
+失败只记日志，不会把已经成功的摘要重生成打回失败状态。
+
+`translator.py` 新增 `translate_strict(text, target, source)`：和已有的
+`translate_zh` 行为相反——失败时**抛异常**而不是静默返回原文。渲染路径必须
+能区分"翻译成功"和"翻译失败"，才能决定要不要写库；`translate_zh`
+"失败就返回原文"的契约对已有调用方是对的（少一个词的德语注释不该毁掉整篇
+故事），但这里如果吞掉失败，会把德语原文当成"法语摘要"存进库。
+
+`knowledge/rendition.py` 的 `get_or_create_rendition(episode_id, lang)` 是唯一
+入口：查缓存 → 没有则取 `summary_de` → `translate_strict` → 失败就抛
+`RenditionError`（**不写库**）→ 成功则 `annotate.annotate_summary()` 标注 →
+`database.save_knowledge_rendition()` 落盘。`routes/podcast.py` 的
+`get_episode()` 接住 `RenditionError`，返回 `rendition: null` +
+`rendition_error` 说明原因，绝不用未翻译的德语文本冒充目标语言摘要。
+
+### 标注分派：`annotate/` 包
+
+`annotate/__init__.py` 的 `annotate_summary(text, lang)` 按
+`languages.get_lang_config(lang)["annotator"]` 分派：
+
+- `"zh"` → 包一层 `zh_annotate.py`（#638），**逻辑一字不改**，中文路径不存在
+  回归的可能——甚至不产生 rendition 行，中文永远读 `summary_zh`。
+- `"romance"` → `annotate/romance.py`（#804 新增），法语/西班牙语共用同一套
+  实现（这正是语言族存在的意义：两种语言的形态学处理方式相同）。
+
+`annotate/romance.py` 的判定逻辑：
+
+1. 分词：按 Unicode 字母切分，剥离省音前缀（`l'économie` → `économie`）——
+   但省音前缀单字母本身（`l`/`d`/`c`/`j`/`m`/`t`/`s`/`qu`/`n`）也在停用词表
+   里，双重保险。
+2. 跳过：停用词表（`annotate/stopwords_fr.txt` / `stopwords_es.txt`，各
+   200+ 条常见虚词）、单字符、句中大写的专有名词。
+3. **已学判定 = `database.forms_lookup(tokens, lang) | database.known_words_exists(tokens, lang)`**
+   ——**不做词干还原**。`forms_lookup` 精确匹配 `entry_forms.form`：一个词的
+   任何存过的变位/词形都算已学，`parlons` 因为在表里所以直接命中，不需要
+   还原成 `parler` 再判断。这正是 #803 把所有变位存进 `entry_forms` 的
+   原因。
+4. 剩下的未知词：`translator.translate_batch()` 批量取德语释义（source=该
+   语言的 `translator_source`，target=`de`），行内标成 `mot (gloss)`，每词
+   只标首次；每篇最多内联标注 40 个（超出的仍进 `new_words`，只是不内联）。
+5. 全程 `try/except` 兜底，任何一步失败都返回原文 + 空生词列表——同
+   `zh_annotate` 的"少个释义是小事，丢整篇摘要才是荒唐"原则。
+
+### 前端
+
+`static/app.js`：`openKnowledgeItem` 请求 `?lang=<activeLang()>`；
+`_renderKnowledgeDetail` 按 `activeLang()` 分支——`zh` 路径字节不变，其它
+语言读 `ep.rendition.summary` / `ep.rendition.new_words`（渲染失败时显示
+`ep.rendition_error`）。语言标签切换（`setActiveLang`）时，如果知识库详情页
+正开着，自动重新拉取当前素材（`_knowledgeDetailId`）。生词表格的"★ List"
+和"✓ Known"按钮沿用已有的 `addWordViaAi()` / `markWordKnown()`（`shared.js`），
+两者都已支持可选 `lang` 参数（分别是 #726、#804 加的），按钮点击时传入
+`_podcastDetailLang`。
+
+### 未覆盖 / 已知限制
+
+- `summary_de` 是 HTML（`<p>`/`<b>` 标签），`translate_strict` 把整段 HTML
+  当纯文本整体丢给 Google 翻译——没有单独验证标签在翻译后是否完整保留；
+  如果翻译引擎重排或吞掉标签，渲染出来的法语/西班牙语摘要可能丢失加粗/分段
+  样式（内容本身不会丢，是纯 HTML 结构风险）。
+- 罗曼语分词是简单的 Unicode 字母正则，不处理连字符复合词（`qu'est-ce` 之类
+  会被拆成多个词单独判断）——精度足以标注生词，但不是完整的形态学分析器。
+- 播客/邮件/Signal 通知（`podcast.send_mail` / `send_signal_text`）仍然只发
+  德语+中文版本，本 Issue 明确不动通知路径。
+
+### 造句（story generation）多语言（本 Issue 仍不实现，只占位）
+
+`ai.py` 的提示词片段（`learner_level` / `background_vocab` /
+`sentence_limit`）已经是从 `languages.py` 取的，新语言不需要新的生成逻辑，
+只需要语言族的 `features.extended_story_modes` 等标志位控制哪些模式可用。
+
+### AI 词典多语言（本 Issue 仍不实现，只占位）
+
+`/api/dict/lookup` 目前 `lang` 硬编码只接受 `'zh'`（见 CLAUDE.md「AI 词典页」
+一节）——扩展到 fr/es 时提示词要按 `family` 分支，不是按具体语言分支（法语
+和西班牙语的提示词结构应该几乎一样）。

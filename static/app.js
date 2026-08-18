@@ -93,6 +93,11 @@ function setActiveLang(lang) {
   if (lang === activeLang()) return;
   localStorage.setItem('activeLang', lang);
   invalidateHomeEvolution();
+  // #804: a knowledge-base item detail view open at the moment of the switch
+  // shows a per-language rendition of the summary — re-fetch it in the new
+  // language instead of leaving the old language's text on screen under the
+  // now-active tab. Only re-renders; doesn't change which view is showing.
+  if (_knowledgeDetailId != null) openKnowledgeItem(_knowledgeDetailId);
   loadDecks();
 }
 
@@ -3678,11 +3683,21 @@ function _schedulePodcastPollIfNeeded() {
 
 // Layer 3: item detail — shared by all three kinds -------------------------------
 
+// _knowledgeDetailId (#804) tracks which episode is currently open so a
+// language-tab switch (setActiveLang) can silently re-fetch it in the new
+// language — see the hook at the bottom of setActiveLang. null when no
+// detail view is open (the podcast list, or any other view).
+let _knowledgeDetailId = null;
+
 async function openKnowledgeItem(id) {
   setLoading('Loading…');
   try {
-    const ep = await api('GET', `/api/podcast/episodes/${id}`);
+    // lang (#804): the detail endpoint returns a translated+annotated
+    // rendition of the summary for non-Chinese tabs; zh's response is
+    // byte-identical to before #804 either way (see routes/podcast.py).
+    const ep = await api('GET', `/api/podcast/episodes/${id}?lang=${activeLang()}`);
     _clearPodcastPoll();
+    _knowledgeDetailId = id;
     showView('knowledge');
     _renderKnowledgeDetail(ep);
   } catch (e) {
@@ -3692,6 +3707,7 @@ async function openKnowledgeItem(id) {
 }
 
 function closeKnowledgeDetail() {
+  _knowledgeDetailId = null;
   if (_podcastCurrentFeedId != null) {
     openPodcastFeed(_podcastCurrentFeedId);
   } else {
@@ -3706,11 +3722,18 @@ function _renderKnowledgeDetail(ep) {
   const isPodcast = kind === 'podcast';
   const contentLabel = kind === 'video' ? 'Subtitles' : kind === 'article' ? 'Article text' : 'Transcript';
   const date = _localDate(ep.published_at || ep.created_at || '');
+  // lang (#804): zh reads hsk_words/summary_zh/summary_de exactly as before
+  // #804 — not one byte of that path changes. Every other language reads
+  // its lazily-generated rendition instead (routes/podcast.py attaches it
+  // to the response as ep.rendition / ep.rendition_error).
+  const lang = activeLang();
+  const isZh = lang === 'zh';
   // Keep the raw word objects around so click handlers can look them up by
   // index instead of serializing them into onclick attributes (avoids
   // quote/apostrophe escaping issues in word_zh/definition_de text).
-  _podcastDetailWords = ep.hsk_words || [];
+  _podcastDetailWords = isZh ? (ep.hsk_words || []) : ((ep.rendition && ep.rendition.new_words) || []);
   _podcastDetailEpisodeId = ep.id;
+  _podcastDetailLang = lang;
   const hskRows = _podcastDetailWords.map((w, idx) => `<tr id="podcast-word-row-${idx}">
       <td class="word-zh">${_escHtml(w.word || w.word_zh || '')}</td>
       <td class="word-pinyin">${_escHtml(w.pinyin || '')}</td>
@@ -3742,6 +3765,19 @@ function _renderKnowledgeDetail(ep) {
          <div id="podcast-transcript-body" class="podcast-transcript" style="display:none">${trBody}</div>
        </div>`
     : '';
+  // #804: zh's summary block is untouched. Every other language shows its
+  // rendition (translated from summary_de, new words annotated inline); a
+  // failed/not-yet-generated rendition shows the reason rather than silently
+  // falling back to a German block Daniel didn't ask to read.
+  const summaryBlock = isZh
+    ? `${ep.summary_zh ? `<div id="podcast-summary-zh">${_summaryZhHtml(ep.summary_zh)}</div>` : ''}
+       <div id="podcast-summary-de">${ep.summary_de || ''}</div>`
+    : (ep.rendition
+        // Same whitelist sanitizer the zh summary uses: the rendition text
+        // passed through Google Translate and the annotator, so it gets
+        // escaped and only <p>/<b>/<em>/<i>/<br> are let back through.
+        ? `<div id="podcast-summary-rendition">${_summaryZhHtml(ep.rendition.summary || '')}</div>`
+        : `<p class="keymap-hint">${_escHtml(ep.rendition_error || 'Rendition unavailable.')}</p>`);
 
   el.innerHTML = `
     <button class="keymap-reset-all" onclick="closeKnowledgeDetail()">← Back</button>
@@ -3749,11 +3785,10 @@ function _renderKnowledgeDetail(ep) {
       <h2 class="keymap-heading">${_escHtml(ep.title || '(untitled)')}</h2>
       <p class="keymap-hint">${date}</p>
       <div style="margin:4px 0 10px">${links}</div>
-      ${ep.summary_zh ? `<div id="podcast-summary-zh">${_summaryZhHtml(ep.summary_zh)}</div>` : ''}
-      <div id="podcast-summary-de">${ep.summary_de || ''}</div>
+      ${summaryBlock}
     </div>
     <div class="keymap-panel">
-      <h2 class="keymap-heading">HSK vocabulary</h2>
+      <h2 class="keymap-heading">${isZh ? 'HSK vocabulary' : 'New words'}</h2>
       ${hskTable}
     </div>
     <div class="keymap-panel">
@@ -3778,6 +3813,11 @@ let _podcastDetailWords = [];
 // doPodcastNotify (#530) so the Send to Signal/Email buttons don't need to
 // embed the id in their onclick attribute.
 let _podcastDetailEpisodeId = null;
+
+// Language the currently rendered podcast detail was fetched/rendered in
+// (#804) — doPodcastAddWord/doPodcastKnownWord need it to file the word (or
+// known-word mark) under the right language tree.
+let _podcastDetailLang = 'zh';
 
 // Regenerate the summary of the currently shown episode (#567): POST kicks
 // off a background thread on the server, then poll the detail endpoint until
@@ -3852,12 +3892,15 @@ function doPodcastAddWord(idx) {
   // Always the ★ List (#715): a word met while reading goes to the staging
   // area, never straight into today's or tomorrow's review queue. Activating
   // it is a separate, deliberate step in Browse's saved view.
+  //
+  // lang (#804): file the word under the language it was actually read in,
+  // not always Chinese — same reasoning as #726's addWordViaAi lang param.
   addWordViaAi(wordZh, 'list', (state, text) => {
     btn.textContent = text;
     btn.classList.toggle('podcast-add-error', state === 'error');
     // Only a failure is worth retrying; a finished add is not repeatable.
     if (state === 'error') btn.disabled = false;
-  });
+  }, _podcastDetailLang);
 }
 
 // "✓ Known" in the HSK word table (#710): Daniel already knows this word, it
@@ -3877,7 +3920,8 @@ function doPodcastKnownWord(idx) {
 
   btn.disabled = true;
   btn.textContent = '…';
-  markWordKnown(wordZh).then(() => {
+  // lang (#804): known_words is per-language — see markWordKnown's docstring.
+  markWordKnown(wordZh, _podcastDetailLang).then(() => {
     btn.textContent = '✓ known';
     document.getElementById(`podcast-word-row-${idx}`)?.classList.add('podcast-word-known');
   }).catch(e => {

@@ -715,6 +715,24 @@ CREATE TABLE IF NOT EXISTS podcast_episodes (
     created_at       TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- ---------------------------------------------------------------------------
+-- Per-language reading renditions of a knowledge-base episode's summary
+-- (#804). The AI writes summary_de exactly once; every other language's
+-- reading view is a Google-translated-then-annotated derivative of it,
+-- generated lazily on first request and cached here so it isn't re-translated
+-- on every page view. Chinese is NOT stored here — summary_zh is already
+-- AI-native and annotated by zh_annotate.py, so it has no rendition row.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS knowledge_renditions (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    episode_id INTEGER NOT NULL REFERENCES podcast_episodes(id) ON DELETE CASCADE,
+    lang       TEXT NOT NULL,
+    summary    TEXT NOT NULL,   -- target-language summary, new words already annotated inline
+    new_words  TEXT,            -- JSON array of {word, lemma, definition_de}
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(episode_id, lang)
+);
+
 CREATE TABLE IF NOT EXISTS podcast_config (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
