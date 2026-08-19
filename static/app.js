@@ -834,6 +834,15 @@ function showView(name) {
   document.querySelector('main').classList.toggle('review-open', name === 'review');
   const countsRow = document.getElementById('counts-row');
   if (countsRow) countsRow.style.display = name === 'review' ? 'flex' : 'none';
+  // Language tabs only on the deck list: they re-scope the home page, and the
+  // header row is taken over by the review counts anyway (#816). Re-render rather
+  // than just unhiding — some paths reach the deck list without going through
+  // renderDecks() (error fallbacks), and the tabs must still show there.
+  if (name === 'decks') _renderHeaderLangTabs();
+  else {
+    const langTabs = document.getElementById('header-lang-tabs');
+    if (langTabs) langTabs.style.display = 'none';
+  }
   document.getElementById('back-btn').style.display = name === 'decks' ? 'none' : 'block';
   document.getElementById('header-title').textContent =
     name === 'review'       ? deckName :
@@ -1225,16 +1234,21 @@ async function loadDecks({ keepView = false } = {}) {
 // Tab bar shown above the deck list — only when more than one language is in
 // use (issue #436). Selecting a tab re-scopes the whole home page: deck tree,
 // All-deck aggregation, unfinished cards, and the stats charts.
+// They live in the header (#816) rather than in the page body, because the
+// language is application-wide state — dictionary, add-word and story modes all
+// follow it — so it belongs next to the app title, above everything it scopes.
 const _LANG_TAB_LABELS = { zh: '中文', fr: 'Français' };
-function _langTabsHtml() {
-  if (_availableLangs.length <= 1) return '';
+function _renderHeaderLangTabs() {
+  const box = document.getElementById('header-lang-tabs');
+  if (!box) return;
+  if (_availableLangs.length <= 1) { box.style.display = 'none'; box.innerHTML = ''; return; }
   const cur = activeLang();
-  const tabs = _availableLangs.map(l => {
+  box.innerHTML = _availableLangs.map(l => {
     const label = _LANG_TAB_LABELS[l] || l;
     const active = l === cur ? ' lang-tab-active' : '';
     return `<button class="lang-tab${active}" onclick="setActiveLang('${l}')">${label}</button>`;
   }).join('');
-  return `<div class="lang-tabs">${tabs}</div>`;
+  box.style.display = 'flex';
 }
 
 function flatten(nodes, depth = 0) {
@@ -1452,6 +1466,9 @@ function buildCategoryButtons(deck) {
 function renderDecks(decks) {
   const navRow = `
     <div class="nav-row">
+      <button class="nav-btn" onclick="openAddWordModal()" title="Add a new word (⌘A)">＋ Add Word</button>
+      <a class="nav-btn" href="/dict" title="Dictionary lookup">📖 Dictionary</a>
+      <button class="nav-btn" onclick="openRandomWords()" title="10 random words for today">🎲 Random</button>
       <button class="nav-btn" onclick="openBrowse()" title="Shortcut: B">Browse Cards</button>
       <button class="nav-btn" onclick="openStats()">Stats</button>
       <button class="nav-btn" onclick="openKnowledge()">🧠 Knowledge</button>
@@ -1527,9 +1544,10 @@ function renderDecks(decks) {
   }
 
   document.getElementById('view-decks').innerHTML =
-    _langTabsHtml() + navRow + filteredSection +
+    navRow + filteredSection +
     '<div id="home-calendar" class="hcal-card"></div>' +
     '<div id="home-evolution" class="hcal-card"></div>' + regularSection;
+  _renderHeaderLangTabs();
   if (typeof initHomeCalendar === 'function') initHomeCalendar();
   if (typeof initHomeEvolution === 'function') initHomeEvolution();
 }

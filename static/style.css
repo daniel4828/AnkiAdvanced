@@ -97,53 +97,7 @@ header h1 {
   margin-left: 4px;
 }
 #header-regen-btn:hover { background: var(--border); color: #6366f1; }
-#random-words-btn {
-  background: none;
-  border: none;
-  font-size: 16px;
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 6px;
-  line-height: 1;
-  margin-left: 4px;
-}
-#random-words-btn:hover { background: var(--border); }
-/* Dictionary page link (#746) — plain nav icon like #random-words-btn, not a
-   create action, so it doesn't get the primary-colour treatment #add-word-btn has. */
-#dict-link-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 6px;
-  line-height: 1;
-  margin-left: 4px;
-  color: var(--muted);
-  text-decoration: none;
-}
-#dict-link-btn:hover { background: var(--border); }
-/* The one action button in the header that creates something — give it the
-   primary colour and a real touch target instead of the browser default (#636) */
-#add-word-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  margin-left: 4px;
-  font-size: 20px;
-  line-height: 1;
-  background: var(--primary);
-  color: #fff;
-  border: none;
-  border-radius: 50%;
-  cursor: pointer;
-}
-#add-word-btn:hover { filter: brightness(1.1); }
-#add-word-btn:active { transform: scale(0.92); }
+/* ＋ / 📖 / 🎲 used to be header icons; they are nav-row buttons now (#816). */
 
 /* ── Layout ──────────────────────────────────────────── */
 main {
@@ -2276,6 +2230,9 @@ a.news-source-line:hover {
   transition: border-color 0.15s, color 0.15s;
 }
 .nav-btn:hover { border-color: var(--primary); color: var(--primary); }
+/* The dictionary entry is a real link (#816) — strip the anchor defaults so it
+   is indistinguishable from its neighbours. */
+a.nav-btn { text-decoration: none; }
 .nav-shortcuts-help {
   width: 100%;
   color: var(--muted);
@@ -4835,6 +4792,33 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   padding-bottom: 9px;
 }
 
+/* In-header variant (#816). The header is a white bar, so the "tab welded to the
+   panel below it" look would make the active tab the darker one — backwards.
+   Inside a toolbar the readable form is an underline tab instead. */
+.lang-tabs-header {
+  margin: 0 0 0 14px;
+  flex: 0 0 auto;
+  border-bottom: none;
+  align-self: stretch;
+  align-items: center;
+  gap: 4px;
+}
+.lang-tabs-header .lang-tab {
+  bottom: 0;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 4px 10px 3px;
+  background: none;
+}
+.lang-tabs-header .lang-tab:hover { background: none; color: var(--text); }
+.lang-tabs-header .lang-tab.lang-tab-active {
+  background: none;
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  padding-bottom: 3px;
+}
+
 .hcal-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .hcal-seg-btn {
   border: none;
@@ -5460,8 +5444,6 @@ table.fsrs-table td.ivl { font-weight: 700; }
   }
   /* Apple's minimum comfortable touch target is 44px; these were 32px-ish
      circles/emoji sized for a mouse. */
-  #add-word-btn { width: 40px; height: 40px; font-size: 24px; margin-left: 2px; }
-  #random-words-btn,
   #header-regen-btn,
   #sync-btn {
     min-width: 40px;
@@ -5470,4 +5452,7 @@ table.fsrs-table td.ivl { font-weight: 700; }
     padding: 0;
   }
   #back-btn { min-width: 40px; min-height: 40px; font-size: 24px; }
+  /* The title already ellipsises; keep the tabs from eating its whole width. */
+  .lang-tabs-header { margin-left: 8px; }
+  .lang-tabs-header .lang-tab { padding: 4px 7px 3px; font-size: 12px; }
 }
