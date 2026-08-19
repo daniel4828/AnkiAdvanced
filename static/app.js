@@ -98,6 +98,10 @@ function setActiveLang(lang) {
   // language instead of leaving the old language's text on screen under the
   // now-active tab. Only re-renders; doesn't change which view is showing.
   if (_knowledgeDetailId != null) openKnowledgeItem(_knowledgeDetailId);
+  // #819: switching tabs while browsing reloads Browse in the new language
+  // instead of dropping the user back on the deck list. loadDecks(true) still
+  // runs, because Browse reads _deckLangById / _cachedDecks for its sidebar.
+  if (_currentView === 'browse') { loadDecks(true); openBrowse(); return; }
   loadDecks();
 }
 
@@ -834,11 +838,14 @@ function showView(name) {
   document.querySelector('main').classList.toggle('review-open', name === 'review');
   const countsRow = document.getElementById('counts-row');
   if (countsRow) countsRow.style.display = name === 'review' ? 'flex' : 'none';
-  // Language tabs only on the deck list: they re-scope the home page, and the
-  // header row is taken over by the review counts anyway (#816). Re-render rather
-  // than just unhiding — some paths reach the deck list without going through
-  // renderDecks() (error fallbacks), and the tabs must still show there.
-  if (name === 'decks') _renderHeaderLangTabs();
+  // Language tabs on the deck list and in Browse — the two views that list cards
+  // across a whole language. Browse is language-scoped too (#815), and switching
+  // tabs is the only way to change language (#819), so the tabs have to be
+  // reachable from there. Everywhere else the header row is needed for something
+  // else (review counts) or the language is fixed by what's on screen.
+  // Re-render rather than just unhiding — some paths reach these views without
+  // going through renderDecks() (error fallbacks), and the tabs must still show.
+  if (name === 'decks' || name === 'browse') _renderHeaderLangTabs();
   else {
     const langTabs = document.getElementById('header-lang-tabs');
     if (langTabs) langTabs.style.display = 'none';
