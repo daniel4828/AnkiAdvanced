@@ -11,13 +11,19 @@ Strategy:
 
 import pytest
 from unittest.mock import patch, call
-from datetime import date
 
 # If fastapi is not installed the whole file is skipped cleanly.
 pytest.importorskip("fastapi", reason="fastapi not installed")
 
 from fastapi.testclient import TestClient
 import database
+
+# Anki days start at the preset's cutoff hour (4 a.m. by default), not at
+# midnight, so between 00:00 and the cutoff date.today() is one day ahead of
+# the day the app is on. Every "today"/"tomorrow" expectation in this file is
+# compared against a deck name or due date that production code derived from
+# database.anki_today(), so the tests derive theirs the same way — otherwise
+# they fail on any run started before 4 a.m. (#810).
 import importer
 import main
 
@@ -152,7 +158,7 @@ class TestGetStory:
         without re-calling AI.
         """
         deck_id = populated_db
-        today = date.today().isoformat()
+        today = database.anki_today().isoformat()
 
         with patch("ai.generate_story", side_effect=fake_generate_story):
             client.get(f"/api/story/{deck_id}/listening")
@@ -179,7 +185,7 @@ class TestRegenerateStory:
         so it becomes the active story. Old stories are kept forever.
         """
         deck_id = populated_db
-        today = date.today().isoformat()
+        today = database.anki_today().isoformat()
 
         with patch("ai.generate_story", side_effect=fake_generate_story):
             client.get(f"/api/story/{deck_id}/listening")           # story 1

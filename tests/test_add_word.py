@@ -16,6 +16,13 @@ from unittest.mock import patch
 
 import ai
 import database
+
+# Anki days start at the preset's cutoff hour (4 a.m. by default), not at
+# midnight, so between 00:00 and the cutoff date.today() is one day ahead of
+# the day the app is on. Every "today"/"tomorrow" expectation in this file is
+# compared against a deck name or due date that production code derived from
+# database.anki_today(), so the tests derive theirs the same way — otherwise
+# they fail on any run started before 4 a.m. (#810).
 import main
 import routes.imports
 
@@ -86,7 +93,7 @@ def _run_add_word(word_zh, yaml_text=ENTRY_YAML, day=None, lang=None):
 
 
 def _daily_leaf_decks(day=None):
-    day = day or date.today().isoformat()
+    day = day or database.anki_today().isoformat()
     deck_id = database.get_or_create_deck_path(f"Daily::{day}")
     return database.get_or_create_category_decks(deck_id, day)
 
@@ -105,7 +112,7 @@ def test_new_word_lands_in_todays_deck_due_today(tmp_db):
     assert entry["pinyin"] == "shēngtài"
     assert entry["definition_de"] == "Ökologie / Ökosystem"
 
-    today = date.today().isoformat()
+    today = database.anki_today().isoformat()
     leaf_ids = set(_today_leaf_decks().values())
     conn = database.get_db()
     cards = conn.execute(
@@ -153,7 +160,7 @@ def test_known_word_is_reset_into_todays_deck_without_calling_the_ai(tmp_db):
     # INSERT OR IGNORE silently dropped every card, so nothing reached the daily
     # deck. Prove the cards really moved — a success report is only worth
     # something if it matches reality.
-    today = date.today().isoformat()
+    today = database.anki_today().isoformat()
     leaf_ids = set(_today_leaf_decks().values())
     conn = database.get_db()
     rows = conn.execute(
@@ -217,7 +224,7 @@ def test_saved_word_is_promoted_into_todays_deck(tmp_db):
         r = client.post("/api/add-word-ai", json={"word_zh": "生态"})
     assert r.json()["status"] == "promoted"
 
-    today = date.today().isoformat()
+    today = database.anki_today().isoformat()
     leaf_ids = set(_today_leaf_decks().values())
     conn = database.get_db()
     rows = conn.execute(
@@ -236,7 +243,7 @@ def test_tomorrow_lands_in_tomorrows_deck_due_tomorrow(tmp_db):
     result = _run_add_word("生态", day="tomorrow")
     assert result["job"]["status"] == "done", result["job"]
 
-    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    tomorrow = (database.anki_today() + timedelta(days=1)).isoformat()
     assert result["deck_path"] == f"Daily::{tomorrow}"
 
     entry = database.get_word_by_zh("生态")
@@ -260,7 +267,7 @@ def test_saved_word_promoted_to_tomorrow(tmp_db):
         r = client.post("/api/add-word-ai", json={"word_zh": "生态", "day": "tomorrow"})
     assert r.json()["status"] == "promoted"
 
-    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    tomorrow = (database.anki_today() + timedelta(days=1)).isoformat()
     conn = database.get_db()
     rows = conn.execute(
         "SELECT deck_id, due FROM cards WHERE word_id=? AND deleted_at IS NULL",
@@ -395,7 +402,7 @@ def test_list_generates_the_full_entry_but_parks_it_suspended(tmp_db):
 def test_listed_word_is_invisible_to_the_review_queue(tmp_db):
     """The whole point: a listed word must not turn up for review anywhere."""
     _run_add_word("生态", day="list")
-    today_deck = database.get_or_create_deck_path(f"Daily::{date.today().isoformat()}")
+    today_deck = database.get_or_create_deck_path(f"Daily::{database.anki_today().isoformat()}")
     for category in ("reading", "listening", "creating"):
         r = client.get(f"/api/today/{today_deck}/{category}")
         assert r.status_code == 200
@@ -508,7 +515,7 @@ def test_listed_word_can_be_promoted_into_a_daily_deck(tmp_db):
     assert r.status_code == 200, r.text
     # Today, not tomorrow (#728): a future daily deck is locked, so the word
     # would be invisible for the rest of the day Daniel asked for it.
-    today = date.today().isoformat()
+    today = database.anki_today().isoformat()
     assert r.json()["deck_path"] == f"Daily::{today}"
 
     conn = database.get_db()
@@ -528,7 +535,7 @@ def test_listed_word_can_still_be_promoted_to_tomorrow(tmp_db):
 
     r = client.post(f"/api/saved/{entry_id}/promote?day=tomorrow")
     assert r.status_code == 200, r.text
-    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    tomorrow = (database.anki_today() + timedelta(days=1)).isoformat()
     assert r.json()["deck_path"] == f"Daily::{tomorrow}"
 
     conn = database.get_db()
@@ -645,7 +652,7 @@ ENTRY_YAML_FR_VERB = """- type: word
 
 
 def _fr_leaf_decks(day=None):
-    day = day or date.today().isoformat()
+    day = day or database.anki_today().isoformat()
     deck_id, _ = database.get_or_create_daily_deck(day, "fr")
     return database.get_or_create_category_decks(deck_id, day)
 
@@ -654,7 +661,7 @@ def test_french_word_lands_in_the_french_deck_tree(tmp_db):
     result = _run_add_word("séjour", yaml_text=ENTRY_YAML_FR, lang="fr")
     assert result["job"]["status"] == "done", result["job"]
     assert result["job"]["summary"]["imported"] == 1
-    assert result["deck_path"] == f"Français::{date.today().isoformat()}"
+    assert result["deck_path"] == f"Français::{database.anki_today().isoformat()}"
 
     entry = database.get_word_by_zh("séjour")
     assert entry["lang"] == "fr"
@@ -713,7 +720,7 @@ def test_listed_french_word_is_promoted_inside_its_own_tree(tmp_db):
 
     r = client.post(f"/api/saved/{entry_id}/promote")
     assert r.status_code == 200, r.text
-    today = date.today().isoformat()
+    today = database.anki_today().isoformat()
     assert r.json()["deck_path"] == f"Français::{today}"
 
     conn = database.get_db()
