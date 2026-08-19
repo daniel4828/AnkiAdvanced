@@ -4806,32 +4806,44 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   padding-bottom: 9px;
 }
 
-/* In-header variant (#816). The header is a white bar, so the "tab welded to the
-   panel below it" look would make the active tab the darker one — backwards.
-   Inside a toolbar the readable form is an underline tab instead. */
+/* In-header variant (#816, recoloured #824). The active tab is a tinted block
+   running the full height of the header down to the header's own bottom rule —
+   which is itself tinted, so the "underline" spans the whole page width. */
 .lang-tabs-header {
   margin: 0 0 0 14px;
   flex: 0 0 auto;
   border-bottom: none;
   align-self: stretch;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 .lang-tabs-header .lang-tab {
   bottom: 0;
-  border: none;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  padding: 4px 10px 3px;
+  /* Cancel the header's vertical padding (10px) and its 1px rule, so the tab is
+     full-height and the active one can sit on top of the rule. */
+  margin: -10px 0 -11px;
+  padding: 10px 16px 11px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
   background: none;
 }
-.lang-tabs-header .lang-tab:hover { background: none; color: var(--text); }
+.lang-tabs-header .lang-tab:hover { background: var(--bg); color: var(--text); }
 .lang-tabs-header .lang-tab.lang-tab-active {
-  background: none;
-  color: var(--primary);
-  border-bottom-color: var(--primary);
-  padding-bottom: 3px;
+  background: var(--card);
+  border-color: var(--lang-accent, var(--border));
+  color: var(--lang-accent, var(--text));
 }
+
+/* ── Per-language accent (#824) ──────────────────────────────────────────────
+   Set as body[data-lang] by _applyLangTheme(); absent for single-language users,
+   who keep the plain grey header rule below. */
+body[data-lang="zh"] { --lang-accent: #dc2626; }
+body[data-lang="fr"] { --lang-accent: #0891b2; }
+body[data-lang="es"] { --lang-accent: #ca8a04; }
+/* The rule the tabs sit on — it runs the full page width, and the active tab
+   covers the 1px of it that it stands on. */
+body[data-lang] header { border-bottom-color: var(--lang-accent, var(--border)); }
 
 .hcal-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .hcal-seg-btn {
@@ -5468,7 +5480,12 @@ table.fsrs-table td.ivl { font-weight: 700; }
   #back-btn { min-width: 40px; min-height: 40px; font-size: 24px; }
   /* The title already ellipsises; keep the tabs from eating its whole width. */
   .lang-tabs-header { margin-left: 8px; }
-  .lang-tabs-header .lang-tab { padding: 4px 7px 3px; font-size: 12px; }
+  /* Header padding drops to 8px here, so the full-height tab has to match (#824). */
+  .lang-tabs-header .lang-tab {
+    margin: -8px 0 -9px;
+    padding: 8px 10px 9px;
+    font-size: 12px;
+  }
 }
 
 /* ── Background-task indicator (#821) ───────────────────

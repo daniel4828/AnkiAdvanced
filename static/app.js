@@ -92,6 +92,7 @@ function _langQP(sep) { const q = _langQ(); return q ? `${sep}${q}` : ''; }
 function setActiveLang(lang) {
   if (lang === activeLang()) return;
   localStorage.setItem('activeLang', lang);
+  _applyLangTheme();  // recolour immediately, don't wait for the reload (#824)
   invalidateHomeEvolution();
   // #804: a knowledge-base item detail view open at the moment of the switch
   // shows a per-language rendition of the summary — re-fetch it in the new
@@ -1361,7 +1362,20 @@ async function loadDecks({ keepView = false } = {}) {
 // language is application-wide state — dictionary, add-word and story modes all
 // follow it — so it belongs next to the app title, above everything it scopes.
 const _LANG_TAB_LABELS = { zh: '中文', fr: 'Français' };
+
+// Each language gets its own accent colour (#824), carried by body[data-lang] so
+// the header's bottom rule is tinted in *every* view — the tab bar itself only
+// shows on two of them, but "which language am I in" matters during review too.
+// Single-language users get no attribute at all, and so the original grey rule.
+function _applyLangTheme() {
+  const body = document.body;
+  if (!body) return;
+  if (_availableLangs.length <= 1) delete body.dataset.lang;
+  else body.dataset.lang = activeLang();
+}
+
 function _renderHeaderLangTabs() {
+  _applyLangTheme();
   const box = document.getElementById('header-lang-tabs');
   if (!box) return;
   if (_availableLangs.length <= 1) { box.style.display = 'none'; box.innerHTML = ''; return; }
