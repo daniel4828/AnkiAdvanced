@@ -99,9 +99,11 @@ function setActiveLang(lang) {
   // now-active tab. Only re-renders; doesn't change which view is showing.
   if (_knowledgeDetailId != null) openKnowledgeItem(_knowledgeDetailId);
   // #819: switching tabs while browsing reloads Browse in the new language
-  // instead of dropping the user back on the deck list. loadDecks(true) still
-  // runs, because Browse reads _deckLangById / _cachedDecks for its sidebar.
-  if (_currentView === 'browse') { loadDecks(true); openBrowse(); return; }
+  // instead of dropping the user back on the deck list. loadDecks still runs,
+  // because Browse reads _deckLangById / _cachedDecks for its sidebar — but it
+  // must keep the view (#822): its parameter is an object, and a bare `true`
+  // silently falls back to keepView=false, racing openBrowse() for the view.
+  if (_currentView === 'browse') { loadDecks({ keepView: true }); openBrowse(); return; }
   loadDecks();
 }
 
