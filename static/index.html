@@ -59,6 +59,17 @@
     <button class="undo-btn" id="session-graph-btn" onclick="openSessionSummary()" title="Graph of cards reviewed this session">📈 Session</button>
   </div>
   <div class="header-right">
+    <!-- Background-task indicator (#821). Hidden while nothing is running;
+         _renderTasks() fills the badge and the dropdown from GET /api/tasks. -->
+    <div id="tasks-wrap" style="display:none">
+      <button id="tasks-btn" onclick="toggleTasksPanel()" title="Background tasks">
+        <span class="tasks-spinner">⚙</span><span id="tasks-count">0</span>
+      </button>
+      <div id="tasks-panel" style="display:none">
+        <div class="tasks-panel-title">Running in the background</div>
+        <div id="tasks-list"></div>
+      </div>
+    </div>
     <!-- Local instance only — injected visible by _renderOfflineBanner() (#625) -->
     <button id="sync-btn" onclick="openSyncPopup()" title="Sync with the server" style="display:none">⟳</button>
     <!-- ＋ / 📖 / 🎲 moved to the deck-list nav row (#816) so the header can

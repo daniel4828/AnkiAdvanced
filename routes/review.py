@@ -8,6 +8,7 @@ import database
 import review_notify
 import srs
 import tts
+from . import tasks
 from .utils import leaf_ids, queue_mgr as _queue_mgr, ai_disabled
 
 logger = logging.getLogger(__name__)
@@ -62,6 +63,12 @@ def _spawn_again_regen(card: dict) -> None:
     logger.info("again-regen  TRIGGER word=%s cat=%s — scheduling background regen",
                 card.get("word_zh"), card.get("category"))
 
+    # Visible in the header task indicator (#821) — this is the one background
+    # job in the app that publishes no progress state of its own.
+    task_id = f"sentence:{card['word_id']}:{card['category']}"
+    tasks.register(task_id, "sentence",
+                   f"New sentence · {card.get('word_zh') or card['word_id']}")
+
     def _run() -> None:
         try:
             from .story import generate_sentence_for_word
@@ -91,6 +98,8 @@ def _spawn_again_regen(card: dict) -> None:
                 pass
         except Exception as e:
             logger.warning("again-regen failed for word=%s: %s", card.get("word_zh"), e)
+        finally:
+            tasks.finish(task_id)
 
     threading.Thread(target=_run, daemon=True).start()
 
