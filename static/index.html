@@ -370,7 +370,8 @@
         <button class="bs-status-item" id="bss-starred"   onclick="setBrowseStatusFilter('starred')"
                 title="Sentences you starred while reviewing — good examples for prompt tuning">⭐ Sentences</button>
       </div>
-      <div class="bs-section">
+      <!-- Chinese-only: hidden under a non-zh language tab (#815) -->
+      <div class="bs-section" id="bs-hanzi-section">
         <div class="bs-section-head">Hanzi</div>
         <button class="bs-item" id="bsf-hanzi" onclick="setBrowseFilter('hanzi','all')">All Hanzi</button>
       </div>

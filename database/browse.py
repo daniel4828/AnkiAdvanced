@@ -7,9 +7,16 @@ from .cards import get_card
 # Browse / search
 # ---------------------------------------------------------------------------
 
-def get_words_for_browse() -> list[dict]:
-    """Return all entries (with or without cards), with embedded card states per category."""
-    sql = """
+def get_words_for_browse(lang: str | None = None) -> list[dict]:
+    """Return all entries (with or without cards), with embedded card states per category.
+
+    `lang` filters on entries.lang (#815). It has to be the entry's own language,
+    not the deck's: a reference entry has no cards at all, so a deck-based filter
+    would drop every card-less word from Browse. Passing None keeps the old
+    "everything" behavior for callers that predate the language tabs.
+    """
+    where = "WHERE w.lang = ?" if lang else ""
+    sql = f"""
         SELECT w.id, w.word_zh, w.pinyin, w.definition, w.definition_de, w.pos, w.hsk_level, w.note_type,
                c.id as card_id, c.category, c.state, c.interval, c.ease,
                c.due, c.lapses, c.step_index, c.deck_id,
@@ -18,10 +25,11 @@ def get_words_for_browse() -> list[dict]:
         FROM entries w
         LEFT JOIN cards c ON c.word_id = w.id AND c.deleted_at IS NULL
         LEFT JOIN decks d ON d.id = c.deck_id
+        {where}
         ORDER BY w.word_zh, c.category
     """
     conn = get_db()
-    rows = conn.execute(sql).fetchall()
+    rows = conn.execute(sql, ([lang] if lang else [])).fetchall()
     conn.close()
     words: dict = {}
     for r in rows:
@@ -58,23 +66,26 @@ def get_words_for_browse() -> list[dict]:
     return list(words.values())
 
 
-def search_words(q: str) -> dict:
+def search_words(q: str, lang: str | None = None) -> dict:
     """Return word IDs split into primary (word/def match) and secondary (example/notes match).
     Includes reference entries (no cards) so Browse search works across the full knowledge base."""
     like = f"%{q}%"
+    # Same rule as get_words_for_browse: filter on the entry's own language (#815).
+    lang_clause = " AND w.lang = ?" if lang else ""
+    lang_param = [lang] if lang else []
     conn = get_db()
     primary_ids = {r["id"] for r in conn.execute(
-        """SELECT DISTINCT w.id FROM entries w
+        f"""SELECT DISTINCT w.id FROM entries w
            WHERE (w.word_zh LIKE ? OR w.pinyin LIKE ?
               OR w.definition LIKE ? OR w.definition_zh LIKE ?
-              OR w.definition_de LIKE ?)""",
-        (like, like, like, like, like),
+              OR w.definition_de LIKE ?){lang_clause}""",
+        (like, like, like, like, like, *lang_param),
     ).fetchall()}
     secondary_ids = {r["id"] for r in conn.execute(
-        """SELECT DISTINCT w.id FROM entries w
+        f"""SELECT DISTINCT w.id FROM entries w
            LEFT JOIN entry_examples we ON we.word_id = w.id
-           WHERE (we.example_zh LIKE ? OR we.example_de LIKE ? OR w.notes LIKE ?)""",
-        (like, like, like),
+           WHERE (we.example_zh LIKE ? OR we.example_de LIKE ? OR w.notes LIKE ?){lang_clause}""",
+        (like, like, like, *lang_param),
     ).fetchall()} - primary_ids
     conn.close()
     return {"primary": list(primary_ids), "secondary": list(secondary_ids)}
