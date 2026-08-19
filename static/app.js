@@ -1099,6 +1099,120 @@ function _renderOfflineBanner() {
 }
 
 
+
+// ── Background-task indicator (#821) ────────────────────────────────────────
+// "Continue in background" on the story loading screen dropped Daniel on a deck
+// list that looked completely idle while the AI call, the translations and the
+// TTS preload kept running for another minute — and adding a word or processing
+// a knowledge item is just as invisible. GET /api/tasks aggregates whatever the
+// server is actually doing; this renders it in the header.
+
+let _tasksTimer = null;
+let _tasksPanelOpen = false;
+let _tasksCount = 0;
+
+// Poll fast while something runs (the detail text changes every few seconds),
+// slowly while idle — every open tab runs this poll, so an idle install must
+// not hammer the server.
+const _TASKS_POLL_BUSY = 3000;
+const _TASKS_POLL_IDLE = 15000;
+
+function _startTasksPolling() {
+  if (_tasksTimer) return;
+  const tick = async () => {
+    await _refreshTasks();
+    _tasksTimer = setTimeout(tick,
+      (_tasksCount > 0 || _tasksPanelOpen) ? _TASKS_POLL_BUSY : _TASKS_POLL_IDLE);
+  };
+  tick();
+}
+
+async function _refreshTasks() {
+  // A failed poll must not clear the indicator: a dropped request is not
+  // evidence that the work stopped. Keep showing the last known state.
+  const r = await api('GET', '/api/tasks').catch(() => null);
+  if (!r || !Array.isArray(r.tasks)) return;
+  _tasksCount = r.tasks.length;
+  _renderTasks(r.tasks);
+}
+
+function _renderTasks(tasks) {
+  const wrap = document.getElementById('tasks-wrap');
+  if (!wrap) return;
+  if (tasks.length === 0) {
+    wrap.style.display = 'none';
+    _tasksPanelOpen = false;
+    document.getElementById('tasks-panel').style.display = 'none';
+    return;
+  }
+  wrap.style.display = '';
+  document.getElementById('tasks-count').textContent = String(tasks.length);
+  document.getElementById('tasks-btn').title =
+    tasks.map(t => `${t.icon} ${t.label}`).join('\n');
+
+  const list = document.getElementById('tasks-list');
+  list.textContent = '';
+  for (const t of tasks) {
+    const row = document.createElement('div');
+    row.className = 'task-row';
+
+    const head = document.createElement('div');
+    head.className = 'task-row-head';
+    const label = document.createElement('span');
+    label.className = 'task-row-label';
+    label.textContent = `${t.icon || '⚙'} ${t.label || ''}`;
+    head.appendChild(label);
+    const age = _taskAge(t.started_at);
+    if (age) {
+      const ageEl = document.createElement('span');
+      ageEl.className = 'task-row-age';
+      ageEl.textContent = age;
+      head.appendChild(ageEl);
+    }
+    row.appendChild(head);
+
+    if (t.detail) {
+      const detail = document.createElement('div');
+      detail.className = 'task-row-detail';
+      detail.textContent = t.detail;
+      row.appendChild(detail);
+    }
+    if (typeof t.percent === 'number') {
+      const bar = document.createElement('div');
+      bar.className = 'task-bar';
+      const fill = document.createElement('div');
+      fill.style.width = Math.max(0, Math.min(100, t.percent)) + '%';
+      bar.appendChild(fill);
+      row.appendChild(bar);
+    }
+    list.appendChild(row);
+  }
+}
+
+// started_at is a server-side epoch in seconds; only the jobs that have no
+// progress bar of their own carry it.
+function _taskAge(startedAt) {
+  if (!startedAt) return '';
+  const secs = Math.max(0, Math.round(Date.now() / 1000 - startedAt));
+  if (secs < 60) return `${secs}s`;
+  return `${Math.floor(secs / 60)}m ${secs % 60}s`;
+}
+
+function toggleTasksPanel() {
+  const panel = document.getElementById('tasks-panel');
+  if (!panel) return;
+  _tasksPanelOpen = !_tasksPanelOpen;
+  panel.style.display = _tasksPanelOpen ? 'block' : 'none';
+  if (_tasksPanelOpen) _refreshTasks();
+}
+
+document.addEventListener('click', (e) => {
+  if (!_tasksPanelOpen) return;
+  const wrap = document.getElementById('tasks-wrap');
+  if (wrap && !wrap.contains(e.target)) toggleTasksPanel();
+});
+
+
 // ── Local mode + sync (#625) ────────────────────────────────────────────────
 // The laptop instance is a full copy of the app that happens to lose its AI
 // and TTS when the network goes away, so `offline` is a live value: poll it and
@@ -11238,6 +11352,7 @@ if (/^#(?:podcast|knowledge)-feed-\d+$/.test(location.hash)
   loadDecks();
 }
 _loadVersionBadge();
+_startTasksPolling();
 
 
 // ===== Home calendar heatmap (issue #307) — inlined here to dodge index.html caching =====

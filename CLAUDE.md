@@ -19,7 +19,7 @@
 10. [数据库模式](#数据库模式概述) · 11. [调度算法 FSRS-5](#调度算法--fsrs-5默认--sm-2-回退) · 12. [队列设计](#队列设计) · 13. [多语言支持](#多语言支持)
 
 **功能详解**
-14. [数据与导入 / 界面内加词](#数据与导入) · 15. [故事生成](#故事生成) · 16. [加星句子](#加星句子改进提示词的正例样本692) · 17. [知识库](#知识库knowledge-base650655) · 18. [生词标注](#生词标注代码做不用-aizh_annotatepy638) · 19. [复习收尾提醒](#复习收尾提醒701) · 20. [AI 词典页 /dict](#ai-词典页-dict746)
+14. [数据与导入 / 界面内加词](#数据与导入) · 15. [故事生成](#故事生成) · 16. [加星句子](#加星句子改进提示词的正例样本692) · 17. [知识库](#知识库knowledge-base650655) · 18. [生词标注](#生词标注代码做不用-aizh_annotatepy638) · 19. [复习收尾提醒](#复习收尾提醒701) · 19b. [顶栏后台任务指示器](#顶栏后台任务指示器821) · 20. [AI 词典页 /dict](#ai-词典页-dict746)
 
 **参考**
 21. [API 接口](#api-接口) · 22. [测试](#测试tests-pytest-tests-全套约-11-秒) · 23. [规范与约束](#规范与约束)
@@ -203,6 +203,7 @@
 │   └── cards.py / decks.py / entries.py / presets.py / stories.py / browse.py / stats.py / podcast.py
 ├── routes/                # FastAPI 路由模块
 │   ├── browse.py / decks.py / imports.py / review.py / story.py / podcast.py / knowledge.py（`POST /api/knowledge/add`，#651/#652）
+│   ├── tasks.py           # 顶栏后台任务指示器（#821）：`GET /api/tasks` 聚合各子系统已有的进度状态
 │   ├── sync.py            # 一键同步（#625，只在笔记本实例注册）
 │   ├── queue_manager.py   # Anki v3 风格持久会话队列
 │   └── utils.py           # 共用工具（DISABLE_AI, leaf_ids, queue_manager 单例）
@@ -616,6 +617,17 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 
 ---
 
+## 顶栏后台任务指示器（#821）
+
+在故事加载页点「Continue in background」之后，主页看起来完全空闲，但 AI 调用、翻译、TTS 预加载还在跑一分钟；加词（约 30 秒）、知识库素材处理（可达十几分钟）同样是"提交完就没影了"。顶栏右侧的 ⚙ 徽标回答"现在服务器在干什么"，点开是明细列表。
+
+- **`routes/tasks.py` 只做聚合，绝不新建第二套记账**：每个长任务都已经把进度写在某处（`ai._story_progress`、`tts._preload_progress`、`routes/imports._import_jobs`、`routes/podcast._PROCESSING_IDS`），平行的注册表迟早和它们漂移，然后开始撒谎 —— 与 #643 坚持单一加词管线是同一条道理
+- **唯一例外是 Again 单句重生成**（`routes/review._spawn_again_regen`）：它此前没有任何记账，`tasks.register()`/`finish()` 就是补上的那个最小注册表。**别的地方不要用它** —— 除非同样确实没有自己的状态。`finish()` 必须写在 `finally:` 里，泄漏一条 = 一个永远转不完的任务
+- **终态不是任务**：`_story_progress` 里 `done`/`error`/`idle` 的条目是留给加载页最后读一次的历史，聚合时必须滤掉；TTS 同理（`done >= total`）
+- **单个采集器抛异常不许拖垮整个列表**：半份列表仍然告诉 Daniel 有东西在跑，500 什么都不告诉他。牌组/单集被删时标题回落成 id，不是报错
+- **前端轮询是自适应的**（`static/app.js`）：有任务或面板打开时 3 秒，空闲时 15 秒 —— 每个打开的标签页都在轮询，闲置装机不该被打满。**请求失败不清空指示器**：请求掉了不等于活儿停了
+- 无任务时整个按钮隐藏 —— 常驻的「0 tasks」只是噪音
+
 ## 复习收尾提醒（#701）
 
 清空队列（0 open cards）后，被评为 Again 的卡片还留在学习步骤里（`1m 10m 1d 3d`）分批回来，Daniel 离开界面就无从知道它们什么时候到期。服务器 cron 每 5 分钟跑 `scripts/due_check.py` → `POST /api/review/due-notify-check`，条件成立时发一封邮件。
@@ -657,6 +669,7 @@ GET/PUT /api/decks/{id}/preset                       → 预设（yùshè - pres
 GET/POST /api/presets ；DELETE /api/presets/{id}
 GET    /api/langs                                    → 当前使用的语言列表
 GET    /api/mode                                     → {offline, local, hard_offline}（#612/#625；offline 是实时值，本地模式下每 60 秒轮询）
+GET    /api/tasks                                    → 当前正在跑的后台任务（#821）：{tasks[{id,kind,icon,label,detail,percent,started_at}], count}
 
 # 一键同步（#625，只在 LOCAL_MODE/OFFLINE_MODE 下注册；服务器上返回 404）
 POST   /api/sync/start[?mode=sync|pull]              → 后台跑 sync_offline.sh，立即返回；重复提交 409

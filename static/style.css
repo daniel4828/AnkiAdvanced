@@ -5470,3 +5470,78 @@ table.fsrs-table td.ivl { font-weight: 700; }
   .lang-tabs-header { margin-left: 8px; }
   .lang-tabs-header .lang-tab { padding: 4px 7px 3px; font-size: 12px; }
 }
+
+/* ── Background-task indicator (#821) ───────────────────
+   Leaving the story loading screen ("continue in background") used to drop
+   Daniel on a deck list that looked completely idle while the AI call, the
+   translations and the TTS preload were still running. This is the header
+   affordance that says otherwise. Hidden entirely when nothing runs — a
+   permanently visible "0 tasks" chip is noise. */
+#tasks-wrap { position: relative; }
+#tasks-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  padding: 5px 10px 5px 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+#tasks-btn:hover { background: var(--border); }
+#tasks-btn .tasks-spinner {
+  display: inline-block;
+  font-size: 15px;
+  animation: tasks-spin 3s linear infinite;
+}
+@keyframes tasks-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  #tasks-btn .tasks-spinner { animation: none; }
+}
+#tasks-count { font-variant-numeric: tabular-nums; font-weight: 600; }
+#tasks-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+  padding: 10px 12px;
+  z-index: 40;
+  text-align: left;
+}
+.tasks-panel-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.task-row { padding: 7px 0; border-top: 1px solid var(--border); }
+.task-row:first-child { border-top: none; }
+.task-row-head { display: flex; align-items: baseline; gap: 6px; }
+.task-row-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.task-row-age { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.task-row-detail { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.task-bar { height: 3px; border-radius: 2px; background: var(--border); margin-top: 5px; }
+.task-bar > div { height: 100%; border-radius: 2px; background: var(--primary); }
+.tasks-empty { font-size: 12px; color: var(--muted); padding: 4px 0; }
+
+@media (max-width: 560px) {
+  #tasks-btn { min-height: 40px; font-size: 15px; }
+}
