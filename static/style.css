@@ -4805,23 +4805,35 @@ details[open] .cat-override-summary::before { content: '▼ '; }
   margin-bottom: 12px;
 }
 /* ── Main-page language tab bar (issue #436) — only rendered when >1 lang is in use ── */
+/* Browser-style tabs: the active tab sits on the baseline and covers it, so it
+   reads as one surface with the content below instead of as a row of buttons. */
 .lang-tabs {
   display: flex;
-  gap: 6px;
-  margin-bottom: 12px;
+  align-items: flex-end;
+  gap: 2px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
 }
 .lang-tab {
-  border: 1px solid var(--border);
-  background: var(--card);
+  position: relative;
+  bottom: -1px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: transparent;
   color: var(--muted);
-  padding: 6px 16px;
+  padding: 7px 16px 8px;
   font-size: 13px;
   font-weight: 600;
-  border-radius: 8px;
+  border-radius: 8px 8px 0 0;
   cursor: pointer;
 }
-.lang-tab:hover { background: var(--bg); }
-.lang-tab.lang-tab-active { background: #6366f1; color: #fff; border-color: #6366f1; }
+.lang-tab:hover { color: var(--text); background: var(--bg); }
+.lang-tab.lang-tab-active {
+  background: var(--card);
+  color: var(--text);
+  border-color: var(--border);
+  padding-bottom: 9px;
+}
 
 .hcal-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .hcal-seg-btn {
