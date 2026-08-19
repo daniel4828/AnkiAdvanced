@@ -16,6 +16,13 @@ import yaml
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import database
+
+# Anki days start at the preset's cutoff hour (4 a.m. by default), not at
+# midnight, so between 00:00 and the cutoff date.today() is one day ahead of
+# the day the app is on. Every "today"/"tomorrow" expectation in this file is
+# compared against a deck name or due date that production code derived from
+# database.anki_today(), so the tests derive theirs the same way — otherwise
+# they fail on any run started before 4 a.m. (#810).
 import importer
 
 
@@ -265,7 +272,7 @@ class TestQueuePriority:
         deck_id = self._setup_three_words(tmp_path)
 
         card_id = _get_listening_card_id("你好")
-        today = date.today().isoformat()
+        today = database.anki_today().isoformat()
         _force_card_state(card_id, state="review", due=today, interval=1)
 
         next_card = database.get_next_card(deck_id, "listening")
@@ -296,7 +303,7 @@ class TestQueuePriority:
         # otherwise the card counts as still-learning and never reaches the
         # review group at all.
         review_id = _get_listening_card_id("再见")
-        today = date.today().isoformat()
+        today = database.anki_today().isoformat()
         _force_card_state(review_id, state="review", due=today, interval=10)
 
         # 老师 stays new
