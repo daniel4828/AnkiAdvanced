@@ -2695,6 +2695,20 @@ a.news-source-line:hover {
 }
 .bw-add-btn:hover { background: #dbeafe; }
 
+/* Per-row delete (#815). Deliberately quiet until hovered — it sits on every
+   row and must not compete with the category buttons next to it. */
+.bw-del-btn {
+  font-size: 12px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-left: 6px;
+  cursor: pointer;
+  opacity: 0.35;
+}
+.bw-del-btn:hover { opacity: 1; border-color: #ef4444; background: #fee2e2; }
+
 /* Leeched-list per-row action: clear the leech flag */
 .bw-unleech-btn {
   font-size: 11px;

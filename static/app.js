@@ -1975,9 +1975,12 @@ async function openBrowse() {
   setLoading('Loading…');
   try {
     const [words, hanzi, deckTree] = await Promise.all([
-      api('GET', '/api/browse-words'),
+      // Browse is language-scoped like every other view (#815): the word
+      // list, the deck sidebar and the search all take the active tab's lang,
+      // so French words can never show up under the Chinese tab.
+      api('GET', `/api/browse-words${_langQP('?')}`),
       api('GET', '/api/hanzi'),
-      api('GET', '/api/decks'),
+      api('GET', `/api/decks${_langQP('?')}`),
     ]);
     browseWords = words;
     _allHanzi = hanzi;
@@ -1992,6 +1995,9 @@ async function openBrowse() {
     _syncSortOptions();
     showView('browse');
     document.getElementById('browse-search').value = '';
+    // Hanzi are Chinese-only; under fr/es that section lists nothing relevant (#815).
+    const hanziSec = document.getElementById('bs-hanzi-section');
+    if (hanziSec) hanziSec.style.display = activeLang() === 'zh' ? '' : 'none';
     _renderBrowseSidebar();
     _updateBrowseActionBar();
     document.querySelectorAll('.bs-status-item').forEach(el => el.classList.remove('bs-active'));
@@ -2071,7 +2077,7 @@ function onBrowseSearch(val) {
   if (!q) { renderBrowseWords(_filteredBrowseWords()); return; }
   _browseSearchTimer = setTimeout(async () => {
     try {
-      const result = await api('GET', `/api/search-words?q=${encodeURIComponent(q)}`);
+      const result = await api('GET', `/api/search-words?q=${encodeURIComponent(q)}${_langQP('&')}`);
       const base = _filteredBrowseWords();
       const primarySet   = new Set(result.primary);
       const secondarySet = new Set(result.secondary);
@@ -2111,6 +2117,10 @@ function _wordRow(w) {
       return `<button class="${cls}" title="${tip}" onclick="toggleBrowseDotSuspend(event,${c.id},${w.id})">${letter}</button>`;
     }).join('');
   }
+  // Per-row delete (#815) — always present, whatever the status filter shows,
+  // so getting rid of one bad entry doesn't require the select-then-bulk-bar detour.
+  const delBtn = `<button class="bw-del-btn" title="Delete this word and all its cards"
+          onclick="browseDeleteWord(event,${w.id})">🗑</button>`;
   return `
     <div class="bw-row${sel}" data-word-id="${w.id}" onclick="onBrowseRowClick(event,${w.id})">
       <div class="bw-left">
@@ -2120,7 +2130,7 @@ function _wordRow(w) {
       <div class="bw-mid">
         <span class="bw-def">${def}</span>
       </div>
-      <div class="bw-right">${rightHtml}</div>
+      <div class="bw-right">${rightHtml}${delBtn}</div>
     </div>`;
 }
 
@@ -2264,7 +2274,7 @@ async function browseActionMove() {
 
 async function _browseReload() {
   const q = document.getElementById('browse-search').value.trim();
-  browseWords = await api('GET', '/api/browse-words');
+  browseWords = await api('GET', `/api/browse-words${_langQP('?')}`);
   _browseSelected.clear();
   _updateBrowseActionBar();
   _renderBrowseSidebar();
@@ -2309,6 +2319,25 @@ function renderBrowseWords(words) {
     return;
   }
   list.innerHTML = `<div class="bw-list">${_sortWords(words).map(_wordRow).join('')}</div>`;
+}
+
+// Hard-deletes the entry itself, not just its cards — the entry is what a
+// Browse row *is*. Irreversible (no trash), hence the confirm; the row is
+// removed from the local list rather than re-fetching the whole page.
+async function browseDeleteWord(e, wordId) {
+  e.stopPropagation();
+  const word = browseWords.find(w => w.id === wordId);
+  const ok = await showConfirm(
+    `Delete "${word ? word.word_zh : wordId}" and all its cards? This cannot be undone.`);
+  if (!ok) return;
+  try {
+    await api('DELETE', `/api/word/${wordId}`);
+    browseWords = browseWords.filter(w => w.id !== wordId);
+    _browseSelected.delete(wordId);
+    _updateBrowseActionBar();
+    const q = document.getElementById('browse-search').value.trim();
+    if (q) onBrowseSearch(q); else renderBrowseWords(_filteredBrowseWords());
+  } catch (err) { showError('Delete failed: ' + err.message); }
 }
 
 // ── Starred sentences view (#692) ────────────────────────────────────────────
@@ -2480,7 +2509,7 @@ async function openWordByZh(zh) {
   let word = browseWords.find(w => w.word_zh === zh);
   if (word) { openWordDetail(word.id); return; }
   try {
-    const all = await api('GET', '/api/browse-words');
+    const all = await api('GET', `/api/browse-words${_langQP('?')}`);
     browseWords = all;
     const found = all.find(w => w.word_zh === zh);
     if (found) openWordDetail(found.id);

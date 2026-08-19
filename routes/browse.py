@@ -26,6 +26,23 @@ def get_word_detail(word_id: int):
     return word
 
 
+@router.delete("/api/word/{word_id}")
+def delete_word_endpoint(word_id: int):
+    """Hard-delete one entry and everything hanging off it (cards, examples,
+    forms, characters — all ON DELETE CASCADE), for Browse's per-row 🗑 button
+    (#815).
+
+    Unlike a card's soft delete this does not go through the trash: the entry
+    itself is removed, which is what "delete this word" means in Browse. A
+    missing id is a 404, never a cheerful {"ok": true} for a no-op.
+    """
+    if not database.get_word(word_id):
+        raise HTTPException(status_code=404, detail="Word not found")
+    database.delete_word(word_id)
+    _queue_mgr.invalidate()
+    return {"ok": True, "deleted": word_id}
+
+
 @router.put("/api/word/{word_id}")
 def update_word(word_id: int, body: dict):
     database.update_word(word_id, body)
@@ -298,8 +315,8 @@ def ai_enrich_word(word_id: int):
 
 
 @router.get("/api/browse-words")
-def browse_words():
-    return database.get_words_for_browse()
+def browse_words(lang: str | None = None):
+    return database.get_words_for_browse(lang)
 
 
 @router.get("/api/words/random")
@@ -375,8 +392,8 @@ def update_hanzi(char_id: int, body: dict):
 
 
 @router.get("/api/search-words")
-def search_words(q: str):
-    return database.search_words(q)
+def search_words(q: str, lang: str | None = None):
+    return database.search_words(q, lang)
 
 
 @router.get("/api/words/{word_id}/cards")

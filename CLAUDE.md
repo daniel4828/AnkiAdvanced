@@ -734,6 +734,8 @@ GET    /api/dict/history/{id} ；DELETE /api/dict/history/{id}  → 单条 / 删
 POST /api/add-word-ai                                → 界面内添加生词（#627）；body {word_zh, day?:today|tomorrow|list, lang?:zh|fr}（#636、#677；#715 起界面一律传 list，接口三值仍有效；lang 见 #726，已存在的词按 entries.lang 落点、不听该参数）；新词返回 {job_id}，已有词直接返回 {status}。**全应用唯一的加词入口**（#643）：顶栏 ＋、播客生词表格、复习界面长按菜单都走它
 GET  /api/add-word-ai/progress/{job_id}              → 轮询后台生成+导入的结果
 GET  /api/browse                                     → {deck_id?, category?, state?, q?, lang?}
+GET  /api/browse-words[?lang=] ；GET /api/search-words?q=[&lang=]  → Browse 页的词表/搜索（#815）：按 **entries.lang** 过滤（不是 decks.lang——无卡片的 reference 词条也要出现），不传则返回全部；前端还按语言过滤侧栏牌组树、非中文时隐藏 Hanzi 区
+DELETE /api/word/{id}                                → Browse 单行 🗑：硬删除词条及其全部卡片（级联，不进垃圾桶）；不存在返回 404（不假装成功）
 GET  /api/stats ；/api/retention ；/api/card-evolution（均支持 ?lang=）
 ```
 
