@@ -26,14 +26,14 @@ def _flatten(tree: list) -> list:
 def _leaf_pairs(deck: dict) -> list[tuple[int, str]]:
     """All (id, category) tuples for leaf descendants that have a category.
 
-    Reading leaves are skipped when their preset disables reading, so parent
-    badges and all-suspended flags ignore the hidden category.
+    Leaves are skipped when their preset disables their own category, so
+    parent badges and all-suspended flags ignore the hidden category.
     """
     result = []
     for child in deck.get("children", []):
         if not child.get("children"):
             cat = child.get("category")
-            if cat and not (cat == "reading" and not child.get("reading_enabled")):
+            if cat and child.get(f"{cat}_enabled", 1):
                 result.append((child["id"], cat))
         else:
             result.extend(_leaf_pairs(child))
@@ -132,8 +132,8 @@ def get_decks(unfinished_scope: str = "unfinished", lang: str | None = None):
     if lang:
         tree = _filter_tree_by_lang(tree, lang)
     flat = _flatten(tree)
-    # Attach preset-derived fields first — _attach_counts needs reading_enabled
-    # to skip disabled reading leaves in parent aggregation
+    # Attach preset-derived fields first — _attach_counts needs the
+    # *_enabled flags to skip disabled category leaves in parent aggregation
     presets = {p["id"]: p for p in database.list_presets()}
     locked = database.get_locked_deck_ids()
     for deck in flat:
@@ -143,6 +143,8 @@ def get_decks(unfinished_scope: str = "unfinished", lang: str | None = None):
         deck["new_review_order_override"] = deck.get("new_review_order_override")
         deck["category_order"] = p.get("category_order", "listening,reading,creating")
         deck["reading_enabled"] = 1 if p.get("reading_enabled") else 0
+        deck["listening_enabled"] = 1 if p.get("listening_enabled", 1) else 0
+        deck["creating_enabled"] = 1 if p.get("creating_enabled", 1) else 0
     _attach_counts(flat)
     for deck in flat:
         # Future-dated daily decks are locked until their date — flag for the UI.
