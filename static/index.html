@@ -368,6 +368,10 @@
     <div class="icon">🎉</div>
     <h2>全部完成！</h2>
     <p>暂时没有需要复习的卡片了。</p>
+    <!-- Cards rated Again are still in the 1m/10m steps (#844). Without this
+         line the badge shows a learning count the queue refuses to hand out —
+         exactly the "N due" → "all done" confusion of #762. -->
+    <p id="done-soon-hint" style="display:none;color:var(--muted)"></p>
     <div style="display:flex;flex-direction:column;gap:12px;align-items:center">
       <button id="done-story-btn" class="btn-primary" onclick="openStoryModal()">View Full Story</button>
       <button class="btn-secondary" onclick="openSessionSummary()">📈 Session Graph</button>

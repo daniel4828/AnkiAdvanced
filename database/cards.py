@@ -625,7 +625,7 @@ def _count_due_bulk(deck_ids: list[int], category: str) -> dict[int, dict]:
     future / preset, each on its own connection) into a fixed handful of grouped
     queries — this was the dominant cost of /api/today for aggregate decks with
     many leaves (issue #513: ~1300 queries for a 111-leaf deck)."""
-    zero = {"new": 0, "learning": 0, "review": 0, "learning_future": 0}
+    zero = {"new": 0, "learning": 0, "review": 0, "learning_future": 0, "learning_soon": 0}
     result = {did: dict(zero) for did in deck_ids}
     if not deck_ids:
         return result
@@ -686,6 +686,18 @@ def _count_due_bulk(deck_ids: list[int], category: str) -> dict[int, dict]:
         active_ids + [category, now, today, today],
     ).fetchall()
     learning_future = {r["deck_id"]: r["cnt"] for r in learning_future_rows}
+
+    learning_soon_rows = conn.execute(
+        f"""SELECT deck_id, COUNT(*) AS cnt FROM cards
+            WHERE deck_id IN ({ph}) AND category = ?
+              AND state IN ('learning', 'relearn')
+              AND {_learning_due_soon_sql('')}
+              AND deleted_at IS NULL
+              AND (buried_until IS NULL OR buried_until < ?)
+            GROUP BY deck_id""",
+        active_ids + [category, now, _tomorrow_cutoff(), today],
+    ).fetchall()
+    learning_soon = {r["deck_id"]: r["cnt"] for r in learning_soon_rows}
     conn.close()
 
     for did in active_ids:
@@ -709,6 +721,7 @@ def _count_due_bulk(deck_ids: list[int], category: str) -> dict[int, dict]:
             "learning": learning,
             "review": review,
             "learning_future": learning_future.get(did, 0),
+            "learning_soon": learning_soon.get(did, 0),
         }
     return result
 
@@ -716,7 +729,7 @@ def _count_due_bulk(deck_ids: list[int], category: str) -> dict[int, dict]:
 def count_due(deck_id: int, category: str) -> dict:
     """Returns {new, learning, review} counts for deck badge display."""
     if deck_id in get_locked_deck_ids():
-        return {"new": 0, "learning": 0, "review": 0, "learning_future": 0}
+        return {"new": 0, "learning": 0, "review": 0, "learning_future": 0, "learning_soon": 0}
     today = anki_today().isoformat()
     now = datetime.now().isoformat(timespec="seconds")
     preset = get_preset_for_deck(deck_id, category)
@@ -761,12 +774,23 @@ def count_due(deck_id: int, category: str) -> dict:
         (deck_id, category, now, today, today),
     ).fetchone()[0]
 
+    learning_soon = conn.execute(
+        f"""SELECT COUNT(*) FROM cards
+           WHERE deck_id = ? AND category = ?
+             AND state IN ('learning', 'relearn')
+             AND {_learning_due_soon_sql('')}
+             AND deleted_at IS NULL
+             AND (buried_until IS NULL OR buried_until < ?)""",
+        (deck_id, category, now, _tomorrow_cutoff(), today),
+    ).fetchone()[0]
+
     conn.close()
     return {
         "new": min(new_avail, new_remaining),
         "learning": learning,
         "review": review,
         "learning_future": learning_future,
+        "learning_soon": learning_soon,
     }
 
 
@@ -967,6 +991,22 @@ def _learning_due_today_sql(prefix: str = "c.") -> str:
             f" OR (instr({d}, 'T') = 0 AND {d} <= ?))")
 
 
+def _learning_due_soon_sql(prefix: str = "c.") -> str:
+    """SQL fragment matching learning/relearn cards that come back LATER TODAY —
+    after `now` but before tomorrow's day cutoff.
+
+    Takes two params: now (ISO datetime), _tomorrow_cutoff().
+
+    Only the minute steps (1m/10m) qualify, so this deliberately matches the
+    datetime shape of `due` alone. A bare date means "due when that Anki day
+    starts": if it is <= today the card is already due now, and if it is later
+    it belongs to another day — the 1d/3d steps must never be counted as
+    "coming back today" (#844).
+    """
+    d = f"{prefix}due"
+    return f"(instr({d}, 'T') > 0 AND {d} > ? AND {d} < ?)"
+
+
 def _tomorrow_cutoff() -> str:
     """The moment the current Anki day ends, as a full ISO datetime."""
     return datetime.combine(
@@ -1115,10 +1155,10 @@ def count_due_by_category(root_deck_id: int, lang: str | None = None) -> dict:
     result: dict[str, dict[str, int]] = {}
     for category, cat_deck_ids in ids_by_category.items():
         per_deck = _count_due_bulk(cat_deck_ids, category)
-        agg = {"new": 0, "learning": 0, "review": 0}
+        agg = {"new": 0, "learning": 0, "review": 0, "learning_soon": 0}
         for c in per_deck.values():
             for k in agg:
-                agg[k] += c[k]
+                agg[k] += c.get(k, 0)
         result[category] = agg
 
     # Apply root deck's per-category new cap (Anki parent-deck behaviour)
@@ -1234,12 +1274,12 @@ def get_next_card_multi(deck_ids: list[int], category: str) -> dict | None:
 
 def count_due_multi(deck_ids: list[int], category: str, *, root_deck_id: int | None = None) -> dict:
     """Aggregate due counts across multiple decks."""
-    total = {"new": 0, "learning": 0, "review": 0}
+    total = {"new": 0, "learning": 0, "review": 0, "learning_soon": 0}
     per_deck = _count_due_bulk(deck_ids, category)
     for deck_id in deck_ids:
-        c = per_deck.get(deck_id, {"new": 0, "learning": 0, "review": 0})
+        c = per_deck.get(deck_id, {})
         for k in total:
-            total[k] += c[k]
+            total[k] += c.get(k, 0)
 
     if root_deck_id is not None and len(deck_ids) > 1:
         root_preset = get_preset_for_deck(root_deck_id, category)
@@ -1267,7 +1307,7 @@ def count_due_deduped(leaf_pairs: list[tuple[int, str]]) -> dict:
     locked = get_locked_deck_ids()
     leaf_pairs = [(d, c) for d, c in leaf_pairs if d not in locked]
     if not leaf_pairs:
-        return {"new": 0, "learning": 0, "review": 0}
+        return {"new": 0, "learning": 0, "review": 0, "learning_soon": 0}
 
     today = anki_today().isoformat()
     now = datetime.now().isoformat(timespec="seconds")
@@ -1276,10 +1316,11 @@ def count_due_deduped(leaf_pairs: list[tuple[int, str]]) -> dict:
     preset = get_preset_for_deck(leaf_pairs[0][0])
     if not preset.get("bury_siblings", 1):
         conn.close()
-        total = {"new": 0, "learning": 0, "review": 0}
+        total = {"new": 0, "learning": 0, "review": 0, "learning_soon": 0}
         for deck_id, cat in leaf_pairs:
-            for k, v in count_due(deck_id, cat).items():
-                total[k] += v
+            c = count_due(deck_id, cat)
+            for k in total:
+                total[k] += c.get(k, 0)
         return total
 
     cat_rank_map = {"listening": 0, "reading": 1, "creating": 2}
@@ -1318,6 +1359,22 @@ def count_due_deduped(leaf_pairs: list[tuple[int, str]]) -> dict:
             if r["word_id"] not in best or (sr, cr) < best[r["word_id"]][:2]:
                 best[r["word_id"]] = (sr, cr, r["state"], deck_id, category, is_lrn)
 
+    # Cards coming back later today (#844). Deduped by word for the same reason
+    # the counts above are: one word must not inflate a parent badge three times.
+    soon_count = 0
+    if leaf_pairs:
+        pair_clause = " OR ".join("(deck_id = ? AND category = ?)" for _ in leaf_pairs)
+        pair_params = [v for pair in leaf_pairs for v in pair]
+        soon_count = conn.execute(
+            f"""SELECT COUNT(DISTINCT word_id) FROM cards
+               WHERE ({pair_clause})
+                 AND state IN ('learning', 'relearn')
+                 AND {_learning_due_soon_sql('')}
+                 AND deleted_at IS NULL
+                 AND (buried_until IS NULL OR buried_until < ?)""",
+            (*pair_params, now, _tomorrow_cutoff(), today),
+        ).fetchone()[0]
+
     conn.close()
 
     learning_count = 0
@@ -1337,7 +1394,12 @@ def count_due_deduped(leaf_pairs: list[tuple[int, str]]) -> dict:
         min(count, new_remaining_map.get(key, 0))
         for key, count in new_by_deck.items()
     )
-    return {"new": new_count, "learning": learning_count, "review": review_count}
+    return {
+        "new": new_count,
+        "learning": learning_count,
+        "review": review_count,
+        "learning_soon": soon_count,
+    }
 
 
 def _locked_exclusion() -> tuple[str, list]:
@@ -1404,7 +1466,7 @@ def count_unfinished(scope: str = "unfinished", lang: str | None = None) -> dict
     # A 'review' card whose interval hasn't reached its deck's learned_interval
     # is still "learning" — same classification as count_due().
     thresholds: dict[int, int] = {}
-    counts = {"new": 0, "learning": 0, "review": 0}
+    counts = {"new": 0, "learning": 0, "review": 0, "learning_soon": 0}
     for r in rows:
         if r["state"] == "new":
             counts["new"] += 1
@@ -1421,7 +1483,31 @@ def count_unfinished(scope: str = "unfinished", lang: str | None = None) -> dict
             counts["learning"] += 1
         else:
             counts["review"] += 1
+    # scope='all' already counts the whole Anki day, so its `learning` includes
+    # the cards coming back later today — reporting them again would double up.
+    if scope != "all":
+        counts["learning_soon"] = _count_unfinished_learning_soon(lang)
     return counts
+
+
+def _count_unfinished_learning_soon(lang: str | None = None) -> int:
+    """Learning/relearn cards on the unfinished virtual deck that come back
+    later today (#844) — same locked-deck / disabled-category filters as
+    _unfinished_where(), which only ever matches cards due right now."""
+    lock_clause, lock_params = _locked_exclusion()
+    clause = (
+        f"state IN ('learning', 'relearn') AND {_learning_due_soon_sql('')} "
+        "AND deleted_at IS NULL "
+        "AND (buried_until IS NULL OR buried_until < date('now'))"
+        + lock_clause
+        + f" AND NOT {_CATEGORY_DISABLED_SQL}"
+    )
+    params = [datetime.now().isoformat(timespec="seconds"), _tomorrow_cutoff(), *lock_params]
+    lang_clause, params = _lang_subquery_clause(lang, params)
+    conn = get_db()
+    n = conn.execute(f"SELECT COUNT(*) FROM cards WHERE {clause}{lang_clause}", params).fetchone()[0]
+    conn.close()
+    return n
 
 
 def get_unfinished_deck_categories(scope: str = "unfinished", lang: str | None = None) -> list[dict]:
@@ -1755,6 +1841,19 @@ def count_due_all_decks() -> dict:
         (now, today, today),
     ).fetchall()
 
+    # 2b. Of those, the ones coming back before tomorrow's cutoff (#844) — the
+    #     Again cards the badge must show, unlike the 1d/3d steps.
+    soon_rows = conn.execute(
+        f"""SELECT deck_id, category, COUNT(*) AS cnt
+           FROM cards
+           WHERE state IN ('learning', 'relearn')
+             AND {_learning_due_soon_sql('')}
+             AND deleted_at IS NULL
+             AND (buried_until IS NULL OR buried_until < ?)
+           GROUP BY deck_id, category""",
+        (now, _tomorrow_cutoff(), today),
+    ).fetchall()
+
     # 3. New cards introduced today grouped by (deck_id, category)
     new_today_rows = conn.execute(
         """SELECT c.deck_id, c.category, COUNT(DISTINCT c.id) AS cnt
@@ -1804,7 +1903,8 @@ def count_due_all_decks() -> dict:
     for row in due_rows:
         key = (row["deck_id"], row["category"])
         if key not in counts:
-            counts[key] = {"new_raw": 0, "learning": 0, "review": 0, "learning_future": 0}
+            counts[key] = {"new_raw": 0, "learning": 0, "review": 0,
+                           "learning_future": 0, "learning_soon": 0}
         s = row["state"]
         if s in ("learning", "relearn"):
             counts[key]["learning"] += row["cnt"]
@@ -1816,8 +1916,16 @@ def count_due_all_decks() -> dict:
     for row in future_rows:
         key = (row["deck_id"], row["category"])
         if key not in counts:
-            counts[key] = {"new_raw": 0, "learning": 0, "review": 0, "learning_future": 0}
+            counts[key] = {"new_raw": 0, "learning": 0, "review": 0,
+                           "learning_future": 0, "learning_soon": 0}
         counts[key]["learning_future"] = row["cnt"]
+
+    for row in soon_rows:
+        key = (row["deck_id"], row["category"])
+        if key not in counts:
+            counts[key] = {"new_raw": 0, "learning": 0, "review": 0,
+                           "learning_future": 0, "learning_soon": 0}
+        counts[key]["learning_soon"] = row["cnt"]
 
     new_today: dict[tuple, int] = {
         (r["deck_id"], r["category"]): r["cnt"] for r in new_today_rows
@@ -1840,6 +1948,7 @@ def count_due_all_decks() -> dict:
             c["learning"] = 0
             c["review"] = 0
             c["learning_future"] = 0
+            c["learning_soon"] = 0
         limit = new_limits.get(key, 20)
         done = new_today.get(key, 0)
         c["new"] = min(c.pop("new_raw", 0), max(0, limit - done))
@@ -1891,7 +2000,12 @@ def due_notification_status() -> dict:
     conn = get_db()
     row = conn.execute(
         "SELECT COUNT(*) AS cnt FROM cards WHERE "
-        "state IN ('learning', 'relearn') AND due > ? AND due < ? "
+        # _learning_due_soon_sql(), not a bare `due > ? AND due < ?`: the plain
+        # string comparison also matched the 1d/3d steps, whose due is a bare
+        # date ('2026-08-17' < '2026-08-17T04:00:00' is true). Those belong to
+        # tomorrow — counting them here meant later_today was almost never 0 and
+        # the reminder practically never fired (#844).
+        f"state IN ('learning', 'relearn') AND {_learning_due_soon_sql('')} "
         "AND deleted_at IS NULL "
         "AND (buried_until IS NULL OR buried_until < date('now'))"
         + lock_clause

@@ -57,7 +57,7 @@ def _filter_tree_by_lang(tree: list, lang: str) -> list:
 def _attach_counts(flat_decks: list) -> None:
     """Compute due counts for all decks using bulk queries (O(1) DB round-trips)."""
     all_counts, susp_flags = database.count_due_all_decks()
-    empty = {"new": 0, "learning": 0, "review": 0, "learning_future": 0}
+    empty = {"new": 0, "learning": 0, "review": 0, "learning_future": 0, "learning_soon": 0}
 
     for deck in flat_decks:
         if not deck.get("children"):
@@ -73,7 +73,8 @@ def _attach_counts(flat_decks: list) -> None:
         if deck.get("children"):
             pairs = _leaf_pairs(deck)
             if pairs:
-                merged: dict = {"new": 0, "learning": 0, "review": 0, "learning_future": 0}
+                merged: dict = {"new": 0, "learning": 0, "review": 0,
+                                "learning_future": 0, "learning_soon": 0}
                 for did, cat in pairs:
                     c = all_counts.get((did, cat), empty)
                     for k in merged:

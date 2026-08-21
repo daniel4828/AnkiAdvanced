@@ -825,8 +825,23 @@ function _triggerClapAnimation() {
   }
 }
 
+// Last counts payload seen from the review API — the only thing that knows how
+// many Again cards are still pending when the queue runs dry (#844).
+let _lastCounts = null;
+
+function _renderDoneHint() {
+  const el = document.getElementById('done-soon-hint');
+  if (!el) return;
+  const n = _lastCounts?.learning_soon || 0;
+  el.style.display = n > 0 ? '' : 'none';
+  el.textContent = n > 0
+    ? `还有 ${n} 张卡在学习步骤里，稍后会回来。`
+    : '';
+}
+
 function showView(name) {
   _currentView = name;
+  if (name === 'done') _renderDoneHint();
   if (name === 'done' && _sessionReviewedCount > 0) _triggerClapAnimation();
   // Leaving the knowledge view (#502, generalized #653): stop the episode-list
   // "processing" poll loop — it has no reason to keep firing once the view
@@ -1539,13 +1554,23 @@ function _findDeckInTree(nodes, id) {
 // Aggregate counts for one category from all deep leaves
 function aggregateCounts(deck, category) {
   const leaves = getDeepCategoryLeaves(deck).filter(l => l.category === category);
-  const agg = { new: 0, learning: 0, review: 0 };
-  for (const l of leaves) for (const k of ['new', 'learning', 'review']) agg[k] += (l.counts || {})[k] || 0;
+  const agg = { new: 0, learning: 0, review: 0, learning_soon: 0 };
+  for (const l of leaves) for (const k of ['new', 'learning', 'review', 'learning_soon']) agg[k] += (l.counts || {})[k] || 0;
   return agg;
 }
 
+// Cards you just rated Again sit in the 1m/10m steps and are not due *right
+// now*, so the backend keeps them out of `learning` (which several server-side
+// checks read as "due this second") and reports them separately. For display
+// they belong in the learning number — Anki counts them too, and a counter that
+// stays at 0 right after pressing Again reads like the card was lost (#844).
+// The 1d/3d steps are deliberately not in `learning_soon`: they are tomorrow.
+function lrnCount(c) {
+  return (c?.learning || 0) + (c?.learning_soon || 0);
+}
+
 function countHtml(c) {
-  return `<span class="n-new">${c.new}</span> <span class="n-lrn">${c.learning}</span> <span class="n-rev">${c.review}</span>`;
+  return `<span class="n-new">${c.new}</span> <span class="n-lrn">${lrnCount(c)}</span> <span class="n-rev">${c.review}</span>`;
 }
 
 
@@ -1660,7 +1685,7 @@ function renderDecks(decks) {
       <div class="tree-row tree-parent">
         <span class="tree-toggle"></span>
         <span class="tree-name" onclick="startReviewMixed(${allDeck.id},'${safeName}')" style="cursor:pointer">All</span>
-        <span class="deck-counts">${_mixNewBtn(allDeck.id, allDeck.new_review_order_override)}<span class="n-new">${(allDeck.counts||{}).new||0}</span><span class="n-lrn">${(allDeck.counts||{}).learning||0}</span><span class="n-rev">${(allDeck.counts||{}).review||0}</span></span>
+        <span class="deck-counts">${_mixNewBtn(allDeck.id, allDeck.new_review_order_override)}<span class="n-new">${(allDeck.counts||{}).new||0}</span><span class="n-lrn">${lrnCount(allDeck.counts)}</span><span class="n-rev">${(allDeck.counts||{}).review||0}</span></span>
         ${allRRBadge}
         <button class="${allBuryClass}" onclick="event.stopPropagation();toggleBury(${allDeck.id})" title="${allBuryTitle}">${allBuryIcon}</button>
         <div class="deck-menu-wrap">
@@ -1725,7 +1750,7 @@ function renderDeckRows(decks, depth, sortMode) {
     const toggleIcon = hasStructChildren ? (isCollapsed ? '▶' : '▼') : '';
     const safeName  = deck.name.replace(/'/g, "\\'");
     const c = deck.counts || { new: 0, learning: 0, review: 0 };
-    const deckCounts = `<span class="deck-counts">${_mixNewBtn(deck.id, deck.new_review_order_override)}<span class="n-new">${c.new}</span><span class="n-lrn">${c.learning}</span><span class="n-rev">${c.review}</span></span>`;
+    const deckCounts = `<span class="deck-counts">${_mixNewBtn(deck.id, deck.new_review_order_override)}<span class="n-new">${c.new}</span><span class="n-lrn">${lrnCount(c)}</span><span class="n-rev">${c.review}</span></span>`;
 
     // Future-dated daily decks are locked until their date: greyed, not reviewable.
     if (deck.locked) {
@@ -5553,8 +5578,9 @@ function loadCard(c, counts) {
   }
 
   // Update progress counts
+  _lastCounts = counts;
   document.getElementById('cnt-new').textContent = counts.new;
-  document.getElementById('cnt-lrn').textContent = counts.learning;
+  document.getElementById('cnt-lrn').textContent = lrnCount(counts);
   document.getElementById('cnt-rev').textContent = counts.review;
 
   // Highlight the active state item — same classification as the backend
@@ -5573,7 +5599,7 @@ function loadCard(c, counts) {
     for (const [prefix, cat] of Object.entries(catMap)) {
       const cc = counts.by_cat[cat] || {new: 0, learning: 0, review: 0};
       document.getElementById(`cnt-${prefix}-new`).textContent = cc.new;
-      document.getElementById(`cnt-${prefix}-lrn`).textContent = cc.learning;
+      document.getElementById(`cnt-${prefix}-lrn`).textContent = lrnCount(cc);
       document.getElementById(`cnt-${prefix}-rev`).textContent = cc.review;
     }
     // Reading disabled via preset → its key is absent from by_cat → hide the 读 item
@@ -7632,6 +7658,7 @@ async function rate(rating) {
       _updateReviewRRBadge(deckId);
     }).catch(() => {});
     if (!result.next_card) {
+      _lastCounts = result.counts || _lastCounts;
       rootDeckId = null;
       unfinishedMode = false;
       showView('done');
@@ -7662,6 +7689,7 @@ async function requeueNewSentence() {
     url += _langQP('&');
     const result = await api('POST', url);
     if (!result.next_card) {
+      _lastCounts = result.counts || _lastCounts;
       rootDeckId = null;
       unfinishedMode = false;
       showView('done');
