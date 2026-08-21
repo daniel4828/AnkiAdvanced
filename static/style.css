@@ -85,6 +85,7 @@ header h1 {
   header h1 { font-size: 15px; }
   #header-logo { width: 26px; height: 26px; }
 }
+#header-add-btn,
 #header-regen-btn {
   background: none;
   border: none;
@@ -96,8 +97,11 @@ header h1 {
   line-height: 1;
   margin-left: 4px;
 }
+#header-add-btn:hover,
 #header-regen-btn:hover { background: var(--border); color: #6366f1; }
-/* ＋ / 📖 / 🎲 used to be header icons; they are nav-row buttons now (#816). */
+/* ＋ is a header icon again during review only (#829); on the deck list it
+   stays in the nav row where #816 put it. */
+#header-add-btn { font-size: 20px; font-weight: 600; }
 
 /* ── Layout ──────────────────────────────────────────── */
 main {
@@ -5470,6 +5474,7 @@ table.fsrs-table td.ivl { font-weight: 700; }
   }
   /* Apple's minimum comfortable touch target is 44px; these were 32px-ish
      circles/emoji sized for a mouse. */
+  #header-add-btn,
   #header-regen-btn,
   #sync-btn {
     min-width: 40px;
