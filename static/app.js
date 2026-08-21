@@ -1572,9 +1572,9 @@ function buildCategoryButtons(deck) {
   const orderStr = deck.category_order || 'listening,reading,creating';
   const ordered = orderStr.split(',').map(s => s.trim()).filter(s => DEFAULT_ORDER.includes(s));
   // Ensure all 3 categories present (in case of corrupt/partial value),
-  // then drop reading entirely when the deck's preset disables it
+  // then drop any category the deck's preset disables
   const CATS = [...ordered, ...DEFAULT_ORDER.filter(c => !ordered.includes(c))]
-    .filter(c => c !== 'reading' || deck.reading_enabled);
+    .filter(c => deck[`${c}_enabled`] !== 0);
   const LABELS = { listening: 'L', reading: 'R', creating: 'C' };
   const catLeaves = getCategoryLeaves(deck);
   const safeName  = deck.name.replace(/'/g, "\\'");
@@ -4809,6 +4809,8 @@ function loadPresetFields(preset) {
   document.getElementById('opt-desired-retention').value = Math.round((preset.desired_retention ?? 0.9) * 100);
   document.getElementById('opt-max-int').value         = preset.maximum_interval ?? 36500;
   document.getElementById('opt-reading-enabled').checked = !!preset.reading_enabled;
+  document.getElementById('opt-listening-enabled').checked = preset.listening_enabled == null ? true : !!preset.listening_enabled;
+  document.getElementById('opt-creating-enabled').checked  = preset.creating_enabled  == null ? true : !!preset.creating_enabled;
   applySchedulerVisibility();
   applyLearningLeechVisibility();
 
@@ -4982,6 +4984,8 @@ async function saveOptions() {
     maximum_interval:       Math.max(1, parseInt(document.getElementById('opt-max-int').value) || 36500),
     category_order: _getCategoryOrderUI(),
     reading_enabled:        document.getElementById('opt-reading-enabled').checked ? 1 : 0,
+    listening_enabled:      document.getElementById('opt-listening-enabled').checked ? 1 : 0,
+    creating_enabled:       document.getElementById('opt-creating-enabled').checked ? 1 : 0,
   };
   try {
     const [savedPreset] = await Promise.all([
