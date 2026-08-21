@@ -103,7 +103,11 @@ async function addWordViaAi(wordZh, day, onUpdate, lang) {
 // standalone /save page (#681). Same reasoning as addWordViaAi above: one
 // client-side path, so a fix lands in both places at once.
 //
-// payload is either {url} or {title, text}. Returns the server's response
+// payload is either {url} or {text, title?, author?, source_url?} (#833 —
+// everything but the body is optional; the server fills the blanks with one
+// cheap AI pass and falls back to the body's first line for the title. The
+// client deliberately does NOT pre-compute a title any more: two copies of
+// that rule would eventually disagree). Returns the server's response
 // ({episode_id} or {status:'already_exists', episode_id}) and, for anything
 // newly ingested, kicks off transcription/summarising in the background —
 // POST /api/knowledge/add deliberately only stores the row.
@@ -114,15 +118,6 @@ async function ingestKnowledge(payload) {
     api('POST', `/api/podcast/episodes/${res.episode_id}/process`).catch(() => {});
   }
   return res;
-}
-
-// Title for a pasted body: the caller's own title, else the first non-blank
-// line. Returns '' when neither exists — the server requires a title, and
-// submitting an empty one just produces an untitled row.
-function knowledgeTitleFor(title, text) {
-  title = (title || '').trim();
-  if (title) return title;
-  return (text || '').split('\n').map(l => l.trim()).find(l => l) || '';
 }
 
 // Mark a word as already known (#710) so zh_annotate stops flagging it in
