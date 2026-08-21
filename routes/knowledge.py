@@ -12,10 +12,11 @@ ingestion path per source type, see that module's docstring for why.
 """
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 import database
+import knowledge.files
 import knowledge.ingest
 
 logger = logging.getLogger(__name__)
@@ -62,6 +63,43 @@ def add_knowledge_text(body: AddKnowledgeTextRequest):
         return knowledge.ingest.ingest_text(body.title, body.text, source_url=body.source_url,
                                             author=body.author,
                                             china_critical=body.china_critical)
+    except knowledge.ingest.IngestError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/api/knowledge/add-file")
+async def add_knowledge_file(
+    file: UploadFile = File(...),
+    title: str | None = Form(None),
+    author: str | None = Form(None),
+    source_url: str | None = Form(None),
+    china_critical: bool = Form(False),
+):
+    """Upload a .txt/.md/.pdf/.docx file (#835). This route only turns the
+    file into text — storage goes through ingest_text(), the same function
+    the paste box uses, so there is still exactly one path into
+    podcast_episodes (see knowledge/ingest.py's docstring, #643).
+
+    Same response contract as /api/knowledge/add-text ({episode_id} or
+    {status:"already_exists", episode_id}), so the frontend handles an
+    upload exactly like a paste.
+
+    The filename (minus extension) is only the last-resort title: what
+    Daniel typed wins, then whatever the AI reads out of the body (#833).
+    """
+    data = await file.read()
+    try:
+        text, title_guess = knowledge.files.extract_file_text(file.filename, data)
+    except knowledge.files.FileExtractionError as e:
+        raise HTTPException(400, str(e))
+
+    try:
+        return knowledge.ingest.ingest_text(
+            (title or "").strip() or None, text,
+            source_url=source_url, author=author,
+            china_critical=china_critical,
+            fallback_title=title_guess,
+        )
     except knowledge.ingest.IngestError as e:
         raise HTTPException(400, str(e))
 

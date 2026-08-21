@@ -3711,7 +3711,30 @@ function _renderKnowledgeMaterialList() {
   // Paste-text is an article-only escape hatch for paywalled pieces the server
   // can't fetch (#668) — video/podcast tabs only ever get a link box.
   const isArticleTab = _knowledgeTab === 'article';
-  const addBoxHtml = (isArticleTab && _knowledgeAddMode === 'text')
+  const addBoxHtml = (isArticleTab && _knowledgeAddMode === 'file')
+    ? `<div class="keymap-panel">
+        <div class="keymap-row" style="align-items:flex-start">
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+            <input type="file" id="knowledge-add-file"
+                   accept=".txt,.md,.markdown,.pdf,.docx" style="font-size:13px">
+            <!-- Same optional metadata as the paste box (#833/#835); blanks
+                 are read out of the file's own text. -->
+            <input type="text" class="edit-input" id="knowledge-add-source-url"
+                   placeholder="Original link (optional)">
+            <input type="text" class="edit-input" id="knowledge-add-title"
+                   placeholder="Title (optional — filename / read from the text)">
+            <input type="text" class="edit-input" id="knowledge-add-author"
+                   placeholder="Author (optional — read from the text)">
+          </div>
+          <button class="btn-secondary" onclick="submitKnowledgeFile()" style="flex-shrink:0">Add</button>
+        </div>
+        <label class="keymap-row" style="gap:6px;font-size:12px;color:var(--muted);cursor:pointer">
+          <input type="checkbox" id="knowledge-add-china" style="margin:0">
+          china-kritisch — summarize with GPT instead of DeepSeek
+        </label>
+        <span id="knowledge-add-msg" style="font-size:12px;color:var(--muted)"></span>
+      </div>`
+    : (isArticleTab && _knowledgeAddMode === 'text')
     ? `<div class="keymap-panel">
         <div class="keymap-row" style="align-items:flex-start">
           <div style="flex:1;display:flex;flex-direction:column;gap:6px">
@@ -3758,7 +3781,7 @@ function _renderKnowledgeMaterialList() {
 // Link/text toggle for the article tab's paste box (#668) — reuses the same
 // hcal-seg segmented-control styling as the kind tab bar just above it.
 function _knowledgeAddModeBarHtml() {
-  const modes = [['link', '🔗 Link'], ['text', '📋 Text']];
+  const modes = [['link', '🔗 Link'], ['text', '📋 Text'], ['file', '📎 File']];
   const btns = modes.map(([id, label]) =>
     `<button class="hcal-seg-btn ${_knowledgeAddMode === id ? 'active' : ''}" onclick="switchKnowledgeAddMode('${id}')">${label}</button>`
   ).join('');
@@ -3837,6 +3860,42 @@ async function submitKnowledgeText() {
   for (const input of [titleInput, authorInput, urlInput]) if (input) input.value = '';
   if (textInput) { textInput.value = ''; textInput.focus(); }
   await _submitKnowledgeAdd(payload, msg);
+}
+
+// File upload box (article tab only, #835) — .txt/.md/.pdf/.docx. Goes
+// through ingestKnowledgeFile() in shared.js, which posts the file and then
+// starts processing exactly like a paste does.
+async function submitKnowledgeFile() {
+  const fileInput = document.getElementById('knowledge-add-file');
+  const msg = document.getElementById('knowledge-add-msg');
+  const file = fileInput?.files?.[0];
+  if (!file) {
+    if (msg) msg.textContent = 'Pick a file first.';
+    return;
+  }
+  const fields = {
+    title: (document.getElementById('knowledge-add-title')?.value || '').trim(),
+    author: (document.getElementById('knowledge-add-author')?.value || '').trim(),
+    source_url: (document.getElementById('knowledge-add-source-url')?.value || '').trim(),
+    china_critical: _knowledgeChinaCriticalChecked(),
+  };
+  if (msg) msg.textContent = `Uploading ${file.name}…`;
+  try {
+    const res = await ingestKnowledgeFile(file, fields);
+    const done = res?.status === 'already_exists'
+      ? 'Already in your library.' : 'Added — processing on the server.';
+    if (_knowledgeListKind === _knowledgeTab) {
+      _podcastEpisodes = await _fetchKnowledgeList(_knowledgeTab);
+      _renderKnowledgeMaterialList();
+      _schedulePodcastPollIfNeeded();
+    }
+    // Re-query: the refresh above rebuilds this panel, so the element
+    // captured before it is no longer on the page.
+    const after = document.getElementById('knowledge-add-msg');
+    if (after) after.textContent = done;
+  } catch (e) {
+    if (msg) msg.textContent = 'Error: ' + e.message;
+  }
 }
 
 // china-kritisch (#731): DeepSeek summarizes these dishonestly, so the box

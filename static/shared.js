@@ -120,6 +120,32 @@ async function ingestKnowledge(payload) {
   return res;
 }
 
+// File upload counterpart of ingestKnowledge (#835): .txt/.md/.pdf/.docx.
+// Same response contract and the same "kick off processing" follow-up, so a
+// caller treats an upload exactly like a paste. `fields` carries the same
+// optional {title, author, source_url, china_critical} the paste box sends.
+async function ingestKnowledgeFile(file, fields) {
+  const form = new FormData();
+  form.append('file', file);
+  for (const [key, value] of Object.entries(fields || {})) {
+    if (value) form.append(key, value === true ? 'true' : value);
+  }
+  // Not api(): that helper sends JSON. A multipart body must go out with the
+  // browser's own boundary header, so it is built by hand here — including
+  // the same 401 -> login redirect api() does.
+  const res = await fetch('/api/knowledge/add-file', { method: 'POST', body: form });
+  if (res.status === 401) {
+    window.location.href = '/login';
+    throw new Error('Not logged in');
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+  if (data?.status !== 'already_exists' && data?.episode_id != null) {
+    api('POST', `/api/podcast/episodes/${data.episode_id}/process`).catch(() => {});
+  }
+  return data;
+}
+
 // Mark a word as already known (#710) so zh_annotate stops flagging it in
 // future summaries. Shared by the HSK word table and the in-text word menu
 // (#711) for the same reason as addWordViaAi above: one client-side path.
