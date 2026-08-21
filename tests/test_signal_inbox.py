@@ -383,3 +383,139 @@ def test_send_receipt_noop_on_empty_lines(monkeypatch):
     monkeypatch.setattr(podcast, "send_signal_text", lambda text, context="signal": called.append(text) or True)
     assert signal_inbox.send_receipt([]) is False
     assert called == []
+
+
+# ---------------------------------------------------------------------------
+# "paste the text" messages (#834)
+# ---------------------------------------------------------------------------
+
+LONG_BODY = "Das ist der Text eines Artikels hinter einer Bezahlschranke. " * 8
+assert len(LONG_BODY) >= 200
+
+
+def test_parse_pasted_text_recognizes_the_keyword():
+    assert signal_inbox.parse_pasted_text("text\nHallo Welt") == "Hallo Welt"
+    assert signal_inbox.parse_pasted_text("text:\nHallo Welt") == "Hallo Welt"
+    # Phone keyboards capitalise the first word on their own.
+    assert signal_inbox.parse_pasted_text("Text\nHallo Welt") == "Hallo Welt"
+    assert signal_inbox.parse_pasted_text("文本\n你好") == "你好"
+
+
+def test_parse_pasted_text_requires_the_keyword_to_stand_alone():
+    """A normal message that merely starts with the word must keep going
+    down the URL path — the keyword owns the first line or it isn't one."""
+    assert signal_inbox.parse_pasted_text("Text von gestern: https://example.com/a") is None
+    assert signal_inbox.parse_pasted_text("https://example.com/a") is None
+    assert signal_inbox.parse_pasted_text("text") is None      # keyword but no body
+    assert signal_inbox.parse_pasted_text("") is None
+
+
+def test_pasted_text_is_ingested_as_an_article(tmp_db, monkeypatch):
+    monkeypatch.setenv("SIGNAL_ACCOUNT", ACCOUNT)
+    stdout = _lines(_envelope_note_to_self(f"text\n{LONG_BODY}"))
+
+    calls = []
+    monkeypatch.setattr(knowledge.ingest, "ingest_text",
+                        lambda title, text, **kw: calls.append((title, text, kw)) or {"episode_id": 7})
+    monkeypatch.setattr(knowledge.ingest, "ingest_url",
+                        lambda url: pytest.fail("a pasted body must not go down the URL path"))
+    monkeypatch.setattr(podcast, "retry_episode", lambda episode_id: {"status": "summarized"})
+    monkeypatch.setattr(database, "get_episode", lambda episode_id: {"id": episode_id, "title": "Bezahlschranke"})
+
+    summary = signal_inbox.check_signal_inbox(runner=_make_runner(stdout))
+
+    assert summary["ingested"] == 1
+    assert len(calls) == 1
+    title, text, kw = calls[0]
+    # Title/author are left to the server's AI extraction (#833).
+    assert title is None
+    assert text == LONG_BODY.strip()
+
+
+def test_pasted_text_keeps_the_first_link_as_source_url(tmp_db, monkeypatch):
+    monkeypatch.setenv("SIGNAL_ACCOUNT", ACCOUNT)
+    body = f"https://spiegel.de/artikel\n{LONG_BODY}"
+    stdout = _lines(_envelope_note_to_self(f"text\n{body}"))
+
+    calls = []
+    monkeypatch.setattr(knowledge.ingest, "ingest_text",
+                        lambda title, text, **kw: calls.append(kw) or {"episode_id": 7})
+    monkeypatch.setattr(podcast, "retry_episode", lambda episode_id: {"status": "summarized"})
+    monkeypatch.setattr(database, "get_episode", lambda episode_id: {"id": episode_id, "title": "T"})
+
+    signal_inbox.check_signal_inbox(runner=_make_runner(stdout))
+
+    assert calls[0]["source_url"] == "https://spiegel.de/artikel"
+
+
+def test_pasted_text_is_processed_immediately(tmp_db, monkeypatch):
+    """Same "now, not later" semantics as a shared link (#749)."""
+    monkeypatch.setenv("SIGNAL_ACCOUNT", ACCOUNT)
+    stdout = _lines(_envelope_note_to_self(f"text\n{LONG_BODY}"))
+
+    processed = []
+    monkeypatch.setattr(knowledge.ingest, "ingest_text",
+                        lambda title, text, **kw: {"episode_id": 7})
+    monkeypatch.setattr(podcast, "retry_episode",
+                        lambda episode_id: processed.append(episode_id) or {"status": "summarized"})
+    monkeypatch.setattr(database, "get_episode", lambda episode_id: {"id": episode_id, "title": "T"})
+
+    signal_inbox.check_signal_inbox(runner=_make_runner(stdout))
+
+    assert processed == [7]
+
+
+def test_pasted_text_failure_reports_but_does_not_queue_a_retry(tmp_db, monkeypatch):
+    """Bodies never enter the URL retry queue: it lives in app_settings as
+    JSON, and "too short" fails identically every time anyway."""
+    monkeypatch.setenv("SIGNAL_ACCOUNT", ACCOUNT)
+    stdout = _lines(_envelope_note_to_self("text\nzu kurz"))
+
+    def boom(title, text, **kw):
+        raise knowledge.ingest.IngestError("pasted text too short (7 chars, need >= 200)")
+    monkeypatch.setattr(knowledge.ingest, "ingest_text", boom)
+
+    sent = []
+    monkeypatch.setattr(podcast, "send_signal_text",
+                        lambda text, context="signal": sent.append(text) or True)
+
+    summary = signal_inbox.check_signal_inbox(runner=_make_runner(stdout))
+
+    assert summary["failed"] == 1
+    assert signal_inbox._load_retry_queue() == []
+    receipt = "\n".join(sent)
+    assert "too short" in receipt
+    # Privacy (#755): the message body itself must never reach a log,
+    # an error message or the receipt.
+    assert "zu kurz" not in receipt
+
+
+def test_a_plain_link_message_is_unaffected(tmp_db, monkeypatch):
+    """No keyword -> byte-for-byte the pre-#834 URL behaviour."""
+    monkeypatch.setenv("SIGNAL_ACCOUNT", ACCOUNT)
+    stdout = _lines(_envelope_note_to_self("https://example.com/a"))
+
+    urls = []
+    monkeypatch.setattr(knowledge.ingest, "ingest_url",
+                        lambda url: urls.append(url) or {"episode_id": 1})
+    monkeypatch.setattr(knowledge.ingest, "ingest_text",
+                        lambda title, text, **kw: pytest.fail("not a pasted body"))
+    monkeypatch.setattr(podcast, "retry_episode", lambda episode_id: {"status": "summarized"})
+    monkeypatch.setattr(database, "get_episode", lambda episode_id: {"id": episode_id, "title": "T"})
+
+    signal_inbox.check_signal_inbox(runner=_make_runner(stdout))
+
+    assert urls == ["https://example.com/a"]
+
+
+def test_pasted_text_from_someone_else_is_ignored(tmp_db, monkeypatch):
+    """The Note-to-Self gate applies to the new path exactly as it does to
+    the URL path — otherwise anyone messaging Daniel could spend AI money."""
+    monkeypatch.setenv("SIGNAL_ACCOUNT", ACCOUNT)
+    stdout = _lines(_envelope_from_other(f"text\n{LONG_BODY}"))
+
+    monkeypatch.setattr(knowledge.ingest, "ingest_text",
+                        lambda title, text, **kw: pytest.fail("must not ingest a stranger's message"))
+
+    summary = signal_inbox.check_signal_inbox(runner=_make_runner(stdout))
+    assert summary["skipped"] == 1
