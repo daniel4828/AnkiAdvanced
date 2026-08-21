@@ -34,6 +34,16 @@ def _no_title_translation(monkeypatch):
     monkeypatch.setattr(ai, "translate_title", lambda title: None)
 
 
+@pytest.fixture(autouse=True)
+def _no_metadata_extraction(monkeypatch):
+    """extract_article_metadata (#833) is the second real AI call in this
+    path — it fires whenever title/author/source_url isn't fully filled in,
+    which is most of these tests. Default stub: "the model found nothing",
+    so every pre-#833 test keeps exercising the fallbacks it was written
+    for. Tests that care about extraction override it themselves."""
+    monkeypatch.setattr(ai, "extract_article_metadata", lambda text: {})
+
+
 LONG_ARTICLE = "这是一篇粘贴进来的付费墙文章正文，用来测试知识库粘贴入库功能。" * 8
 assert len(LONG_ARTICLE) >= 200
 
@@ -125,9 +135,80 @@ def test_ingest_text_truncates_long_body():
 
 
 def test_ingest_text_untitled_falls_back():
+    """No title given and the AI found none either -> the body's first line,
+    capped so an unwrapped paste doesn't put the whole article in the title
+    column (#833)."""
     result = ingest.ingest_text("", LONG_ARTICLE)
     episode = database.get_episode(result["episode_id"])
-    assert episode["title"] == "(untitled)"
+    assert episode["title"] == LONG_ARTICLE[:ingest._MAX_TITLE_CHARS].rstrip() + "…"
+
+
+def test_ingest_text_blank_body_lines_fall_back_to_untitled():
+    text = "\n\n" + "字" * 300
+    result = ingest.ingest_text("", "   \n\n" + text.strip())
+    episode = database.get_episode(result["episode_id"])
+    assert episode["title"]  # never empty
+
+
+# ---------------------------------------------------------------------------
+# AI metadata extraction for blank fields (#833)
+# ---------------------------------------------------------------------------
+
+def test_metadata_fills_blank_title_author_and_url(monkeypatch):
+    monkeypatch.setattr(ai, "extract_article_metadata", lambda text: {
+        "title": "抽出来的标题", "author": "某作者",
+        "source_url": "https://zeit.de/x", "published_at": "2026-08-01",
+    })
+    result = ingest.ingest_text(None, LONG_ARTICLE)
+    episode = database.get_episode(result["episode_id"])
+    assert episode["title"] == "抽出来的标题"
+    assert episode["channel_id"] == "某作者"
+    assert episode["youtube_url"] == "https://zeit.de/x"
+    assert episode["published_at"] == "2026-08-01"
+
+
+def test_metadata_never_overwrites_what_the_user_typed(monkeypatch):
+    monkeypatch.setattr(ai, "extract_article_metadata", lambda text: {
+        "title": "AI 猜的标题", "author": "AI 猜的作者",
+        "source_url": "https://ai.example/guess",
+    })
+    result = ingest.ingest_text("我的标题", LONG_ARTICLE,
+                                source_url="https://mine.example/x", author="我")
+    episode = database.get_episode(result["episode_id"])
+    assert episode["title"] == "我的标题"
+    assert episode["channel_id"] == "我"
+    assert episode["youtube_url"] == "https://mine.example/x"
+
+
+def test_no_ai_call_when_every_field_is_filled(monkeypatch):
+    """All three given -> the extraction call must not happen at all. It
+    would cost money for a result that is thrown away."""
+    def boom(text):
+        raise AssertionError("extract_article_metadata must not be called")
+    monkeypatch.setattr(ai, "extract_article_metadata", boom)
+    ingest.ingest_text("标题", LONG_ARTICLE, source_url="https://x.example/a", author="作者")
+
+
+def test_metadata_failure_still_ingests(monkeypatch):
+    """The AI helper swallows its own errors, but even a hard raise here
+    must not cost Daniel the article body he already pasted."""
+    monkeypatch.setattr(ai, "extract_article_metadata", lambda text: {})
+    result = ingest.ingest_text(None, LONG_ARTICLE)
+    episode = database.get_episode(result["episode_id"])
+    assert episode["transcript_zh"] == LONG_ARTICLE
+    assert episode["title"]
+
+
+def test_metadata_not_called_for_a_duplicate_body(monkeypatch):
+    """Dedup happens before the AI call — re-pasting the same article must
+    not pay for extraction a second time."""
+    ingest.ingest_text("标题", LONG_ARTICLE, source_url="https://x.example/a", author="作者")
+
+    def boom(text):
+        raise AssertionError("extract_article_metadata must not be called for a duplicate")
+    monkeypatch.setattr(ai, "extract_article_metadata", boom)
+    second = ingest.ingest_text(None, LONG_ARTICLE)
+    assert second["status"] == "already_exists"
 
 
 def test_ingest_text_reuses_store_article_not_a_second_pipeline():
@@ -179,6 +260,24 @@ def test_add_text_endpoint_accepts_optional_source_url(client):
     assert resp.status_code == 200
     episode = database.get_episode(resp.json()["episode_id"])
     assert episode["youtube_url"] == "https://example.com/x"
+
+
+def test_add_text_endpoint_accepts_optional_author(client):
+    resp = client.post(
+        "/api/knowledge/add-text",
+        json={"title": "标题", "text": LONG_ARTICLE, "author": "Jan Böhmermann"},
+    )
+    assert resp.status_code == 200
+    episode = database.get_episode(resp.json()["episode_id"])
+    assert episode["channel_id"] == "Jan Böhmermann"
+
+
+def test_add_text_endpoint_accepts_body_only(client):
+    """#833: the title is no longer required — the body alone is a valid
+    submission (the iOS-shortcut / phone case: paste and hit Add)."""
+    resp = client.post("/api/knowledge/add-text", json={"text": LONG_ARTICLE})
+    assert resp.status_code == 200
+    assert "episode_id" in resp.json()
 
 
 # ---------------------------------------------------------------------------

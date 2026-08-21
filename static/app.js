@@ -3715,11 +3715,17 @@ function _renderKnowledgeMaterialList() {
     ? `<div class="keymap-panel">
         <div class="keymap-row" style="align-items:flex-start">
           <div style="flex:1;display:flex;flex-direction:column;gap:6px">
-            <input type="text" class="edit-input" id="knowledge-add-title"
-                   placeholder="Title (leave blank to use the first line)">
             <textarea class="edit-input" id="knowledge-add-text" rows="10"
                       placeholder="Paste the full article text here…"
                       style="width:100%;box-sizing:border-box;resize:vertical"></textarea>
+            <!-- #833: all three optional — the server fills whatever is left
+                 blank from the pasted body itself (one cheap AI call). -->
+            <input type="text" class="edit-input" id="knowledge-add-source-url"
+                   placeholder="Original link (optional)">
+            <input type="text" class="edit-input" id="knowledge-add-title"
+                   placeholder="Title (optional — read from the text)">
+            <input type="text" class="edit-input" id="knowledge-add-author"
+                   placeholder="Author (optional — read from the text)">
           </div>
           <button class="btn-secondary" onclick="submitKnowledgeText()" style="flex-shrink:0">Add</button>
         </div>
@@ -3810,23 +3816,27 @@ async function submitKnowledgeUrl() {
 }
 
 // Paste-text box (article tab only, #668) — for paywalled pieces the server
-// can't fetch. Title falls back to the pasted text's first line rather than
-// silently submitting an empty title (server also requires non-empty text).
+// can't fetch. Only the body is required (#833): a blank title/author/link is
+// filled in server-side from the text itself, so there is nothing to validate
+// here beyond "is there a body".
 async function submitKnowledgeText() {
   const titleInput = document.getElementById('knowledge-add-title');
+  const authorInput = document.getElementById('knowledge-add-author');
+  const urlInput = document.getElementById('knowledge-add-source-url');
   const textInput = document.getElementById('knowledge-add-text');
   const msg = document.getElementById('knowledge-add-msg');
   const text = (textInput?.value || '').trim();
   if (!text) return;
-  const title = knowledgeTitleFor(titleInput?.value, text);
-  if (!title) {
-    if (msg) msg.textContent = 'Need a title (or a non-blank first line).';
-    return;
-  }
-  const china_critical = _knowledgeChinaCriticalChecked();
-  if (titleInput) titleInput.value = '';
+  const payload = {
+    text,
+    title: (titleInput?.value || '').trim(),
+    author: (authorInput?.value || '').trim(),
+    source_url: (urlInput?.value || '').trim(),
+    china_critical: _knowledgeChinaCriticalChecked(),
+  };
+  for (const input of [titleInput, authorInput, urlInput]) if (input) input.value = '';
   if (textInput) { textInput.value = ''; textInput.focus(); }
-  await _submitKnowledgeAdd({ title, text, china_critical }, msg);
+  await _submitKnowledgeAdd(payload, msg);
 }
 
 // china-kritisch (#731): DeepSeek summarizes these dishonestly, so the box

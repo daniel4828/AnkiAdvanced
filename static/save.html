@@ -86,8 +86,17 @@
     </div>
 
     <div id="pane-text" style="display:none">
-      <input type="text" id="title" placeholder="Title (optional — first line is used)" autocomplete="off">
-      <textarea id="text" placeholder="Paste the article body…"></textarea>
+      <textarea id="text" placeholder="Paste the article body…" style="margin-top:0"></textarea>
+      <!-- #833: all optional. Whatever is left blank the server reads out of
+           the pasted body itself with one cheap AI call, so on the phone the
+           usual move is "paste the text, hit Add" and nothing else. -->
+      <input type="text" id="source-url" placeholder="Original link (optional)"
+             inputmode="url" autocomplete="off" autocapitalize="none"
+             autocorrect="off" spellcheck="false" style="margin-top:.5rem">
+      <input type="text" id="title" placeholder="Title (optional — read from the text)"
+             autocomplete="off" style="margin-top:.5rem">
+      <input type="text" id="author" placeholder="Author (optional — read from the text)"
+             autocomplete="off" style="margin-top:.5rem">
       <button class="go" id="go-text">Add</button>
     </div>
 
@@ -105,7 +114,7 @@
   <ul id="queue"></ul>
 </main>
 
-<script src="/static/shared.js?v=3"></script>
+<script src="/static/shared.js?v=4"></script>
 <script>
   // Standalone knowledge-base page (#681), the /add counterpart for material.
   // Deliberately does NOT load app.js — the point is a link that opens
@@ -116,6 +125,8 @@
   const queue = document.getElementById('queue');
   const url = document.getElementById('url');
   const title = document.getElementById('title');
+  const author = document.getElementById('author');
+  const sourceUrl = document.getElementById('source-url');
   const text = document.getElementById('text');
 
   for (const t of ['link', 'text']) {
@@ -180,12 +191,20 @@
   document.getElementById('go-text').onclick = () => {
     const body = text.value.trim();
     if (!body) return;
-    const t = knowledgeTitleFor(title.value, body);
-    if (!t) return;
-    title.value = '';
-    text.value = '';
+    const payload = {
+      text: body,
+      title: title.value.trim(),
+      author: author.value.trim(),
+      source_url: sourceUrl.value.trim(),
+      china_critical: china.checked,
+    };
+    // The queue line needs a label right now, before the server has told us
+    // what it read out of the text — first line of the body is the honest
+    // stand-in for "the thing I just pasted".
+    const label = payload.title || body.split('\n').map(l => l.trim()).find(l => l) || 'Pasted text';
+    for (const el of [title, author, sourceUrl, text]) el.value = '';
     text.focus();
-    submit({ title: t, text: body, china_critical: china.checked }, t);
+    submit(payload, label);
     china.checked = false;
   };
 </script>

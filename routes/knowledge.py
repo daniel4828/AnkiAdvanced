@@ -32,8 +32,14 @@ class AddKnowledgeRequest(BaseModel):
 
 
 class AddKnowledgeTextRequest(BaseModel):
-    title: str
     text: str
+    # All three are optional (#833): whatever is left blank gets filled in
+    # server-side by one cheap AI pass over the body (knowledge.ingest's
+    # _fill_missing_metadata), with the body's first line as the last-resort
+    # title. `title` used to be required — the frontend refused to submit
+    # without one, which just meant Daniel typed the first line by hand.
+    title: str | None = None
+    author: str | None = None
     source_url: str | None = None
     china_critical: bool = False
 
@@ -54,6 +60,7 @@ def add_knowledge_text(body: AddKnowledgeTextRequest):
     otherwise treats the result identically (poll .../process next)."""
     try:
         return knowledge.ingest.ingest_text(body.title, body.text, source_url=body.source_url,
+                                            author=body.author,
                                             china_critical=body.china_critical)
     except knowledge.ingest.IngestError as e:
         raise HTTPException(400, str(e))
