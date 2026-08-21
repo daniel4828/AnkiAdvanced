@@ -267,7 +267,8 @@ def _fill_missing_metadata(text: str, title: str, author: str | None,
 
 
 def ingest_text(title: str | None, text: str, source_url: str | None = None,
-                author: str | None = None, china_critical: bool = False) -> dict:
+                author: str | None = None, china_critical: bool = False,
+                fallback_title: str | None = None) -> dict:
     """Ingest a pasted article body (#668) — for paywalled articles
     (Spiegel+, FAZ, ...) the server can't fetch, but the user can read in
     their browser and paste the text in directly. Same kind='article' row
@@ -316,6 +317,11 @@ def ingest_text(title: str | None, text: str, source_url: str | None = None,
 
     title, author, source_url, published_at = _fill_missing_metadata(
         text, title, author, source_url)
+    if not title:
+        # A caller that has a better guess than "first line of the body"
+        # supplies one (#835: an upload passes the filename). Still ranked
+        # below the AI's reading of the actual text.
+        title = (fallback_title or "").strip()
     if not title:
         # Last resort: the body's first non-blank line. Often a fine
         # headline, sometimes navigation debris — which is exactly why the

@@ -76,6 +76,7 @@
     <div class="tabs">
       <button id="tab-link" aria-pressed="true">🔗 Link</button>
       <button id="tab-text" aria-pressed="false">📋 Text</button>
+      <button id="tab-file" aria-pressed="false">📎 File</button>
     </div>
 
     <div id="pane-link">
@@ -100,6 +101,20 @@
       <button class="go" id="go-text">Add</button>
     </div>
 
+    <!-- #835: .txt / .md / .pdf / .docx. The file's text goes through the
+         very same ingest_text() the paste box uses; only the source differs. -->
+    <div id="pane-file" style="display:none">
+      <input type="file" id="file" accept=".txt,.md,.markdown,.pdf,.docx">
+      <input type="text" id="file-source-url" placeholder="Original link (optional)"
+             inputmode="url" autocomplete="off" autocapitalize="none"
+             autocorrect="off" spellcheck="false" style="margin-top:.5rem">
+      <input type="text" id="file-title" placeholder="Title (optional — filename is used)"
+             autocomplete="off" style="margin-top:.5rem">
+      <input type="text" id="file-author" placeholder="Author (optional — read from the text)"
+             autocomplete="off" style="margin-top:.5rem">
+      <button class="go" id="go-file">Add</button>
+    </div>
+
     <!-- #731: DeepSeek waters down China-critical material without saying so,
          so this flag makes the server's API summary fallback use GPT instead.
          Shared by both tabs and cleared after every submit — the cheap model
@@ -114,7 +129,7 @@
   <ul id="queue"></ul>
 </main>
 
-<script src="/static/shared.js?v=4"></script>
+<script src="/static/shared.js?v=5"></script>
 <script>
   // Standalone knowledge-base page (#681), the /add counterpart for material.
   // Deliberately does NOT load app.js — the point is a link that opens
@@ -129,13 +144,17 @@
   const sourceUrl = document.getElementById('source-url');
   const text = document.getElementById('text');
 
-  for (const t of ['link', 'text']) {
+  const TABS = ['link', 'text', 'file'];
+  const FOCUS = { link: url, text: text, file: null };
+  for (const t of TABS) {
     document.getElementById(`tab-${t}`).onclick = () => {
-      for (const other of ['link', 'text']) {
+      for (const other of TABS) {
         document.getElementById(`tab-${other}`).setAttribute('aria-pressed', String(other === t));
         document.getElementById(`pane-${other}`).style.display = other === t ? '' : 'none';
       }
-      (t === 'link' ? url : text).focus();
+      // The file picker gets no autofocus — focusing it does nothing useful
+      // and on iOS can pop the picker open unasked.
+      FOCUS[t]?.focus();
     };
   }
 
@@ -206,6 +225,37 @@
     text.focus();
     submit(payload, label);
     china.checked = false;
+  };
+
+  const fileInput = document.getElementById('file');
+  document.getElementById('go-file').onclick = async () => {
+    const f = fileInput.files?.[0];
+    if (!f) return;
+    const fields = {
+      title: document.getElementById('file-title').value.trim(),
+      author: document.getElementById('file-author').value.trim(),
+      source_url: document.getElementById('file-source-url').value.trim(),
+      china_critical: china.checked,
+    };
+    const item = { what: f.name, state: 'running', text: 'Uploading…' };
+    items.unshift(item);
+    render();
+    for (const id of ['file-title', 'file-author', 'file-source-url']) {
+      document.getElementById(id).value = '';
+    }
+    fileInput.value = '';
+    china.checked = false;
+    try {
+      const res = await ingestKnowledgeFile(f, fields);
+      item.state = 'done';
+      item.text = res?.status === 'already_exists'
+        ? 'Already in your library.'
+        : '✓ added — processing on the server';
+    } catch (e) {
+      item.state = 'error';
+      item.text = e.message || 'Failed';
+    }
+    render();
   };
 </script>
 </body>
