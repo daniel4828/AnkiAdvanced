@@ -220,7 +220,7 @@
 ├── news_fetcher.py        # 新闻抓取（Tagesschau API + RSS；按天缓存 data/news_cache/）
 ├── podcast.py             # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、每源 auto_process 开关+非自动源只入库元数据（#502，podcast_feeds 表）、转录链 NotebookLM 免费主力+听悟+Whisper 保底、单步异常不中止整链（#510 重排，链式降级，原 #498/#485/#486）、摘要 NotebookLM chat.ask 免费优先+DeepSeek/gpt API 链回退（api 路径内部 DeepSeek 优先省钱，#532；勾了 china-kritisch 的素材跳过 DeepSeek 直接用 OpenAI，#731）、邮件通知+Signal 通知（signal-cli 关联设备，发 Note to Self，#521，二者独立可选、互不影响；消息抬头播客名·星期·日期、链接在末尾，单集日期按 Europe/Berlin 显示，#532）、摘要 table.media 风格（`<p>` 段落+每段首句 `<b>` 加粗总结，#567）+详情页 Regenerate summary 按钮、邮件主题=`播客名 - 单集标题`（查不到播客名只用标题，不要退回死前缀）+ `summary_zh` 开头中文总结（#708 起是 `summary_de` 的**完整翻译**：同段落数、同顺序、同事实，同样 `<p>`+段首 `<b>`，HSK4-5 用词；提示词里德语先写、中文后译，JSON 里 `summary_de` 排在前面；渲染三处——邮件 `podcast._summary_zh_html`、详情页 `app.js._summaryZhHtml` 均"先全转义再放行 `<p>/<b>/<strong>/<em>/<i>/<br>`"，Signal 用 `_summary_to_plain_text` 剥标签；#708 之前的旧条目是纯文本，两处渲染都按空行补 `<p>`；**是增量不是必需**——成功判定只看 `summary_de`，模型漏掉中文总结不能让整集失败）+ 摘要里任何 HSK5+ 中文概念都标 `pinyin/汉字`（不限于提取的词表，宁多勿少，#631）；已泛化为知识库存储层，见 `knowledge/` 包
 ├── annotate/              # 知识库生词标注分派（#804）：__init__.py 按 languages 的 annotator 字段分派，zh 走 zh_annotate（原样不动），romance.py 是法语/西语实现（entry_forms 精确匹配，零词干还原）+ stopwords_fr/es.txt 功能词表
-├── knowledge/             # 知识库摄取（#650–#655，播客功能泛化，见「知识库」节）：rendition.py（按语言渲染摘要，#804）、youtube.py（字幕摄取）、article.py（正文抽取）、instagram.py（Reel/Post 摄取，yt-dlp 元数据+音频下载，#750）、ingest.py（唯一入库管线）、mailbox.py（IMAP 邮件收件）、signal_inbox.py（Signal Note to Self 分享收件，#749）
+├── knowledge/             # 知识库摄取（#650–#655，播客功能泛化，见「知识库」节）：rendition.py（按语言渲染摘要，#804）、youtube.py（字幕摄取）、article.py（正文抽取）、instagram.py（Reel/Post 摄取，yt-dlp 元数据+音频下载，#750）、files.py（上传的 txt/md/pdf/docx 抽文本，#835）、ingest.py（唯一入库管线）、mailbox.py（IMAP 邮件收件）、signal_inbox.py（Signal Note to Self 分享收件，含 text 前缀粘贴正文，#749/#834）
 ├── zh_annotate.py         # 生词标注（#638，零 AI）：HSK 表+词库+jieba+pypinyin+谷歌翻译
 ├── translator.py          # 翻译（Google Translate，deep-translator，可选）
 ├── tts.py                 # edge-tts 封装（离线模式下只读缓存，#612）
@@ -572,6 +572,7 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 - **邮件收件（`knowledge/mailbox.py`，#655）**：IMAP 轮询 UNSEEN 邮件，标题+正文都扫 URL（手机分享到邮件，链接位置因 App 而异）。`KNOWLEDGE_MAIL_ALLOWED_SENDERS` 未配置时**整个邮箱检查被跳过，不读取也不标已读**——这是防止任何知道邮箱地址的人远程触发付费 AI 调用的唯一防线；处理失败的邮件同样不标已读，留给下一轮重试（`ingest_url()` 对已入库 URL 幂等返回 `already_exists`，重试安全）
 - **Signal 分享入口（`knowledge/signal_inbox.py`，#749）**：手机把链接分享到 Signal 自己的「Note to Self」，服务器用 #521 早就关联好的**同一个** signal-cli 设备（`SIGNAL_ACCOUNT`）把消息收下来，正文里的 URL 同样走 `ingest_url()`。与邮件收件方向相反、账号相同——`send_signal()` 是服务器→Daniel，这个是 Daniel→服务器
   - **安全防线**：只收下**源账号和目的账号都等于 `SIGNAL_ACCOUNT` 自己**的消息（真正的 Note to Self）——关联设备会同步收到 Daniel 手机发出的所有消息，包括发给别人的，那些一律忽略。作用等同于 `KNOWLEDGE_MAIL_ALLOWED_SENDERS` 之于邮件入口
+  - **粘贴正文入口（#834）**：消息第一行只写 `text`（小写，大小写不敏感；也接受 `text:` / `文本`）→ 剩下的整条消息当文章正文，走 `ingest_text()`。**关键字必须独占第一行**，否则 "Text von gestern, siehe Link" 这种普通句子会被误认；正文里的**第一个链接自动存为 `source_url`**；标题/作者交给 #833 的服务端 AI 抽取。**粘贴正文的失败不进重试队列**——那个队列在 `app_settings` 里存 JSON（是给 URL 用的），而且正文失败的方式是"太短"，重试一百次结果一样；回执说明原因，重发一次即可。🔴 正文绝不进日志/错误信息/回执（下面 Privacy 那条同样适用）
   - **失败重试靠自己存队列，不是靠"留着不读"**：`signal-cli receive` 一次调用就把消息从 Signal 服务器上取走，不像 IMAP 能把邮件留成 UNSEEN 等下一轮。入库失败的 URL 存进 `app_settings['signal_retry_queue']`（JSON 列表），下一轮优先处理，满 3 次放弃并在回执里说明
   - **新链接入库后立即同步处理**（转录+摘要），不像邮件/网页粘贴那样只入库、等前端另外调 `.../process`——Signal 分享的语义就是"现在就要"。处理复用 `podcast.retry_episode()`（`routes/podcast.py` 的 process 端点背后那个同步函数，脚本进程里直接调用，不起后台线程——脚本跑完就退出，线程会被杀掉）
   - **`podcast.send_signal_text(text, context=...)`（#749 从 `send_signal()` 抽出）是发 Signal 消息的唯一函数**：`send_signal()`（摘要通知）和 `signal_inbox.send_receipt()`（收件回执）都调它，不重复写 subprocess 调用。处理成功时**不重复发一遍摘要**——`send_signal()` 已经在摘要成功后自动发了完整版，回执只发一行简短结果
@@ -579,7 +580,17 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
   - **`receive` 会把 Daniel 与所有人的对话都同步下来**（#755 实测）：别人的消息正文、附件元数据、已读回执、正在输入指示，全都在返回的 envelope 流里。上面那道安全门挡住了它们入库，但它们**经过了本进程的内存**。所以：**永远不要把 envelope 原文写进日志**，也不要放进错误信息或 Signal 回执——只记 URL 和处理结果
   - `scripts/signal_check.py`：cron 入口，结构照抄 `knowledge_mail_check.py`（同款 PID 锁 + `database.init_db()` 直连）
 - **前端：播客页 → 知识页**（#653，`static/app.js`）：🎙️/📺/📄 三个子标签，播客管理页原有的 RSS 源/详情/生词表格逻辑全部保留，只是按 `?kind=` 过滤。**旧的 `#podcast-<id>` hash 链接永久保留**——已发出去的邮件/Signal 消息里全是这种链接；播客条目仍生成旧格式 hash，只有视频/文章条目用新的 `#knowledge-<id>`
-- **独立收藏页 `/save`（#681）**：`/add` 的素材版 —— 可收藏的网址，🔗 Link / 📋 Text 两个标签，粘链接或粘正文，同样**不加载 `app.js`**（手机上从别的 App 分享文章时秒开）。入库逻辑抽到 `shared.js` 的 `ingestKnowledge()`，应用的知识页和本页共用一份；`knowledgeTitleFor()` 统一"标题留空则取首行"的规则。**两处都不许直接调 `/api/knowledge/add*`**，有测试守着
+- **独立收藏页 `/save`（#681，#835 起三个标签）**：`/add` 的素材版 —— 可收藏的网址，🔗 Link / 📋 Text / 📎 File，同样**不加载 `app.js`**（手机上从别的 App 分享文章时秒开）。入库逻辑抽到 `shared.js` 的 `ingestKnowledge()` / `ingestKnowledgeFile()`，应用的知识页和本页共用一份。**两处都不许直接调 `/api/knowledge/add*`**，有测试守着
+- **粘贴正文的元数据由 AI 补全（#833）**：Text 表单是「正文（必填）+ 链接 / 标题 / 作者（都可选）」，留空的由 `ai.extract_article_metadata()` 一次便宜的 DeepSeek 调用从正文**前 3000 字**读出来（元数据都在开头，喂全文是白花钱）。author 落 `channel_id`（文章行本来就用这一列存来源）
+  - **三个都填好了就完全不调 AI**；**AI 绝不覆盖用户手填的值**（他看着原文，模型是猜的）
+  - **去重在 AI 调用之前**（同 `_ingest_article` 先去重再下载），重复正文不二次付费；去重键仍只是正文哈希，换个标题重贴仍命中已有行
+  - 失败一律返回 `{}` 不抛异常（同 `ai.translate_title` 的契约）—— 为一个锦上添花的标题丢掉已经粘好的正文是荒唐的；`published_at` 只收 `YYYY-MM-DD`，模型答「上周三」一律丢弃
+  - 标题兜底链：手填 → AI → `fallback_title`（上传时是文件名）→ 正文首行（**截断 120 字**：不换行的粘贴整篇就是「一行」）→ `(untitled)`。原来客户端的 `knowledgeTitleFor()` 已删除，规则只留服务端一份
+- **上传文件（`knowledge/files.py`，#835）**：`.txt`/`.md`/`.pdf`/`.docx` → 抽纯文本 → 走**同一条** `ingest_text()`。`POST /api/knowledge/add-file` 只负责「文件 → 文本」，返回契约与 `add-text` 完全一致
+  - **未知扩展名报错，绝不「当纯文本读读看」**：一个 .zip 解码出的替换字符看着像内容，会被摘要、入库、做成卡片
+  - **抽不出文字也报错**：扫描版 PDF（无文字层）错误信息明说需要 OCR —— 同 `knowledge/article.py` 拒绝付费墙残页
+  - Markdown 原样当正文，不渲染成 HTML（摘要提示词吃得下，剥掉之后还得加回来）；10 MB 上限
+  - 新依赖 `pypdf`、`python-docx`
 - **china-kritisch 复选框（#731）**：摘要默认走便宜的 DeepSeek —— Daniel 的博客素材绝大多数不批评中国，没必要为它们付 OpenAI 的钱。少数确实批评中国的素材勾选后存 `podcast_episodes.china_critical=1`，摘要时把 DeepSeek 从候选模型里**彻底删掉**（不是排后面）：它对这类内容会悄悄弱化或拒答，而弱化后的摘要照样能解析出 `summary_de`，任何"解析失败就回退"的机制都永远不会触发
   - **免费的 NotebookLM 路径不受影响，照旧第一优先**：它是 Google 的，没理由审查这个话题，而且不花钱。勾选只改变它失败之后 API 兜底那一层选谁
   - **标记必须在粘贴那一刻打上**：摘要发生在之后独立的 `POST .../process` 调用里（甚至是 cron 里），那时已经没人在旁边说明这是什么素材
@@ -709,6 +720,8 @@ GET  /api/story-prompt/{story_id}                    → 生成该故事的完�
 
 # 知识库（播客爬虫 #479 泛化，#650–#655；详见「知识库」节）
 POST /api/knowledge/add                               → body {url, china_critical?}（#731，默认 false）→ 新素材 {episode_id}；已存在 {status:"already_exists", episode_id}；不转录不摘要，前端拿 id 后另调 .../process
+POST /api/knowledge/add-text                          → body {text, title?, author?, source_url?, china_critical?}（#668；#833 起除 text 外全可选，留空由 AI 从正文抽取）→ 同上契约
+POST /api/knowledge/add-file                          → multipart：file（.txt/.md/.pdf/.docx，≤10 MB）+ title?/author?/source_url?/china_critical?（#835）→ 同上契约；未知类型 / 抽不出文字 / 正文太短均 400
 GET/POST /api/known-words ；DELETE /api/known-words/{word} → 已认识词库（#710）：标记后 zh_annotate 不再当生词；不建卡不排程；DELETE 词不在表里返回 404（不假装成功）
 POST /api/podcast/check                              → 跑一轮抓取，返回汇总 {new, summarized, emailed, failed}
 GET  /api/podcast/episodes                            → 列表（不含转录全文；?feed_id= 按源过滤；?kind= 按 podcast/video/article 过滤，#650；手动处理中的单集 status 显示为 processing）
@@ -737,7 +750,7 @@ GET  /api/costs/call/{id}                            → {prompt, response}（�
 # 其他
 POST /api/import                                     → 触发 YAML 导入
 GET  /add[?word=生态&day=today|tomorrow|list&lang=zh|fr] → 独立加词页（#668，可收藏/存主屏；不加载 app.js）；带 word 参数时打开即自动提交（#686，供 iOS 快捷指令用），提交后从地址栏抹掉该参数以免刷新重复扣费；lang（#726）每种语言一个快捷指令
-GET  /save                                           → 独立素材收藏页（#681，Link/Text 两个标签；同样不加载 app.js）
+GET  /save                                           → 独立素材收藏页（#681，🔗 Link / 📋 Text / 📎 File 三个标签，#835；同样不加载 app.js）
 
 # AI 词典（#746，详见「AI 词典页」节）
 GET    /dict[?q=anordnen]                            → 独立词典页（不加载 app.js）；带 q 时打开即查询并抹掉参数
@@ -770,7 +783,7 @@ GET  /api/stats ；/api/retention ；/api/card-evolution（均支持 ?lang=）
 
 - 所有数据库访问通过 `database/` 包——其他文件不写原始 SQL（`import database` 仍然有效）
 - 保持 `ai.py` 简洁——每种提示词类型对应一个函数；AI 返回的格式错误 JSON 始终用 try/except + 回退处理
-- 允许的外部依赖：`fastapi`、`uvicorn`、`anthropic`、`openai`、`edge-tts`、`pyyaml`、`python-multipart`、`deep-translator`（可选）、`jieba`、`pypinyin`、`alibabacloud_tingwu20230930`、`zhconv`（NotebookLM 转录繁转简，#500）（播客通义听悟转录主力，#498，官方 SDK）、`notebooklm-py`（播客 NotebookLM 可选转录，#486，非官方库，凭据文件一次性从本地拷到服务器，见 `scripts/README.md`）、`youtube-transcript-api`（知识库 YouTube 字幕摄取，#651）、`trafilatura`（知识库文章正文抽取，#652）。新增依赖必须同步更新 `requirements.txt`。播客转录链的 Whisper/NotebookLM 两条路径（听悟提交直链不需要）需要系统级 `ffmpeg`（`apt install ffmpeg`，不是 Python 依赖，缺失时该功能自动跳过）
+- 允许的外部依赖：`fastapi`、`uvicorn`、`anthropic`、`openai`、`edge-tts`、`pyyaml`、`python-multipart`、`deep-translator`（可选）、`jieba`、`pypinyin`、`alibabacloud_tingwu20230930`、`zhconv`（NotebookLM 转录繁转简，#500）（播客通义听悟转录主力，#498，官方 SDK）、`notebooklm-py`（播客 NotebookLM 可选转录，#486，非官方库，凭据文件一次性从本地拷到服务器，见 `scripts/README.md`）、`youtube-transcript-api`（知识库 YouTube 字幕摄取，#651）、`trafilatura`（知识库文章正文抽取，#652）、`pypdf` + `python-docx`（知识库文件上传，#835）。新增依赖必须同步更新 `requirements.txt`。播客转录链的 Whisper/NotebookLM 两条路径（听悟提交直链不需要）需要系统级 `ffmpeg`（`apt install ffmpeg`，不是 Python 依赖，缺失时该功能自动跳过）
 - 前端无构建步骤——直接编辑 `static/` 下的文件
 - API 密钥只从环境变量读取，绝不写入代码或仓库
 - **不要在 8000 端口跑测试服务器**——Daniel 的浏览器连着它
