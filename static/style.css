@@ -2400,6 +2400,10 @@ a.nav-btn { text-decoration: none; }
   font-weight: 600;
 }
 
+/* Phone-only drawer toggle (#827); hidden on desktop, where the sidebar is
+   a permanent column. */
+.browse-filter-toggle { display: none; }
+
 /* ── Browse main panel ───────────────────────────────── */
 .browse-main {
   flex: 1;
@@ -5561,4 +5565,51 @@ table.fsrs-table td.ivl { font-weight: 700; }
 
 @media (max-width: 560px) {
   #tasks-btn { min-height: 40px; font-size: 15px; }
+}
+
+/* ── Browse on phones (#827) ─────────────────────────────
+   Browse had no mobile breakpoint at all: a 200px fixed sidebar next to
+   flex:1 main left ~190px for the list on a 390px screen, and the row
+   internals (.bw-left min-width:80px, the nowrap category/add buttons in
+   .bw-right) cannot shrink below that — so the page overflowed sideways,
+   the sidebar covered half the screen and the word rows were sliced off.
+   Below 700px the sidebar becomes a collapsible full-width drawer.
+   Placed at the end of the file on purpose: media queries add no
+   specificity, so these have to come after the rules they override. */
+@media (max-width: 700px) {
+  #view-browse.browse-layout {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .browse-filter-toggle {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 14px;
+    background: var(--card);
+    border: none;
+    border-bottom: 1.5px solid var(--border);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+  }
+  .browse-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1.5px solid var(--border);
+    padding: 8px 0 12px;
+    /* The deck tree can be long; cap it so the list stays reachable. */
+    max-height: 55vh;
+  }
+  .browse-sidebar:not(.bs-open) { display: none; }
+  .bs-item, .bs-deck-item, .bs-status-item { padding: 10px 16px; font-size: 15px; }
+  .browse-main { padding: 12px; }
+  /* Let the action buttons drop to their own line instead of forcing the row
+     wider than the viewport. */
+  .bw-row { flex-wrap: wrap; }
+  .bw-mid { flex: 1 1 120px; }
+  .bw-right { margin-left: auto; }
+  .ss-row { flex-wrap: wrap; }
 }
