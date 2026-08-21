@@ -9,3 +9,4 @@ from .stats import *
 from .podcast import *
 from .prompts import *
 from .dictionary import *
+from .books import *
