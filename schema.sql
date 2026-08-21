@@ -774,3 +774,65 @@ CREATE TABLE IF NOT EXISTS dict_queries (
     created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
 );
 CREATE INDEX IF NOT EXISTS idx_dict_queries_created ON dict_queries(created_at DESC);
+
+-- ---------------------------------------------------------------------------
+-- Book reader (#836): a whole German/English book, read page by page in the
+-- language Daniel is studying. Each page is translated with Google Translate
+-- and annotated by the same pipeline the knowledge base uses
+-- (knowledge/rendition.py), so a book page reads exactly like an episode
+-- summary: HSK5+ / unknown words carry their pinyin and German gloss inline.
+--
+-- Four tables, one job each:
+--   books            the uploaded file and how it was cut into pages
+--   book_pages       the SOURCE text (German/English), one row per page
+--   book_renditions  the translated+annotated view of one page in one language
+--   book_progress    where Daniel is, per (book, language)
+--
+-- Pagination happens exactly once, at upload. Re-cutting an existing book
+-- would silently shift every stored rendition and reading position by an
+-- unknown amount, so there is deliberately no "re-paginate" path.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS books (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    title       TEXT NOT NULL,
+    author      TEXT,
+    source_lang TEXT NOT NULL DEFAULT 'de',  -- language of the uploaded file (de|en)
+    format      TEXT NOT NULL,               -- epub|pdf
+    file_path   TEXT,                        -- original upload under data/books/
+    page_count  INTEGER NOT NULL DEFAULT 0,
+    char_budget INTEGER NOT NULL DEFAULT 1200,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS book_pages (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    book_id     INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    page_no     INTEGER NOT NULL,            -- 1-based, contiguous
+    source_text TEXT NOT NULL,               -- HTML: <p> paragraphs, source language
+    ref_label   TEXT,                        -- PDF's real page number / EPUB chapter title
+    UNIQUE(book_id, page_no)
+);
+
+-- Same shape as knowledge_renditions on purpose: both are the output of the
+-- one translate-then-annotate pipeline in knowledge/rendition.py.
+CREATE TABLE IF NOT EXISTS book_renditions (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    book_id    INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    page_no    INTEGER NOT NULL,
+    lang       TEXT NOT NULL,
+    text       TEXT NOT NULL,                -- target language, new words annotated inline
+    new_words  TEXT,                         -- JSON array of {word, ...} (annotator-specific)
+    created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    UNIQUE(book_id, page_no, lang)
+);
+
+CREATE TABLE IF NOT EXISTS book_progress (
+    book_id    INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    lang       TEXT NOT NULL,
+    last_page  INTEGER NOT NULL DEFAULT 1,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+    PRIMARY KEY(book_id, lang)
+);
+
+CREATE INDEX IF NOT EXISTS idx_book_pages_book ON book_pages(book_id, page_no);
+CREATE INDEX IF NOT EXISTS idx_book_renditions_lookup ON book_renditions(book_id, page_no, lang);

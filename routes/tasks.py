@@ -57,7 +57,7 @@ def finish(task_id: str) -> None:
 _STORY_DONE_PHASES = {"done", "error", "idle"}
 
 _ICONS = {"story": "📖", "audio": "🔊", "word": "＋",
-          "knowledge": "📄", "sentence": "↺", "import": "📥"}
+          "knowledge": "📄", "sentence": "↺", "import": "📥", "book": "📚"}
 
 
 def _deck_label(deck_id: str | int) -> str:
@@ -144,6 +144,26 @@ def _import_tasks() -> list[dict]:
     return out
 
 
+def _book_tasks() -> list[dict]:
+    """Book uploads being parsed and paginated (#836) — tens of seconds for a
+    long book, with nothing else on screen to say so."""
+    from . import books as book_routes
+
+    out = []
+    for job_id, job in list(book_routes._upload_jobs.items()):
+        if job.get("status") != "running":
+            continue
+        out.append({
+            "id": f"book:{job_id}",
+            "kind": "book",
+            "label": job.get("message") or "Reading book…",
+            "detail": "",
+            "percent": None,
+            "started_at": job.get("started_at"),
+        })
+    return out
+
+
 def _knowledge_tasks() -> list[dict]:
     from . import podcast as podcast_routes
 
@@ -185,7 +205,7 @@ def list_tasks():
     """
     tasks: list[dict] = []
     for collect in (_story_tasks, _audio_tasks, _import_tasks,
-                    _knowledge_tasks, _ad_hoc_tasks):
+                    _knowledge_tasks, _book_tasks, _ad_hoc_tasks):
         try:
             tasks.extend(collect())
         except Exception as e:
