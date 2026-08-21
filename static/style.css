@@ -5633,3 +5633,44 @@ table.fsrs-table td.ivl { font-weight: 700; }
   .bw-right { margin-left: auto; }
   .ss-row { flex-wrap: wrap; }
 }
+
+/* ── Book reader (#836) ─────────────────────────────────────────────────── */
+.book-upload-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+.book-upload-row input[type="text"] { flex: 1 1 160px; min-width: 120px; }
+
+.book-reader-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.book-reader-title {
+  flex: 1;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Reading text, not UI text: bigger and looser than the panels around it. */
+.book-page {
+  font-size: 1.15rem;
+  line-height: 1.9;
+}
+.book-page p { margin: 0 0 1em; }
+.book-page p:last-child { margin-bottom: 0; }
+
+.book-reader-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+}
+.book-reader-nav input[type="number"] { width: 4.5em; text-align: center; }

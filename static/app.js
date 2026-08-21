@@ -832,7 +832,7 @@ function showView(name) {
   // "processing" poll loop — it has no reason to keep firing once the view
   // isn't visible.
   if (name !== 'knowledge' && typeof _clearPodcastPoll === 'function') _clearPodcastPoll();
-  ['loading', 'decks', 'review', 'done', 'browse', 'word-detail', 'hanzi-detail', 'stats', 'settings', 'knowledge'].forEach(v => {
+  ['loading', 'decks', 'review', 'done', 'browse', 'word-detail', 'hanzi-detail', 'stats', 'settings', 'knowledge', 'books'].forEach(v => {
     document.getElementById(`view-${v}`).style.display = 'none';
   });
   document.getElementById(`view-${name}`).style.display =
@@ -861,7 +861,8 @@ function showView(name) {
     name === 'hanzi-detail' ? 'Hanzi Detail' :
     name === 'stats'        ? 'Stats' :
     name === 'settings'     ? 'Settings' :
-    name === 'knowledge'    ? 'Knowledge' : 'biangbiangmian3000';
+    name === 'knowledge'    ? 'Knowledge' :
+    name === 'books'        ? 'Books' : 'biangbiangmian3000';
   if (name === 'decks') quickMode = false;
   // ＋ during review (#829). Hidden offline for the same reason as ↺: the whole
   // entry generation is an AI call, so it can only fail there (#612).
@@ -1366,7 +1367,7 @@ async function loadDecks({ keepView = false } = {}) {
 // They live in the header (#816) rather than in the page body, because the
 // language is application-wide state — dictionary, add-word and story modes all
 // follow it — so it belongs next to the app title, above everything it scopes.
-const _LANG_TAB_LABELS = { zh: '中文', fr: 'Français' };
+const _LANG_TAB_LABELS = { zh: '中文', fr: 'Français', es: 'Español' };
 
 // Each language gets its own accent colour (#824), carried by body[data-lang] so
 // the header's bottom rule is tinted in *every* view — the tab bar itself only
@@ -1614,6 +1615,7 @@ function renderDecks(decks) {
       <button class="nav-btn" onclick="openBrowse()" title="Shortcut: B">Browse Cards</button>
       <button class="nav-btn" onclick="openStats()">Stats</button>
       <button class="nav-btn" onclick="openKnowledge()">🧠 Knowledge</button>
+      <button class="nav-btn" onclick="openBooks()" title="Read an uploaded book">📚 Books</button>
       <button class="nav-btn" onclick="openSettings()" title="Customize shortcuts">⚙ Settings</button>
       <button class="nav-btn" onclick="openCostModal()">API Costs</button>
       <button class="nav-btn" onclick="openImportModal()" title="Shortcut: Command+I">Import</button>
@@ -3963,19 +3965,10 @@ function _renderKnowledgeDetail(ep) {
   // Keep the raw word objects around so click handlers can look them up by
   // index instead of serializing them into onclick attributes (avoids
   // quote/apostrophe escaping issues in word_zh/definition_de text).
-  _podcastDetailWords = isZh ? (ep.hsk_words || []) : ((ep.rendition && ep.rendition.new_words) || []);
+  setWordTable(isZh ? (ep.hsk_words || [])
+                    : ((ep.rendition && ep.rendition.new_words) || []), lang);
   _podcastDetailEpisodeId = ep.id;
-  _podcastDetailLang = lang;
-  const hskRows = _podcastDetailWords.map((w, idx) => `<tr id="podcast-word-row-${idx}">
-      <td class="word-zh">${_escHtml(w.word || w.word_zh || '')}</td>
-      <td class="word-pinyin">${_escHtml(w.pinyin || '')}</td>
-      <td>${_escHtml(w.definition_de || w.definition || '')}</td>
-      <td><button id="podcast-add-word-${idx}" class="word-table-btn" onclick="doPodcastAddWord(${idx})" title="Add to the ★ List">★ List</button></td>
-      <td><button id="podcast-known-word-${idx}" class="word-table-btn" onclick="doPodcastKnownWord(${idx})" title="I already know this word — stop flagging it">✓ Known</button></td>
-    </tr>`).join('');
-  const hskTable = hskRows
-    ? `<div class="word-table-wrap"><table class="cost-table cost-table-compact"><thead><tr><th>Word</th><th>Pinyin</th><th>German</th><th>Save</th><th>Known</th></tr></thead><tbody>${hskRows}</tbody></table></div>`
-    : '<p class="keymap-hint">No HSK vocabulary extracted.</p>';
+  const hskTable = wordTableHtml('No HSK vocabulary extracted.');
   const links = [
     ep.youtube_url ? `<a href="${_escHtml(ep.youtube_url)}" target="_blank" rel="noopener" class="btn-secondary">${isPodcast ? 'YouTube' : 'Open'} ↗</a>` : '',
     isPodcast && ep.spotify_url ? `<a href="${_escHtml(ep.spotify_url)}" target="_blank" rel="noopener" class="btn-secondary">Spotify ↗</a>` : '',
@@ -4035,21 +4028,10 @@ function _togglePodcastTranscript() {
   body.style.display = body.style.display === 'none' ? 'block' : 'none';
 }
 
-// HSK words for the currently rendered podcast episode detail — kept as a
-// module-level array so the "Add" buttons can look words up by index
-// instead of embedding word data (with possible quotes/apostrophes) in
-// onclick attributes. Set in _renderKnowledgeDetail.
-let _podcastDetailWords = [];
-
 // Episode id for the currently rendered podcast detail — used by
 // doPodcastNotify (#530) so the Send to Signal/Email buttons don't need to
 // embed the id in their onclick attribute.
 let _podcastDetailEpisodeId = null;
-
-// Language the currently rendered podcast detail was fetched/rendered in
-// (#804) — doPodcastAddWord/doPodcastKnownWord need it to file the word (or
-// known-word mark) under the right language tree.
-let _podcastDetailLang = 'zh';
 
 // Regenerate the summary of the currently shown episode (#567): POST kicks
 // off a background thread on the server, then poll the detail endpoint until
@@ -4109,9 +4091,9 @@ async function doPodcastNotify(channel) {
   }
 }
 
-function doPodcastAddWord(idx) {
-  const w = _podcastDetailWords[idx];
-  const btn = document.getElementById(`podcast-add-word-${idx}`);
+function doWordTableAdd(idx) {
+  const w = _wordTableWords[idx];
+  const btn = document.getElementById(`word-table-add-${idx}`);
   if (!w || !btn) return;
   const wordZh = w.word || w.word_zh || '';
   if (!wordZh) return;
@@ -4132,8 +4114,39 @@ function doPodcastAddWord(idx) {
     btn.classList.toggle('podcast-add-error', state === 'error');
     // Only a failure is worth retrying; a finished add is not repeatable.
     if (state === 'error') btn.disabled = false;
-  }, _podcastDetailLang);
+  }, _wordTableLang);
 }
+
+// ── New-words table, shared by the knowledge detail page and the book reader ─
+//
+// Both screens show the same thing — words the annotator flagged in the text
+// above, each with ★ List and ✓ Known — so they share one renderer and one
+// pair of handlers (#836). A second copy would mean the next fix to the add
+// path lands on only one of them, which is exactly what #643 was about.
+//
+// The word objects are kept in a module-level array so the buttons can look
+// them up by index rather than serialising word/definition text (quotes,
+// apostrophes) into onclick attributes.
+let _wordTableWords = [];
+let _wordTableLang = 'zh';
+
+function setWordTable(words, lang) {
+  _wordTableWords = words || [];
+  _wordTableLang = lang || 'zh';
+}
+
+function wordTableHtml(emptyHint) {
+  const rows = _wordTableWords.map((w, idx) => `<tr id="word-table-row-${idx}">
+      <td class="word-zh">${_escHtml(w.word || w.word_zh || '')}</td>
+      <td class="word-pinyin">${_escHtml(w.pinyin || '')}</td>
+      <td>${_escHtml(w.definition_de || w.definition || '')}</td>
+      <td><button id="word-table-add-${idx}" class="word-table-btn" onclick="doWordTableAdd(${idx})" title="Add to the ★ List">★ List</button></td>
+      <td><button id="word-table-known-${idx}" class="word-table-btn" onclick="doWordTableKnown(${idx})" title="I already know this word — stop flagging it">✓ Known</button></td>
+    </tr>`).join('');
+  if (!rows) return `<p class="keymap-hint">${_escHtml(emptyHint)}</p>`;
+  return `<div class="word-table-wrap"><table class="cost-table cost-table-compact"><thead><tr><th>Word</th><th>Pinyin</th><th>German</th><th>Save</th><th>Known</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
 
 // "✓ Known" in the HSK word table (#710): Daniel already knows this word, it
 // just never made it into the collection. One background POST — no reload, no
@@ -4143,9 +4156,9 @@ function doPodcastAddWord(idx) {
 // the summary text above were baked in when it was generated and don't change,
 // so making the row vanish would suggest the word is gone from the page when
 // it plainly isn't. What actually changes is the NEXT summary.
-function doPodcastKnownWord(idx) {
-  const w = _podcastDetailWords[idx];
-  const btn = document.getElementById(`podcast-known-word-${idx}`);
+function doWordTableKnown(idx) {
+  const w = _wordTableWords[idx];
+  const btn = document.getElementById(`word-table-known-${idx}`);
   if (!w || !btn) return;
   const wordZh = w.word || w.word_zh || '';
   if (!wordZh) return;
@@ -4153,9 +4166,9 @@ function doPodcastKnownWord(idx) {
   btn.disabled = true;
   btn.textContent = '…';
   // lang (#804): known_words is per-language — see markWordKnown's docstring.
-  markWordKnown(wordZh, _podcastDetailLang).then(() => {
+  markWordKnown(wordZh, _wordTableLang).then(() => {
     btn.textContent = '✓ known';
-    document.getElementById(`podcast-word-row-${idx}`)?.classList.add('podcast-word-known');
+    document.getElementById(`word-table-row-${idx}`)?.classList.add('podcast-word-known');
   }).catch(e => {
     btn.textContent = e.message || 'failed';
     btn.classList.add('podcast-add-error');
@@ -10697,6 +10710,17 @@ function renderFsrsInspector() {
 document.addEventListener('keydown', async e => {
   const inInput = _isEditableFocusTarget(document.activeElement);
 
+  // Book reader (#836): ←/→ turn the page. Guarded on the reader actually
+  // being open — the jump-to-page box is an input, so `inInput` keeps arrow
+  // keys working normally inside it.
+  if (_currentView === 'books' && _bookState.bookId && !inInput &&
+      !e.metaKey && !e.ctrlKey && !e.altKey &&
+      (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+    e.preventDefault();
+    turnBookPage(e.key === 'ArrowRight' ? 1 : -1);
+    return;
+  }
+
   if (e.key === 'Escape') {
     if (_fsrsInspectorOpen()) {
       e.preventDefault();
@@ -11997,4 +12021,277 @@ function evoLeave() {
   hcalHideTip();
   const cursor = document.getElementById('evo-cursor');
   if (cursor) cursor.style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Book reader (#836)
+//
+// Upload a German/English EPUB or PDF, then read it page by page in whichever
+// language is being studied. Each page is translated and annotated server-side
+// on first view (knowledge/rendition.py's render_html — the same pipeline the
+// knowledge base uses) and cached, so paging back is instant and paging
+// forward is only slow the first time through.
+//
+// The reader deliberately prefetches the next page as soon as one is shown:
+// the translation is free (Google Translate) and the wait is the only thing
+// standing between Daniel and reading.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const _bookState = { bookId: null, pageNo: 1, pageCount: 0, lang: 'zh', loading: false };
+let _bookLangs = null;   // [{code, name}] from /api/langs?available=1
+
+// Every registered language, not just the ones already in use: a book is a new
+// thing, and filtering by "languages that have decks" would make the first
+// book in a language unreadable (same reasoning as /add and /dict, #805).
+async function _loadBookLangs() {
+  if (_bookLangs) return _bookLangs;
+  try {
+    // /api/langs returns bare codes, e.g. ["zh", "fr", "es"].
+    _bookLangs = await api('GET', '/api/langs?available=1') || ['zh'];
+  } catch (e) {
+    _bookLangs = ['zh'];
+  }
+  return _bookLangs;
+}
+
+async function openBooks() {
+  _bookState.bookId = null;
+  showView('books');
+  document.getElementById('view-books-content').innerHTML =
+    '<p class="keymap-hint">Loading…</p>';
+  await _loadBookLangs();
+  try {
+    const data = await api('GET', '/api/books');
+    _renderBookList(data.books || []);
+  } catch (e) {
+    document.getElementById('view-books-content').innerHTML =
+      `<p class="keymap-hint">Could not load books: ${_escHtml(e.message || 'error')}</p>`;
+  }
+}
+
+function _bookLangOptions(selected) {
+  return (_bookLangs || []).map(l =>
+    `<option value="${_escHtml(l)}"${l === selected ? ' selected' : ''}>${_escHtml(_LANG_TAB_LABELS[l] || l)}</option>`
+  ).join('');
+}
+
+function _renderBookList(books) {
+  const rows = books.map(b => {
+    const progress = Object.entries(b.progress || {})
+      .map(([lang, page]) => `${_escHtml(lang)} p.${page}`).join(' · ');
+    return `<tr>
+      <td><a href="#" onclick="event.preventDefault();openBook(${b.id})">${_escHtml(b.title)}</a></td>
+      <td>${_escHtml(b.author || '')}</td>
+      <td>${_escHtml(b.format)} · ${_escHtml(b.source_lang)}</td>
+      <td>${b.page_count}</td>
+      <td class="keymap-hint">${progress || '—'}</td>
+      <td><button class="word-table-btn" onclick="deleteBook(${b.id})" title="Delete this book">🗑</button></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('view-books-content').innerHTML = `
+    <div class="keymap-panel">
+      <h2 class="keymap-heading">Upload a book</h2>
+      <p class="keymap-hint">EPUB or PDF in German or English. It is split into
+        reading pages once, then translated page by page into the language you
+        pick when you open it. Scanned PDFs (no text layer) cannot be read.</p>
+      <div class="book-upload-row">
+        <input type="file" id="book-file" accept=".epub,.pdf">
+        <input type="text" id="book-title" placeholder="Title (optional)">
+        <select id="book-source-lang">
+          <option value="">Detect language</option>
+          <option value="de">German</option>
+          <option value="en">English</option>
+        </select>
+        <button class="btn-secondary" id="book-upload-btn" onclick="doBookUpload()">Upload</button>
+      </div>
+      <p class="keymap-hint" id="book-upload-status"></p>
+    </div>
+    <div class="keymap-panel">
+      <h2 class="keymap-heading">Your books</h2>
+      ${rows
+        ? `<div class="word-table-wrap"><table class="cost-table cost-table-compact">
+             <thead><tr><th>Title</th><th>Author</th><th>Format</th><th>Pages</th><th>Progress</th><th></th></tr></thead>
+             <tbody>${rows}</tbody></table></div>`
+        : '<p class="keymap-hint">No books yet.</p>'}
+    </div>`;
+}
+
+async function doBookUpload() {
+  const fileInput = document.getElementById('book-file');
+  const btn = document.getElementById('book-upload-btn');
+  const status = document.getElementById('book-upload-status');
+  const file = fileInput && fileInput.files && fileInput.files[0];
+  if (!file) { showError('Pick an EPUB or PDF file first'); return; }
+
+  const form = new FormData();
+  form.append('file', file);
+  const title = (document.getElementById('book-title').value || '').trim();
+  if (title) form.append('title', title);
+  const srcLang = document.getElementById('book-source-lang').value;
+  if (srcLang) form.append('source_lang', srcLang);
+
+  btn.disabled = true;
+  status.textContent = 'Uploading…';
+  let jobId;
+  try {
+    // Not api(): that helper sends JSON, and this is a multipart upload.
+    const resp = await fetch('/api/books', { method: 'POST', body: form });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(data.detail || `Upload failed (${resp.status})`);
+    jobId = data.job_id;
+  } catch (e) {
+    btn.disabled = false;
+    status.textContent = '';
+    showError(e.message || 'Upload failed');
+    return;
+  }
+
+  status.textContent = 'Reading the file…';
+  const poll = async () => {
+    let job;
+    try {
+      job = await api('GET', `/api/books/upload-progress/${jobId}`);
+    } catch (e) {
+      btn.disabled = false;
+      status.textContent = '';
+      showError(e.message || 'Lost track of the upload');
+      return;
+    }
+    if (job.status === 'running') { setTimeout(poll, 1500); return; }
+    btn.disabled = false;
+    if (job.status === 'error') {
+      status.textContent = '';
+      // The server's reason is the whole point here — "no text layer",
+      // "DRM-protected", "unsupported file type" all need saying out loud.
+      showError(job.error || 'Could not read this file');
+      return;
+    }
+    status.textContent = job.message || 'Done';
+    fileInput.value = '';
+    document.getElementById('book-title').value = '';
+    openBooks();
+  };
+  setTimeout(poll, 1500);
+}
+
+async function deleteBook(id) {
+  if (!await showConfirm('Delete this book, its pages and all cached translations?')) return;
+  try {
+    await api('DELETE', `/api/books/${id}`);
+    openBooks();
+  } catch (e) {
+    showError(e.message || 'Could not delete the book');
+  }
+}
+
+// ── Reader ─────────────────────────────────────────────────────────────────
+
+async function openBook(id, pageNo, lang) {
+  _bookState.bookId = id;
+  const langs = await _loadBookLangs();
+  const wanted = lang || _bookState.lang || activeLang();
+  _bookState.lang = langs.includes(wanted) ? wanted : (langs[0] || 'zh');
+  showView('books');
+  // No page given → continue where this book was left off in this language.
+  if (pageNo == null) {
+    try {
+      const data = await api('GET', '/api/books');
+      const book = (data.books || []).find(b => b.id === id);
+      pageNo = (book && book.progress && book.progress[_bookState.lang]) || 1;
+    } catch (e) {
+      pageNo = 1;
+    }
+  }
+  _showBookPage(pageNo);
+}
+
+async function _showBookPage(pageNo) {
+  const id = _bookState.bookId;
+  if (!id || _bookState.loading) return;
+  _bookState.loading = true;
+  document.getElementById('view-books-content').innerHTML =
+    '<p class="keymap-hint">Translating this page…</p>';
+  let page;
+  try {
+    page = await api('GET', `/api/books/${id}/page/${pageNo}?lang=${encodeURIComponent(_bookState.lang)}`);
+  } catch (e) {
+    _bookState.loading = false;
+    document.getElementById('view-books-content').innerHTML = `
+      <div class="keymap-panel">
+        <p class="keymap-hint">Could not render page ${pageNo}: ${_escHtml(e.message || 'error')}</p>
+        <button class="btn-secondary" onclick="openBooks()">← Back to books</button>
+      </div>`;
+    return;
+  }
+  _bookState.loading = false;
+  if (_bookState.bookId !== id) return;   // navigated away while translating
+  _bookState.pageNo = page.page_no;
+  _bookState.pageCount = page.page_count;
+  _renderBookPage(page);
+  // Fire-and-forget: remembering the position must never block reading, and a
+  // failed save just means resuming a page early next time.
+  api('POST', `/api/books/${id}/progress`,
+      { lang: _bookState.lang, page_no: page.page_no }).catch(() => {});
+  _prefetchBookPage(page.page_no + 1);
+}
+
+// Render the page after this one into the server-side cache while Daniel
+// reads. The response is thrown away — the point is the cached rendition.
+function _prefetchBookPage(pageNo) {
+  const id = _bookState.bookId;
+  if (!id || pageNo > _bookState.pageCount) return;
+  fetch(`/api/books/${id}/page/${pageNo}?lang=${encodeURIComponent(_bookState.lang)}`)
+    .catch(() => {});
+}
+
+function _renderBookPage(page) {
+  setWordTable(page.new_words || [], page.lang);
+  const ref = page.ref_label ? ` · ${_escHtml(page.ref_label)}` : '';
+  const atStart = page.page_no <= 1;
+  const atEnd = page.page_no >= page.page_count;
+  document.getElementById('view-books-content').innerHTML = `
+    <div class="book-reader-head">
+      <button class="btn-secondary" onclick="openBooks()">← Books</button>
+      <span class="book-reader-title">${_escHtml(page.title)}${page.author ? ` · ${_escHtml(page.author)}` : ''}</span>
+      <select id="book-lang-select" onchange="changeBookLang(this.value)" title="Reading language">
+        ${_bookLangOptions(page.lang)}
+      </select>
+    </div>
+    <div class="keymap-panel book-page">${_summaryZhHtml(page.text || '')}</div>
+    <div class="book-reader-nav">
+      <button class="btn-secondary" onclick="turnBookPage(-1)" ${atStart ? 'disabled' : ''}>← Prev</button>
+      <span class="keymap-hint">
+        <input type="number" id="book-jump" min="1" max="${page.page_count}"
+               value="${page.page_no}" onchange="jumpToBookPage(this.value)"> / ${page.page_count}${ref}
+      </span>
+      <button class="btn-secondary" onclick="turnBookPage(1)" ${atEnd ? 'disabled' : ''}>Next →</button>
+    </div>
+    <div class="keymap-panel">
+      <h2 class="keymap-heading">New words on this page</h2>
+      ${wordTableHtml('Nothing above your level on this page.')}
+    </div>`;
+}
+
+function turnBookPage(delta) {
+  const next = _bookState.pageNo + delta;
+  if (next < 1 || next > _bookState.pageCount) return;
+  _showBookPage(next);
+}
+
+function jumpToBookPage(value) {
+  const page = parseInt(value, 10);
+  if (!page || page < 1 || page > _bookState.pageCount) {
+    showError(`Enter a page between 1 and ${_bookState.pageCount}`);
+    return;
+  }
+  _showBookPage(page);
+}
+
+// Switching language re-reads the same page in the new one; each language
+// keeps its own reading position, so the position is saved under the new
+// language from here on.
+function changeBookLang(lang) {
+  _bookState.lang = lang;
+  _showBookPage(_bookState.pageNo);
 }

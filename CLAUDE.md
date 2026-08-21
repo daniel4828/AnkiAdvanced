@@ -19,10 +19,10 @@
 10. [数据库模式](#数据库模式概述) · 11. [调度算法 FSRS-5](#调度算法--fsrs-5默认--sm-2-回退) · 12. [队列设计](#队列设计) · 13. [多语言支持](#多语言支持)
 
 **功能详解**
-14. [数据与导入 / 界面内加词](#数据与导入) · 15. [故事生成](#故事生成) · 16. [加星句子](#加星句子改进提示词的正例样本692) · 17. [知识库](#知识库knowledge-base650655) · 18. [生词标注](#生词标注代码做不用-aizh_annotatepy638) · 19. [复习收尾提醒](#复习收尾提醒701) · 19b. [顶栏后台任务指示器](#顶栏后台任务指示器821) · 20. [AI 词典页 /dict](#ai-词典页-dict746)
+14. [数据与导入 / 界面内加词](#数据与导入) · 15. [故事生成](#故事生成) · 16. [加星句子](#加星句子改进提示词的正例样本692) · 17. [知识库](#知识库knowledge-base650655) · 18. [生词标注](#生词标注代码做不用-aizh_annotatepy638) · 19. [复习收尾提醒](#复习收尾提醒701) · 19b. [顶栏后台任务指示器](#顶栏后台任务指示器821) · 20. [AI 词典页 /dict](#ai-词典页-dict746) · 21. [书籍阅读器](#书籍阅读器836)
 
 **参考**
-21. [API 接口](#api-接口) · 22. [测试](#测试tests-pytest-tests-全套约-11-秒) · 23. [规范与约束](#规范与约束)
+22. [API 接口](#api-接口) · 23. [测试](#测试tests-pytest-tests-全套约-11-秒) · 24. [规范与约束](#规范与约束)
 
 ---
 
@@ -204,6 +204,7 @@
 ├── routes/                # FastAPI 路由模块
 │   ├── browse.py / decks.py / imports.py / review.py / story.py / podcast.py / knowledge.py（`POST /api/knowledge/add`，#651/#652）
 │   ├── tasks.py           # 顶栏后台任务指示器（#821）：`GET /api/tasks` 聚合各子系统已有的进度状态
+│   ├── books.py           # 书籍阅读器 API（#836）：上传/列表/删除/取一页/存进度
 │   ├── sync.py            # 一键同步（#625，只在笔记本实例注册）
 │   ├── queue_manager.py   # Anki v3 风格持久会话队列
 │   └── utils.py           # 共用工具（DISABLE_AI, leaf_ids, queue_manager 单例）
@@ -221,6 +222,9 @@
 ├── podcast.py             # 播客爬虫（#479）：播客 RSS 直链发现新单集（#497，退役 YouTube/yt-dlp）、每源 auto_process 开关+非自动源只入库元数据（#502，podcast_feeds 表）、转录链 NotebookLM 免费主力+听悟+Whisper 保底、单步异常不中止整链（#510 重排，链式降级，原 #498/#485/#486）、摘要 NotebookLM chat.ask 免费优先+DeepSeek/gpt API 链回退（api 路径内部 DeepSeek 优先省钱，#532；勾了 china-kritisch 的素材跳过 DeepSeek 直接用 OpenAI，#731）、邮件通知+Signal 通知（signal-cli 关联设备，发 Note to Self，#521，二者独立可选、互不影响；消息抬头播客名·星期·日期、链接在末尾，单集日期按 Europe/Berlin 显示，#532）、摘要 table.media 风格（`<p>` 段落+每段首句 `<b>` 加粗总结，#567）+详情页 Regenerate summary 按钮、邮件主题=`播客名 - 单集标题`（查不到播客名只用标题，不要退回死前缀）+ `summary_zh` 开头中文总结（#708 起是 `summary_de` 的**完整翻译**：同段落数、同顺序、同事实，同样 `<p>`+段首 `<b>`，HSK4-5 用词；提示词里德语先写、中文后译，JSON 里 `summary_de` 排在前面；渲染三处——邮件 `podcast._summary_zh_html`、详情页 `app.js._summaryZhHtml` 均"先全转义再放行 `<p>/<b>/<strong>/<em>/<i>/<br>`"，Signal 用 `_summary_to_plain_text` 剥标签；#708 之前的旧条目是纯文本，两处渲染都按空行补 `<p>`；**是增量不是必需**——成功判定只看 `summary_de`，模型漏掉中文总结不能让整集失败）+ 摘要里任何 HSK5+ 中文概念都标 `pinyin/汉字`（不限于提取的词表，宁多勿少，#631）；已泛化为知识库存储层，见 `knowledge/` 包
 ├── annotate/              # 知识库生词标注分派（#804）：__init__.py 按 languages 的 annotator 字段分派，zh 走 zh_annotate（原样不动），romance.py 是法语/西语实现（entry_forms 精确匹配，零词干还原）+ stopwords_fr/es.txt 功能词表
 ├── knowledge/             # 知识库摄取（#650–#655，播客功能泛化，见「知识库」节）：rendition.py（按语言渲染摘要，#804）、youtube.py（字幕摄取）、article.py（正文抽取）、instagram.py（Reel/Post 摄取，yt-dlp 元数据+音频下载，#750）、ingest.py（唯一入库管线）、mailbox.py（IMAP 邮件收件）、signal_inbox.py（Signal Note to Self 分享收件，#749）
+├── books/                 # 书籍阅读器（#836）：epub.py（纯标准库 zipfile+ElementTree）、
+│                          #   pdf.py（pypdf，只读文字层不做 OCR）、paginate.py（定长切页）、
+│                          #   __init__.py 的 ingest_file() 是唯一入库入口
 ├── zh_annotate.py         # 生词标注（#638，零 AI）：HSK 表+词库+jieba+pypinyin+谷歌翻译
 ├── translator.py          # 翻译（Google Translate，deep-translator，可选）
 ├── tts.py                 # edge-tts 封装（离线模式下只读缓存，#612）
@@ -242,6 +246,7 @@
 ├── docs/knowledge-base.md # 知识库功能总体设计（#650–#655 各 Issue 引用的唯一设计说明）
 └── data/
     ├── srs.db             # SQLite 数据库（生产版在服务器上！）
+    ├── books/             # 上传的 EPUB/PDF 原件（#836，不进离线同步）
     ├── news_sources.json  # 新闻来源配置（不在 git 里，服务器上已有）
     └── tts/               # TTS 音频缓存
 ```
@@ -660,6 +665,27 @@ Daniel 长期把 DeepSeek 聊天当中文词典用，再手工把结果复制进
 
 ---
 
+## 书籍阅读器（#836）
+
+上传一本德语/英语的 EPUB 或 PDF，用正在学的语言逐页阅读：每页翻译成目标语言，HSK 4 以上、又不在词库里的词就地标上 `词（pīnyīn - 德语释义）`——和知识库素材一模一样的读法。界面在主页 `📚 Books`。
+
+Daniel 2026-08-21 定的三件事：**源书是德/英原版**（不是上传中文书只做标注）、**「一页」是定长字数块**（EPUB 根本没有页码）、**翻译走谷歌翻译**（免费；AI 翻译是以后的事）。
+
+- **不新建管线，复用知识库那条**：`knowledge/rendition.py` 抽出 `render_html(html, lang, source)` —— 翻译（`_translate_html_strict`，按文本节点分块、标签原样保留、行数对不上就逐节点重译）+ `annotate.annotate_summary()`。`get_or_create_rendition()` 现在只是它的一层薄封装，知识库行为零变化。**一页书和一篇摘要因此按同一套规则标注**，理由同 #643 的单一加词入口
+- **切页只在上传时做一次**（`books/paginate.py`）：约 1200 字一页，**只在段落边界切**，输出 `<p>` HTML —— 这正是翻译器吃的格式，源文里的 `<` 必须转义。重切会让所有已缓存的 rendition 和阅读进度整体错位，所以代码里根本没有「重新切页」这条路
+- **PDF 的真实页码存 `book_pages.ref_label`**（EPUB 存章节标题），显示在页码旁边：读者要找的「PDF 第 214 页」还在，只是不再是翻页单位
+- **抽不出正文必须报错，不能存一本空书**：扫描版 PDF（无文字层，本功能不做 OCR）、DRM 的 EPUB 一律抛 `BookExtractionError`，前端把服务端给的原因原样显示 —— 同 `knowledge/article.py` 200 字下限那条教训
+- **EPUB 用标准库解析**（`zipfile` + `xml.etree` 走 container.xml → OPF → spine），不加 `ebooklib`/`beautifulsoup4`；也**不用 `trafilatura`** —— 它是为「在嘈杂网页里找出唯一一篇文章」调的，对干净的书籍 XHTML 会连章节标题和短段落一起丢掉
+- **翻译失败绝不写库**：`render_html` 抛 `RenditionError` → 接口 502 带原因。半页德语顶着中文的名字存进去，读者要读到一半才发现
+- **四张表**（`schema.sql`）：`books` / `book_pages`（源文）/ `book_renditions`（某页某语言的译文+标注，结构与 `knowledge_renditions` 有意一致）/ `book_progress`（**按 (书, 语言) 各记一份进度** —— 同一本书用中文读和用法语读是两条独立的进度线）
+- **前端预取下一页**（`static/app.js` 的 `_prefetchBookPage`）：谷歌翻译免费，唯一挡在阅读前面的就是这几秒等待。←/→ 翻页；页码输入框可跳页
+- **生词表格是和知识库详情页共用的组件**（`setWordTable()` / `wordTableHtml()` / `doWordTableAdd()` / `doWordTableKnown()`）：原来那套 `doPodcastAddWord`/`doPodcastKnownWord` 已改名泛化，**不复制第二份** —— 否则下次修加词的坑只会修好其中一处
+- **语言下拉用 `GET /api/langs?available=1`**（全部已注册语言，不是「在用语言」）：同 `/add`、`/dict` 的理由 —— 一门还没建牌组的语言，按「在用」过滤就永远读不了第一本书
+- **上传原件放 `data/books/`，不进离线同步**；上传解析走后台线程 + `job_id` 轮询，并由 `routes/tasks.py` 的 `_book_tasks` 采集器（读上传 job 已有的状态，不新建记账）出现在顶栏任务指示器里
+- 测试见 `tests/test_books.py`
+
+---
+
 ## API 接口
 
 ```
@@ -739,6 +765,16 @@ POST /api/import                                     → 触发 YAML 导入
 GET  /add[?word=生态&day=today|tomorrow|list&lang=zh|fr] → 独立加词页（#668，可收藏/存主屏；不加载 app.js）；带 word 参数时打开即自动提交（#686，供 iOS 快捷指令用），提交后从地址栏抹掉该参数以免刷新重复扣费；lang（#726）每种语言一个快捷指令
 GET  /save                                           → 独立素材收藏页（#681，Link/Text 两个标签；同样不加载 app.js）
 
+# 书籍阅读器（#836，详见「书籍阅读器」节）
+GET    /api/books                                    → 书列表（每本带 progress = {语言: 页码}）
+POST   /api/books                                    → 上传 EPUB/PDF（multipart：file + 可选 title/source_lang/char_budget）
+                                                       → {job_id}；解析+切页在后台线程，抽不出正文时任务失败且不入库
+GET    /api/books/upload-progress/{job_id}           → 轮询上传解析结果；未知 job → 404
+DELETE /api/books/{id}                               → 删书（级联删页/rendition/进度 + 磁盘原件）；不存在 → 404
+GET    /api/books/{id}/page/{page_no}[?lang=zh]      → 该页译文+生词 {text, new_words, ref_label, page_count, cached}
+                                                       未缓存时同步翻译+标注（几秒）；翻译失败 → 502 且**不写库**；越界 → 404
+POST   /api/books/{id}/progress                      → body {lang, page_no}；进度按 (书, 语言) 各存一份
+
 # AI 词典（#746，详见「AI 词典页」节）
 GET    /dict[?q=anordnen]                            → 独立词典页（不加载 app.js）；带 q 时打开即查询并抹掉参数
 POST   /api/dict/lookup                              → body {query, lang?='zh', model?, replace_id?} → {id, created_at, query, result}
@@ -770,7 +806,7 @@ GET  /api/stats ；/api/retention ；/api/card-evolution（均支持 ?lang=）
 
 - 所有数据库访问通过 `database/` 包——其他文件不写原始 SQL（`import database` 仍然有效）
 - 保持 `ai.py` 简洁——每种提示词类型对应一个函数；AI 返回的格式错误 JSON 始终用 try/except + 回退处理
-- 允许的外部依赖：`fastapi`、`uvicorn`、`anthropic`、`openai`、`edge-tts`、`pyyaml`、`python-multipart`、`deep-translator`（可选）、`jieba`、`pypinyin`、`alibabacloud_tingwu20230930`、`zhconv`（NotebookLM 转录繁转简，#500）（播客通义听悟转录主力，#498，官方 SDK）、`notebooklm-py`（播客 NotebookLM 可选转录，#486，非官方库，凭据文件一次性从本地拷到服务器，见 `scripts/README.md`）、`youtube-transcript-api`（知识库 YouTube 字幕摄取，#651）、`trafilatura`（知识库文章正文抽取，#652）。新增依赖必须同步更新 `requirements.txt`。播客转录链的 Whisper/NotebookLM 两条路径（听悟提交直链不需要）需要系统级 `ffmpeg`（`apt install ffmpeg`，不是 Python 依赖，缺失时该功能自动跳过）
+- 允许的外部依赖：`fastapi`、`uvicorn`、`anthropic`、`openai`、`edge-tts`、`pyyaml`、`python-multipart`、`deep-translator`（可选）、`jieba`、`pypinyin`、`alibabacloud_tingwu20230930`、`zhconv`（NotebookLM 转录繁转简，#500）（播客通义听悟转录主力，#498，官方 SDK）、`notebooklm-py`（播客 NotebookLM 可选转录，#486，非官方库，凭据文件一次性从本地拷到服务器，见 `scripts/README.md`）、`youtube-transcript-api`（知识库 YouTube 字幕摄取，#651）、`trafilatura`（知识库文章正文抽取，#652）、`pypdf`（书籍阅读器读 PDF 文字层，#836；EPUB 走标准库，不加 `ebooklib`/`beautifulsoup4`）。新增依赖必须同步更新 `requirements.txt`。播客转录链的 Whisper/NotebookLM 两条路径（听悟提交直链不需要）需要系统级 `ffmpeg`（`apt install ffmpeg`，不是 Python 依赖，缺失时该功能自动跳过）
 - 前端无构建步骤——直接编辑 `static/` 下的文件
 - API 密钥只从环境变量读取，绝不写入代码或仓库
 - **不要在 8000 端口跑测试服务器**——Daniel 的浏览器连着它
