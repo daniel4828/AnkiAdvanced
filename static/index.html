@@ -96,9 +96,16 @@
     <!-- Generation log (issue #642): cumulative step-by-step lines from the
          backend, so a long run shows what it already did and where it is now -->
     <div id="loading-log" style="display:none"></div>
-    <button id="loading-bg-btn" style="display:none" onclick="_continueStoryInBackground()">
-      Continue in background ⏎
-    </button>
+    <div id="loading-actions">
+      <button id="loading-bg-btn" style="display:none" onclick="_continueStoryInBackground()">
+        Continue in background ⏎
+      </button>
+      <!-- #828: leaving in the background still spends the AI money and ends in
+           a "Story ready" banner nobody asked for. This one actually stops. -->
+      <button id="loading-cancel-btn" style="display:none" onclick="_cancelStoryGeneration()">
+        Cancel ✕
+      </button>
+    </div>
   </div>
 
   <!-- Deck list -->
