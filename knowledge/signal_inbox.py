@@ -8,6 +8,12 @@ either — see knowledge/ingest.py's docstring for why that matters in this
 repo (#643 is the cautionary tale: two entry points, a bug fixed in one
 came back in the other).
 
+A message whose first line is just the keyword `text` (#834) is handled the
+other way round: the rest of the message IS the article, ingested via
+`knowledge.ingest.ingest_text()` — the same function the paste-a-body box in
+the UI uses. That covers paywalled pieces the server can never fetch but
+Daniel can read and copy on his phone.
+
 Unlike IMAP (mailbox.py can leave a message UNSEEN and retry it next poll),
 `signal-cli receive` permanently drains the queued messages off the Signal
 server the moment it's called — there is no "leave it, try again next run"
@@ -50,6 +56,18 @@ logger = logging.getLogger(__name__)
 
 _RETRY_QUEUE_KEY = "signal_retry_queue"
 _MAX_ATTEMPTS = 3
+
+# Keyword that turns a Note-to-Self message into "this whole message IS the
+# article" instead of "find the links in it" (#834). Paywalled pieces
+# (Spiegel+, FAZ) can't be fetched server-side, but Daniel can select the
+# text on his phone and share it here.
+#
+# The keyword must occupy the first line ALONE: a normal message that merely
+# begins with the word "Text" ("Text von gestern, siehe Link") must keep
+# going down the URL path. Matching is case-insensitive because phone
+# keyboards capitalise the first word of a message on their own — Daniel
+# types "text", the phone may send "Text", and that must not silently fail.
+_PASTE_KEYWORDS = {"text", "文本"}
 
 # `signal-cli receive` without -t does NOT "drain the queue and exit" — it
 # keeps listening for new messages until killed, which is exactly what we
@@ -157,6 +175,24 @@ def _extract_note_to_self_text(envelope: dict, account: str) -> str | None:
     return None
 
 
+def parse_pasted_text(body: str) -> str | None:
+    """Return the article body of a "paste the text" message (#834), or None
+    if this message isn't one.
+
+    Format: the first line is the keyword alone (`text`, optionally with a
+    trailing colon, or `文本`); everything after it is the article. See
+    _PASTE_KEYWORDS for why the keyword must stand alone on that line.
+    """
+    if not body:
+        return None
+    first, _, rest = body.partition("\n")
+    keyword = first.strip().rstrip(":：").strip().lower()
+    if keyword not in _PASTE_KEYWORDS:
+        return None
+    rest = rest.strip()
+    return rest or None
+
+
 def send_receipt(lines: list) -> bool:
     """Send one Signal "Note to Self" receipt summarizing a
     check_signal_inbox() run's results. No message is sent if `lines` is
@@ -200,6 +236,54 @@ def _process_new_episode(episode_id: int, result_lines: list) -> None:
     else:
         error = outcome.get("error") or "unknown error"
         result_lines.append(f"⚠️ 处理失败：{title} — {error}")
+
+
+def _ingest_pasted_body(body: str, summary: dict, receipt_lines: list) -> None:
+    """Store one "paste the text" message (#834) as an article and kick off
+    its summary, appending one receipt line.
+
+    Deliberately NOT retried through the retry queue the URL path uses:
+      - that queue lives in app_settings as JSON, sized for URLs; whole
+        article bodies do not belong in a settings row
+      - the way a pasted body fails is "too short", and re-running it next
+        poll produces the identical failure. Retrying a failed download is
+        worth it; retrying arithmetic is not.
+    Daniel just re-sends the message, and the receipt says why.
+
+    Title/author/source URL are left to the server (#833): whatever the AI
+    can read out of the body itself, with the first URL in the message —
+    typically the article's own link, pasted along with it — as source_url.
+
+    Never logs or reports the body itself (module docstring, Privacy) —
+    only its length and the outcome.
+    """
+    urls = extract_urls(body)
+    try:
+        result = knowledge.ingest.ingest_text(
+            None, body, source_url=urls[0] if urls else None)
+    except Exception as e:
+        logger.warning("knowledge.signal_inbox: 粘贴正文入库失败（%d 字）: %s", len(body), e)
+        summary["failed"] += 1
+        summary["errors"].append(f"pasted text ({len(body)} chars): {e}")
+        summary["results"].append({"pasted_chars": len(body), "ok": False, "error": str(e)})
+        receipt_lines.append(f"❌ 粘贴的正文入库失败（{len(body)} 字）— {e}")
+        return
+
+    summary["ingested"] += 1
+    summary["processed"] += 1
+    episode_id = result.get("episode_id")
+    episode = database.get_episode(episode_id) if episode_id else None
+    title = (episode or {}).get("title") or f"episode {episode_id}"
+    summary["results"].append({
+        "pasted_chars": len(body), "ok": True, "episode_id": episode_id, "title": title,
+    })
+
+    if result.get("status") == "already_exists":
+        receipt_lines.append(f"↺ 已在库中：{title}")
+        return
+    receipt_lines.append(f"✅ {title}")
+    if episode_id:
+        _process_new_episode(episode_id, receipt_lines)
 
 
 def check_signal_inbox(runner=None) -> dict:
@@ -250,6 +334,7 @@ def check_signal_inbox(runner=None) -> dict:
         return summary
 
     new_urls = []
+    pasted_bodies = []
     for line in stdout.splitlines():
         line = line.strip()
         if not line:
@@ -275,6 +360,14 @@ def check_signal_inbox(runner=None) -> dict:
             summary["skipped"] += 1
             continue
 
+        # "paste the text" messages (#834) are checked BEFORE the URL scan:
+        # the body usually contains the article's own link too, and that link
+        # belongs in source_url, not in a separate fetch-this-URL job.
+        pasted = parse_pasted_text(text)
+        if pasted is not None:
+            pasted_bodies.append(pasted)
+            continue
+
         found = extract_urls(text)
         if not found:
             summary["skipped"] += 1
@@ -294,9 +387,14 @@ def check_signal_inbox(runner=None) -> dict:
             seen.add(url)
             work_items.append((url, 0))
 
-    if work_items:
+    if work_items or pasted_bodies:
+        parts = []
+        if work_items:
+            parts.append(f"{len(work_items)} 个链接")
+        if pasted_bodies:
+            parts.append(f"{len(pasted_bodies)} 段正文")
         podcast.send_signal_text(
-            f"📥 已收到 {len(work_items)} 个链接，开始处理…",
+            f"📥 已收到 {' + '.join(parts)}，开始处理…",
             context="signal-inbox-start",
         )
 
@@ -340,6 +438,9 @@ def check_signal_inbox(runner=None) -> dict:
             receipt_lines.append(f"✅ {title or url}")
             if episode_id:
                 _process_new_episode(episode_id, receipt_lines)
+
+    for body in pasted_bodies:
+        _ingest_pasted_body(body, summary, receipt_lines)
 
     _save_retry_queue(next_retry_queue)
     send_receipt(receipt_lines)
