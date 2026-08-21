@@ -91,6 +91,45 @@ class RenditionError(Exception):
     as if it were a real rendition."""
 
 
+def render_html(html: str, lang: str, source: str = "de") -> tuple[str, list[dict]]:
+    """Translate `html` into `lang` and annotate its new words.
+
+    The whole translate-then-annotate pipeline, with nothing episode-specific
+    left in it, so the book reader (#836) renders a book page by exactly the
+    rules that render an episode summary — one implementation, one set of
+    annotation results, no second pipeline to keep in sync (#643's lesson,
+    applied here).
+
+    `html` must be markup whose text lives in text nodes (<p>/<b>/…): only
+    those are sent to the translator, so the caller gets its markup back
+    byte-identical. Raises RenditionError on any failure — a caller must
+    never be handed source-language text wearing a target-language label.
+    """
+    if not languages.is_valid_lang(lang):
+        raise RenditionError(f"unknown language: {lang!r}")
+    html = (html or "").strip()
+    if not html:
+        raise RenditionError("nothing to render (empty text)")
+
+    target = languages.get_lang_config(lang)["translator_source"]
+    if target == source:
+        # Already in the target language: annotate only, don't round-trip it
+        # through the translator (which would paraphrase perfectly good text).
+        translated = html
+    else:
+        try:
+            translated = _translate_html_strict(html, target=target, source=source)
+        except Exception as e:
+            logger.warning("knowledge.rendition: translation failed (%s→%s) — %s",
+                           source, target, e)
+            raise RenditionError(f"translation failed: {e}") from e
+        translated = (translated or "").strip()
+        if not translated:
+            raise RenditionError("translation returned empty text")
+
+    return annotate.annotate_summary(translated, lang)
+
+
 def get_or_create_rendition(episode_id: int, lang: str) -> dict:
     """{"lang", "summary", "new_words"} for episode_id in `lang`. Cached in
     knowledge_renditions after the first successful generation — repeat
@@ -113,20 +152,12 @@ def get_or_create_rendition(episode_id: int, lang: str) -> dict:
     if not summary_de:
         raise RenditionError("episode has no German summary yet")
 
-    target = languages.get_lang_config(lang)["translator_source"]
     try:
-        translated = _translate_html_strict(summary_de, target=target, source="de")
-    except Exception as e:
-        logger.warning(
-            "knowledge.rendition: translation failed for episode %s lang=%s — %s",
-            episode_id, lang, e,
-        )
-        raise RenditionError(f"translation failed: {e}") from e
-    translated = (translated or "").strip()
-    if not translated:
-        raise RenditionError("translation returned empty text")
-
-    annotated, new_words = annotate.annotate_summary(translated, lang)
+        annotated, new_words = render_html(summary_de, lang, source="de")
+    except RenditionError:
+        logger.warning("knowledge.rendition: failed for episode %s lang=%s",
+                       episode_id, lang)
+        raise
     database.save_knowledge_rendition(episode_id, lang, annotated, new_words)
     logger.info("knowledge.rendition: generated episode %s lang=%s (%d new word(s))",
                episode_id, lang, len(new_words))
