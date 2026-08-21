@@ -863,6 +863,11 @@ function showView(name) {
     name === 'settings'     ? 'Settings' :
     name === 'knowledge'    ? 'Knowledge' : 'biangbiangmian3000';
   if (name === 'decks') quickMode = false;
+  // ＋ during review (#829). Hidden offline for the same reason as ↺: the whole
+  // entry generation is an AI call, so it can only fail there (#612).
+  const headerAddBtn = document.getElementById('header-add-btn');
+  if (headerAddBtn) headerAddBtn.style.display =
+    (name === 'review' && !_offlineMode) ? '' : 'none';
   const headerRegenBtn = document.getElementById('header-regen-btn');
   // Offline mode hides both regenerate affordances — they can only fail (#612).
   if (headerRegenBtn) headerRegenBtn.style.display =
@@ -6968,7 +6973,10 @@ function _renderAddWordLangs() {
   }).join('');
 }
 
-function openAddWordModal() {
+// preferredLang: the review header's ＋ passes the current card's language
+// (#829) — the word was picked out of that card, so the home page's tab is
+// irrelevant there. Everywhere else it's omitted and the tab decides.
+function openAddWordModal(preferredLang) {
   document.getElementById('add-word-overlay').style.display = 'block';
   document.getElementById('add-word-modal').style.display = 'block';
   const input = document.getElementById('add-word-input');
@@ -6977,7 +6985,8 @@ function openAddWordModal() {
   document.getElementById('add-word-status').textContent = '';
   // Follow the home page's language tab, but only for languages that exist —
   // a stale localStorage value must not send words into an unknown tree.
-  setAddWordLang(_availableLangs.includes(activeLang()) ? activeLang() : 'zh');
+  const wanted = preferredLang || activeLang();
+  setAddWordLang(_availableLangs.includes(wanted) ? wanted : 'zh');
   // Jobs that finished while the modal was closed already reported via banner.
   _addWordQueue = _addWordQueue.filter(item => item.state === 'running');
   _renderAddWordQueue();
