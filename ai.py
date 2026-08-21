@@ -3717,6 +3717,71 @@ def summarize_podcast_transcript(transcript: str, title: str,
     return {"summary_zh": "", "summary_de": "", "words": []}
 
 
+# Only the head of the body is sent to the metadata extractor: title, author,
+# outlet and date live in the first screenful of every article ever written,
+# and feeding a 15000-char body to pull four short strings out of it is money
+# burnt for nothing.
+_METADATA_SAMPLE_CHARS = 3000
+
+
+def extract_article_metadata(text: str) -> dict:
+    """One cheap DeepSeek call (issue #833) to pull title/author/source
+    URL/publication date out of a pasted article body, for the fields Daniel
+    left blank in the paste form.
+
+    Returns a dict with any subset of {"title", "author", "source_url",
+    "published_at"} — keys the model couldn't find are simply absent.
+
+    Returns {} on ANY failure (empty text, API error, unparseable reply)
+    rather than raising: this is a convenience on top of an article body the
+    user already handed us, and losing the whole paste because a nice-to-have
+    title lookup failed would be absurd. Same contract as translate_title.
+
+    published_at is only returned when it parses as YYYY-MM-DD — models
+    happily answer "last Wednesday" or "März 2024", and a junk date in the
+    column is worse than no date.
+    """
+    text = (text or "").strip()
+    if not text:
+        return {}
+    sample = text[:_METADATA_SAMPLE_CHARS]
+    prompt = (
+        "Extract bibliographic metadata from the beginning of this article. "
+        "Reply with ONLY a JSON object, no markdown fences, no explanation:\n"
+        '{"title": "...", "author": "...", "source_url": "...", "published_at": "YYYY-MM-DD"}\n'
+        "Use null for anything that is not clearly stated in the text — do NOT "
+        "guess an author, a URL or a date, and do not invent a title that is "
+        "not there. The title must be the article's own headline, copied "
+        "verbatim in its original language.\n\n"
+        f"Article:\n{sample}"
+    )
+    try:
+        raw = _call_api(DEFAULT_MODEL, [{"role": "user", "content": prompt}], 300,
+                        purpose="knowledge-metadata")
+    except Exception as e:
+        logger.warning("extract_article_metadata: AI call failed: %s", e)
+        return {}
+
+    start, end = raw.find("{"), raw.rfind("}") + 1
+    try:
+        data = json.loads(raw[start:end]) if start != -1 and end != 0 else {}
+    except (TypeError, ValueError, json.JSONDecodeError):
+        logger.warning("extract_article_metadata: could not parse reply: %s", raw[:200])
+        return {}
+    if not isinstance(data, dict):
+        return {}
+
+    out = {}
+    for key in ("title", "author", "source_url"):
+        value = data.get(key)
+        if isinstance(value, str) and value.strip():
+            out[key] = value.strip()
+    published = data.get("published_at")
+    if isinstance(published, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", published.strip()):
+        out["published_at"] = published.strip()
+    return out
+
+
 def translate_title(title: str) -> str | None:
     """One cheap DeepSeek call (issue #651) to translate a non-English episode
     title into English, stored in podcast_episodes.title_en — YouTube videos

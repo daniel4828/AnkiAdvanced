@@ -103,7 +103,11 @@ async function addWordViaAi(wordZh, day, onUpdate, lang) {
 // standalone /save page (#681). Same reasoning as addWordViaAi above: one
 // client-side path, so a fix lands in both places at once.
 //
-// payload is either {url} or {title, text}. Returns the server's response
+// payload is either {url} or {text, title?, author?, source_url?} (#833 —
+// everything but the body is optional; the server fills the blanks with one
+// cheap AI pass and falls back to the body's first line for the title. The
+// client deliberately does NOT pre-compute a title any more: two copies of
+// that rule would eventually disagree). Returns the server's response
 // ({episode_id} or {status:'already_exists', episode_id}) and, for anything
 // newly ingested, kicks off transcription/summarising in the background —
 // POST /api/knowledge/add deliberately only stores the row.
@@ -116,13 +120,30 @@ async function ingestKnowledge(payload) {
   return res;
 }
 
-// Title for a pasted body: the caller's own title, else the first non-blank
-// line. Returns '' when neither exists — the server requires a title, and
-// submitting an empty one just produces an untitled row.
-function knowledgeTitleFor(title, text) {
-  title = (title || '').trim();
-  if (title) return title;
-  return (text || '').split('\n').map(l => l.trim()).find(l => l) || '';
+// File upload counterpart of ingestKnowledge (#835): .txt/.md/.pdf/.docx.
+// Same response contract and the same "kick off processing" follow-up, so a
+// caller treats an upload exactly like a paste. `fields` carries the same
+// optional {title, author, source_url, china_critical} the paste box sends.
+async function ingestKnowledgeFile(file, fields) {
+  const form = new FormData();
+  form.append('file', file);
+  for (const [key, value] of Object.entries(fields || {})) {
+    if (value) form.append(key, value === true ? 'true' : value);
+  }
+  // Not api(): that helper sends JSON. A multipart body must go out with the
+  // browser's own boundary header, so it is built by hand here — including
+  // the same 401 -> login redirect api() does.
+  const res = await fetch('/api/knowledge/add-file', { method: 'POST', body: form });
+  if (res.status === 401) {
+    window.location.href = '/login';
+    throw new Error('Not logged in');
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+  if (data?.status !== 'already_exists' && data?.episode_id != null) {
+    api('POST', `/api/podcast/episodes/${data.episode_id}/process`).catch(() => {});
+  }
+  return data;
 }
 
 // Mark a word as already known (#710) so zh_annotate stops flagging it in

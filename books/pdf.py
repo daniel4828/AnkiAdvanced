@@ -8,6 +8,13 @@ floor: a source that produced no prose must never be presented as if it had).
 The PDF's own page numbers are kept as each paragraph's `ref_label`, so the
 reader can show "page 7 of 340 · PDF p. 214" even though reading pages are
 cut by character budget.
+
+Not the same job as knowledge/files.py's _extract_pdf() (#835), which flattens
+an uploaded PDF into one string for a knowledge item: that output has no page
+boundaries and no paragraph structure, and the reader needs both — the page
+labels are the only way back to the physical book, and pagination has to cut
+between paragraphs. Sharing one function would mean the knowledge path
+carrying per-page bookkeeping it never looks at.
 """
 import logging
 import re

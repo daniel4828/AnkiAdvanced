@@ -232,15 +232,55 @@ def _ingest_article(url: str, china_critical: bool = False) -> dict:
 _MIN_TEXT_CHARS = knowledge.article._MIN_ARTICLE_CHARS
 _MAX_TEXT_CHARS = knowledge.article._MAX_ARTICLE_CHARS
 
+# Ceiling for the first-line-of-the-body title fallback (#833).
+_MAX_TITLE_CHARS = 120
 
-def ingest_text(title: str, text: str, source_url: str | None = None,
-                china_critical: bool = False) -> dict:
+
+def _fill_missing_metadata(text: str, title: str, author: str | None,
+                           source_url: str | None) -> tuple[str, str | None, str | None, str | None]:
+    """Ask the AI for whatever of title/author/source_url Daniel left blank
+    (#833), and return (title, author, source_url, published_at).
+
+    Two rules this must never break:
+      - No AI call at all when all three are already filled in. The whole
+        point is convenience for the blank ones; paying for a call whose
+        result would be discarded is pure waste.
+      - Values the user typed are authoritative and are NEVER overwritten.
+        He was looking at the article; the model is guessing from its first
+        3000 chars.
+
+    published_at is a pure bonus (only ever comes from the AI, there is no
+    form field for it) and is None whenever the model didn't produce a
+    parseable date.
+    """
+    if title and author and source_url:
+        return title, author, source_url, None
+
+    import ai
+    meta = ai.extract_article_metadata(text)   # {} on any failure — never raises
+    return (
+        title or (meta.get("title") or "").strip(),
+        author or meta.get("author"),
+        source_url or meta.get("source_url"),
+        meta.get("published_at"),
+    )
+
+
+def ingest_text(title: str | None, text: str, source_url: str | None = None,
+                author: str | None = None, china_critical: bool = False,
+                fallback_title: str | None = None) -> dict:
     """Ingest a pasted article body (#668) — for paywalled articles
     (Spiegel+, FAZ, ...) the server can't fetch, but the user can read in
     their browser and paste the text in directly. Same kind='article' row
     and transcript_zh storage as _ingest_article(), via _store_article();
     only the dedup key and body source differ (there's no URL to hash, so
     the body itself is hashed instead — see below).
+
+    `title`, `author` and `source_url` are all optional (#833): whichever
+    Daniel left blank is filled in by one cheap AI call over the head of the
+    body (_fill_missing_metadata), falling back to the body's first line for
+    the title. `author` lands in the same column a fetched article's site
+    name does (channel_id) — it's the "who is this from" slot.
 
     Raises IngestError if `text` is under 200 chars (same threshold as
     knowledge.article._MIN_ARTICLE_CHARS — too short to be a real article,
@@ -256,24 +296,47 @@ def ingest_text(title: str, text: str, source_url: str | None = None,
         text = text[:_MAX_TEXT_CHARS]
 
     title = (title or "").strip()
+    author = (author or "").strip() or None
     source_url = (source_url or "").strip() or None
 
     # Whitespace must be normalized BEFORE hashing: the same article pasted
     # twice with different line-wrapping/blank-line whitespace must still
     # hash to the same dedup key, or every re-paste creates a new row.
+    # Only the body is hashed — re-pasting the same article under a
+    # different title must still land on the existing row.
     normalized = re.sub(r"\s+", " ", text).strip()
     digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
     video_id = f"pasted:{digest}"
 
+    # Dedup BEFORE the metadata AI call, for the same reason _ingest_article
+    # dedups before downloading: an already-ingested body must never pay
+    # that cost a second time.
     dup = _existing_episode(video_id)
     if dup:
         return dup
 
+    title, author, source_url, published_at = _fill_missing_metadata(
+        text, title, author, source_url)
+    if not title:
+        # A caller that has a better guess than "first line of the body"
+        # supplies one (#835: an upload passes the filename). Still ranked
+        # below the AI's reading of the actual text.
+        title = (fallback_title or "").strip()
+    if not title:
+        # Last resort: the body's first non-blank line. Often a fine
+        # headline, sometimes navigation debris — which is exactly why the
+        # AI gets to try first now. Truncated because an unwrapped paste is
+        # one single "line": without the cap the whole article ends up in
+        # the title column and every list view is unreadable.
+        title = next((line.strip() for line in text.splitlines() if line.strip()), "")
+        if len(title) > _MAX_TITLE_CHARS:
+            title = title[:_MAX_TITLE_CHARS].rstrip() + "…"
+
     return _store_article(
         video_id=video_id,
         title=title or "(untitled)",
-        site=None,
-        published_at=None,
+        site=author,
+        published_at=published_at,
         source_url=source_url,
         text=text,
         transcript_source="pasted",

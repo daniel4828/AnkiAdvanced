@@ -1573,9 +1573,9 @@ function buildCategoryButtons(deck) {
   const orderStr = deck.category_order || 'listening,reading,creating';
   const ordered = orderStr.split(',').map(s => s.trim()).filter(s => DEFAULT_ORDER.includes(s));
   // Ensure all 3 categories present (in case of corrupt/partial value),
-  // then drop reading entirely when the deck's preset disables it
+  // then drop any category the deck's preset disables
   const CATS = [...ordered, ...DEFAULT_ORDER.filter(c => !ordered.includes(c))]
-    .filter(c => c !== 'reading' || deck.reading_enabled);
+    .filter(c => deck[`${c}_enabled`] !== 0);
   const LABELS = { listening: 'L', reading: 'R', creating: 'C' };
   const catLeaves = getCategoryLeaves(deck);
   const safeName  = deck.name.replace(/'/g, "\\'");
@@ -3713,15 +3713,44 @@ function _renderKnowledgeMaterialList() {
   // Paste-text is an article-only escape hatch for paywalled pieces the server
   // can't fetch (#668) — video/podcast tabs only ever get a link box.
   const isArticleTab = _knowledgeTab === 'article';
-  const addBoxHtml = (isArticleTab && _knowledgeAddMode === 'text')
+  const addBoxHtml = (isArticleTab && _knowledgeAddMode === 'file')
     ? `<div class="keymap-panel">
         <div class="keymap-row" style="align-items:flex-start">
           <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+            <input type="file" id="knowledge-add-file"
+                   accept=".txt,.md,.markdown,.pdf,.docx" style="font-size:13px">
+            <!-- Same optional metadata as the paste box (#833/#835); blanks
+                 are read out of the file's own text. -->
+            <input type="text" class="edit-input" id="knowledge-add-source-url"
+                   placeholder="Original link (optional)">
             <input type="text" class="edit-input" id="knowledge-add-title"
-                   placeholder="Title (leave blank to use the first line)">
+                   placeholder="Title (optional — filename / read from the text)">
+            <input type="text" class="edit-input" id="knowledge-add-author"
+                   placeholder="Author (optional — read from the text)">
+          </div>
+          <button class="btn-secondary" onclick="submitKnowledgeFile()" style="flex-shrink:0">Add</button>
+        </div>
+        <label class="keymap-row" style="gap:6px;font-size:12px;color:var(--muted);cursor:pointer">
+          <input type="checkbox" id="knowledge-add-china" style="margin:0">
+          china-kritisch — summarize with GPT instead of DeepSeek
+        </label>
+        <span id="knowledge-add-msg" style="font-size:12px;color:var(--muted)"></span>
+      </div>`
+    : (isArticleTab && _knowledgeAddMode === 'text')
+    ? `<div class="keymap-panel">
+        <div class="keymap-row" style="align-items:flex-start">
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px">
             <textarea class="edit-input" id="knowledge-add-text" rows="10"
                       placeholder="Paste the full article text here…"
                       style="width:100%;box-sizing:border-box;resize:vertical"></textarea>
+            <!-- #833: all three optional — the server fills whatever is left
+                 blank from the pasted body itself (one cheap AI call). -->
+            <input type="text" class="edit-input" id="knowledge-add-source-url"
+                   placeholder="Original link (optional)">
+            <input type="text" class="edit-input" id="knowledge-add-title"
+                   placeholder="Title (optional — read from the text)">
+            <input type="text" class="edit-input" id="knowledge-add-author"
+                   placeholder="Author (optional — read from the text)">
           </div>
           <button class="btn-secondary" onclick="submitKnowledgeText()" style="flex-shrink:0">Add</button>
         </div>
@@ -3754,7 +3783,7 @@ function _renderKnowledgeMaterialList() {
 // Link/text toggle for the article tab's paste box (#668) — reuses the same
 // hcal-seg segmented-control styling as the kind tab bar just above it.
 function _knowledgeAddModeBarHtml() {
-  const modes = [['link', '🔗 Link'], ['text', '📋 Text']];
+  const modes = [['link', '🔗 Link'], ['text', '📋 Text'], ['file', '📎 File']];
   const btns = modes.map(([id, label]) =>
     `<button class="hcal-seg-btn ${_knowledgeAddMode === id ? 'active' : ''}" onclick="switchKnowledgeAddMode('${id}')">${label}</button>`
   ).join('');
@@ -3812,23 +3841,63 @@ async function submitKnowledgeUrl() {
 }
 
 // Paste-text box (article tab only, #668) — for paywalled pieces the server
-// can't fetch. Title falls back to the pasted text's first line rather than
-// silently submitting an empty title (server also requires non-empty text).
+// can't fetch. Only the body is required (#833): a blank title/author/link is
+// filled in server-side from the text itself, so there is nothing to validate
+// here beyond "is there a body".
 async function submitKnowledgeText() {
   const titleInput = document.getElementById('knowledge-add-title');
+  const authorInput = document.getElementById('knowledge-add-author');
+  const urlInput = document.getElementById('knowledge-add-source-url');
   const textInput = document.getElementById('knowledge-add-text');
   const msg = document.getElementById('knowledge-add-msg');
   const text = (textInput?.value || '').trim();
   if (!text) return;
-  const title = knowledgeTitleFor(titleInput?.value, text);
-  if (!title) {
-    if (msg) msg.textContent = 'Need a title (or a non-blank first line).';
+  const payload = {
+    text,
+    title: (titleInput?.value || '').trim(),
+    author: (authorInput?.value || '').trim(),
+    source_url: (urlInput?.value || '').trim(),
+    china_critical: _knowledgeChinaCriticalChecked(),
+  };
+  for (const input of [titleInput, authorInput, urlInput]) if (input) input.value = '';
+  if (textInput) { textInput.value = ''; textInput.focus(); }
+  await _submitKnowledgeAdd(payload, msg);
+}
+
+// File upload box (article tab only, #835) — .txt/.md/.pdf/.docx. Goes
+// through ingestKnowledgeFile() in shared.js, which posts the file and then
+// starts processing exactly like a paste does.
+async function submitKnowledgeFile() {
+  const fileInput = document.getElementById('knowledge-add-file');
+  const msg = document.getElementById('knowledge-add-msg');
+  const file = fileInput?.files?.[0];
+  if (!file) {
+    if (msg) msg.textContent = 'Pick a file first.';
     return;
   }
-  const china_critical = _knowledgeChinaCriticalChecked();
-  if (titleInput) titleInput.value = '';
-  if (textInput) { textInput.value = ''; textInput.focus(); }
-  await _submitKnowledgeAdd({ title, text, china_critical }, msg);
+  const fields = {
+    title: (document.getElementById('knowledge-add-title')?.value || '').trim(),
+    author: (document.getElementById('knowledge-add-author')?.value || '').trim(),
+    source_url: (document.getElementById('knowledge-add-source-url')?.value || '').trim(),
+    china_critical: _knowledgeChinaCriticalChecked(),
+  };
+  if (msg) msg.textContent = `Uploading ${file.name}…`;
+  try {
+    const res = await ingestKnowledgeFile(file, fields);
+    const done = res?.status === 'already_exists'
+      ? 'Already in your library.' : 'Added — processing on the server.';
+    if (_knowledgeListKind === _knowledgeTab) {
+      _podcastEpisodes = await _fetchKnowledgeList(_knowledgeTab);
+      _renderKnowledgeMaterialList();
+      _schedulePodcastPollIfNeeded();
+    }
+    // Re-query: the refresh above rebuilds this panel, so the element
+    // captured before it is no longer on the page.
+    const after = document.getElementById('knowledge-add-msg');
+    if (after) after.textContent = done;
+  } catch (e) {
+    if (msg) msg.textContent = 'Error: ' + e.message;
+  }
 }
 
 // china-kritisch (#731): DeepSeek summarizes these dishonestly, so the box
@@ -4822,6 +4891,8 @@ function loadPresetFields(preset) {
   document.getElementById('opt-desired-retention').value = Math.round((preset.desired_retention ?? 0.9) * 100);
   document.getElementById('opt-max-int').value         = preset.maximum_interval ?? 36500;
   document.getElementById('opt-reading-enabled').checked = !!preset.reading_enabled;
+  document.getElementById('opt-listening-enabled').checked = preset.listening_enabled == null ? true : !!preset.listening_enabled;
+  document.getElementById('opt-creating-enabled').checked  = preset.creating_enabled  == null ? true : !!preset.creating_enabled;
   applySchedulerVisibility();
   applyLearningLeechVisibility();
 
@@ -4995,6 +5066,8 @@ async function saveOptions() {
     maximum_interval:       Math.max(1, parseInt(document.getElementById('opt-max-int').value) || 36500),
     category_order: _getCategoryOrderUI(),
     reading_enabled:        document.getElementById('opt-reading-enabled').checked ? 1 : 0,
+    listening_enabled:      document.getElementById('opt-listening-enabled').checked ? 1 : 0,
+    creating_enabled:       document.getElementById('opt-creating-enabled').checked ? 1 : 0,
   };
   try {
     const [savedPreset] = await Promise.all([

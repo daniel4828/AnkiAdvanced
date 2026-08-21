@@ -450,6 +450,10 @@ def init_db() -> None:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN enable_probation INTEGER NOT NULL DEFAULT 1")
     if "reading_enabled" not in preset_cols:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN reading_enabled INTEGER NOT NULL DEFAULT 0")
+    if "listening_enabled" not in preset_cols:
+        conn.execute("ALTER TABLE deck_presets ADD COLUMN listening_enabled INTEGER NOT NULL DEFAULT 1")
+    if "creating_enabled" not in preset_cols:
+        conn.execute("ALTER TABLE deck_presets ADD COLUMN creating_enabled INTEGER NOT NULL DEFAULT 1")
     if "autoplay_delay_ms" not in preset_cols:
         conn.execute("ALTER TABLE deck_presets ADD COLUMN autoplay_delay_ms INTEGER NOT NULL DEFAULT 1000")
 
