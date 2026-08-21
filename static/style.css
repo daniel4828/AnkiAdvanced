@@ -184,10 +184,18 @@ main.browse-open {
 
 .spinner.hidden { display: none; }
 
-/* "Continue in background" button on the story-generation loading screen */
-#loading-bg-btn {
-  margin: 20px auto 0;
-  display: block;
+/* Story-generation loading screen: "Continue in background" and Cancel (#828).
+   Side by side on a desktop, stacked on a phone so neither shrinks below a
+   comfortable touch target. */
+#loading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+#loading-bg-btn,
+#loading-cancel-btn {
   background: transparent;
   color: var(--muted);
   border: 1px solid var(--border);
@@ -197,6 +205,13 @@ main.browse-open {
   cursor: pointer;
 }
 #loading-bg-btn:hover { color: var(--text); border-color: var(--muted); }
+#loading-cancel-btn:hover { color: #dc2626; border-color: #dc2626; }
+#loading-cancel-btn:disabled { opacity: 0.5; cursor: default; }
+@media (max-width: 560px) {
+  #loading-actions { flex-direction: column; align-items: stretch; }
+  #loading-bg-btn,
+  #loading-cancel-btn { min-height: 44px; font-size: 15px; }
+}
 
 /* ── Error banner ────────────────────────────────────── */
 #error-banner {

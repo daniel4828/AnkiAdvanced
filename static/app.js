@@ -5091,10 +5091,41 @@ let _bgLeaveRequested = false;  // set when the user clicks "Continue in backgro
 function _showLoadingBgButton() {
   const b = document.getElementById('loading-bg-btn');
   if (b) b.style.display = 'block';
+  const c = document.getElementById('loading-cancel-btn');
+  if (c) { c.style.display = 'block'; c.disabled = false; c.textContent = 'Cancel ✕'; }
 }
 function _hideLoadingBgButton() {
   const b = document.getElementById('loading-bg-btn');
   if (b) b.style.display = 'none';
+  const c = document.getElementById('loading-cancel-btn');
+  if (c) c.style.display = 'none';
+}
+
+// User clicked "Cancel" (#828): tell the server to stop and go back to the deck
+// list WITHOUT registering the run in _bgStories. The difference from
+// "Continue in background" is the whole point — that one keeps spending money
+// and ends in a "Story ready" banner for a story nobody wants.
+async function _cancelStoryGeneration() {
+  if (!_bgActiveResume) return;
+  const ctx = _bgActiveResume;
+  const btn = document.getElementById('loading-cancel-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Cancelling…'; }
+  // Stop our own polling first so the in-flight _pollBackgroundStory resolves
+  // to _BG_LEFT and its caller returns instead of racing us to showView().
+  _bgLeaveRequested = true;
+  _bgActiveResume = null;
+  _stopFakeProgress();
+  _stopStoryProgressPoll();
+  try {
+    await api('POST', `/api/story/${ctx.storyDeckId}/${ctx.storyCategory}/cancel${_langQP('?')}`);
+  } catch (e) {
+    // The generation may well have finished a second ago — either way the user
+    // asked to leave, so leaving is the honest response. Say what happened
+    // rather than pretending the cancel went through.
+    showNotice('Could not reach the server to cancel — generation may still be running.');
+  }
+  _hideLoadingBgButton();
+  loadDecks();
 }
 
 // Poll the background story endpoint until it returns a story (or an error dict),

@@ -537,6 +537,7 @@ FSRS 用毕业评分播种初始 stability/difficulty：默认权重下 **Good �
 - `kahneman` ——《思考，快与慢》认知偏误风格（`data/kahneman_chapters.json`）
 - `paste` ——用户在设置弹窗粘贴任意内容（#396）；自 #481 起复用 briefing 管线（`generate_briefing_sentences(generic=True)`，内容摘要框架措辞），因此同样有上下文句、Python 校验与事实核查，模型固定为服务器端 BRIEFING_MODEL；不做自动抓取回退
 - `briefing`（News flow，#399）——AI 写一篇**连贯的新闻总结**，目标词各恰好出现一次，但**不是每句都含目标词**——目标词句之间允许纯上下文句（承载数字/事实，不受 15 字限制）。含目标词的句子成为卡片；前面的上下文句用 Google Translate（非 AI）译成德语存 `story_sentences.context_de`（显示在卡片正面），中文原文存 `reasoning_zh`（背景弹窗）。briefing 卡片没有标题（concept_zh 为空）。自动抓取当日新闻（`news_fetcher.fetch_all()`：Tagesschau API + RSS，按天缓存）：两步 AI，`summarize_news_items` 挑最重要的 8 条（平衡德国/国际/中国相关）→ `generate_briefing_sentences` 生成连贯中文简报（模型固定服务器端 BRIEFING_MODEL，因 DeepSeek 会审查新闻内容）。抓取全部失败时报明确错误，不静默降级为普通故事
+- **取消生成（#828）**：加载页的 Cancel 按钮 → `POST .../cancel` 把 progress_key 记进 `ai._cancelled_keys`。**检查点挂在 `ai._set_progress()` 里，不是在 `routes/story.py` 里散布几处显式检查**：每种生成模式本来就在每个阶段（重试、翻译开始、逐句翻译进度）调它，挂在那里等于所有模式的每一步都免费获得中断能力，以后新增的模式也自动继承。另外 `_generate_and_store` 在 `database.create_story()` **之前**再查一次——上面的活儿白干无所谓，写进库的故事不是。标志必须在生成线程的 `finally:` 里 `ai.clear_cancel()`，否则下一次同一牌组的生成一启动就被旧标志掐死。`_fill_translations` 的兜底 `except Exception` 要放行 `StoryCancelled`（取消不是翻译失败）。取消后 `_story_progress` 条目被删掉，所以 #821 任务指示器和「Story ready」横幅都不会再提这次生成
 - **旧 `news` 模式已移除**（#512，界面曾叫 "News briefing"）：新故事生成拒绝 `mode='news'`（`_generate_and_store` 直接抛 `ValueError`）；但历史 `news` 故事仍能正常展示，且 Again 单句重生成仍复用 `ai.generate_news_sentences`（`generate_sentence_for_word` 保留该分支）——不影响旧数据
 - briefing/paste 共同点：每句带 `source_url`（背景弹窗"打开原文"链接），复用 kahneman 的概念框/背景弹窗 UI；文章内容存 `stories.gen_params.articles` 供 Again 重生成复现同一批内容（paste 的文章通过 regenerate 的 POST body 传输）
 - **知识模式对所有语言可用（#806）**：素材是什么语言无所谓，决定输出语言的只有提示词。所以它有独立开关 `features.knowledge_story_mode`（所有语言 True），**不和 `extended_story_modes`（kahneman/paste/briefing，仍只有中文）捆在一起**。中文走可自定义的 `DEFAULT_PROMPT_TEMPLATES["knowledge"]`，其它语言走 `ai._KNOWLEDGE_PROMPT_NON_ZH`（同样的规则，目标语言输出）。`briefing`/`paste` 仍只有中文，所以 `generate_briefing_sentences()` 没加 `lang`——加了是死代码
@@ -696,6 +697,7 @@ POST /api/decks/{id}/toggle-all-suspension
 # 故事 & 语音（均支持可选 ?lang=）
 GET  /api/story/{deck_id}/{category}                 → 今日活跃故事（如无则生成）
 POST /api/story/{deck_id}/{category}/regenerate ；GET .../history ；GET .../count
+POST /api/story/{deck_id}/{category}/cancel          → 中止正在跑的生成（#828）；没有在跑返回 {cancelled:false}（不假装取消过）
 POST /api/speak ；POST /api/speak-multi ；GET /api/speak-status ；POST /api/speak-stop
 GET  /api/tts-file ；POST /api/preload ；POST /api/preload-session/{deck_id}/{category}
 GET  /api/tts-progress/{deck_id}/{category} ；GET /api/story-progress/{deck_id}/{category}

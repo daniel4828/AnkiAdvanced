@@ -44,8 +44,42 @@ _QUOTA_FALLBACK_PURPOSES = {"briefing", "briefing_fact_check"}
 _story_progress: dict[str, dict] = {}
 
 
+class StoryCancelled(Exception):
+    """The user pressed Cancel on the generation loading screen (#828)."""
+
+
+# Progress keys the user asked to abandon. Checked from _set_progress() rather
+# than from a handful of explicit checkpoints in routes/story.py: every
+# generation mode already reports each phase (retry attempt, translation start,
+# per-sentence translation progress) through _set_progress, so hanging the
+# check there interrupts all of them at every step for free — and a mode added
+# later inherits it without anyone remembering to wire a checkpoint in.
+_cancelled_keys: set[str] = set()
+
+
+def request_cancel(key: str | None) -> None:
+    if key:
+        _cancelled_keys.add(key)
+
+
+def clear_cancel(key: str | None) -> None:
+    """Must run in the generation thread's finally: a leftover flag would kill
+    the next run for the same deck the instant it starts."""
+    _cancelled_keys.discard(key)
+
+
+def is_cancelled(key: str | None) -> bool:
+    return bool(key) and key in _cancelled_keys
+
+
+def raise_if_cancelled(key: str | None) -> None:
+    if is_cancelled(key):
+        raise StoryCancelled("Story generation cancelled")
+
+
 def _set_progress(key: str | None, **kwargs) -> None:
     if key:
+        raise_if_cancelled(key)
         _story_progress[key] = kwargs
 
 
@@ -1903,6 +1937,8 @@ def _fill_translations(sentences: list[dict], progress_key: str | None = None,
             s["sentence_de"] = de
             s.setdefault("sentence_en", "")
             s.setdefault("sentence_fr", "")
+    except StoryCancelled:
+        raise  # a cancel is not a translation failure — let it out (#828)
     except Exception as e:
         err = str(e)
         vpn_hint = " (VPN issue?)" if any(k in err.lower() for k in ("eof", "connect", "timeout", "proxy", "ssl")) else ""

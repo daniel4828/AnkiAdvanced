@@ -308,7 +308,8 @@ def _generate_and_store(deck_id: int, category: str, today: str, cards: list, *,
     # the queue on its pre-story learning-first order and the session started at a
     # sentence in the middle of the story (issue #783).
     # Full invalidation is coarse but cheap: queues are rebuilt lazily.
-    if result and not (isinstance(result, dict) and result.get("error")):
+    if result and not (isinstance(result, dict)
+                       and (result.get("error") or result.get("cancelled"))):
         queue_mgr.invalidate()
     return result
 
@@ -544,8 +545,15 @@ def _generate_and_store_body(deck_id: int, category: str, today: str, cards: lis
             grammar_focus=grammar_focus, grammar_pct=grammar_pct,
             mode=mode, chapter_ids=chapter_ids, articles=articles, lang=lang,
             origin=origin, episode_ids=episode_ids, batch_size=batch_size, kind=kind)
+        # Last checkpoint before the write (#828): everything above is throwaway
+        # work, a stored story is not — cancelling and then finding a story you
+        # did not want waiting for you is worse than no cancel button at all.
+        ai.raise_if_cancelled(progress_key)
         database.create_story(today, category, deck_id, sentences, prompt_text, topic, gen_params, lang=lang)
         story = database.get_active_story(today, category, deck_id, lang=lang)
+    except ai.StoryCancelled:
+        logger.info("story  CANCELLED deck=%d cat=%s", deck_id, category)
+        return {"cancelled": True}
     except Exception as e:
         logger.error("story  generation error: %s", e)
         return {
@@ -578,7 +586,14 @@ def _start_background_generation(deck_id: int, category: str, today: str, cards:
                 grammar_focus=grammar_focus, grammar_pct=grammar_pct,
                 mode=mode, chapter_ids=chapter_ids, articles=articles, progress_key=progress_key,
                 lang=lang, episode_ids=episode_ids, batch_size=batch_size)
-            if isinstance(result, dict) and result.get("error"):
+            if isinstance(result, dict) and result.get("cancelled"):
+                # Leave no terminal state behind: the user is already gone, and
+                # a sticky done/error entry would keep the #821 task indicator
+                # and the "Story ready" banner talking about a run nobody
+                # wanted finished.
+                ai._story_progress.pop(progress_key, None)
+                logger.info("story  BG-CANCEL deck=%d cat=%s", deck_id, category)
+            elif isinstance(result, dict) and result.get("error"):
                 ai._story_progress[progress_key] = {
                     "phase": "error", "percent": 0, "msg": result.get("reason", "Generation failed")}
                 logger.warning("story  BG-ERROR deck=%d cat=%s: %s",
@@ -593,6 +608,9 @@ def _start_background_generation(deck_id: int, category: str, today: str, cards:
         finally:
             with _gen_lock:
                 _generating.discard(progress_key)
+            # A leftover cancel flag would kill the next run for this deck the
+            # instant it starts, so it is cleared with the same guarantee.
+            ai.clear_cancel(progress_key)
 
     threading.Thread(target=_run, daemon=True).start()
 
@@ -1455,6 +1473,8 @@ async def pregen_today():
                 mode=mode, chapter_ids=gp.get("chapter_ids"), articles=None,
                 progress_key=progress_key, lang=lang, origin="pregen")
             ai._story_progress.pop(progress_key, None)
+            if isinstance(result, dict) and result.get("cancelled"):
+                raise RuntimeError("cancelled")
             if isinstance(result, dict) and result.get("error"):
                 raise RuntimeError(result.get("reason", "generation failed"))
             n_sentences = len((result or {}).get("sentences", []))
@@ -1547,6 +1567,37 @@ def put_pregen_config(body: dict):
     logger.info("pregen-config  deck=%s set to %s", deck_id,
                 [(e["category"], e["mode"]) for e in entries])
     return {"ok": True, "entries": database.get_pregen_config()}
+
+
+@router.post("/api/story/{deck_id}/{category}/cancel")
+def cancel_story_generation(deck_id: int, category: str, lang: str | None = None):
+    """Abandon an in-flight generation (#828).
+
+    "Continue in background" was the only way off the loading screen, so a run
+    started by mistake kept spending AI money and ended in a banner nobody
+    wanted. This sets a flag the generation thread checks at every progress
+    step; the HTTP request already in flight can't be interrupted, but nothing
+    after it runs — no repair round, no translation, no TTS, no story written.
+
+    Returns {"cancelled": false} when nothing was running: the caller asked for
+    a state that already holds, and reporting a cancel that never happened
+    would be a lie.
+    """
+    lang = lang or database.get_deck_lang(deck_id)
+    key = f"{deck_id}/{category}/{lang}"
+    with _gen_lock:
+        running = key in _generating
+        if running:
+            ai.request_cancel(key)
+    if not running:
+        # Also drop any sticky terminal state so the loading screen isn't
+        # re-shown an old error for a run the user just walked away from.
+        ai._story_progress.pop(key, None)
+        logger.info("story  CANCEL no-op deck=%d cat=%s lang=%s — nothing running",
+                    deck_id, category, lang)
+        return {"cancelled": False}
+    logger.info("story  CANCEL requested deck=%d cat=%s lang=%s", deck_id, category, lang)
+    return {"cancelled": True}
 
 
 @router.get("/api/story-progress/{deck_id}/{category}")
