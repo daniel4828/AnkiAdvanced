@@ -2056,7 +2056,39 @@ function _filteredBrowseWords() {
   return words;
 }
 
+// ── Phone filter drawer (#827) ───────────────────────────────────────────────
+// Below 700px the sidebar is a collapsible drawer instead of a fixed column,
+// otherwise it eats half of a 390px screen and the word list gets sliced off.
+// The CSS breakpoint is the single source of truth for "is this a phone" —
+// matchMedia reads the same 700px so the two can't drift apart.
+const _BROWSE_DRAWER_MQ = '(max-width: 700px)';
+
+function _browseDrawerActive() {
+  return window.matchMedia(_BROWSE_DRAWER_MQ).matches;
+}
+
+function toggleBrowseSidebar() {
+  const bar = document.getElementById('browse-sidebar');
+  const btn = document.getElementById('browse-filter-toggle');
+  if (!bar) return;
+  const open = bar.classList.toggle('bs-open');
+  if (btn) {
+    btn.setAttribute('aria-expanded', String(open));
+    btn.textContent = open ? '✕ Filters' : '☰ Filters';
+  }
+}
+
+// Picking a filter on a phone means "show me that list" — leaving the drawer
+// open would hide the very rows the tap asked for. Expanding a deck node in
+// the tree is not a pick, so this is called from the filter setters only.
+function _closeBrowseDrawer() {
+  if (!_browseDrawerActive()) return;
+  const bar = document.getElementById('browse-sidebar');
+  if (bar && bar.classList.contains('bs-open')) toggleBrowseSidebar();
+}
+
 function setBrowseFilter(mode, filter) {
+  _closeBrowseDrawer();
   _browseMode   = mode;
   _browseFilter = filter;
   _browseDeckId = null;
@@ -2075,6 +2107,7 @@ function setBrowseFilter(mode, filter) {
 }
 
 function setBrowseStatusFilter(status) {
+  _closeBrowseDrawer();
   _browseCardStatus = status;
   _syncSortOptions();
   document.querySelectorAll('.bs-status-item').forEach(el => el.classList.remove('bs-active'));
@@ -2101,6 +2134,7 @@ function _leaveStarredView() {
 }
 
 function setBrowseDeckFilter(deckId) {
+  _closeBrowseDrawer();
   _leaveStarredView();
   if (_browseDeckId === deckId) {
     _browseDeckId = null;
@@ -2149,6 +2183,14 @@ async function openBrowse() {
     _starredSentencesCache = null;  // fresh browse open — re-fetch, don't reuse a stale list (#773)
     _syncSortOptions();
     showView('browse');
+    // Always land on the list, not on the filter drawer (#827).
+    const _sidebar = document.getElementById('browse-sidebar');
+    if (_sidebar) _sidebar.classList.remove('bs-open');
+    const _drawerBtn = document.getElementById('browse-filter-toggle');
+    if (_drawerBtn) {
+      _drawerBtn.setAttribute('aria-expanded', 'false');
+      _drawerBtn.textContent = '☰ Filters';
+    }
     document.getElementById('browse-search').value = '';
     // Hanzi are Chinese-only; under fr/es that section lists nothing relevant (#815).
     const hanziSec = document.getElementById('bs-hanzi-section');

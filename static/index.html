@@ -6,7 +6,7 @@
   <title>biangbiangmian3000</title>
   <link rel="icon" href="/static/logo.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/static/logo.svg">
-  <link rel="stylesheet" href="/static/style.css?v=17">
+  <link rel="stylesheet" href="/static/style.css?v=18">
 </head>
 <body>
 
@@ -365,6 +365,11 @@
 
   <!-- Browse (full-width, sidebar layout) -->
   <div id="view-browse" class="browse-layout">
+    <!-- Phone only (#827): the 200px sidebar left ~190px for the list on a
+         390px screen, which the un-shrinkable row buttons blew straight
+         through. Below 700px it collapses behind this toggle instead. -->
+    <button class="browse-filter-toggle" id="browse-filter-toggle"
+            onclick="toggleBrowseSidebar()" aria-expanded="false">☰ Filters</button>
     <aside class="browse-sidebar" id="browse-sidebar">
       <div class="bs-section">
         <div class="bs-section-head">Notes</div>
