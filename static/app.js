@@ -57,7 +57,10 @@ let wordBankTokens = [];  // [{char, num}] shuffled non-target tokens
 let wordBankOrder  = [];  // [{type:'char'|'target', char?, word?, num?}] original order
 let browseWords  = [];   // all words from /api/browse-words
 let browseAll    = [];   // kept for legacy (unused by new browse)
-let _browseSort  = 'pinyin-asc';
+// Newest first is the default (#846): the words Daniel just added via ＋ / ★ List
+// are the ones he comes to Browse for; alphabetical order buries them.
+const DEFAULT_BROWSE_SORT = 'newest';
+let _browseSort  = DEFAULT_BROWSE_SORT;
 let _browseSelected = new Set();  // selected word IDs (multiselect)
 let _browseDecks = [];            // flat deck list for move dropdown
 let _browseDeckTree = [];         // top-level user decks (children of All) for sidebar tree
@@ -2053,7 +2056,7 @@ function _syncSortOptions() {
   else if (showStarred && !_browseSort.startsWith('starred-')) _browseSort = 'starred-desc';
   else if (!showLeeched && !showStarred &&
            (_browseSort.startsWith('leeched-') || _browseSort.startsWith('starred-'))) {
-    _browseSort = 'pinyin-asc';
+    _browseSort = DEFAULT_BROWSE_SORT;
   }
   const sel = document.getElementById('browse-sort');
   if (sel) sel.value = _browseSort;
