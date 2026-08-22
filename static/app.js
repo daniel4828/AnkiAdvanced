@@ -7198,7 +7198,7 @@ function submitAddWord() {
   }, _addWordLang);
 }
 
-// ── Listening hint slider (HSK-aware) ───────────────────────────────────────
+// ── Listening hint slider (vocab-aware, #850) ───────────────────────────────
 let _hskLevels = null; // {word: hsk_level_number} — loaded once from static file
 
 async function _loadHskLevels() {
@@ -7209,6 +7209,25 @@ async function _loadHskLevels() {
   } catch {
     _hskLevels = {};
   }
+}
+
+// Set of word forms in the user's deck for a given language (#850). Loaded
+// once per language and cached — reloaded only when the reviewed card's
+// language changes (e.g. switching from a Chinese to a French deck).
+let _vocabIndex = null;
+let _vocabIndexLang = null;
+
+async function _loadVocabIndex(lang) {
+  if (_vocabIndex && _vocabIndexLang === lang) return;
+  try {
+    const r = await api('GET', `/api/vocab-index?lang=${encodeURIComponent(lang)}`);
+    _vocabIndex = new Set(r.words || []);
+  } catch {
+    // Degrade to "nothing in my deck" rather than erroring or blanking the
+    // whole sentence — only the target word stays hidden.
+    _vocabIndex = new Set();
+  }
+  _vocabIndexLang = lang;
 }
 
 // Returns the HSK level of a token (tries compound first, then max of chars).
@@ -7252,8 +7271,15 @@ function _getTargetPositions(zh) {
   return positions;
 }
 
+// Levels: 0=Off, 1=all saved words, 2..6 = saved words below HSK (8-level).
+function _hintLabelFor(level) {
+  if (level === 0) return 'Off';
+  if (level === 1) return 'All saved';
+  return `Saved <HSK${8 - level}`;
+}
+
 function _hintSavedDefault() {
-  return parseInt(localStorage.getItem('listenHintDefault') ?? '3', 10);
+  return parseInt(localStorage.getItem('listenHideLevel') ?? '1', 10);
 }
 
 function _updateHintStar(currentVal) {
@@ -7264,18 +7290,20 @@ function _updateHintStar(currentVal) {
   btn.classList.toggle('saved', isSaved);
 }
 
-function _initListenHint() {
+async function _initListenHint() {
   const slider = document.getElementById('listen-hint-slider');
   const saved = _hintSavedDefault();
   slider.value = saved;
-  document.getElementById('listen-hint-pct').textContent = saved === 0 ? 'All' : `HSK ${saved}+`;
+  document.getElementById('listen-hint-pct').textContent = _hintLabelFor(saved);
   _updateHintStar(saved);
-  _loadHskLevels().then(() => _renderListenHint(saved));
+  const lang = currentCardLang();
+  await Promise.all([_loadVocabIndex(lang), _loadHskLevels()]);
+  _renderListenHint(saved);
 }
 
 function saveListenHintDefault() {
   const val = parseInt(document.getElementById('listen-hint-slider').value, 10);
-  localStorage.setItem('listenHintDefault', val);
+  localStorage.setItem('listenHideLevel', val);
   _updateHintStar(val);
 }
 
@@ -7314,7 +7342,7 @@ function saveWordBankDefault() {
   _updateWordBankStar(val);
 }
 
-function _renderListenHint(threshold) {
+function _renderListenHint(level) {
   // Sentence notes are excluded from stories; fall back to card.word_zh (the sentence itself).
   const isSentenceNote = card?.note_type === 'sentence';
   const zh = sentence?.sentence_zh || (isSentenceNote ? card?.word_zh : null);
@@ -7322,13 +7350,17 @@ function _renderListenHint(threshold) {
   if (!zh) { el.textContent = ''; return; }
 
   const isCjk = ch => ch >= '一' && ch <= '鿿';
-  // Sentence notes have no single "target word" to blank — reveal based on HSK only.
+  // Sentence notes have no single "target word" to blank — reveal based on vocab only.
   const targetPositions = isSentenceNote && !sentence ? new Set() : _getTargetPositions(zh);
 
-  // Reveal tokens harder than the threshold (level > threshold, or unknown to HSK).
-  // threshold=0 means "All": level > 0 is true for every known word, null words also qualify.
-  const revealPositions = new Set();
-  if (_hskLevels) {
+  // Only words in the user's own vocab (#850) are eligible to be hidden — a
+  // word never seen before always shows, no matter how "hard" HSK thinks it is.
+  // level 1 hides every saved word; level N>=2 additionally requires
+  // HSK < (8-N) (words missing from the HSK table count as level 7, the
+  // hardest, so only level 1 hides them).
+  const vocabSet = _vocabIndex || new Set();
+  const hidePositions = new Set();
+  if (level > 0) {
     // Use story tokens when available; fall back to char-by-char for sentence notes.
     const tokens = sentence?.tokens?.length
       ? sentence.tokens
@@ -7339,10 +7371,12 @@ function _renderListenHint(threshold) {
       if (tokStart === -1) { pos += tok.length; continue; }
       const tokEnd = tokStart + tok.length;
       const overlapsTarget = [...Array(tok.length).keys()].some(k => targetPositions.has(tokStart + k));
-      if (!overlapsTarget) {
-        const level = _hskLevelOf(tok);
-        if (level === null || level > threshold) {
-          for (let k = tokStart; k < tokEnd; k++) revealPositions.add(k);
+      if (!overlapsTarget && vocabSet.has(tok)) {
+        const hskLevel = _hskLevels ? _hskLevelOf(tok) : null;
+        const effectiveLevel = hskLevel === null ? 7 : hskLevel;
+        const shouldHide = level === 1 || effectiveLevel < (8 - level);
+        if (shouldHide) {
+          for (let k = tokStart; k < tokEnd; k++) hidePositions.add(k);
         }
       }
       pos = tokEnd;
@@ -7357,12 +7391,10 @@ function _renderListenHint(threshold) {
       html += ch;
     } else if (targetPositions.has(i)) {
       html += `<span class="hint-blank hint-blank-target">_</span>`;
-    } else if (threshold === 0) {
-      html += ch; // "All" mode: reveal all non-target characters
-    } else if (revealPositions.has(i)) {
-      html += ch;
-    } else {
+    } else if (hidePositions.has(i)) {
       html += `<span class="hint-blank">_</span>`;
+    } else {
+      html += ch;
     }
   }
   el.innerHTML = html;
@@ -7370,7 +7402,7 @@ function _renderListenHint(threshold) {
 
 function onListenHintSlider(val) {
   const lvl = parseInt(val, 10);
-  document.getElementById('listen-hint-pct').textContent = lvl === 0 ? 'All' : `HSK ${lvl}+`;
+  document.getElementById('listen-hint-pct').textContent = _hintLabelFor(lvl);
   _updateHintStar(lvl);
   _renderListenHint(lvl);
 }
