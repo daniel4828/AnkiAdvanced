@@ -490,6 +490,16 @@ main.browse-open {
   border-radius: 5px;
   line-height: 1;
 }
+/* Phones: the meta-row speaker is the single most-tapped control in listening
+   mode, and at 13px/2px it is a ~20px target — well under the 44px Apple asks
+   for, so it gets missed mid-review (#847). Desktop keeps the compact size. */
+@media (max-width: 560px) {
+  .play-icon-sm {
+    font-size: 22px;
+    padding: 8px 12px;
+    border-radius: 8px;
+  }
+}
 
 /* Sentence display */
 .sentence {
@@ -5280,6 +5290,12 @@ table.fsrs-table td.ivl { font-weight: 700; }
   z-index: 901;
   overflow: hidden;
 }
+/* .edit-modal-header only defines the flex row; every modal supplies its own
+   padding (cf. #cost-modal). This one never did, so the title and ✕ sat flush
+   against the rounded border (#847). */
+#add-word-modal .edit-modal-header {
+  padding: 16px 16px 0;
+}
 #add-word-body {
   padding: 16px;
 }
@@ -5387,6 +5403,7 @@ table.fsrs-table td.ivl { font-weight: 700; }
     border-bottom: none;
     padding-bottom: env(safe-area-inset-bottom);
   }
+  #add-word-modal .edit-modal-header { padding: 14px 14px 0; }
   #add-word-body { padding: 14px 14px 18px; }
   /* iOS zooms the page in when a focused input is under 16px */
   #add-word-input { font-size: 24px; }
