@@ -264,6 +264,9 @@
               <!-- Star a well-written sentence as a positive example for prompt tuning (#692) -->
               <button class="card-toggle-btn card-star-btn" id="toggle-star-btn" onclick="toggleSentenceStar()"
                       style="display:none" title="Star this sentence as a good example (Shift+F)">☆</button>
+              <!-- Flag a badly-written sentence as a negative example for prompt tuning (#854) -->
+              <button class="card-toggle-btn card-flag-btn" id="toggle-flag-btn" onclick="toggleSentenceFlag()"
+                      style="display:none" title="Flag this sentence as a bad example (Shift+G)">⚐</button>
               <!-- Ask AI about this sentence (#853): grammar/naturalness questions,
                    right where the sentence is. -->
               <button class="card-toggle-btn" id="toggle-question-btn" onclick="openSentenceQuestionModal()"
@@ -408,6 +411,9 @@
         <!-- Sentence-level view, not a word filter (#692) -->
         <button class="bs-status-item" id="bss-starred"   onclick="setBrowseStatusFilter('starred')"
                 title="Sentences you starred while reviewing — good examples for prompt tuning">⭐ Sentences</button>
+        <!-- Sentence-level view, mirror of starred (#854) -->
+        <button class="bs-status-item" id="bss-flagged"   onclick="setBrowseStatusFilter('flagged')"
+                title="Sentences you flagged while reviewing — bad examples for prompt tuning">⚑ Sentences</button>
       </div>
       <!-- Chinese-only: hidden under a non-zh language tab (#815) -->
       <div class="bs-section" id="bs-hanzi-section">
@@ -434,6 +440,8 @@
           <option value="leeched-asc" hidden>Leeched: oldest first</option>
           <option value="starred-desc" hidden>Starred: newest first</option>
           <option value="starred-asc" hidden>Starred: oldest first</option>
+          <option value="flagged-desc" hidden>Flagged: newest first</option>
+          <option value="flagged-asc" hidden>Flagged: oldest first</option>
         </select>
       </div>
       <div id="browse-action-bar">

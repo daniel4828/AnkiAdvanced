@@ -2033,29 +2033,34 @@ function _sortWords(words) {
 
 function onBrowseSort(val) {
   _browseSort = val;
-  // Picking a starred-* option re-sorts the sentence list in place — it must
-  // NOT leave the starred view, unlike every other sort option (#773).
+  // Picking a starred-*/flagged-* option re-sorts the sentence list in place —
+  // it must NOT leave that sentence view, unlike every other sort option (#773,
+  // generalized to flagged in #854).
   if (val.startsWith('starred-') && _browseCardStatus === 'starred') { renderStarredSentences(); return; }
-  _leaveStarredView();  // the sort options are word fields (pinyin/hanzi), #692
+  if (val.startsWith('flagged-') && _browseCardStatus === 'flagged') { renderFlaggedSentences(); return; }
+  _leaveSentenceView();  // the sort options are word fields (pinyin/hanzi), #692
   const q = document.getElementById('browse-search').value.trim();
   if (_browseMode === 'hanzi') renderHanziList(_allHanzi, q);
   else if (q) onBrowseSearch(q); else renderBrowseWords(_filteredBrowseWords());
 }
 
-// The Leeched and ⭐ Sentences views sort by a timestamp the other views
-// don't have (leeched_at / starred_at), so their options only appear while
-// that view is active, and switching away falls back to the default word
-// sort (#773). Must run BEFORE the list is (re)rendered so _browseSort is
-// already correct.
+// The Leeched, ⭐ Sentences and ⚑ Sentences views sort by a timestamp the other
+// views don't have (leeched_at / starred_at / flagged_at), so their options only
+// appear while that view is active, and switching away falls back to the default
+// word sort (#773, generalized to flagged in #854). Must run BEFORE the list is
+// (re)rendered so _browseSort is already correct.
 function _syncSortOptions() {
   const showLeeched = _browseCardStatus === 'leech';
   const showStarred = _browseCardStatus === 'starred';
+  const showFlagged = _browseCardStatus === 'flagged';
   document.querySelectorAll('#browse-sort option[value^="leeched-"]').forEach(o => o.hidden = !showLeeched);
   document.querySelectorAll('#browse-sort option[value^="starred-"]').forEach(o => o.hidden = !showStarred);
+  document.querySelectorAll('#browse-sort option[value^="flagged-"]').forEach(o => o.hidden = !showFlagged);
   if (showLeeched && !_browseSort.startsWith('leeched-')) _browseSort = 'leeched-desc';
   else if (showStarred && !_browseSort.startsWith('starred-')) _browseSort = 'starred-desc';
-  else if (!showLeeched && !showStarred &&
-           (_browseSort.startsWith('leeched-') || _browseSort.startsWith('starred-'))) {
+  else if (showFlagged && !_browseSort.startsWith('flagged-')) _browseSort = 'flagged-desc';
+  else if (!showLeeched && !showStarred && !showFlagged &&
+           (_browseSort.startsWith('leeched-') || _browseSort.startsWith('starred-') || _browseSort.startsWith('flagged-'))) {
     _browseSort = DEFAULT_BROWSE_SORT;
   }
   const sel = document.getElementById('browse-sort');
@@ -2127,7 +2132,7 @@ function setBrowseFilter(mode, filter) {
   _browseMode   = mode;
   _browseFilter = filter;
   _browseDeckId = null;
-  _leaveStarredView();
+  _leaveSentenceView();
   _syncSortOptions();
   // Update sidebar active state
   document.querySelectorAll('.bs-item').forEach(el => el.classList.remove('bs-active'));
@@ -2151,18 +2156,22 @@ function setBrowseStatusFilter(status) {
   document.getElementById('browse-search').value = '';
   _browseSelected.clear();
   _updateBrowseActionBar();
-  // 'starred' lists sentences, not words, so it can't go through the word filter
-  // chain in _filteredBrowseWords() — it's its own rendering branch (#692).
+  // 'starred'/'flagged' list sentences, not words, so they can't go through the
+  // word filter chain in _filteredBrowseWords() — they're their own rendering
+  // branch (#692, generalized to flagged in #854).
   if (status === 'starred') { renderStarredSentences(); return; }
+  if (status === 'flagged') { renderFlaggedSentences(); return; }
   if (_browseMode === 'notes') renderBrowseWords(_filteredBrowseWords());
 }
 
-// Any word-level filter action leaves the sentence view: it lists a different
-// kind of thing, so silently keeping its tab highlighted would be a lie (#692).
-function _leaveStarredView() {
-  if (_browseCardStatus !== 'starred') return;
+// Any word-level filter action leaves the current sentence view (starred or
+// flagged): it lists a different kind of thing, so silently keeping its tab
+// highlighted would be a lie (#692, generalized from _leaveStarredView in #854).
+function _leaveSentenceView() {
+  if (_browseCardStatus !== 'starred' && _browseCardStatus !== 'flagged') return;
   _browseCardStatus = 'all';
   _starredSentencesCache = null;  // stale on next entry — re-fetch (#773)
+  _flaggedSentencesCache = null;
   _syncSortOptions();
   document.querySelectorAll('.bs-status-item').forEach(el => el.classList.remove('bs-active'));
   document.getElementById('bss-all')?.classList.add('bs-active');
@@ -2170,7 +2179,7 @@ function _leaveStarredView() {
 
 function setBrowseDeckFilter(deckId) {
   _closeBrowseDrawer();
-  _leaveStarredView();
+  _leaveSentenceView();
   if (_browseDeckId === deckId) {
     _browseDeckId = null;
     document.querySelectorAll('.bs-deck-item').forEach(el => el.classList.remove('bs-active'));
@@ -2216,6 +2225,7 @@ async function openBrowse() {
     _browseSelected.clear();
     _browseCardStatus = 'all';
     _starredSentencesCache = null;  // fresh browse open — re-fetch, don't reuse a stale list (#773)
+    _flaggedSentencesCache = null;
     _syncSortOptions();
     showView('browse');
     // Always land on the list, not on the filter drawer (#827).
@@ -2303,7 +2313,7 @@ function toggleBrowseDeckExpand(deckId) {
 
 function onBrowseSearch(val) {
   clearTimeout(_browseSearchTimer);
-  _leaveStarredView();  // searching is word-level (#692)
+  _leaveSentenceView();  // searching is word-level (#692)
   const q = val.trim();
   if (_browseMode === 'hanzi') { renderHanziList(_allHanzi, q); return; }
   if (!q) { renderBrowseWords(_filteredBrowseWords()); return; }
@@ -2572,21 +2582,46 @@ async function browseDeleteWord(e, wordId) {
   } catch (err) { showError('Delete failed: ' + err.message); }
 }
 
-// ── Starred sentences view (#692) ────────────────────────────────────────────
-// Sentences starred during review, newest first, each with the generation
-// context that makes it useful: which mode/model produced it and from which
-// source material. That's what you read when deciding how to change a prompt.
+// ── Starred / Flagged sentences views (#692, #854) ───────────────────────────
+// Two independent judgments only possible in the instant you read a sentence
+// during review: ★ a good one worth keeping as a positive prompt-tuning example,
+// ⚑ a bad one (grammar mistake, awkward phrasing) worth keeping as a negative
+// one. Both list sentences, not words, so they share one rendering branch that
+// none of the word filters above can handle — this config drives that branch.
+const _SENTENCE_VIEWS = {
+  starred: {
+    field: 'starred', tsField: 'starred_at', apiPath: '/api/starred-sentences',
+    toggleUrl: id => `/api/story-sentence/${id}/star`,
+    icon: '★', emptyIcon: '☆', emptyShortcut: 'Shift+F', emptyLabel: 'starred',
+    undoTitle: 'Remove the star', undoVerb: 'Unstar',
+  },
+  flagged: {
+    field: 'flagged', tsField: 'flagged_at', apiPath: '/api/flagged-sentences',
+    toggleUrl: id => `/api/story-sentence/${id}/flag`,
+    icon: '⚑', emptyIcon: '⚐', emptyShortcut: 'Shift+G', emptyLabel: 'flagged',
+    undoTitle: 'Remove the flag', undoVerb: 'Unflag',
+  },
+};
 
 let _starredSentencesCache = null;  // avoids a refetch when only the sort changes (#773)
+let _flaggedSentencesCache = null;  // same idea, for the flagged view (#854)
 
-// starred-asc = oldest first; anything else (including the default) = newest
-// first. Sentences without a starred_at (shouldn't happen, but defensive)
-// sort last regardless of direction, same rule as the leeched sort.
-function _sortStarredSentences(sentences) {
-  const asc = _browseSort === 'starred-asc';
+function _sentenceCache(kind) {
+  return kind === 'starred' ? _starredSentencesCache : _flaggedSentencesCache;
+}
+function _setSentenceCache(kind, val) {
+  if (kind === 'starred') _starredSentencesCache = val; else _flaggedSentencesCache = val;
+}
+
+// {kind}-asc = oldest first; anything else (including the default) = newest
+// first. Sentences without a timestamp (shouldn't happen, but defensive) sort
+// last regardless of direction, same rule as the leeched sort.
+function _sortSentenceView(kind, sentences) {
+  const cfg = _SENTENCE_VIEWS[kind];
+  const asc = _browseSort === `${kind}-asc`;
   const sorted = [...sentences];
   sorted.sort((a, b) => {
-    const ka = a.starred_at || '', kb = b.starred_at || '';
+    const ka = a[cfg.tsField] || '', kb = b[cfg.tsField] || '';
     if (!ka && !kb) return 0;
     if (!ka) return 1;
     if (!kb) return -1;
@@ -2597,36 +2632,43 @@ function _sortStarredSentences(sentences) {
 }
 
 // Single paint path for both the fetched and the cached list, so the empty
-// state can't go missing on one of them (unstarring the last sentence goes
+// state can't go missing on one of them (removing the last sentence goes
 // through the cached branch).
-function _paintStarredList(sentences) {
+function _paintSentenceView(kind, sentences) {
+  const cfg = _SENTENCE_VIEWS[kind];
   const list = document.getElementById('browse-list');
   if (!sentences.length) {
-    list.innerHTML = '<div class="browse-empty">No starred sentences yet — press Shift+F ' +
-                     'or tap ☆ while reviewing to keep a good one.</div>';
+    list.innerHTML = `<div class="browse-empty">No ${cfg.emptyLabel} sentences yet — press ${cfg.emptyShortcut} ` +
+                     `or tap ${cfg.emptyIcon} while reviewing to mark one.</div>`;
     return;
   }
-  list.innerHTML = `<div class="bw-list">${_sortStarredSentences(sentences).map(_starredSentenceRow).join('')}</div>`;
+  list.innerHTML = `<div class="bw-list">${_sortSentenceView(kind, sentences).map(s => _sentenceRow(kind, s)).join('')}</div>`;
 }
 
-async function renderStarredSentences() {
+async function _renderSentenceView(kind) {
+  const cfg = _SENTENCE_VIEWS[kind];
   const list = document.getElementById('browse-list');
-  if (_starredSentencesCache) { _paintStarredList(_starredSentencesCache); return; }
+  const cached = _sentenceCache(kind);
+  if (cached) { _paintSentenceView(kind, cached); return; }
   list.innerHTML = '<div class="browse-empty">Loading…</div>';
   let sentences;
   try {
-    const r = await api('GET', `/api/starred-sentences${_langQP('?')}`);
+    const r = await api('GET', `${cfg.apiPath}${_langQP('?')}`);
     sentences = r.sentences;
   } catch (e) {
-    list.innerHTML = `<div class="browse-empty">Could not load starred sentences: ${_escHtml(e.message)}</div>`;
+    list.innerHTML = `<div class="browse-empty">Could not load ${cfg.emptyLabel} sentences: ${_escHtml(e.message)}</div>`;
     return;
   }
-  if (_browseCardStatus !== 'starred') return;  // user switched tabs while loading
-  _starredSentencesCache = sentences;
-  _paintStarredList(sentences);
+  if (_browseCardStatus !== kind) return;  // user switched tabs while loading
+  _setSentenceCache(kind, sentences);
+  _paintSentenceView(kind, sentences);
 }
 
-function _starredSentenceRow(s) {
+function renderStarredSentences() { return _renderSentenceView('starred'); }
+function renderFlaggedSentences() { return _renderSentenceView('flagged'); }
+
+function _sentenceRow(kind, s) {
+  const cfg = _SENTENCE_VIEWS[kind];
   const trans = s.sentence_de || s.sentence_fr || s.sentence_en || '';
   const words = (s.words || []).map(w => _escHtml(w.word_zh)).join('、');
   const source = s.source_url
@@ -2641,8 +2683,8 @@ function _starredSentenceRow(s) {
     source,
   ].filter(Boolean).join('<span class="ss-dot">·</span>');
 
-  // The prompt link is the point of the whole feature (#697) — a good sentence
-  // is only actionable next to the prompt that produced it.
+  // The prompt link is the point of the whole feature (#697) — a starred or
+  // flagged sentence is only actionable next to the prompt that produced it.
   const promptBtn = s.has_prompt
     ? `<button class="ss-prompt-btn" title="Show the prompt that generated this sentence"
                onclick="showStoryPrompt(${s.story_id})">📝 Prompt</button>`
@@ -2657,24 +2699,29 @@ function _starredSentenceRow(s) {
     </div>
     <div class="ss-actions">
       ${promptBtn}
-      <button class="ss-unstar" title="Remove the star"
-              onclick="unstarSentence(${s.id}, this)">★</button>
+      <button class="ss-unstar" title="${cfg.undoTitle}"
+              onclick="_removeFromSentenceView('${kind}', ${s.id}, this)">${cfg.icon}</button>
     </div>
   </div>`;
 }
 
-async function unstarSentence(sentenceId, btn) {
+async function _removeFromSentenceView(kind, sentenceId, btn) {
+  const cfg = _SENTENCE_VIEWS[kind];
   btn.disabled = true;
   try {
-    await api('POST', `/api/story-sentence/${sentenceId}/star`, { starred: false });
-    if (_starredSentencesCache) _starredSentencesCache = _starredSentencesCache.filter(s => s.id !== sentenceId);
+    await api('POST', cfg.toggleUrl(sentenceId), { [cfg.field]: false });
+    const cached = _sentenceCache(kind);
+    if (cached) _setSentenceCache(kind, cached.filter(s => s.id !== sentenceId));
     btn.closest('.ss-row')?.remove();
-    if (!document.querySelector('.ss-row')) renderStarredSentences();  // back to empty state
+    if (!document.querySelector('.ss-row')) _renderSentenceView(kind);  // back to empty state
   } catch (e) {
     btn.disabled = false;
-    showError('Unstar failed: ' + e.message);
+    showError(`${cfg.undoVerb} failed: ` + e.message);
   }
 }
+
+function unstarSentence(sentenceId, btn) { return _removeFromSentenceView('starred', sentenceId, btn); }
+function unflagSentence(sentenceId, btn) { return _removeFromSentenceView('flagged', sentenceId, btn); }
 
 function renderBrowseSearchResults(primary, secondary, q) {
   const list = document.getElementById('browse-list');
@@ -7900,6 +7947,14 @@ function _syncCardToggleBar() {
     _syncStarBtn();
   }
 
+  // Flag: same availability rule as star — no stored sentence, nothing to flag.
+  const flagBtn = document.getElementById('toggle-flag-btn');
+  const flagAvail = !!sentence?.id;
+  if (flagBtn) {
+    flagBtn.style.display = flagAvail ? '' : 'none';
+    _syncFlagBtn();
+  }
+
   // Ask-AI button (#853): same "does this card even have a sentence" gate as
   // the star button, plus it needs AI to actually be reachable — no point
   // showing a button that will just 400 in offline/hard-offline mode.
@@ -7907,7 +7962,7 @@ function _syncCardToggleBar() {
   const questionAvail = starAvail && !_offlineMode;
   if (questionBtn) questionBtn.style.display = questionAvail ? '' : 'none';
 
-  bar.style.display = (pinAvail || transAvail || starAvail || questionAvail) ? '' : 'none';
+  bar.style.display = (pinAvail || transAvail || starAvail || flagAvail || questionAvail) ? '' : 'none';
 }
 
 // ── Starred sentences (#692) ─────────────────────────────────────────────────
@@ -8009,6 +8064,40 @@ async function submitSentenceQuestion() {
     input.disabled = false;
     submitBtn.disabled = false;
   }
+}
+
+// ── Flagged sentences (#854) ─────────────────────────────────────────────────
+// Mirror of starring, for the other judgment: a sentence that reads badly
+// (grammar mistake, awkward phrasing) — a negative example worth reading back
+// when tuning the generation prompts (Browse → ⚑). Independent of the star —
+// not a three-way toggle.
+
+function _syncFlagBtn() {
+  const btn = document.getElementById('toggle-flag-btn');
+  if (!btn) return;
+  const on = !!sentence?.flagged;
+  btn.textContent = on ? '⚑' : '⚐';
+  btn.classList.toggle('active', on);
+  btn.title = on ? 'Flagged — click to unflag (Shift+G)'
+                 : 'Flag this sentence as a bad example (Shift+G)';
+}
+
+async function toggleSentenceFlag() {
+  if (!sentence?.id) return;
+  const next = !sentence.flagged;
+  // Optimistic, same reasoning as toggleSentenceStar(): a stuck button mid-review
+  // is worse than an occasional flag that turns out not to have saved.
+  sentence.flagged = next ? 1 : 0;
+  _syncFlagBtn();
+  try {
+    const r = await api('POST', `/api/story-sentence/${sentence.id}/flag`, { flagged: next });
+    sentence.flagged = r.flagged;
+    sentence.flagged_at = r.flagged_at;
+  } catch (e) {
+    sentence.flagged = next ? 0 : 1;
+    showError('Flag failed: ' + e.message);
+  }
+  _syncFlagBtn();
 }
 
 // ── Translation toggle (German/French sentence translation) ───────────────────
@@ -11021,6 +11110,12 @@ document.addEventListener('keydown', async e => {
   // Shift+F stars/unstars the sentence on the current card (#692)
   if (e.key === 'F' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
     if (!inInput) { e.preventDefault(); toggleSentenceStar(); }
+    return;
+  }
+
+  // Shift+G flags/unflags the sentence on the current card (#854, mirror of Shift+F)
+  if (e.key === 'G' && e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    if (!inInput) { e.preventDefault(); toggleSentenceFlag(); }
     return;
   }
 
