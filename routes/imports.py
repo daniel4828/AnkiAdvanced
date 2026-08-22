@@ -5,7 +5,7 @@ import re
 import threading
 import time
 import uuid
-from datetime import date, timedelta
+from datetime import timedelta
 
 import ai
 import database
@@ -336,7 +336,11 @@ def add_word_ai(body: dict):
     # (database.parse_daily_deck_date), which is exactly the "stage it for
     # tomorrow" semantics — the cards just have to be due then too (#636).
     due_offset_days = 1 if day == "tomorrow" else 0
-    target_day = (date.today() + timedelta(days=due_offset_days)).isoformat()
+    # anki_today(), not date.today() (#851): the due dates importer._create_cards
+    # writes and the future-deck lock in parse_daily_deck_date both run on the
+    # Anki day (5am boundary). Between midnight and the cutoff the two disagree,
+    # and the card lands due-today inside a deck dated tomorrow — locked shut.
+    target_day = (database.anki_today() + timedelta(days=due_offset_days)).isoformat()
 
     # Known word → don't pay for a second generation; the importer would skip
     # it as a duplicate anyway. `cards` has UNIQUE(word_id, category), so a word
@@ -538,7 +542,7 @@ def promote_saved(word_id: int, day: str = "today"):
     entry = database.get_word(word_id)
     lang = (entry or {}).get("lang") or DEFAULT_LANG
     saved_deck_id = database.get_or_create_saved_deck(lang)
-    target_day = (date.today() + timedelta(days=1 if day == "tomorrow" else 0)).isoformat()
+    target_day = (database.anki_today() + timedelta(days=1 if day == "tomorrow" else 0)).isoformat()
     daily_deck_id, deck_path = database.get_or_create_daily_deck(target_day, lang)
     leaf_decks = database.get_or_create_category_decks(daily_deck_id, target_day)
 

@@ -793,3 +793,26 @@ def test_add_page_and_modal_pass_the_language():
     assert "_addWordLang" in _static("app.js")
     assert "params.get('lang')" in _static("add.html")
     assert "/api/add-word-ai" not in _static("add.html")
+
+
+def test_promote_uses_the_anki_day_not_the_calendar_day(tmp_db):
+    """Between midnight and the day cutoff, date.today() is one day ahead of the
+    Anki day (#851). The deck name has to follow the Anki day, because the due
+    dates importer._create_cards writes and the future-deck lock both do — a
+    card due today inside a deck dated tomorrow is locked away for the day.
+    """
+    _run_add_word("生态", day="list")
+    entry_id = database.get_word_by_zh("生态")["id"]
+
+    yesterday = date.today() - timedelta(days=1)
+    with patch.object(database, "anki_today", return_value=yesterday):
+        r = client.post(f"/api/saved/{entry_id}/promote")
+    assert r.status_code == 200, r.text
+    assert r.json()["deck_path"] == f"Daily::{yesterday.isoformat()}"
+
+    conn = database.get_db()
+    rows = conn.execute(
+        "SELECT due FROM cards WHERE word_id=? AND deleted_at IS NULL", (entry_id,)
+    ).fetchall()
+    conn.close()
+    assert all(row["due"] == yesterday.isoformat() for row in rows)
