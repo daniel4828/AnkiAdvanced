@@ -2155,7 +2155,7 @@ a.news-source-line:hover {
   background: none;
   border: 1.5px solid var(--border);
   border-left: none;
-  border-radius: 0 12px 12px 0;
+  border-radius: 0;
   font-size: 11px;
   padding: 2px 6px;
   cursor: pointer;
@@ -2164,7 +2164,24 @@ a.news-source-line:hover {
   transition: border-color 0.12s, color 0.12s, background 0.12s;
 }
 .cat-pill-gear:hover { border-color: var(--primary); color: var(--primary); background: #eff6ff; }
+/* Regenerate this category's story (#857) — hidden for no_story categories and
+   offline (see _catPillGroup), so it isn't always the last button in the group;
+   the right-rounded corner below is applied to whichever button ends up last. */
+.cat-pill-regen {
+  background: none;
+  border: 1.5px solid var(--border);
+  border-left: none;
+  border-radius: 0;
+  font-size: 11px;
+  padding: 2px 6px;
+  cursor: pointer;
+  color: var(--muted);
+  line-height: 1.4;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.cat-pill-regen:hover { border-color: #6366f1; color: #6366f1; background: var(--border); }
 .cat-pill-wrap .cat-pill { border-radius: 12px 0 0 12px; }
+.cat-pill-wrap > *:last-child { border-radius: 0 12px 12px 0; }
 
 /* ── Floating badge (suspension toggle) ─────────────── */
 /* The group wraps the badge + pill-wrap; padding makes room for the badge */
