@@ -1595,6 +1595,26 @@ function _catRRSpan(val) {
   return `<span class="cat-pill-rr ${cls}">${txt}</span>`;
 }
 
+// One category pill: suspend-badge + pill (review) + quick (speed mode) + gear
+// (options) + regen (issue #857 — regenerate just this category's story). Shared
+// by both branches of buildCategoryButtons below — they used to carry two
+// almost-identical copies of this template (one keyed on a leaf id, one on the
+// aggregating deck's id), which meant every future addition (like this ↺
+// button) had to be pasted in twice.
+function _catPillGroup(id, cat, label, safeName, c, allSusp, noStory, rr) {
+  const badgeIcon = allSusp ? '▶' : '⏸';
+  const badgeClass = allSusp ? 'cat-susp-badge cat-badge-suspended' : 'cat-susp-badge cat-badge-active';
+  const pillClass = allSusp ? 'cat-pill cat-pill-dimmed' : 'cat-pill';
+  const title = allSusp ? `Unsuspend all ${label} cards` : `Suspend all ${label} cards`;
+  // Hidden for no_story categories (nothing to regenerate) and offline (the
+  // regeneration is an AI call, so it can only fail — same reasoning as the
+  // deck-level ↺ and the review header's ↺, #612).
+  const regenBtn = (!noStory && !_offlineMode)
+    ? `<button class="cat-pill-regen" onclick="event.stopPropagation();regenerateStoryFromList(${id},'${cat}')" title="Regenerate ${label} story">↺</button>`
+    : '';
+  return `<span class="cat-pill-group"><button class="${badgeClass}" onclick="event.stopPropagation();toggleCategorySuspension(${id},'${cat}')" title="${title}">${badgeIcon}</button><span class="cat-pill-wrap"><button class="${pillClass}" onclick="event.stopPropagation();startReview(${id},'${cat}','${safeName}',${!!noStory})"><span class="cat-pill-label">${label}</span><span class="cat-pill-counts">${countHtml(c)}</span>${_catRRSpan(rr)}</button><button class="cat-pill-quick" onclick="event.stopPropagation();startReview(${id},'${cat}','${safeName}',${!!noStory},true)" title="Speed mode — words only, no sentences">⚡</button><button class="cat-pill-gear" onclick="event.stopPropagation();openOptions(${id})" title="Options">⚙</button>${regenBtn}</span></span>`;
+}
+
 // Build 3 inline pills (L/R/C) for any deck. Uses direct cat leaves if present, else aggregates.
 function buildCategoryButtons(deck) {
   const DEFAULT_ORDER = ['listening', 'reading', 'creating'];
@@ -1613,24 +1633,16 @@ function buildCategoryButtons(deck) {
     if (leaf) {
       const c = leaf.counts || { new: 0, learning: 0, review: 0 };
       const allSusp = !!leaf.all_suspended;
-      const badgeIcon = allSusp ? '▶' : '⏸';
-      const badgeClass = allSusp ? 'cat-susp-badge cat-badge-suspended' : 'cat-susp-badge cat-badge-active';
-      const pillClass = allSusp ? 'cat-pill cat-pill-dimmed' : 'cat-pill';
-      const title = allSusp ? `Unsuspend all ${label} cards` : `Suspend all ${label} cards`;
       const rr = _leavesRR([leaf]);
-      return `<span class="cat-pill-group"><button class="${badgeClass}" onclick="event.stopPropagation();toggleCategorySuspension(${leaf.id},'${cat}')" title="${title}">${badgeIcon}</button><span class="cat-pill-wrap"><button class="${pillClass}" onclick="event.stopPropagation();startReview(${leaf.id},'${cat}','${safeName}',${!!leaf.no_story})"><span class="cat-pill-label">${label}</span><span class="cat-pill-counts">${countHtml(c)}</span>${_catRRSpan(rr)}</button><button class="cat-pill-quick" onclick="event.stopPropagation();startReview(${leaf.id},'${cat}','${safeName}',${!!leaf.no_story},true)" title="Speed mode — words only, no sentences">⚡</button><button class="cat-pill-gear" onclick="event.stopPropagation();openOptions(${leaf.id})" title="Options">⚙</button></span></span>`;
+      return _catPillGroup(leaf.id, cat, label, safeName, c, allSusp, leaf.no_story, rr);
     }
     const c = aggregateCounts(deck, cat);
     const hasCards = getDeepCategoryLeaves(deck).some(l => l.category === cat);
     if (!hasCards) return `<button class="cat-pill" disabled><span class="cat-pill-label">${label}</span><span class="cat-pill-counts"><span class="n-zero">—</span></span></button>`;
     const leaves = getDeepCategoryLeaves(deck).filter(l => l.category === cat);
     const allSusp = leaves.length > 0 && leaves.every(l => !!l.all_suspended);
-    const badgeIcon = allSusp ? '▶' : '⏸';
-    const badgeClass = allSusp ? 'cat-susp-badge cat-badge-suspended' : 'cat-susp-badge cat-badge-active';
-    const pillClass = allSusp ? 'cat-pill cat-pill-dimmed' : 'cat-pill';
-    const title = allSusp ? `Unsuspend all ${label} cards` : `Suspend all ${label} cards`;
     const rr = _leavesRR(leaves);
-    return `<span class="cat-pill-group"><button class="${badgeClass}" onclick="event.stopPropagation();toggleCategorySuspension(${deck.id},'${cat}')" title="${title}">${badgeIcon}</button><span class="cat-pill-wrap"><button class="${pillClass}" onclick="event.stopPropagation();startReview(${deck.id},'${cat}','${safeName}',${!!deck.no_story})"><span class="cat-pill-label">${label}</span><span class="cat-pill-counts">${countHtml(c)}</span>${_catRRSpan(rr)}</button><button class="cat-pill-quick" onclick="event.stopPropagation();startReview(${deck.id},'${cat}','${safeName}',${!!deck.no_story},true)" title="Speed mode — words only, no sentences">⚡</button><button class="cat-pill-gear" onclick="event.stopPropagation();openOptions(${deck.id})" title="Options">⚙</button></span></span>`;
+    return _catPillGroup(deck.id, cat, label, safeName, c, allSusp, deck.no_story, rr);
   }).join('');
 }
 
@@ -1689,7 +1701,10 @@ function renderDecks(decks) {
     filteredHtml += `
       <div class="tree-row tree-parent">
         <span class="tree-toggle"></span>
-        <span class="tree-name" onclick="startReviewMixed(${allDeck.id},'${safeName}')" style="cursor:pointer">All</span>
+        <span class="tree-name-wrap">
+          <span class="tree-name" onclick="startReviewMixed(${allDeck.id},'${safeName}')" style="cursor:pointer">All</span>
+          ${!allDeck.no_story && !_offlineMode ? `<button class="deck-regen-btn" onclick="event.stopPropagation();regenerateStoryFromList(${allDeck.id})" title="Regenerate story">↺</button>` : ''}
+        </span>
         <span class="deck-counts">${_mixNewBtn(allDeck.id, allDeck.new_review_order_override)}<span class="n-new">${(allDeck.counts||{}).new||0}</span><span class="n-lrn">${lrnCount(allDeck.counts)}</span><span class="n-rev">${(allDeck.counts||{}).review||0}</span></span>
         ${allRRBadge}
         <button class="${allBuryClass}" onclick="event.stopPropagation();toggleBury(${allDeck.id})" title="${allBuryTitle}">${allBuryIcon}</button>
@@ -1789,7 +1804,7 @@ function renderDeckRows(decks, depth, sortMode) {
         <span class="tree-name-wrap">
           <span class="tree-name" onclick="startReviewMixed(${deck.id},'${safeName}',${!!deck.no_story})" style="cursor:pointer">${deck.name}</span>
           ${deck.lang === 'fr' ? `<span class="deck-lang-chip" title="French deck">FR</span>` : ''}
-          ${!deck.no_story ? `<button class="deck-regen-btn" onclick="event.stopPropagation();regenerateStoryFromList(${deck.id})" title="Regenerate story">↺</button>` : ''}
+          ${!deck.no_story && !_offlineMode ? `<button class="deck-regen-btn" onclick="event.stopPropagation();regenerateStoryFromList(${deck.id})" title="Regenerate story">↺</button>` : ''}
         </span>
         ${deckCounts}
         ${rrBadge}
@@ -8318,6 +8333,10 @@ let _setupIsMixed = false;
 let _setupIsUnfinished = false;
 let _setupIsDeckListRegen = false;
 let _deckListRegenId = null;
+// Category the deck-list ↺ targets (#857): 'unified' for the parent-row button
+// (whole-deck mixed story, unchanged pre-#857 behavior), or 'listening' /
+// 'reading' / 'creating' when a mode pill's own ↺ was clicked.
+let _deckListRegenCategory = 'unified';
 
 function openStorySetup(sentenceCount, { isMixed = false, isUnfinished = false, learningCount = 0, estimatedTokens = 0 } = {}) {
   _setupIsRegen = !isMixed && !isUnfinished && !!card; // card exists (fresh single-cat) → regenerating
@@ -9157,10 +9176,19 @@ function confirmStorySetup() {
     quickMode = true;
     story = null;
     if (_setupIsDeckListRegen) {
-      // Deck-list ↺ targets a whole deck → words-only mixed (all-category) review.
-      rootDeckId = _deckListRegenId;
-      deckId = _deckListRegenId;
-      _doStartReviewMixed(null, 2, null, null, 50, 'story', true);
+      if (_deckListRegenCategory === 'unified') {
+        // Parent-row ↺ targets a whole deck → words-only mixed (all-category) review.
+        rootDeckId = _deckListRegenId;
+        deckId = _deckListRegenId;
+        _doStartReviewMixed(null, 2, null, null, 50, 'story', true);
+      } else {
+        // Mode-pill ↺ (#857) targets one category → words-only single-category
+        // review, same path startReview() itself uses for its ⚡ quick mode.
+        rootDeckId = null;
+        deckId = _deckListRegenId;
+        category = _deckListRegenCategory;
+        _doStartReview(null, 2);
+      }
     } else if (_setupIsMixed || rootDeckId) {
       _doStartReviewMixed(null, 2, null, null, 50, 'story', true);
     } else {
@@ -9748,15 +9776,16 @@ async function _doRegenerateStory(topic, maxHsk, model, grammarFocus, grammarPct
   }
 }
 
-async function regenerateStoryFromList(deckId) {
+async function regenerateStoryFromList(deckId, category = 'unified') {
   _deckListRegenId = deckId;
+  _deckListRegenCategory = category;
   _setupIsDeckListRegen = true;
   _setupIsRegen = false;
   _setupIsMixed = false;
   _setupIsUnfinished = false;
   let sentenceCount = 0;
   try {
-    const data = await api('GET', `/api/story/${deckId}/unified/count${_langQP('?')}`);
+    const data = await api('GET', `/api/story/${deckId}/${category}/count${_langQP('?')}`);
     sentenceCount = data?.count ?? 0;
   } catch (_) {}
   const _countLabel = document.getElementById('setup-count-label');
@@ -9789,31 +9818,40 @@ async function regenerateStoryFromList(deckId) {
 // loader, show a small persistent banner and let the user keep reviewing. When
 // the new story is ready the banner turns into a clickable "open for review".
 async function _doRegenStoryForDeckList(deckId, topic, maxHsk, model, grammarFocus, grammarPct, mode = 'story', chapterIds = null, articles = null, episodeIds = null) {
+  // Read (not a parameter): confirmStorySetup calls this positionally the same
+  // way it's called for every other setup-modal path, and regenerateStoryFromList
+  // already stashed the category here when the modal was opened (#857).
+  const category = _deckListRegenCategory || 'unified';
   const deck = flatten(_cachedDecks || []).find(d => d.id === deckId);
   const deckName = deck ? deck.name : 'deck';
   const noStory = !!(deck && deck.no_story);
+  const label = category === 'unified' ? deckName : `${deckName} (${category})`;
 
   const banner = document.getElementById('bg-story-banner');
   if (banner) {
     banner.classList.add('bg-banner-progress');
-    banner.textContent = `⏳ Regenerating story for ${deckName} in the background — keep reviewing…`;
+    banner.textContent = `⏳ Regenerating story for ${label} in the background — keep reviewing…`;
     banner.onclick = null;
     banner.style.display = 'block';
   }
 
   try {
-    await api('POST', `/api/story/${deckId}/unified/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeIds), { articles });
+    await api('POST', `/api/story/${deckId}/${category}/regenerate` + _storyParams(topic, maxHsk, model, grammarFocus, grammarPct, mode, chapterIds, episodeIds), { articles });
     // Warm the audio cache in the background so review starts fast; don't block
     // the "ready" banner on it.
-    _preloadWithProgress(deckId, 'unified', () => {}).catch(() => {});
+    _preloadWithProgress(deckId, category, () => {}).catch(() => {});
     if (banner) {
       banner.classList.remove('bg-banner-progress');
-      banner.textContent = `📖 Story ready — ${deckName} · click to review`;
+      banner.textContent = `📖 Story ready — ${label} · click to review`;
       banner.style.display = 'block';
       banner.onclick = () => {
         banner.style.display = 'none';
         banner.onclick = null;
-        startReviewMixed(deckId, deckName, noStory);
+        if (category === 'unified') {
+          startReviewMixed(deckId, deckName, noStory);
+        } else {
+          startReview(deckId, category, deckName, noStory);
+        }
       };
     }
   } catch (e) {
