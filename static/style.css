@@ -1522,6 +1522,10 @@ main.browse-open {
    the sentence, not a visibility toggle like its neighbours. */
 .card-star-btn { font-size: 14px; padding: 3px 10px; }
 .card-star-btn.active { color: #e0a300; border-color: #e0a300; }
+/* Flag (#854): mirror of the star, red rather than gold — the other judgement
+   about the sentence (a bad example, not a good one). */
+.card-flag-btn { font-size: 14px; padding: 3px 10px; }
+.card-flag-btn.active { color: #c0392b; border-color: #c0392b; }
 
 .char-row:last-child { border-bottom: none; }
 .char-row-link  { cursor: pointer; }
