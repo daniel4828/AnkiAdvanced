@@ -179,7 +179,8 @@
             <div class="sentence-en-front-row" id="sentence-en-front-row" style="display:none">
               <div class="sentence-en-front" id="sentence-en-front"></div>
               <span class="sentence-en-front-toggle" id="sentence-en-front-toggle" role="button" tabindex="0"
-                    onclick="toggleCreatingFrontTranslation()" title="Toggle translation (t)">🇩🇪</span>
+                    onclick="toggleCreatingFrontTranslation()"
+                    data-shortcut-action="translation" data-shortcut-title="Toggle translation" title="Toggle translation (t)">🇩🇪</span>
             </div>
             <!-- Creating: target word translation hint (FR > DE > EN).
                  Hidden by default; press k to toggle. The eye icon controls the
@@ -263,7 +264,9 @@
               <button class="card-toggle-btn" id="toggle-trans-btn" onclick="toggleTranslation()" style="display:none">译文</button>
               <!-- Star a well-written sentence as a positive example for prompt tuning (#692) -->
               <button class="card-toggle-btn card-star-btn" id="toggle-star-btn" onclick="toggleSentenceStar()"
-                      style="display:none" title="Star this sentence as a good example (Shift+F)">☆</button>
+                      style="display:none"
+                      data-shortcut-action="star-sentence" data-shortcut-title="Star this sentence as a good example"
+                      title="Star this sentence as a good example (Shift+F)">☆</button>
             </div>
 
             <!-- 2. Pinyin row (hidden by default; press p to toggle) -->
@@ -298,7 +301,9 @@
             </div>
             <!-- FSRS scheduler inspector trigger (Shift+S) -->
             <div class="fsrs-inspect-row">
-              <button class="fsrs-inspect-btn" onclick="toggleFsrsInspector()" title="FSRS scheduler details (Shift+S)">🔬 Scheduler</button>
+              <button class="fsrs-inspect-btn" onclick="toggleFsrsInspector()"
+                      data-shortcut-action="fsrs-inspector" data-shortcut-title="FSRS scheduler details"
+                      title="FSRS scheduler details (Shift+S)">🔬 Scheduler</button>
             </div>
             <!-- Word summary: character, pinyin, pos, definition -->
             <div class="vocab-detail">
@@ -1315,9 +1320,11 @@
     <button class="edit-modal-close" onclick="closeStoryModal()">✕</button>
   </div>
   <div class="story-controls">
-    <button class="story-nav-btn" onclick="storySkipPrev()" title="Previous sentence (A)">◀◀</button>
+    <button class="story-nav-btn" onclick="storySkipPrev()"
+            data-shortcut-action="story-prev" data-shortcut-title="Previous sentence" title="Previous sentence (A)">◀◀</button>
     <button class="story-play-all-btn" id="story-play-all-btn" onclick="toggleFullStory()">▶ Play full story</button>
-    <button class="story-nav-btn" onclick="storySkipNext()" title="Next sentence (D)">▶▶</button>
+    <button class="story-nav-btn" onclick="storySkipNext()"
+            data-shortcut-action="story-next" data-shortcut-title="Next sentence" title="Next sentence (D)">▶▶</button>
   </div>
   <div id="story-modal-body"></div>
 </div>
@@ -1348,7 +1355,9 @@
   <div id="fsrs-inspector">
     <div class="fsrs-insp-header">
       <span class="fsrs-insp-title">🔬 FSRS Scheduler</span>
-      <button class="fsrs-insp-close" onclick="closeFsrsInspector()" title="Close (Shift+S / Esc)">✕</button>
+      <button class="fsrs-insp-close" onclick="closeFsrsInspector()"
+              data-shortcut-action="fsrs-inspector" data-shortcut-title="Close" data-shortcut-suffix=" / Esc"
+              title="Close (Shift+S / Esc)">✕</button>
     </div>
     <div id="fsrs-insp-body"></div>
   </div>
