@@ -7900,7 +7900,14 @@ function _syncCardToggleBar() {
     _syncStarBtn();
   }
 
-  bar.style.display = (pinAvail || transAvail || starAvail) ? '' : 'none';
+  // Ask-AI button (#853): same "does this card even have a sentence" gate as
+  // the star button, plus it needs AI to actually be reachable — no point
+  // showing a button that will just 400 in offline/hard-offline mode.
+  const questionBtn = document.getElementById('toggle-question-btn');
+  const questionAvail = starAvail && !_offlineMode;
+  if (questionBtn) questionBtn.style.display = questionAvail ? '' : 'none';
+
+  bar.style.display = (pinAvail || transAvail || starAvail || questionAvail) ? '' : 'none';
 }
 
 // ── Starred sentences (#692) ─────────────────────────────────────────────────
@@ -7934,6 +7941,74 @@ async function toggleSentenceStar() {
     showError('Star failed: ' + e.message);
   }
   _syncStarBtn();
+}
+
+// ── Ask AI about this sentence (#853) ────────────────────────────────────────
+// Single-turn, in-place grammar/naturalness check — sentence generation
+// occasionally produces awkward or outright wrong sentences, and this is the
+// only moment (right when reading it) that catching that is easy.
+
+function openSentenceQuestionModal() {
+  if (!sentence?.sentence_zh) return;
+  document.getElementById('sentence-question-overlay').style.display = 'block';
+  document.getElementById('sentence-question-modal').style.display = 'flex';
+  document.getElementById('sentence-question-sentence').textContent = sentence.sentence_zh;
+  const input = document.getElementById('sentence-question-input');
+  input.value = '';
+  input.disabled = false;
+  document.getElementById('sentence-question-submit').disabled = false;
+  const answerEl = document.getElementById('sentence-question-answer');
+  answerEl.textContent = '';
+  answerEl.className = '';
+  input.focus();
+}
+
+function closeSentenceQuestionModal() {
+  document.getElementById('sentence-question-overlay').style.display = 'none';
+  document.getElementById('sentence-question-modal').style.display = 'none';
+}
+
+async function submitSentenceQuestion() {
+  if (!sentence?.sentence_zh) return;
+  const input = document.getElementById('sentence-question-input');
+  const submitBtn = document.getElementById('sentence-question-submit');
+  const answerEl = document.getElementById('sentence-question-answer');
+
+  input.disabled = true;
+  submitBtn.disabled = true;
+  answerEl.textContent = 'Asking…';
+  answerEl.className = 'sq-loading';
+
+  try {
+    // Raw fetch (not the shared api() helper) so a 400/500 shows the actual
+    // server-side reason (HTTPException detail), not just an HTTP status code
+    // — "静默失败" is explicitly ruled out for this feature.
+    const res = await fetch('/api/sentence-question', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sentence_zh: sentence.sentence_zh,
+        question: input.value.trim(),
+        word_zh: card?.word_zh,
+        lang: currentCardLang(),
+      }),
+    });
+    if (res.status === 401) { location.href = '/login'; return; }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || res.statusText);
+    // AI text rendered with textContent only — never innerHTML (#853, same
+    // rule as /dict).
+    answerEl.textContent = data.answer;
+    answerEl.className = '';
+  } catch (e) {
+    // Show the server's error text as-is — a silent failure here is worse
+    // than an ugly one, since the whole point is trustworthy feedback.
+    answerEl.textContent = 'Failed: ' + e.message;
+    answerEl.className = 'sq-error';
+  } finally {
+    input.disabled = false;
+    submitBtn.disabled = false;
+  }
 }
 
 // ── Translation toggle (German/French sentence translation) ───────────────────
@@ -10891,6 +10966,14 @@ document.addEventListener('keydown', async e => {
     if (logsOverlay && logsOverlay.style.display !== 'none') {
       e.preventDefault();
       closeLogsViewer();
+      return;
+    }
+    // Same for the sentence-question modal (#853) — its input holds focus too,
+    // so it has to be handled before the blur branch below.
+    const sqModal = document.getElementById('sentence-question-modal');
+    if (sqModal && sqModal.style.display !== 'none') {
+      e.preventDefault();
+      closeSentenceQuestionModal();
       return;
     }
     // Esc closes the add-word modal (its input has focus, so this must come
